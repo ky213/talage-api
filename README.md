@@ -49,7 +49,7 @@ Public URL: ```https://api.talageins.com```
         uptime                  GET
 
     question/
-        v1                      GET               (renamed from v1)
+        list                    GET               (renamed from v1)
 
     quote/
         application             POST
