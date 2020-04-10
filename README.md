@@ -1,94 +1,14 @@
 # Talage API
 
-The Talage API is a unified set of services/endpoints used by the Talage system.
-
-
-## Existing Talage Endpoints
-
-### Public APIs
-```
-agency-portal/api (URL set in envvar $AGENCY_API_URL and replaced in the distribution files at startup)
-    /account                    GET, PUT
-    /activities                 GET
-    /agencies                   GET
-    /agency                     GET, POST
-    /application                GET
-    /applications               POST
-    /banners                    GET
-    /changePassword             PUT
-    /color-schemes              GET
-    /create-agency              GET
-    /landing-page               GET, POST, PUT
-    /landing-pages              GET
-    /questions                  GET
-    /quote-letter               GET
-    /reports                    GET
-    /resetPassword              POST
-    /settings                   GET, PUT
-    /uptime                     GET
-    /user-info                  GET
-    /validateToken              GET
-    /wholesaleAgreement         GET, PUT
-
-auth-api (auth.api.talageins.com)
-    /                           GET
-    /token                      GET               (alias of '/')
-    /agency-portal              POST
-    /uptime                     GET
-
-code-api (codes.api.talageins.com)
-    /activity_codes             GET
-    /industry_categories        GET
-    /industry_codes             GET
-    /uptime                     GET
-
-docs-api (docs.api.talageins.com)
-    /acord-form-wc              GET
-    /certificate                POST
-    /uptime                     GET
-
-question-api (questions.api.talageins.com)
-    /v1                         GET
-    /uptime                     GET
-
-quote-api (quotes.api.talageins.com)
-    /                           POST              (deprecated)
-    /application                POST              (deprecated, alias of '/')
-    /bind                       PUT
-    /uptime                     GET
-    /async                      SOCKET
-
-slack-api (slack.api.talageins.com)
-    /post-to-channel            POST
-    /uptime                     GET
-```
-
-### Private APIs
-```
-docusign-service (http://docusign$NETWORK)
-    /embedded                   POST
-
-email-service (http://email$NETWORK)
-    /email                      POST              (updated from '/')
-
-encryption-service (http://encryption$NETWORK)
-    /decrypt                    POST
-    /encrypt                    POST
-    /hash                       POST
-    /hashPassword               POST
-    /verifyPassword             POST
-
-file-service (http://file$NETWORK)
-    /file                       GET, DEL, PUT     (updated from '/')
-    /list                       GET
-```
-
-## Combined Talage Endpoints
-
-Unified API combining public APIs and integrating Private APIs as internal modules
+Unified API combining public APIs and integrating Private APIs as internal modules.
 
 * Snakecase and CamelCase changed to spinal-case (hyphens) per suggestions in RFC3986 and RESTful conventions
 * Removed plurality from top-level namespaces per RESTful conventions
+
+## Public API
+
+Public URL: ```https://api.talageins.com```
+
 ```
 /v1/
     wheelhouse/
@@ -136,10 +56,29 @@ Unified API combining public APIs and integrating Private APIs as internal modul
         bind                    PUT
         async                   SOCKET
 
-    slack/
-        post-to-channel         POST
-
     uptime                      GET               (added)
+```
+
+## Private API
+
+
+Private URL: ```http://localhost:4000```
+```
+/v1/
+    docusign/
+        embedded               POST
+    crypto/
+        encrypt                POST
+        decrypt                POST
+        hash                   POST
+        hash-password          POST
+        verify-password        POST
+    message/
+        slack                  POST
+        email                  POST
+    file/
+        file                   GET, PUT, DEL
+        list                   GET
 ```
 
 ## Future Development
