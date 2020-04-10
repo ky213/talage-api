@@ -1,0 +1,19 @@
+{
+  "name": "talage-api",
+  "version": "1.0.0",
+  "description": "Talage API",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@gitlab.com/talage/talage-api.git"
+  },
+  "author": "Talage (www.talageins.com)",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://gitlab.com/talage/talage-api/issues"
+  },
+  "homepage": "https://gitlab.com/talage/talage-api#readme"
+}
