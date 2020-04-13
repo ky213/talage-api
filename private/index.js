@@ -1,6 +1,5 @@
 'use strict';
 
 // Register global function to load shared modules
-global.requireShared = function(moduleName) {
-	return require(`${__dirname}/../shared/${moduleName}`);
-};
+global.sharedPath = require('path').join(__dirname, '..', 'shared');
+global.requireShared = (moduleName) => require(`${sharedPath}/${moduleName}`);

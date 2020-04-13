@@ -15,5 +15,17 @@
   "bugs": {
     "url": "https://gitlab.com/talage/talage-api/issues"
   },
-  "homepage": "https://gitlab.com/talage/talage-api#readme"
+  "homepage": "https://gitlab.com/talage/talage-api#readme",
+  "dependencies": {
+    "aws-sdk": "^2.656.0",
+    "elasticsearch": "^16.7.1",
+    "http-aws-es": "^6.0.0",
+    "moment": "^2.24.0",
+    "moment-timezone": "^0.5.28",
+    "mysql": "^2.18.1",
+    "request": "^2.88.2",
+    "restify": "^8.5.1",
+    "winston": "^3.2.1",
+    "winston-elasticsearch": "^0.8.8"
+  }
 }
