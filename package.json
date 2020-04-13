@@ -18,6 +18,7 @@
   "homepage": "https://gitlab.com/talage/talage-api#readme",
   "dependencies": {
     "aws-sdk": "^2.656.0",
+    "colors": "^1.4.0",
     "elasticsearch": "^16.7.1",
     "http-aws-es": "^6.0.0",
     "moment": "^2.24.0",
@@ -25,6 +26,7 @@
     "mysql": "^2.18.1",
     "request": "^2.88.2",
     "restify": "^8.5.1",
+    "striptags": "^3.1.1",
     "winston": "^3.2.1",
     "winston-elasticsearch": "^0.8.8"
   }

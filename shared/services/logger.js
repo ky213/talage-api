@@ -104,8 +104,6 @@ if (process.env.AWS_LOG_TO_AWS_ELASTICSEARCH === "YES") {
 		region: awsRegion
 	});
 
-
-
 	//AWS ElasticSearch
 	const awsClient = new elasticsearch.Client({
 		host: awsEndPoint,
@@ -153,7 +151,6 @@ if (process.env.AWS_LOG_TO_AWS_ELASTICSEARCH === "YES") {
 	else {
 		console.log('no awsClient')
 	}
-
 	
 	console.log(defaultMetaData);
 
@@ -175,12 +172,9 @@ if (process.env.AWS_LOG_TO_AWS_ELASTICSEARCH === "YES") {
 		level: elasticSearchLevel
 	});
 	global.log = logger;
-	
-
-}
-else {
-	console.log("NOT logging to AWS ElasticSearch")
+} else {
 	if (process.env.NODE_ENV !== 'test' && process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'local') {
+		console.log("NOT logging to AWS ElasticSearch (Logstash)");
 		const LogstashTransport = requireShared('services/winston-logstash-transport.js').LogstashTransport;
 
 		// Add some data that will automatically be included with each log entry
@@ -210,6 +204,8 @@ else {
 		});
 		//module.exports = global.log;
 	} else {
+		console.log("NOT logging to AWS ElasticSearch (Local)");
+
 		// When not running on Cycle, simply log to console
 		global.log = winston.createLogger({
 			'transports': new winston.transports.Console({
