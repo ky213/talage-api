@@ -8,15 +8,12 @@ global.requireShared = (moduleName) => require(`${sharedPath}/${moduleName}`);
 // Tests
 // ============================================================================
 
-// Setup the environment like AWS. Ask Scott to get this file if you don't have the envvars already.
-// Format is 'VARIABLE=value', one per line, with '#' denoting a comment
-const envFileLines = require('fs').readFileSync('../aws.env', {encoding: 'utf8'}).split('\n');
-envFileLines.forEach((line) => {
-	line = line.trim();
-	if (line.length == 0 || line.startsWith('#')) { return; }
-	const v = line.split('=', 2);
-	process.env[v[0]] = v[1];
-});
+// Setup the environment like AWS.
+// Copy ../aws.env.example to ../aws.env and populate it.
+const environment = require('dotenv').config({path: '../aws.env'});
+if (environment.error) {
+	throw environment.error;
+}
 
 // Load the logger
 requireShared('services/logger.js');
