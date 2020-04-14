@@ -35,18 +35,15 @@ Public URL: ```https://api.talageins.com```
     auth/
         token                   GET
         agency-portal           POST
-        uptime                  GET
 
     code/
         activity-codes          GET               (renamed from activity_codes)
         industry-categories     GET               (renamed from industry_categories)
         industry-codes          GET               (renamed from industry_codes)
-        uptime                  GET
 
     doc/
         acord-form-wc           GET
         certificate             POST
-        uptime                  GET
 
     question/
         list                    GET               (renamed from v1)
