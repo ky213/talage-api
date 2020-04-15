@@ -2,16 +2,16 @@
 
 const apiVersion = 'v1';
 
-function RegisterEndpoint(server, basePath, endpointName) {
-	if (basePath != null) {
-		require(`./${basePath}/${endpointName}.js`).RegisterEndpoint(`/${apiVersion}/${basePath}`, server);
+function RegisterEndpoint(server, namespace, endpointName) {
+	if (namespace != null) {
+		require(`./${namespace}/${endpointName}.js`).RegisterEndpoint(`/${apiVersion}/${namespace}`, server);
 	} else {
 		require(`./${endpointName}.js`).RegisterEndpoint(`/${apiVersion}`, server);
 	}
 }
 
 exports.RegisterEndpoints = (server) => {
-	log.info(`Loading ${apiVersion} endpoints`);
+	log.info(`Loading public ${apiVersion} endpoints`);
 	// auth
 	RegisterEndpoint(server, 'auth', 'agency-portal');
 	RegisterEndpoint(server, 'auth', 'token');
@@ -31,32 +31,32 @@ exports.RegisterEndpoints = (server) => {
 	// quote
 	RegisterEndpoint(server, 'quote', 'application');
 	RegisterEndpoint(server, 'quote', 'bind');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
 
+	// wheelhouse
+	RegisterEndpoint(server, 'wheelhouse', 'account');
+	RegisterEndpoint(server, 'wheelhouse', 'activities');
+	RegisterEndpoint(server, 'wheelhouse', 'agencies');
+	RegisterEndpoint(server, 'wheelhouse', 'agency');
+	RegisterEndpoint(server, 'wheelhouse', 'application');
+	RegisterEndpoint(server, 'wheelhouse', 'applications');
+	RegisterEndpoint(server, 'wheelhouse', 'banners');
+	RegisterEndpoint(server, 'wheelhouse', 'change-password');
+	RegisterEndpoint(server, 'wheelhouse', 'color-schemes');
+	RegisterEndpoint(server, 'wheelhouse', 'create-agency');
+	RegisterEndpoint(server, 'wheelhouse', 'landing-page');
+	RegisterEndpoint(server, 'wheelhouse', 'landing-pages');
+	RegisterEndpoint(server, 'wheelhouse', 'questions');
+	RegisterEndpoint(server, 'wheelhouse', 'quote-letter');
+	RegisterEndpoint(server, 'wheelhouse', 'reports');
+	RegisterEndpoint(server, 'wheelhouse', 'resend-onboarding-email');
+	RegisterEndpoint(server, 'wheelhouse', 'reset-password');
+	RegisterEndpoint(server, 'wheelhouse', 'settings');
+	RegisterEndpoint(server, 'wheelhouse', 'terms-of-service');
+	RegisterEndpoint(server, 'wheelhouse', 'user-info');
+	RegisterEndpoint(server, 'wheelhouse', 'validate-token');
+	RegisterEndpoint(server, 'wheelhouse', 'wholesale-agreement');
 
+	// uptime
 	RegisterEndpoint(server, null, 'uptime');
+
 };

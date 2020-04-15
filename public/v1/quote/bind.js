@@ -72,8 +72,6 @@ async function PutBind(req, res, next) {
 
 /* -----==== Endpoints ====-----*/
 exports.RegisterEndpoint = (basePath, server) => {
-	log.info(`    Registering ${basePath}/bind (PUT)`);
-
 	server.put({
 		'name': 'Bind Quote',
 		'path': basePath + '/bind'

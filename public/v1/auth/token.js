@@ -110,13 +110,11 @@ async function getToken(req, res, next) {
 
 /* -----==== Endpoints ====-----*/
 exports.RegisterEndpoint = (basePath, server) => {
-	log.info(`    Registering ${basePath}/ (GET) [deprecated]`);
 	server.get({
 		'name': 'Get Token (deprecated)',
 		'path': basePath + '/'
 	}, getToken);
 
-	log.info(`    Registering ${basePath}/token (GET)`);
 	server.get({
 		'name': 'Get Token',
 		'path': basePath + '/token'

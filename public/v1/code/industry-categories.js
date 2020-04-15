@@ -50,15 +50,13 @@ async function GetIndustryCategories(req, res, next) {
 
 /* -----==== Endpoints ====-----*/
 exports.RegisterEndpoint = (basePath, server) => {
-	log.info(`    Registering ${basePath}/industry-categories (GET)`);
 	server.get({
 		'name': 'Get All Industry Code Categories',
 		'path': basePath + '/industry-categories'
 	}, GetIndustryCategories);
 
-	log.info(`    Registering ${basePath}/industry_categories (GET) [deprecated]`);
 	server.get({
-		'name': 'Get All Industry Code Categories',
+		'name': 'Get All Industry Code Categories (deprecated)',
 		'path': basePath + '/industry_categories'
 	}, GetIndustryCategories);
 };

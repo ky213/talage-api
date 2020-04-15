@@ -219,7 +219,6 @@ async function GetToken(req, res, next) {
 
 /* -----==== Endpoints ====-----*/
 exports.RegisterEndpoint = (basePath, server) => {
-	log.info(`    Registering ${basePath}/agency-portal (POST)`);
 	server.post({
 		'name': 'Get Token',
 		'path': basePath + '/agency-portal'

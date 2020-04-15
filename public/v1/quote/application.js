@@ -92,15 +92,13 @@ async function PostApplication(req, res, next) {
 
 /* -----==== Endpoints ====-----*/
 exports.RegisterEndpoint = (basePath, server) => {
-	log.info(`    Registering ${basePath}/application (POST)`);
 	server.post({
 		'name': 'Post Application',
 		'path': basePath + '/application'
 	}, PostApplication);
 
-	log.info(`    Registering ${basePath}/ (POST) [deprecated]`);
 	server.post({
-		'name': 'Post Application',
+		'name': 'Post Application (deprecated)',
 		'path': basePath + '/'
 	}, PostApplication);
 };

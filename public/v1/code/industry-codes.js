@@ -62,15 +62,13 @@ async function GetIndustryCodes(req, res, next) {
 
 /* -----==== Endpoints ====-----*/
 exports.RegisterEndpoint = (basePath, server) => {
-	log.info(`    Registering ${basePath}/industry-codes (GET)`);
 	server.get({
 		'name': 'Get All Industry Codes',
 		'path': basePath + '/industry-codes'
 	}, GetIndustryCodes);
 
-	log.info(`    Registering ${basePath}/industry_codes (GET) [deprecated]`);
 	server.get({
-		'name': 'Get All Industry Codes',
+		'name': 'Get All Industry Codes (deprecated)',
 		'path': basePath + '/industry_codes'
 	}, GetIndustryCodes);
 };

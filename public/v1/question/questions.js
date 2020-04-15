@@ -474,15 +474,13 @@ async function GetQuestions(req, res, next) {
 
 /* -----==== Endpoints ====-----*/
 exports.RegisterEndpoint = (basePath, server) => {
-	log.info(`    Registering ${basePath}/list (GET)`);
 	server.get({
 		'name': 'Get Questions',
 		'path': basePath + '/list'
 	}, GetQuestions);
 
-	log.info(`    Registering ${basePath}/v1 (GET) [deprecated]`);
 	server.get({
-		'name': 'Get Questions',
+		'name': 'Get Questions (deprecated)',
 		'path': basePath + '/v1'
 	}, GetQuestions);
 };

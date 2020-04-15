@@ -5,6 +5,18 @@ Unified API combining public APIs and integrating Private APIs as internal modul
 * Snakecase and CamelCase changed to spinal-case (hyphens) per suggestions in RFC3986 and RESTful conventions
 * Removed plurality from top-level namespaces per RESTful conventions
 
+## Building
+
+Ensure you have a valid C and C++ compiler as well as 'make' installed on the system. All are required to compile platform-specific npm packages.
+
+Run ```npm install``` to install all of the required packages. This may take a bit on first run due to the encryption library build. 
+
+## Running
+
+To run the public API: ```npm run public```
+
+To run the private API: ```npm run private```
+
 ## Public API
 
 Public URL: ```https://api.talageins.com```
@@ -57,7 +69,6 @@ Public URL: ```https://api.talageins.com```
 ```
 
 ## Private API
-
 
 Private URL: ```http://localhost:4000```
 ```

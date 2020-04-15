@@ -102,15 +102,13 @@ const GetActivityCodes = wrap(async (req, res, next) => {
 
 /* -----==== Endpoints ====-----*/
 exports.RegisterEndpoint = (basePath, server) => {
-	log.info(`    Registering ${basePath}/activity-codes (GET)`);
 	server.get({
 		'name': 'Get Activity Codes',
 		'path': basePath + '/activity-codes'
 	}, GetActivityCodes);
 
-	log.info(`    Registering ${basePath}/activity_codes (GET) [deprecated]`);
 	server.get({
-		'name': 'Get Activity Codes',
+		'name': 'Get Activity Codes (deprecated)',
 		'path': basePath + '/activity_codes'
 	}, GetActivityCodes);
 };

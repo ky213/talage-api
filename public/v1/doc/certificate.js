@@ -616,7 +616,6 @@ async function PostCertificate(req, res, next) {
 
 /* -----==== Endpoints ====-----*/
 exports.RegisterEndpoint = (basePath, server) => {
-	log.info(`    Registering ${basePath}/certificate (POST)`);
 	server.post({
 		'name': 'Get Certificate',
 		'path': basePath + '/certificate'

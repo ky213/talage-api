@@ -1023,7 +1023,6 @@ async function GetACORDFormWC(req, res, next) {
 
 /* -----==== Endpoints ====-----*/
 exports.RegisterEndpoint = (basePath, server) => {
-	log.info(`    Registering ${basePath}/acord-form-wc (GET)`);
 	server.get({
 		'name': 'Get Certificate',
 		'path': basePath + '/acord-form-wc'
