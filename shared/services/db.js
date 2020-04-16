@@ -5,18 +5,35 @@
 'use strict';
 
 const mysql = require('mysql');
+const util = require('util');
+const colors = require('colors');
 
-log.info("DB Host: " + process.env.DATABASE_HOST)
+let conn = null;
 
-// Connect to the database
-const conn = mysql.createPool({
-	'connectionLimit': 100,
-	'database': process.env.DATABASE_NAME,
-	'host': process.env.DATABASE_HOST,
-	'password': process.env.DATABASE_PASSWORD,
-	'user': process.env.DATABASE_USER
-});
+exports.Connect = async () => {
 
+	console.log(`Connecting to database ${colors.cyan(process.env.DATABASE_HOST)}`);
+
+	// Connect to the database
+	conn = mysql.createPool({
+		'connectionLimit': 100,
+		'database': process.env.DATABASE_NAME,
+		'host': process.env.DATABASE_HOST,
+		'password': process.env.DATABASE_PASSWORD,
+		'user': process.env.DATABASE_USER
+	});
+
+	// Try to connect to the database to ensure it is reachable.
+	try {
+		let connection = await util.promisify(conn.getConnection).call(conn);
+		connection.release();
+	} catch (error) {
+		console.log(colors.red(`\tERROR: ${error.toString()}`));
+		return false;
+	}
+	console.log(colors.green('\tConnected'));
+	return true;
+};
 /**
  * Escapes a value for use in SQL queries
  *
@@ -24,7 +41,7 @@ const conn = mysql.createPool({
  *
  * @returns {string} The escaped string
  */
-exports.escape = function(str){
+exports.escape = function (str) {
 	return mysql.escape(str);
 };
 
@@ -35,10 +52,10 @@ exports.escape = function(str){
  *
  * @returns {Promise.<array, Error>} A promise that returns an array of database results if resolved, or an Error if rejected
  */
-exports.query = function(sql){
-	return new Promise(function(fulfill, reject){
+exports.query = function (sql) {
+	return new Promise(function (fulfill, reject) {
 		// Force SQL queries to end in a semicolon for security
-		if(sql.slice(-1) !== ';'){
+		if (sql.slice(-1) !== ';') {
 			sql += ';';
 		}
 
@@ -46,8 +63,8 @@ exports.query = function(sql){
 		sql = sql.replace(/#__/g, process.env.DATABASE_PREFIX);
 
 		// Run the query on the database
-		conn.query(sql, function(err, rows){
-			if(err){
+		conn.query(sql, function (err, rows) {
+			if (err) {
 				log.error(err);
 				log.info(sql);
 				// docs-api had 'reject(new Error(err));'
@@ -69,23 +86,23 @@ exports.query = function(sql){
  *
  * @returns {string} The quoted name
  */
-exports.quoteName = function(name, alias = null){
+exports.quoteName = function (name, alias = null) {
 	let quotedName = null;
 
 	// Check if the name is prepended with an alias
-	if(name.includes('.')){
+	if (name.includes('.')) {
 		// Split the alias from the name
 		const parts = name.split('.');
 
 		// Return alias and name quoted separately
 		quotedName = `\`${parts[0]}\`.\`${parts[1]}\``;
-	}else{
+	} else {
 		// Otherwise quote the name directly
 		quotedName = `\`${name}\``;
 	}
 
 	// If the alias param was included, add the AS statement
-	if(alias !== null){
+	if (alias !== null) {
 		return `${quotedName} AS \`${alias}\``;
 	}
 

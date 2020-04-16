@@ -11,7 +11,8 @@ function RegisterEndpoint(server, namespace, endpointName) {
 }
 
 exports.RegisterEndpoints = (server) => {
-	log.info(`Loading public ${apiVersion} endpoints`);
+	console.log(`Loading public ${apiVersion} endpoints`);
+
 	// auth
 	RegisterEndpoint(server, 'auth', 'agency-portal');
 	RegisterEndpoint(server, 'auth', 'token');
@@ -55,8 +56,4 @@ exports.RegisterEndpoints = (server) => {
 	RegisterEndpoint(server, 'wheelhouse', 'user-info');
 	RegisterEndpoint(server, 'wheelhouse', 'validate-token');
 	RegisterEndpoint(server, 'wheelhouse', 'wholesale-agreement');
-
-	// uptime
-	RegisterEndpoint(server, null, 'uptime');
-
 };

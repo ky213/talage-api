@@ -7,6 +7,7 @@ const restifyCORS = require('restify-cors-middleware');
 const jwt = require('restify-jwt-community');
 const auth = require('./public/v1/wheelhouse/helpers/auth.js');
 const moment = require('moment');
+const util = require('util');
 
 let server = null;
 
@@ -14,18 +15,20 @@ let server = null;
  * Create a new server
  */
 
-global.CreateServer = (listenAddress, listenPort, endpointPath, useCORS, isDevelopment, logHandler) => {
+global.CreateServer = async (listenAddress, listenPort, endpointPath, useCORS, isDevelopment, logHandler) => {
 	server = restify.createServer({
 		'dtrace': true,
-		'name': 'Talage API',
+		'name': `Talage API: ${endpointPath}`,
 		'version': global.version
 	});
 
 	// Log Every Request. If they don't reach the endpoints, then CORS returned a preflight error.
 	server.on('after', (req, res, route, error) => {
-		logHandler(`${moment().format()} ${req.connection.remoteAddress} ${req.method} ${req.url} => ${res.statusCode} '${res.statusMessage}'`);
+		logHandler(`${moment().format()} REQUEST ${req.connection.remoteAddress} ${req.method} ${req.url} => ${res.statusCode} '${res.statusMessage}'`);
 	});
-
+	server.on('error', function (err) {
+		logHandler(`${moment().format()} ERROR ${err.toString()}'`);
+	});
 	// CORS
 	if (useCORS) {
 		// Note: This should be set to something other than '*' -SF
@@ -63,8 +66,8 @@ global.CreateServer = (listenAddress, listenPort, endpointPath, useCORS, isDevel
 	require(`./${endpointPath}`).RegisterEndpoints(server);
 
 	// Display all registered routes
-	log.info(colors.cyan('Registered routes'));
-	log.info(colors.cyan('-'.padEnd(80, '-')));
+	console.log(colors.cyan('Registered routes'));
+	console.log(colors.cyan('-'.padEnd(80, '-')));
 	const routes = server.router.getRoutes();
 	for (const routeName in routes) {
 		const route = routes[routeName];
@@ -73,15 +76,21 @@ global.CreateServer = (listenAddress, listenPort, endpointPath, useCORS, isDevel
 		name = name.replace('(deprecated)', colors.red('(deprecated)'));
 		name = name.replace('(authenticated)', colors.yellow('(authenticated)'));
 		// Display the full route information
-		log.info(`${colors.green(route.method.padEnd(6, ' '))} ${route.path.padEnd(40, ' ')} ${name}`);
+		console.log(`${colors.green(route.method.padEnd(6, ' '))} ${route.path.padEnd(40, ' ')} ${name}`);
 	}
 
 	// Start the server
-	server.listen(listenPort, listenAddress, () => {
-		const startMsg = `Auth API Server version ${global.version} listening on ${listenAddress}:${listenPort} (${process.env.NODE_ENV} mode)`;
-		log.info(startMsg);
-		console.log(startMsg); // eslint-disable-line no-console
-	});
+	const serverListen = util.promisify(server.listen.bind(server));
+	try {
+		await serverListen(listenPort, listenAddress);
+	} catch (error) {
+		log.error(`Error running ${endpointPath} server: ${error}`);
+		return false;
+	}
+	const startMsg = `Talage API ${endpointPath} server (v${global.version}) listening on ${listenAddress}:${listenPort} (${process.env.NODE_ENV} mode)`;
+	log.info(startMsg);
+
+	return true;
 };
 
 /**

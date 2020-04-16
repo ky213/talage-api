@@ -1,20 +1,5 @@
-/**
- * Checks that the API is running
- */
-
 'use strict';
 
-/* -----==== Version 1 Functions ====-----*/
-
-/**
- * Responds to get requests for the uptime endpoint by writing an XML response
- *
- * @param {object} req - HTTP request object
- * @param {object} res - HTTP response object
- * @param {function} next - The next function to execute
- *
- * @returns {void}
- */
 async function GetUptime(req, res, next) {
 	res.setHeader('content-type', 'application/xml');
 	const startTime = process.hrtime();
@@ -38,7 +23,6 @@ async function GetUptime(req, res, next) {
 	return next();
 }
 
-/* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddGet('Uptime Check', basePath + '/uptime', GetUptime);
+exports.RegisterEndpoints = (server) => {
+	ServerAddGet('Uptime Check', '/', GetUptime);
 };

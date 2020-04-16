@@ -11,7 +11,7 @@ function RegisterEndpoint(server, namespace, endpointName) {
 }
 
 exports.RegisterEndpoints = (server) => {
-	log.info(`Loading private ${apiVersion} endpoints`);
+	console.log(`Loading private ${apiVersion} endpoints`);
 
 	RegisterEndpoint(server, 'docusign', 'embedded');
 	RegisterEndpoint(server, 'email', 'email');
