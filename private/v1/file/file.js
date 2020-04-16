@@ -166,10 +166,10 @@ function PutFile(req, res, next) {
 
 /* -----==== Endpoints ====-----*/
 exports.RegisterEndpoint = (basePath) => {
-	ServerAddDelete('File', basePath + '/file', DeleteFile);
-	ServerAddDelete('File (deprecated)', basePath + '/', DeleteFile);
 	ServerAddGet('File', basePath + '/file', GetFile);
 	ServerAddGet('File (deprecated)', basePath + '/', GetFile);
 	ServerAddPut('File', basePath + '/file', PutFile);
 	ServerAddPut('File (deprecated)', basePath + '/', PutFile);
+	ServerAddDelete('File', basePath + '/file', DeleteFile);
+	ServerAddDelete('File (deprecated)', basePath + '/', DeleteFile);
 };

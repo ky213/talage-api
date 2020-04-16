@@ -52,7 +52,7 @@ module.exports = async function (agencyNetwork, userID, firstName, lastName, age
 	request({
 		'json': emailData,
 		'method': 'POST',
-		'url': `http://email${process.env.NETWORK}`
+		'url': `http://localhost:${process.env.PRIVATE_API_PORT}/v1/email/email`
 	}, function (err) {
 		if (err) {
 			const errorStr = `Failed to send the onboarding email to ${userEmail} during the creation of the agency ${agencyName}. Please send manually.`;

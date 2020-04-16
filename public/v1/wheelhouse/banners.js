@@ -15,14 +15,13 @@ async function GetBanners(req, res, next) {
 	// Get a list of banners on the server
 	await request({
 		'method': 'GET',
-		'url': `http://file${process.env.NETWORK}/list?prefix=public/agency-banners`
+		'url': `http://localhost:${process.env.PRIVATE_API_PORT}/v1/file/list?prefix=public/agency-banners`
 	}, function (err, response, body) {
 		if (err) {
 			log.error('Failed to get a list of banner files from the server.');
 			log.verbose(err);
 			res.send(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		}
-
 		// Prase teh body
 		const result = JSON.parse(body);
 

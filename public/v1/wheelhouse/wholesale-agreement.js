@@ -44,7 +44,7 @@ async function GetWholesaleAgreementLink(req, res, next) {
 	// Get the signing link from our DocuSign service
 
 	// TO DO: Pass the auth token in here
-	const signingReq = await axios.post(`http://docusign${process.env.NETWORK}/embedded`, {
+	const signingReq = await axios.post(`http://localhost:${process.env.PRIVATE_API_PORT}/v1/docusign/embedded`, {
 		'email': email,
 		'name': `${firstName} ${lastName}`,
 		'returnUrl': `${process.env.PORTAL_URL}/wholesale-agreement?token=${req.headers.authorization.replace('Bearer ', '')}`,

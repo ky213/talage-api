@@ -6,6 +6,7 @@ const RestifyError = require('restify-errors');
 const restifyCORS = require('restify-cors-middleware');
 const jwt = require('restify-jwt-community');
 const auth = require('./public/v1/wheelhouse/helpers/auth.js');
+const moment = require('moment');
 
 let server = null;
 
@@ -13,7 +14,7 @@ let server = null;
  * Create a new server
  */
 
-global.CreateServer = (listenAddress, listenPort, endpointPath, useCORS, isDevelopment) => {
+global.CreateServer = (listenAddress, listenPort, endpointPath, useCORS, isDevelopment, logHandler) => {
 	server = restify.createServer({
 		'dtrace': true,
 		'name': 'Talage API',
@@ -21,9 +22,8 @@ global.CreateServer = (listenAddress, listenPort, endpointPath, useCORS, isDevel
 	});
 
 	// Log Every Request. If they don't reach the endpoints, then CORS returned a preflight error.
-	server.pre((res, req, next) => {
-		log.info(`${req.socket.parser.incoming.method} ${req.socket.parser.incoming.url}`);
-		next();
+	server.on('after', (req, res, route, error) => {
+		logHandler(`${moment().format()} ${req.connection.remoteAddress} ${req.method} ${req.url} => ${res.statusCode} '${res.statusMessage}'`);
 	});
 
 	// CORS
@@ -34,11 +34,6 @@ global.CreateServer = (listenAddress, listenPort, endpointPath, useCORS, isDevel
 			'allowHeaders': ['Authorization']
 		});
 		server.pre(cors.preflight);
-		// server.use((req, res, next) => {
-		// 	console.log("###### adding allow origin");
-		// 	res.header('Access-Control-Allow-Origin', '*');
-		// 	return next();
-		// });
 		server.use(cors.actual);
 	}
 

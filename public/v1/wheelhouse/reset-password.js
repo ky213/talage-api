@@ -64,7 +64,7 @@ async function PostResetPassword(req, res, next) {
 		request({
 			'json': emailData,
 			'method': 'POST',
-			'url': `http://email${process.env.NETWORK}`
+			'url': `http://localhost:${process.env.PRIVATE_API_PORT}/v1/email/email`
 		}, function (err) {
 			if (err) {
 				log.error(`Failed to send the password reset email to ${req.body.email}. Please contact the user.`);

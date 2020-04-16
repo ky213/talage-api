@@ -60,5 +60,7 @@ switch (runMode) {
 require('./server.js');
 
 // Create the server
-CreateServer(listenAddress, listenPort, runMode, useCORS, isDevelopment);
+CreateServer(listenAddress, listenPort, runMode, useCORS, isDevelopment, (logMessage) => {
+	log.info(logMessage);
+});
 
