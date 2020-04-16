@@ -1,6 +1,4 @@
 'use strict';
-const RestifyError = require('restify-errors');
-const auth = require('./helpers/auth.js');
 
 /**
  * Retrieves the landing-pages for the logged in user
@@ -12,16 +10,6 @@ const auth = require('./helpers/auth.js');
  * @returns {void}
  */
 async function GetLandingPages(req, res, next) {
-	let error = false;
-
-	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req).catch(function (e) {
-		error = e;
-	});
-	if (error) {
-		return next(error);
-	}
-
 	// TO DO: Add support for Agency Networks (take in an angency as a parameter)
 	const agency = req.authentication.agents[0];
 
@@ -40,7 +28,7 @@ async function GetLandingPages(req, res, next) {
 	// Run the query
 	const landingPages = await db.query(landingPageSQL).catch(function (err) {
 		log.error(err.message);
-		return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Send the user's data back
@@ -48,9 +36,6 @@ async function GetLandingPages(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (basePath, server) => {
-	server.get({
-		'name': 'Get Landing Pages',
-		'path': basePath + '/landing-pages'
-	}, GetLandingPages);
+exports.RegisterEndpoint = (basePath) => {
+	ServerAddGetAuth('Get Landing Pages', basePath + '/landing-pages', GetLandingPages);
 };

@@ -1,6 +1,4 @@
 'use strict';
-const RestifyError = require('restify-errors');
-const auth = require('./helpers/auth.js');
 
 /**
  * Returns data necessary for creating an agency
@@ -12,20 +10,10 @@ const auth = require('./helpers/auth.js');
  * @returns {void}
  */
 async function GetCreateAgency(req, res, next) {
-	let error = false;
-
-	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req).catch(function (e) {
-		error = e;
-	});
-	if (error) {
-		return next(error);
-	}
-
 	// Make sure this is an agency network
 	if (req.authentication.agencyNetwork === false) {
 		log.info('Forbidden: User is not authorized to create agecies');
-		return next(new RestifyError.ForbiddenError('You are not authorized to access this resource'));
+		return next(ServerForbiddenError('You are not authorized to access this resource'));
 	}
 
 	// Begin building the response
@@ -52,7 +40,7 @@ async function GetCreateAgency(req, res, next) {
 		// Run the query
 		const insurers = await db.query(insurersSQL).catch(function (err) {
 			log.error(err.message);
-			return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		});
 
 		// Convert the territories list into an array
@@ -77,7 +65,7 @@ async function GetCreateAgency(req, res, next) {
 		// Run the query
 		const territories = await db.query(territoriesSQL).catch(function (err) {
 			log.error(err.message);
-			return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		});
 
 		// Add each of these territories to the response
@@ -91,9 +79,6 @@ async function GetCreateAgency(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (basePath, server) => {
-	server.get({
-		'name': 'GET Create Agency',
-		'path': basePath + '/create-agency'
-	}, GetCreateAgency);
+exports.RegisterEndpoint = (basePath) => {
+	ServerAddGetAuth('Create Agency', basePath + '/create-agency', GetCreateAgency);
 };

@@ -1,5 +1,5 @@
 'use strict';
-const RestifyError = require('restify-errors');
+
 const jwt = require('jsonwebtoken');
 
 /**
@@ -11,17 +11,17 @@ const jwt = require('jsonwebtoken');
  *
  * @returns {object} res - Returns an authorization token
  */
-function GetValidateJWT(req, res, next) {
+function GetValidateToken(req, res, next) {
 	// Check for data
 	if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
 		log.info('Bad Request: No data received');
-		return next(new RestifyError.BadRequestError('Bad Request: No data received'));
+		return next(ServerRequestError('Bad Request: No data received'));
 	}
 
 	// Make sure a token was provided
 	if (!req.query.token) {
 		log.info('Missing token');
-		res.send(400, new RestifyError.BadRequestError('A token must be provided to this endpoint'));
+		res.send(400, ServerRequestError('A token must be provided to this endpoint'));
 		return next();
 	}
 
@@ -48,14 +48,7 @@ function GetValidateJWT(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (basePath, server) => {
-	server.get({
-		'name': 'Validate JWT',
-		'path': basePath + '/validate-token'
-	}, GetValidateJWT);
-
-	server.get({
-		'name': 'Validate JWT (deprecated)',
-		'path': basePath + '/validateToken'
-	}, GetValidateJWT);
+exports.RegisterEndpoint = (basePath) => {
+	ServerAddGetAuth('Validate JWT', basePath + '/validate-token', GetValidateToken);
+	ServerAddGetAuth('Validate JWT (deprecated)', basePath + '/validateToken', GetValidateToken);
 };

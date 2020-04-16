@@ -1,5 +1,4 @@
 'use strict';
-const RestifyError = require('restify-errors');
 const crypt = requireShared('./services/crypt.js');
 const jwt = require('jsonwebtoken');
 const request = require('request');
@@ -19,13 +18,13 @@ async function PostResetPassword(req, res, next) {
 	// Check for data
 	if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
 		log.info('Bad Request: Missing both email and password');
-		return next(new RestifyError.BadRequestError('You must supply an email address and password'));
+		return next(ServerRequestError('You must supply an email address and password'));
 	}
 
 	// Make sure an email was provided
 	if (!req.body.email) {
 		log.info('Missing email');
-		res.send(400, new RestifyError.BadRequestError('Email address is required'));
+		res.send(400, ServerRequestError('Email address is required'));
 		return next();
 	}
 
@@ -39,7 +38,7 @@ async function PostResetPassword(req, res, next) {
 		`;
 	const result = await db.query(agentSQL).catch(function (e) {
 		log.error(e.message);
-		res.send(500, new RestifyError.InternalServerError('Error querying database. Check logs.'));
+		res.send(500, ServerInternalError('Error querying database. Check logs.'));
 		error = true;
 	});
 	if (error) {
@@ -83,14 +82,7 @@ async function PostResetPassword(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (basePath, server) => {
-	server.post({
-		'name': 'Reset Password',
-		'path': basePath + '/reset-password'
-	}, PostResetPassword);
-
-	server.post({
-		'name': 'Reset Password (deprecated)',
-		'path': basePath + '/resetPassword'
-	}, PostResetPassword);
+exports.RegisterEndpoint = (basePath) => {
+	ServerAddPost('Reset Password', basePath + '/reset-password', PostResetPassword);
+	ServerAddPost('Reset Password (deprecated)', basePath + '/resetPassword', PostResetPassword);
 };

@@ -209,7 +209,7 @@ module.exports = class AgencyLocation {
 			this.app.business.locations.forEach((location) => {
 				if (!this.territories.includes(location.territory)) {
 					log.info(`Agent does not have ${location.territory} enabled`);
-					reject(new RestifyError.BadRequestError('The specified agent is not setup to support this application.'));
+					reject(ServerRequestError('The specified agent is not setup to support this application.'));
 
 				}
 			});
@@ -226,7 +226,7 @@ module.exports = class AgencyLocation {
 				}
 				if (!match_found) {
 					log.info(`Agent does not have ${policy.type} policies enabled`);
-					reject(new RestifyError.BadRequestError('The specified agent is not setup to support this application.'));
+					reject(ServerRequestError('The specified agent is not setup to support this application.'));
 
 				}
 			});
@@ -249,7 +249,7 @@ module.exports = class AgencyLocation {
 			if (this.key) {
 				// Check formatting
 				if (!await validator.agent(this.key)) {
-					reject(new RestifyError.BadRequestError('Invalid agent provided.'));
+					reject(ServerRequestError('Invalid agent provided.'));
 					return;
 				}
 			}

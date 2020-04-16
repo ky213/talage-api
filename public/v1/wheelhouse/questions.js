@@ -1,7 +1,5 @@
 'use strict';
-const RestifyError = require('restify-errors');
 const validator = requireShared('./helpers/validator.js');
-const auth = require('./helpers/auth.js');
 
 /**
  * A function to get the answer from a question
@@ -28,32 +26,22 @@ function getAnswer(question) {
  * @returns {void}
  */
 async function GetQuestions(req, res, next) {
-	let error = false;
-
 	// Check for data
 	if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
 		log.info('Bad Request: No data received');
-		return next(new RestifyError.BadRequestError('Bad Request: No data received'));
-	}
-
-	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req).catch(function (e) {
-		error = e;
-	});
-	if (error) {
-		return next(error);
+		return next(ServerRequestError('Bad Request: No data received'));
 	}
 
 	// Make sure basic elements are present
 	if (!req.query.application_id) {
 		log.info('Bad Request: Missing Application ID');
-		return next(new RestifyError.BadRequestError('Bad Request: You must supply an application ID'));
+		return next(ServerRequestError('Bad Request: You must supply an application ID'));
 	}
 
 	// Validate the application ID
 	if (!await validator.is_valid_id(req.query.application_id)) {
 		log.info('Bad Request: Invalid application id');
-		return next(new RestifyError.BadRequestError('Invalid application id'));
+		return next(ServerRequestError('Invalid application id'));
 	}
 
 	const sql = `SELECT qa.answer, aq.text_answer, tq.id, tq.type, tq.parent, tq.parent_answer, tq.sub_level, tq.question
@@ -65,7 +53,7 @@ async function GetQuestions(req, res, next) {
 
 	const rawQuestionData = await db.query(sql).catch(function (err) {
 		log.error(err.message);
-		return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 
@@ -123,9 +111,6 @@ async function GetQuestions(req, res, next) {
 	res.send(200, { 'questions': dependencyList });
 }
 
-exports.RegisterEndpoint = (basePath, server) => {
-	server.get({
-		'name': 'Get questions',
-		'path': basePath + '/questions'
-	}, GetQuestions);
+exports.RegisterEndpoint = (basePath) => {
+	ServerAddGetAuth('Get questions', basePath + '/questions', GetQuestions);
 };

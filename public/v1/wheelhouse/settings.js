@@ -1,5 +1,4 @@
 'use strict';
-const RestifyError = require('restify-errors');
 const crypt = requireShared('./services/crypt.js');
 const validator = requireShared('./helpers/validator.js');
 const auth = require('./helpers/auth.js');
@@ -15,14 +14,6 @@ const request = require('request');
  */
 async function GetSettings(req, res, next) {
 	let error = false;
-
-	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req).catch(function (e) {
-		error = e;
-	});
-	if (error) {
-		return next(error);
-	}
 
 	const agents = await auth.getAgents(req).catch(function (e) {
 		error = e;
@@ -48,7 +39,7 @@ async function GetSettings(req, res, next) {
 		`;
 	const result = await db.query(sql).catch(function (err) {
 		log.error(err.message);
-		return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Reduce the result to just the data we need
@@ -87,7 +78,7 @@ async function GetSettings(req, res, next) {
 		`;
 	const locations = await db.query(locationSQL).catch(function (err) {
 		log.error(err.message);
-		return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Process each location
@@ -125,7 +116,7 @@ async function GetSettings(req, res, next) {
 			`;
 		const insurers = await db.query(insurerSQL).catch(function (err) {
 			log.error(err.message);
-			return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		});
 
 		// Process insurers
@@ -195,7 +186,7 @@ async function PutSettings(req, res, next) {
 	// Check for data
 	if (!req.body) {
 		log.warn('No data was received');
-		return next(new RestifyError.BadRequestError('No data was received'));
+		return next(ServerRequestError('No data was received'));
 	}
 
 	if (typeof req.body === 'object' && Object.keys(req.body).length === 0) {
@@ -232,7 +223,7 @@ async function PutSettings(req, res, next) {
 			await request(options, function (e, response, body) {
 				// If there was an error, reject
 				if (e) {
-					error = new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen. Please try again and if this continues please contact us. (Failed to delete old logo)');
+					error = ServerInternalError('Well, that wasn\’t supposed to happen. Please try again and if this continues please contact us. (Failed to delete old logo)');
 					log.error('Failed to connect to file service.');
 					return;
 				}
@@ -269,7 +260,7 @@ async function PutSettings(req, res, next) {
 			await request(options, function (e, response, body) {
 				// If there was an error, reject
 				if (e) {
-					error = new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen. Please try again and if this continues please contact us. (Failed to upload new logo)');
+					error = ServerInternalError('Well, that wasn\’t supposed to happen. Please try again and if this continues please contact us. (Failed to upload new logo)');
 					log.error('Failed to connect to file service.');
 					return;
 				}
@@ -294,11 +285,11 @@ async function PutSettings(req, res, next) {
 			settings.name = req.body.settings.name;
 		} else {
 			log.warn('Agency name does not meet requirements');
-			return next(new RestifyError.BadRequestError('Agency name is invalid'));
+			return next(ServerRequestError('Agency name is invalid'));
 		}
 	} else {
 		log.warn('Agent name is required');
-		return next(new RestifyError.BadRequestError('Agent name is required'));
+		return next(ServerRequestError('Agent name is required'));
 	}
 
 	// Agency Email Address (required)
@@ -307,11 +298,11 @@ async function PutSettings(req, res, next) {
 			settings.email = await crypt.encrypt(req.body.settings.email);
 		} else {
 			log.warn('Agency email does not meet requirements');
-			return next(new RestifyError.BadRequestError('Agency email is invalid'));
+			return next(ServerRequestError('Agency email is invalid'));
 		}
 	} else {
 		log.warn('Agency email is required');
-		return next(new RestifyError.BadRequestError('Agency email is required'));
+		return next(ServerRequestError('Agency email is required'));
 	}
 
 	// Phone Number (required)
@@ -323,11 +314,11 @@ async function PutSettings(req, res, next) {
 			settings.phone = await crypt.encrypt(req.body.settings.phone);
 		} else {
 			log.warn('Agency phone does not meet requirements');
-			return next(new RestifyError.BadRequestError('Agency phone is invalid'));
+			return next(ServerRequestError('Agency phone is invalid'));
 		}
 	} else {
 		log.warn('Agency phone number is required');
-		return next(new RestifyError.BadRequestError('Agency phone number is required'));
+		return next(ServerRequestError('Agency phone number is required'));
 	}
 
 	// California License Number (optional)
@@ -337,7 +328,7 @@ async function PutSettings(req, res, next) {
 			settings.ca_license_number = await crypt.encrypt(req.body.settings.ca_license_number);
 		} else {
 			log.warn('CA License number does not meet requirements');
-			return next(new RestifyError.BadRequestError('CA License number is invalid'));
+			return next(ServerRequestError('CA License number is invalid'));
 		}
 	}
 
@@ -353,7 +344,7 @@ async function PutSettings(req, res, next) {
 			settings.website = await crypt.encrypt(req.body.settings.website);
 		} else {
 			log.warn('Website does not meet requirements');
-			return next(new RestifyError.BadRequestError('Website could not be validated'));
+			return next(ServerRequestError('Website could not be validated'));
 		}
 	}
 
@@ -363,11 +354,11 @@ async function PutSettings(req, res, next) {
 			settings.fname = await crypt.encrypt(req.body.settings.fname);
 		} else {
 			log.warn('Agent first name does not meet requirements');
-			return next(new RestifyError.BadRequestError('Agent first name is invalid'));
+			return next(ServerRequestError('Agent first name is invalid'));
 		}
 	} else {
 		log.warn('Agent first name is required');
-		return next(new RestifyError.BadRequestError('Agent first name is required'));
+		return next(ServerRequestError('Agent first name is required'));
 	}
 
 	// Last Name (required)
@@ -376,11 +367,11 @@ async function PutSettings(req, res, next) {
 			settings.lname = await crypt.encrypt(req.body.settings.lname);
 		} else {
 			log.warn('Agent last name does not meet requirements');
-			return next(new RestifyError.BadRequestError('Agent last name is invalid'));
+			return next(ServerRequestError('Agent last name is invalid'));
 		}
 	} else {
 		log.warn('Agent last name is required');
-		return next(new RestifyError.BadRequestError('Agent first last is required'));
+		return next(ServerRequestError('Agent first last is required'));
 	}
 
 	// Validate locations
@@ -399,12 +390,12 @@ async function PutSettings(req, res, next) {
 				} else {
 					const message = `The Address you entered for location ${locationNum} is not valid`;
 					log.warn(message);
-					return next(new RestifyError.BadRequestError(message));
+					return next(ServerRequestError(message));
 				}
 			} else {
 				const message = `An Address is required for location ${locationNum}`;
 				log.warn(message);
-				return next(new RestifyError.BadRequestError(message));
+				return next(ServerRequestError(message));
 			}
 
 			// Address Line 2 (optional)
@@ -415,7 +406,7 @@ async function PutSettings(req, res, next) {
 				} else {
 					const message = `The Address Line 2 you entered for location ${locationNum} is not valid`;
 					log.warn(message);
-					return next(new RestifyError.BadRequestError(message));
+					return next(ServerRequestError(message));
 				}
 			} else {
 				location.address2 = null;
@@ -431,7 +422,7 @@ async function PutSettings(req, res, next) {
 					8].includes(location.close_time)) {
 					const message = `The Close Time you entered for location ${locationNum} is not valid (must be 3, 4, 5, 6, 7, or 8)`;
 					log.warn(message);
-					return next(new RestifyError.BadRequestError(message));
+					return next(ServerRequestError(message));
 				}
 			}
 
@@ -443,12 +434,12 @@ async function PutSettings(req, res, next) {
 				} else {
 					const message = `The Email Address you entered for location ${locationNum} is not valid`;
 					log.warn(message);
-					return next(new RestifyError.BadRequestError(message));
+					return next(ServerRequestError(message));
 				}
 			} else {
 				const message = `An Email Address is required for location ${locationNum}`;
 				log.warn(message);
-				return next(new RestifyError.BadRequestError(message));
+				return next(ServerRequestError(message));
 			}
 
 			// First Name (required)
@@ -459,12 +450,12 @@ async function PutSettings(req, res, next) {
 				} else {
 					const message = `The First Name you entered for location ${locationNum} is not valid`;
 					log.warn(message);
-					return next(new RestifyError.BadRequestError(message));
+					return next(ServerRequestError(message));
 				}
 			} else {
 				const message = `A First Name is required for location ${locationNum}`;
 				log.warn(message);
-				return next(new RestifyError.BadRequestError(message));
+				return next(ServerRequestError(message));
 			}
 
 			// Last Name (required)
@@ -475,12 +466,12 @@ async function PutSettings(req, res, next) {
 				} else {
 					const message = `The Last Name you entered for location ${locationNum} is not valid`;
 					log.warn(message);
-					return next(new RestifyError.BadRequestError(message));
+					return next(ServerRequestError(message));
 				}
 			} else {
 				const message = `A Last Name is required for location ${locationNum}`;
 				log.warn(message);
-				return next(new RestifyError.BadRequestError(message));
+				return next(ServerRequestError(message));
 			}
 
 			// Open Time
@@ -492,7 +483,7 @@ async function PutSettings(req, res, next) {
 					11].includes(location.open_time)) {
 					const message = `The Open Time you entered for location ${locationNum} is not valid (must be 7, 8, 9, 10, or 11)`;
 					log.warn(message);
-					return next(new RestifyError.BadRequestError(message));
+					return next(ServerRequestError(message));
 				}
 			}
 
@@ -507,7 +498,7 @@ async function PutSettings(req, res, next) {
 				} else {
 					const message = `The Phone Number you entered for location ${locationNum} is not valid`;
 					log.warn(message);
-					return next(new RestifyError.BadRequestError(message));
+					return next(ServerRequestError(message));
 				}
 			} else {
 				location.phone = null;
@@ -518,7 +509,7 @@ async function PutSettings(req, res, next) {
 				if (primaryFound) {
 					const message = 'Only one location can be marked as your primary location';
 					log.warn(message);
-					return next(new RestifyError.BadRequestError(message));
+					return next(ServerRequestError(message));
 				}
 				primaryFound = true;
 				location.primary = 1;
@@ -531,12 +522,12 @@ async function PutSettings(req, res, next) {
 				if (!validator.zip(location.zip)) {
 					const message = `The Zip Code you entered for location ${locationNum} is not valid`;
 					log.warn(message);
-					return next(new RestifyError.BadRequestError(message));
+					return next(ServerRequestError(message));
 				}
 			} else {
 				const message = `A Zip Code is required for location ${locationNum}`;
 				log.warn(message);
-				return next(new RestifyError.BadRequestError(message));
+				return next(ServerRequestError(message));
 			}
 
 			locationNum++;
@@ -548,7 +539,7 @@ async function PutSettings(req, res, next) {
 	if (!primaryFound) {
 		const message = 'You must select a location as your primary location';
 		log.warn(message);
-		return next(new RestifyError.BadRequestError(message));
+		return next(ServerRequestError(message));
 	}
 
 	// Compile the set statements for the update query
@@ -563,7 +554,7 @@ async function PutSettings(req, res, next) {
 	await db.query(agencySQL).catch(function (err) {
 
 		log.error(err.message);
-		return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Update each location
@@ -593,7 +584,7 @@ async function PutSettings(req, res, next) {
 			// eslint-disable-next-line  no-await-in-loop
 			await db.query(locationSQL).catch(function (err) {
 				log.error(err.message);
-				return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 			});
 		}
 	}
@@ -603,14 +594,7 @@ async function PutSettings(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (basePath, server) => {
-	server.get({
-		'name': 'Get settings',
-		'path': basePath + '/settings'
-	}, GetSettings);
-
-	server.put({
-		'name': 'Update settings',
-		'path': basePath + '/settings'
-	}, PutSettings);
+exports.RegisterEndpoint = (basePath) => {
+	ServerAddGetAuth('Get settings', basePath + '/settings', GetSettings);
+	ServerAddPutAuth('Update settings', basePath + '/settings', PutSettings);
 };

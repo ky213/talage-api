@@ -7,7 +7,6 @@
 const atob = require('atob');
 const moment = require('moment');
 const PdfPrinter = require('pdfmake');
-const RestifyError = require('restify-errors');
 
 const crypt = requireShared('./services/crypt.js');
 const validator = requireShared('./helpers/validator.js');
@@ -37,7 +36,7 @@ async function PostCertificate(req, res, next) {
 			'message': 'No data received',
 			'status': 'error'
 		});
-		return next(new RestifyError.BadRequestError('Bad Request: No data received'));
+		return next(ServerRequestError('Bad Request: No data received'));
 	}
 
 	// Make sure basic elements are present
@@ -47,7 +46,7 @@ async function PostCertificate(req, res, next) {
 			'message': 'Missing Business ID',
 			'status': 'error'
 		});
-		return next(new RestifyError.BadRequestError('Bad Request: You must supply a business ID'));
+		return next(ServerRequestError('Bad Request: You must supply a business ID'));
 	}
 
 	// Validate the business ID
@@ -57,7 +56,7 @@ async function PostCertificate(req, res, next) {
 			'message': 'Invalid business id',
 			'status': 'error'
 		});
-		return next(new RestifyError.BadRequestError('Invalid business id'));
+		return next(ServerRequestError('Invalid business id'));
 	}
 
 	// Validate the Certificate Holder
@@ -68,7 +67,7 @@ async function PostCertificate(req, res, next) {
 				'message': 'Certificate holder name missing',
 				'status': 'error'
 			});
-			return next(new RestifyError.BadRequestError('Bad Request: Certificate holder name missing'));
+			return next(ServerRequestError('Bad Request: Certificate holder name missing'));
 		}
 		if (!req.body.certificate_holder.address) {
 			log.info('Bad Request: Certificate holder address missing');
@@ -76,7 +75,7 @@ async function PostCertificate(req, res, next) {
 				'message': 'Certificate holder address missing',
 				'status': 'error'
 			});
-			return next(new RestifyError.BadRequestError('Bad Request: Certificate holder address missing'));
+			return next(ServerRequestError('Bad Request: Certificate holder address missing'));
 		}
 		if (!req.body.certificate_holder.zip) {
 			log.info('Bad Request: Certificate holder zip missing');
@@ -84,7 +83,7 @@ async function PostCertificate(req, res, next) {
 				'message': 'Certificate holder zip missing',
 				'status': 'error'
 			});
-			return next(new RestifyError.BadRequestError('Bad Request: Certificate holder zip missing'));
+			return next(ServerRequestError('Bad Request: Certificate holder zip missing'));
 		}
 		if (!validator.is_valid_zip(req.body.certificate_holder.zip)) {
 			log.info('Bad Request: Invalid certificate holder zip');
@@ -92,7 +91,7 @@ async function PostCertificate(req, res, next) {
 				'message': 'Invalid certificate holder zip',
 				'status': 'error'
 			});
-			return next(new RestifyError.BadRequestError('Bad Request: Invalid certificate holder zip'));
+			return next(ServerRequestError('Bad Request: Invalid certificate holder zip'));
 		}
 	}
 
@@ -152,7 +151,7 @@ async function PostCertificate(req, res, next) {
 			'message': `Database Error: ${error}`,
 			'status': 'error'
 		});
-		return next(new RestifyError.BadRequestError(`Database Error: ${error}`));
+		return next(ServerRequestError(`Database Error: ${error}`));
 	});
 
 	// Check the number of rows returned
@@ -162,7 +161,7 @@ async function PostCertificate(req, res, next) {
 			'message': 'Given business ID has no active policies',
 			'status': 'error'
 		});
-		return next(new RestifyError.BadRequestError('Bad Request: Given business ID has no active policies'));
+		return next(ServerRequestError('Bad Request: Given business ID has no active policies'));
 	}
 
 	// Define font files
@@ -416,7 +415,7 @@ async function PostCertificate(req, res, next) {
 			'missing': missing_data,
 			'status': 'error'
 		});
-		return next(new RestifyError.BadRequestError(`Bad Request: Data was missing for business ${req.body.business_id}`));
+		return next(ServerRequestError(`Bad Request: Data was missing for business ${req.body.business_id}`));
 	}
 
 	// Create list of policies on certificate in order of appearance
@@ -477,7 +476,7 @@ async function PostCertificate(req, res, next) {
 				'message': `Database Error: ${error}`,
 				'status': 'error'
 			});
-			return next(new RestifyError.BadRequestError(`Database Error: ${error}`));
+			return next(ServerRequestError(`Database Error: ${error}`));
 		});
 
 		if (certificate_holder_location.length === 0) {
@@ -486,7 +485,7 @@ async function PostCertificate(req, res, next) {
 				'message': 'No data returned with given certificate holder zip',
 				'status': 'error'
 			});
-			return next(new RestifyError.BadRequestError('Bad Request: No data returned with given certificate holder zip'));
+			return next(ServerRequestError('Bad Request: No data returned with given certificate holder zip'));
 		}
 
 		certificate_holder_info = `${req.body.certificate_holder.name}\n${req.body.certificate_holder.address}\n${certificate_holder_location[0].city.toLowerCase().
@@ -528,7 +527,7 @@ async function PostCertificate(req, res, next) {
 				'missing': missing_data,
 				'status': 'error'
 			});
-			return next(new RestifyError.BadRequestError(`Bad Request: Data was missing for business ${req.body.business_id}`));
+			return next(ServerRequestError(`Bad Request: Data was missing for business ${req.body.business_id}`));
 		}
 
 		const formatted_data = {
@@ -587,7 +586,7 @@ async function PostCertificate(req, res, next) {
 			'message': `Database Error: ${error}`,
 			'status': 'error'
 		});
-		return next(new RestifyError.BadRequestError(`Database Error: ${error}`));
+		return next(ServerRequestError(`Database Error: ${error}`));
 	});
 
 	const chunks = [];
@@ -615,9 +614,6 @@ async function PostCertificate(req, res, next) {
 }
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (basePath, server) => {
-	server.post({
-		'name': 'Get Certificate',
-		'path': basePath + '/certificate'
-	}, PostCertificate);
+exports.RegisterEndpoint = (basePath) => {
+	ServerAddPost('Get Certificate', basePath + '/certificate', PostCertificate);
 };

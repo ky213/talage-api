@@ -4,13 +4,8 @@
 
 'use strict';
 
-const RestifyError = require('restify-errors');
 const Quote = require('./helpers/models/Quote.js');
 const util = require('util');
-
-
-
-/* -----==== Version 1 Functions ====-----*/
 
 /**
  * Responds to PUT requests and returns a result
@@ -26,18 +21,18 @@ async function PutBind(req, res, next) {
 	// Check for data
 	if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
 		log.warn('No data was received');
-		return next(new RestifyError.BadRequestError('No data was received'));
+		return next(ServerRequestError('No data was received'));
 	}
 	log.verbose(util.inspect(req.body, false, null));
 
 	// Make sure basic elements are present
 	if (!Object.prototype.hasOwnProperty.call(req.body, 'quote') || !req.body.quote) {
 		log.warn('Quote must be specified to bind');
-		return next(new RestifyError.BadRequestError('A quote must be specified. Please check the documentation'));
+		return next(ServerRequestError('A quote must be specified. Please check the documentation'));
 	}
 	if (!Object.prototype.hasOwnProperty.call(req.body, 'payment_plan') || !req.body.payment_plan) {
 		log.warn('Payment Plan must be specified to bind');
-		return next(new RestifyError.BadRequestError('A payment plan must be specified. Please check the documentation'));
+		return next(ServerRequestError('A payment plan must be specified. Please check the documentation'));
 	}
 
 	const quote = new Quote();
@@ -71,9 +66,6 @@ async function PutBind(req, res, next) {
 }
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (basePath, server) => {
-	server.put({
-		'name': 'Bind Quote',
-		'path': basePath + '/bind'
-	}, PutBind);
+exports.RegisterEndpoint = (basePath) => {
+	ServerAddPut('Bind Quote', basePath + '/bind', PutBind);
 };

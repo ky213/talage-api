@@ -4,9 +4,8 @@
 
 'use strict';
 
-const RestifyError = require('restify-errors');
 const crypt = requireShared('services/crypt.js');
-
+const jwt = require('jsonwebtoken');
 
 /**
  * Responds to get requests for an authorization token
@@ -17,26 +16,26 @@ const crypt = requireShared('services/crypt.js');
  *
  * @returns {object} res - Returns an authorization token
  */
-async function GetToken(req, res, next) {
+async function PostToken(req, res, next) {
 	let error = false;
 
 	// Check for data
 	if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
 		log.info('Bad Request: Missing both email and password');
-		return next(new RestifyError.BadRequestError('You must supply an email address and password'));
+		return next(ServerRequestError('You must supply an email address and password'));
 	}
 
 	// Make sure an email was provided
 	if (!req.body.email) {
 		log.info('Missing email');
-		res.send(400, new RestifyError.BadRequestError('Email address is required'));
+		res.send(400, ServerRequestError('Email address is required'));
 		return next();
 	}
 
 	// Makes sure a password was provided
 	if (!req.body.password) {
 		log.info('Missing password');
-		res.send(400, new RestifyError.BadRequestError('Password is required'));
+		res.send(400, ServerRequestError('Password is required'));
 		return next();
 	}
 
@@ -71,7 +70,7 @@ async function GetToken(req, res, next) {
 	`;
 	const result = await db.query(agencySQL).catch(function (e) {
 		log.error(e.message);
-		res.send(500, new RestifyError.InternalServerError('Error querying database. Check logs.'));
+		res.send(500, ServerInternalError('Error querying database. Check logs.'));
 		error = true;
 	});
 	if (error) {
@@ -82,14 +81,14 @@ async function GetToken(req, res, next) {
 	if (!result || !result.length) {
 		log.info('Authentication failed - Account not found');
 		log.verbose(emailHash);
-		res.send(401, new RestifyError.InvalidCredentialsError('Invalid API Credentials'));
+		res.send(401, ServerInvalidCredentialsError('Invalid API Credentials'));
 		return next();
 	}
 
 	// Check the password
 	if (!await crypt.verifyPassword(result[0].password, req.body.password)) {
 		log.info('Authentication failed - Bad password');
-		res.send(401, new RestifyError.InvalidCredentialsError('Invalid API Credentials'));
+		res.send(401, ServerInvalidCredentialsError('Invalid API Credentials'));
 		return next();
 	}
 
@@ -121,7 +120,7 @@ async function GetToken(req, res, next) {
 		`;
 		const agencies = await db.query(agenciesSQL).catch(function (e) {
 			log.error(e.message);
-			res.send(500, new RestifyError.InternalServerError('Error querying database. Check logs.'));
+			res.send(500, ServerInternalError('Error querying database. Check logs.'));
 			error = true;
 		});
 		if (error) {
@@ -145,7 +144,7 @@ async function GetToken(req, res, next) {
 		// Query the database
 		const insurersData = await db.query(insurersSQL).catch(function (e) {
 			log.error(e.message);
-			res.send(500, new RestifyError.InternalServerError('Error querying database. Check logs.'));
+			res.send(500, ServerInternalError('Error querying database. Check logs.'));
 			error = true;
 		});
 		if (error) {
@@ -175,7 +174,7 @@ async function GetToken(req, res, next) {
 		`;
 		const wholesaleInfo = await db.query(wholesaleSQL).catch(function (e) {
 			log.error(e.message);
-			res.send(500, new RestifyError.InternalServerError('Error querying database. Check logs.'));
+			res.send(500, ServerInternalError('Error querying database. Check logs.'));
 			error = true;
 		});
 		if (error) {
@@ -204,7 +203,6 @@ async function GetToken(req, res, next) {
 	payload.termsOfServiceVersion = result[0].termsOfServiceVersion;
 
 	// This is a valid user, generate and return a token
-	const jwt = require('jsonwebtoken');
 	const token = `Bearer ${jwt.sign(payload, process.env.AUTH_SECRET_KEY, {
 		'expiresIn': '1h'
 	})}`;
@@ -216,11 +214,7 @@ async function GetToken(req, res, next) {
 	return next();
 }
 
-
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (basePath, server) => {
-	server.post({
-		'name': 'Get Token',
-		'path': basePath + '/agency-portal'
-	}, GetToken);
+exports.RegisterEndpoint = (basePath) => {
+	ServerAddPost('Get Token', basePath + '/agency-portal', PostToken);
 };

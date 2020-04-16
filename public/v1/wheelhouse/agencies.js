@@ -1,5 +1,5 @@
 'use strict';
-const RestifyError = require('restify-errors');
+
 const auth = require('./helpers/auth.js');
 
 /**
@@ -12,17 +12,9 @@ const auth = require('./helpers/auth.js');
  * @returns {void}
  */
 async function GetAgencies(req, res, next) {
-	let error = false;
-
-	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req).catch(function (e) {
-		error = e;
-	});
-	if (error) {
-		return next(error);
-	}
 
 	// Get the agents that we are permitted to view
+	let error = false;
 	const agents = await auth.getAgents(req).catch(function (e) {
 		error = e;
 	});
@@ -33,7 +25,7 @@ async function GetAgencies(req, res, next) {
 	// Make sure we got agents
 	if (!agents.length) {
 		log.info('Bad Request: No agencies permitted');
-		return next(new RestifyError.BadRequestError('Bad Request: No agencies permitted'));
+		return next(ServerRequestError('Bad Request: No agencies permitted'));
 	}
 
 	// Define a query to get a list of agencies
@@ -54,7 +46,7 @@ async function GetAgencies(req, res, next) {
 	// Get the agencies from the database
 	const retAgencies = await db.query(agenciesSQL).catch(function (err) {
 		log.error(err.message);
-		return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Return the response
@@ -62,9 +54,6 @@ async function GetAgencies(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (basePath, server) => {
-	server.get({
-		'name': 'Get agencies',
-		'path': basePath + '/agencies'
-	}, GetAgencies);
+exports.RegisterEndpoint = (basePath) => {
+	ServerAddGetAuth('Get agencies', basePath + '/agencies', GetAgencies);
 };

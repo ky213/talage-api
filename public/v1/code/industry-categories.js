@@ -5,10 +5,6 @@
 
 'use strict';
 
-
-
-/* -----==== Version 1 Functions ====-----*/
-
 /**
  * Responds to get requests for all enabled industry code categories
  *
@@ -47,16 +43,8 @@ async function GetIndustryCategories(req, res, next) {
 	return next(false);
 }
 
-
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (basePath, server) => {
-	server.get({
-		'name': 'Get All Industry Code Categories',
-		'path': basePath + '/industry-categories'
-	}, GetIndustryCategories);
-
-	server.get({
-		'name': 'Get All Industry Code Categories (deprecated)',
-		'path': basePath + '/industry_categories'
-	}, GetIndustryCategories);
+exports.RegisterEndpoint = (basePath) => {
+	ServerAddGet('Get All Industry Code Categories', basePath + '/industry-categories', GetIndustryCategories);
+	ServerAddGet('Get All Industry Code Categories (deprecated)', basePath + '/industry_categories', GetIndustryCategories);
 };

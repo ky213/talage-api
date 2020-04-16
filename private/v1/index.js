@@ -13,25 +13,14 @@ function RegisterEndpoint(server, namespace, endpointName) {
 exports.RegisterEndpoints = (server) => {
 	log.info(`Loading private ${apiVersion} endpoints`);
 
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
-	// RegisterEndpoint(server, '', '');
+	RegisterEndpoint(server, 'docusign', 'embedded');
+	RegisterEndpoint(server, 'email', 'email');
+	RegisterEndpoint(server, 'encryption', 'decrypt');
+	RegisterEndpoint(server, 'encryption', 'encrypt');
+	RegisterEndpoint(server, 'encryption', 'verify-password');
+	RegisterEndpoint(server, 'encryption', 'hash');
+	RegisterEndpoint(server, 'encryption', 'hash-password');
+	RegisterEndpoint(server, 'file', 'file');
+	RegisterEndpoint(server, 'file', 'list');
+	RegisterEndpoint(server, 'slack', 'post-to-channel');
 };

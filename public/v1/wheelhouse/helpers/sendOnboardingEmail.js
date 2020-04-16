@@ -3,7 +3,7 @@
 const jwt = require('jsonwebtoken');
 const request = require('request');
 
-module.exports = async function(agencyNetwork, userID, firstName, lastName, agencyName, slug, userEmail){
+module.exports = async function (agencyNetwork, userID, firstName, lastName, agencyName, slug, userEmail) {
 	// Get the content of the email
 	const emailContentSQL = `
 			SELECT
@@ -13,10 +13,10 @@ module.exports = async function(agencyNetwork, userID, firstName, lastName, agen
 			ORDER BY \`id\` DESC
 			LIMIT 2;
 		`;
-	const emailContentResult = await db.query(emailContentSQL).catch(function(e){
+	const emailContentResult = await db.query(emailContentSQL).catch(function (e) {
 		log.error(e.message);
 		return 'Error querying database. Check logs.';
-		// Return next(new RestifyError.InternalServerError());
+		// Return next(ServerInternalError());
 	});
 
 	// Decode the JSON
@@ -28,7 +28,7 @@ module.exports = async function(agencyNetwork, userID, firstName, lastName, agen
 	const emailSubject = emailContentResult[0].emailData && emailContentResult[0].emailData.subject ? emailContentResult[0].emailData.subject : emailContentResult[1].emailData.subject;
 
 	// Create a limited life JWT
-	const token = jwt.sign({'userID': userID}, process.env.AUTH_SECRET_KEY, {'expiresIn': '7d'});
+	const token = jwt.sign({ 'userID': userID }, process.env.AUTH_SECRET_KEY, { 'expiresIn': '7d' });
 
 	// Format the brand
 	let brand = process.env.BRAND.toLowerCase();
@@ -53,8 +53,8 @@ module.exports = async function(agencyNetwork, userID, firstName, lastName, agen
 		'json': emailData,
 		'method': 'POST',
 		'url': `http://email${process.env.NETWORK}`
-	}, function(err){
-		if(err){
+	}, function (err) {
+		if (err) {
 			const errorStr = `Failed to send the onboarding email to ${userEmail} during the creation of the agency ${agencyName}. Please send manually.`;
 			log.error(errorStr);
 			log.verbose(err);

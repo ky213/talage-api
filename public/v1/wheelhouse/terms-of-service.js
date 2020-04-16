@@ -1,6 +1,4 @@
 'use strict';
-const RestifyError = require('restify-errors');
-const auth = require('./helpers/auth.js');
 
 // Current Version of the TOS and Privacy Policy
 const version = 3;
@@ -15,16 +13,6 @@ const version = 3;
  * @returns {void}
  */
 async function PutAcceptTermsOfService(req, res, next) {
-	let error = false;
-
-	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req).catch(function (e) {
-		error = e;
-	});
-	if (error) {
-		return next(error);
-	}
-
 	// Construct the query
 	const sql = `
 			INSERT INTO \`#__legal_acceptances\` (\`agency_portal_user\`, \`ip\`, \`version\`)
@@ -33,7 +21,7 @@ async function PutAcceptTermsOfService(req, res, next) {
 	// Run the query
 	await db.query(sql).catch(function (e) {
 		log.error(e.message);
-		e = new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+		e = ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
 	});
 	if (error) {
 		return next(error);
@@ -46,9 +34,6 @@ async function PutAcceptTermsOfService(req, res, next) {
 	});
 }
 
-exports.RegisterEndpoint = (basePath, server) => {
-	server.put({
-		'name': 'Record Acceptance of Terms of Service',
-		'path': basePath + '/terms-of-service'
-	}, PutAcceptTermsOfService);
+exports.RegisterEndpoint = (basePath) => {
+	ServerAddPutAuth('Record Acceptance of TOS', basePath + '/terms-of-service', PutAcceptTermsOfService);
 };

@@ -1,5 +1,4 @@
 'use strict';
-const RestifyError = require('restify-errors');
 const moment = require('moment');
 const sha1 = require('sha1');
 const crypt = requireShared('./services/crypt.js');
@@ -46,8 +45,7 @@ function validateParameters(parent, expectedParameters) {
  *
  * @returns {void}
  */
-async function GetApplications(req, res, next) {
-	let error = false;
+async function PostApplications(req, res, next) {
 	const expectedParameters = [
 		{
 			'name': 'page',
@@ -100,16 +98,9 @@ async function GetApplications(req, res, next) {
 		}
 	];
 
-	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req).catch(function (e) {
-		error = e;
-	});
-	if (error) {
-		return next(error);
-	}
 	// Validate the parameters
 	if (!validateParameters(req.params, expectedParameters)) {
-		return next(new RestifyError.BadRequestError('Bad Request: missing expected parameter'));
+		return next(ServerRequestError('Bad Request: missing expected parameter'));
 	}
 	// All parameters and their values have been validated at this point -SF
 
@@ -118,6 +109,7 @@ async function GetApplications(req, res, next) {
 	const endDateSQL = moment(req.params.endDate).format('YYYY-MM-DD HH:mm:ss');
 
 	// Get the agents that we are permitted to view
+	let error = false;
 	const agents = await auth.getAgents(req).catch(function (e) {
 		error = e;
 	});
@@ -128,7 +120,7 @@ async function GetApplications(req, res, next) {
 	// Make sure we got agents
 	if (!agents.length) {
 		log.info('Bad Request: No agencies permitted');
-		return next(new RestifyError.BadRequestError('Bad Request: No agencies permitted'));
+		return next(ServerRequestError('Bad Request: No agencies permitted'));
 	}
 
 	// Localize data variables that the user is permitted to access
@@ -157,7 +149,7 @@ async function GetApplications(req, res, next) {
 		applicationsTotalCount = (await db.query(applicationsTotalCountSQL))[0].count;
 	} catch (err) {
 		log.error(err.message);
-		return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	}
 
 	/*
@@ -229,7 +221,7 @@ async function GetApplications(req, res, next) {
 		applicationsSearchCount = (await db.query(applicationsSearchCountSQL))[0].count;
 	} catch (err) {
 		log.error(err.message);
-		return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	}
 
 	/*
@@ -259,7 +251,7 @@ async function GetApplications(req, res, next) {
 		applications = await db.query(applicationsSQL);
 	} catch (err) {
 		log.error(err.message);
-		return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	}
 
 	// Exit with default values if no applications were received
@@ -305,9 +297,6 @@ async function GetApplications(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (basePath, server) => {
-	server.post({
-		'name': 'Get applications',
-		'path': basePath + '/applications'
-	}, GetApplications);
+exports.RegisterEndpoint = (basePath) => {
+	ServerAddPostAuth('Get applications', basePath + '/applications', PostApplications);
 };

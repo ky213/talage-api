@@ -1,6 +1,4 @@
 'use strict';
-const RestifyError = require('restify-errors');
-const auth = require('./helpers/auth.js');
 const axios = require('axios');
 const crypt = requireShared('./services/crypt.js');
 
@@ -14,20 +12,11 @@ const crypt = requireShared('./services/crypt.js');
  * @returns {void}
  */
 async function GetWholesaleAgreementLink(req, res, next) {
-	let error = false;
-
-	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req).catch(function (e) {
-		error = e;
-	});
-	if (error) {
-		return next(error);
-	}
 
 	// Make sure this is not an agency network
 	if (req.authentication.agencyNetwork !== false) {
 		log.warn('Agency Networks cannot sign Wholesale Agreements');
-		return next(new RestifyError.ForbiddenError('Agency Networks cannot sign Wholesale Agreements'));
+		return next(ServerForbiddenError('Agency Networks cannot sign Wholesale Agreements'));
 	}
 
 	// Get the information about this agent
@@ -41,7 +30,7 @@ async function GetWholesaleAgreementLink(req, res, next) {
 		`;
 	const agentInfo = await db.query(agentSql).catch(function (e) {
 		log.error(e.message);
-		error = new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+		error = ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
 	});
 	if (error) {
 		return next(error);
@@ -66,7 +55,7 @@ async function GetWholesaleAgreementLink(req, res, next) {
 			if (e) {
 				log.error('Failed to get docusign document for signing. This user will need to be sent the document manually.');
 				log.verbose(e);
-				error = new RestifyError.InternalServerError(e);
+				error = ServerInternalError(e);
 			}
 		});
 	if (error) {
@@ -103,7 +92,7 @@ async function PutWholesaleAgreementSigned(req, res, next) {
 	// Make sure this is not an agency network
 	if (req.authentication.agencyNetwork !== false) {
 		log.warn('Agency Networks cannot sign Wholesale Agreements');
-		return next(new RestifyError.ForbiddenError('Agency Networks cannot sign Wholesale Agreements'));
+		return next(ServerForbiddenError('Agency Networks cannot sign Wholesale Agreements'));
 	}
 
 	// Construct the query
@@ -116,7 +105,7 @@ async function PutWholesaleAgreementSigned(req, res, next) {
 	// Run the update query
 	await db.query(updateSql).catch(function (e) {
 		log.error(e.message);
-		e = new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+		e = ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
 	});
 	if (error) {
 		return next(error);
@@ -129,24 +118,9 @@ async function PutWholesaleAgreementSigned(req, res, next) {
 	});
 }
 
-exports.RegisterEndpoint = (basePath, server) => {
-	server.get({
-		'name': 'Get Wholesale Agreement Link',
-		'path': basePath + '/wholesale-agreement'
-	}, GetWholesaleAgreementLink);
-
-	server.get({
-		'name': 'Get Wholesale Agreement Link (deprecated)',
-		'path': basePath + '/wholesaleAgreement'
-	}, GetWholesaleAgreementLink);
-
-	server.put({
-		'name': 'Record Signature of Wholesale Agreement Link',
-		'path': basePath + '/wholesale-agreement'
-	}, PutWholesaleAgreementSigned);
-
-	server.put({
-		'name': 'Record Signature of Wholesale Agreement Link (deprecated)',
-		'path': basePath + '/wholesaleAgreement'
-	}, PutWholesaleAgreementSigned);
+exports.RegisterEndpoint = (basePath) => {
+	ServerAddGetAuth('Get Wholesale Agreement Link', basePath + '/wholesale-agreement', GetWholesaleAgreementLink);
+	ServerAddGetAuth('Get Wholesale Agreement Link (deprecated)', basePath + '/wholesaleAgreement', GetWholesaleAgreementLink);
+	ServerAddPutAuth('Record Signature of Wholesale Agreement Link', basePath + '/wholesale-agreement', PutWholesaleAgreementSigned);
+	ServerAddPutAuth('Record Signature of Wholesale Agreement Link (deprecated)', basePath + '/wholesaleAgreement', PutWholesaleAgreementSigned);
 };

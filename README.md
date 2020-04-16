@@ -7,9 +7,11 @@ Unified API combining public APIs and integrating Private APIs as internal modul
 
 ## Building
 
-Ensure you have a valid C and C++ compiler as well as 'make' installed on the system. All are required to compile platform-specific npm packages.
+Ensure you have a valid C and C++ compiler, 'make', 'automake', 'autoconf', and 'libtool' installed on the system. All are required to compile platform-specific npm packages. 
 
-Run ```npm install``` to install all of the required packages. This may take a bit on first run due to the encryption library build. 
+On a Mac, XCode will install the compilers and 'make. You can use homebrew to install the other requirements with ```brew install libtool autoconf automake```.
+
+Once the build pre-requisites are install, run ```npm install``` to install all of the required node packages. This may take a bit on first run due to the encryption library build. 
 
 ## Running
 

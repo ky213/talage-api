@@ -1,6 +1,4 @@
 'use strict';
-const RestifyError = require('restify-errors');
-const auth = require('./helpers/auth.js');
 
 /**
  * Retrieves the information for a single user
@@ -12,15 +10,6 @@ const auth = require('./helpers/auth.js');
  * @returns {void}
  */
 async function GetUserInfo(req, res, next) {
-	let error = false;
-
-	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req).catch(function (e) {
-		error = e;
-	});
-	if (error) {
-		return next(error);
-	}
 
 	// Localize data variables that the user is permitted to access
 	const agencyNetwork = parseInt(req.authentication.agencyNetwork, 10);
@@ -63,7 +52,7 @@ async function GetUserInfo(req, res, next) {
 	// Going to the database to get the user's info
 	const userInfo = await db.query(userInfoSQL).catch(function (err) {
 		log.error(err.message);
-		return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Send the user's data back
@@ -71,9 +60,6 @@ async function GetUserInfo(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (basePath, server) => {
-	server.get({
-		'name': 'Get user information',
-		'path': basePath + '/user-info'
-	}, GetUserInfo);
+exports.RegisterEndpoint = (basePath) => {
+	ServerAddGetAuth('Get user information', basePath + '/user-info', GetUserInfo);
 };

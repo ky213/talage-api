@@ -39,9 +39,6 @@ async function GetUptime(req, res, next) {
 }
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (basePath, server) => {
-	server.get({
-		'name': 'Uptime Check',
-		'path': basePath + '/uptime'
-	}, GetUptime);
+exports.RegisterEndpoint = (basePath) => {
+	ServerAddGet('Uptime Check', basePath + '/uptime', GetUptime);
 };

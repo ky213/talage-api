@@ -1,6 +1,4 @@
 'use strict';
-const RestifyError = require('restify-errors');
-const auth = require('./helpers/auth.js');
 
 /**
  * Validates a landing page and returns a clean data object
@@ -89,7 +87,7 @@ async function validate(request, next) {
 		`;
 	const nameResult = await db.query(nameSQL).catch(function (error) {
 		log.error(error.message);
-		return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 	if (nameResult.length > 0) {
 		throw new Error('This name is already in use. Choose a different one.');
@@ -107,7 +105,7 @@ async function validate(request, next) {
 		`;
 	const slugResult = await db.query(slugSQL).catch(function (error) {
 		log.error(error.message);
-		return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 	if (slugResult.length > 0) {
 		throw new Error('This link is already in use. Choose a different one.');
@@ -127,26 +125,16 @@ async function validate(request, next) {
  * @returns {void}
  */
 async function GetLandingPage(req, res, next) {
-	let error = false;
-
-	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req).catch(function (e) {
-		error = e;
-	});
-	if (error) {
-		return next(error);
-	}
-
 	// Check that query parameters were received
 	if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
 		log.info('Bad Request: Query parameters missing');
-		return next(new RestifyError.BadRequestError('Query parameters missing'));
+		return next(ServerRequestError('Query parameters missing'));
 	}
 
 	// Check for required parameters
 	if (!Object.prototype.hasOwnProperty.call(req.query, 'page') || !req.query.page) {
 		log.info('Bad Request: You must specify a page');
-		return next(new RestifyError.BadRequestError('You must specify a page'));
+		return next(ServerRequestError('You must specify a page'));
 	}
 
 	// TO DO: Add support for Agency Networks (take in an agency as a parameter)
@@ -171,13 +159,13 @@ async function GetLandingPage(req, res, next) {
 	// Run the query
 	const landingPage = await db.query(landingPageSQL).catch(function (err) {
 		log.error(err.message);
-		return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Make sure a page was found
 	if (landingPage.length !== 1) {
 		log.warn('Page not found');
-		return next(new RestifyError.BadRequestError('Page not found'));
+		return next(ServerRequestError('Page not found'));
 	}
 
 	// Send the user's data back
@@ -194,23 +182,13 @@ async function GetLandingPage(req, res, next) {
  * @returns {void}
  */
 async function PostLandingPage(req, res, next) {
-	let error = false;
-
-	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req).catch(function (e) {
-		error = e;
-	});
-	if (error) {
-		return next(error);
-	}
-
 	// Determine the agency ID
 	const agency = req.authentication.agents[0];
 
 	// Check that at least some post parameters were received
 	if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
 		log.info('Bad Request: Parameters missing');
-		return next(new RestifyError.BadRequestError('Parameters missing'));
+		return next(ServerRequestError('Parameters missing'));
 	}
 
 	// Validate the request and get back the data
@@ -219,7 +197,7 @@ async function PostLandingPage(req, res, next) {
 	});
 	if (error) {
 		log.warn(error);
-		return next(new RestifyError.BadRequestError(error));
+		return next(ServerRequestError(error));
 	}
 
 	// Commit this update to the database
@@ -231,13 +209,13 @@ async function PostLandingPage(req, res, next) {
 	// Run the query
 	const result = await db.query(sql).catch(function (err) {
 		log.error(err.message);
-		return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Make sure the query was successful
 	if (result.affectedRows !== 1) {
 		log.error('Landing page update failed. Query ran successfully; however, no records were affected.');
-		return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	}
 
 	// Send back a success response
@@ -254,23 +232,13 @@ async function PostLandingPage(req, res, next) {
  * @returns {void}
  */
 async function PutLandingPage(req, res, next) {
-	let error = false;
-
-	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req).catch(function (e) {
-		error = e;
-	});
-	if (error) {
-		return next(error);
-	}
-
 	// Determine the agency ID
 	const agency = req.authentication.agents[0];
 
 	// Check that at least some post parameters were recieved
 	if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
 		log.info('Bad Request: Parameters missing');
-		return next(new RestifyError.BadRequestError('Parameters missing'));
+		return next(ServerRequestError('Parameters missing'));
 	}
 
 	// Validate the request and get back the data
@@ -279,7 +247,7 @@ async function PutLandingPage(req, res, next) {
 	});
 	if (error) {
 		log.warn(error);
-		return next(new RestifyError.BadRequestError(error));
+		return next(ServerRequestError(error));
 	}
 
 	// Validate the ID
@@ -307,13 +275,13 @@ async function PutLandingPage(req, res, next) {
 	// Run the query
 	const result = await db.query(sql).catch(function (err) {
 		log.error(err.message);
-		return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Make sure the query was successful
 	if (result.affectedRows !== 1) {
 		log.error('Landing page update failed. Query ran successfully; however, no records were affected.');
-		return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	}
 
 	// Send back a success response
@@ -321,19 +289,8 @@ async function PutLandingPage(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (basePath, server) => {
-	server.get({
-		'name': 'Get Landing Page',
-		'path': basePath + '/landing-page'
-	}, GetLandingPage);
-
-	server.post({
-		'name': 'Post Landing Page',
-		'path': basePath + '/landing-page'
-	}, PostLandingPage);
-
-	server.put({
-		'name': 'Put Landing Page',
-		'path': basePath + '/landing-page'
-	}, PutLandingPage);
+exports.RegisterEndpoint = (basePath) => {
+	ServerAddGetAuth('Get Landing Page', basePath + '/landing-page', GetLandingPage);
+	ServerAddPostAuth('Post Landing Page', basePath + '/landing-page', PostLandingPage);
+	ServerAddPutAuth('Put Landing Page', basePath + '/landing-page', PutLandingPage);
 };

@@ -1,6 +1,5 @@
 'use strict';
-const RestifyError = require('restify-errors');
-const auth = require('./helpers/auth.js');
+
 const request = require('request');
 
 /**
@@ -13,16 +12,6 @@ const request = require('request');
  * @returns {void}
  */
 async function GetBanners(req, res, next) {
-	let error = false;
-
-	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req).catch(function (e) {
-		error = e;
-	});
-	if (error) {
-		return next(error);
-	}
-
 	// Get a list of banners on the server
 	await request({
 		'method': 'GET',
@@ -31,7 +20,7 @@ async function GetBanners(req, res, next) {
 		if (err) {
 			log.error('Failed to get a list of banner files from the server.');
 			log.verbose(err);
-			res.send(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			res.send(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		}
 
 		// Prase teh body
@@ -47,9 +36,6 @@ async function GetBanners(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (basePath, server) => {
-	server.get({
-		'name': 'Get Banners',
-		'path': basePath + '/banners'
-	}, GetBanners);
+exports.RegisterEndpoint = (basePath) => {
+	ServerAddGetAuth('Get Banners', basePath + '/banners', GetBanners);
 };

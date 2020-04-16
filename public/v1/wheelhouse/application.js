@@ -1,5 +1,4 @@
 'use strict';
-const RestifyError = require('restify-errors');
 const crypt = requireShared('./services/crypt.js');
 const validator = requireShared('./helpers/validator.js');
 const auth = require('./helpers/auth.js');
@@ -14,20 +13,10 @@ const auth = require('./helpers/auth.js');
  * @returns {void}
  */
 async function GetApplication(req, res, next) {
-	let error = false;
-
 	// Check for data
 	if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
 		log.info('Bad Request: No data received');
-		return next(new RestifyError.BadRequestError('Bad Request: No data received'));
-	}
-
-	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req).catch(function (e) {
-		error = e;
-	});
-	if (error) {
-		return next(error);
+		return next(ServerRequestError('Bad Request: No data received'));
 	}
 
 	// Get the agents that we are permitted to view
@@ -41,13 +30,13 @@ async function GetApplication(req, res, next) {
 	// Make sure basic elements are present
 	if (!req.query.id) {
 		log.info('Bad Request: Missing ID');
-		return next(new RestifyError.BadRequestError('Bad Request: You must supply an ID'));
+		return next(ServerRequestError('Bad Request: You must supply an ID'));
 	}
 
 	// Validate the application ID
 	if (!await validator.is_valid_id(req.query.id)) {
 		log.info('Bad Request: Invalid id');
-		return next(new RestifyError.BadRequestError('Invalid id'));
+		return next(ServerRequestError('Invalid id'));
 	}
 
 	// Check if this is Solepro and grant them special access
@@ -97,12 +86,12 @@ async function GetApplication(req, res, next) {
 	// Query the database
 	const applicationData = await db.query(sql).catch(function (err) {
 		log.error(err.message);
-		return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Make sure an application was found
 	if (applicationData.length !== 1) {
-		return next(new RestifyError.NotFoundError('The application could not be found.'));
+		return next(ServerNotFoundError('The application could not be found.'));
 	}
 
 	// Get the application from the response
@@ -148,7 +137,7 @@ async function GetApplication(req, res, next) {
 	// Query the database
 	const addressData = await db.query(addressSQL).catch(function (err) {
 		log.error(err.message);
-		return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Decrypt the encrypted fields
@@ -178,7 +167,7 @@ async function GetApplication(req, res, next) {
 		// Query the database
 		const codesData = await db.query(codesSQL).catch(function (err) {
 			log.error(err.message);
-			return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		});
 
 		// Loop over each address and do a bit more work
@@ -223,7 +212,7 @@ async function GetApplication(req, res, next) {
 
 	const quotes = await db.query(quotesSQL).catch(function (err) {
 		log.error(err.message);
-		return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Add the quotes to the return object and determine the application status
@@ -242,9 +231,6 @@ async function GetApplication(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (basePath, server) => {
-	server.get({
-		'name': 'Get application',
-		'path': basePath + '/application'
-	}, GetApplication);
+exports.RegisterEndpoint = (basePath) => {
+	ServerAddGetAuth('Get application', basePath + '/application', GetApplication);
 };

@@ -1,6 +1,5 @@
 'use strict';
 
-const RestifyError = require('restify-errors');
 const PdfPrinter = require('pdfmake');
 const crypt = requireShared('./services/crypt.js');
 const moment = require('moment');
@@ -32,7 +31,7 @@ async function GetACORDFormWC(req, res, next) {
 			'message': 'No data received',
 			'status': 'error'
 		});
-		return next(new RestifyError.BadRequestError('Bad Request: No data received'));
+		return next(ServerRequestError('Bad Request: No data received'));
 	}
 
 	// Make sure basic elements are present
@@ -42,7 +41,7 @@ async function GetACORDFormWC(req, res, next) {
 			'message': 'Missing Application ID',
 			'status': 'error'
 		});
-		return next(new RestifyError.BadRequestError('Bad Request: You must supply an application ID'));
+		return next(ServerRequestError('Bad Request: You must supply an application ID'));
 	}
 
 	// Validate the application ID
@@ -52,7 +51,7 @@ async function GetACORDFormWC(req, res, next) {
 			'message': 'Invalid application id',
 			'status': 'error'
 		});
-		return next(new RestifyError.BadRequestError('Invalid application id'));
+		return next(ServerRequestError('Invalid application id'));
 	}
 
 	if (req.query.insurer_id && !await validator.isValidInsurer(req.query.insurer_id)) {
@@ -61,7 +60,7 @@ async function GetACORDFormWC(req, res, next) {
 			'message': 'Invalid insurer id',
 			'status': 'error'
 		});
-		return next(new RestifyError.BadRequestError('Invalid insurer id'));
+		return next(ServerRequestError('Invalid insurer id'));
 	}
 
 	// Application and business information query
@@ -133,7 +132,7 @@ async function GetACORDFormWC(req, res, next) {
 			'message': `Database Error: ${error}`,
 			'status': 'error'
 		});
-		return next(new RestifyError.BadRequestError(`Database Error: ${error}`));
+		return next(ServerRequestError(`Database Error: ${error}`));
 	});
 
 	// Check the number of rows returned
@@ -143,7 +142,7 @@ async function GetACORDFormWC(req, res, next) {
 			'message': 'Invalid Application ID',
 			'status': 'error'
 		});
-		return next(new RestifyError.BadRequestError('Bad Request: Invalid Application ID'));
+		return next(ServerRequestError('Bad Request: Invalid Application ID'));
 	}
 
 	if (!application_data[0].policy_type || application_data[0].policy_type !== 'WC') {
@@ -152,7 +151,7 @@ async function GetACORDFormWC(req, res, next) {
 			'message': `Application ${req.query.application_id} is not WC`,
 			'status': 'error'
 		});
-		return next(new RestifyError.BadRequestError(`Application ${req.query.application_id} is not WC`));
+		return next(ServerRequestError(`Application ${req.query.application_id} is not WC`));
 	}
 
 	// Check for a business name
@@ -166,7 +165,7 @@ async function GetACORDFormWC(req, res, next) {
 			'message': `Business name missing for application ${req.query.application_id}`,
 			'status': 'error'
 		});
-		return next(new RestifyError.BadRequestError(`Business name missing for application ${req.query.application_id}`));
+		return next(ServerRequestError(`Business name missing for application ${req.query.application_id}`));
 	}
 
 	// Missing data array
@@ -567,7 +566,7 @@ async function GetACORDFormWC(req, res, next) {
 			'message': `Business address missing for application ${req.query.application_id}`,
 			'status': 'error'
 		});
-		return next(new RestifyError.BadRequestError(`Business address missing for application ${req.query.application_id}`));
+		return next(ServerRequestError(`Business address missing for application ${req.query.application_id}`));
 	}
 
 	// Add list of territories
@@ -748,7 +747,7 @@ async function GetACORDFormWC(req, res, next) {
 				'message': `Database Error: ${error}`,
 				'status': 'error'
 			});
-			return next(new RestifyError.BadRequestError(`Database Error: ${error}`));
+			return next(ServerRequestError(`Database Error: ${error}`));
 		});
 	}
 
@@ -891,7 +890,7 @@ async function GetACORDFormWC(req, res, next) {
 			'message': `Database Error: ${error}`,
 			'status': 'error'
 		});
-		return next(new RestifyError.BadRequestError(`Database Error: ${error}`));
+		return next(ServerRequestError(`Database Error: ${error}`));
 	});
 
 	const num_questions_page_3 = 16;
@@ -1022,9 +1021,6 @@ async function GetACORDFormWC(req, res, next) {
 }
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (basePath, server) => {
-	server.get({
-		'name': 'Get Certificate',
-		'path': basePath + '/acord-form-wc'
-	}, GetACORDFormWC);
+exports.RegisterEndpoint = (basePath) => {
+	ServerAddGet('Get Certificate', basePath + '/acord-form-wc', GetACORDFormWC);
 };

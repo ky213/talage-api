@@ -4,12 +4,8 @@
 
 'use strict';
 
-const RestifyError = require('restify-errors');
 const util = require('util');
-
 const Application = require('./helpers/models/Application.js');
-
-/* -----==== Version 1 Functions ====-----*/
 
 /**
  * Responds to POST requests and returns policy quotes
@@ -24,13 +20,13 @@ async function PostApplication(req, res, next) {
 	// Check for data
 	if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
 		log.warn('No data was received');
-		return next(new RestifyError.BadRequestError('No data was received'));
+		return next(ServerRequestError('No data was received'));
 	}
 
 	// Make sure basic elements are present
 	if (!req.body.business || !Object.prototype.hasOwnProperty.call(req.body, 'id') || !req.body.policies) {
 		log.warn('Some required data is missing');
-		return next(new RestifyError.BadRequestError('Some required data is missing. Please check the documentation.'));
+		return next(ServerRequestError('Some required data is missing. Please check the documentation.'));
 	}
 
 	const application = new Application();
@@ -91,14 +87,7 @@ async function PostApplication(req, res, next) {
 }
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (basePath, server) => {
-	server.post({
-		'name': 'Post Application',
-		'path': basePath + '/application'
-	}, PostApplication);
-
-	server.post({
-		'name': 'Post Application (deprecated)',
-		'path': basePath + '/'
-	}, PostApplication);
+exports.RegisterEndpoint = (basePath) => {
+	ServerAddPost('Post Application', basePath + '/application', PostApplication);
+	ServerAddPost('Post Application (deprecated)', basePath + '/', PostApplication);
 };

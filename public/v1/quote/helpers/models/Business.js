@@ -158,7 +158,7 @@ module.exports = class Business {
 		return new Promise(async (fulfill, reject) => {
 			// Validate the business ID
 			if (!await validator.business(id)) {
-				reject(new RestifyError.BadRequestError('Invalid business ID'));
+				reject(ServerRequestError('Invalid business ID'));
 				return;
 			}
 
@@ -178,7 +178,7 @@ module.exports = class Business {
 				had_error = true;
 			});
 			if (had_error || !business_info || business_info.length !== 1) {
-				reject(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				reject(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 				return;
 			}
 
@@ -222,7 +222,7 @@ module.exports = class Business {
 			if (this.zip) {
 				// Check formatting
 				if (!validator.isZip(this.zip)) {
-					reject(new RestifyError.BadRequestError('Invalid formatting for property: zip. Expected 5 digit format'));
+					reject(ServerRequestError('Invalid formatting for property: zip. Expected 5 digit format'));
 					return;
 				}
 
@@ -236,14 +236,14 @@ module.exports = class Business {
 				});
 
 				if (!rows || rows.length !== 1 || !Object.prototype.hasOwnProperty.call(rows[0], 'territory')) {
-					reject(new RestifyError.BadRequestError('The zip code you entered is not valid'));
+					reject(ServerRequestError('The zip code you entered is not valid'));
 					return;
 				}
 
 				this.primary_territory = rows[0].territory;
 
 			} else {
-				reject(new RestifyError.BadRequestError('Missing required field: zip'));
+				reject(ServerRequestError('Missing required field: zip'));
 				return;
 			}
 
@@ -256,7 +256,7 @@ module.exports = class Business {
 			if (this.association) {
 				// We have association data...
 				if (!Number.isInteger(this.association) || !(this.association >= 1) || this.association.toString().length > 11) {
-					reject(new RestifyError.BadRequestError('Association must be a positive integer between 1 and 11 digits'));
+					reject(ServerRequestError('Association must be a positive integer between 1 and 11 digits'));
 					return;
 				}
 			}
@@ -269,12 +269,12 @@ module.exports = class Business {
 			if (this.association) {
 				// Required if association is present
 				if (this.association_id === '') {
-					reject(new RestifyError.BadRequestError('Association ID is required'));
+					reject(ServerRequestError('Association ID is required'));
 					return;
 				}
 				// Max length 20 characters
 				if (this.association_id.toString().length > 20) {
-					reject(new RestifyError.BadRequestError('Association ID must be less than 20 characters'));
+					reject(ServerRequestError('Association ID must be less than 20 characters'));
 					return;
 				}
 			}
@@ -287,18 +287,18 @@ module.exports = class Business {
 			 */
 			if (this.bureau_number) {
 				if (this.bureau_number.length > 9) {
-					reject(new RestifyError.BadRequestError('Bureau Number max length is 9'));
+					reject(ServerRequestError('Bureau Number max length is 9'));
 					return;
 				}
 				if (this.primary_territory.toString().toUpperCase() === 'CA') {
 					// Expected Formatting for 'CA' is 99-99-99
 					if (!validator.isBureauNumberCA(this.bureau_number)) {
-						reject(new RestifyError.BadRequestError('Bureau Number must be formatted as 99-99-99'));
+						reject(ServerRequestError('Bureau Number must be formatted as 99-99-99'));
 						return;
 					}
 				} else if (!validator.isBureauNumberNotCA(this.bureau_number)) {
 					// Expected Formatting for all other states is 999999999
-					reject(new RestifyError.BadRequestError('Bureau Number must be numeric'));
+					reject(ServerRequestError('Bureau Number must be numeric'));
 					return;
 				}
 			}
@@ -321,7 +321,7 @@ module.exports = class Business {
 					return;
 				}
 			} else {
-				reject(new RestifyError.BadRequestError('At least 1 contact must be provided'));
+				reject(ServerRequestError('At least 1 contact must be provided'));
 				return;
 			}
 
@@ -333,13 +333,13 @@ module.exports = class Business {
 			if (this.dba) {
 				// Check for invalid characters
 				if (!validator.isBusinessName(this.dba)) {
-					reject(new RestifyError.BadRequestError('Invalid characters in DBA'));
+					reject(ServerRequestError('Invalid characters in DBA'));
 					return;
 				}
 
 				// Check for max length
 				if (this.dba.length > 100) {
-					reject(new RestifyError.BadRequestError('DBA exceeds maximum length of 100 characters'));
+					reject(ServerRequestError('DBA exceeds maximum length of 100 characters'));
 					return;
 				}
 			}
@@ -360,11 +360,11 @@ module.exports = class Business {
 					'Other'
 				];
 				if (valid_types.indexOf(this.entity_type) === -1) {
-					reject(new RestifyError.BadRequestError('Invalid data in property: entity_type'));
+					reject(ServerRequestError('Invalid data in property: entity_type'));
 					return;
 				}
 			} else {
-				reject(new RestifyError.BadRequestError('Missing property: entity_type'));
+				reject(ServerRequestError('Missing property: entity_type'));
 				return;
 			}
 
@@ -377,7 +377,7 @@ module.exports = class Business {
 			 */
 			if (this.bureau_number) {
 				if (this.experience_modifier < 0.20 || this.experience_modifier > 10) {
-					reject(new RestifyError.BadRequestError('Experience Modifier must be between 0.20 and 10'));
+					reject(ServerRequestError('Experience Modifier must be between 0.20 and 10'));
 					return;
 				}
 			}
@@ -391,23 +391,23 @@ module.exports = class Business {
 			if (this.founded) {
 				// Check for mm-yyyy formatting
 				if (!this.founded.isValid()) {
-					reject(new RestifyError.BadRequestError('Invalid formatting for property: founded. Expected mm-yyyy'));
+					reject(ServerRequestError('Invalid formatting for property: founded. Expected mm-yyyy'));
 					return;
 				}
 
 				// Confirm date is not in the future
 				if (this.founded.isAfter(moment())) {
-					reject(new RestifyError.BadRequestError('Invalid value for property: founded. Founded date cannot be in the future'));
+					reject(ServerRequestError('Invalid value for property: founded. Founded date cannot be in the future'));
 					return;
 				}
 
 				// Confirm founded date is at least somewhat reasonable
 				if (this.founded.isBefore(moment('07-04-1776', 'MM-DD-YYYY'))) {
-					reject(new RestifyError.BadRequestError('Invalid value for property: founded. Founded date is far past'));
+					reject(ServerRequestError('Invalid value for property: founded. Founded date is far past'));
 					return;
 				}
 			} else {
-				reject(new RestifyError.BadRequestError('Missing property: founded'));
+				reject(ServerRequestError('Missing property: founded'));
 				return;
 			}
 
@@ -420,11 +420,11 @@ module.exports = class Business {
 			if (this.industry_code) {
 				this.industry_code_description = await validator.industry_code(this.industry_code);
 				if (!this.industry_code_description) {
-					reject(new RestifyError.BadRequestError('The industry code ID you provided is not valid'));
+					reject(ServerRequestError('The industry code ID you provided is not valid'));
 					return;
 				}
 			} else {
-				reject(new RestifyError.BadRequestError('Missing property: industry_code'));
+				reject(ServerRequestError('Missing property: industry_code'));
 				return;
 			}
 
@@ -446,7 +446,7 @@ module.exports = class Business {
 					return;
 				}
 			} else {
-				reject(new RestifyError.BadRequestError('At least 1 location must be provided'));
+				reject(ServerRequestError('At least 1 location must be provided'));
 				return;
 			}
 
@@ -457,11 +457,11 @@ module.exports = class Business {
 			if (this.app.has_policy_type('WC') && this.entity_type === 'Limited Liability Company' && this.primary_territory === 'MT') {
 				if (this.management_structure) {
 					if (!validator.management_structure(this.management_structure)) {
-						reject(new RestifyError.BadRequestError('Invalid management structure. Must be either "member" or "manager."'));
+						reject(ServerRequestError('Invalid management structure. Must be either "member" or "manager."'));
 						return;
 					}
 				} else {
-					reject(new RestifyError.BadRequestError('Missing required field: management_structure'));
+					reject(ServerRequestError('Missing required field: management_structure'));
 					return;
 				}
 			}
@@ -473,11 +473,11 @@ module.exports = class Business {
 			if (this.mailing_address) {
 				// Check for maximum length
 				if (this.mailing_address.length > 100) {
-					reject(new RestifyError.BadRequestError('Mailing address exceeds maximum of 100 characters'));
+					reject(ServerRequestError('Mailing address exceeds maximum of 100 characters'));
 					return;
 				}
 			} else {
-				reject(new RestifyError.BadRequestError('Missing required field: mailing_address'));
+				reject(ServerRequestError('Missing required field: mailing_address'));
 				return;
 			}
 
@@ -487,7 +487,7 @@ module.exports = class Business {
 			 */
 			if (this.mailing_zip) {
 				if (!validator.isZip(this.mailing_zip)) {
-					reject(new RestifyError.BadRequestError('Invalid formatting for property: mailing_zip. Expected 5 digit format'));
+					reject(ServerRequestError('Invalid formatting for property: mailing_zip. Expected 5 digit format'));
 					return;
 				}
 
@@ -497,14 +497,14 @@ module.exports = class Business {
 						this.mailing_city = row[0].city;
 						this.mailing_territory = row[0].territory;
 					} else {
-						reject(new RestifyError.BadRequestError('The mailing_zip code you entered is not valid'));
+						reject(ServerRequestError('The mailing_zip code you entered is not valid'));
 					}
 				}).catch(function (error) {
 					log.warn(error);
-					reject(new RestifyError.BadRequestError('The mailing_zip code you entered is not valid'));
+					reject(ServerRequestError('The mailing_zip code you entered is not valid'));
 				});
 			} else {
-				reject(new RestifyError.BadRequestError('Missing required field: mailing_zip'));
+				reject(ServerRequestError('Missing required field: mailing_zip'));
 				return;
 			}
 
@@ -516,17 +516,17 @@ module.exports = class Business {
 			if (this.name) {
 				// Check for invalid characters
 				if (!validator.isBusinessName(this.name)) {
-					reject(new RestifyError.BadRequestError('Invalid characters in name'));
+					reject(ServerRequestError('Invalid characters in name'));
 					return;
 				}
 
 				// Check for max length
 				if (this.name.length > 100) {
-					reject(new RestifyError.BadRequestError('Name exceeds maximum length of 100 characters'));
+					reject(ServerRequestError('Name exceeds maximum length of 100 characters'));
 					return;
 				}
 			} else {
-				reject(new RestifyError.BadRequestError('Missing required field: name'));
+				reject(ServerRequestError('Missing required field: name'));
 				return;
 			}
 
@@ -536,15 +536,15 @@ module.exports = class Business {
 			 * - <= 99
 			 */
 			if (isNaN(this.num_owners)) {
-				reject(new RestifyError.BadRequestError('You must specify the number of owners in the business.'));
+				reject(ServerRequestError('You must specify the number of owners in the business.'));
 				return;
 			}
 			if (this.num_owners < 1) {
-				reject(new RestifyError.BadRequestError('Number of owners cannot be less than 1.'));
+				reject(ServerRequestError('Number of owners cannot be less than 1.'));
 				return;
 			}
 			if (this.num_owners > 99) {
-				reject(new RestifyError.BadRequestError('Number of owners cannot exceed 99.'));
+				reject(ServerRequestError('Number of owners cannot exceed 99.'));
 				return;
 			}
 
@@ -555,11 +555,11 @@ module.exports = class Business {
 			if (this.app.has_policy_type('WC') && this.entity_type === 'Corporation' && this.primary_territory === 'PA' && !this.owners_included) {
 				if (this.corporation_type) {
 					if (!validator.corporation_type(this.corporation_type)) {
-						reject(new RestifyError.BadRequestError('Invalid corporation type. Must be "c" (c-corp), "n" (non-profit), or "s" (s-corp).'));
+						reject(ServerRequestError('Invalid corporation type. Must be "c" (c-corp), "n" (non-profit), or "s" (s-corp).'));
 						return;
 					}
 				} else {
-					reject(new RestifyError.BadRequestError('Missing required field: corporation_type'));
+					reject(ServerRequestError('Missing required field: corporation_type'));
 					return;
 				}
 			}
@@ -573,7 +573,7 @@ module.exports = class Business {
 				if (this.owners.length) {
 					// TO DO: Owner validation is needed here
 				} else {
-					reject(new RestifyError.BadRequestError('The names of owners must be supplied if they are not included in this policy.'));
+					reject(ServerRequestError('The names of owners must be supplied if they are not included in this policy.'));
 					return;
 				}
 			}
@@ -585,7 +585,7 @@ module.exports = class Business {
 			if (this.phone) {
 				// Check that it is valid
 				if (!validator.phone(this.phone)) {
-					reject(new RestifyError.BadRequestError('The phone number you provided is not valid. Please try again.'));
+					reject(ServerRequestError('The phone number you provided is not valid. Please try again.'));
 					return;
 				}
 
@@ -602,7 +602,7 @@ module.exports = class Business {
 				this.phone = this.phone.replace(/[^0-9]/ig, '');
 				this.phone = parseInt(this.phone, 10);
 			} else {
-				reject(new RestifyError.BadRequestError('Missing required field: phone'));
+				reject(ServerRequestError('Missing required field: phone'));
 				return;
 			}
 
@@ -613,13 +613,13 @@ module.exports = class Business {
 
 				// This is required
 				if (this.unincorporated_association === null) {
-					reject(new RestifyError.BadRequestError('Missing required field: unincorporated_association'));
+					reject(ServerRequestError('Missing required field: unincorporated_association'));
 					return;
 				}
 
 				// Validate
 				if (!validator.boolean(this.unincorporated_association)) {
-					reject(new RestifyError.BadRequestError('Invalid value for unincorporated_association, please use a boolean value'));
+					reject(ServerRequestError('Invalid value for unincorporated_association, please use a boolean value'));
 					return;
 				}
 
@@ -635,13 +635,13 @@ module.exports = class Business {
 			if (this.website) {
 				// Check formatting
 				if (!validator.isWebsite(this.website)) {
-					reject(new RestifyError.BadRequestError('Invalid formatting for property: website. Expected a valid URL'));
+					reject(ServerRequestError('Invalid formatting for property: website. Expected a valid URL'));
 					return;
 				}
 
 				// Check length
 				if (this.website.length > 100) {
-					reject(new RestifyError.BadRequestError('Website exceeds max length of 100 characters'));
+					reject(ServerRequestError('Website exceeds max length of 100 characters'));
 					return;
 				}
 			}
@@ -653,7 +653,7 @@ module.exports = class Business {
 			 */
 			if (this.founded.isAfter(moment().subtract(3, 'years'))) {
 				if (this.years_of_exp < 0 || this.years_of_exp > 99) {
-					reject(new RestifyError.BadRequestError('Invalid value for property: years_of_exp. Value must be between 0 and 100 (not inclusive)'));
+					reject(ServerRequestError('Invalid value for property: years_of_exp. Value must be between 0 and 100 (not inclusive)'));
 					return;
 				}
 			}

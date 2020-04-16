@@ -64,7 +64,7 @@ module.exports = class Insurer {
 		return new Promise(async (fulfill, reject) => {
 			// Validate the provided ID
 			if (!await validator.insurer(id)) {
-				reject(new RestifyError.BadRequestError('Invalid insurer'));
+				reject(ServerRequestError('Invalid insurer'));
 				return;
 			}
 
@@ -87,7 +87,7 @@ module.exports = class Insurer {
 
 			// Make sure we found the insurer, if not, the ID is bad
 			if (had_error || !rows || rows.length !== 1) {
-				reject(new RestifyError.BadRequestError('Invalid insurer'));
+				reject(ServerRequestError('Invalid insurer'));
 				return;
 			}
 
@@ -125,7 +125,7 @@ module.exports = class Insurer {
 			// Make sure we found some payment plans
 			if (had_error || !payment_plans || payment_plans.length <= 0) {
 				log.error(`No payment plans set for ${this.name}`);
-				reject(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				reject(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 				return;
 			}
 
@@ -157,7 +157,7 @@ module.exports = class Insurer {
 
 			// Make sure no errors occured
 			if (had_error) {
-				reject(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				reject(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 				return;
 			}
 

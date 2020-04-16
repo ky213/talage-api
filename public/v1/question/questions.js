@@ -1,8 +1,6 @@
 'use strict';
 
-const restifyError = require('restify-errors');
 const util = require('util');
-
 
 /**
  * Parses through the questions we have recieved to see if any are missing based on those referenced as the 'parent' of an existing question
@@ -30,9 +28,6 @@ function find_missing_questions(questions) {
 	return missing_questions.length ? missing_questions : false;
 }
 
-
-/* -----==== Version 1 Functions ====-----*/
-
 /**
  * Returns all questions related to given params
  *
@@ -49,7 +44,7 @@ async function GetQuestions(req, res, next) {
 	// Check for data
 	if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
 		log.warn('Bad Request: Required data missing. Please see documentation.');
-		return next(new restifyError.BadRequestError('Required data missing. Please see documentation.'));
+		return next(ServerBadRequestError('Required data missing. Please see documentation.'));
 	}
 
 	log.verbose(util.inspect(req.query));
@@ -57,27 +52,27 @@ async function GetQuestions(req, res, next) {
 	// Make sure basic elements are present
 	if (!req.query.policy_types) {
 		log.warn('Bad Request: Missing Policy Types');
-		return next(new restifyError.BadRequestError('You must supply one or more policy types'));
+		return next(ServerBadRequestError('You must supply one or more policy types'));
 	}
 
 	// Make sure the proper codes were supplied
 	if (req.query.policy_types.includes('BOP') || req.query.policy_types.includes('GL')) {
 		if (!req.query.industry_code) {
 			log.warn('Bad Request: Missing Industry Code');
-			return next(new restifyError.BadRequestError('You must supply an industry code'));
+			return next(ServerBadRequestError('You must supply an industry code'));
 		}
 	}
 	if (req.query.policy_types.includes('WC')) {
 		if (!req.query.activity_codes) {
 			log.warn('Bad Request: Missing Activity Codes');
-			return next(new restifyError.BadRequestError('You must supply one or more activity codes'));
+			return next(ServerBadRequestError('You must supply one or more activity codes'));
 		}
 	}
 
 	// Make sure a zip code was provided
 	if (!Object.prototype.hasOwnProperty.call(req.query, 'zips') || !req.query.zips) {
 		log.warn('Bad Request: Missing Zip Codes');
-		return next(new restifyError.BadRequestError('You must supply at least one zip code'));
+		return next(ServerBadRequestError('You must supply at least one zip code'));
 	}
 
 	// Check if we should return hidden questions also
@@ -100,7 +95,7 @@ async function GetQuestions(req, res, next) {
 	// Do not permit requests that include both BOP and GL
 	if (req.query.policy_types.includes('BOP') && req.query.policy_types.includes('GL')) {
 		log.warn('Bad Request: Both BOP and GL are not allowed, must be one or the other');
-		return next(new restifyError.BadRequestError('Both BOP and GL are not allowed, please choose one or the other'));
+		return next(ServerBadRequestError('Both BOP and GL are not allowed, please choose one or the other'));
 	}
 
 	// Sanitize and de-duplicate
@@ -126,7 +121,7 @@ async function GetQuestions(req, res, next) {
 			insurers.push(insurer_id);
 		});
 		if (invalid_insurer) {
-			return next(new restifyError.BadRequestError('Bad Request: Invalid Insurer'));
+			return next(ServerBadRequestError('Bad Request: Invalid Insurer'));
 		}
 	}
 
@@ -150,7 +145,7 @@ async function GetQuestions(req, res, next) {
 			error = 'One or more of the activity codes supplied is invalid';
 		}
 		if (error) {
-			return next(new restifyError.BadRequestError(error));
+			return next(ServerBadRequestError(error));
 		}
 	}
 
@@ -165,7 +160,7 @@ async function GetQuestions(req, res, next) {
 			error = 'The industry code supplied is invalid';
 		}
 		if (error) {
-			return next(new restifyError.BadRequestError(error));
+			return next(ServerBadRequestError(error));
 		}
 	}
 
@@ -180,7 +175,7 @@ async function GetQuestions(req, res, next) {
 			error = 'One or more of the insurers supplied is invalid';
 		}
 		if (error) {
-			return next(new restifyError.BadRequestError(error));
+			return next(ServerBadRequestError(error));
 		}
 	}
 
@@ -190,7 +185,7 @@ async function GetQuestions(req, res, next) {
 		error = err.message;
 	});
 	if (error) {
-		return next(new restifyError.BadRequestError(error));
+		return next(ServerBadRequestError(error));
 	}
 
 	// Prepare the response
@@ -207,14 +202,14 @@ async function GetQuestions(req, res, next) {
 		}
 	});
 	if (error) {
-		return next(new restifyError.BadRequestError(error));
+		return next(ServerBadRequestError(error));
 	}
 
 	// Check that the zip code is valid
 	const territories = [];
 	if (!zips || !zips.length) {
 		log.warn('Bad Request: Zip Codes');
-		return next(new restifyError.BadRequestError('You must supply at least one zip code'));
+		return next(ServerBadRequestError('You must supply at least one zip code'));
 	}
 
 	sql = `SELECT DISTINCT territory FROM #__zip_codes WHERE zip IN (${zips.join(',')});`;
@@ -222,7 +217,7 @@ async function GetQuestions(req, res, next) {
 		error = err.message;
 	});
 	if (error) {
-		return next(new restifyError.BadRequestError(error));
+		return next(ServerBadRequestError(error));
 	}
 	if (zip_result && zip_result.length >= 1) {
 		zip_result.forEach(function (result) {
@@ -230,7 +225,7 @@ async function GetQuestions(req, res, next) {
 		});
 	} else {
 		log.warn('Bad Request: Zip Code');
-		return next(new restifyError.BadRequestError('The zip code(s) supplied is/are invalid'));
+		return next(ServerBadRequestError('The zip code(s) supplied is/are invalid'));
 	}
 
 	/* ---=== Get The Applicable Questions ===--- */
@@ -257,7 +252,7 @@ async function GetQuestions(req, res, next) {
 		error = err.message;
 	});
 	if (error) {
-		return next(new restifyError.BadRequestError(error));
+		return next(ServerBadRequestError(error));
 	}
 
 	// Add these questions to the array
@@ -282,7 +277,7 @@ async function GetQuestions(req, res, next) {
 			error = err.message;
 		});
 		if (error) {
-			return next(new restifyError.BadRequestError(error));
+			return next(ServerBadRequestError(error));
 		}
 
 		// Add these questions to the array
@@ -303,7 +298,7 @@ async function GetQuestions(req, res, next) {
 			error = err.message;
 		});
 		if (error) {
-			return next(new restifyError.BadRequestError(error));
+			return next(ServerBadRequestError(error));
 		}
 
 		// Add these questions to the array
@@ -329,7 +324,7 @@ async function GetQuestions(req, res, next) {
 			error = err.message;
 		});
 		if (error) {
-			return next(new restifyError.BadRequestError(error));
+			return next(ServerBadRequestError(error));
 		}
 
 		// Add these questions to the array
@@ -363,7 +358,7 @@ async function GetQuestions(req, res, next) {
 			error = err.message;
 		});
 		if (error) {
-			return next(new restifyError.BadRequestError(error));
+			return next(ServerBadRequestError(error));
 		}
 		questions = questions.concat(added_questions);
 
@@ -427,7 +422,7 @@ async function GetQuestions(req, res, next) {
 			error = err.message;
 		});
 		if (error) {
-			return next(new restifyError.BadRequestError(error));
+			return next(ServerBadRequestError(error));
 		}
 
 		// Combine the answers with their questions
@@ -473,14 +468,7 @@ async function GetQuestions(req, res, next) {
 
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (basePath, server) => {
-	server.get({
-		'name': 'Get Questions',
-		'path': basePath + '/list'
-	}, GetQuestions);
-
-	server.get({
-		'name': 'Get Questions (deprecated)',
-		'path': basePath + '/v1'
-	}, GetQuestions);
+exports.RegisterEndpoint = (basePath) => {
+	ServerAddGet('Get Questions', basePath + '/list', GetQuestions);
+	ServerAddGet('Get Questions (deprecated)', basePath + '/v1', GetQuestions);
 };
