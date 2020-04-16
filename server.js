@@ -66,7 +66,7 @@ global.CreateServer = async (listenAddress, listenPort, endpointPath, useCORS, i
 	require(`./${endpointPath}`).RegisterEndpoints(server);
 
 	// Display all registered routes
-	console.log(colors.cyan('Registered routes'));
+	console.log(colors.cyan('Registered Endpoints'));
 	console.log(colors.cyan('-'.padEnd(80, '-')));
 	const routes = server.router.getRoutes();
 	for (const routeName in routes) {

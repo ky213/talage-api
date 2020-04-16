@@ -15,80 +15,104 @@ Once the build pre-requisites are install, run ```npm install``` to install all 
 
 ## Running
 
-To run the public API: ```npm run public```
+To run the public API and uptime servers: ```npm run public```
 
-To run the private API: ```npm run private```
+To run the private API server: ```npm run private```
 
 ## Public API
 
-Public URL: ```https://api.talageins.com```
+The default port is 3000. Override with $PUBLIC_API_PORT
 
 ```
-/v1/
-    wheelhouse/
-        account                 GET, PUT
-        activities              GET
-        agencies                GET
-        agency                  GET, POST
-        application             GET
-        applications            POST
-        banners                 GET
-        change-password         PUT               (renamed from changePassword)
-        color-schemes           GET
-        create-agency           GET    
-        landing-page            GET, POST, PUT
-        landing-pages           GET
-        questions               GET
-        quote-letter            GET
-        reports                 GET
-        reset-password          POST              (renamed from resetPassword)
-        settings                GET, PUT
-        user-info               GET
-        validate-token          GET               (renamed from validateToken)
-        wholesale-agreement     GET, PUT          (renamed from wholesaleAgreement)
-    auth/
-        token                   GET
-        agency-portal           POST
+Registered Endpoints
+--------------------------------------------------------------------------------
+POST   /v1/auth/agency-portal                   Get Token
+GET    /v1/auth/token                           Get Token
+GET    /v1/auth/                                Get Token (deprecated)
+GET    /v1/code/activity-codes                  Get Activity Codes
+GET    /v1/code/activity_codes                  Get Activity Codes (deprecated)
+GET    /v1/code/industry-categories             Get All Industry Code Categories
+GET    /v1/code/industry_categories             Get All Industry Code Categories (deprecated)
+GET    /v1/code/industry-codes                  Get All Industry Codes
+GET    /v1/code/industry_codes                  Get All Industry Codes (deprecated)
+GET    /v1/doc/acord-form-wc                    Get Certificate
+POST   /v1/doc/certificate                      Get Certificate
+GET    /v1/question/list                        Get Questions
+GET    /v1/question/v1                          Get Questions (deprecated)
+POST   /v1/quote/application                    Post Application
+POST   /v1/quote/                               Post Application (deprecated)
+PUT    /v1/quote/bind                           Bind Quote
+GET    /v1/wheelhouse/account                   Get account (authenticated)
+PUT    /v1/wheelhouse/account                   Update account (authenticated)
+GET    /v1/wheelhouse/activities                Get activities (authenticated)
+GET    /v1/wheelhouse/agencies                  Get agencies (authenticated)
+GET    /v1/wheelhouse/agency                    Get Agency (authenticated)
+POST   /v1/wheelhouse/agency                    Post Agency (authenticated)
+GET    /v1/wheelhouse/application               Get application (authenticated)
+POST   /v1/wheelhouse/applications              Get applications (authenticated)
+GET    /v1/wheelhouse/banners                   Get Banners (authenticated)
+PUT    /v1/wheelhouse/change-password           Change Password
+PUT    /v1/wheelhouse/changePassword            Change Password (deprecated)
+GET    /v1/wheelhouse/color-schemes             Get Color Schemes (authenticated)
+GET    /v1/wheelhouse/create-agency             Create Agency (authenticated)
+GET    /v1/wheelhouse/landing-page              Get Landing Page (authenticated)
+POST   /v1/wheelhouse/landing-page              Post Landing Page (authenticated)
+PUT    /v1/wheelhouse/landing-page              Put Landing Page (authenticated)
+GET    /v1/wheelhouse/landing-pages             Get Landing Pages (authenticated)
+GET    /v1/wheelhouse/questions                 Get questions (authenticated)
+GET    /v1/wheelhouse/quote-letter              Get Quote Letter (authenticated)
+GET    /v1/wheelhouse/reports                   Get reports (authenticated)
+POST   /v1/wheelhouse/resend-onboarding-email   Resend Onboarding Email (authenticated)
+POST   /v1/wheelhouse/resendOnboardingEmail     Resend Onboarding Email (deprecated) (authenticated)
+POST   /v1/wheelhouse/reset-password            Reset Password
+POST   /v1/wheelhouse/resetPassword             Reset Password (deprecated)
+GET    /v1/wheelhouse/settings                  Get settings (authenticated)
+PUT    /v1/wheelhouse/settings                  Update settings (authenticated)
+PUT    /v1/wheelhouse/terms-of-service          Record Acceptance of TOS (authenticated)
+GET    /v1/wheelhouse/user-info                 Get user information (authenticated)
+GET    /v1/wheelhouse/validate-token            Validate JWT (authenticated)
+GET    /v1/wheelhouse/validateToken             Validate JWT (deprecated) (authenticated)
+GET    /v1/wheelhouse/wholesale-agreement       Get Wholesale Agreement Link (authenticated)
+GET    /v1/wheelhouse/wholesaleAgreement        Get Wholesale Agreement Link (deprecated) (authenticated)
+PUT    /v1/wheelhouse/wholesale-agreement       Record Signature of Wholesale Agreement Link (authenticated)
+PUT    /v1/wheelhouse/wholesaleAgreement        Record Signature of Wholesale Agreement Link (deprecated) (authenticated)
+```
 
-    code/
-        activity-codes          GET               (renamed from activity_codes)
-        industry-categories     GET               (renamed from industry_categories)
-        industry-codes          GET               (renamed from industry_codes)
+## Uptime Endpoint
 
-    doc/
-        acord-form-wc           GET
-        certificate             POST
+The default port is 3008. Override with $UPTIME_PORT
 
-    question/
-        list                    GET               (renamed from v1)
-
-    quote/
-        application             POST
-        bind                    PUT
-        async                   SOCKET
-
-    uptime                      GET               (added)
+```
+Registered Endpoints
+--------------------------------------------------------------------------------
+GET    /                                        Uptime Check
 ```
 
 ## Private API
 
-Private URL: ```http://localhost:4000```
+The default port is 4000. Override with $PRIVATE_API_PORT.
+
 ```
-/v1/
-    docusign/
-        embedded               POST
-    crypto/
-        encrypt                POST
-        decrypt                POST
-        hash                   POST
-        hash-password          POST
-        verify-password        POST
-    message/
-        slack                  POST
-        email                  POST
-    file/
-        file                   GET, PUT, DEL
-        list                   GET
+Registered Endpoints
+--------------------------------------------------------------------------------
+POST   /v1/docusign/embedded                    Create Embedded DocuSign Document
+POST   /v1/email/email                          Post Email
+POST   /v1/email/                               Post Email (deprecated)
+POST   /v1/encryption/decrypt                   Decrypt
+POST   /v1/encryption/encrypt                   Encrypt
+POST   /v1/encryption/verify-password           Verify Password
+POST   /v1/encryption/verifyPassword            Verify Password (deprecated)
+POST   /v1/encryption/hash                      Hash
+POST   /v1/encryption/hash-password             Hash Password
+POST   /v1/encryption/hashPassword              Hash Password (deprecated)
+GET    /v1/file/file                            File
+GET    /v1/file/                                File (deprecated)
+PUT    /v1/file/file                            File
+PUT    /v1/file/                                File (deprecated)
+DELETE /v1/file/file                            File
+DELETE /v1/file/                                File (deprecated)
+GET    /v1/file/list                            List Files
+POST   /v1/slack/post-to-channel                Post message
 ```
 
 ## Future Development
