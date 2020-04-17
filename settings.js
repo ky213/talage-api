@@ -2,7 +2,7 @@
 const environment = require('dotenv');
 const fs = require('fs');
 
-const requiredSettings = [
+const requiredVariables = [
 	// Public URLs
 	'SITE_URL', 'PORTAL_URL', 'BRAND', 'DIGALENT_AGENTS_URL', 'TALAGE_AGENTS_URL',
 	// Runtime profile
@@ -31,14 +31,18 @@ exports.Load = (envFile) => {
 		return false;
 	}
 
-	// ensure required settings exist and inject them into the global 'settings' object
+	// Ensure required variables exist and inject them into the global 'settings' object
 	global.settings = {};
-	for (let i = 0; i < requiredSettings.length; i++) {
-		if (!variables.hasOwnProperty(requiredSettings[i])) {
-			console.log(`Error: missing variable '${requiredSettings[i]}'`);
+	for (let i = 0; i < requiredVariables.length; i++) {
+		if (!variables.hasOwnProperty(requiredVariables[i])) {
+			console.log(`Error: missing variable '${requiredVariables[i]}'`);
 			return false;
 		}
-		global.settings[requiredSettings[i]] = variables[requiredSettings[i]];
+		global.settings[requiredVariables[i]] = variables[requiredVariables[i]];
 	};
+
+	// Add any other global settings here
+	// global.settings. = ;
+
 	return true;
 }

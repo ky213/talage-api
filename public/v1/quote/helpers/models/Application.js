@@ -493,6 +493,7 @@ module.exports = class Application {
 						case 'development':
 							portalLink = settings.PORTAL_URL;
 							break;
+						case 'test':
 						case 'staging':
 						case 'production':
 						default:

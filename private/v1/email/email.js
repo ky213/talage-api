@@ -153,7 +153,9 @@ async function PostEmail(req, res, next) {
 
 	// Adjust the subject based on the environment
 	if (Object.prototype.hasOwnProperty.call(req.body, 'subject') && typeof req.body.subject === 'string') {
-		if (settings.ENV === 'development') {
+		if (settings.ENV === 'test') {
+			req.body.subject = `[TEST] ${req.body.subject}`;
+		} else if (settings.ENV === 'development') {
 			req.body.subject = `[DEV TEST] ${req.body.subject}`;
 		} else if (settings.ENV === 'staging') {
 			req.body.subject = `[STA TEST] ${req.body.subject}`;
