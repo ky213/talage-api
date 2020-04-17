@@ -13,6 +13,10 @@ On a Mac, XCode will install the compilers and 'make. You can use homebrew to in
 
 Once the build pre-requisites are install, run ```npm install``` to install all of the required node packages. This may take a bit on first run due to the encryption library build. 
 
+## Configuring
+
+Settings are loaded from the ```local.env``` file if it exists. Otherwise, settings are loaded from the environment. Use ```local.env.example``` as a template.
+
 ## Running
 
 To run the public API, uptime, and private API servers: ```npm run```
