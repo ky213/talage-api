@@ -489,16 +489,14 @@ module.exports = class Application {
 
 					// Determine the portal login link
 					let portalLink = '';
-					switch (settings.NODE_ENV) {
+					switch (settings.ENV) {
 						case 'development':
-							portalLink = 'http://localhost:8081';
+							portalLink = settings.PORTAL_URL;
 							break;
 						case 'staging':
-							portalLink = `https://agents.sta.${this.agencyLocation.agencyNetwork === 2 ? 'digalent.com' : 'wh-app.io'}`;
-							break;
+						case 'production':
 						default:
-							// Production
-							portalLink = `https://agents.${this.agencyLocation.agencyNetwork === 2 ? 'digalent.com' : 'wh-app.io'}`;
+							portalLink = this.agencyLocation.agencyNetwork === 2 ? settings.DIGALENT_AGENTS_URL : settings.TALAGE_AGENTS_URL;
 							break;
 					}
 

@@ -16,7 +16,7 @@ const request = require('request');
 exports.store = async function (path, data) {
 
 	// If we are in the test environment, don't store anything and just return true
-	if (settings.NODE_ENV === 'test') {
+	if (settings.ENV === 'test') {
 		return true;
 	}
 

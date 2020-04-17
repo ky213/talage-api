@@ -22,7 +22,7 @@ module.exports = class Insurer {
 		this.rating = '';
 		this.slug = '';
 		this.state = 1;
-		this.test_mode = settings.NODE_ENV === 'production' ? 0 : 1;
+		this.test_mode = settings.ENV === 'production' ? 0 : 1;
 		this.test_password = '';
 		this.test_username = '';
 		this.username = '';

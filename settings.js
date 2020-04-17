@@ -4,9 +4,9 @@ const fs = require('fs');
 
 const requiredSettings = [
 	// Public URLs
-	'SITE_URL', 'PORTAL_URL', 'APPLICATION_URL', 'BRAND',
+	'SITE_URL', 'PORTAL_URL', 'BRAND', 'DIGALENT_AGENTS_URL', 'TALAGE_AGENTS_URL',
 	// Runtime profile
-	'ENV', 'NODE_ENV',
+	'ENV',
 	// Internal Credentials
 	'AUTH_SECRET_KEY', 'ENCRYPTION_KEY', 'SALT', 'SECRET', 'TEST_API_TOKEN',
 	// AWS

@@ -22,7 +22,7 @@ const request = require('request');
  */
 exports.send = async function (recipients, subject, content, keys = {}, brand = 'talage', agency = 0) {
 	// If we are in the test environment, don't send and just return true
-	if (settings.NODE_ENV === 'test') {
+	if (settings.ENV === 'test') {
 		return true;
 	}
 

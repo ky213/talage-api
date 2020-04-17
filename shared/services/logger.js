@@ -27,7 +27,7 @@ exports.Connect = async () => {
 		defaultMetaData.PROCESS_NAME = process.env.name;
 		defaultMetaData.SystemName = process.env.name;
 	}
-	var envToAddList = ["name", "NODE_ENV", "ENV", "HOSTNAME", "USER", "AWS_REGION", "INSTANCE_ID", "AMP_ID", "PUBLIC_HOSTNAME", "PUBLIC_IPV4"];
+	var envToAddList = ["name", "ENV", "HOSTNAME", "USER", "AWS_REGION", "INSTANCE_ID", "AMP_ID", "PUBLIC_HOSTNAME", "PUBLIC_IPV4"];
 
 	for (const value of envToAddList) {
 		if (process.env[value]) {
@@ -179,8 +179,10 @@ exports.Connect = async () => {
 		});
 		global.log = logger;
 	} else {
-		if (settings.NODE_ENV !== 'test' && settings.NODE_ENV !== 'development' && settings.NODE_ENV !== 'local') {
+		if (settings.ENV !== 'test' && settings.ENV !== 'development' && settings.ENV !== 'local') {
 			console.log(colors.green('\tLogging to logstash'));
+
+			throw (colors.red('ERROR: logstash server is not available on AWS'));
 
 			const LogstashTransport = requireShared('services/winston-logstash-transport.js').LogstashTransport;
 
@@ -204,7 +206,7 @@ exports.Connect = async () => {
 				'format': winston.format.combine(appendMetaInfo(), winston.format.json()),
 				'level': 'verbose',
 				'transports': new LogstashTransport({
-					'host': `logstash${process.env.NETWORK}`,
+					'host': `logstash`,
 					'ipv6': true,
 					'port': 5000
 				})
@@ -218,7 +220,7 @@ exports.Connect = async () => {
 				'transports': new winston.transports.Console({
 					'format': winston.format.combine(winston.format.colorize(),
 						winston.format.printf((info) => `${info.level}: ${info.message}`)),
-					'level': settings.NODE_ENV === 'test' ? 'error' : 'silly'
+					'level': settings.ENV === 'test' ? 'error' : 'silly'
 				})
 			});
 			//module.exports = global.log;

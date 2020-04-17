@@ -245,6 +245,7 @@ async function PutLandingPage(req, res, next) {
 	}
 
 	// Validate the request and get back the data
+	let error = false;
 	const data = await validate(req, next).catch(function (err) {
 		error = err.message;
 	});

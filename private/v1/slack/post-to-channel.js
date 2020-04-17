@@ -363,7 +363,7 @@ async function PostToChannel(req, res, next) {
 	}
 
 	// Add a message for testing
-	if (settings.NODE_ENV !== 'production' && req.body.channel !== '#debug') {
+	if (settings.ENV !== 'production' && req.body.channel !== '#debug') {
 		footer = `*In production this would be sent to the ${req.body.channel} channel*`;
 		req.body.channel = '#debug';
 	}
@@ -390,11 +390,7 @@ async function PostToChannel(req, res, next) {
 	};
 
 	if (req.body.attachment && req.body.attachment.application_id) {
-		let url = `https://talageins.com/administrator/index.php?option=com_talage&view=application&layout=edit&id=${req.body.attachment.application_id}`;
-
-		if (settings.NODE_ENV !== 'production') {
-			url = url.replace('talageins', 'sta.talageins');
-		}
+		let url = `https://${settings.SITE_URL}/administrator/index.php?option=com_talage&view=application&layout=edit&id=${req.body.attachment.application_id}`;
 
 		post_data.attachments[0].actions.push({
 			'style': button_style,

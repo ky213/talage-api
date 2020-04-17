@@ -27,7 +27,7 @@ module.exports = function (channel, message_type, message, attachment) {
 	return new Promise((fullfil, reject) => {
 
 		// If we are are running automated tests, do not send
-		if (settings.NODE_ENV === 'test') {
+		if (settings.ENV === 'test') {
 			fullfil(true);
 			return;
 		}

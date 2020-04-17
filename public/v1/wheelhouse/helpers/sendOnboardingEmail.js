@@ -41,7 +41,7 @@ module.exports = async function (agencyNetwork, userID, firstName, lastName, age
 			replace('{{Agent First Name}}', firstName).
 			replace('{{Agent Last Name}}', lastName).
 			replace('{{Agency}}', agencyName).
-			replace('{{Application Link}}', `${settings.APPLICATION_URL}/${slug}`).
+			replace('{{Application Link}}', `${settings.SITE_URL}/${slug}`).
 			replace('{{Brand}}', brand).
 			replace('{{Activation Link}}', `<a href="${settings.PORTAL_URL}/reset-password/${token}" style="background-color:#ED7D31;border-radius:0.25rem;color:#FFF;font-size:1.3rem;padding-bottom:0.75rem;padding-left:1.5rem;padding-top:0.75rem;padding-right:1.5rem;text-decoration:none;text-transform:uppercase;">Activate My Account</a>`),
 		'subject': emailSubject.replace('{{Brand}}', brand),

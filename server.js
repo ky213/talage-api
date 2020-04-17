@@ -87,7 +87,7 @@ global.CreateServer = async (listenAddress, listenPort, endpointPath, useCORS, i
 		logErrorHandler(`Error running ${endpointPath} server: ${error}`);
 		return false;
 	}
-	const startMsg = `Talage API ${endpointPath} server (v${global.version}) listening on ${listenAddress}:${listenPort} (${settings.NODE_ENV} mode)`;
+	const startMsg = `Talage API ${endpointPath} server (v${global.version}) listening on ${listenAddress}:${listenPort} (${settings.ENV} mode)`;
 	logRequestHandler(startMsg);
 
 	return true;

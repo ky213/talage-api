@@ -48,7 +48,7 @@ async function GetWholesaleAgreementLink(req, res, next) {
 		'email': email,
 		'name': `${firstName} ${lastName}`,
 		'returnUrl': `${settings.PORTAL_URL}/wholesale-agreement?token=${req.headers.authorization.replace('Bearer ', '')}`,
-		'template': settings.NODE_ENV === 'production' ? '7143efde-6013-4f4a-b514-f43bc8e97a63' : '5849d7ae-1ee1-4277-805a-248fd4bf71b7', // This is the template ID defined in our DocuSign account. It corresponds to the Talage Wholesale Agreement
+		'template': settings.ENV === 'production' ? '7143efde-6013-4f4a-b514-f43bc8e97a63' : '5849d7ae-1ee1-4277-805a-248fd4bf71b7', // This is the template ID defined in our DocuSign account. It corresponds to the Talage Wholesale Agreement
 		'user': req.authentication.userID
 	}).
 		catch(function (e) {
