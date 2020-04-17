@@ -24,7 +24,7 @@ function sendRequest(endpoint, data) {
 				'accept': 'text/plain'
 			},
 			'method': 'POST',
-			'url': `http://localhost:${process.env.PRIVATE_API_PORT}/v1/encryption/${endpoint}`
+			'url': `http://localhost:${settings.PRIVATE_API_PORT}/v1/encryption/${endpoint}`
 		};
 
 		// Determine what type of data to send

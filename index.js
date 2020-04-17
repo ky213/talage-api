@@ -1,15 +1,34 @@
 'use strict';
 
+// Add global helpers to load shared modules
+global.sharedPath = require('path').join(__dirname, 'shared');
+global.requireShared = (moduleName) => require(`${sharedPath}/${moduleName}`);
+
 const colors = require('colors');
 const logger = require('./shared/services/logger.js');
 const db = require('./shared/services/db.js');
+const s3 = require('./shared/services/s3.js');
 
-function LogMessage(message) {
+/**
+ * Callbacks used by the server to log access and errors
+ */
+function LogInfoMessage(message) {
 	log.info(message);
+}
+function LogErrorMessage(message) {
+	log.error(message);
+}
+
+/**
+ * Convenience method to log errors both locally and remotely 
+ */
+function LogLocalErrorMessage(message) {
+	log.error(message);
+	console.log(colors.red(message));
 }
 
 async function Main() {
-	// Ensure we have a run mode argument ('public' or 'private')
+	// Command-line processing: ensure we have a run mode argument ('public' or 'private')
 	if (process.argv.length !== 3 || (process.argv[2] !== 'public' && process.argv[2] !== 'private')) {
 		console.log(`${colors.red('Error:')} missing run mode argument`);
 		console.log('Usage: node index.js [public | private]');
@@ -20,27 +39,27 @@ async function Main() {
 	// Set the run mode ('public' or 'private')
 	const runMode = process.argv[2];
 
-	const isDevelopment = process.env.ENV === 'development';
-
-	// Load the environment
-	const environment = require('dotenv').config({ path: 'aws.env' });
-	if (environment.error) {
-		throw environment.error;
+	// Load the settings from a .env file
+	if (!require('./settings.js').Load('aws.env')) {
+		LogLocalErrorMessage('Error loading variables. Stopping.');
+		return;
 	}
-
-	// Add global helpers to load shared modules
-	global.sharedPath = require('path').join(__dirname, 'shared');
-	global.requireShared = (moduleName) => require(`${sharedPath}/${moduleName}`);
 
 	// Connect to the logger
 	if (!await logger.Connect()) {
-		console.log('Error connecting to logger. Stopping.');
+		LogLocalErrorMessage('Error connecting to logger. Stopping.');
 		return;
 	}
 
 	// Connect to the database
 	if (!await db.Connect()) {
-		console.log('Error connecting to database. Stopping.');
+		LogLocalErrorMessage('Error connecting to database. Stopping.');
+		return;
+	}
+
+	// Connect to S3
+	if (!await s3.Connect()) {
+		LogLocalErrorMessage('Error connecting to S3. Stopping.');
 		return;
 	}
 
@@ -54,34 +73,31 @@ async function Main() {
 	require('./server.js');
 
 	// Configure the server and register endpoints
+	const isDevelopment = settings.ENV === 'development';
 	let listenPort = null;
 	switch (runMode) {
 		case 'public':
 			// Create the public server
-			listenPort = process.env.PUBLIC_API_PORT || 3000;
-			if (!await CreateServer('0.0.0.0', listenPort, 'public', true, isDevelopment, LogMessage)) {
-				log.error('Error starting public server. Stopping.');
+			if (!await CreateServer('0.0.0.0', settings.PUBLIC_API_PORT, 'public', true, isDevelopment, LogInfoMessage, LogErrorMessage)) {
+				LogLocalErrorMessage('Error starting public server. Stopping.');
 				return;
 			}
-
 			// Create the uptime server
-			listenPort = process.env.UPTIME_PORT || 3008;
-			if (!await CreateServer('0.0.0.0', listenPort, 'uptime', false, isDevelopment, LogMessage)) {
-				log.error('Error starting uptime server. Stopping.');
+			if (!await CreateServer('0.0.0.0', settings.UPTIME_PORT, 'uptime', false, isDevelopment, LogInfoMessage, LogErrorMessage)) {
+				LogLocalErrorMessage('Error starting uptime server. Stopping.');
 				return;
 			}
 			break;
 		case 'private':
-			// Create the server
-			listenPort = process.env.PRIVATE_API_PORT || 4000;
-			if (!await CreateServer('127.0.0.1', listenPort, 'private', false, isDevelopment, LogMessage)) {
-				log.error('Error starting private server. Stopping.');
+			// Create the private server
+			if (!await CreateServer('127.0.0.1', settings.PRIVATE_API_PORT, 'private', false, isDevelopment, LogInfoMessage, LogErrorMessage)) {
+				LogLocalErrorMessage('Error starting private server. Stopping.');
 				return;
 			}
 			break;
 		default:
-			log.error(`Unknown run mode '${runMode}'. Must be 'public' or 'private'`);
-			process.exit(-1);
+			LogLocalErrorMessage(`Unknown run mode '${runMode}'. Must be 'public' or 'private'. Stopping.`);
+			return;
 	}
 }
 

@@ -95,7 +95,7 @@ async function GetToken(req, res, next) {
 
 	// This is a valid user, generate and return a token
 	const jwt = require('jsonwebtoken');
-	const token = `Bearer ${jwt.sign(payload, process.env.AUTH_SECRET_KEY, {
+	const token = `Bearer ${jwt.sign(payload, settings.AUTH_SECRET_KEY, {
 		'expiresIn': '1h'
 	})}`;
 	log.info('Token Created');

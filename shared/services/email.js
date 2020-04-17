@@ -22,7 +22,7 @@ const request = require('request');
  */
 exports.send = async function (recipients, subject, content, keys = {}, brand = 'talage', agency = 0) {
 	// If we are in the test environment, don't send and just return true
-	if (process.env.NODE_ENV === 'test') {
+	if (settings.NODE_ENV === 'test') {
 		return true;
 	}
 
@@ -117,7 +117,7 @@ exports.send = async function (recipients, subject, content, keys = {}, brand = 
 	await request({
 		'json': requestData,
 		'method': 'POST',
-		'url': `http://localhost:${process.env.PRIVATE_API_PORT}/v1/email/email`
+		'url': `http://localhost:${settings.PRIVATE_API_PORT}/v1/email/email`
 	}, function (e) {
 		error = true;
 		if (e) {

@@ -32,7 +32,7 @@ function DeleteFile(req, res, next) {
 
 	// Call out to S3
 	s3.deleteObject({
-		Bucket: process.env.S3_BUCKET,
+		Bucket: settings.S3_BUCKET,
 		Key: path
 	}, function (err) {
 		if (err) {
@@ -76,7 +76,7 @@ function GetFile(req, res, next) {
 
 	// Call out to S3
 	s3.getObject({
-		Bucket: process.env.S3_BUCKET,
+		Bucket: settings.S3_BUCKET,
 		Key: path
 	}, function (err, data) {
 		if (err) {
@@ -146,7 +146,7 @@ function PutFile(req, res, next) {
 	// Call out to S3
 	s3.putObject({
 		Body: fileBuffer,
-		Bucket: process.env.S3_BUCKET,
+		Bucket: settings.S3_BUCKET,
 		Key: path
 	}, function (err) {
 		if (err) {

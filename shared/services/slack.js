@@ -22,12 +22,12 @@ const http = require('http');
  *		{string} title - (optional) The title of the attachment
  * @returns {Promise.<array, Error>} A promise that returns an array of database results if resolved, or an Error if rejected
  */
-module.exports = function(channel, message_type, message, attachment){
+module.exports = function (channel, message_type, message, attachment) {
 	// Return a promise
 	return new Promise((fullfil, reject) => {
 
 		// If we are are running automated tests, do not send
-		if(process.env.NODE_ENV === 'test'){
+		if (settings.NODE_ENV === 'test') {
 			fullfil(true);
 			return;
 		}
@@ -44,7 +44,7 @@ module.exports = function(channel, message_type, message, attachment){
 		const options = {
 			'agent': false,
 			'headers': {
-				'Authorization': `Bearer ${process.env.TEST_API_TOKEN}`,
+				'Authorization': `Bearer ${settings.TEST_API_TOKEN}`,
 				'Content-Length': data.length,
 				'Content-Type': 'application/json'
 			},
@@ -54,19 +54,19 @@ module.exports = function(channel, message_type, message, attachment){
 		};
 
 		// Send the request
-		const req = http.request(options, function(res){
+		const req = http.request(options, function (res) {
 			let raw_data = '';
 
 			// Grab each chunk of data
-			res.on('data', function(d){
+			res.on('data', function (d) {
 				raw_data += d;
 			});
 
-			res.on('end', function(){
-				if(res.statusCode === 200){
+			res.on('end', function () {
+				if (res.statusCode === 200) {
 					fullfil(true);
-				}else{
-					if(raw_data){
+				} else {
+					if (raw_data) {
 						raw_data = JSON.parse(raw_data);
 					}
 					log.error(`Unable to send Slack message (${res.statusCode}${raw_data.message ? `: ${raw_data.message}` : ''})`);
@@ -75,7 +75,7 @@ module.exports = function(channel, message_type, message, attachment){
 			});
 		});
 
-		req.on('error', function(e){
+		req.on('error', function (e) {
 			log.error(`Unable to send Slack message (${e.message})`);
 			reject(new Error(false));
 		});

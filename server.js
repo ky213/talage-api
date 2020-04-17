@@ -15,7 +15,7 @@ let server = null;
  * Create a new server
  */
 
-global.CreateServer = async (listenAddress, listenPort, endpointPath, useCORS, isDevelopment, logHandler) => {
+global.CreateServer = async (listenAddress, listenPort, endpointPath, useCORS, isDevelopment, logRequestHandler, logErrorHandler) => {
 	server = restify.createServer({
 		'dtrace': true,
 		'name': `Talage API: ${endpointPath}`,
@@ -24,10 +24,10 @@ global.CreateServer = async (listenAddress, listenPort, endpointPath, useCORS, i
 
 	// Log Every Request. If they don't reach the endpoints, then CORS returned a preflight error.
 	server.on('after', (req, res, route, error) => {
-		logHandler(`${moment().format()} REQUEST ${req.connection.remoteAddress} ${req.method} ${req.url} => ${res.statusCode} '${res.statusMessage}'`);
+		logRequestHandler(`${moment().format()} REQUEST ${req.connection.remoteAddress} ${req.method} ${req.url} => ${res.statusCode} '${res.statusMessage}'`);
 	});
 	server.on('error', function (err) {
-		logHandler(`${moment().format()} ERROR ${err.toString()}'`);
+		logErrorHandler(`${moment().format()} ERROR ${err.toString()}'`);
 	});
 	// CORS
 	if (useCORS) {
@@ -84,11 +84,11 @@ global.CreateServer = async (listenAddress, listenPort, endpointPath, useCORS, i
 	try {
 		await serverListen(listenPort, listenAddress);
 	} catch (error) {
-		log.error(`Error running ${endpointPath} server: ${error}`);
+		logErrorHandler(`Error running ${endpointPath} server: ${error}`);
 		return false;
 	}
-	const startMsg = `Talage API ${endpointPath} server (v${global.version}) listening on ${listenAddress}:${listenPort} (${process.env.NODE_ENV} mode)`;
-	log.info(startMsg);
+	const startMsg = `Talage API ${endpointPath} server (v${global.version}) listening on ${listenAddress}:${listenPort} (${settings.NODE_ENV} mode)`;
+	logRequestHandler(startMsg);
 
 	return true;
 };
@@ -101,7 +101,7 @@ function ProcessJWT() {
 	return jwt({
 		'algorithms': ['HS256', 'RS256'],
 		'requestProperty': 'authentication',
-		'secret': process.env.AUTH_SECRET_KEY
+		'secret': settings.AUTH_SECRET_KEY
 	})
 };
 

@@ -28,22 +28,22 @@ module.exports = async function (agencyNetwork, userID, firstName, lastName, age
 	const emailSubject = emailContentResult[0].emailData && emailContentResult[0].emailData.subject ? emailContentResult[0].emailData.subject : emailContentResult[1].emailData.subject;
 
 	// Create a limited life JWT
-	const token = jwt.sign({ 'userID': userID }, process.env.AUTH_SECRET_KEY, { 'expiresIn': '7d' });
+	const token = jwt.sign({ 'userID': userID }, settings.AUTH_SECRET_KEY, { 'expiresIn': '7d' });
 
 	// Format the brand
-	let brand = process.env.BRAND.toLowerCase();
+	let brand = settings.BRAND.toLowerCase();
 	brand = `${brand.charAt(0).toUpperCase() + brand.slice(1)}`;
 
 	// Prepare the email to send to the user
 	const emailData = {
-		'from': process.env.BRAND,
+		'from': settings.BRAND,
 		'html': emailMessage.
 			replace('{{Agent First Name}}', firstName).
 			replace('{{Agent Last Name}}', lastName).
 			replace('{{Agency}}', agencyName).
-			replace('{{Application Link}}', `${process.env.APPLICATION_URL}/${slug}`).
+			replace('{{Application Link}}', `${settings.APPLICATION_URL}/${slug}`).
 			replace('{{Brand}}', brand).
-			replace('{{Activation Link}}', `<a href="${process.env.PORTAL_URL}/reset-password/${token}" style="background-color:#ED7D31;border-radius:0.25rem;color:#FFF;font-size:1.3rem;padding-bottom:0.75rem;padding-left:1.5rem;padding-top:0.75rem;padding-right:1.5rem;text-decoration:none;text-transform:uppercase;">Activate My Account</a>`),
+			replace('{{Activation Link}}', `<a href="${settings.PORTAL_URL}/reset-password/${token}" style="background-color:#ED7D31;border-radius:0.25rem;color:#FFF;font-size:1.3rem;padding-bottom:0.75rem;padding-left:1.5rem;padding-top:0.75rem;padding-right:1.5rem;text-decoration:none;text-transform:uppercase;">Activate My Account</a>`),
 		'subject': emailSubject.replace('{{Brand}}', brand),
 		'to': userEmail
 	};
@@ -52,7 +52,7 @@ module.exports = async function (agencyNetwork, userID, firstName, lastName, age
 	request({
 		'json': emailData,
 		'method': 'POST',
-		'url': `http://localhost:${process.env.PRIVATE_API_PORT}/v1/email/email`
+		'url': `http://localhost:${settings.PRIVATE_API_PORT}/v1/email/email`
 	}, function (err) {
 		if (err) {
 			const errorStr = `Failed to send the onboarding email to ${userEmail} during the creation of the agency ${agencyName}. Please send manually.`;

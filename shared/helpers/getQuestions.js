@@ -25,7 +25,7 @@ module.exports = function (activity_codes, industry_code, zip_codes, policy_type
 		// Set the options for connecting to the Question API
 		const options = {
 			'agent': false,
-			'headers': { 'Authorization': `Bearer ${process.env.TEST_API_TOKEN}` },
+			'headers': { 'Authorization': `Bearer ${settings.TEST_API_TOKEN}` },
 			'hostname': 'question',
 			'method': 'GET',
 			'path': `/v1?activity_codes=${activity_codes.join(',')}&industry_code=${industry_code}${insurers}&policy_types=${policy_types.join(',')}&zips=${zip_codes.join(',')}&hidden=true`

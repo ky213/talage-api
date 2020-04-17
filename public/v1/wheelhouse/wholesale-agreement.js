@@ -44,11 +44,11 @@ async function GetWholesaleAgreementLink(req, res, next) {
 	// Get the signing link from our DocuSign service
 
 	// TO DO: Pass the auth token in here
-	const signingReq = await axios.post(`http://localhost:${process.env.PRIVATE_API_PORT}/v1/docusign/embedded`, {
+	const signingReq = await axios.post(`http://localhost:${settings.PRIVATE_API_PORT}/v1/docusign/embedded`, {
 		'email': email,
 		'name': `${firstName} ${lastName}`,
-		'returnUrl': `${process.env.PORTAL_URL}/wholesale-agreement?token=${req.headers.authorization.replace('Bearer ', '')}`,
-		'template': process.env.NODE_ENV === 'production' ? '7143efde-6013-4f4a-b514-f43bc8e97a63' : '5849d7ae-1ee1-4277-805a-248fd4bf71b7', // This is the template ID defined in our DocuSign account. It corresponds to the Talage Wholesale Agreement
+		'returnUrl': `${settings.PORTAL_URL}/wholesale-agreement?token=${req.headers.authorization.replace('Bearer ', '')}`,
+		'template': settings.NODE_ENV === 'production' ? '7143efde-6013-4f4a-b514-f43bc8e97a63' : '5849d7ae-1ee1-4277-805a-248fd4bf71b7', // This is the template ID defined in our DocuSign account. It corresponds to the Talage Wholesale Agreement
 		'user': req.authentication.userID
 	}).
 		catch(function (e) {

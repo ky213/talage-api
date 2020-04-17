@@ -262,7 +262,7 @@ module.exports = class Application {
 							'instant_buy': Math.random() >= 0.5,
 							'insurer': {
 								'id': insurer.id,
-								'logo': `${process.env.SITE_URL}/${insurer.logo}`,
+								'logo': `${settings.SITE_URL}/${insurer.logo}`,
 								'name': insurer.name,
 								'rating': insurer.rating
 							},
@@ -489,7 +489,7 @@ module.exports = class Application {
 
 					// Determine the portal login link
 					let portalLink = '';
-					switch (process.env.NODE_ENV) {
+					switch (settings.NODE_ENV) {
 						case 'development':
 							portalLink = 'http://localhost:8081';
 							break;

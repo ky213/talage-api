@@ -16,7 +16,7 @@ const request = require('request');
 exports.store = async function (path, data) {
 
 	// If we are in the test environment, don't store anything and just return true
-	if (process.env.NODE_ENV === 'test') {
+	if (settings.NODE_ENV === 'test') {
 		return true;
 	}
 
@@ -40,7 +40,7 @@ exports.store = async function (path, data) {
 			'path': path
 		},
 		'method': 'PUT',
-		'url': `http://localhost:${process.env.PRIVATE_API_PORT}/v1/file/file`
+		'url': `http://localhost:${settings.PRIVATE_API_PORT}/v1/file/file`
 	};
 
 	// Send the request
@@ -84,7 +84,7 @@ exports.get = function (path) {
 		// Compose the options for the request to the file service
 		const options = {
 			'method': 'GET',
-			'url': `http://localhost:${process.env.PRIVATE_API_PORT}/v1/file/file?path=${path}`
+			'url': `http://localhost:${settings.PRIVATE_API_PORT}/v1/file/file?path=${path}`
 		};
 
 		// Send the request

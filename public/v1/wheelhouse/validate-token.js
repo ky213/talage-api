@@ -28,7 +28,7 @@ function GetValidateToken(req, res, next) {
 	// Check if the token is valid or not
 	let valid = false;
 	try {
-		jwt.verify(req.query.token, process.env.AUTH_SECRET_KEY);
+		jwt.verify(req.query.token, settings.AUTH_SECRET_KEY);
 		valid = true;
 	} catch (error) {
 		log.warn(error.message);

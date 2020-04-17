@@ -12,15 +12,15 @@ let conn = null;
 
 exports.Connect = async () => {
 
-	console.log(`Connecting to database ${colors.cyan(process.env.DATABASE_HOST)}`);
+	console.log(`Connecting to database ${colors.cyan(settings.DATABASE_HOST)}`);
 
 	// Connect to the database
 	conn = mysql.createPool({
 		'connectionLimit': 100,
-		'database': process.env.DATABASE_NAME,
-		'host': process.env.DATABASE_HOST,
-		'password': process.env.DATABASE_PASSWORD,
-		'user': process.env.DATABASE_USER
+		'database': settings.DATABASE_NAME,
+		'host': settings.DATABASE_HOST,
+		'password': settings.DATABASE_PASSWORD,
+		'user': settings.DATABASE_USER
 	});
 
 	// Try to connect to the database to ensure it is reachable.
@@ -60,7 +60,7 @@ exports.query = function (sql) {
 		}
 
 		// Replace the prefix placeholder
-		sql = sql.replace(/#__/g, process.env.DATABASE_PREFIX);
+		sql = sql.replace(/#__/g, settings.DATABASE_PREFIX);
 
 		// Run the query on the database
 		conn.query(sql, function (err, rows) {

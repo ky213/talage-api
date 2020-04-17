@@ -45,7 +45,7 @@ exports.Connect = async () => {
 
 	//console.log('process.env.AWS_LOG_TO_AWS_ELASTICSEARCH: ' + process.env.AWS_LOG_TO_AWS_ELASTICSEARCH );
 
-	if (process.env.AWS_LOG_TO_AWS_ELASTICSEARCH === "YES") {
+	if (settings.AWS_LOG_TO_AWS_ELASTICSEARCH === "YES") {
 		console.log(colors.green('\tLogging to ElasticSearch'));
 
 		//Setup AWS ElasticSearch and Console.
@@ -77,30 +77,32 @@ exports.Connect = async () => {
 		transports.push(new winston.transports.Console(consoleOptions));
 
 		//AWS ElasticSearch ####################################################
+
+		// NOTE: These are guaranteed to exist now. -SF
 		var elasticSearchLevel = 'info';
-		if (process.env.AWS_ELASTICSEARCH_LOGLEVEL) {
-			elasticSearchLevel = process.env.AWS_ELASTICSEARCH_LOGLEVEL;
+		if (settings.AWS_ELASTICSEARCH_LOGLEVEL) {
+			elasticSearchLevel = settings.AWS_ELASTICSEARCH_LOGLEVEL;
 		}
 		//console.log('elasticSearchLevel: ' + elasticSearchLevel);
 		let awsRegion = "us-west-1";
-		if (process.env.AWS_REGION) {
-			awsRegion = process.env.AWS_REGION;
+		if (settings.AWS_REGION) {
+			awsRegion = settings.AWS_REGION;
 		}
 		AWS.config.region = awsRegion;
 
 		let awsEndPoint = "";
-		if (process.env.AWS_ELASTICSEARCH_ENDPOINT) {
-			awsEndPoint = process.env.AWS_ELASTICSEARCH_ENDPOINT;
+		if (settings.AWS_ELASTICSEARCH_ENDPOINT) {
+			awsEndPoint = settings.AWS_ELASTICSEARCH_ENDPOINT;
 		}
 
 		var AccessKeyId = "";
-		if (process.env.AWS_KEY) {
-			AccessKeyId = process.env.AWS_KEY;
+		if (settings.AWS_KEY) {
+			AccessKeyId = settings.AWS_KEY;
 		}
 
 		var SecretAccessKey = "";
-		if (process.env.AWS_SECRET) {
-			SecretAccessKey = process.env.AWS_SECRET;
+		if (settings.AWS_SECRET) {
+			SecretAccessKey = settings.AWS_SECRET;
 		}
 
 		AWS.config.update({
@@ -177,7 +179,7 @@ exports.Connect = async () => {
 		});
 		global.log = logger;
 	} else {
-		if (process.env.NODE_ENV !== 'test' && process.env.NODE_ENV !== 'development' && process.env.NODE_ENV !== 'local') {
+		if (settings.NODE_ENV !== 'test' && settings.NODE_ENV !== 'development' && settings.NODE_ENV !== 'local') {
 			console.log(colors.green('\tLogging to logstash'));
 
 			const LogstashTransport = requireShared('services/winston-logstash-transport.js').LogstashTransport;
@@ -209,14 +211,14 @@ exports.Connect = async () => {
 			});
 			//module.exports = global.log;
 		} else {
-			console.log(colors.green('\tLogging locally'));
+			console.log(colors.green('\tConnected (logging locally)'));
 
 			// When not running on Cycle, simply log to console
 			global.log = winston.createLogger({
 				'transports': new winston.transports.Console({
 					'format': winston.format.combine(winston.format.colorize(),
 						winston.format.printf((info) => `${info.level}: ${info.message}`)),
-					'level': process.env.NODE_ENV === 'test' ? 'error' : 'silly'
+					'level': settings.NODE_ENV === 'test' ? 'error' : 'silly'
 				})
 			});
 			//module.exports = global.log;

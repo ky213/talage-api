@@ -103,7 +103,7 @@ async function PostEmail(req, res, next) {
 		if (agency[0].logo) {
 
 			try {
-				const imgInfo = await imgSize(`https://website-images-${process.env.NODE_ENV}.s3-us-west-1.amazonaws.com/public/agency-logos/${agency[0].logo}`);
+				const imgInfo = await imgSize(`https://website-images-${settings.NODE_ENV}.s3-us-west-1.amazonaws.com/public/agency-logos/${agency[0].logo}`);
 
 				// Determine if image needs to be scaled down
 				const maxHeight = 100;
@@ -115,7 +115,7 @@ async function PostEmail(req, res, next) {
 					imgInfo.width *= ratio;
 				}
 
-				logoHTML = `<img alt="${agency[0].name}" src="https://website-images-${process.env.NODE_ENV}.s3-us-west-1.amazonaws.com/public/agency-logos/${agency[0].logo}" height="${imgInfo.height}" width="${imgInfo.width}">`;
+				logoHTML = `<img alt="${agency[0].name}" src="https://website-images-${settings.NODE_ENV}.s3-us-west-1.amazonaws.com/public/agency-logos/${agency[0].logo}" height="${imgInfo.height}" width="${imgInfo.width}">`;
 			} catch (e) {
 				// This sucks, but we will fail back to the default email heading for safety
 				log.warn(`Agency ${req.body.agency} logo image not found. Defaulting to text for logo. (${e})`);
@@ -153,15 +153,15 @@ async function PostEmail(req, res, next) {
 
 	// Adjust the subject based on the environment
 	if (Object.prototype.hasOwnProperty.call(req.body, 'subject') && typeof req.body.subject === 'string') {
-		if (process.env.NODE_ENV === 'development') {
+		if (settings.NODE_ENV === 'development') {
 			req.body.subject = `[DEV TEST] ${req.body.subject}`;
-		} else if (process.env.NODE_ENV === 'staging') {
+		} else if (settings.NODE_ENV === 'staging') {
 			req.body.subject = `[STA TEST] ${req.body.subject}`;
 		}
 	}
 
 	// Set the Sendgrid API key
-	Sendgrid.setApiKey(process.env.SENDGRID_API_KEY);
+	Sendgrid.setApiKey(settings.SENDGRID_API_KEY);
 
 	// Initialize the email object
 	await Sendgrid.send(req.body).then(function () {

@@ -216,7 +216,7 @@ async function PutSettings(req, res, next) {
 			// Establish the options for the request
 			const options = {
 				'method': 'DELETE',
-				'url': `http://localhost:${process.env.PRIVATE_API_PORT}/v1/file/file?path=public/agent-logos/${req.body.removeLogo}`
+				'url': `http://localhost:${settings.PRIVATE_API_PORT}/v1/file/file?path=public/agent-logos/${req.body.removeLogo}`
 			};
 
 			// Send the request
@@ -253,7 +253,7 @@ async function PutSettings(req, res, next) {
 					'path': `public/agency-logos/${logo}`
 				},
 				'method': 'PUT',
-				'url': `http://localhost:${process.env.PRIVATE_API_PORT}/v1/file/file`
+				'url': `http://localhost:${settings.PRIVATE_API_PORT}/v1/file/file`
 			};
 
 			// Send the request

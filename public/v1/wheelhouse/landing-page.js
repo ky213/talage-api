@@ -1,5 +1,7 @@
 'use strict';
 
+const validator = requireShared('./helpers/validator.js');
+
 /**
  * Validates a landing page and returns a clean data object
  *
@@ -192,6 +194,7 @@ async function PostLandingPage(req, res, next) {
 	}
 
 	// Validate the request and get back the data
+	let error = false;
 	const data = await validate(req, next).catch(function (err) {
 		error = err.message;
 	});

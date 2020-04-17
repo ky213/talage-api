@@ -24,7 +24,7 @@ function GetFileList(req, res) {
 
 	// Call out to S3
 	s3.listObjectsV2({
-		Bucket: process.env.S3_BUCKET,
+		Bucket: settings.S3_BUCKET,
 		Prefix: prefix
 	}, function (err, data) {
 		if (err) {
@@ -35,7 +35,7 @@ function GetFileList(req, res) {
 
 		// Reduce down to just the part we care about
 		data = data.Contents.map(function (item) {
-			return `https://${process.env.S3_BUCKET}.s3-us-west-1.amazonaws.com/${item.Key}`;
+			return `https://${settings.S3_BUCKET}.s3-us-west-1.amazonaws.com/${item.Key}`;
 		});
 
 		log.info(`${data.length} files found`);

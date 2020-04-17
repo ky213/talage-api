@@ -50,13 +50,13 @@ async function PostResetPassword(req, res, next) {
 		log.info('Email found');
 
 		// Create a limited life JWT
-		const token = jwt.sign({ 'userID': result[0].id }, process.env.AUTH_SECRET_KEY, { 'expiresIn': '15m' });
+		const token = jwt.sign({ 'userID': result[0].id }, settings.AUTH_SECRET_KEY, { 'expiresIn': '15m' });
 
 		// Prepare the email to send to the user
 		const emailData = {
-			'from': process.env.BRAND,
-			'html': `<p style="text-align:center;">A request to reset your password has been recieved. To continue the reset process, please click the button below within 15 minutes.</p><br><p style="text-align: center;"><a href="${process.env.PORTAL_URL}/reset-password/${token}" style="background-color:#ED7D31;border-radius:0.25rem;color:#FFF;font-size:1.3rem;padding-bottom:0.75rem;padding-left:1.5rem;padding-top:0.75rem;padding-right:1.5rem;text-decoration:none;text-transform:uppercase;">Reset Password</a></p>`,
-			'subject': `Reset Your ${process.env.BRAND.charAt(0).toUpperCase() + process.env.BRAND.substr(1).toLowerCase()} Password`,
+			'from': settings.BRAND,
+			'html': `<p style="text-align:center;">A request to reset your password has been recieved. To continue the reset process, please click the button below within 15 minutes.</p><br><p style="text-align: center;"><a href="${settings.PORTAL_URL}/reset-password/${token}" style="background-color:#ED7D31;border-radius:0.25rem;color:#FFF;font-size:1.3rem;padding-bottom:0.75rem;padding-left:1.5rem;padding-top:0.75rem;padding-right:1.5rem;text-decoration:none;text-transform:uppercase;">Reset Password</a></p>`,
+			'subject': `Reset Your ${settings.BRAND.charAt(0).toUpperCase() + settings.BRAND.substr(1).toLowerCase()} Password`,
 			'to': req.body.email
 		};
 
@@ -64,7 +64,7 @@ async function PostResetPassword(req, res, next) {
 		request({
 			'json': emailData,
 			'method': 'POST',
-			'url': `http://localhost:${process.env.PRIVATE_API_PORT}/v1/email/email`
+			'url': `http://localhost:${settings.PRIVATE_API_PORT}/v1/email/email`
 		}, function (err) {
 			if (err) {
 				log.error(`Failed to send the password reset email to ${req.body.email}. Please contact the user.`);
