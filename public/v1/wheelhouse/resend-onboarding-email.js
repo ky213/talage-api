@@ -69,5 +69,5 @@ async function PostResendOnboardingEmail(req, res, next) {
 
 exports.RegisterEndpoint = (basePath) => {
 	ServerAddPostAuth('Resend Onboarding Email', basePath + '/resend-onboarding-email', PostResendOnboardingEmail);
-	ServerAddPostAuth('Resend Onboarding Email (deprecated)', basePath + '/resendOnboardingEmail', PostResendOnboardingEmail);
+	ServerAddPostAuth('Resend Onboarding Email (depr)', basePath + '/resendOnboardingEmail', PostResendOnboardingEmail);
 };

@@ -84,5 +84,5 @@ async function PostResetPassword(req, res, next) {
 
 exports.RegisterEndpoint = (basePath) => {
 	ServerAddPost('Reset Password', basePath + '/reset-password', PostResetPassword);
-	ServerAddPost('Reset Password (deprecated)', basePath + '/resetPassword', PostResetPassword);
+	ServerAddPost('Reset Password (depr)', basePath + '/resetPassword', PostResetPassword);
 };

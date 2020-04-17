@@ -470,5 +470,5 @@ async function GetQuestions(req, res, next) {
 /* -----==== Endpoints ====-----*/
 exports.RegisterEndpoint = (basePath) => {
 	ServerAddGet('Get Questions', basePath + '/list', GetQuestions);
-	ServerAddGet('Get Questions (deprecated)', basePath + '/v1', GetQuestions);
+	ServerAddGet('Get Questions (depr)', basePath + '/v1', GetQuestions);
 };

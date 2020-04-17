@@ -73,8 +73,8 @@ global.CreateServer = async (listenAddress, listenPort, endpointPath, useCORS, i
 		const route = routes[routeName];
 		// Color code the route name
 		let name = route.spec.name;
-		name = name.replace('(deprecated)', colors.red('(deprecated)'));
-		name = name.replace('(authenticated)', colors.yellow('(authenticated)'));
+		name = name.replace('(depr)', colors.red('(depr)'));
+		name = name.replace('(auth)', colors.yellow('(auth)'));
 		// Display the full route information
 		console.log(`${colors.green(route.method.padEnd(6, ' '))} ${route.path.padEnd(40, ' ')} ${name}`);
 	}
@@ -125,7 +125,7 @@ global.ServerAddPost = (name, path, handler) => {
 }
 
 global.ServerAddPostAuth = (name, path, handler) => {
-	name += ' (authenticated)';
+	name += ' (auth)';
 	server.post({ name, path }, ProcessJWT(), ValidateJWT(handler));
 }
 
@@ -134,7 +134,7 @@ global.ServerAddGet = (name, path, handler) => {
 }
 
 global.ServerAddGetAuth = (name, path, handler) => {
-	name += ' (authenticated)';
+	name += ' (auth)';
 	server.get({ name, path }, ProcessJWT(), ValidateJWT(handler));
 }
 
@@ -143,7 +143,7 @@ global.ServerAddPut = (name, path, handler) => {
 }
 
 global.ServerAddPutAuth = (name, path, handler) => {
-	name += ' (authenticated)';
+	name += ' (auth)';
 	server.put({ name, path }, ProcessJWT(), ValidateJWT(handler));
 }
 
@@ -152,7 +152,7 @@ global.ServerAddDelete = (name, path, handler) => {
 }
 
 global.ServerAddDeleteAuth = (name, path, handler) => {
-	name += ' (authenticated)';
+	name += ' (auth)';
 	server.del({ name, path }, ProcessJWT(), ValidateJWT(handler));
 }
 

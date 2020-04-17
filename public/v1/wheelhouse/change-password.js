@@ -65,5 +65,5 @@ async function PutChangePassword(req, res, next) {
 
 exports.RegisterEndpoint = (basePath) => {
 	ServerAddPut('Change Password', basePath + '/change-password', PutChangePassword);
-	ServerAddPut('Change Password (deprecated)', basePath + '/changePassword', PutChangePassword);
+	ServerAddPut('Change Password (depr)', basePath + '/changePassword', PutChangePassword);
 };

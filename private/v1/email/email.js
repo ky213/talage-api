@@ -218,5 +218,5 @@ async function PostEmail(req, res, next) {
 /* -----==== Endpoints ====-----*/
 exports.RegisterEndpoint = (basePath) => {
 	ServerAddPost('Post Email', basePath + '/email', PostEmail);
-	ServerAddPost('Post Email (deprecated)', basePath + '/', PostEmail);
+	ServerAddPost('Post Email (depr)', basePath + '/', PostEmail);
 };

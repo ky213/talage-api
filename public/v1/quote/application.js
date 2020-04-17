@@ -89,5 +89,5 @@ async function PostApplication(req, res, next) {
 /* -----==== Endpoints ====-----*/
 exports.RegisterEndpoint = (basePath) => {
 	ServerAddPost('Post Application', basePath + '/application', PostApplication);
-	ServerAddPost('Post Application (deprecated)', basePath + '/', PostApplication);
+	ServerAddPost('Post Application (depr)', basePath + '/', PostApplication);
 };

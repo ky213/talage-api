@@ -120,7 +120,7 @@ async function PutWholesaleAgreementSigned(req, res, next) {
 
 exports.RegisterEndpoint = (basePath) => {
 	ServerAddGetAuth('Get Wholesale Agreement Link', basePath + '/wholesale-agreement', GetWholesaleAgreementLink);
-	ServerAddGetAuth('Get Wholesale Agreement Link (deprecated)', basePath + '/wholesaleAgreement', GetWholesaleAgreementLink);
+	ServerAddGetAuth('Get Wholesale Agreement Link (depr)', basePath + '/wholesaleAgreement', GetWholesaleAgreementLink);
 	ServerAddPutAuth('Record Signature of Wholesale Agreement Link', basePath + '/wholesale-agreement', PutWholesaleAgreementSigned);
-	ServerAddPutAuth('Record Signature of Wholesale Agreement Link (deprecated)', basePath + '/wholesaleAgreement', PutWholesaleAgreementSigned);
+	ServerAddPutAuth('Record Signature of Wholesale Agreement Link (depr)', basePath + '/wholesaleAgreement', PutWholesaleAgreementSigned);
 };

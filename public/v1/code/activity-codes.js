@@ -103,5 +103,5 @@ const GetActivityCodes = wrap(async (req, res, next) => {
 /* -----==== Endpoints ====-----*/
 exports.RegisterEndpoint = (basePath) => {
 	ServerAddGet('Get Activity Codes', basePath + '/activity-codes', GetActivityCodes);
-	ServerAddGet('Get Activity Codes (deprecated)', basePath + '/activity_codes', GetActivityCodes);
+	ServerAddGet('Get Activity Codes (depr)', basePath + '/activity_codes', GetActivityCodes);
 };

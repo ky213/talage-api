@@ -41,5 +41,5 @@ async function PostHashPassword(req, res, next) {
 /* -----==== Endpoints ====-----*/
 exports.RegisterEndpoint = (basePath) => {
 	ServerAddPost('Hash Password', basePath + '/hash-password', PostHashPassword);
-	ServerAddPost('Hash Password (deprecated)', basePath + '/hashPassword', PostHashPassword);
+	ServerAddPost('Hash Password (depr)', basePath + '/hashPassword', PostHashPassword);
 };

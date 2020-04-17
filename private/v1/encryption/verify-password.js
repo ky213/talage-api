@@ -53,5 +53,5 @@ function PostVerifyPassword(req, res, next) {
 /* -----==== Endpoints ====-----*/
 exports.RegisterEndpoint = (basePath) => {
 	ServerAddPost('Verify Password', basePath + '/verify-password', PostVerifyPassword);
-	ServerAddPost('Verify Password (deprecated)', basePath + '/verifyPassword', PostVerifyPassword);
+	ServerAddPost('Verify Password (depr)', basePath + '/verifyPassword', PostVerifyPassword);
 };

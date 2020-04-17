@@ -50,5 +50,5 @@ function GetValidateToken(req, res, next) {
 
 exports.RegisterEndpoint = (basePath) => {
 	ServerAddGetAuth('Validate JWT', basePath + '/validate-token', GetValidateToken);
-	ServerAddGetAuth('Validate JWT (deprecated)', basePath + '/validateToken', GetValidateToken);
+	ServerAddGetAuth('Validate JWT (depr)', basePath + '/validateToken', GetValidateToken);
 };

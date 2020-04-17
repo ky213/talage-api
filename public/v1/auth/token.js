@@ -109,5 +109,5 @@ async function GetToken(req, res, next) {
 /* -----==== Endpoints ====-----*/
 exports.RegisterEndpoint = (basePath) => {
 	ServerAddGet('Get Token', basePath + '/token', GetToken);
-	ServerAddGet('Get Token (deprecated)', basePath + '/', GetToken);
+	ServerAddGet('Get Token (depr)', basePath + '/', GetToken);
 };

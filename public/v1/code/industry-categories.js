@@ -46,5 +46,5 @@ async function GetIndustryCategories(req, res, next) {
 /* -----==== Endpoints ====-----*/
 exports.RegisterEndpoint = (basePath) => {
 	ServerAddGet('Get All Industry Code Categories', basePath + '/industry-categories', GetIndustryCategories);
-	ServerAddGet('Get All Industry Code Categories (deprecated)', basePath + '/industry_categories', GetIndustryCategories);
+	ServerAddGet('Get All Industry Code Categories (depr)', basePath + '/industry_categories', GetIndustryCategories);
 };
