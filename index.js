@@ -8,6 +8,7 @@ const colors = require('colors');
 const logger = require('./shared/services/logger.js');
 const db = require('./shared/services/db.js');
 const s3 = require('./shared/services/s3.js');
+const globalSettings = require('./settings.js');
 
 /**
  * Callbacks used by the server to log access and errors
@@ -23,24 +24,19 @@ function LogErrorMessage(message) {
  * Convenience method to log errors both locally and remotely 
  */
 function LogLocalErrorMessage(message) {
-	log.error(message);
+	if (global.log) {
+		log.error(message);
+	}
 	console.log(colors.red(message));
 }
 
 async function Main() {
-	// Command-line processing: ensure we have a run mode argument ('public' or 'private')
-	if (process.argv.length !== 3 || (process.argv[2] !== 'public' && process.argv[2] !== 'private')) {
-		console.log(`${colors.red('Error:')} missing run mode argument`);
-		console.log('Usage: node index.js [public | private]');
-		console.log(`    Run the public API:  ${colors.green('node index.js public')}`);
-		console.log(`    Run the private API: ${colors.green('node index.js private')}`);
-		process.exit(-1);
-	}
-	// Set the run mode ('public' or 'private')
-	const runMode = process.argv[2];
+	console.log(colors.green.bold('-'.padEnd(80, '-')));
+	console.log(colors.green.bold('Initializing'));
+	console.log(colors.green.bold('-'.padEnd(80, '-')));
 
 	// Load the settings from a .env file
-	if (!require('./settings.js').Load('aws.env')) {
+	if (!await globalSettings.Load()) {
 		LogLocalErrorMessage('Error loading variables. Stopping.');
 		return;
 	}
@@ -74,30 +70,21 @@ async function Main() {
 
 	// Configure the server and register endpoints
 	const isDevelopment = settings.ENV === 'development';
-	let listenPort = null;
-	switch (runMode) {
-		case 'public':
-			// Create the public server
-			if (!await CreateServer('0.0.0.0', settings.PUBLIC_API_PORT, 'public', true, isDevelopment, LogInfoMessage, LogErrorMessage)) {
-				LogLocalErrorMessage('Error starting public server. Stopping.');
-				return;
-			}
-			// Create the uptime server
-			if (!await CreateServer('0.0.0.0', settings.UPTIME_PORT, 'uptime', false, isDevelopment, LogInfoMessage, LogErrorMessage)) {
-				LogLocalErrorMessage('Error starting uptime server. Stopping.');
-				return;
-			}
-			break;
-		case 'private':
-			// Create the private server
-			if (!await CreateServer('127.0.0.1', settings.PRIVATE_API_PORT, 'private', false, isDevelopment, LogInfoMessage, LogErrorMessage)) {
-				LogLocalErrorMessage('Error starting private server. Stopping.');
-				return;
-			}
-			break;
-		default:
-			LogLocalErrorMessage(`Unknown run mode '${runMode}'. Must be 'public' or 'private'. Stopping.`);
-			return;
+
+	// Create the public server
+	if (!await CreateServer('0.0.0.0', settings.PUBLIC_API_PORT, 'public', true, isDevelopment, LogInfoMessage, LogErrorMessage)) {
+		LogLocalErrorMessage('Error starting public server. Stopping.');
+		return;
+	}
+	// Create the uptime server
+	if (!await CreateServer('0.0.0.0', settings.UPTIME_PORT, 'uptime', false, isDevelopment, LogInfoMessage, LogErrorMessage)) {
+		LogLocalErrorMessage('Error starting uptime server. Stopping.');
+		return;
+	}
+	// Create the private server
+	if (!await CreateServer('0.0.0.0', settings.PRIVATE_API_PORT, 'private', false, isDevelopment, LogInfoMessage, LogErrorMessage)) {
+		LogLocalErrorMessage('Error starting private server. Stopping.');
+		return;
 	}
 }
 

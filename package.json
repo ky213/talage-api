@@ -4,9 +4,8 @@
   "description": "Talage API",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "public": "node index.js public",
-    "private": "node index.js private"
+	"test": "echo \"Error: no test specified\" && exit 1",
+	"server": "node index.js"
   },
   "repository": {
     "type": "git",

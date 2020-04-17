@@ -11,8 +11,6 @@ function RegisterEndpoint(server, namespace, endpointName) {
 }
 
 exports.RegisterEndpoints = (server) => {
-	console.log(`Loading public ${apiVersion} endpoints`);
-
 	// auth
 	RegisterEndpoint(server, 'auth', 'agency-portal');
 	RegisterEndpoint(server, 'auth', 'token');

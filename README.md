@@ -15,9 +15,7 @@ Once the build pre-requisites are install, run ```npm install``` to install all 
 
 ## Running
 
-To run the public API and uptime servers: ```npm run public```
-
-To run the private API server: ```npm run private```
+To run the public API, uptime, and private API servers: ```npm run```
 
 ## Public API
 

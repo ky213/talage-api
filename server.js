@@ -15,7 +15,7 @@ let server = null;
  * Create a new server
  */
 
-global.CreateServer = async (listenAddress, listenPort, endpointPath, useCORS, isDevelopment, logRequestHandler, logErrorHandler) => {
+global.CreateServer = async (listenAddress, listenPort, endpointPath, useCORS, isDevelopment, logInfoHandler, logErrorHandler) => {
 	server = restify.createServer({
 		'dtrace': true,
 		'name': `Talage API: ${endpointPath}`,
@@ -24,10 +24,10 @@ global.CreateServer = async (listenAddress, listenPort, endpointPath, useCORS, i
 
 	// Log Every Request. If they don't reach the endpoints, then CORS returned a preflight error.
 	server.on('after', (req, res, route, error) => {
-		logRequestHandler(`${moment().format()} REQUEST ${req.connection.remoteAddress} ${req.method} ${req.url} => ${res.statusCode} '${res.statusMessage}'`);
+		logInfoHandler(`${moment().format()} ${req.connection.remoteAddress} ${req.method} ${req.url} => ${res.statusCode} '${res.statusMessage}'`);
 	});
 	server.on('error', function (err) {
-		logErrorHandler(`${moment().format()} ERROR ${err.toString()}'`);
+		logErrorHandler(`${moment().format()} ${err.toString()}'`);
 	});
 	// CORS
 	if (useCORS) {
@@ -63,10 +63,13 @@ global.CreateServer = async (listenAddress, listenPort, endpointPath, useCORS, i
 	});
 
 	// Register endpoints 
+	console.log(`Registering ${endpointPath} endpoints`);
 	require(`./${endpointPath}`).RegisterEndpoints(server);
+	console.log(colors.green('\tCompleted'));
 
 	// Display all registered routes
-	console.log(colors.cyan('Registered Endpoints'));
+	console.log(colors.cyan('-'.padEnd(80, '-')));
+	console.log(colors.cyan(`Registered ${endpointPath} endpoints`));
 	console.log(colors.cyan('-'.padEnd(80, '-')));
 	const routes = server.router.getRoutes();
 	for (const routeName in routes) {
@@ -88,7 +91,7 @@ global.CreateServer = async (listenAddress, listenPort, endpointPath, useCORS, i
 		return false;
 	}
 	const startMsg = `Talage API ${endpointPath} server (v${global.version}) listening on ${listenAddress}:${listenPort} (${settings.ENV} mode)`;
-	logRequestHandler(startMsg);
+	logInfoHandler(startMsg);
 
 	return true;
 };

@@ -1,6 +1,7 @@
 // Load the environment
 const environment = require('dotenv');
 const fs = require('fs');
+const colors = require('colors');
 
 const requiredVariables = [
 	// Public URLs
@@ -21,25 +22,32 @@ const requiredVariables = [
 	'SENDGRID_API_KEY'
 ];
 
-exports.Load = (envFile) => {
-	// Load the variables from a .env file
+exports.Load = async () => {
 	let variables = null;
-	try {
-		variables = environment.parse(fs.readFileSync(envFile, { encoding: 'utf8' }));
-	} catch (error) {
-		console.log(`Error parsing aws.env: ${error}`);
-		return false;
+	if (fs.existsSync('local.env')) {
+		// Load the variables from the aws.env file if it exists
+		console.log('Loading settings from local.env file');
+		try {
+			variables = environment.parse(fs.readFileSync('local.env', { encoding: 'utf8' }));
+		} catch (error) {
+			console.log(colors.red(`\tError parsing aws.env: ${error}`));
+			return false;
+		}
+	} else {
+		// Use the environment variables otherwise
+		console.log('Loading settings from environment variables');
+		variables = process.env;
 	}
-
 	// Ensure required variables exist and inject them into the global 'settings' object
 	global.settings = {};
 	for (let i = 0; i < requiredVariables.length; i++) {
 		if (!variables.hasOwnProperty(requiredVariables[i])) {
-			console.log(`Error: missing variable '${requiredVariables[i]}'`);
+			console.log(colors.red(`\tError: missing variable '${requiredVariables[i]}'`));
 			return false;
 		}
 		global.settings[requiredVariables[i]] = variables[requiredVariables[i]];
 	};
+	console.log(colors.green('\tCompleted'));
 
 	// Add any other global settings here
 	// global.settings. = ;
