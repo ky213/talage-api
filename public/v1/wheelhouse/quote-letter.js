@@ -1,5 +1,6 @@
 'use strict';
 const file = requireShared('./services/file.js');
+const auth = require('./helpers/auth.js');
 
 /**
  * Responds to requests to get quote letters
@@ -18,6 +19,7 @@ async function GetQuoteLetter(req, res, next) {
 	}
 
 	// Get the agents that we are permitted to view
+	let error = false;
 	const agents = await auth.getAgents(req).catch(function (e) {
 		error = e;
 	});
