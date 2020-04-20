@@ -1,7 +1,7 @@
 'use strict';
 const crypt = requireShared('./services/crypt.js');
 const util = require('util');
-const sendOnboardingEmail = require('./helpers/sendOnboardingEmail.js');
+const sendOnboardingEmail = require('./helpers/send-onboarding-email.js');
 const auth = require('./helpers/auth.js');
 const validator = requireShared('./helpers/validator.js');
 

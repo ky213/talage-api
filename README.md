@@ -5,11 +5,24 @@ Unified API combining public APIs and integrating Private APIs as internal modul
 * Snakecase and CamelCase changed to spinal-case (hyphens) per suggestions in RFC3986 and RESTful conventions
 * Removed plurality from top-level namespaces per RESTful conventions
 
+## Pre-Requisites
+
+### Mac OSX:
+	- Install [Node 12](https://nodejs.org/en/)
+	- Install build tools using [Homebrew](https://brew.sh/):
+```
+	brew install libtool autoconf automake
+```
+
+### Linux (Amazon/CentOS):
+	- Install the build system and Node 12:
+```
+	sudo yum group install "Development Tools"
+	curl -sL https://rpm.nodesource.com/setup_12.x | sudo bash -
+	sudo yum install -y nodejs
+```
+
 ## Building
-
-Ensure you have a valid C and C++ compiler, 'make', 'automake', 'autoconf', and 'libtool' installed on the system. All are required to compile platform-specific npm packages. 
-
-On a Mac, XCode will install the compilers and 'make. You can use homebrew to install the other requirements with ```brew install libtool autoconf automake```.
 
 Once the build pre-requisites are install, run ```npm install``` to install all of the required node packages. This may take a bit on first run due to the encryption library build. 
 
@@ -19,7 +32,9 @@ Settings are loaded from the ```local.env``` file if it exists. Otherwise, setti
 
 ## Running
 
-To run the public API, uptime, and private API servers: ```npm run```
+To run the public API, uptime, and private API servers: ```npm run server```
+
+For development, it may be convenient to use 'nodemon' to automatically hot reload the server when files are changed. Install 'nodemon' using ```npm install -g nodemon``` and run the server with ```nodemon index.js```.
 
 ## Public API
 
