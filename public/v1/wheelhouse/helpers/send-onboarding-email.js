@@ -19,13 +19,42 @@ module.exports = async function (agencyNetwork, userID, firstName, lastName, age
 		// Return next(ServerInternalError());
 	});
 
+	// Get the onboaring email message and subject. It checks to see if result 0 has it, and then checks if result 1 has it. 
+	// Note: Shouldn't we be guaranteed to have both a message and subject in the first result? Why are multiple results returned?
+
+	// Ensure we have at least one valid result
+	if (!emailContentResult || !emailContentResult[0]) {
+		log.error('send-onboarding-email.js: Error querying database. Missing first result.');
+		return 'Error querying database. Missing first result.';
+	}
+
 	// Decode the JSON
 	emailContentResult[0].emailData = JSON.parse(emailContentResult[0].emailData);
-	emailContentResult[1].emailData = JSON.parse(emailContentResult[1].emailData);
+	if (emailContentResult[1]) {
+		emailContentResult[1].emailData = JSON.parse(emailContentResult[1].emailData);
+	}
 
-	// Use the email subject and text of this agency network, and if it is missing, use Wheelhouse's
-	const emailMessage = emailContentResult[0].emailData && emailContentResult[0].emailData.message ? emailContentResult[0].emailData.message : emailContentResult[1].emailData.message;
-	const emailSubject = emailContentResult[0].emailData && emailContentResult[0].emailData.subject ? emailContentResult[0].emailData.subject : emailContentResult[1].emailData.subject;
+	// Populate the email message
+	let emailMessage = '';
+	if (emailContentResult[0].emailData && emailContentResult[0].emailData.message) {
+		emailMessage = emailContentResult[0].emailData.message;
+	} else if (emailContentResult[1] && emailContentResult[1].emailData && emailContentResult[1].emailData.message) {
+		emailMessage = emailContentResult[1].emailData.message;
+	} else {
+		log.error('send-onboarding-email: Could not find email message');
+		return 'Could not find email message';
+	}
+
+	// Populate the email subject
+	let emailSubject = '';
+	if (emailContentResult[0].emailData && emailContentResult[0].emailData.subject) {
+		emailMessage = emailContentResult[0].emailData.subject;
+	} else if (emailContentResult[1] && emailContentResult[1].emailData && emailContentResult[1].emailData.subject) {
+		emailMessage = emailContentResult[1].emailData.subject;
+	} else {
+		log.error('send-onboarding-email: Could not find email subject');
+		return 'Could not find email subject';
+	}
 
 	// Create a limited life JWT
 	const token = jwt.sign({ 'userID': userID }, settings.AUTH_SECRET_KEY, { 'expiresIn': '7d' });

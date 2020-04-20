@@ -1,6 +1,6 @@
 'use strict';
 const util = require('util');
-const sendOnboardingEmail = require('./helpers/sendOnboardingEmail.js');
+const sendOnboardingEmail = require('./helpers/send-onboarding-email.js');
 
 /**
  * Resends the onboarding email
