@@ -32,7 +32,7 @@ Settings are loaded from the ```local.env``` file if it exists. Otherwise, setti
 
 ## Running
 
-To run the public API, uptime, and private API servers: ```npm run server```
+To run the public API, uptime, and private API servers: ```npm run serve```
 
 For development, it may be convenient to use 'nodemon' to automatically hot reload the server when files are changed. Install 'nodemon' using ```npm install -g nodemon``` and run the server with ```nodemon index.js```.
 

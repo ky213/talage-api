@@ -179,7 +179,7 @@ exports.Connect = async () => {
 		});
 		global.log = logger;
 	} else {
-		if (settings.ENV !== 'test' && settings.ENV !== 'development' && settings.ENV !== 'local' && settings.ENV !== 'staging') {
+		if (settings.ENV !== 'test' && settings.ENV !== 'development' && settings.ENV !== 'local') {
 			console.log(colors.green('\tLogging to logstash'));
 
 			throw (colors.red('ERROR: logstash server is not available on AWS'));
