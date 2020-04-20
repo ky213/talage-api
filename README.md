@@ -36,6 +36,8 @@ To run the public API, uptime, and private API servers: ```npm run serve```
 
 For development, it may be convenient to use 'nodemon' to automatically hot reload the server when files are changed. Install 'nodemon' using ```npm install -g nodemon``` and run the server with ```nodemon index.js```.
 
+For deployment with pm2, run ```pm2 start --name "Talage API" index.js && pm2 save```
+
 ## Public API
 
 The default port is 3000. Override with $PUBLIC_API_PORT
