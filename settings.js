@@ -3,6 +3,13 @@ const environment = require('dotenv');
 const fs = require('fs');
 const colors = require('colors');
 
+/**
+ * Read in settings in the following order:
+ * 		- If there is a 'local.env' file present in the project root directory, read the settings from that file
+ * 		- If not, read the settings from the environment
+ */
+
+// Variables that are required to be present
 const requiredVariables = [
 	// Runtime profile
 	'ENV', 'BRAND',
