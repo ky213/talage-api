@@ -4,7 +4,7 @@ const fs = require('fs');
 const readFileAsync = require('util').promisify(fs.readFile);
 const colors = require('colors');
 
-exports.Initialize = async () => {
+exports.Load = async () => {
 	try {
 		console.log('Reading version from CHANGELOG.md');
 		// Read in the changelog

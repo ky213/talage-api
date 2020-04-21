@@ -37,7 +37,7 @@ async function Main() {
 	console.log(colors.green.bold('-'.padEnd(80, '-')));
 
 	// Initialize the version
-	if (!await version.Initialize()) {
+	if (!await version.Load()) {
 		LogLocalErrorMessage('Error initializing version. Stopping.');
 		return;
 	}
