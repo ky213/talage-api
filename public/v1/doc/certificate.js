@@ -261,17 +261,17 @@ async function PostCertificate(req, res, next) {
 	}
 	const img = [{
 		'height': 792,
-		'image': '/home/node/img/certificate.jpg',
+		'image': `${__dirname}/helpers/img/certificate.jpg`,
 		'width': 612
 	},
 	{
 		'height': 792,
-		'image': '/home/node/img/NY_Form_page1.jpg',
+		'image': `${__dirname}/helpers/img/NY_Form_page1.jpg`,
 		'width': 612
 	},
 	{
 		'height': 792,
-		'image': '/home/node/img/NY_Form_page2.jpg',
+		'image': `${__dirname}/helpers/img/NY_Form_page2.jpg`,
 		'width': 612
 	}];
 

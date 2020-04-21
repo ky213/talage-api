@@ -317,7 +317,7 @@ module.exports = class Application {
 					if (insurer.policy_types.indexOf(policy.type) >= 0) {
 
 						// Check if the integration file for this insurer exists
-						const normalizedPath = require('path').join(__dirname, `../integrations/${insurer.slug}/${policy.type.toLowerCase()}.js`);
+						const normalizedPath = `${__dirname}/helpers/integrations/${insurer.slug}/${policy.type.toLowerCase()}.js`;
 						if (fs.existsSync(normalizedPath)) {
 
 							// Require the integration file and add the response to our promises

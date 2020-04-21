@@ -1,0 +1,3770 @@
+{
+	"app": {
+		"agencyLocation": {
+			"agency": "Talage, Inc.",
+			"agencyEmail": "info@talageins.com",
+			"agencyId": 1,
+			"agencyNetwork": 1,
+			"agencyPhone": "8334825243",
+			"agencyWebsite": "https: //talageins.com",
+			"first_name": "Adam",
+			"id": 1,
+			"key": "",
+			"insurers": {
+				"1": {
+					"id": 1,
+					"agency_id": "0001032",
+					"agent_login": "https: //www.employers.com/",
+					"agent_id": "CR00018180",
+					"bop": 0,
+					"gl": 0,
+					"wc": 1
+				},
+				"3": {
+					"id": 3,
+					"agency_id": "placeholder-unsupported",
+					"agent_login": "https: //www.markelinsurance.com/smallbusiness",
+					"agent_id": "placeholder-unsupported",
+					"bop": 0,
+					"gl": 0,
+					"wc": 1
+				},
+				"7": {
+					"id": 7,
+					"agency_id": "Z07504",
+					"agent_login": "https: //sso.acegroup.com/idp/SSO.saml2",
+					"agent_id": "placeholder-unsupported",
+					"bop": 1,
+					"gl": 1,
+					"wc": 0
+				},
+				"11": {
+					"id": 11,
+					"agency_id": "placeholder-unsupported",
+					"agent_login": "https: //my.btisinc.com/m-login",
+					"agent_id": "placeholder-unsupported",
+					"bop": 0,
+					"gl": 1,
+					"wc": 0
+				},
+				"12": {
+					"id": 12,
+					"agency_id": "5048619",
+					"agent_login": "https: //www.compwestinsurance.com/compwestportal/appmanager/agency/desktop?showform=true&br=cw",
+					"agent_id": "placeholder-unsupported",
+					"bop": 0,
+					"gl": 0,
+					"wc": 1
+				},
+				"13": {
+					"id": 13,
+					"agency_id": "placeholder-unsupported",
+					"agent_login": "",
+					"agent_id": "placeholder-unsupported",
+					"bop": 0,
+					"gl": 0,
+					"wc": 1
+				},
+				"14": {
+					"id": 14,
+					"agency_id": "5910980",
+					"agent_login": "https: //login.commercialportal.libertymutual.com/Pages/CIP_Login.aspx",
+					"agent_id": "placeholder-unsupported",
+					"bop": 0,
+					"gl": 1,
+					"wc": 1
+				},
+				"15": {
+					"id": 15,
+					"agency_id": "9050746",
+					"agent_login": "https: //www.accidentfund.com/afFedPortal/appmanager/agency/desktop",
+					"agent_id": "placeholder-unsupported",
+					"bop": 0,
+					"gl": 0,
+					"wc": 1
+				}
+			},
+			"last_name": "Kiefer",
+			"territories": [
+				"AK",
+				"AL",
+				"AR",
+				"AZ",
+				"CA",
+				"CO",
+				"CT",
+				"DC",
+				"DE",
+				"FL",
+				"GA",
+				"HI",
+				"IA",
+				"ID",
+				"IL",
+				"IN",
+				"KS",
+				"KY",
+				"LA",
+				"MA",
+				"MD",
+				"ME",
+				"MI",
+				"MN",
+				"MO",
+				"MS",
+				"MT",
+				"NC",
+				"ND",
+				"NE",
+				"NH",
+				"NJ",
+				"NM",
+				"NV",
+				"NY",
+				"OH",
+				"OK",
+				"OR",
+				"PA",
+				"RI",
+				"SC",
+				"SD",
+				"TN",
+				"TX",
+				"UT",
+				"VA",
+				"VT",
+				"WA",
+				"WI",
+				"WV",
+				"WY"
+			],
+			"wholesale": false
+		},
+		"business": {
+			"association": 0,
+			"association_id": 0,
+			"bureau_number": 111,
+			"contacts": [
+				{
+					"email": "sfritzinger@gmail.com",
+					"first_name": "Scott",
+					"last_name": "Fritzinger",
+					"phone": 7752870772
+				}
+			],
+			"dba": "Happy Fun Time Inc.",
+			"entity_type": "Limited Liability Company",
+			"experience_modifier": 1,
+			"founded": "2010-03-02T00:00:00",
+			"industry_code": "2743",
+			"industry_code_description": "Software Development",
+			"locations": [
+				{
+					"activity_codes": [
+						{
+							"description": "Computer Programming or Software Development",
+							"id": 6190,
+							"payroll": 100000
+						}
+					],
+					"address": "300 S Wells Ave",
+					"address2": "Suite 4",
+					"city": "RENO",
+					"full_time_employees": 1,
+					"identification_number": "456789567",
+					"identification_number_type": "EIN",
+					"part_time_employees": 0,
+					"square_footage": 0,
+					"territory": "NV",
+					"zip": "89502",
+					"unemployment_number": 0
+				}
+			],
+			"mailing_address": "300 S Wells Ave",
+			"mailing_address2": "Suite 4",
+			"mailing_city": "RENO",
+			"mailing_territory": "NV",
+			"mailing_zip": "89502",
+			"name": "Talage Insurance",
+			"num_owners": 1,
+			"phone": 7752870772,
+			"primary_territory": "NV",
+			"website": "https: //talageins.com/",
+			"years_of_exp": 0,
+			"zip": "89502",
+			"corporation_type": "",
+			"management_structure": "",
+			"owners_included": true,
+			"owners": [
+				"Scott Fritzinger"
+			],
+			"unincorporated_association": null
+		},
+		"id": 0,
+		"insurers": [
+			{
+				"id": 1,
+				"logo": "images/insurers/employers.png",
+				"name": "Employers",
+				"outage": false,
+				"packages": [],
+				"password": "buffer",
+				"payment_options": [
+					{
+						"description": "1 single payment covering the entire payment. Pros, you are done. One less thing to worry about. Cons, it could be a lot of money upfront.",
+						"id": 1,
+						"name": "Annual",
+						"threshold": 0
+					},
+					{
+						"description": "25% up front, then 3 more payments. Pros, even steady payments. Cons, have to remember to pay quarterly.",
+						"id": 3,
+						"name": "Quarterly",
+						"threshold": 1000
+					},
+					{
+						"description": "One payment now, 9 more to follow in the next 9 months. Pros, small payments, will have no payments the 2 months prior to the renewal of next years policy. Cons, need to remember to make these payments and put them in your monthly bills.",
+						"id": 4,
+						"name": "10 pay",
+						"threshold": 2500
+					}
+				],
+				"policy_types": [
+					"WC"
+				],
+				"rating": "A- (Excellent)",
+				"slug": "employers",
+				"state": 1,
+				"test_mode": 1,
+				"test_password": "buffer",
+				"test_username": "buffer",
+				"username": "buffer"
+			},
+			{
+				"id": 3,
+				"logo": "images/insurers/markel.png",
+				"name": "Markel",
+				"outage": false,
+				"packages": [],
+				"password": "buffer",
+				"payment_options": [
+					{
+						"description": "1 single payment covering the entire payment. Pros, you are done. One less thing to worry about. Cons, it could be a lot of money upfront.",
+						"id": 1,
+						"name": "Annual",
+						"threshold": 0
+					},
+					{
+						"description": "One payment now and one payment in 6 months. Pros, breaks up a potentialy large payment, without making it part of your daily thoughts and activities. Cons, could still be larger payments.",
+						"id": 2,
+						"name": "Semi-Annual",
+						"threshold": 0
+					},
+					{
+						"description": "25% up front, then 3 more payments. Pros, even steady payments. Cons, have to remember to pay quarterly.",
+						"id": 3,
+						"name": "Quarterly",
+						"threshold": 0
+					},
+					{
+						"description": "One payment now, 9 more to follow in the next 9 months. Pros, small payments, will have no payments the 2 months prior to the renewal of next years policy. Cons, need to remember to make these payments and put them in your monthly bills.",
+						"id": 4,
+						"name": "10 pay",
+						"threshold": 1000
+					}
+				],
+				"policy_types": [
+					"BOP",
+					"WC"
+				],
+				"rating": "A+ (Superior)",
+				"slug": "markel",
+				"state": 1,
+				"test_mode": 1,
+				"test_password": "buffer",
+				"test_username": "buffer",
+				"username": "buffer"
+			},
+			{
+				"id": 7,
+				"logo": "images/insurers/chubb.png",
+				"name": "Chubb",
+				"outage": false,
+				"packages": [
+					{
+						"description": "<h4>Silver Package Coverages</h4><ul><li>$500,000 General Liability</li><li>$15,000 Business Property</li><li>$25,000 Business Income</li><li>Landlord Included</li></ul>",
+						"id": 1,
+						"name": "silver"
+					},
+					{
+						"description": "<h4>Gold Package Coverages</h4><ul><li>$500,000 General Liability</li><li>$35,000 Business Property</li><li>$25,000 Business Income</li><li>Blanket Additional Insured</li><li>Hired and Non-Owned Auto</li><li>Primary Non-Contributory Wording</li></ul>",
+						"id": 2,
+						"name": "gold"
+					},
+					{
+						"description": "<h4>Platinum Package Coverages</h4><ul><li>$500,000 General Liability</li><li>$75,000 Business Property</li><li>$50,000 Employment Practices</li><li>$50,000/$10,000 Data Breach</li><li>$25,000 Business Income</li><li>Blanket Additional Insured</li><li>Hired and Non-Owned Auto</li><li>Primary Non-Contributory Wording</li></ul>",
+						"id": 3,
+						"name": "platinum"
+					}
+				],
+				"password": "buffer",
+				"payment_options": [
+					{
+						"description": "1 single payment covering the entire payment. Pros, you are done. One less thing to worry about. Cons, it could be a lot of money upfront.",
+						"id": 1,
+						"name": "Annual",
+						"threshold": 0
+					},
+					{
+						"description": "One payment now and one payment in 6 months. Pros, breaks up a potentialy large payment, without making it part of your daily thoughts and activities. Cons, could still be larger payments.",
+						"id": 2,
+						"name": "Semi-Annual",
+						"threshold": 0
+					},
+					{
+						"description": "25% up front, then 3 more payments. Pros, even steady payments. Cons, have to remember to pay quarterly.",
+						"id": 3,
+						"name": "Quarterly",
+						"threshold": 0
+					},
+					{
+						"description": "One payment now, 9 more to follow in the next 9 months. Pros, small payments, will have no payments the 2 months prior to the renewal of next years policy. Cons, need to remember to make these payments and put them in your monthly bills.",
+						"id": 4,
+						"name": "10 pay",
+						"threshold": 0
+					},
+					{
+						"description": "12 even payments. Pros, smallest payment options to help with cash flow. Cons, premium payments are a part of monthly expenses now. One more thing to keep track of.",
+						"id": 5,
+						"name": "Monthly",
+						"threshold": 0
+					}
+				],
+				"policy_types": [
+					"BOP",
+					"EO",
+					"GL"
+				],
+				"rating": "A++ (Superior)",
+				"slug": "chubb",
+				"state": 1,
+				"test_mode": 1,
+				"test_password": "buffer",
+				"test_username": "buffer",
+				"username": "buffer"
+			},
+			{
+				"id": 11,
+				"logo": "images/insurers/btis.png",
+				"name": "Builders & Tradesmen's Insurance Services",
+				"outage": false,
+				"packages": [],
+				"password": "buffer",
+				"payment_options": [
+					{
+						"description": "1 single payment covering the entire payment. Pros, you are done. One less thing to worry about. Cons, it could be a lot of money upfront.",
+						"id": 1,
+						"name": "Annual",
+						"threshold": 0
+					},
+					{
+						"description": "One payment now and one payment in 6 months. Pros, breaks up a potentialy large payment, without making it part of your daily thoughts and activities. Cons, could still be larger payments.",
+						"id": 2,
+						"name": "Semi-Annual",
+						"threshold": 0
+					},
+					{
+						"description": "One payment now, 9 more to follow in the next 9 months. Pros, small payments, will have no payments the 2 months prior to the renewal of next years policy. Cons, need to remember to make these payments and put them in your monthly bills.",
+						"id": 4,
+						"name": "10 pay",
+						"threshold": 0
+					}
+				],
+				"policy_types": [
+					"BOP",
+					"GL",
+					"WC"
+				],
+				"rating": "A++ (Superior)",
+				"slug": "btis",
+				"state": 1,
+				"test_mode": 1,
+				"test_password": "buffer",
+				"test_username": "buffer",
+				"username": "buffer"
+			},
+			{
+				"id": 12,
+				"logo": "images/insurers/compwest.png",
+				"name": "CompWest",
+				"outage": false,
+				"packages": [],
+				"password": "buffer",
+				"payment_options": [
+					{
+						"description": "1 single payment covering the entire payment. Pros, you are done. One less thing to worry about. Cons, it could be a lot of money upfront.",
+						"id": 1,
+						"name": "Annual",
+						"threshold": 0
+					},
+					{
+						"description": "One payment now and one payment in 6 months. Pros, breaks up a potentialy large payment, without making it part of your daily thoughts and activities. Cons, could still be larger payments.",
+						"id": 2,
+						"name": "Semi-Annual",
+						"threshold": 0
+					},
+					{
+						"description": "25% up front, then 3 more payments. Pros, even steady payments. Cons, have to remember to pay quarterly.",
+						"id": 3,
+						"name": "Quarterly",
+						"threshold": 0
+					},
+					{
+						"description": "One payment now, 9 more to follow in the next 9 months. Pros, small payments, will have no payments the 2 months prior to the renewal of next years policy. Cons, need to remember to make these payments and put them in your monthly bills.",
+						"id": 4,
+						"name": "10 pay",
+						"threshold": 0
+					}
+				],
+				"policy_types": [
+					"WC"
+				],
+				"rating": "A (Excellent)",
+				"slug": "compwest",
+				"state": 1,
+				"test_mode": 1,
+				"test_password": "buffer",
+				"test_username": "buffer",
+				"username": "buffer"
+			},
+			{
+				"id": 13,
+				"logo": "images/insurers/pie.png",
+				"name": "Pie Insurance",
+				"outage": false,
+				"packages": [],
+				"password": "buffer",
+				"payment_options": [
+					{
+						"description": "1 single payment covering the entire payment. Pros, you are done. One less thing to worry about. Cons, it could be a lot of money upfront.",
+						"id": 1,
+						"name": "Annual",
+						"threshold": 0
+					},
+					{
+						"description": "One payment now and one payment in 6 months. Pros, breaks up a potentialy large payment, without making it part of your daily thoughts and activities. Cons, could still be larger payments.",
+						"id": 2,
+						"name": "Semi-Annual",
+						"threshold": 0
+					},
+					{
+						"description": "25% up front, then 3 more payments. Pros, even steady payments. Cons, have to remember to pay quarterly.",
+						"id": 3,
+						"name": "Quarterly",
+						"threshold": 0
+					},
+					{
+						"description": "12 even payments. Pros, smallest payment options to help with cash flow. Cons, premium payments are a part of monthly expenses now. One more thing to keep track of.",
+						"id": 5,
+						"name": "Monthly",
+						"threshold": 0
+					}
+				],
+				"policy_types": [
+					"WC"
+				],
+				"rating": "A (Excellent)",
+				"slug": "pie",
+				"state": 1,
+				"test_mode": 1,
+				"test_password": "buffer",
+				"test_username": "buffer",
+				"username": "buffer"
+			},
+			{
+				"id": 14,
+				"logo": "images/insurers/liberty-mutual-logo.png",
+				"name": "Liberty Mutual",
+				"outage": false,
+				"packages": [],
+				"password": "buffer",
+				"payment_options": [
+					{
+						"description": "1 single payment covering the entire payment. Pros, you are done. One less thing to worry about. Cons, it could be a lot of money upfront.",
+						"id": 1,
+						"name": "Annual",
+						"threshold": 0
+					}
+				],
+				"policy_types": [
+					"AL",
+					"BOP",
+					"EO",
+					"GL",
+					"UMB",
+					"WC"
+				],
+				"rating": "A (Excellent)",
+				"slug": "liberty",
+				"state": 1,
+				"test_mode": 1,
+				"test_password": "buffer",
+				"test_username": "buffer",
+				"username": "buffer"
+			},
+			{
+				"id": 15,
+				"logo": "images/insurers/accident-fund.png",
+				"name": "Accident Fund",
+				"outage": false,
+				"packages": [],
+				"password": "buffer",
+				"payment_options": [
+					{
+						"description": "1 single payment covering the entire payment. Pros, you are done. One less thing to worry about. Cons, it could be a lot of money upfront.",
+						"id": 1,
+						"name": "Annual",
+						"threshold": 0
+					},
+					{
+						"description": "One payment now and one payment in 6 months. Pros, breaks up a potentialy large payment, without making it part of your daily thoughts and activities. Cons, could still be larger payments.",
+						"id": 2,
+						"name": "Semi-Annual",
+						"threshold": 0
+					},
+					{
+						"description": "25% up front, then 3 more payments. Pros, even steady payments. Cons, have to remember to pay quarterly.",
+						"id": 3,
+						"name": "Quarterly",
+						"threshold": 0
+					},
+					{
+						"description": "One payment now, 9 more to follow in the next 9 months. Pros, small payments, will have no payments the 2 months prior to the renewal of next years policy. Cons, need to remember to make these payments and put them in your monthly bills.",
+						"id": 4,
+						"name": "10 pay",
+						"threshold": 0
+					}
+				],
+				"policy_types": [
+					"WC"
+				],
+				"rating": "A (Excellent)",
+				"slug": "accidentfund",
+				"state": 1,
+				"test_mode": 1,
+				"test_password": "buffer",
+				"test_username": "buffer",
+				"username": "buffer"
+			}
+		],
+		"policies": [
+			{
+				"claims": [
+					0,
+					1,
+					2,
+					3,
+					4
+				],
+				"effective_date": "2020-03-05T00:00:00.000Z",
+				"expiration_date": "2021-03-05T00:00:00.000Z",
+				"insurers": [],
+				"limits": "1000000/1000000/1000000",
+				"json": "",
+				"type": "WC",
+				"gross_sales": 0,
+				"coverage_lapse_non_payment": null,
+				"deductible": 0,
+				"coverage_lapse": false
+			}
+		],
+		"questions": {
+			"100": {
+				"answer": "No",
+				"answer_id": 196,
+				"hidden": false,
+				"id": 100,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"196": {
+						"id": 196,
+						"default": true,
+						"answer": "No"
+					},
+					"197": {
+						"id": 197,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Are your operations 24 hours?"
+			},
+			"317": {
+				"answer": "No",
+				"answer_id": 624,
+				"hidden": true,
+				"id": 317,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"624": {
+						"id": 624,
+						"default": true,
+						"answer": "No"
+					},
+					"625": {
+						"id": 625,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Any regular out of office exposure by clerical employees?"
+			},
+			"318": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": false,
+				"id": 318,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Text - Multiple Lines",
+				"parent": 317,
+				"parent_answer": 625,
+				"possible_answers": {},
+				"required": false,
+				"text": "Please describe the out of office exposure."
+			},
+			"319": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": false,
+				"id": 319,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Select List",
+				"parent": 317,
+				"parent_answer": 625,
+				"possible_answers": {
+					"626": {
+						"id": 626,
+						"answer": "No"
+					},
+					"627": {
+						"id": 627,
+						"answer": "Yes"
+					},
+					"628": {
+						"id": 628,
+						"answer": "Unknown"
+					}
+				},
+				"required": false,
+				"text": "Are you a paper contractor?"
+			},
+			"564": {
+				"answer": "No",
+				"answer_id": 1092,
+				"hidden": false,
+				"id": 564,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC",
+					"14-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"1092": {
+						"id": 1092,
+						"default": true,
+						"answer": "No"
+					},
+					"1093": {
+						"id": 1093,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Any OSHA violations in last 3 years?"
+			},
+			"615": {
+				"answer": "No",
+				"answer_id": 1190,
+				"hidden": true,
+				"id": 615,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"1190": {
+						"id": 1190,
+						"default": true,
+						"answer": "No"
+					},
+					"1191": {
+						"id": 1191,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Do you do any wrecking or demolition work?"
+			},
+			"617": {
+				"answer": "No",
+				"answer_id": 1194,
+				"hidden": false,
+				"id": 617,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"1194": {
+						"id": 1194,
+						"default": true,
+						"answer": "No"
+					},
+					"1195": {
+						"id": 1195,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Do your employees perform any work over 15 feet?"
+			},
+			"624": {
+				"answer": "No",
+				"answer_id": 1209,
+				"hidden": true,
+				"id": 624,
+				"insurer_identifiers": {},
+				"insurers": [
+					"1-WC",
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 969,
+				"parent_answer": 2512,
+				"possible_answers": {
+					"1208": {
+						"id": 1208,
+						"answer": "No"
+					},
+					"1209": {
+						"id": 1209,
+						"default": true,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Are Certificates of Insurance obtained when sub-contractors or independent contractors are used?"
+			},
+			"965": {
+				"answer": "No",
+				"answer_id": 2505,
+				"hidden": true,
+				"id": 965,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC",
+					"3-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"2505": {
+						"id": 2505,
+						"default": true,
+						"answer": "No"
+					},
+					"2506": {
+						"id": 2506,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Are you engaged in any other type of business?"
+			},
+			"967": {
+				"answer": "No",
+				"answer_id": 2507,
+				"hidden": false,
+				"id": 967,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC",
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"2507": {
+						"id": 2507,
+						"default": true,
+						"answer": "No"
+					},
+					"2508": {
+						"id": 2508,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Do any of your employees work from home?"
+			},
+			"969": {
+				"answer": "No",
+				"answer_id": 2511,
+				"hidden": false,
+				"id": 969,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC",
+					"1-WC",
+					"3-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"2511": {
+						"id": 2511,
+						"answer": "No"
+					},
+					"2512": {
+						"id": 2512,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Does the Applicant engage sub-contractors or independent contractors?"
+			},
+			"971": {
+				"answer": "No",
+				"answer_id": 2513,
+				"hidden": false,
+				"id": 971,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Yes/No",
+				"parent": 969,
+				"parent_answer": 2512,
+				"possible_answers": {
+					"2513": {
+						"id": 2513,
+						"default": true,
+						"answer": "No"
+					},
+					"2514": {
+						"id": 2514,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Do any of your subcontractors not have certificates of insurance?"
+			},
+			"972": {
+				"answer": "No",
+				"answer_id": 2515,
+				"hidden": false,
+				"id": 972,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC",
+					"3-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"2515": {
+						"id": 2515,
+						"default": true,
+						"answer": "No"
+					},
+					"2516": {
+						"id": 2516,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Do you have seasonal employees?"
+			},
+			"973": {
+				"answer": "Yes",
+				"answer_id": 2518,
+				"hidden": true,
+				"id": 973,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC",
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"2517": {
+						"id": 2517,
+						"answer": "No"
+					},
+					"2518": {
+						"id": 2518,
+						"default": true,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Do you have a written safety program?"
+			},
+			"975": {
+				"answer": "No",
+				"answer_id": 2520,
+				"hidden": false,
+				"id": 975,
+				"insurer_identifiers": {},
+				"insurers": [
+					"1-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"2520": {
+						"id": 2520,
+						"default": true,
+						"answer": "No"
+					},
+					"2521": {
+						"id": 2521,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Does the Applicant use motor vehicles for business purposes?"
+			},
+			"977": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": false,
+				"id": 977,
+				"insurer_identifiers": {},
+				"insurers": [
+					"1-WC"
+				],
+				"type": "Yes/No",
+				"parent": 975,
+				"parent_answer": 2521,
+				"possible_answers": {
+					"2524": {
+						"id": 2524,
+						"answer": "No"
+					},
+					"2525": {
+						"id": 2525,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Are Motor Vehicle Records checked?"
+			},
+			"979": {
+				"answer": "No",
+				"answer_id": 2528,
+				"hidden": false,
+				"id": 979,
+				"insurer_identifiers": {},
+				"insurers": [
+					"1-WC",
+					"3-WC",
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 975,
+				"parent_answer": 2521,
+				"possible_answers": {
+					"2528": {
+						"id": 2528,
+						"default": true,
+						"answer": "No"
+					},
+					"2529": {
+						"id": 2529,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Does the Applicant provide group transportation, where five or more employees are in a vehicle at one time?"
+			},
+			"980": {
+				"answer": "No",
+				"answer_id": 2530,
+				"hidden": true,
+				"id": 980,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC",
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"2530": {
+						"id": 2530,
+						"default": true,
+						"answer": "No"
+					},
+					"2531": {
+						"id": 2531,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Do you have volunteers who donate labor?"
+			},
+			"984": {
+				"answer": "No",
+				"answer_id": 2534,
+				"hidden": false,
+				"id": 984,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"2534": {
+						"id": 2534,
+						"answer": "No"
+					},
+					"2535": {
+						"id": 2535,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Do any of your employees travel more than 200 miles away for work?"
+			},
+			"985": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": false,
+				"id": 985,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Text - Single Line",
+				"parent": 984,
+				"parent_answer": 2535,
+				"possible_answers": {},
+				"required": false,
+				"text": "What is the maximum distance they travel?"
+			},
+			"986": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": false,
+				"id": 986,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Text - Single Line",
+				"parent": 984,
+				"parent_answer": 2535,
+				"possible_answers": {},
+				"required": false,
+				"text": "What percentage of time is spent traveling more than 200 miles?"
+			},
+			"987": {
+				"answer": "No",
+				"answer_id": 2536,
+				"hidden": false,
+				"id": 987,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Yes/No",
+				"parent": 984,
+				"parent_answer": 2535,
+				"possible_answers": {
+					"2536": {
+						"id": 2536,
+						"default": true,
+						"answer": "No"
+					},
+					"2537": {
+						"id": 2537,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Is any of this travel out of state?"
+			},
+			"988": {
+				"answer": "No",
+				"answer_id": 2538,
+				"hidden": false,
+				"id": 988,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 987,
+				"parent_answer": 2537,
+				"possible_answers": {
+					"2538": {
+						"id": 2538,
+						"default": true,
+						"answer": "No"
+					},
+					"2539": {
+						"id": 2539,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Do your employees spend more than 15% of their time out of state?"
+			},
+			"989": {
+				"answer": "No",
+				"answer_id": 2540,
+				"hidden": false,
+				"id": 989,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC",
+					"1-WC",
+					"3-WC",
+					"14-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"2540": {
+						"id": 2540,
+						"default": true,
+						"answer": "No"
+					},
+					"2541": {
+						"id": 2541,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Any prior coverage declined/cancelled/non-renewed in the last three (3) years?"
+			},
+			"991": {
+				"answer": "No",
+				"answer_id": 2542,
+				"hidden": false,
+				"id": 991,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC",
+					"3-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"2542": {
+						"id": 2542,
+						"answer": "No"
+					},
+					"2543": {
+						"id": 2543,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Do you have any undisputed and unpaid workers' compensation premiums due?"
+			},
+			"992": {
+				"answer": "No",
+				"answer_id": 2544,
+				"hidden": false,
+				"id": 992,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC",
+					"1-WC",
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"2544": {
+						"id": 2544,
+						"answer": "No"
+					},
+					"2545": {
+						"id": 2545,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Are employee health plans provided?"
+			},
+			"994": {
+				"answer": "No",
+				"answer_id": 2547,
+				"hidden": false,
+				"id": 994,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC",
+					"3-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"2547": {
+						"id": 2547,
+						"answer": "No"
+					},
+					"2548": {
+						"id": 2548,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Do you require employees to undergo physical examinations?"
+			},
+			"995": {
+				"answer": "No",
+				"answer_id": 2549,
+				"hidden": false,
+				"id": 995,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC",
+					"1-WC",
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"2549": {
+						"id": 2549,
+						"default": true,
+						"answer": "No"
+					},
+					"2550": {
+						"id": 2550,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Do you lease employees to or from other employers?"
+			},
+			"997": {
+				"answer": "No",
+				"answer_id": 2551,
+				"hidden": false,
+				"id": 997,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC",
+					"14-WC",
+					"1-WC",
+					"3-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"2551": {
+						"id": 2551,
+						"default": true,
+						"answer": "No"
+					},
+					"2552": {
+						"id": 2552,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Does Applicant own, operate or lease aircraft/watercraft?"
+			},
+			"1002": {
+				"answer": "No",
+				"answer_id": 2559,
+				"hidden": false,
+				"id": 1002,
+				"insurer_identifiers": {},
+				"insurers": [
+					"14-WC",
+					"3-WC",
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"2559": {
+						"id": 2559,
+						"default": true,
+						"answer": "No"
+					},
+					"2560": {
+						"id": 2560,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Any work performed on barges, vessels, docks, bridge over water?"
+			},
+			"1004": {
+				"answer": "No",
+				"answer_id": 2564,
+				"hidden": true,
+				"id": 1004,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC",
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"2564": {
+						"id": 2564,
+						"default": true,
+						"answer": "No"
+					},
+					"2565": {
+						"id": 2565,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Any tax liens or bankruptcy within the last 5 years?"
+			},
+			"1006": {
+				"answer": "No",
+				"answer_id": 2568,
+				"hidden": false,
+				"id": 1006,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC",
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"2568": {
+						"id": 2568,
+						"default": true,
+						"answer": "No"
+					},
+					"2569": {
+						"id": 2569,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Does your business exchange labor with any other business/subsidiary?"
+			},
+			"1010": {
+				"answer": "No",
+				"answer_id": 2576,
+				"hidden": true,
+				"id": 1010,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC",
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"2576": {
+						"id": 2576,
+						"default": true,
+						"answer": "No"
+					},
+					"2577": {
+						"id": 2577,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Any other insurance with this carrier?"
+			},
+			"1011": {
+				"answer": "No",
+				"answer_id": 2578,
+				"hidden": true,
+				"id": 1011,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC",
+					"14-WC",
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"2578": {
+						"id": 2578,
+						"default": true,
+						"answer": "No"
+					},
+					"2579": {
+						"id": 2579,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Any employees under 16 or over 60 years of age?"
+			},
+			"1012": {
+				"answer": "No",
+				"answer_id": 2580,
+				"hidden": true,
+				"id": 1012,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC",
+					"3-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"2580": {
+						"id": 2580,
+						"default": true,
+						"answer": "No"
+					},
+					"2581": {
+						"id": 2581,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Any employees with physical handicaps?"
+			},
+			"1013": {
+				"answer": "No",
+				"answer_id": 2582,
+				"hidden": true,
+				"id": 1013,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC",
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"2582": {
+						"id": 2582,
+						"default": true,
+						"answer": "No"
+					},
+					"2583": {
+						"id": 2583,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Are athletic teams sponsored?"
+			},
+			"1015": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": true,
+				"id": 1015,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Select List",
+				"parent": 1011,
+				"parent_answer": 2579,
+				"possible_answers": {
+					"2586": {
+						"id": 2586,
+						"answer": "Over 60"
+					},
+					"2587": {
+						"id": 2587,
+						"answer": "Under 16"
+					},
+					"2588": {
+						"id": 2588,
+						"answer": "Both"
+					}
+				},
+				"required": false,
+				"text": "Are the referenced employees under 16, over 60, or both?"
+			},
+			"1016": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": true,
+				"id": 1016,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Text - Multiple Lines",
+				"parent": 1011,
+				"parent_answer": 2579,
+				"possible_answers": {},
+				"required": false,
+				"text": "Please provide the number of employees along with job duties performed.  "
+			},
+			"1017": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": true,
+				"id": 1017,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Text - Multiple Lines",
+				"parent": 1012,
+				"parent_answer": 2581,
+				"possible_answers": {},
+				"required": false,
+				"text": "Please provide the number of employees and their job duties performed.  "
+			},
+			"1018": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": false,
+				"id": 1018,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Text - Multiple Lines",
+				"parent": 979,
+				"parent_answer": 2529,
+				"possible_answers": {},
+				"required": false,
+				"text": "Please explain frequency and means of travel.  "
+			},
+			"1019": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": false,
+				"id": 1019,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Text - Multiple Lines",
+				"parent": 989,
+				"parent_answer": 2541,
+				"possible_answers": {},
+				"required": false,
+				"text": "Please explain"
+			},
+			"1020": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": true,
+				"id": 1020,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Text - Multiple Lines",
+				"parent": 1004,
+				"parent_answer": 2565,
+				"possible_answers": {},
+				"required": false,
+				"text": "Please explain"
+			},
+			"1021": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": false,
+				"id": 1021,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Text - Multiple Lines",
+				"parent": 991,
+				"parent_answer": 2543,
+				"possible_answers": {},
+				"required": false,
+				"text": "Please explain"
+			},
+			"1022": {
+				"answer": "No",
+				"answer_id": 2589,
+				"hidden": true,
+				"id": 1022,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Yes/No",
+				"parent": 1002,
+				"parent_answer": 2560,
+				"possible_answers": {
+					"2589": {
+						"id": 2589,
+						"default": true,
+						"answer": "No"
+					},
+					"2590": {
+						"id": 2590,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Are they required to carry USL&H?"
+			},
+			"1023": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": true,
+				"id": 1023,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Text - Multiple Lines",
+				"parent": 1002,
+				"parent_answer": 2560,
+				"possible_answers": {},
+				"required": false,
+				"text": "What duties are performed on the items selected above?"
+			},
+			"1024": {
+				"answer": "Both",
+				"answer_id": 2593,
+				"hidden": true,
+				"id": 1024,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Select List",
+				"parent": 1273,
+				"parent_answer": 2998,
+				"possible_answers": {
+					"2591": {
+						"id": 2591,
+						"answer": "Underground"
+					},
+					"2592": {
+						"id": 2592,
+						"answer": "Above 15 feet"
+					},
+					"2593": {
+						"id": 2593,
+						"default": true,
+						"answer": "Both"
+					}
+				},
+				"required": false,
+				"text": "Select the option(s) that apply"
+			},
+			"1025": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": true,
+				"id": 1025,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Text - Single Line",
+				"parent": 1024,
+				"parent_answer": 2592,
+				"possible_answers": {},
+				"required": false,
+				"text": "What is the maximum height exposure in feet? (Enter Number Only)"
+			},
+			"1026": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": true,
+				"id": 1026,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Text - Single Line",
+				"parent": 1024,
+				"parent_answer": 2591,
+				"possible_answers": {},
+				"required": false,
+				"text": "What is the maximum depth (in feet) for the underground work? (Enter Number Only)"
+			},
+			"1027": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": false,
+				"id": 1027,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Yes/No",
+				"parent": 971,
+				"parent_answer": 2514,
+				"possible_answers": {
+					"2594": {
+						"id": 2594,
+						"answer": "No"
+					},
+					"2595": {
+						"id": 2595,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Will these employees work for anyone other than you?"
+			},
+			"1028": {
+				"answer": "Yes",
+				"answer_id": 2597,
+				"hidden": false,
+				"id": 1028,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Select List",
+				"parent": 971,
+				"parent_answer": 2514,
+				"possible_answers": {
+					"2596": {
+						"id": 2596,
+						"answer": "No"
+					},
+					"2597": {
+						"id": 2597,
+						"default": true,
+						"answer": "Yes"
+					},
+					"2598": {
+						"id": 2598,
+						"answer": "Unknown"
+					}
+				},
+				"required": false,
+				"text": "Is their payroll included in the payroll you entered previously?"
+			},
+			"1029": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": false,
+				"id": 1029,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Text - Multiple Lines",
+				"parent": 971,
+				"parent_answer": 2514,
+				"possible_answers": {},
+				"required": false,
+				"text": "What type of work is sublet without certificates?"
+			},
+			"1030": {
+				"answer": "No",
+				"answer_id": 2599,
+				"hidden": true,
+				"id": 1030,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Yes/No",
+				"parent": 1013,
+				"parent_answer": 2583,
+				"possible_answers": {
+					"2599": {
+						"id": 2599,
+						"default": true,
+						"answer": "No"
+					},
+					"2600": {
+						"id": 2600,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Do the employees participate in sponsored events?"
+			},
+			"1031": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": false,
+				"id": 1031,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Yes/No",
+				"parent": 969,
+				"parent_answer": 2512,
+				"possible_answers": {
+					"2601": {
+						"id": 2601,
+						"answer": "No"
+					},
+					"2602": {
+						"id": 2602,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Are workers' compensation certificates collected?"
+			},
+			"1032": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": false,
+				"id": 1032,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Text - Multiple Lines",
+				"parent": 969,
+				"parent_answer": 2512,
+				"possible_answers": {},
+				"required": false,
+				"text": "What type of work is sub-contracted?  "
+			},
+			"1033": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": false,
+				"id": 1033,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Text - Single Line",
+				"parent": 967,
+				"parent_answer": 2508,
+				"possible_answers": {},
+				"required": false,
+				"text": "How many employees predomi0tly work from home? (Enter Number Only)"
+			},
+			"1034": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": true,
+				"id": 1034,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Text - Multiple Lines",
+				"parent": 967,
+				"parent_answer": 2508,
+				"possible_answers": {},
+				"required": false,
+				"text": "What are their job duties?"
+			},
+			"1035": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": false,
+				"id": 1035,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Text - Multiple Lines",
+				"parent": 987,
+				"parent_answer": 2537,
+				"possible_answers": {},
+				"required": false,
+				"text": "Please list the states and/or countries where employees will travel."
+			},
+			"1037": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": false,
+				"id": 1037,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Text - Multiple Lines",
+				"parent": 995,
+				"parent_answer": 2550,
+				"possible_answers": {},
+				"required": false,
+				"text": "Please explain the leasing agreement. "
+			},
+			"1038": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": true,
+				"id": 1038,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Text - Multiple Lines",
+				"parent": 1145,
+				"parent_answer": 2802,
+				"possible_answers": {},
+				"required": false,
+				"text": "Please explain"
+			},
+			"1039": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": true,
+				"id": 1039,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Select List",
+				"parent": 997,
+				"parent_answer": 2552,
+				"possible_answers": {
+					"2606": {
+						"id": 2606,
+						"answer": "Watercraft"
+					},
+					"2607": {
+						"id": 2607,
+						"answer": "Aircraft"
+					},
+					"2608": {
+						"id": 2608,
+						"answer": "Both"
+					}
+				},
+				"required": false,
+				"text": "Please choose which item(s) do you own, operate or lease?"
+			},
+			"1040": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": true,
+				"id": 1040,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Text - Multiple Lines",
+				"parent": 997,
+				"parent_answer": 2551,
+				"possible_answers": {},
+				"required": false,
+				"text": "Please explain the nature of use of the aircraft/watercraft."
+			},
+			"1041": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": true,
+				"id": 1041,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Text - Multiple Lines",
+				"parent": 965,
+				"parent_answer": 2506,
+				"possible_answers": {},
+				"required": false,
+				"text": "Please explain"
+			},
+			"1042": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": false,
+				"id": 1042,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Text - Multiple Lines",
+				"parent": 1006,
+				"parent_answer": 2569,
+				"possible_answers": {},
+				"required": false,
+				"text": "Please explain"
+			},
+			"1043": {
+				"answer": "No",
+				"answer_id": 2609,
+				"hidden": true,
+				"id": 1043,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Yes/No",
+				"parent": 980,
+				"parent_answer": 2531,
+				"possible_answers": {
+					"2609": {
+						"id": 2609,
+						"default": true,
+						"answer": "No"
+					},
+					"2610": {
+						"id": 2610,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Are you requesting coverage for volunteers or donated labor?"
+			},
+			"1044": {
+				"answer": "No",
+				"answer_id": 2612,
+				"hidden": true,
+				"id": 1044,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Yes/No",
+				"parent": 1030,
+				"parent_answer": 2600,
+				"possible_answers": {
+					"2612": {
+						"id": 2612,
+						"default": true,
+						"answer": "No"
+					},
+					"2613": {
+						"id": 2613,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Is there compensation for employees that participate?"
+			},
+			"1045": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": false,
+				"id": 1045,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC",
+					"15-WC",
+					"3-WC"
+				],
+				"type": "Text - Single Line",
+				"parent": 969,
+				"parent_answer": 2512,
+				"possible_answers": {},
+				"required": false,
+				"text": "What percentage of work is sub-contracted or paid to 1099 labor? (please enter a numeric value)"
+			},
+			"1046": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": false,
+				"id": 1046,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Select List",
+				"parent": 995,
+				"parent_answer": 2550,
+				"possible_answers": {
+					"2617": {
+						"id": 2617,
+						"answer": "Lease employees 'from' another employer"
+					},
+					"2618": {
+						"id": 2618,
+						"answer": "Lease employees 'to' another employer"
+					},
+					"2619": {
+						"id": 2619,
+						"answer": "Both"
+					}
+				},
+				"required": false,
+				"text": "Please choose from the following:"
+			},
+			"1048": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": false,
+				"id": 1048,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Yes/No",
+				"parent": 987,
+				"parent_answer": 2537,
+				"possible_answers": {
+					"2622": {
+						"id": 2622,
+						"answer": "No"
+					},
+					"2623": {
+						"id": 2623,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Is travel out of state more than 15% of the time?"
+			},
+			"1049": {
+				"answer": "No",
+				"answer_id": 2624,
+				"hidden": false,
+				"id": 1049,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Yes/No",
+				"parent": 1048,
+				"parent_answer": 2623,
+				"possible_answers": {
+					"2624": {
+						"id": 2624,
+						"default": true,
+						"answer": "No"
+					},
+					"2625": {
+						"id": 2625,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Do you hire employees or subcontractors in these states or countries?"
+			},
+			"1050": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": false,
+				"id": 1050,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Text - Single Line",
+				"parent": 1048,
+				"parent_answer": 2623,
+				"possible_answers": {},
+				"required": false,
+				"text": "What percentage of the time will the employees or subcontractors perform work out of state or country?"
+			},
+			"1056": {
+				"answer": "No",
+				"answer_id": 2637,
+				"hidden": false,
+				"id": 1056,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"2637": {
+						"id": 2637,
+						"default": true,
+						"answer": "No"
+					},
+					"2638": {
+						"id": 2638,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Do you have workers' compensation coverage for your locations outside of this state?"
+			},
+			"1057": {
+				"answer": "No",
+				"answer_id": 2639,
+				"hidden": false,
+				"id": 1057,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"2639": {
+						"id": 2639,
+						"default": true,
+						"answer": "No"
+					},
+					"2640": {
+						"id": 2640,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Do you need coverage for these locations?"
+			},
+			"1085": {
+				"answer": "No",
+				"answer_id": 2693,
+				"hidden": false,
+				"id": 1085,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"2693": {
+						"id": 2693,
+						"default": true,
+						"answer": "No"
+					},
+					"2694": {
+						"id": 2694,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Do you perform any asbestos work currently or at any time in the past?"
+			},
+			"1145": {
+				"answer": "No",
+				"answer_id": 2802,
+				"hidden": false,
+				"id": 1145,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC",
+					"3-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"2802": {
+						"id": 2802,
+						"default": true,
+						"answer": "No"
+					},
+					"2803": {
+						"id": 2803,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Do you have past, present, or discontinued operations that involve(d) storing, treating, discharging, applying, disposing, or transporting of hazardous material?"
+			},
+			"1273": {
+				"answer": "No",
+				"answer_id": 2998,
+				"hidden": false,
+				"id": 1273,
+				"insurer_identifiers": {},
+				"insurers": [
+					"3-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"2998": {
+						"id": 2998,
+						"default": true,
+						"answer": "No"
+					},
+					"2999": {
+						"id": 2999,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Any work performed underground, above 15 feet, or do you utilize scaffolding?"
+			},
+			"1310": {
+				"answer": "No",
+				"answer_id": 3046,
+				"hidden": false,
+				"id": 1310,
+				"insurer_identifiers": {},
+				"insurers": [
+					"14-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3046": {
+						"id": 3046,
+						"default": true,
+						"answer": "No"
+					},
+					"3047": {
+						"id": 3047,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Have any operations been sold, acquired or discontinued in the last 5 years?"
+			},
+			"1312": {
+				"answer": "No",
+				"answer_id": 3050,
+				"hidden": false,
+				"id": 1312,
+				"insurer_identifiers": {},
+				"insurers": [
+					"14-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3050": {
+						"id": 3050,
+						"default": true,
+						"answer": "No"
+					},
+					"3051": {
+						"id": 3051,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "During the last five years, have you been indicted for or convicted of any degree of the crime of fraud, bribery, arson or any other arson-related crime?"
+			},
+			"1313": {
+				"answer": "No",
+				"answer_id": 3052,
+				"hidden": false,
+				"id": 1313,
+				"insurer_identifiers": {},
+				"insurers": [
+					"14-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3052": {
+						"id": 3052,
+						"default": true,
+						"answer": "No"
+					},
+					"3053": {
+						"id": 3053,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Are there any other business interests or activities of the named insured that are not identified or scheduled on this policy?"
+			},
+			"1314": {
+				"answer": "No",
+				"answer_id": 3054,
+				"hidden": false,
+				"id": 1314,
+				"insurer_identifiers": {},
+				"insurers": [
+					"14-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3054": {
+						"id": 3054,
+						"default": true,
+						"answer": "No"
+					},
+					"3055": {
+						"id": 3055,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Is there common ownership of all the entities included as named insureds on the application (i.e., the same legal entity has majority ownership in all the named insureds)?"
+			},
+			"1315": {
+				"answer": "No",
+				"answer_id": 3056,
+				"hidden": false,
+				"id": 1315,
+				"insurer_identifiers": {},
+				"insurers": [
+					"14-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3056": {
+						"id": 3056,
+						"answer": "No"
+					},
+					"3057": {
+						"id": 3057,
+						"default": true,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Was insurance coverage in force for the same exposures for the prior policy period?"
+			},
+			"1316": {
+				"answer": "No",
+				"answer_id": 3058,
+				"hidden": false,
+				"id": 1316,
+				"insurer_identifiers": {},
+				"insurers": [
+					"14-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3058": {
+						"id": 3058,
+						"default": true,
+						"answer": "No"
+					},
+					"3059": {
+						"id": 3059,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Are you currently insured in an assigned risk pool or a non-voluntary market?"
+			},
+			"1317": {
+				"answer": "No",
+				"answer_id": 3060,
+				"hidden": false,
+				"id": 1317,
+				"insurer_identifiers": {},
+				"insurers": [
+					"14-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3060": {
+						"id": 3060,
+						"default": true,
+						"answer": "No"
+					},
+					"3061": {
+						"id": 3061,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Do employees travel overnight?"
+			},
+			"1320": {
+				"answer": "No",
+				"answer_id": 3066,
+				"hidden": true,
+				"id": 1320,
+				"insurer_identifiers": {},
+				"insurers": [
+					"14-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3066": {
+						"id": 3066,
+						"default": true,
+						"answer": "No"
+					},
+					"3067": {
+						"id": 3067,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Is this policy written on a short term basis to have an expiration date concurrent with another policy?"
+			},
+			"1322": {
+				"answer": "Yes",
+				"answer_id": 3071,
+				"hidden": true,
+				"id": 1322,
+				"insurer_identifiers": {},
+				"insurers": [
+					"14-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3070": {
+						"id": 3070,
+						"answer": "No"
+					},
+					"3071": {
+						"id": 3071,
+						"default": true,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Does the owner carry their own health insurance coverage?"
+			},
+			"1324": {
+				"answer": "No",
+				"answer_id": 3074,
+				"hidden": false,
+				"id": 1324,
+				"insurer_identifiers": {},
+				"insurers": [
+					"14-WC"
+				],
+				"type": "Yes/No",
+				"parent": 1313,
+				"parent_answer": 3053,
+				"possible_answers": {
+					"3074": {
+						"id": 3074,
+						"default": true,
+						"answer": "No"
+					},
+					"3075": {
+						"id": 3075,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Is other business a separate legal entity insured elsewhere?"
+			},
+			"1325": {
+				"answer": "No",
+				"answer_id": 3076,
+				"hidden": false,
+				"id": 1325,
+				"insurer_identifiers": {},
+				"insurers": [
+					"14-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3076": {
+						"id": 3076,
+						"default": true,
+						"answer": "No"
+					},
+					"3077": {
+						"id": 3077,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Is the business an employee leasing, labor leasing, labor contractor, PEO, temporary worker staffing or employment agency firm?"
+			},
+			"1326": {
+				"answer": "No",
+				"answer_id": 3078,
+				"hidden": false,
+				"id": 1326,
+				"insurer_identifiers": {},
+				"insurers": [
+					"14-WC"
+				],
+				"type": "Yes/No",
+				"parent": 1317,
+				"parent_answer": 3061,
+				"possible_answers": {
+					"3078": {
+						"id": 3078,
+						"default": true,
+						"answer": "No"
+					},
+					"3079": {
+						"id": 3079,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Is any travel to foreign destinations?"
+			},
+			"1329": {
+				"answer": "No",
+				"answer_id": 3084,
+				"hidden": true,
+				"id": 1329,
+				"insurer_identifiers": {},
+				"insurers": [
+					"14-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3084": {
+						"id": 3084,
+						"default": true,
+						"answer": "No"
+					},
+					"3085": {
+						"id": 3085,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "In this state, WC coverage for Partners is excluded. Do any of the Partners elect to be included?"
+			},
+			"1330": {
+				"answer": "No",
+				"answer_id": 3086,
+				"hidden": true,
+				"id": 1330,
+				"insurer_identifiers": {},
+				"insurers": [
+					"14-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3086": {
+						"id": 3086,
+						"default": true,
+						"answer": "No"
+					},
+					"3087": {
+						"id": 3087,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Is the insured interested in deductible?"
+			},
+			"1334": {
+				"answer": "No",
+				"answer_id": 3094,
+				"hidden": false,
+				"id": 1334,
+				"insurer_identifiers": {},
+				"insurers": [
+					"14-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3094": {
+						"id": 3094,
+						"default": true,
+						"answer": "No"
+					},
+					"3095": {
+						"id": 3095,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Do 5 or more employees ever travel together?"
+			},
+			"1335": {
+				"answer": "No",
+				"answer_id": 3096,
+				"hidden": false,
+				"id": 1335,
+				"insurer_identifiers": {},
+				"insurers": [
+					"14-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3096": {
+						"id": 3096,
+						"default": true,
+						"answer": "No"
+					},
+					"3097": {
+						"id": 3097,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Do employees perform work for any business not owned or operated by you?"
+			},
+			"1337": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": false,
+				"id": 1337,
+				"insurer_identifiers": {},
+				"insurers": [
+					"14-WC"
+				],
+				"type": "Select List",
+				"parent": 989,
+				"parent_answer": 2541,
+				"possible_answers": {
+					"3100": {
+						"id": 3100,
+						"answer": "2 or more non-payments in the past 3 years"
+					},
+					"3101": {
+						"id": 3101,
+						"answer": "Carrier withdrew from a class or line of business"
+					},
+					"3102": {
+						"id": 3102,
+						"answer": "Carrier withdrew from a state"
+					},
+					"3103": {
+						"id": 3103,
+						"answer": "Termination of agency with carrier"
+					},
+					"3104": {
+						"id": 3104,
+						"answer": "Other"
+					},
+					"3105": {
+						"id": 3105,
+						"answer": "Loss Experience"
+					}
+				},
+				"required": false,
+				"text": "Have you been non-renewed or cancelled during the past three years for any of the following reasons?"
+			},
+			"1338": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": false,
+				"id": 1338,
+				"insurer_identifiers": {},
+				"insurers": [
+					"14-WC"
+				],
+				"type": "Text - Multiple Lines",
+				"parent": 1313,
+				"parent_answer": 3053,
+				"possible_answers": {},
+				"required": false,
+				"text": "Please provide details regarding other business interests or activities that are not insured"
+			},
+			"1339": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": false,
+				"id": 1339,
+				"insurer_identifiers": {},
+				"insurers": [
+					"14-WC"
+				],
+				"type": "Text - Multiple Lines",
+				"parent": 1315,
+				"parent_answer": 3057,
+				"possible_answers": {},
+				"required": false,
+				"text": "Please provide details of prior coverage"
+			},
+			"1340": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": false,
+				"id": 1340,
+				"insurer_identifiers": {},
+				"insurers": [
+					"14-WC"
+				],
+				"type": "Select List",
+				"parent": 1316,
+				"parent_answer": 3059,
+				"possible_answers": {
+					"3106": {
+						"id": 3106,
+						"answer": "New venture"
+					},
+					"3107": {
+						"id": 3107,
+						"answer": "Prior payment issues"
+					},
+					"3108": {
+						"id": 3108,
+						"answer": "High hazard operations"
+					},
+					"3109": {
+						"id": 3109,
+						"answer": "No prior coverage or a gap in coverage"
+					},
+					"3110": {
+						"id": 3110,
+						"answer": "Prior loss experience"
+					},
+					"3111": {
+						"id": 3111,
+						"answer": "Other"
+					}
+				},
+				"required": false,
+				"text": "Please select one of the following as to why you are insured in the assigned risk pool or a non-voluntary market."
+			},
+			"1341": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": false,
+				"id": 1341,
+				"insurer_identifiers": {},
+				"insurers": [
+					"14-WC"
+				],
+				"type": "Text - Multiple Lines",
+				"parent": 564,
+				"parent_answer": 1093,
+				"possible_answers": {},
+				"required": false,
+				"text": "Please provide details regarding the OSHA violations."
+			},
+			"1342": {
+				"answer": null,
+				"answer_id": 0,
+				"hidden": false,
+				"id": 1342,
+				"insurer_identifiers": {},
+				"insurers": [
+					"14-WC"
+				],
+				"type": "Text - Multiple Lines",
+				"parent": 1340,
+				"parent_answer": 3111,
+				"possible_answers": {},
+				"required": false,
+				"text": "Please provide details regarding the assigned risk pool or a non-voluntary market."
+			},
+			"1343": {
+				"answer": "No",
+				"answer_id": 3112,
+				"hidden": true,
+				"id": 1343,
+				"insurer_identifiers": {},
+				"insurers": [
+					"14-WC"
+				],
+				"type": "Yes/No",
+				"parent": 1320,
+				"parent_answer": 3067,
+				"possible_answers": {
+					"3112": {
+						"id": 3112,
+						"default": true,
+						"answer": "No"
+					},
+					"3113": {
+						"id": 3113,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Has this policy been aligned with your other account for billing purposes?"
+			},
+			"1398": {
+				"answer": "No",
+				"answer_id": 3211,
+				"hidden": false,
+				"id": 1398,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3211": {
+						"id": 3211,
+						"default": true,
+						"answer": "No"
+					},
+					"3212": {
+						"id": 3212,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Do any of the following apply to your operations: nuclear energy; railroads; underground mining; oil & gas drilling, refining, or manufacturing; commercial airlines; anything to do with fireworks, nitrogen-glycerin, or other explosive substances or devices; professional sports teams and/or professional athletes; ship building; Jones Act, Defense Base Act, Outer Continental Shelf Lands Act?"
+			},
+			"1399": {
+				"answer": "No",
+				"answer_id": 3213,
+				"hidden": true,
+				"id": 1399,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3213": {
+						"id": 3213,
+						"default": true,
+						"answer": "No"
+					},
+					"3214": {
+						"id": 3214,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Explosives manufacturers, haulers, or distributors?"
+			},
+			"1400": {
+				"answer": "No",
+				"answer_id": 3215,
+				"hidden": true,
+				"id": 1400,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3215": {
+						"id": 3215,
+						"default": true,
+						"answer": "No"
+					},
+					"3216": {
+						"id": 3216,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Jones Act, Defense Base Act, Outer Continental Shelf Lands Act?"
+			},
+			"1402": {
+				"answer": "No",
+				"answer_id": 3219,
+				"hidden": true,
+				"id": 1402,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3219": {
+						"id": 3219,
+						"default": true,
+						"answer": "No"
+					},
+					"3220": {
+						"id": 3220,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Railroads?"
+			},
+			"1403": {
+				"answer": "No",
+				"answer_id": 3221,
+				"hidden": true,
+				"id": 1403,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3221": {
+						"id": 3221,
+						"default": true,
+						"answer": "No"
+					},
+					"3222": {
+						"id": 3222,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Underground Mining?"
+			},
+			"1404": {
+				"answer": "No",
+				"answer_id": 3223,
+				"hidden": true,
+				"id": 1404,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3223": {
+						"id": 3223,
+						"default": true,
+						"answer": "No"
+					},
+					"3224": {
+						"id": 3224,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Oil and gas drilling, refining, or manufacturing?"
+			},
+			"1405": {
+				"answer": "No",
+				"answer_id": 3225,
+				"hidden": true,
+				"id": 1405,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3225": {
+						"id": 3225,
+						"default": true,
+						"answer": "No"
+					},
+					"3226": {
+						"id": 3226,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Commercial Airlines?"
+			},
+			"1406": {
+				"answer": "No",
+				"answer_id": 3227,
+				"hidden": true,
+				"id": 1406,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3227": {
+						"id": 3227,
+						"default": true,
+						"answer": "No"
+					},
+					"3228": {
+						"id": 3228,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Manufacturing, storage, or transportation of fireworks, nitrogen-glycerin, or other explosive substances or devices?"
+			},
+			"1407": {
+				"answer": "No",
+				"answer_id": 3229,
+				"hidden": true,
+				"id": 1407,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3229": {
+						"id": 3229,
+						"default": true,
+						"answer": "No"
+					},
+					"3230": {
+						"id": 3230,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Professional sports teams and/or professional athletes?"
+			},
+			"1409": {
+				"answer": "No",
+				"answer_id": 3233,
+				"hidden": true,
+				"id": 1409,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3233": {
+						"id": 3233,
+						"default": true,
+						"answer": "No"
+					},
+					"3234": {
+						"id": 3234,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Ship building?"
+			},
+			"1427": {
+				"answer": "Yes",
+				"answer_id": 3270,
+				"hidden": true,
+				"id": 1427,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3269": {
+						"id": 3269,
+						"answer": "No"
+					},
+					"3270": {
+						"id": 3270,
+						"default": true,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Are your employees U.S. Citizens, or do they have the legal right to remain and work in the U.S.?"
+			},
+			"1428": {
+				"answer": "No",
+				"answer_id": 3271,
+				"hidden": true,
+				"id": 1428,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3271": {
+						"id": 3271,
+						"default": true,
+						"answer": "No"
+					},
+					"3272": {
+						"id": 3272,
+						"answer": "Yes"
+					}
+				},
+				"required": false,
+				"text": "Does the risk wish to have a medical-benefits deductible quote?"
+			},
+			"1430": {
+				"answer": "No",
+				"answer_id": 3275,
+				"hidden": false,
+				"id": 1430,
+				"insurer_identifiers": {},
+				"insurers": [
+					"12-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3275": {
+						"id": 3275,
+						"answer": "No"
+					},
+					"3276": {
+						"id": 3276,
+						"default": true,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Does your business have any employees besides the owner or his/her relatives?"
+			},
+			"1659": {
+				"answer": "No",
+				"answer_id": 3713,
+				"hidden": false,
+				"id": 1659,
+				"insurer_identifiers": {},
+				"insurers": [
+					"1-WC"
+				],
+				"type": "Yes/No",
+				"parent": 0,
+				"parent_answer": 0,
+				"possible_answers": {
+					"3713": {
+						"id": 3713,
+						"default": true,
+						"answer": "No"
+					},
+					"3714": {
+						"id": 3714,
+						"answer": "Yes"
+					}
+				},
+				"required": true,
+				"text": "Applicant is a logistics, freight forwarder, is involved in the management/dispatching of vehicle, is a bail bondsman, municipality, licensed contractor, welfare organization, check cashing service, collection agency, or pari-mutuel betting organization."
+			}
+		},
+		"test": true
+	},
+	"industry_code": {},
+	"insurer": {
+		"id": 1,
+		"logo": "images/insurers/employers.png",
+		"name": "Employers",
+		"outage": false,
+		"packages": [],
+		"password": "buffer",
+		"payment_options": [
+			{
+				"description": "1 single payment covering the entire payment. Pros, you are done. One less thing to worry about. Cons, it could be a lot of money upfront.",
+				"id": 1,
+				"name": "Annual",
+				"threshold": 0
+			},
+			{
+				"description": "25% up front, then 3 more payments. Pros, even steady payments. Cons, have to remember to pay quarterly.",
+				"id": 3,
+				"name": "Quarterly",
+				"threshold": 1000
+			},
+			{
+				"description": "One payment now, 9 more to follow in the next 9 months. Pros, small payments, will have no payments the 2 months prior to the renewal of next years policy. Cons, need to remember to make these payments and put them in your monthly bills.",
+				"id": 4,
+				"name": "10 pay",
+				"threshold": 2500
+			}
+		],
+		"policy_types": [
+			"WC"
+		],
+		"rating": "A- (Excellent)",
+		"slug": "employers",
+		"state": 1,
+		"test_mode": 1,
+		"test_password": "buffer",
+		"test_username": "buffer",
+		"username": "buffer"
+	},
+	"insurer_wc_codes": {
+		"NV6190": "881015"
+	},
+	"grouped_activity_codes": [],
+	"limits": {},
+	"log": "",
+	"number": "",
+	"policy": {
+		"claims": [
+			0,
+			1,
+			2,
+			3,
+			4
+		],
+		"effective_date": "2020-03-05T00:00:00.000Z",
+		"expiration_date": "2021-03-05T00:00:00.000Z",
+		"insurers": [],
+		"limits": "1000000/1000000/1000000",
+		"json": "",
+		"type": "WC",
+		"gross_sales": 0,
+		"coverage_lapse_non_payment": null,
+		"deductible": 0,
+		"coverage_lapse": false
+	},
+	"questions": {
+		"624": {
+			"answer": "No",
+			"answer_id": 1209,
+			"hidden": true,
+			"id": 624,
+			"insurer_identifiers": {},
+			"insurers": [
+				"1-WC",
+				"12-WC"
+			],
+			"type": "Yes/No",
+			"parent": 969,
+			"parent_answer": 2512,
+			"possible_answers": {
+				"1208": {
+					"id": 1208,
+					"answer": "No"
+				},
+				"1209": {
+					"id": 1209,
+					"default": true,
+					"answer": "Yes"
+				}
+			},
+			"required": false,
+			"text": "Are Certificates of Insurance obtained when sub-contractors or independent contractors are used?"
+		},
+		"969": {
+			"answer": "No",
+			"answer_id": 2511,
+			"hidden": false,
+			"id": 969,
+			"insurer_identifiers": {},
+			"insurers": [
+				"12-WC",
+				"1-WC",
+				"3-WC"
+			],
+			"type": "Yes/No",
+			"parent": 0,
+			"parent_answer": 0,
+			"possible_answers": {
+				"2511": {
+					"id": 2511,
+					"answer": "No"
+				},
+				"2512": {
+					"id": 2512,
+					"answer": "Yes"
+				}
+			},
+			"required": true,
+			"text": "Does the Applicant engage sub-contractors or independent contractors?"
+		},
+		"975": {
+			"answer": "No",
+			"answer_id": 2520,
+			"hidden": false,
+			"id": 975,
+			"insurer_identifiers": {},
+			"insurers": [
+				"1-WC"
+			],
+			"type": "Yes/No",
+			"parent": 0,
+			"parent_answer": 0,
+			"possible_answers": {
+				"2520": {
+					"id": 2520,
+					"default": true,
+					"answer": "No"
+				},
+				"2521": {
+					"id": 2521,
+					"answer": "Yes"
+				}
+			},
+			"required": true,
+			"text": "Does the Applicant use motor vehicles for business purposes?"
+		},
+		"977": {
+			"answer": null,
+			"answer_id": 0,
+			"hidden": false,
+			"id": 977,
+			"insurer_identifiers": {},
+			"insurers": [
+				"1-WC"
+			],
+			"type": "Yes/No",
+			"parent": 975,
+			"parent_answer": 2521,
+			"possible_answers": {
+				"2524": {
+					"id": 2524,
+					"answer": "No"
+				},
+				"2525": {
+					"id": 2525,
+					"answer": "Yes"
+				}
+			},
+			"required": false,
+			"text": "Are Motor Vehicle Records checked?"
+		},
+		"979": {
+			"answer": "No",
+			"answer_id": 2528,
+			"hidden": false,
+			"id": 979,
+			"insurer_identifiers": {},
+			"insurers": [
+				"1-WC",
+				"3-WC",
+				"12-WC"
+			],
+			"type": "Yes/No",
+			"parent": 975,
+			"parent_answer": 2521,
+			"possible_answers": {
+				"2528": {
+					"id": 2528,
+					"default": true,
+					"answer": "No"
+				},
+				"2529": {
+					"id": 2529,
+					"answer": "Yes"
+				}
+			},
+			"required": false,
+			"text": "Does the Applicant provide group transportation, where five or more employees are in a vehicle at one time?"
+		},
+		"989": {
+			"answer": "No",
+			"answer_id": 2540,
+			"hidden": false,
+			"id": 989,
+			"insurer_identifiers": {},
+			"insurers": [
+				"12-WC",
+				"1-WC",
+				"3-WC",
+				"14-WC"
+			],
+			"type": "Yes/No",
+			"parent": 0,
+			"parent_answer": 0,
+			"possible_answers": {
+				"2540": {
+					"id": 2540,
+					"default": true,
+					"answer": "No"
+				},
+				"2541": {
+					"id": 2541,
+					"answer": "Yes"
+				}
+			},
+			"required": true,
+			"text": "Any prior coverage declined/cancelled/non-renewed in the last three (3) years?"
+		},
+		"992": {
+			"answer": "No",
+			"answer_id": 2544,
+			"hidden": false,
+			"id": 992,
+			"insurer_identifiers": {},
+			"insurers": [
+				"3-WC",
+				"1-WC",
+				"12-WC"
+			],
+			"type": "Yes/No",
+			"parent": 0,
+			"parent_answer": 0,
+			"possible_answers": {
+				"2544": {
+					"id": 2544,
+					"answer": "No"
+				},
+				"2545": {
+					"id": 2545,
+					"answer": "Yes"
+				}
+			},
+			"required": true,
+			"text": "Are employee health plans provided?"
+		},
+		"995": {
+			"answer": "No",
+			"answer_id": 2549,
+			"hidden": false,
+			"id": 995,
+			"insurer_identifiers": {},
+			"insurers": [
+				"3-WC",
+				"1-WC",
+				"12-WC"
+			],
+			"type": "Yes/No",
+			"parent": 0,
+			"parent_answer": 0,
+			"possible_answers": {
+				"2549": {
+					"id": 2549,
+					"default": true,
+					"answer": "No"
+				},
+				"2550": {
+					"id": 2550,
+					"answer": "Yes"
+				}
+			},
+			"required": true,
+			"text": "Do you lease employees to or from other employers?"
+		},
+		"997": {
+			"answer": "No",
+			"answer_id": 2551,
+			"hidden": false,
+			"id": 997,
+			"insurer_identifiers": {},
+			"insurers": [
+				"12-WC",
+				"14-WC",
+				"1-WC",
+				"3-WC"
+			],
+			"type": "Yes/No",
+			"parent": 0,
+			"parent_answer": 0,
+			"possible_answers": {
+				"2551": {
+					"id": 2551,
+					"default": true,
+					"answer": "No"
+				},
+				"2552": {
+					"id": 2552,
+					"answer": "Yes"
+				}
+			},
+			"required": true,
+			"text": "Does Applicant own, operate or lease aircraft/watercraft?"
+		},
+		"1659": {
+			"answer": "No",
+			"answer_id": 3713,
+			"hidden": false,
+			"id": 1659,
+			"insurer_identifiers": {},
+			"insurers": [
+				"1-WC"
+			],
+			"type": "Yes/No",
+			"parent": 0,
+			"parent_answer": 0,
+			"possible_answers": {
+				"3713": {
+					"id": 3713,
+					"default": true,
+					"answer": "No"
+				},
+				"3714": {
+					"id": 3714,
+					"answer": "Yes"
+				}
+			},
+			"required": true,
+			"text": "Applicant is a logistics, freight forwarder, is involved in the management/dispatching of vehicle, is a bail bondsman, municipality, licensed contractor, welfare organization, check cashing service, collection agency, or pari-mutuel betting organization."
+		}
+	},
+	"question_identifiers": {
+		"624": "BOP40",
+		"969": "WORK06",
+		"975": "WORK11",
+		"977": "WORK11RecReview",
+		"979": "WORK11FiveEmp",
+		"989": "GENRL06",
+		"992": "WORK08",
+		"995": "CGL04",
+		"997": "WORK07",
+		"1659": "EMPCO-3002"
+	},
+	"question_details": {
+		"624": {
+			"attributes": "",
+			"identifier": "BOP40",
+			"universal": 1
+		},
+		"969": {
+			"attributes": "",
+			"identifier": "WORK06",
+			"universal": 1
+		},
+		"975": {
+			"attributes": "",
+			"identifier": "WORK11",
+			"universal": 1
+		},
+		"977": {
+			"attributes": "",
+			"identifier": "WORK11RecReview",
+			"universal": 1
+		},
+		"979": {
+			"attributes": "",
+			"identifier": "WORK11FiveEmp",
+			"universal": 1
+		},
+		"989": {
+			"attributes": "",
+			"identifier": "GENRL06",
+			"universal": 1
+		},
+		"992": {
+			"attributes": "",
+			"identifier": "WORK08",
+			"universal": 1
+		},
+		"995": {
+			"attributes": "",
+			"identifier": "CGL04",
+			"universal": 1
+		},
+		"997": {
+			"attributes": "",
+			"identifier": "WORK07",
+			"universal": 1
+		},
+		"1659": {
+			"attributes": "",
+			"identifier": "EMPCO-3002",
+			"universal": 0
+		}
+	},
+	"seconds": 0,
+	"universal_questions": [
+		624,
+		995,
+		989,
+		969,
+		997,
+		992,
+		975,
+		979,
+		977,
+		624,
+		995,
+		989,
+		969,
+		997,
+		992,
+		975,
+		979,
+		977
+	],
+	"writer": "",
+	"possible_api_responses": {
+		"DECLINE": "declined",
+		"INPROGRESS": "referred",
+		"PENDING_REFER": "referred_with_price",
+		"QUICKDECLINE": "declined",
+		"QUOTED": "quoted",
+		"REFER": "referred",
+		"RISKRESVDECLINE": "declined"
+	},
+	"amount": 0,
+	"policy_info": {},
+	"reasons": [],
+	"password": "6e4fe5b9-c2ed-4286-a1ce-66ca49d4d379",
+	"username": "TALAGE",
+	"request_id": "1563fc6e-2f3a-48e2-b01e-e169365b1061",
+	"request_date": "2020-03-02",
+	"business_contact_phone": [
+		"7752870772"
+	],
+	"entity_code": "LL",
+	"claims_by_year": [
+		{
+			"amount_paid": 0,
+			"amount_reserved": 0,
+			"count": 0
+		},
+		{
+			"amount_paid": 10,
+			"amount_reserved": 0,
+			"count": 1
+		},
+		{
+			"amount_paid": 20,
+			"amount_reserved": 0,
+			"count": 1
+		},
+		{
+			"amount_paid": 30,
+			"amount_reserved": 0,
+			"count": 1
+		},
+		{
+			"amount_paid": 40,
+			"amount_reserved": 0,
+			"count": 1
+		}
+	],
+	"bestLimits": [
+		1000000,
+		1000000,
+		1000000
+	]
+}

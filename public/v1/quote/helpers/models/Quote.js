@@ -55,7 +55,7 @@ module.exports = class Quote {
 			}
 
 			// Check that an integration file exists for this insurer and store a reference to it for later use
-			const path = require('path').join(__dirname, `/../integrations/${this.insurer.slug}/${this.policy.type.toLowerCase()}.js`);
+			const path = `${__dirname}/helpers/integrations/${this.insurer.slug}/${this.policy.type.toLowerCase()}.js`;
 			if (fs.existsSync(path)) {
 
 				// Create an instance of the Integration class

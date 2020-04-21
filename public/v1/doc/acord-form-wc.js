@@ -283,22 +283,22 @@ async function GetACORDFormWC(req, res, next) {
 
 	const img = [{
 		'height': 792,
-		'image': '/home/node/img/acord_form_wc_page1.jpg',
+		'image': `${__dirname}/helpers/img/acord_form_wc_page1.jpg`,
 		'width': 612
 	},
 	{
 		'height': 792,
-		'image': '/home/node/img/acord_form_wc_page2.jpg',
+		'image': `${__dirname}/helpers/img/acord_form_wc_page2.jpg`,
 		'width': 612
 	},
 	{
 		'height': 792,
-		'image': '/home/node/img/acord_form_wc_page3.jpg',
+		'image': `${__dirname}/helpers/img/acord_form_wc_page3.jpg`,
 		'width': 612
 	},
 	{
 		'height': 792,
-		'image': '/home/node/img/acord_form_wc_page4.jpg',
+		'image': `${__dirname}/helpers/img/acord_form_wc_page4.jpg`,
 		'width': 612
 	}];
 

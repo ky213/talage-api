@@ -9,6 +9,7 @@ const logger = require('./shared/services/logger.js');
 const db = require('./shared/services/db.js');
 const s3 = require('./shared/services/s3.js');
 const globalSettings = require('./settings.js');
+const version = require('./version.js');
 
 /**
  * Callbacks used by the server to log access and errors
@@ -35,6 +36,12 @@ async function Main() {
 	console.log(colors.green.bold('Initializing'));
 	console.log(colors.green.bold('-'.padEnd(80, '-')));
 
+	// Initialize the version
+	if (!await version.Initialize()) {
+		LogLocalErrorMessage('Error initializing version. Stopping.');
+		return;
+	}
+
 	// Load the settings from a .env file
 	if (!await globalSettings.Load()) {
 		LogLocalErrorMessage('Error loading variables. Stopping.');
@@ -58,9 +65,6 @@ async function Main() {
 		LogLocalErrorMessage('Error connecting to S3. Stopping.');
 		return;
 	}
-
-	// Determine the version number
-	global.version = '1.0.0'; //requireShared('./helpers/version.js')();
 
 	// Load the database module and make it globally available
 	global.db = requireShared('./services/db.js');

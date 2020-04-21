@@ -72,7 +72,7 @@ async function PostEmail(req, res, next) {
 	}
 
 	// Make sure we have a template for this system
-	const template = `/home/node/app/templates/${system}.html`;
+	const template = `${__dirname}/helpers/templates/${system}.html`;
 	if (!fs.existsSync(template)) {
 		const message = 'There is no email template setup for the specified system.';
 		log.error(message);
