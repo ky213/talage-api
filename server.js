@@ -132,7 +132,7 @@ global.ServerInternalError = (message) => {
 	return new RestifyError.InternalServerError(message);
 }
 
-global.ServerBadInvalidCredentialsError = (message) => {
+global.ServerInvalidCredentialsError = (message) => {
 	return new RestifyError.InvalidCredentialsError(message);
 }
 
