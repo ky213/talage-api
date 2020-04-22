@@ -10,6 +10,7 @@ const db = require('./shared/services/db.js');
 const s3 = require('./shared/services/s3.js');
 const globalSettings = require('./settings.js');
 const version = require('./version.js');
+const tracker = require('./tracker.js');
 
 /**
  * Callbacks used by the server to log access and errors
