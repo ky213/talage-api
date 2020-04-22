@@ -8,6 +8,7 @@ const jwt = require('restify-jwt-community');
 const auth = require('./public/v1/wheelhouse/helpers/auth.js');
 const moment = require('moment');
 const util = require('util');
+const socketIO = require('socket.io');
 
 let server = null;
 
@@ -120,6 +121,34 @@ function ValidateJWT(nextCall) {
 }
 
 /**
+ * Report errors
+ */
+
+global.ServerRequestError = (message) => {
+	return new RestifyError.BadRequestError(message);
+};
+
+global.ServerInternalError = (message) => {
+	return new RestifyError.InternalServerError(message);
+}
+
+global.ServerBadInvalidCredentialsError = (message) => {
+	return new RestifyError.InvalidCredentialsError(message);
+}
+
+global.ServerForbiddenError = (message) => {
+	return new RestifyError.ForbiddenError(message);
+}
+
+global.ServerNotFoundError = (message) => {
+	return new RestifyError.NotFoundError(message);
+}
+
+global.ServerNotAuthorizedError = (message) => {
+	return new RestifyError.NotAuthorizedError(message);
+}
+
+/**
  * Add endpoints
  */
 
@@ -159,30 +188,27 @@ global.ServerAddDeleteAuth = (name, path, handler) => {
 	server.del({ name, path }, ProcessJWT(), ValidateJWT(handler));
 }
 
-/**
- * Report errors
- */
+global.ServerAddSocket = (name, path, connectHandler) => {
+	const io = socketIO(server.server, { 'path': path });
 
-global.ServerRequestError = (message) => {
-	return new RestifyError.BadRequestError(message);
-};
+	// Force authentication on Socket.io connections
+	io.use(function (socket, next) {
+		if (socket.handshake.query && socket.handshake.query.token) {
+			jwt.verify(socket.handshake.query.token, settings.AUTH_SECRET_KEY, function (err) {
+				if (err) {
+					return next(new Error('Invalid authentication token'));
+				}
+				next();
+			});
+		} else {
+			return next(new Error('An authentication token must be provided'));
+		}
+	});
 
-global.ServerInternalError = (message) => {
-	return new RestifyError.InternalServerError(message);
+	// Handle Socket.io connections
+	io.on('connection', connectHandler);
 }
 
-global.ServerBadInvalidCredentialsError = (message) => {
-	return new RestifyError.InvalidCredentialsError(message);
-}
 
-global.ServerForbiddenError = (message) => {
-	return new RestifyError.ForbiddenError(message);
-}
 
-global.ServerNotFoundError = (message) => {
-	return new RestifyError.NotFoundError(message);
-}
 
-global.ServerNotAuthorizedError = (message) => {
-	return new RestifyError.NotAuthorizedError(message);
-}

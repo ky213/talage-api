@@ -30,6 +30,7 @@ exports.RegisterEndpoints = (server) => {
 	// quote
 	RegisterEndpoint(server, 'quote', 'application');
 	RegisterEndpoint(server, 'quote', 'bind');
+	RegisterEndpoint(server, 'quote', 'quotes');
 
 	// wheelhouse
 	RegisterEndpoint(server, 'wheelhouse', 'account');

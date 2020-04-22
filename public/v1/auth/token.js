@@ -98,7 +98,6 @@ async function GetToken(req, res, next) {
 	const token = `Bearer ${jwt.sign(payload, settings.AUTH_SECRET_KEY, {
 		'expiresIn': '1h'
 	})}`;
-	log.info('Token Created');
 	res.send(201, {
 		'status': 'Created',
 		token
