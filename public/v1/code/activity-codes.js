@@ -70,7 +70,7 @@ const GetActivityCodes = wrap(async (req, res, next) => {
 	const codes = await db.query(sql_all_activity_codes).catch(function (e) {
 		log.error(e.message);
 		res.send(500, {
-			'message': 'Internal Server Error',
+			'message': 'Internal server. Error',
 			'status': 'error'
 		});
 		error = true;
@@ -101,7 +101,7 @@ const GetActivityCodes = wrap(async (req, res, next) => {
 });
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddGet('Get Activity Codes', basePath + '/activity-codes', GetActivityCodes);
-	ServerAddGet('Get Activity Codes (depr)', basePath + '/activity_codes', GetActivityCodes);
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddGet('Get Activity Codes', basePath + '/activity-codes', GetActivityCodes);
+	server.AddGet('Get Activity Codes (depr)', basePath + '/activity_codes', GetActivityCodes);
 };

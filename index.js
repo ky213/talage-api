@@ -11,6 +11,7 @@ const s3 = require('./shared/services/s3.js');
 const globalSettings = require('./settings.js');
 const version = require('./version.js');
 const tracker = require('./tracker.js');
+const server = require('./server.js');
 
 /**
  * Callbacks used by the server to log access and errors
@@ -70,24 +71,21 @@ async function Main() {
 	// Load the database module and make it globally available
 	global.db = requireShared('./services/db.js');
 
-	// Load the server methods into the global namespace
-	require('./server.js');
-
 	// Configure the server and register endpoints
 	const isDevelopment = settings.ENV === 'development';
 
 	// Create the public server
-	if (!await CreateServer('0.0.0.0', settings.PUBLIC_API_PORT, 'public', true, isDevelopment, LogInfoMessage, LogErrorMessage)) {
+	if (!await server.Create('0.0.0.0', settings.PUBLIC_API_PORT, 'public', true, isDevelopment, LogInfoMessage, LogErrorMessage)) {
 		LogLocalErrorMessage('Error starting public server. Stopping.');
 		return;
 	}
 	// Create the uptime server
-	if (!await CreateServer('0.0.0.0', settings.UPTIME_PORT, 'uptime', false, isDevelopment, LogInfoMessage, LogErrorMessage)) {
+	if (!await server.Create('0.0.0.0', settings.UPTIME_PORT, 'uptime', false, isDevelopment, LogInfoMessage, LogErrorMessage)) {
 		LogLocalErrorMessage('Error starting uptime server. Stopping.');
 		return;
 	}
 	// Create the private server
-	if (!await CreateServer('0.0.0.0', settings.PRIVATE_API_PORT, 'private', false, isDevelopment, LogInfoMessage, LogErrorMessage)) {
+	if (!await server.Create('0.0.0.0', settings.PRIVATE_API_PORT, 'private', false, isDevelopment, LogInfoMessage, LogErrorMessage)) {
 		LogLocalErrorMessage('Error starting private server. Stopping.');
 		return;
 	}

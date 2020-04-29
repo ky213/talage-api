@@ -1,5 +1,7 @@
 'use strict';
+
 const validator = requireShared('./helpers/validator.js');
+const serverHelper = require('../../../server.js');
 
 /**
  * Responds to get requests for the certificate endpoint
@@ -14,19 +16,19 @@ async function GetActivities(req, res, next) {
 	// Check for data
 	if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
 		log.info('Bad Request: No data received');
-		return next(ServerRequestError('Bad Request: No data received'));
+		return next(serverHelper.RequestError('Bad Request: No data received'));
 	}
 
 	// Make sure basic elements are present
 	if (!req.query.address_id) {
 		log.info('Bad Request: Missing Address ID');
-		return next(ServerRequestError('Bad Request: You must supply an Address ID'));
+		return next(serverHelper.RequestError('Bad Request: You must supply an Address ID'));
 	}
 
 	// Validate the application ID
 	if (!await validator.is_valid_id(req.query.address_id)) {
 		log.info('Bad Request: Invalid address id');
-		return next(ServerRequestError('Invalid address id'));
+		return next(serverHelper.RequestError('Invalid address id'));
 	}
 
 	const sql = `
@@ -39,12 +41,13 @@ async function GetActivities(req, res, next) {
 
 	const activity_data = await db.query(sql).catch(function (err) {
 		log.error(err.message);
-		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	res.send(200, { 'activities': activity_data });
+	return next();
 }
 
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddGetAuth('Get activities', basePath + '/activities', GetActivities);
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddGetAuth('Get activities', basePath + '/activities', GetActivities);
 };

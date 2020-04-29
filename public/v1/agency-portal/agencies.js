@@ -1,6 +1,7 @@
 'use strict';
 
 const auth = require('./helpers/auth.js');
+const serverHelper = require('../../../server.js');
 
 /**
  * Responds to get requests for the applications endpoint
@@ -25,7 +26,7 @@ async function GetAgencies(req, res, next) {
 	// Make sure we got agents
 	if (!agents.length) {
 		log.info('Bad Request: No agencies permitted');
-		return next(ServerRequestError('Bad Request: No agencies permitted'));
+		return next(serverHelper.RequestError('Bad Request: No agencies permitted'));
 	}
 
 	// Define a query to get a list of agencies
@@ -46,7 +47,7 @@ async function GetAgencies(req, res, next) {
 	// Get the agencies from the database
 	const retAgencies = await db.query(agenciesSQL).catch(function (err) {
 		log.error(err.message);
-		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Return the response
@@ -54,6 +55,6 @@ async function GetAgencies(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddGetAuth('Get agencies', basePath + '/agencies', GetAgencies);
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddGetAuth('Get agencies', basePath + '/agencies', GetAgencies);
 };

@@ -1,6 +1,8 @@
 'use strict';
+
 const crypt = requireShared('./services/crypt.js');
 const validator = requireShared('./helpers/validator.js');
+const serverHelper = require('../../../server.js');
 
 /**
  * Responds to GET requests for account information
@@ -18,7 +20,7 @@ async function GetAccount(req, res, next) {
 
 	let account_data = await db.query(account_sql).catch(function (err) {
 		log.error(err.message);
-		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// There will only ever be one result
@@ -32,7 +34,7 @@ async function GetAccount(req, res, next) {
 
 	const timezones = await db.query(timezone_sql).catch(function (err) {
 		log.error(err.message);
-		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	res.send(200, {
@@ -55,7 +57,7 @@ async function PutAccount(req, res, next) {
 	// Check for data
 	if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
 		log.warn('No data was received');
-		return next(ServerRequestError('No data was received'));
+		return next(serverHelper.RequestError('No data was received'));
 	}
 
 	// Establish some variables
@@ -70,7 +72,7 @@ async function PutAccount(req, res, next) {
 			email = await crypt.encrypt(req.body.email);
 		} else {
 			log.warn('Email does not meet requirements');
-			return next(ServerRequestError('Email could not be validated'));
+			return next(serverHelper.RequestError('Email could not be validated'));
 		}
 	}
 
@@ -81,7 +83,7 @@ async function PutAccount(req, res, next) {
 			password = await crypt.hashPassword(req.body.password);
 		} else {
 			log.warn('Password does not meet requirements');
-			return next(ServerRequestError('Password does not meet the complexity requirements. It must be at least 8 characters and contain one uppercase letter, one lowercase letter, one number, and one special character'));
+			return next(serverHelper.RequestError('Password does not meet the complexity requirements. It must be at least 8 characters and contain one uppercase letter, one lowercase letter, one number, and one special character'));
 		}
 	}
 
@@ -91,14 +93,14 @@ async function PutAccount(req, res, next) {
 			timezone = req.body.timezone;
 		} else {
 			log.warn('Timezone is not an int');
-			return next(ServerRequestError('Timezone could not be validated'));
+			return next(serverHelper.RequestError('Timezone could not be validated'));
 		}
 	}
 
 	// Do we have something to update?
 	if (!email && !password && !timezone) {
 		log.warn('There is nothing to update');
-		return next(ServerRequestError('There is nothing to update. Please check the documentation.'));
+		return next(serverHelper.RequestError('There is nothing to update. Please check the documentation.'));
 	}
 
 	// Compile the set statements for the update query
@@ -118,7 +120,7 @@ async function PutAccount(req, res, next) {
 	const sql = `UPDATE \`#__agency_portal_users\` SET ${set_statements.join(', ')} WHERE id = ${db.escape(req.authentication.userID)} LIMIT 1;`;
 	await db.query(sql).catch(function (err) {
 		log.error(err.message);
-		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Everything went okay, send a success response
@@ -126,7 +128,7 @@ async function PutAccount(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddGetAuth('Get account', basePath + '/account', GetAccount);
-	ServerAddPutAuth('Update account', basePath + '/account', PutAccount);
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddGetAuth('Get account', basePath + '/account', GetAccount);
+	server.AddPutAuth('Update account', basePath + '/account', PutAccount);
 };

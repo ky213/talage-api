@@ -21,7 +21,7 @@ async function GetIndustryCodes(req, res, next) {
 	const codes = await db.query(sql_all_industry_codes).catch(function (e) {
 		log.warn(e.message);
 		res.send(500, {
-			'message': 'Internal Server Error',
+			'message': 'Internal server. Error',
 			'status': 'error'
 		});
 		error = true;
@@ -56,7 +56,7 @@ async function GetIndustryCodes(req, res, next) {
 }
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddGet('Get All Industry Codes', basePath + '/industry-codes', GetIndustryCodes);
-	ServerAddGet('Get All Industry Codes (depr)', basePath + '/industry_codes', GetIndustryCodes);
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddGet('Get All Industry Codes', basePath + '/industry-codes', GetIndustryCodes);
+	server.AddGet('Get All Industry Codes (depr)', basePath + '/industry_codes', GetIndustryCodes);
 };

@@ -5,7 +5,7 @@
 'use strict';
 
 const ActivityCode = require('./ActivityCode.js');
-const RestifyError = require('restify-errors');
+const serverHelper = require('../../../../../server.js');
 
 module.exports = class Location {
 
@@ -97,11 +97,11 @@ module.exports = class Location {
 			if (this.address) {
 				// Check for maximum length
 				if (this.address.length > 100) {
-					reject(ServerRequestError('Address exceeds maximum of 100 characters'));
+					reject(serverHelper.RequestError('Address exceeds maximum of 100 characters'));
 					return;
 				}
 			} else {
-				reject(ServerRequestError('Missing required field: address'));
+				reject(serverHelper.RequestError('Missing required field: address'));
 				return;
 			}
 
@@ -109,7 +109,7 @@ module.exports = class Location {
 			if (this.address2) {
 				// Check for maximum length
 				if (this.address2.length > 20) {
-					reject(ServerRequestError('Address exceeds maximum of 20 characters'));
+					reject(serverHelper.RequestError('Address exceeds maximum of 20 characters'));
 					return;
 				}
 			}
@@ -125,7 +125,7 @@ module.exports = class Location {
 						reject(error);
 					});
 				} else {
-					reject(ServerRequestError('At least 1 class code must be provided per location'));
+					reject(serverHelper.RequestError('At least 1 class code must be provided per location'));
 					return;
 				}
 			}
@@ -139,14 +139,14 @@ module.exports = class Location {
 				} else if (this.app.business.entity_type === 'Sole Proprietorship' && validator.ssn(this.identification_number)) {
 					this.identification_number_type = 'SSN';
 				} else {
-					reject(ServerRequestError('Invalid formatting for property: identification number.'));
+					reject(serverHelper.RequestError('Invalid formatting for property: identification number.'));
 					return;
 				}
 
 				// Strip out the slashes, insurers don't like slashes
 				this.identification_number = this.identification_number.replace(/-/g, '');
 			} else {
-				reject(ServerRequestError('Identification Number is required'));
+				reject(serverHelper.RequestError('Identification Number is required'));
 				return;
 			}
 
@@ -157,7 +157,7 @@ module.exports = class Location {
 			 * - <= 99,999
 			 */
 			if (isNaN(this.full_time_employees) || this.full_time_employees < 0 || this.full_time_employees > 255) {
-				reject(ServerRequestError('full_time_employees must be an integer between 0 and 255 inclusive'));
+				reject(serverHelper.RequestError('full_time_employees must be an integer between 0 and 255 inclusive'));
 				return;
 			}
 
@@ -168,7 +168,7 @@ module.exports = class Location {
 			 * - <= 99,999
 			 */
 			if (isNaN(this.part_time_employees) || this.part_time_employees < 0 || this.part_time_employees > 255) {
-				reject(ServerRequestError('part_time_employees must be an integer between 0 and 255 inclusive'));
+				reject(serverHelper.RequestError('part_time_employees must be an integer between 0 and 255 inclusive'));
 				return;
 			}
 
@@ -181,14 +181,14 @@ module.exports = class Location {
 			 */
 			if (this.app.has_policy_type('BOP')) {
 				if (!validator.isSqFtg(this.square_footage) || this.square_footage < 100 || this.square_footage > 99999) {
-					return reject(ServerRequestError('square_footage must be an integer between 100 and 99,999 inclusive'));
+					return reject(serverHelper.RequestError('square_footage must be an integer between 100 and 99,999 inclusive'));
 				}
 			}
 
 			// Validate zip
 			if (this.zip) {
 				if (!validator.isZip(this.zip)) {
-					reject(ServerRequestError('Invalid formatting for property: zip. Expected 5 digit format'));
+					reject(serverHelper.RequestError('Invalid formatting for property: zip. Expected 5 digit format'));
 					return;
 				}
 
@@ -198,14 +198,14 @@ module.exports = class Location {
 						this.city = row[0].city;
 						this.territory = row[0].territory;
 					} else {
-						reject(ServerRequestError('The zip code you entered is not valid'));
+						reject(serverHelper.RequestError('The zip code you entered is not valid'));
 					}
 				}).catch(function (error) {
 					log.warn(error);
-					reject(ServerRequestError('The zip code you entered is not valid'));
+					reject(serverHelper.RequestError('The zip code you entered is not valid'));
 				});
 			} else {
-				reject(ServerRequestError('Missing required field: zip'));
+				reject(serverHelper.RequestError('Missing required field: zip'));
 				return;
 			}
 
@@ -225,16 +225,16 @@ module.exports = class Location {
 				// Check if an unemployment number is required
 				if (unemployment_number_states.includes(this.territory)) {
 					if (this.unemployment_number === 0) {
-						reject(ServerRequestError(`Unemployment Number is required for all locations in ${unemployment_number_states.join(', ')}`));
+						reject(serverHelper.RequestError(`Unemployment Number is required for all locations in ${unemployment_number_states.join(', ')}`));
 						return;
 					}
 					if (!Number.isInteger(this.unemployment_number)) {
-						reject(ServerRequestError('Unemployment Number must be an integer'));
+						reject(serverHelper.RequestError('Unemployment Number must be an integer'));
 						return;
 					}
 				} else {
 					if (this.territory === 'MI' && this.unemployment_number && !Number.isInteger(this.unemployment_number)) {
-						reject(ServerRequestError('Unemployment Number must be an integer'));
+						reject(serverHelper.RequestError('Unemployment Number must be an integer'));
 						return;
 					}
 					this.unemployment_number = 0;

@@ -4,9 +4,9 @@ const apiVersion = 'v1';
 
 function RegisterEndpoint(server, namespace, endpointName) {
 	if (namespace != null) {
-		require(`./${namespace}/${endpointName}.js`).RegisterEndpoint(`/${apiVersion}/${namespace}`, server);
+		require(`./${namespace}/${endpointName}.js`).RegisterEndpoint(server, `/${apiVersion}/${namespace}`);
 	} else {
-		require(`./${endpointName}.js`).RegisterEndpoint(`/${apiVersion}`, server);
+		require(`./${endpointName}.js`).RegisterEndpoint(server, `/${apiVersion}`);
 	}
 }
 

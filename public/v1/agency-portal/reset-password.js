@@ -1,7 +1,9 @@
 'use strict';
+
 const crypt = requireShared('./services/crypt.js');
 const jwt = require('jsonwebtoken');
 const request = require('request');
+const serverHelper = require('../../../server.js');
 
 /**
  * Returns a limited life JWT for restting a user's password
@@ -18,13 +20,13 @@ async function PostResetPassword(req, res, next) {
 	// Check for data
 	if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
 		log.info('Bad Request: Missing both email and password');
-		return next(ServerRequestError('You must supply an email address and password'));
+		return next(serverHelper.RequestError('You must supply an email address and password'));
 	}
 
 	// Make sure an email was provided
 	if (!req.body.email) {
 		log.info('Missing email');
-		res.send(400, ServerRequestError('Email address is required'));
+		res.send(400, serverHelper.RequestError('Email address is required'));
 		return next();
 	}
 
@@ -38,7 +40,7 @@ async function PostResetPassword(req, res, next) {
 		`;
 	const result = await db.query(agentSQL).catch(function (e) {
 		log.error(e.message);
-		res.send(500, ServerInternalError('Error querying database. Check logs.'));
+		res.send(500, serverHelper.InternalServerError('Error querying database. Check logs.'));
 		error = true;
 	});
 	if (error) {
@@ -82,7 +84,7 @@ async function PostResetPassword(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddPost('Reset Password', basePath + '/reset-password', PostResetPassword);
-	ServerAddPost('Reset Password (depr)', basePath + '/resetPassword', PostResetPassword);
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddPost('Reset Password', basePath + '/reset-password', PostResetPassword);
+	server.AddPost('Reset Password (depr)', basePath + '/resetPassword', PostResetPassword);
 };

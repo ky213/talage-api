@@ -1,5 +1,7 @@
 'use strict';
+
 const auth = require('./helpers/auth.js');
+const serverHelper = require('../../../server.js');
 
 /**
  * Define some helper functions -- better documentation coming soon (Josh)
@@ -79,7 +81,7 @@ async function GetReports(req, res, next) {
 			endDate = db.escape(`${endDate.substring(0, 10)} ${endDate.substring(11, 19)}`);
 		} else {
 			log.info('Bad Request: Query parameters missing');
-			return next(ServerRequestError('Query parameters missing'));
+			return next(serverHelper.RequestError('Query parameters missing'));
 		}
 	}
 
@@ -189,7 +191,7 @@ async function GetReports(req, res, next) {
 		// Query the database and wait for a result
 		const result = await db.query(queries[queryName]).catch((err) => {
 			log.error(err.message);
-			return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		});
 
 		// Names of reports that should be handled by the singleRowResult helper method
@@ -261,6 +263,6 @@ async function GetReports(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddGetAuth('Get reports', basePath + '/reports', GetReports);
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddGetAuth('Get reports', basePath + '/reports', GetReports);
 };

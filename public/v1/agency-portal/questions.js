@@ -1,5 +1,7 @@
 'use strict';
+
 const validator = requireShared('./helpers/validator.js');
+const serverHelper = require('../../../server.js');
 
 /**
  * A function to get the answer from a question
@@ -29,19 +31,19 @@ async function GetQuestions(req, res, next) {
 	// Check for data
 	if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
 		log.info('Bad Request: No data received');
-		return next(ServerRequestError('Bad Request: No data received'));
+		return next(serverHelper.RequestError('Bad Request: No data received'));
 	}
 
 	// Make sure basic elements are present
 	if (!req.query.application_id) {
 		log.info('Bad Request: Missing Application ID');
-		return next(ServerRequestError('Bad Request: You must supply an application ID'));
+		return next(serverHelper.RequestError('Bad Request: You must supply an application ID'));
 	}
 
 	// Validate the application ID
 	if (!await validator.is_valid_id(req.query.application_id)) {
 		log.info('Bad Request: Invalid application id');
-		return next(ServerRequestError('Invalid application id'));
+		return next(serverHelper.RequestError('Invalid application id'));
 	}
 
 	const sql = `SELECT qa.answer, aq.text_answer, tq.id, tq.type, tq.parent, tq.parent_answer, tq.sub_level, tq.question
@@ -53,7 +55,7 @@ async function GetQuestions(req, res, next) {
 
 	const rawQuestionData = await db.query(sql).catch(function (err) {
 		log.error(err.message);
-		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 
@@ -107,10 +109,10 @@ async function GetQuestions(req, res, next) {
 		}
 	});
 
-
 	res.send(200, { 'questions': dependencyList });
+	return next();
 }
 
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddGetAuth('Get questions', basePath + '/questions', GetQuestions);
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddGetAuth('Get questions', basePath + '/questions', GetQuestions);
 };

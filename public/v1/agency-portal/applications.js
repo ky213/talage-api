@@ -3,6 +3,7 @@ const moment = require('moment');
 const sha1 = require('sha1');
 const crypt = requireShared('./services/crypt.js');
 const auth = require('./helpers/auth.js');
+const serverHelper = require('../../../server.js');
 
 const salt = '3h42kize0loh16ke3otxfebkq5rqp91y6uj9jmg751r9ees97l61ycodwbw74o3o';
 
@@ -100,7 +101,7 @@ async function PostApplications(req, res, next) {
 
 	// Validate the parameters
 	if (!validateParameters(req.params, expectedParameters)) {
-		return next(ServerRequestError('Bad Request: missing expected parameter'));
+		return next(serverHelper.RequestError('Bad Request: missing expected parameter'));
 	}
 	// All parameters and their values have been validated at this point -SF
 
@@ -120,7 +121,7 @@ async function PostApplications(req, res, next) {
 	// Make sure we got agents
 	if (!agents.length) {
 		log.info('Bad Request: No agencies permitted');
-		return next(ServerRequestError('Bad Request: No agencies permitted'));
+		return next(serverHelper.RequestError('Bad Request: No agencies permitted'));
 	}
 
 	// Localize data variables that the user is permitted to access
@@ -149,7 +150,7 @@ async function PostApplications(req, res, next) {
 		applicationsTotalCount = (await db.query(applicationsTotalCountSQL))[0].count;
 	} catch (err) {
 		log.error(err.message);
-		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	}
 
 	/*
@@ -221,7 +222,7 @@ async function PostApplications(req, res, next) {
 		applicationsSearchCount = (await db.query(applicationsSearchCountSQL))[0].count;
 	} catch (err) {
 		log.error(err.message);
-		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	}
 
 	/*
@@ -251,7 +252,7 @@ async function PostApplications(req, res, next) {
 		applications = await db.query(applicationsSQL);
 	} catch (err) {
 		log.error(err.message);
-		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	}
 
 	// Exit with default values if no applications were received
@@ -297,6 +298,6 @@ async function PostApplications(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddPostAuth('Get applications', basePath + '/applications', PostApplications);
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddPostAuth('Get applications', basePath + '/applications', PostApplications);
 };

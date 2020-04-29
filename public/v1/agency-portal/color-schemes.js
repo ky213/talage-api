@@ -1,5 +1,7 @@
 'use strict';
 
+const serverHelper = require('../../../server.js');
+
 /**
  * Retrieves available color schemes
  *
@@ -25,7 +27,7 @@ async function GetColorSchemes(req, res, next) {
 	// Run the query
 	const colorSchemes = await db.query(colorSchemesSQL).catch(function (err) {
 		log.error(err.message);
-		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Send the data back
@@ -33,6 +35,6 @@ async function GetColorSchemes(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddGetAuth('Get Color Schemes', basePath + '/color-schemes', GetColorSchemes);
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddGetAuth('Get Color Schemes', basePath + '/color-schemes', GetColorSchemes);
 };

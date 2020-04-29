@@ -2,6 +2,7 @@
 const crypt = requireShared('./services/crypt.js');
 const validator = requireShared('./helpers/validator.js');
 const auth = require('./helpers/auth.js');
+const serverHelper = require('../../../server.js');
 
 /**
  * Responds to get requests for the certificate endpoint
@@ -16,7 +17,7 @@ async function GetApplication(req, res, next) {
 	// Check for data
 	if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
 		log.info('Bad Request: No data received');
-		return next(ServerRequestError('Bad Request: No data received'));
+		return next(serverHelper.RequestError('Bad Request: No data received'));
 	}
 
 	// Get the agents that we are permitted to view
@@ -31,13 +32,13 @@ async function GetApplication(req, res, next) {
 	// Make sure basic elements are present
 	if (!req.query.id) {
 		log.info('Bad Request: Missing ID');
-		return next(ServerRequestError('Bad Request: You must supply an ID'));
+		return next(serverHelper.RequestError('Bad Request: You must supply an ID'));
 	}
 
 	// Validate the application ID
 	if (!await validator.is_valid_id(req.query.id)) {
 		log.info('Bad Request: Invalid id');
-		return next(ServerRequestError('Invalid id'));
+		return next(serverHelper.RequestError('Invalid id'));
 	}
 
 	// Check if this is Solepro and grant them special access
@@ -87,12 +88,12 @@ async function GetApplication(req, res, next) {
 	// Query the database
 	const applicationData = await db.query(sql).catch(function (err) {
 		log.error(err.message);
-		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Make sure an application was found
 	if (applicationData.length !== 1) {
-		return next(ServerNotFoundError('The application could not be found.'));
+		return next(serverHelper.NotFoundError('The application could not be found.'));
 	}
 
 	// Get the application from the response
@@ -138,7 +139,7 @@ async function GetApplication(req, res, next) {
 	// Query the database
 	const addressData = await db.query(addressSQL).catch(function (err) {
 		log.error(err.message);
-		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Decrypt the encrypted fields
@@ -168,7 +169,7 @@ async function GetApplication(req, res, next) {
 		// Query the database
 		const codesData = await db.query(codesSQL).catch(function (err) {
 			log.error(err.message);
-			return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		});
 
 		// Loop over each address and do a bit more work
@@ -213,7 +214,7 @@ async function GetApplication(req, res, next) {
 
 	const quotes = await db.query(quotesSQL).catch(function (err) {
 		log.error(err.message);
-		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Add the quotes to the return object and determine the application status
@@ -232,6 +233,6 @@ async function GetApplication(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddGetAuth('Get application', basePath + '/application', GetApplication);
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddGetAuth('Get application', basePath + '/application', GetApplication);
 };

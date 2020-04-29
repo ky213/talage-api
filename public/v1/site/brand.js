@@ -4,8 +4,7 @@
 
 'use strict';
 
-const crypt = requireShared('services/crypt.js');
-const jwt = require('jsonwebtoken');
+const serverHelper = require('../../../server.js');
 
 /**
  * Responds to get requests for an authorization token
@@ -17,7 +16,6 @@ const jwt = require('jsonwebtoken');
  * @returns {object} res - Returns an authorization token
  */
 async function PostBrand(req, res, next) {
-	console.log('domain: ' + req.body.domain);
 	switch (req.body.hostName) {
 		case "tahoe.talageins.com":
 		case "www.talageins.com":
@@ -52,13 +50,13 @@ async function PostBrand(req, res, next) {
 			});
 			break;
 		default:
-			res.send(400, ServerRequestError('Invalid domain'));
+			res.send(400, serverHelper.RequestError('Invalid domain'));
 			break;
 	}
 	return next();
 }
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddPost('Get Site Branding', basePath + '/brand', PostBrand);
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddPost('Get Site Branding', basePath + '/brand', PostBrand);
 };

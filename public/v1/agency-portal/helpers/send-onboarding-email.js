@@ -16,7 +16,6 @@ module.exports = async function (agencyNetwork, userID, firstName, lastName, age
 	const emailContentResult = await db.query(emailContentSQL).catch(function (e) {
 		log.error(e.message);
 		return 'Error querying database. Check logs.';
-		// Return next(ServerInternalError());
 	});
 
 	// Get the onboaring email message and subject. It checks to see if result 0 has it, and then checks if result 1 has it. 

@@ -6,6 +6,7 @@
 
 const util = require('util');
 const Application = require('./helpers/models/Application.js');
+const serverHelper = require('../../../server.js');
 
 /**
  * Responds to POST requests and returns policy quotes
@@ -20,13 +21,13 @@ async function PostApplication(req, res, next) {
 	// Check for data
 	if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
 		log.warn('No data was received');
-		return next(ServerRequestError('No data was received'));
+		return next(serverHelper.RequestError('No data was received'));
 	}
 
 	// Make sure basic elements are present
 	if (!req.body.business || !Object.prototype.hasOwnProperty.call(req.body, 'id') || !req.body.policies) {
 		log.warn('Some required data is missing');
-		return next(ServerRequestError('Some required data is missing. Please check the documentation.'));
+		return next(serverHelper.RequestError('Some required data is missing. Please check the documentation.'));
 	}
 
 	const application = new Application();
@@ -87,7 +88,7 @@ async function PostApplication(req, res, next) {
 }
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddPost('Post Application', basePath + '/application', PostApplication);
-	ServerAddPost('Post Application (depr)', basePath + '/', PostApplication);
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddPost('Post Application', basePath + '/application', PostApplication);
+	server.AddPost('Post Application (depr)', basePath + '/', PostApplication);
 };

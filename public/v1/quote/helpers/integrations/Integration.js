@@ -4,7 +4,6 @@
 
 'use strict';
 
-const RestifyError = require('restify-errors');
 const crypt = require('../helpers/crypt.js');
 const file = require('../helpers/file.js');
 const htmlentities = require('html-entities').Html5Entities;
@@ -13,6 +12,7 @@ const moment = require('moment');
 const util = require('util');
 const{'v4': uuidv4} = require('uuid');
 const xmlToObj = require('xml2js').parseString;
+const serverHelper = require('../../../../../server.js');
 
 module.exports = class Integration{
 
@@ -78,7 +78,7 @@ module.exports = class Integration{
 	/**
 	 * An entry point for binding a quote that conducts some necessary pre-processing before calling the insurer_bind function.
 	 *
-	 * @returns {Promise.<string, RestifyError>} A promise that returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a RestifyError if rejected
+	 * @returns {Promise.<string, ServerError>} A promise that returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a ServerError if rejected
 	 */
 	bind(){
 		log.info(`${this.insurer.name} ${this.policy.type} Bind Started (mode: ${this.insurer.test_mode ? 'test' : 'live'})`);
@@ -87,14 +87,14 @@ module.exports = class Integration{
 			// Make sure the _bind() function exists
 			if(typeof this._bind === 'undefined'){
 				log.warn(`${this.insurer} ${this.policy.type} integration does not support binding quotes`);
-				reject(new RestifyError.NotFoundError('Insurer integration does not support binding quotes at this time'));
+				reject(serverHelper.NotFoundError('Insurer integration does not support binding quotes at this time'));
 				return;
 			}
 
 			// Check for an outage
 			if(this.insurer.outage){
 				log.warn(`${this.insurer} is currently unavailable due to scheduled maintenance`);
-				reject(new RestifyError.ServiceUnavailableError('Insurer is currently unavailable due to scheduled maintance'));
+				reject(serverHelper.ServiceUnavailableError('Insurer is currently unavailable due to scheduled maintance'));
 				return;
 			}
 
