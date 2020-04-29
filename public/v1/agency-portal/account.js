@@ -39,6 +39,7 @@ async function GetAccount(req, res, next) {
 		'account_data': account_data,
 		'timezones': timezones
 	});
+	return next();
 }
 
 /**
@@ -122,6 +123,7 @@ async function PutAccount(req, res, next) {
 
 	// Everything went okay, send a success response
 	res.send(200, 'Account Updated');
+	return next();
 }
 
 exports.RegisterEndpoint = (basePath) => {
