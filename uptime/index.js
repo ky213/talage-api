@@ -24,5 +24,5 @@ async function GetUptime(req, res, next) {
 }
 
 exports.RegisterEndpoints = (server) => {
-	ServerAddGet('Uptime Check', '/', GetUptime);
+	server.AddGet('Uptime Check', '/', GetUptime);
 };

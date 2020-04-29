@@ -15,8 +15,8 @@ const AgencyLocation = require('./AgencyLocation.js');
 const Business = require('./Business.js');
 const Insurer = require('./Insurer.js');
 const Policy = require('./Policy.js');
-const RestifyError = require('restify-errors');
 const Question = require('./Question.js');
+const serverHelper = require('../../../../../server.js');
 
 module.exports = class Application {
 
@@ -74,7 +74,7 @@ module.exports = class Application {
 								desired_insurers.push(insurer);
 							} else {
 								log.info(`Agent does not support ${policy.type} policies through insurer ${insurer}`);
-								reject(ServerRequestError('Agent does not support this request'));
+								reject(serverHelper.RequestError('Agent does not support this request'));
 								stop = true;
 							}
 						}
@@ -98,7 +98,7 @@ module.exports = class Application {
 				});
 				if (some_unsupported) {
 					log.info('Agent does not support one or more of the insurers requested.');
-					reject(ServerRequestError('Agent does not support this request'));
+					reject(serverHelper.RequestError('Agent does not support this request'));
 					return;
 				}
 			} else {
@@ -276,7 +276,7 @@ module.exports = class Application {
 
 			// Check for no quotes
 			if (quotes.length < 1) {
-				fulfill(ServerRequestError('The request submitted will not result in quotes. Please check the insurers specified and ensure they support the policy types selected.'));
+				fulfill(serverHelper.RequestError('The request submitted will not result in quotes. Please check the insurers specified and ensure they support the policy types selected.'));
 				return;
 			}
 
@@ -392,7 +392,7 @@ module.exports = class Application {
 
 			// Check for no quotes
 			if (quotes.length < 1) {
-				fulfill(ServerRequestError('The request submitted will not result in quotes. Please check the insurers specified and ensure they support the policy types selected.'));
+				fulfill(serverHelper.RequestError('The request submitted will not result in quotes. Please check the insurers specified and ensure they support the policy types selected.'));
 				return;
 			}
 
@@ -625,7 +625,7 @@ module.exports = class Application {
 			// Validate the ID (on test applications, don't validate)
 			if (!this.test) {
 				if (!await validator.application(this.id)) {
-					reject(ServerRequestError('Invalid application ID specified.'));
+					reject(serverHelper.RequestError('Invalid application ID specified.'));
 					return;
 				}
 			}
@@ -648,7 +648,7 @@ module.exports = class Application {
 						return this.get_insurers();
 					}
 
-					reject(ServerRequestError('The Agent specified cannot support this policy.'));
+					reject(serverHelper.RequestError('The Agent specified cannot support this policy.'));
 					stop = true;
 				} else {
 					reject(error);
@@ -659,7 +659,7 @@ module.exports = class Application {
 				return;
 			}
 			if (!insurers || insurers.length === 0 || Object.prototype.toString.call(insurers) !== '[object Array]') {
-				reject(ServerRequestError('Invalid insurer(s) specified in policy.'));
+				reject(serverHelper.RequestError('Invalid insurer(s) specified in policy.'));
 				return;
 			}
 
@@ -744,7 +744,7 @@ module.exports = class Application {
 							// If no parent was found, throw an error
 							if (!parent_question) {
 								log.error(`Question ${question.id} has invalid parent setting. (${htmlentities.decode(question.text).replace('%', '%%')})`);
-								reject(ServerRequestError('An unexpected error has occurred. Our team has been alerted and will contact you.'));
+								reject(serverHelper.RequestError('An unexpected error has occurred. Our team has been alerted and will contact you.'));
 								return;
 							}
 
@@ -758,7 +758,7 @@ module.exports = class Application {
 
 						// If required, check that this question was answered by the user
 						if (question.required && (!user_questions || !Object.prototype.hasOwnProperty.call(user_questions, question.id))) {
-							reject(ServerRequestError(`Question ${question.id} missing from request. (${htmlentities.decode(question.text).replace('%', '%%')})`));
+							reject(serverHelper.RequestError(`Question ${question.id} missing from request. (${htmlentities.decode(question.text).replace('%', '%%')})`));
 							return;
 						}
 					}

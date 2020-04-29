@@ -1,6 +1,8 @@
 'use strict';
+
 const file = requireShared('./services/file.js');
 const auth = require('./helpers/auth.js');
+const serverHelper = require('../../../server.js');
 
 /**
  * Responds to requests to get quote letters
@@ -15,7 +17,7 @@ async function GetQuoteLetter(req, res, next) {
 	// Check for data
 	if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
 		log.info('Bad Request: No data received');
-		return next(ServerRequestError('Bad Request: No data received'));
+		return next(serverHelper.RequestError('Bad Request: No data received'));
 	}
 
 	// Get the agents that we are permitted to view
@@ -30,7 +32,7 @@ async function GetQuoteLetter(req, res, next) {
 	// Make sure basic elements are present
 	if (!req.query.file) {
 		log.info('Bad Request: Missing File');
-		return next(ServerRequestError('Bad Request: You must supply a File'));
+		return next(serverHelper.RequestError('Bad Request: You must supply a File'));
 	}
 
 	// Verify that this quote letter is valid AND the user has access to it
@@ -48,13 +50,13 @@ async function GetQuoteLetter(req, res, next) {
 	// Run the security check
 	const result = await db.query(securityCheckSQL).catch(function (err) {
 		log.error(err.message);
-		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Make sure we received a valid result
 	if (!result || !result[0] || !Object.prototype.hasOwnProperty.call(result[0], 'quote_letter') || !result[0].quote_letter) {
 		log.warn('Request for quote letter denied. Possible security violation.');
-		return next(ServerNotAuthorizedError('You do not have permission to access this resource.'));
+		return next(serverHelper.NotAuthorizedError('You do not have permission to access this resource.'));
 	}
 
 	// Reduce the result down to what we need
@@ -63,7 +65,7 @@ async function GetQuoteLetter(req, res, next) {
 	// Get the file from our cloud storage service
 	const data = await file.get(`secure/quote-letters/${fileName}`).catch(function (err) {
 		log.error(err.message);
-		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Return the response
@@ -71,6 +73,6 @@ async function GetQuoteLetter(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddGetAuth('Get Quote Letter', basePath + '/quote-letter', GetQuoteLetter);
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddGetAuth('Get Quote Letter', basePath + '/quote-letter', GetQuoteLetter);
 };

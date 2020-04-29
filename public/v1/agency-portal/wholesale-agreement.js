@@ -1,6 +1,8 @@
 'use strict';
+
 const axios = require('axios');
 const crypt = requireShared('./services/crypt.js');
+const serverHelper = require('../../../server.js');
 
 /**
  * Retrieves the link that will allow a single user to sign the wholesaleAgreement
@@ -16,7 +18,7 @@ async function GetWholesaleAgreementLink(req, res, next) {
 	// Make sure this is not an agency network
 	if (req.authentication.agencyNetwork !== false) {
 		log.warn('Agency Networks cannot sign Wholesale Agreements');
-		return next(ServerForbiddenError('Agency Networks cannot sign Wholesale Agreements'));
+		return next(serverHelper.ForbiddenError('Agency Networks cannot sign Wholesale Agreements'));
 	}
 
 	// Get the information about this agent
@@ -30,7 +32,7 @@ async function GetWholesaleAgreementLink(req, res, next) {
 		`;
 	const agentInfo = await db.query(agentSql).catch(function (e) {
 		log.error(e.message);
-		error = ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+		error = serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
 	});
 	if (error) {
 		return next(error);
@@ -55,7 +57,7 @@ async function GetWholesaleAgreementLink(req, res, next) {
 			if (e) {
 				log.error('Failed to get docusign document for signing. This user will need to be sent the document manually.');
 				log.verbose(e);
-				error = ServerInternalError(e);
+				error = serverHelper.InternalServerError(e);
 			}
 		});
 	if (error) {
@@ -92,7 +94,7 @@ async function PutWholesaleAgreementSigned(req, res, next) {
 	// Make sure this is not an agency network
 	if (req.authentication.agencyNetwork !== false) {
 		log.warn('Agency Networks cannot sign Wholesale Agreements');
-		return next(ServerForbiddenError('Agency Networks cannot sign Wholesale Agreements'));
+		return next(serverHelper.ForbiddenError('Agency Networks cannot sign Wholesale Agreements'));
 	}
 
 	// Construct the query
@@ -105,7 +107,7 @@ async function PutWholesaleAgreementSigned(req, res, next) {
 	// Run the update query
 	await db.query(updateSql).catch(function (e) {
 		log.error(e.message);
-		e = ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+		e = serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
 	});
 	if (error) {
 		return next(error);
@@ -116,11 +118,12 @@ async function PutWholesaleAgreementSigned(req, res, next) {
 		'message': 'Signing recorded',
 		'status': 'success'
 	});
+	return next();
 }
 
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddGetAuth('Get Wholesale Agreement Link', basePath + '/wholesale-agreement', GetWholesaleAgreementLink);
-	ServerAddGetAuth('Get Wholesale Agreement Link (depr)', basePath + '/wholesaleAgreement', GetWholesaleAgreementLink);
-	ServerAddPutAuth('Record Signature of Wholesale Agreement Link', basePath + '/wholesale-agreement', PutWholesaleAgreementSigned);
-	ServerAddPutAuth('Record Signature of Wholesale Agreement Link (depr)', basePath + '/wholesaleAgreement', PutWholesaleAgreementSigned);
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddGetAuth('Get Wholesale Agreement Link', basePath + '/wholesale-agreement', GetWholesaleAgreementLink);
+	server.AddGetAuth('Get Wholesale Agreement Link (depr)', basePath + '/wholesaleAgreement', GetWholesaleAgreementLink);
+	server.AddPutAuth('Record Signature of Wholesale Agreement Link', basePath + '/wholesale-agreement', PutWholesaleAgreementSigned);
+	server.AddPutAuth('Record Signature of Wholesale Agreement Link (depr)', basePath + '/wholesaleAgreement', PutWholesaleAgreementSigned);
 };

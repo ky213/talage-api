@@ -1,6 +1,7 @@
 'use strict';
 
 const jwt = require('jsonwebtoken');
+const serverHelper = require('../../../server.js');
 
 /**
  * Checks whether or not a JWT is valid
@@ -15,13 +16,13 @@ function GetValidateToken(req, res, next) {
 	// Check for data
 	if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
 		log.info('Bad Request: No data received');
-		return next(ServerRequestError('Bad Request: No data received'));
+		return next(serverHelper.RequestError('Bad Request: No data received'));
 	}
 
 	// Make sure a token was provided
 	if (!req.query.token) {
 		log.info('Missing token');
-		res.send(400, ServerRequestError('A token must be provided to this endpoint'));
+		res.send(400, serverHelper.RequestError('A token must be provided to this endpoint'));
 		return next();
 	}
 
@@ -48,7 +49,7 @@ function GetValidateToken(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddGetAuth('Validate JWT', basePath + '/validate-token', GetValidateToken);
-	ServerAddGetAuth('Validate JWT (depr)', basePath + '/validateToken', GetValidateToken);
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddGetAuth('Validate JWT', basePath + '/validate-token', GetValidateToken);
+	server.AddGetAuth('Validate JWT (depr)', basePath + '/validateToken', GetValidateToken);
 };

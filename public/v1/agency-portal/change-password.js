@@ -1,6 +1,8 @@
 'use strict';
+
 const crypt = requireShared('./services/crypt.js');
 const validator = requireShared('./helpers/validator.js');
+const serverHelper = require('../../../server.js');
 
 /**
  * Responds to PUT requests for changing a user's password
@@ -17,19 +19,19 @@ async function PutChangePassword(req, res, next) {
 	// Make sure this user is authenticated
 	if (!Object.prototype.hasOwnProperty.call(req, 'authentication')) {
 		log.info('Forbidden: User is not authenticated');
-		return next(ServerForbiddenError('User is not authenticated'));
+		return next(serverHelper.ForbiddenError('User is not authenticated'));
 	}
 
 	// Make sure the authentication payload has everything we are expecting
 	if (!Object.prototype.hasOwnProperty.call(req.authentication, 'userID')) {
 		log.info('Forbidden: JWT payload is missing parameters');
-		return next(ServerForbiddenError('User is not properly authenticated'));
+		return next(serverHelper.ForbiddenError('User is not properly authenticated'));
 	}
 
 	// Check for data
 	if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
 		log.warn('No data was received');
-		return next(ServerRequestError('No data was received'));
+		return next(serverHelper.RequestError('No data was received'));
 	}
 
 	// Establish some variables
@@ -42,28 +44,29 @@ async function PutChangePassword(req, res, next) {
 			password = await crypt.hashPassword(req.body.password);
 		} else {
 			log.warn('Password does not meet requirements');
-			return next(ServerRequestError('Password does not meet the complexity requirements. It must be at least 8 characters and contain one uppercase letter, one lowercase letter, one number, and one special character'));
+			return next(serverHelper.RequestError('Password does not meet the complexity requirements. It must be at least 8 characters and contain one uppercase letter, one lowercase letter, one number, and one special character'));
 		}
 	}
 
 	// Do we have something to update?
 	if (!password) {
 		log.warn('There is nothing to update');
-		return next(ServerRequestError('There is nothing to update. Please check the documentation.'));
+		return next(serverHelper.RequestError('There is nothing to update. Please check the documentation.'));
 	}
 
 	// Create and run the UPDATE query
 	const sql = `UPDATE \`#__agency_portal_users\` SET \`password\`=${db.escape(password)}, \`reset_required\`=0 WHERE id = ${db.escape(req.authentication.userID)} LIMIT 1;`;
 	await db.query(sql).catch(function (err) {
 		log.error(err.message);
-		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Everything went okay, send a success response
 	res.send(200, 'Account Updated');
+	return next();
 }
 
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddPut('Change Password', basePath + '/change-password', PutChangePassword);
-	ServerAddPut('Change Password (depr)', basePath + '/changePassword', PutChangePassword);
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddPut('Change Password', basePath + '/change-password', PutChangePassword);
+	server.AddPut('Change Password (depr)', basePath + '/changePassword', PutChangePassword);
 };

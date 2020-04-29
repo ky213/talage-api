@@ -1,7 +1,7 @@
 'use strict';
 
 const http = require('http');
-const RestifyError = require('restify-errors');
+const serverHelper = require('../../server.js');
 
 /**
  * Gets all questions that match the provided information for a business
@@ -62,14 +62,14 @@ module.exports = function (activity_codes, industry_code, zip_codes, policy_type
 					fullfil(raw_data);
 				} else {
 					log.warn(`Unable to connect to Question API (${res.statusCode}${raw_data.message ? `: ${raw_data.message}` : ''})`);
-					reject(ServerInternalError('Unable to connect to Question API.'));
+					reject(serverHelper.InternalServerError('Unable to connect to Question API.'));
 				}
 			});
 		});
 
 		req.on('error', function (e) {
 			log.error(e.message);
-			reject(ServerInternalError('Unable to connect to Question API'));
+			reject(serverHelper.InternalServerError('Unable to connect to Question API'));
 		});
 
 		req.end();

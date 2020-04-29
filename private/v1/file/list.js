@@ -4,6 +4,8 @@
 
 'use strict';
 
+const serverHelper = require('../../../server.js');
+
 /* -----==== Version 1 Functions ====-----*/
 
 /**
@@ -29,7 +31,7 @@ function GetFileList(req, res) {
 	}, function (err, data) {
 		if (err) {
 			log.warn(err.message);
-			res.send(ServerInternalError(err.message));
+			res.send(serverHelper.InternalServerError(err.message));
 			return;
 		}
 
@@ -38,7 +40,7 @@ function GetFileList(req, res) {
 			return `https://${settings.S3_BUCKET}.s3-us-west-1.amazonaws.com/${item.Key}`;
 		});
 
-		log.info(`${data.length} files found`);
+		// log.info(`${data.length} files found`);
 
 		// Send the data back to the user
 		res.send(200, data);
@@ -46,6 +48,6 @@ function GetFileList(req, res) {
 }
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddGet('List Files', basePath + '/list', GetFileList);
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddGet('List Files', basePath + '/list', GetFileList);
 };

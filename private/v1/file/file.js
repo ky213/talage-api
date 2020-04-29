@@ -4,6 +4,8 @@
 
 'use strict';
 
+const serverHelper = require('../../../server.js');
+
 /* -----==== Version 1 Functions ====-----*/
 
 /**
@@ -27,7 +29,7 @@ function DeleteFile(req, res, next) {
 	if (!path) {
 		const errorMsg = 'You must specify a file path';
 		log.warn(errorMsg);
-		return next(ServerRequestError(errorMsg));
+		return next(serverHelper.RequestError(errorMsg));
 	}
 
 	// Call out to S3
@@ -37,7 +39,7 @@ function DeleteFile(req, res, next) {
 	}, function (err) {
 		if (err) {
 			log.warn(err.message);
-			res.send(ServerInternalError(err.message));
+			res.send(serverHelper.InternalServerError(err.message));
 			return;
 		}
 
@@ -48,6 +50,7 @@ function DeleteFile(req, res, next) {
 			code: 'Success'
 		});
 	});
+	// FIXME: need to await completion and return next()
 }
 
 /**
@@ -71,7 +74,7 @@ function GetFile(req, res, next) {
 	if (!path) {
 		const errorMsg = 'You must specify a file path';
 		log.warn(errorMsg);
-		return next(ServerRequestError(errorMsg));
+		return next(serverHelper.RequestError(errorMsg));
 	}
 
 	// Call out to S3
@@ -81,7 +84,7 @@ function GetFile(req, res, next) {
 	}, function (err, data) {
 		if (err) {
 			log.warn(err.message);
-			res.send(ServerInternalError(err.message));
+			res.send(serverHelper.InternalServerError(err.message));
 			return;
 		}
 
@@ -100,6 +103,7 @@ function GetFile(req, res, next) {
 		// Send the data back to the user
 		res.send(200, data);
 	});
+	// FIXME: need to await completion and return next()
 }
 
 /**
@@ -123,14 +127,14 @@ function PutFile(req, res, next) {
 	if (!path) {
 		const errorMsg = 'You must specify a file path';
 		log.warn(errorMsg);
-		return next(ServerRequestError(errorMsg));
+		return next(serverHelper.RequestError(errorMsg));
 	}
 
 	// Make sure file data was provided
 	if (!Object.prototype.hasOwnProperty.call(req.body, 'data')) {
 		const errorMsg = 'You must provide file data';
 		log.warn(errorMsg);
-		return next(ServerRequestError(errorMsg));
+		return next(serverHelper.RequestError(errorMsg));
 	}
 
 	// Conver to base64
@@ -140,7 +144,7 @@ function PutFile(req, res, next) {
 	if (fileBuffer.toString('base64') !== req.body.data) {
 		const errorMsg = 'The data you supplied is not valid. It must be base64 encoded';
 		log.warn(errorMsg);
-		return next(ServerRequestError(errorMsg));
+		return next(serverHelper.RequestError(errorMsg));
 	}
 
 	// Call out to S3
@@ -151,7 +155,7 @@ function PutFile(req, res, next) {
 	}, function (err) {
 		if (err) {
 			log.warn(err.message);
-			res.send(ServerInternalError(err.message));
+			res.send(serverHelper.InternalServerError(err.message));
 			return;
 		}
 
@@ -162,14 +166,15 @@ function PutFile(req, res, next) {
 			code: 'Success'
 		});
 	});
+	// FIXME: need to await completion and return next()
 }
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddGet('File', basePath + '/file', GetFile);
-	ServerAddGet('File (depr)', basePath + '/', GetFile);
-	ServerAddPut('File', basePath + '/file', PutFile);
-	ServerAddPut('File (depr)', basePath + '/', PutFile);
-	ServerAddDelete('File', basePath + '/file', DeleteFile);
-	ServerAddDelete('File (depr)', basePath + '/', DeleteFile);
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddGet('File', basePath + '/file', GetFile);
+	server.AddGet('File (depr)', basePath + '/', GetFile);
+	server.AddPut('File', basePath + '/file', PutFile);
+	server.AddPut('File (depr)', basePath + '/', PutFile);
+	server.AddDelete('File', basePath + '/file', DeleteFile);
+	server.AddDelete('File (depr)', basePath + '/', DeleteFile);
 };

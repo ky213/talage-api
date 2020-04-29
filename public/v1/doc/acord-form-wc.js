@@ -9,7 +9,7 @@ const signature = require('./helpers/signature.js');
 const generate = require('./helpers/acord-form-wc.js');
 const styles = require('./helpers/document-style/acord-form-wc/styles.js');
 const positions = require('./helpers/document-style/acord-form-wc/positions.js');
-
+const serverHelper = require('../../../server.js');
 
 /**
  * Responds to get requests for the certificate endpoint
@@ -31,7 +31,7 @@ async function GetACORDFormWC(req, res, next) {
 			'message': 'No data received',
 			'status': 'error'
 		});
-		return next(ServerRequestError('Bad Request: No data received'));
+		return next(serverHelper.RequestError('Bad Request: No data received'));
 	}
 
 	// Make sure basic elements are present
@@ -41,7 +41,7 @@ async function GetACORDFormWC(req, res, next) {
 			'message': 'Missing Application ID',
 			'status': 'error'
 		});
-		return next(ServerRequestError('Bad Request: You must supply an application ID'));
+		return next(serverHelper.RequestError('Bad Request: You must supply an application ID'));
 	}
 
 	// Validate the application ID
@@ -51,7 +51,7 @@ async function GetACORDFormWC(req, res, next) {
 			'message': 'Invalid application id',
 			'status': 'error'
 		});
-		return next(ServerRequestError('Invalid application id'));
+		return next(serverHelper.RequestError('Invalid application id'));
 	}
 
 	if (req.query.insurer_id && !await validator.isValidInsurer(req.query.insurer_id)) {
@@ -60,7 +60,7 @@ async function GetACORDFormWC(req, res, next) {
 			'message': 'Invalid insurer id',
 			'status': 'error'
 		});
-		return next(ServerRequestError('Invalid insurer id'));
+		return next(serverHelper.RequestError('Invalid insurer id'));
 	}
 
 	// Application and business information query
@@ -132,7 +132,7 @@ async function GetACORDFormWC(req, res, next) {
 			'message': `Database Error: ${error}`,
 			'status': 'error'
 		});
-		return next(ServerRequestError(`Database Error: ${error}`));
+		return next(serverHelper.RequestError(`Database Error: ${error}`));
 	});
 
 	// Check the number of rows returned
@@ -142,7 +142,7 @@ async function GetACORDFormWC(req, res, next) {
 			'message': 'Invalid Application ID',
 			'status': 'error'
 		});
-		return next(ServerRequestError('Bad Request: Invalid Application ID'));
+		return next(serverHelper.RequestError('Bad Request: Invalid Application ID'));
 	}
 
 	if (!application_data[0].policy_type || application_data[0].policy_type !== 'WC') {
@@ -151,7 +151,7 @@ async function GetACORDFormWC(req, res, next) {
 			'message': `Application ${req.query.application_id} is not WC`,
 			'status': 'error'
 		});
-		return next(ServerRequestError(`Application ${req.query.application_id} is not WC`));
+		return next(serverHelper.RequestError(`Application ${req.query.application_id} is not WC`));
 	}
 
 	// Check for a business name
@@ -165,7 +165,7 @@ async function GetACORDFormWC(req, res, next) {
 			'message': `Business name missing for application ${req.query.application_id}`,
 			'status': 'error'
 		});
-		return next(ServerRequestError(`Business name missing for application ${req.query.application_id}`));
+		return next(serverHelper.RequestError(`Business name missing for application ${req.query.application_id}`));
 	}
 
 	// Missing data array
@@ -566,7 +566,7 @@ async function GetACORDFormWC(req, res, next) {
 			'message': `Business address missing for application ${req.query.application_id}`,
 			'status': 'error'
 		});
-		return next(ServerRequestError(`Business address missing for application ${req.query.application_id}`));
+		return next(serverHelper.RequestError(`Business address missing for application ${req.query.application_id}`));
 	}
 
 	// Add list of territories
@@ -747,7 +747,7 @@ async function GetACORDFormWC(req, res, next) {
 				'message': `Database Error: ${error}`,
 				'status': 'error'
 			});
-			return next(ServerRequestError(`Database Error: ${error}`));
+			return next(serverHelper.RequestError(`Database Error: ${error}`));
 		});
 	}
 
@@ -890,7 +890,7 @@ async function GetACORDFormWC(req, res, next) {
 			'message': `Database Error: ${error}`,
 			'status': 'error'
 		});
-		return next(ServerRequestError(`Database Error: ${error}`));
+		return next(serverHelper.RequestError(`Database Error: ${error}`));
 	});
 
 	const num_questions_page_3 = 16;
@@ -1016,11 +1016,10 @@ async function GetACORDFormWC(req, res, next) {
 	doc.end();
 	log.info('Certificate Generated!');
 
-
 	return next();
 }
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddGet('Get Certificate', basePath + '/acord-form-wc', GetACORDFormWC);
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddGet('Get Certificate', basePath + '/acord-form-wc', GetACORDFormWC);
 };

@@ -5,7 +5,7 @@
 'use strict';
 
 const htmlentities = require('html-entities').Html5Entities;
-const RestifyError = require('restify-errors');
+const serverHelper = require('../../../../../server.js');
 
 module.exports = class Question {
 
@@ -118,7 +118,7 @@ module.exports = class Question {
 			// Make sure the question is loaded before continuing
 			if (!this.id) {
 				log.warn('You must load the question before attempting to set an answer');
-				reject(ServerRequestError(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)})`));
+				reject(serverHelper.RequestError(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)})`));
 				return;
 			}
 
@@ -127,13 +127,13 @@ module.exports = class Question {
 
 				// If the answer wasn't numeric, it is wrong
 				if (typeof answer_id !== 'number') {
-					reject(ServerRequestError(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)})`));
+					reject(serverHelper.RequestError(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)})`));
 					return;
 				}
 
 				// If the answer isn't one of those that are possible
 				if (!Object.prototype.hasOwnProperty.call(this.possible_answers, answer_id)) {
-					reject(ServerRequestError(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)})`));
+					reject(serverHelper.RequestError(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)})`));
 					return;
 				}
 
@@ -199,7 +199,7 @@ module.exports = class Question {
 
 			// If no answer ID is set, reject
 			if (!this.answer_id) {
-				reject(ServerRequestError(`Answer to question ${this.id} is invalid. (${type_help})`));
+				reject(serverHelper.RequestError(`Answer to question ${this.id} is invalid. (${type_help})`));
 				return;
 			}
 
@@ -209,7 +209,7 @@ module.exports = class Question {
 				return;
 			}
 
-			reject(ServerRequestError(`Answer to question ${this.id} is invalid. (${type_help})`));
+			reject(serverHelper.RequestError(`Answer to question ${this.id} is invalid. (${type_help})`));
 		});
 	}
 };

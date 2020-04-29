@@ -2,6 +2,7 @@
 
 const request = require('request');
 const util = require('util');
+const serverHelper = require('../../../server.js');
 
 /**
  * Responds to post requests for slack messages
@@ -111,7 +112,7 @@ async function PostToChannel(req, res, next) {
 			'error': true,
 			'message': 'No data was received'
 		});
-		return next(ServerBadRequestError('No data was received'));
+		return next(serverHelper.BadRequestError('No data was received'));
 	}
 
 	log.verbose(util.inspect(req.body));
@@ -132,7 +133,7 @@ async function PostToChannel(req, res, next) {
 				'error': true
 			});
 
-			return next(ServerBadRequestError(`Channel ${req.body.channel} is not valid`));
+			return next(serverHelper.BadRequestError(`Channel ${req.body.channel} is not valid`));
 		}
 
 
@@ -220,7 +221,7 @@ async function PostToChannel(req, res, next) {
 
 			res.send(400, Object.assign(response, response_messages));
 
-			return next(ServerBadRequestError('Message must be given as a string'));
+			return next(serverHelper.BadRequestError('Message must be given as a string'));
 		}
 
 	} else {
@@ -233,7 +234,7 @@ async function PostToChannel(req, res, next) {
 
 		res.send(400, Object.assign(response, response_messages));
 
-		return next(ServerBadRequestError('Missing property: message'));
+		return next(serverHelper.BadRequestError('Missing property: message'));
 	}
 
 	if (req.body.attachment) {
@@ -248,7 +249,7 @@ async function PostToChannel(req, res, next) {
 
 			res.send(400, Object.assign(response, response_messages));
 
-			return next(ServerBadRequestError('Attachment title must be given as a string'));
+			return next(serverHelper.BadRequestError('Attachment title must be given as a string'));
 		}
 
 		if (req.body.attachment.text && typeof req.body.attachment.text !== 'string') {
@@ -261,7 +262,7 @@ async function PostToChannel(req, res, next) {
 
 			res.send(400, Object.assign(response, response_messages));
 
-			return next(ServerBadRequestError('Attachment text must be given as a string'));
+			return next(serverHelper.BadRequestError('Attachment text must be given as a string'));
 		}
 
 
@@ -277,7 +278,7 @@ async function PostToChannel(req, res, next) {
 
 				res.send(400, Object.assign(response, response_messages));
 
-				return next(ServerBadRequestError('Attachment Fields must be given as an array of JSON objects'));
+				return next(serverHelper.BadRequestError('Attachment Fields must be given as an array of JSON objects'));
 			}
 
 			if (!req.body.attachment.fields.length) {
@@ -296,7 +297,7 @@ async function PostToChannel(req, res, next) {
 
 					res.send(400, Object.assign(response, response_messages));
 
-					return next(ServerBadRequestError(`The field at index ${i} is missing title`));
+					return next(serverHelper.BadRequestError(`The field at index ${i} is missing title`));
 				}
 
 				if (!req.body.attachment.fields[i].value) {
@@ -309,7 +310,7 @@ async function PostToChannel(req, res, next) {
 
 					res.send(400, Object.assign(response, response_messages));
 
-					return next(ServerBadRequestError(`The field at index ${i} is missing value`));
+					return next(serverHelper.BadRequestError(`The field at index ${i} is missing value`));
 				}
 
 				if (req.body.attachment.fields[i].short) {
@@ -328,7 +329,7 @@ async function PostToChannel(req, res, next) {
 
 							res.send(400, Object.assign(response, response_messages));
 
-							return next(ServerBadRequestError(`The field at index ${i} has short that is not true or false`));
+							return next(serverHelper.BadRequestError(`The field at index ${i} has short that is not true or false`));
 						}
 					} else if (typeof req.body.attachment.fields[i].short !== 'boolean') {
 						log.warn(`The attachment field at index ${i} has short that is not a boolean`);
@@ -340,7 +341,7 @@ async function PostToChannel(req, res, next) {
 
 						res.send(400, Object.assign(response, response_messages));
 
-						return next(ServerBadRequestError(`The field at index ${i} has short that is not a boolean`));
+						return next(serverHelper.BadRequestError(`The field at index ${i} has short that is not a boolean`));
 					}
 				}
 			}
@@ -359,7 +360,7 @@ async function PostToChannel(req, res, next) {
 
 		res.send(400, Object.assign(response, response_messages));
 
-		return next(ServerBadRequestError(`Application id ${req.body.attachment.application_id} is not valid`));
+		return next(serverHelper.BadRequestError(`Application id ${req.body.attachment.application_id} is not valid`));
 	}
 
 	// Add a message for testing
@@ -454,6 +455,6 @@ async function PostToChannel(req, res, next) {
 }
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddPost('Post message', basePath + '/post-to-channel', PostToChannel);
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddPost('Post message', basePath + '/post-to-channel', PostToChannel);
 };

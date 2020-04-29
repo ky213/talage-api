@@ -6,6 +6,7 @@
 
 const crypt = requireShared('services/crypt.js');
 const jwt = require('jsonwebtoken');
+const serverHelper = require('../../../server.js');
 
 /**
  * Responds to get requests for an authorization token
@@ -22,20 +23,20 @@ async function PostToken(req, res, next) {
 	// Check for data
 	if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
 		log.info('Bad Request: Missing both email and password');
-		return next(ServerRequestError('You must supply an email address and password'));
+		return next(serverHelper.RequestError('You must supply an email address and password'));
 	}
 
 	// Make sure an email was provided
 	if (!req.body.email) {
 		log.info('Missing email');
-		res.send(400, ServerRequestError('Email address is required'));
+		res.send(400, serverHelper.RequestError('Email address is required'));
 		return next();
 	}
 
 	// Makes sure a password was provided
 	if (!req.body.password) {
 		log.info('Missing password');
-		res.send(400, ServerRequestError('Password is required'));
+		res.send(400, serverHelper.RequestError('Password is required'));
 		return next();
 	}
 
@@ -70,7 +71,7 @@ async function PostToken(req, res, next) {
 	`;
 	const result = await db.query(agencySQL).catch(function (e) {
 		log.error(e.message);
-		res.send(500, ServerInternalError('Error querying database. Check logs.'));
+		res.send(500, serverHelper.InternalServerError('Error querying database. Check logs.'));
 		error = true;
 	});
 	if (error) {
@@ -81,14 +82,14 @@ async function PostToken(req, res, next) {
 	if (!result || !result.length) {
 		log.info('Authentication failed - Account not found');
 		log.verbose(emailHash);
-		res.send(401, ServerInvalidCredentialsError('Invalid API Credentials'));
+		res.send(401, serverHelper.InvalidCredentialsError('Invalid API Credentials'));
 		return next();
 	}
 
 	// Check the password
 	if (!await crypt.verifyPassword(result[0].password, req.body.password)) {
 		log.info('Authentication failed - Bad password');
-		res.send(401, ServerInvalidCredentialsError('Invalid API Credentials'));
+		res.send(401, serverHelper.InvalidCredentialsError('Invalid API Credentials'));
 		return next();
 	}
 
@@ -120,7 +121,7 @@ async function PostToken(req, res, next) {
 		`;
 		const agencies = await db.query(agenciesSQL).catch(function (e) {
 			log.error(e.message);
-			res.send(500, ServerInternalError('Error querying database. Check logs.'));
+			res.send(500, serverHelper.InternalServerError('Error querying database. Check logs.'));
 			error = true;
 		});
 		if (error) {
@@ -144,7 +145,7 @@ async function PostToken(req, res, next) {
 		// Query the database
 		const insurersData = await db.query(insurersSQL).catch(function (e) {
 			log.error(e.message);
-			res.send(500, ServerInternalError('Error querying database. Check logs.'));
+			res.send(500, serverHelper.InternalServerError('Error querying database. Check logs.'));
 			error = true;
 		});
 		if (error) {
@@ -174,7 +175,7 @@ async function PostToken(req, res, next) {
 		`;
 		const wholesaleInfo = await db.query(wholesaleSQL).catch(function (e) {
 			log.error(e.message);
-			res.send(500, ServerInternalError('Error querying database. Check logs.'));
+			res.send(500, serverHelper.InternalServerError('Error querying database. Check logs.'));
 			error = true;
 		});
 		if (error) {
@@ -215,6 +216,6 @@ async function PostToken(req, res, next) {
 }
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddPost('Get Token', basePath + '/agency-portal', PostToken);
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddPost('Get Token', basePath + '/agency-portal', PostToken);
 };

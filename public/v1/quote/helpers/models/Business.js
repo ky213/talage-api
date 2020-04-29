@@ -6,10 +6,10 @@
 
 const Contact = require('./Contact.js');
 const Location = require('./Location.js');
-const RestifyError = require('restify-errors');
 const crypt = requireShared('./services/crypt.js');
 const helper = requireShared('./helpers/helper.js');
 const moment = require('moment');
+const serverHelper = require('../../../../../server.js');
 
 module.exports = class Business {
 
@@ -152,13 +152,13 @@ module.exports = class Business {
 	 * Populates this object with data from the database
 	 *
 	 * @param {int} id - The id of the business
-	 * @returns {Promise.<Boolean, RestifyError>} A promise that returns true if resolved, or a RestifyError if rejected
+	 * @returns {Promise.<Boolean, ServerError>} A promise that returns true if resolved, or a ServerError if rejected
 	 */
 	load_by_id(id) {
 		return new Promise(async (fulfill, reject) => {
 			// Validate the business ID
 			if (!await validator.business(id)) {
-				reject(ServerRequestError('Invalid business ID'));
+				reject(serverHelper.RequestError('Invalid business ID'));
 				return;
 			}
 
@@ -178,7 +178,7 @@ module.exports = class Business {
 				had_error = true;
 			});
 			if (had_error || !business_info || business_info.length !== 1) {
-				reject(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				reject(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 				return;
 			}
 
@@ -222,7 +222,7 @@ module.exports = class Business {
 			if (this.zip) {
 				// Check formatting
 				if (!validator.isZip(this.zip)) {
-					reject(ServerRequestError('Invalid formatting for property: zip. Expected 5 digit format'));
+					reject(serverHelper.RequestError('Invalid formatting for property: zip. Expected 5 digit format'));
 					return;
 				}
 
@@ -236,14 +236,14 @@ module.exports = class Business {
 				});
 
 				if (!rows || rows.length !== 1 || !Object.prototype.hasOwnProperty.call(rows[0], 'territory')) {
-					reject(ServerRequestError('The zip code you entered is not valid'));
+					reject(serverHelper.RequestError('The zip code you entered is not valid'));
 					return;
 				}
 
 				this.primary_territory = rows[0].territory;
 
 			} else {
-				reject(ServerRequestError('Missing required field: zip'));
+				reject(serverHelper.RequestError('Missing required field: zip'));
 				return;
 			}
 
@@ -256,7 +256,7 @@ module.exports = class Business {
 			if (this.association) {
 				// We have association data...
 				if (!Number.isInteger(this.association) || !(this.association >= 1) || this.association.toString().length > 11) {
-					reject(ServerRequestError('Association must be a positive integer between 1 and 11 digits'));
+					reject(serverHelper.RequestError('Association must be a positive integer between 1 and 11 digits'));
 					return;
 				}
 			}
@@ -269,12 +269,12 @@ module.exports = class Business {
 			if (this.association) {
 				// Required if association is present
 				if (this.association_id === '') {
-					reject(ServerRequestError('Association ID is required'));
+					reject(serverHelper.RequestError('Association ID is required'));
 					return;
 				}
 				// Max length 20 characters
 				if (this.association_id.toString().length > 20) {
-					reject(ServerRequestError('Association ID must be less than 20 characters'));
+					reject(serverHelper.RequestError('Association ID must be less than 20 characters'));
 					return;
 				}
 			}
@@ -287,18 +287,18 @@ module.exports = class Business {
 			 */
 			if (this.bureau_number) {
 				if (this.bureau_number.length > 9) {
-					reject(ServerRequestError('Bureau Number max length is 9'));
+					reject(serverHelper.RequestError('Bureau Number max length is 9'));
 					return;
 				}
 				if (this.primary_territory.toString().toUpperCase() === 'CA') {
 					// Expected Formatting for 'CA' is 99-99-99
 					if (!validator.isBureauNumberCA(this.bureau_number)) {
-						reject(ServerRequestError('Bureau Number must be formatted as 99-99-99'));
+						reject(serverHelper.RequestError('Bureau Number must be formatted as 99-99-99'));
 						return;
 					}
 				} else if (!validator.isBureauNumberNotCA(this.bureau_number)) {
 					// Expected Formatting for all other states is 999999999
-					reject(ServerRequestError('Bureau Number must be numeric'));
+					reject(serverHelper.RequestError('Bureau Number must be numeric'));
 					return;
 				}
 			}
@@ -321,7 +321,7 @@ module.exports = class Business {
 					return;
 				}
 			} else {
-				reject(ServerRequestError('At least 1 contact must be provided'));
+				reject(serverHelper.RequestError('At least 1 contact must be provided'));
 				return;
 			}
 
@@ -333,13 +333,13 @@ module.exports = class Business {
 			if (this.dba) {
 				// Check for invalid characters
 				if (!validator.isBusinessName(this.dba)) {
-					reject(ServerRequestError('Invalid characters in DBA'));
+					reject(serverHelper.RequestError('Invalid characters in DBA'));
 					return;
 				}
 
 				// Check for max length
 				if (this.dba.length > 100) {
-					reject(ServerRequestError('DBA exceeds maximum length of 100 characters'));
+					reject(serverHelper.RequestError('DBA exceeds maximum length of 100 characters'));
 					return;
 				}
 			}
@@ -360,11 +360,11 @@ module.exports = class Business {
 					'Other'
 				];
 				if (valid_types.indexOf(this.entity_type) === -1) {
-					reject(ServerRequestError('Invalid data in property: entity_type'));
+					reject(serverHelper.RequestError('Invalid data in property: entity_type'));
 					return;
 				}
 			} else {
-				reject(ServerRequestError('Missing property: entity_type'));
+				reject(serverHelper.RequestError('Missing property: entity_type'));
 				return;
 			}
 
@@ -377,7 +377,7 @@ module.exports = class Business {
 			 */
 			if (this.bureau_number) {
 				if (this.experience_modifier < 0.20 || this.experience_modifier > 10) {
-					reject(ServerRequestError('Experience Modifier must be between 0.20 and 10'));
+					reject(serverHelper.RequestError('Experience Modifier must be between 0.20 and 10'));
 					return;
 				}
 			}
@@ -391,23 +391,23 @@ module.exports = class Business {
 			if (this.founded) {
 				// Check for mm-yyyy formatting
 				if (!this.founded.isValid()) {
-					reject(ServerRequestError('Invalid formatting for property: founded. Expected mm-yyyy'));
+					reject(serverHelper.RequestError('Invalid formatting for property: founded. Expected mm-yyyy'));
 					return;
 				}
 
 				// Confirm date is not in the future
 				if (this.founded.isAfter(moment())) {
-					reject(ServerRequestError('Invalid value for property: founded. Founded date cannot be in the future'));
+					reject(serverHelper.RequestError('Invalid value for property: founded. Founded date cannot be in the future'));
 					return;
 				}
 
 				// Confirm founded date is at least somewhat reasonable
 				if (this.founded.isBefore(moment('07-04-1776', 'MM-DD-YYYY'))) {
-					reject(ServerRequestError('Invalid value for property: founded. Founded date is far past'));
+					reject(serverHelper.RequestError('Invalid value for property: founded. Founded date is far past'));
 					return;
 				}
 			} else {
-				reject(ServerRequestError('Missing property: founded'));
+				reject(serverHelper.RequestError('Missing property: founded'));
 				return;
 			}
 
@@ -420,11 +420,11 @@ module.exports = class Business {
 			if (this.industry_code) {
 				this.industry_code_description = await validator.industry_code(this.industry_code);
 				if (!this.industry_code_description) {
-					reject(ServerRequestError('The industry code ID you provided is not valid'));
+					reject(serverHelper.RequestError('The industry code ID you provided is not valid'));
 					return;
 				}
 			} else {
-				reject(ServerRequestError('Missing property: industry_code'));
+				reject(serverHelper.RequestError('Missing property: industry_code'));
 				return;
 			}
 
@@ -446,7 +446,7 @@ module.exports = class Business {
 					return;
 				}
 			} else {
-				reject(ServerRequestError('At least 1 location must be provided'));
+				reject(serverHelper.RequestError('At least 1 location must be provided'));
 				return;
 			}
 
@@ -457,11 +457,11 @@ module.exports = class Business {
 			if (this.app.has_policy_type('WC') && this.entity_type === 'Limited Liability Company' && this.primary_territory === 'MT') {
 				if (this.management_structure) {
 					if (!validator.management_structure(this.management_structure)) {
-						reject(ServerRequestError('Invalid management structure. Must be either "member" or "manager."'));
+						reject(serverHelper.RequestError('Invalid management structure. Must be either "member" or "manager."'));
 						return;
 					}
 				} else {
-					reject(ServerRequestError('Missing required field: management_structure'));
+					reject(serverHelper.RequestError('Missing required field: management_structure'));
 					return;
 				}
 			}
@@ -473,11 +473,11 @@ module.exports = class Business {
 			if (this.mailing_address) {
 				// Check for maximum length
 				if (this.mailing_address.length > 100) {
-					reject(ServerRequestError('Mailing address exceeds maximum of 100 characters'));
+					reject(serverHelper.RequestError('Mailing address exceeds maximum of 100 characters'));
 					return;
 				}
 			} else {
-				reject(ServerRequestError('Missing required field: mailing_address'));
+				reject(serverHelper.RequestError('Missing required field: mailing_address'));
 				return;
 			}
 
@@ -487,7 +487,7 @@ module.exports = class Business {
 			 */
 			if (this.mailing_zip) {
 				if (!validator.isZip(this.mailing_zip)) {
-					reject(ServerRequestError('Invalid formatting for property: mailing_zip. Expected 5 digit format'));
+					reject(serverHelper.RequestError('Invalid formatting for property: mailing_zip. Expected 5 digit format'));
 					return;
 				}
 
@@ -497,14 +497,14 @@ module.exports = class Business {
 						this.mailing_city = row[0].city;
 						this.mailing_territory = row[0].territory;
 					} else {
-						reject(ServerRequestError('The mailing_zip code you entered is not valid'));
+						reject(serverHelper.RequestError('The mailing_zip code you entered is not valid'));
 					}
 				}).catch(function (error) {
 					log.warn(error);
-					reject(ServerRequestError('The mailing_zip code you entered is not valid'));
+					reject(serverHelper.RequestError('The mailing_zip code you entered is not valid'));
 				});
 			} else {
-				reject(ServerRequestError('Missing required field: mailing_zip'));
+				reject(serverHelper.RequestError('Missing required field: mailing_zip'));
 				return;
 			}
 
@@ -516,17 +516,17 @@ module.exports = class Business {
 			if (this.name) {
 				// Check for invalid characters
 				if (!validator.isBusinessName(this.name)) {
-					reject(ServerRequestError('Invalid characters in name'));
+					reject(serverHelper.RequestError('Invalid characters in name'));
 					return;
 				}
 
 				// Check for max length
 				if (this.name.length > 100) {
-					reject(ServerRequestError('Name exceeds maximum length of 100 characters'));
+					reject(serverHelper.RequestError('Name exceeds maximum length of 100 characters'));
 					return;
 				}
 			} else {
-				reject(ServerRequestError('Missing required field: name'));
+				reject(serverHelper.RequestError('Missing required field: name'));
 				return;
 			}
 
@@ -536,15 +536,15 @@ module.exports = class Business {
 			 * - <= 99
 			 */
 			if (isNaN(this.num_owners)) {
-				reject(ServerRequestError('You must specify the number of owners in the business.'));
+				reject(serverHelper.RequestError('You must specify the number of owners in the business.'));
 				return;
 			}
 			if (this.num_owners < 1) {
-				reject(ServerRequestError('Number of owners cannot be less than 1.'));
+				reject(serverHelper.RequestError('Number of owners cannot be less than 1.'));
 				return;
 			}
 			if (this.num_owners > 99) {
-				reject(ServerRequestError('Number of owners cannot exceed 99.'));
+				reject(serverHelper.RequestError('Number of owners cannot exceed 99.'));
 				return;
 			}
 
@@ -555,11 +555,11 @@ module.exports = class Business {
 			if (this.app.has_policy_type('WC') && this.entity_type === 'Corporation' && this.primary_territory === 'PA' && !this.owners_included) {
 				if (this.corporation_type) {
 					if (!validator.corporation_type(this.corporation_type)) {
-						reject(ServerRequestError('Invalid corporation type. Must be "c" (c-corp), "n" (non-profit), or "s" (s-corp).'));
+						reject(serverHelper.RequestError('Invalid corporation type. Must be "c" (c-corp), "n" (non-profit), or "s" (s-corp).'));
 						return;
 					}
 				} else {
-					reject(ServerRequestError('Missing required field: corporation_type'));
+					reject(serverHelper.RequestError('Missing required field: corporation_type'));
 					return;
 				}
 			}
@@ -573,7 +573,7 @@ module.exports = class Business {
 				if (this.owners.length) {
 					// TO DO: Owner validation is needed here
 				} else {
-					reject(ServerRequestError('The names of owners must be supplied if they are not included in this policy.'));
+					reject(serverHelper.RequestError('The names of owners must be supplied if they are not included in this policy.'));
 					return;
 				}
 			}
@@ -585,7 +585,7 @@ module.exports = class Business {
 			if (this.phone) {
 				// Check that it is valid
 				if (!validator.phone(this.phone)) {
-					reject(ServerRequestError('The phone number you provided is not valid. Please try again.'));
+					reject(serverHelper.RequestError('The phone number you provided is not valid. Please try again.'));
 					return;
 				}
 
@@ -602,7 +602,7 @@ module.exports = class Business {
 				this.phone = this.phone.replace(/[^0-9]/ig, '');
 				this.phone = parseInt(this.phone, 10);
 			} else {
-				reject(ServerRequestError('Missing required field: phone'));
+				reject(serverHelper.RequestError('Missing required field: phone'));
 				return;
 			}
 
@@ -613,13 +613,13 @@ module.exports = class Business {
 
 				// This is required
 				if (this.unincorporated_association === null) {
-					reject(ServerRequestError('Missing required field: unincorporated_association'));
+					reject(serverHelper.RequestError('Missing required field: unincorporated_association'));
 					return;
 				}
 
 				// Validate
 				if (!validator.boolean(this.unincorporated_association)) {
-					reject(ServerRequestError('Invalid value for unincorporated_association, please use a boolean value'));
+					reject(serverHelper.RequestError('Invalid value for unincorporated_association, please use a boolean value'));
 					return;
 				}
 
@@ -635,13 +635,13 @@ module.exports = class Business {
 			if (this.website) {
 				// Check formatting
 				if (!validator.isWebsite(this.website)) {
-					reject(ServerRequestError('Invalid formatting for property: website. Expected a valid URL'));
+					reject(serverHelper.RequestError('Invalid formatting for property: website. Expected a valid URL'));
 					return;
 				}
 
 				// Check length
 				if (this.website.length > 100) {
-					reject(ServerRequestError('Website exceeds max length of 100 characters'));
+					reject(serverHelper.RequestError('Website exceeds max length of 100 characters'));
 					return;
 				}
 			}
@@ -653,7 +653,7 @@ module.exports = class Business {
 			 */
 			if (this.founded.isAfter(moment().subtract(3, 'years'))) {
 				if (this.years_of_exp < 0 || this.years_of_exp > 99) {
-					reject(ServerRequestError('Invalid value for property: years_of_exp. Value must be between 0 and 100 (not inclusive)'));
+					reject(serverHelper.RequestError('Invalid value for property: years_of_exp. Value must be between 0 and 100 (not inclusive)'));
 					return;
 				}
 			}

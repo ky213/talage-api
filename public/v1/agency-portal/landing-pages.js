@@ -1,5 +1,7 @@
 'use strict';
 
+const serverHelper = require('../../../server.js');
+
 /**
  * Retrieves the landing-pages for the logged in user
  *
@@ -28,7 +30,7 @@ async function GetLandingPages(req, res, next) {
 	// Run the query
 	const landingPages = await db.query(landingPageSQL).catch(function (err) {
 		log.error(err.message);
-		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Send the user's data back
@@ -36,6 +38,6 @@ async function GetLandingPages(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddGetAuth('Get Landing Pages', basePath + '/landing-pages', GetLandingPages);
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddGetAuth('Get Landing Pages', basePath + '/landing-pages', GetLandingPages);
 };

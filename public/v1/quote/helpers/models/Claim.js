@@ -4,8 +4,8 @@
 
 'use strict';
 
-const RestifyError = require('restify-errors');
 const moment = require('moment');
+const serverHelper = require('../../../../../server.js');
 
 module.exports = class Claim {
 
@@ -62,7 +62,7 @@ module.exports = class Claim {
 			 */
 			if (this.amount) {
 				if (!validator.claim_amount(this.amount)) {
-					reject(ServerRequestError('The amount must be a dollar value greater than 0 and below 15,000,000'));
+					reject(serverHelper.RequestError('The amount must be a dollar value greater than 0 and below 15,000,000'));
 					return;
 				}
 
@@ -81,7 +81,7 @@ module.exports = class Claim {
 			 */
 			if (this.amount_reserved) {
 				if (!validator.claim_amount(this.amount_reserved)) {
-					reject(ServerRequestError('The amount_reserved must be a dollar value greater than 0 and below 15,000,000'));
+					reject(serverHelper.RequestError('The amount_reserved must be a dollar value greater than 0 and below 15,000,000'));
 					return;
 				}
 
@@ -101,13 +101,13 @@ module.exports = class Claim {
 			if (this.date) {
 				//  Valid date
 				if (!this.date.isValid()) {
-					reject(ServerRequestError('Invalid date of claim. Expected YYYY-MM-DD'));
+					reject(serverHelper.RequestError('Invalid date of claim. Expected YYYY-MM-DD'));
 					return;
 				}
 
 				// Confirm date is not in the future
 				if (this.date.isAfter(moment())) {
-					reject(ServerRequestError('Invalid date of claim. Date cannot be in the future'));
+					reject(serverHelper.RequestError('Invalid date of claim. Date cannot be in the future'));
 					return;
 				}
 			}
@@ -119,7 +119,7 @@ module.exports = class Claim {
 			if (this.missed_time) {
 				// Other than bool?
 				if (typeof this.missed_time !== 'boolean') {
-					reject(ServerRequestError('Invalid format for missed_time. Expected true/false'));
+					reject(serverHelper.RequestError('Invalid format for missed_time. Expected true/false'));
 					return;
 				}
 			}
@@ -131,7 +131,7 @@ module.exports = class Claim {
 			if (this.open) {
 				// Other than bool?
 				if (typeof this.open !== 'boolean') {
-					reject(ServerRequestError('Invalid format for open claims. Expected true/false'));
+					reject(serverHelper.RequestError('Invalid format for open claims. Expected true/false'));
 					return;
 				}
 			}
@@ -140,7 +140,7 @@ module.exports = class Claim {
 			 * Only open claims can have an amount reserved
 			 */
 			if (!this.open && this.amount_reserved !== 0) {
-				reject(ServerRequestError('Only open claims can have an amount reserved'));
+				reject(serverHelper.RequestError('Only open claims can have an amount reserved'));
 				return;
 			}
 

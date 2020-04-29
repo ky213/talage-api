@@ -9,6 +9,7 @@ const crypt = requireShared('./services/crypt.js');
 const fs = require('fs');
 const imgSize = require('./helpers/imgSize.js');
 const util = require('util');
+const serverHelper = require('../../../server.js');
 
 /* -----==== Version 1 Functions ====-----*/
 
@@ -26,7 +27,7 @@ async function PostEmail(req, res, next) {
 	// Check for data
 	if (!req.body || (typeof req.body === 'object' && Object.keys(req.body).length === 0)) {
 		log.warn('No data was received');
-		return next(ServerRequestError('No data was received'));
+		return next(serverHelper.RequestError('No data was received'));
 	}
 
 	// Define systems with their sending email address
@@ -42,7 +43,7 @@ async function PostEmail(req, res, next) {
 	if (!Object.prototype.hasOwnProperty.call(req.body, 'from') || typeof req.body.from !== 'string' || !Object.keys(systems).includes(req.body.from.toLowerCase())) {
 		const message = `Invalid 'from' parameter. Must be one of: ${Object.keys(systems).join(', ')}`;
 		log.warn(message);
-		return next(ServerRequestError(message));
+		return next(serverHelper.RequestError(message));
 	}
 	const system = req.body.from.toLowerCase();
 
@@ -50,7 +51,7 @@ async function PostEmail(req, res, next) {
 	if (!Object.prototype.hasOwnProperty.call(req.body, 'html') || typeof req.body.html !== 'string') {
 		const message = `Invalid 'html' parameter. Must be a string.`;
 		log.warn(message);
-		return next(ServerRequestError(message));
+		return next(serverHelper.RequestError(message));
 	}
 
 	// If this is an agency, make sure we have an agency ID in the payload
@@ -58,7 +59,7 @@ async function PostEmail(req, res, next) {
 		if (!Object.prototype.hasOwnProperty.call(req.body, 'agency') || !/^\d*$/.test(req.body.agency)) {
 			const message = `You must specify an agency when sending from '${system}'`;
 			log.warn(message);
-			return next(ServerRequestError(message));
+			return next(serverHelper.RequestError(message));
 		}
 
 		req.body.agency = parseInt(req.body.agency, 10);
@@ -67,7 +68,7 @@ async function PostEmail(req, res, next) {
 		if (!await validator.agency(req.body.agency)) {
 			const message = 'The agency specified is not valid';
 			log.warn(message);
-			return next(ServerRequestError(message));
+			return next(serverHelper.RequestError(message));
 		}
 	}
 
@@ -76,7 +77,7 @@ async function PostEmail(req, res, next) {
 	if (!fs.existsSync(template)) {
 		const message = 'There is no email template setup for the specified system.';
 		log.error(message);
-		return next(ServerInternalError(message));
+		return next(serverHelper.InternalServerError(message));
 	}
 
 	// Bring in the Template HTML and perform a couple of replacements
@@ -94,7 +95,7 @@ async function PostEmail(req, res, next) {
 		if (hadError) {
 			const message = 'Unable to retrieve agency information from the database';
 			log.error(message);
-			return next(ServerInternalError(message));
+			return next(serverHelper.InternalServerError(message));
 		}
 
 		let logoHTML = `<h1 style="padding: 35px 0;">${agency[0].name}</h1>`;
@@ -178,7 +179,7 @@ async function PostEmail(req, res, next) {
 			const message = 'An unexpected error was returned from Sendgrid. Check the logs for more information.';
 			log.error(message);
 			log.verbose(util.inspect(error, false, null));
-			res.send(ServerInternalError(message));
+			res.send(serverHelper.InternalServerError(message));
 			return;
 		}
 
@@ -189,7 +190,7 @@ async function PostEmail(req, res, next) {
 				const message = 'Sendgrid may have changed the way it returns errors. Check the logs for more information.';
 				log.error(message);
 				log.verbose(util.inspect(error, false, null));
-				res.send(ServerInternalError(message));
+				res.send(serverHelper.InternalServerError(message));
 				return;
 			}
 
@@ -202,13 +203,13 @@ async function PostEmail(req, res, next) {
 			// Build the message to be sent
 			const message = `Sendgrid returned the following errors: ${errors.join(', ')}`;
 			log.warn(`Email Failed: ${message}`);
-			res.send(ServerRequestError(message));
+			res.send(serverHelper.RequestError(message));
 		} else {
 			// Some other type of error occurred
 			const message = 'An unexpected error was returned from Sendgrid. Check the logs for more information.';
 			log.error(message);
 			log.verbose(util.inspect(error, false, null));
-			res.send(ServerInternalError(message));
+			res.send(serverHelper.InternalServerError(message));
 		}
 	});
 
@@ -216,7 +217,7 @@ async function PostEmail(req, res, next) {
 }
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddPost('Post Email', basePath + '/email', PostEmail);
-	ServerAddPost('Post Email (depr)', basePath + '/', PostEmail);
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddPost('Post Email', basePath + '/email', PostEmail);
+	server.AddPost('Post Email (depr)', basePath + '/', PostEmail);
 };

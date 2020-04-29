@@ -4,7 +4,7 @@
 
 'use strict';
 
-const RestifyError = require('restify-errors');
+const serverHelper = require('../../../../../server.js');
 
 module.exports = class ActivityCode {
 
@@ -70,14 +70,14 @@ module.exports = class ActivityCode {
 
 			// ID
 			if (isNaN(this.id)) {
-				reject(ServerRequestError('You must supply a valid ID with each class code.'));
+				reject(serverHelper.RequestError('You must supply a valid ID with each class code.'));
 				return;
 			}
 
 			// Check that the ID is valid
 			await db.query(`SELECT \`description\`FROM \`#__activity_codes\` WHERE \`id\` = ${this.id} LIMIT 1;`).then((rows) => {
 				if (rows.length !== 1) {
-					reject(ServerRequestError(`The activity code you selected (ID: ${this.id}) is not valid.`));
+					reject(serverHelper.RequestError(`The activity code you selected (ID: ${this.id}) is not valid.`));
 					rejected = true;
 					return;
 				}
@@ -89,13 +89,13 @@ module.exports = class ActivityCode {
 
 			// Payroll
 			if (isNaN(this.payroll)) {
-				reject(ServerRequestError(`Invalid payroll amount (Activity Code ${this.id})`));
+				reject(serverHelper.RequestError(`Invalid payroll amount (Activity Code ${this.id})`));
 				return;
 			}
 
 			if (this.app.has_policy_type('WC')) {
 				if (this.payroll < 1) {
-					reject(ServerRequestError(`You must provide a payroll for each activity code (Activity Code ${this.id})`));
+					reject(serverHelper.RequestError(`You must provide a payroll for each activity code (Activity Code ${this.id})`));
 					return;
 				}
 			}

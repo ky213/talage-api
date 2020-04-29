@@ -9,9 +9,9 @@ const Business = require('./Business.js');
 const Application = require('./Application.js');
 const Insurer = require('./Insurer.js');
 const Policy = require('./Policy.js');
-const RestifyError = require('restify-errors');
 const fs = require('fs');
 const slack = requireShared('./services/slack.js');
+const serverHelper = require('../../../../../server.js');
 
 module.exports = class Quote {
 
@@ -29,7 +29,7 @@ module.exports = class Quote {
 	/**
 	 * Binds this quote, if possible
 	 *
-	 * @returns {Promise.<string, RestifyError>} A promise that returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a RestifyError on failure
+	 * @returns {Promise.<string, ServerError>} A promise that returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a ServerError on failure
 	 */
 	bind() {
 		return new Promise(async (fulfill, reject) => {
@@ -37,7 +37,7 @@ module.exports = class Quote {
 			// Make sure this quote is not already bound
 			if (this.bound) {
 				log.info('Quote already bound');
-				reject(ServerRequestError('Quote already bound. No action taken.'));
+				reject(serverHelper.RequestError('Quote already bound. No action taken.'));
 				return;
 			}
 
@@ -50,7 +50,7 @@ module.exports = class Quote {
 
 				// Return an error
 				log.info(`Quotes with an api_result of '${this.api_result}' are not eligible to be bound.`);
-				reject(ServerRequestError('Quote not eligible for binding'));
+				reject(serverHelper.RequestError('Quote not eligible for binding'));
 				return;
 			}
 
@@ -82,19 +82,19 @@ module.exports = class Quote {
 	 *
 	 * @param {int} id - The ID of the quote
 	 * @param {int} payment_plan - The ID of the payment plan selected by the user
-	 * @returns {Promise.<null, RestifyError>} A promise that fulfills on success or returns a RestifyError on failure
+	 * @returns {Promise.<null, ServerError>} A promise that fulfills on success or returns a ServerError on failure
 	 */
 	load(id, payment_plan) {
 		return new Promise(async (fulfill, reject) => {
 			// Validate the ID
 			if (!await validator.isID(id)) {
-				reject(ServerRequestError('Invalid quote ID'));
+				reject(serverHelper.RequestError('Invalid quote ID'));
 				return;
 			}
 
 			// Validate the payment plan
 			if (!await validator.payment_plan(payment_plan)) {
-				reject(ServerRequestError('Invalid payment plan'));
+				reject(serverHelper.RequestError('Invalid payment plan'));
 				return;
 			}
 
@@ -126,7 +126,7 @@ module.exports = class Quote {
 
 			// Make sure we found the quote, if nott, the ID is bad
 			if (had_error || !rows || rows.length !== 1) {
-				reject(ServerRequestError('Invalid quote ID'));
+				reject(serverHelper.RequestError('Invalid quote ID'));
 				return;
 			}
 
@@ -197,7 +197,7 @@ module.exports = class Quote {
 				had_error = true;
 			});
 			if (had_error || !payment_plan_rows || payment_plan_rows.length !== 1 || !Object.prototype.hasOwnProperty.call(payment_plan_rows[0], 'COUNT(`id`)') || payment_plan_rows[0]['COUNT(`id`)'] !== 1) {
-				reject(ServerRequestError('Payment plan does not belong to the insurer who provided this quote'));
+				reject(serverHelper.RequestError('Payment plan does not belong to the insurer who provided this quote'));
 				return;
 			}
 			this.payment_plan = payment_plan;

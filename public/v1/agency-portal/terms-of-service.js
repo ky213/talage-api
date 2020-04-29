@@ -1,5 +1,7 @@
 'use strict';
 
+const serverHelper = require('../../../server.js');
+
 // Current Version of the TOS and Privacy Policy
 const version = 3;
 
@@ -21,7 +23,7 @@ async function PutAcceptTermsOfService(req, res, next) {
 	// Run the query
 	await db.query(sql).catch(function (e) {
 		log.error(e.message);
-		e = ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+		e = serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
 	});
 	if (error) {
 		return next(error);
@@ -32,8 +34,9 @@ async function PutAcceptTermsOfService(req, res, next) {
 		'message': 'Acceptance recorded',
 		'status': 'success'
 	});
+	return next();
 }
 
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddPutAuth('Record Acceptance of TOS', basePath + '/terms-of-service', PutAcceptTermsOfService);
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddPutAuth('Record Acceptance of TOS', basePath + '/terms-of-service', PutAcceptTermsOfService);
 };

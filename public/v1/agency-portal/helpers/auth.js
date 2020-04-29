@@ -6,14 +6,14 @@
 
 'use strict';
 
-const RestifyError = require('restify-errors');
 const validator = requireShared('helpers/validator.js');
+const serverHelper = require('../../../../server.js');
 
 /**
  * Returns a list of agents that this user is permitted to access. You must call validateJWT() before using this method.
  *
  * @param {object} req - The Restify request object
- * @return {Promise.<array, RestifyError>} A promise that returns an array of agent IDs on success, or a RestifyError on failure
+ * @return {Promise.<array, ServerError>} A promise that returns an array of agent IDs on success, or a ServerError on failure
  */
 exports.getAgents = function (req) {
 	return new Promise(async function (fulfill, reject) {
@@ -36,7 +36,7 @@ exports.getAgents = function (req) {
 		`;
 		const agencyResult = await db.query(agencySQL).catch(function (e) {
 			log.error(e.message);
-			error = ServerInternalError('Error querying database. Check logs.');
+			error = serverHelper.InternalServerError('Error querying database. Check logs.');
 		});
 		if (error) {
 			reject(error);
@@ -54,7 +54,7 @@ exports.getAgents = function (req) {
  * Validates that the JWT includes the parameters we are expecting
  *
  * @param {object} req - The Restify request object
- * @return {Promise.<Boolean, RestifyError>} A promise that returns boolean true on success, or a RestifyError on failure
+ * @return {Promise.<Boolean, ServerError>} A promise that returns boolean true on success, or a ServerError on failure
  */
 exports.validateJWT = function (req) {
 	return new Promise(async function (fulfill, reject) {
@@ -62,21 +62,21 @@ exports.validateJWT = function (req) {
 		// Make sure this user is authenticated
 		if (!Object.prototype.hasOwnProperty.call(req, 'authentication')) {
 			log.info('Forbidden: User is not authenticated');
-			reject(ServerForbiddenError('User is not authenticated'));
+			reject(serverHelper.ForbiddenError('User is not authenticated'));
 			return;
 		}
 
 		// Make sure the authentication payload has everything we are expecting
 		if (!Object.prototype.hasOwnProperty.call(req.authentication, 'agents') || !Object.prototype.hasOwnProperty.call(req.authentication, 'userID')) {
 			log.info('Forbidden: JWT payload is missing parameters');
-			reject(ServerForbiddenError('User is not properly authenticated'));
+			reject(serverHelper.ForbiddenError('User is not properly authenticated'));
 			return;
 		}
 
 		// Make sure the agents are what we are expecting
 		if (typeof req.authentication.agents !== 'object') {
 			log.info('Forbidden: JWT payload is invalid (agents)');
-			reject(ServerForbiddenError('User is not properly authenticated'));
+			reject(serverHelper.ForbiddenError('User is not properly authenticated'));
 			return;
 		}
 
@@ -87,7 +87,7 @@ exports.validateJWT = function (req) {
 			// Check the type
 			if (typeof agent !== 'number') {
 				log.info('Forbidden: JWT payload is invalid (single agent)');
-				reject(ServerForbiddenError('User is not properly authenticated'));
+				reject(serverHelper.ForbiddenError('User is not properly authenticated'));
 				hadError = true;
 				return;
 			}
@@ -102,14 +102,14 @@ exports.validateJWT = function (req) {
 		// Validate all agents
 		if (!await validator.agents(agentIDs)) {
 			log.info('Forbidden: JWT payload is invalid (one or more agent)');
-			reject(ServerForbiddenError('User is not properly authenticated'));
+			reject(serverHelper.ForbiddenError('User is not properly authenticated'));
 			hadError = true;
 		}
 
 		// Make sure the agencyNetwork is what we are expecting
 		if (typeof req.authentication.agencyNetwork !== 'number' && typeof req.authentication.agencyNetwork !== 'boolean') {
 			log.info('Forbidden: JWT payload is invalid (agencyNetwork)');
-			reject(ServerForbiddenError('User is not properly authenticated'));
+			reject(serverHelper.ForbiddenError('User is not properly authenticated'));
 			return;
 		}
 
@@ -118,27 +118,27 @@ exports.validateJWT = function (req) {
 			// Validate the agency network ID
 			if (!await validator.is_valid_id(req.authentication.agencyNetwork)) {
 				log.info('Forbidden: User is not authenticated (agencyNetwork)');
-				reject(ServerForbiddenError('User is not properly authenticated'));
+				reject(serverHelper.ForbiddenError('User is not properly authenticated'));
 				return;
 			}
 
 			// Make sure this user has insurers
 			if (!Object.prototype.hasOwnProperty.call(req.authentication, 'insurers')) {
 				log.info('Forbidden: User is not authenticated');
-				reject(ServerForbiddenError('User is not authenticated'));
+				reject(serverHelper.ForbiddenError('User is not authenticated'));
 				return;
 			}
 		} else if (req.authentication.agents.length > 1) {
 			// Agencies can only have one agent in their payload
 			log.info('Forbidden: JWT payload is invalid (too many agents)');
-			reject(ServerForbiddenError('User is not properly authenticated'));
+			reject(serverHelper.ForbiddenError('User is not properly authenticated'));
 			return;
 		}
 
 		// Make sure the User ID is valid
 		if (!await validator.agency_portal_user(req.authentication.userID)) {
 			log.info('Forbidden: JWT payload is invalid (invalid User ID)');
-			reject(ServerForbiddenError('User is not properly authenticated'));
+			reject(serverHelper.ForbiddenError('User is not properly authenticated'));
 			return;
 		}
 

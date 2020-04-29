@@ -22,7 +22,7 @@ async function GetIndustryCategories(req, res, next) {
 	const categories = await db.query(sql_all_industry_categories).catch(function (e) {
 		log.warn(e.message);
 		res.send(500, {
-			'message': 'Internal Server Error',
+			'message': 'Internal server. Error',
 			'status': 'error'
 		});
 		error = true;
@@ -44,7 +44,7 @@ async function GetIndustryCategories(req, res, next) {
 }
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddGet('Get All Industry Code Categories', basePath + '/industry-categories', GetIndustryCategories);
-	ServerAddGet('Get All Industry Code Categories (depr)', basePath + '/industry_categories', GetIndustryCategories);
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddGet('Get All Industry Code Categories', basePath + '/industry-categories', GetIndustryCategories);
+	server.AddGet('Get All Industry Code Categories (depr)', basePath + '/industry_categories', GetIndustryCategories);
 };

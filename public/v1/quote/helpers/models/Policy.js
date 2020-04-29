@@ -5,8 +5,8 @@
 'use strict';
 
 const Claim = require('./Claim.js');
-const RestifyError = require('restify-errors');
 const moment = require('moment');
+const serverHelper = require('../../../../../server.js');
 
 module.exports = class Policy {
 
@@ -93,23 +93,23 @@ module.exports = class Policy {
 				// Check for mm-dd-yyyy formatting
 
 				if (!this.effective_date.isValid()) {
-					reject(ServerRequestError('Invalid formatting for property: effective_date. Expected mm-dd-yyyy'));
+					reject(serverHelper.RequestError('Invalid formatting for property: effective_date. Expected mm-dd-yyyy'));
 					return;
 				}
 
 				// Check if this date is in the past
 				if (this.effective_date.isBefore(moment().startOf('day'))) {
-					reject(ServerRequestError('Invalid property: effective_date. The effective date cannot be in the past'));
+					reject(serverHelper.RequestError('Invalid property: effective_date. The effective date cannot be in the past'));
 					return;
 				}
 
 				// Check if this date is too far in the future
 				if (this.effective_date.isAfter(moment().startOf('day').add(90, 'days'))) {
-					reject(ServerRequestError('Invalid property: effective_date. The effective date cannot be more than 90 days in the future'));
+					reject(serverHelper.RequestError('Invalid property: effective_date. The effective date cannot be more than 90 days in the future'));
 					return;
 				}
 			} else {
-				reject(ServerRequestError('Missing property: effective_date'));
+				reject(serverHelper.RequestError('Missing property: effective_date'));
 				return;
 			}
 
@@ -123,12 +123,12 @@ module.exports = class Policy {
 						}
 					});
 					if (this.insurers.length !== matched_insurer_count) {
-						reject(ServerRequestError(`Specified insurer does not support ${this.type}.`));
+						reject(serverHelper.RequestError(`Specified insurer does not support ${this.type}.`));
 						return;
 					}
 				}
 			} else {
-				reject(ServerRequestError(`Insurers must be specified as an array of IDs.`));
+				reject(serverHelper.RequestError(`Insurers must be specified as an array of IDs.`));
 				return;
 			}
 
@@ -166,11 +166,11 @@ module.exports = class Policy {
 					'GL',
 					'WC'];
 				if (valid_types.indexOf(this.type) < 0) {
-					reject(ServerRequestError('Invalid policy type'));
+					reject(serverHelper.RequestError('Invalid policy type'));
 					return;
 				}
 			} else {
-				reject(ServerRequestError('You must provide a policy type'));
+				reject(serverHelper.RequestError('You must provide a policy type'));
 				return;
 			}
 
@@ -182,7 +182,7 @@ module.exports = class Policy {
 				 */
 				if (this.gross_sales) {
 					if (!validator.gross_sales(this.gross_sales)) {
-						reject(ServerRequestError('The gross sales amount must be a dollar value greater than 0 and below 100,000,000'));
+						reject(serverHelper.RequestError('The gross sales amount must be a dollar value greater than 0 and below 100,000,000'));
 						return;
 					}
 
@@ -193,7 +193,7 @@ module.exports = class Policy {
 						this.gross_sales = Math.round(parseFloat(this.gross_sales.toString().replace('$', '').replace(/,/g, '')));
 					}
 				} else {
-					reject(ServerRequestError('Gross sales amount must be provided'));
+					reject(serverHelper.RequestError('Gross sales amount must be provided'));
 					return;
 				}
 			}
@@ -206,7 +206,7 @@ module.exports = class Policy {
 				 * - Boolean
 				 */
 				if (this.coverage_lapse_non_payment === null) {
-					reject(ServerRequestError('coverage_lapse_non_payment is required, and must be a true or false value'));
+					reject(serverHelper.RequestError('coverage_lapse_non_payment is required, and must be a true or false value'));
 					return;
 				}
 			} else if (this.type === 'GL') {
@@ -234,11 +234,11 @@ module.exports = class Policy {
 					'UT',
 					'WA'].includes(this.app.business.primary_territory)) {
 					if (!this.deductible) {
-						reject(ServerRequestError('You must supply a deductible for GL policies in AR, AZ, CA, CO, ID, NM, NV, OK, OR, TX, UT, or WA. The deductible can be 500, 1000, or 1500'));
+						reject(serverHelper.RequestError('You must supply a deductible for GL policies in AR, AZ, CA, CO, ID, NM, NV, OK, OR, TX, UT, or WA. The deductible can be 500, 1000, or 1500'));
 						return;
 					}
 					if (!validator.deductible(this.deductible)) {
-						reject(ServerRequestError('The policy deductible you supplied is invalid. It must be one of 500, 1000, or 1500.'));
+						reject(serverHelper.RequestError('The policy deductible you supplied is invalid. It must be one of 500, 1000, or 1500.'));
 						return;
 					}
 					this.deductible = parseInt(this.deductible, 10);
@@ -254,14 +254,14 @@ module.exports = class Policy {
 				 * - Boolean
 				 */
 				if (this.coverage_lapse === null) {
-					reject(ServerRequestError('coverage_lapse is required, and must be a true or false value'));
+					reject(serverHelper.RequestError('coverage_lapse is required, and must be a true or false value'));
 					return;
 				}
 			}
 
 			// Limits
 			if (!validator.limits(this.limits, this.type)) {
-				reject(ServerRequestError('The policy limits you supplied are invalid.'));
+				reject(serverHelper.RequestError('The policy limits you supplied are invalid.'));
 				return;
 			}
 

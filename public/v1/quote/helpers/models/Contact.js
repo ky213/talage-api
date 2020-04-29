@@ -4,7 +4,7 @@
 
 'use strict';
 
-const RestifyError = require('restify-errors');
+const serverHelper = require('../../../../../server.js');
 
 module.exports = class Contact {
 
@@ -52,39 +52,39 @@ module.exports = class Contact {
 			// Validate email
 			const email_result = validator.email(this.email);
 			if (email_result !== true) {
-				reject(ServerRequestError(email_result));
+				reject(serverHelper.RequestError(email_result));
 				return;
 			}
 
 			// Validate first_name
 			if (this.first_name) {
 				if (!validator.isName(this.first_name)) {
-					reject(ServerRequestError('Invalid characters in first_name'));
+					reject(serverHelper.RequestError('Invalid characters in first_name'));
 					return;
 				}
 
 				if (this.first_name.length > 30) {
-					reject(ServerRequestError('First name exceeds maximum length of 30 characters'));
+					reject(serverHelper.RequestError('First name exceeds maximum length of 30 characters'));
 					return;
 				}
 			} else {
-				reject(ServerRequestError('Missing required field in contact: first_name'));
+				reject(serverHelper.RequestError('Missing required field in contact: first_name'));
 				return;
 			}
 
 			// Validate last_name
 			if (this.last_name) {
 				if (!validator.isName(this.last_name)) {
-					reject(ServerRequestError('Invalid characters in last_name'));
+					reject(serverHelper.RequestError('Invalid characters in last_name'));
 					return;
 				}
 
 				if (this.last_name.length > 30) {
-					reject(ServerRequestError('Last name exceeds maximum length of 30 characters'));
+					reject(serverHelper.RequestError('Last name exceeds maximum length of 30 characters'));
 					return;
 				}
 			} else {
-				reject(ServerRequestError('Missing required field in contact: last_name'));
+				reject(serverHelper.RequestError('Missing required field in contact: last_name'));
 				return;
 			}
 
@@ -93,7 +93,7 @@ module.exports = class Contact {
 
 				// Check that it is valid
 				if (!validator.phone(this.phone)) {
-					reject(ServerRequestError('The phone number you provided is not valid. Please try again.'));
+					reject(serverHelper.RequestError('The phone number you provided is not valid. Please try again.'));
 					return;
 				}
 
@@ -110,7 +110,7 @@ module.exports = class Contact {
 				this.phone = this.phone.replace(/[^0-9]/ig, '');
 				this.phone = parseInt(this.phone, 10);
 			} else {
-				reject(ServerRequestError('Phone number is required'));
+				reject(serverHelper.RequestError('Phone number is required'));
 				return;
 			}
 

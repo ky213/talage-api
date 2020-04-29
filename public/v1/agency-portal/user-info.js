@@ -1,5 +1,7 @@
 'use strict';
 
+const serverHelper = require('../../../server.js');
+
 /**
  * Retrieves the information for a single user
  *
@@ -52,7 +54,7 @@ async function GetUserInfo(req, res, next) {
 	// Going to the database to get the user's info
 	const userInfo = await db.query(userInfoSQL).catch(function (err) {
 		log.error(err.message);
-		return next(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Send the user's data back
@@ -60,6 +62,6 @@ async function GetUserInfo(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddGetAuth('Get user information', basePath + '/user-info', GetUserInfo);
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddGetAuth('Get user information', basePath + '/user-info', GetUserInfo);
 };

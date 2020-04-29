@@ -655,8 +655,8 @@ module.exports = class AcuityWC extends Integration{
 							fulfill(this.return_error('error', 'We are currently unable to connect to this insurer'));
 							return;
 						case '500':
-							this.log += '--------======= Server Error =======--------';
-							log.warn(`${this.insurer.name} 500 - Server Error `);
+							this.log += '--------======= server. Error =======--------';
+							log.warn(`${this.insurer.name} 500 - server. Error `);
 							this.reasons.push('Insurer encountered a server error');
 							fulfill(this.return_error('error', 'We are currently unable to connect to this insurer'));
 							return;

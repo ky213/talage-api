@@ -111,7 +111,7 @@ async function SocketQuotes(socket) {
 	});
 }
 
-exports.RegisterEndpoint = (basePath) => {
+exports.RegisterEndpoint = (server, basePath) => {
 	console.log('adding quotes socket endpoint ' + basePath + '/quotes');
-	ServerAddSocket('Quotes socket', basePath + '/quotes', SocketQuotes);
+	server.AddSocket('Quotes socket', basePath + '/quotes', SocketQuotes);
 };
