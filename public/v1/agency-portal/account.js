@@ -1,5 +1,5 @@
 'use strict';
-
+const RestifyError = require('restify-errors');
 const crypt = requireShared('./services/crypt.js');
 const validator = requireShared('./helpers/validator.js');
 const serverHelper = require('../../../server.js');
@@ -13,7 +13,7 @@ const serverHelper = require('../../../server.js');
  *
  * @returns {void}
  */
-async function GetAccount(req, res, next) {
+async function get_account(req, res, next) {
 	const account_sql = `SELECT \`a\`.\`email\`
 				FROM   \`#__agency_portal_users\` AS \`a\`
 				WHERE  \`a\`.\`id\` = ${parseInt(req.authentication.userID, 10)};`;
@@ -53,7 +53,7 @@ async function GetAccount(req, res, next) {
  *
  * @returns {void}
  */
-async function PutAccount(req, res, next) {
+async function put_account(req, res, next) {
 	// Check for data
 	if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
 		log.warn('No data was received');
@@ -129,6 +129,6 @@ async function PutAccount(req, res, next) {
 }
 
 exports.RegisterEndpoint = (server, basePath) => {
-	server.AddGetAuth('Get account', basePath + '/account', GetAccount);
-	server.AddPutAuth('Update account', basePath + '/account', PutAccount);
+	server.AddGetAuth('Get account', basePath + '/account', get_account);
+	server.AddPutAuth('Update account', basePath + '/account', put_account);
 };

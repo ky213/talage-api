@@ -56,7 +56,7 @@ exports.getAgents = function (req) {
  * @param {object} req - The Restify request object
  * @return {Promise.<Boolean, ServerError>} A promise that returns boolean true on success, or a ServerError on failure
  */
-exports.validateJWT = function (req) {
+exports.validateJWT = function (req, permission, permissionType) {
 	return new Promise(async function (fulfill, reject) {
 
 		// Make sure this user is authenticated
@@ -67,7 +67,7 @@ exports.validateJWT = function (req) {
 		}
 
 		// Make sure the authentication payload has everything we are expecting
-		if (!Object.prototype.hasOwnProperty.call(req.authentication, 'agents') || !Object.prototype.hasOwnProperty.call(req.authentication, 'userID')) {
+		if(!Object.prototype.hasOwnProperty.call(req.authentication, 'agents') || !Object.prototype.hasOwnProperty.call(req.authentication, 'userID') || !Object.prototype.hasOwnProperty.call(req.authentication, 'permissions')){
 			log.info('Forbidden: JWT payload is missing parameters');
 			reject(serverHelper.ForbiddenError('User is not properly authenticated'));
 			return;
@@ -78,6 +78,15 @@ exports.validateJWT = function (req) {
 			log.info('Forbidden: JWT payload is invalid (agents)');
 			reject(serverHelper.ForbiddenError('User is not properly authenticated'));
 			return;
+		}
+		
+		// Check for the correct permissions
+		if(permission && permissionType){
+			if(!req.authentication.permissions[permission][permissionType]){
+				log.info('Forbidden: User does not have the correct permissions');
+				reject(new RestifyError.ForbiddenError('User does not have the correct permissions'));
+				return;
+			}
 		}
 
 		// Make sure each of the agents are valid

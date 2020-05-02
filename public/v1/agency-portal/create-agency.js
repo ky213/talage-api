@@ -12,6 +12,16 @@ const serverHelper = require('../../../server.js');
  * @returns {void}
  */
 async function GetCreateAgency(req, res, next) {
+	let error = false;
+
+	// Make sure the authentication payload has everything we are expecting
+	await auth.validateJWT(req, 'agencies', 'manage').catch(function(e){
+		error = e;
+	});
+	if(error){
+		return next(error);
+	}
+
 	// Make sure this is an agency network
 	if (req.authentication.agencyNetwork === false) {
 		log.info('Forbidden: User is not authorized to create agecies');

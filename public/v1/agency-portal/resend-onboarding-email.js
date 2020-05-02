@@ -14,6 +14,16 @@ const serverHelper = require('../../../server.js');
  * @returns {void}
  */
 async function PostResendOnboardingEmail(req, res, next) {
+	let error = false;
+
+	// Make sure the authentication payload has everything we are expecting
+	await auth.validateJWT(req, 'agencies', 'view').catch(function(e){
+		error = e;
+	});
+	if(error){
+		return next(error);
+	}
+
 	// Make sure this is an agency network
 	if (req.authentication.agencyNetwork === false) {
 		log.info('Forbidden: User is not authorized to create agencies');

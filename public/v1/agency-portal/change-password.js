@@ -13,7 +13,7 @@ const serverHelper = require('../../../server.js');
  *
  * @returns {void}
  */
-async function PutChangePassword(req, res, next) {
+async function putChangePassword(req, res, next) {
 	// Security Note: The validateJWT function was not called here because in the password reset function a modified JWT is issued that only contains a userId
 
 	// Make sure this user is authenticated
@@ -67,6 +67,6 @@ async function PutChangePassword(req, res, next) {
 }
 
 exports.RegisterEndpoint = (server, basePath) => {
-	server.AddPut('Change Password', basePath + '/change-password', PutChangePassword);
-	server.AddPut('Change Password (depr)', basePath + '/changePassword', PutChangePassword);
+	server.AddPut('Change Password', basePath + '/change-password', putChangePassword);
+	server.AddPut('Change Password (depr)', basePath + '/changePassword', putChangePassword);
 };

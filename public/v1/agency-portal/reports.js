@@ -51,6 +51,15 @@ function multiRowResult(results) {
  */
 async function GetReports(req, res, next) {
 	let error = false;
+
+	// Make sure the authentication payload has everything we are expecting
+	await auth.validateJWT(req, 'dashboard', 'view').catch(function(e){
+		error = e;
+	});
+	if(error){
+		return next(error);
+	}
+
 	// Get the agents that we are permitted to view
 	const agents = await auth.getAgents(req).catch(function (e) {
 		error = e;

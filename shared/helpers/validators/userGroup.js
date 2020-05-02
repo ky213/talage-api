@@ -1,5 +1,4 @@
 'use strict';
-const id = /^[1-9][0-9]*$/;
 
 module.exports = async function(val){
 	if(!validator.id(val)){
@@ -9,21 +8,20 @@ module.exports = async function(val){
 	// Make sure this landing page exists in the database
 	const sql = `
 		SELECT \`id\`
-		FROM \`#__agency_landing_pages\`
+		FROM \`#__agency_portal_user_groups\`
 		WHERE \`id\` = ${parseInt(val, 10)}
 		LIMIT 1;
 	`;
 
 	// Run the query
 	let error = false;
-	const result = await db.query(sql).catch(function(err){
-		log.error(err.message);
+	const result = await db.query(sql).catch(function(){
 		error = true;
 	});
 	if(error){
 		return false;
 	}
 
-	// Check the  result
+	// Check the result
 	return Boolean(result.length);
 };

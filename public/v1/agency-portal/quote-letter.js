@@ -14,10 +14,20 @@ const serverHelper = require('../../../server.js');
  * @returns {void}
  */
 async function GetQuoteLetter(req, res, next) {
+	let error = false;
+
 	// Check for data
 	if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
 		log.info('Bad Request: No data received');
 		return next(serverHelper.RequestError('Bad Request: No data received'));
+	}
+
+	// Make sure the authentication payload has everything we are expecting
+	await auth.validateJWT(req, 'applications', 'view').catch(function(e){
+		error = e;
+	});
+	if(error){
+		return next(error);
 	}
 
 	// Get the agents that we are permitted to view
