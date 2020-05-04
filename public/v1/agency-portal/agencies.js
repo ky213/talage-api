@@ -12,10 +12,18 @@ const serverHelper = require('../../../server.js');
  *
  * @returns {void}
  */
-async function GetAgencies(req, res, next) {
+async function agencies(req, res, next) {
+	let error = false;
+
+	// Make sure the authentication payload has everything we are expecting
+	await auth.validateJWT(req, 'agencies', 'view').catch(function(e){
+		error = e;
+	});
+	if(error){
+		return next(error);
+	}
 
 	// Get the agents that we are permitted to view
-	let error = false;
 	const agents = await auth.getAgents(req).catch(function (e) {
 		error = e;
 	});
@@ -56,5 +64,5 @@ async function GetAgencies(req, res, next) {
 }
 
 exports.RegisterEndpoint = (server, basePath) => {
-	server.AddGetAuth('Get agencies', basePath + '/agencies', GetAgencies);
+	server.AddGetAuth('Get agencies', basePath + '/agencies', agencies);
 };

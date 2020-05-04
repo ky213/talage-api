@@ -315,10 +315,8 @@ module.exports = class LibertyWC extends Integration{
 							}
 
 							// Governing Class Codes
-							if(this.get_num_activity_codes() > 1){
 								const governing_class = this.determine_governing_activity_code();
 								Policy.ele('GoverningClassCd', this.insurer_wc_codes[this.app.business.primary_territory + governing_class.id]);
-							}
 						// </Policy>
 
 						this.app.business.locations.forEach((loc, index) => {

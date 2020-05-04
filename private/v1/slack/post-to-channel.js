@@ -401,6 +401,14 @@ async function PostToChannel(req, res, next) {
 		});
 	}
 
+		//For alerts and debug channels all instance info
+		log.info('req.body.channel: ' + req.body.channel);
+		if( req.body.channel === '#debug' || req.body.channel === '#alerts'){
+			if( process.env.HOSTNAME && process.env.INSTANCE_ID){
+				footer = footer + ` HOSTNAME: ${process.env.HOSTNAME} INSTANCE: ${process.env.INSTANCE_ID}`
+			}
+		}
+
 	if (req.body.attachment && req.body.attachment.text) {
 		post_data.attachments[0].pretext = req.body.message;
 		post_data.attachments[0].text = req.body.attachment.text;

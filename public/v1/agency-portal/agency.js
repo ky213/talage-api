@@ -40,9 +40,19 @@ function generatePassword() {
  *
  * @returns {void}
  */
-async function GetAgency(req, res, next) {
-	// Get the agents that we are permitted to view
+async function getAgency(req, res, next) {
 	let error = false;
+
+	// Make sure the authentication payload has everything we are expecting
+	await auth.validateJWT(req, 'agencies', 'view').catch(function(e){
+		error = e;
+	});
+	if(error){
+		return next(error);
+	}
+
+	// Get the agents that we are permitted to view
+	
 	const agents = await auth.getAgents(req).catch(function (e) {
 		error = e;
 	});
@@ -205,6 +215,7 @@ async function GetAgency(req, res, next) {
 			`;
 		const territoriesSQL = `
 				SELECT
+					${db.quoteName('lt.id')},
 					${db.quoteName('lt.agency_location', 'locationID')},
 					${db.quoteName('t.abbr')},
 					${db.quoteName('t.name')}
@@ -636,6 +647,6 @@ async function PostAgency(req, res, next) {
 }
 
 exports.RegisterEndpoint = (server, basePath) => {
-	server.AddGetAuth('Get Agency', basePath + '/agency', GetAgency);
+	server.AddGetAuth('Get Agency', basePath + '/agency', getAgency);
 	server.AddPostAuth('Post Agency', basePath + '/agency', PostAgency);
 };

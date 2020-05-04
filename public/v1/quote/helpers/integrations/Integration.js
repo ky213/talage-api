@@ -199,7 +199,7 @@ module.exports = class Integration{
 
 		// If there are not at least 2 activity codes, just return what we have
 		if(this.grouped_activity_codes.length < 2){
-			return this.grouped_activity_codes;
+			return this.grouped_activity_codes[0];
 		}
 
 		// Sort the activity codes based on payroll

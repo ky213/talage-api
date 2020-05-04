@@ -47,6 +47,7 @@ function validateParameters(parent, expectedParameters) {
  * @returns {void}
  */
 async function PostApplications(req, res, next) {
+	let error = false;
 	const expectedParameters = [
 		{
 			'name': 'page',
@@ -99,6 +100,14 @@ async function PostApplications(req, res, next) {
 		}
 	];
 
+	// Make sure the authentication payload has everything we are expecting
+	await auth.validateJWT(req, 'applications', 'view').catch(function(e){
+		error = e;
+	});
+	if(error){
+		return next(error);
+	}
+	
 	// Validate the parameters
 	if (!validateParameters(req.params, expectedParameters)) {
 		return next(serverHelper.RequestError('Bad Request: missing expected parameter'));
@@ -110,7 +119,6 @@ async function PostApplications(req, res, next) {
 	const endDateSQL = moment(req.params.endDate).format('YYYY-MM-DD HH:mm:ss');
 
 	// Get the agents that we are permitted to view
-	let error = false;
 	const agents = await auth.getAgents(req).catch(function (e) {
 		error = e;
 	});

@@ -13,6 +13,17 @@ const serverHelper = require('../../../server.js');
  * @returns {void}
  */
 async function GetBanners(req, res, next) {
+	let error = false;
+
+	// Make sure the authentication payload has everything we are expecting
+	await auth.validateJWT(req, 'pages', 'view').catch(function(e){
+		error = e;
+	});
+	if(error){
+		return next(error);
+	}
+
+
 	// Get a list of banners on the server
 	await request({
 		'method': 'GET',

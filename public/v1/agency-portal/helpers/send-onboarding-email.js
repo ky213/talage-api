@@ -58,23 +58,58 @@ module.exports = async function (agencyNetwork, userID, firstName, lastName, age
 	// Create a limited life JWT
 	const token = jwt.sign({ 'userID': userID }, settings.AUTH_SECRET_KEY, { 'expiresIn': '7d' });
 
+	
 	// Format the brand
-	let brand = settings.BRAND.toLowerCase();
+	let brandraw = process.env.BRAND.toLowerCase();
+	let portalurl = process.env.PORTAL_URL;
+	let appurl = process.env.APPLICATION_URL;
+	if(agencyNetwork == 2){
+		brandraw = 'Digalent';
+		if(process.env.NODE_ENV === 'production'){
+			portalurl = 'https://agents.digalent.com';
+			appurl = 'https://insure.digalent.com';
+		}else{
+			portalurl = 'https://agents.sta.digalent.com';
+			appurl = 'https://sta.digalent.com';
+		}
+
+	}
+	let brand = brandraw.toLowerCase();
 	brand = `${brand.charAt(0).toUpperCase() + brand.slice(1)}`;
 
 	// Prepare the email to send to the user
 	const emailData = {
-		'from': settings.BRAND,
+		'from': brandraw,
 		'html': emailMessage.
-			replace('{{Agent First Name}}', firstName).
-			replace('{{Agent Last Name}}', lastName).
-			replace('{{Agency}}', agencyName).
-			replace('{{Application Link}}', `${settings.SITE_URL}/${slug}`).
-			replace('{{Brand}}', brand).
-			replace('{{Activation Link}}', `<a href="${settings.PORTAL_URL}/reset-password/${token}" style="background-color:#ED7D31;border-radius:0.25rem;color:#FFF;font-size:1.3rem;padding-bottom:0.75rem;padding-left:1.5rem;padding-top:0.75rem;padding-right:1.5rem;text-decoration:none;text-transform:uppercase;">Activate My Account</a>`),
+			replace(/{{Agent First Name}}/g, firstName).
+			replace(/{{Agent Last Name}}/g, lastName).
+			replace(/{{Agency}}/g, agencyName).
+			replace(/{{Application Link}}/g, `${appurl}/${slug}`).
+			replace(/{{Brand}}/g, brand).
+			replace(/{{Activation Link}}/g, `<a href="${portalurl}/reset-password/${token}" style="background-color:#ED7D31;border-radius:0.25rem;color:#FFF;font-size:1.3rem;padding-bottom:0.75rem;padding-left:1.5rem;padding-top:0.75rem;padding-right:1.5rem;text-decoration:none;text-transform:uppercase;">Activate My Account</a>`),
 		'subject': emailSubject.replace('{{Brand}}', brand),
 		'to': userEmail
 	};
+
+
+	// Format the brand
+	// let brand = settings.BRAND.toLowerCase();
+	// brand = `${brand.charAt(0).toUpperCase() + brand.slice(1)}`;
+
+
+	// // Prepare the email to send to the user
+	// const emailData = {
+	// 	'from': settings.BRAND,
+	// 	'html': emailMessage.
+	// 		replace('{{Agent First Name}}', firstName).
+	// 		replace('{{Agent Last Name}}', lastName).
+	// 		replace('{{Agency}}', agencyName).
+	// 		replace('{{Application Link}}', `${settings.SITE_URL}/${slug}`).
+	// 		replace('{{Brand}}', brand).
+	// 		replace('{{Activation Link}}', `<a href="${settings.PORTAL_URL}/reset-password/${token}" style="background-color:#ED7D31;border-radius:0.25rem;color:#FFF;font-size:1.3rem;padding-bottom:0.75rem;padding-left:1.5rem;padding-top:0.75rem;padding-right:1.5rem;text-decoration:none;text-transform:uppercase;">Activate My Account</a>`),
+	// 	'subject': emailSubject.replace('{{Brand}}', brand),
+	// 	'to': userEmail
+	// };
 
 	// Send an email to the user
 	request({

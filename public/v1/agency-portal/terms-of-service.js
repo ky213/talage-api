@@ -16,6 +16,7 @@ const version = 3;
  */
 async function PutAcceptTermsOfService(req, res, next) {
 	// Construct the query
+	let error = false;
 	const sql = `
 			INSERT INTO \`#__legal_acceptances\` (\`agency_portal_user\`, \`ip\`, \`version\`)
 			VALUES (${req.authentication.userID}, ${db.escape(req.connection.remoteAddress)}, ${version});
@@ -23,7 +24,7 @@ async function PutAcceptTermsOfService(req, res, next) {
 	// Run the query
 	await db.query(sql).catch(function (e) {
 		log.error(e.message);
-		e = serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+		error = serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
 	});
 	if (error) {
 		return next(error);

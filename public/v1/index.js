@@ -13,7 +13,8 @@ function RegisterEndpoint(server, namespace, endpointName) {
 exports.RegisterEndpoints = (server) => {
 	// agency portal
 	RegisterEndpoint(server, 'agency-portal', 'account');
-	RegisterEndpoint(server, 'agency-portal', 'activities');
+	//activities removed in 1.5.0
+	//RegisterEndpoint(server, 'agency-portal', 'activities');
 	RegisterEndpoint(server, 'agency-portal', 'agencies');
 	RegisterEndpoint(server, 'agency-portal', 'agency');
 	RegisterEndpoint(server, 'agency-portal', 'application');
@@ -34,6 +35,8 @@ exports.RegisterEndpoints = (server) => {
 	RegisterEndpoint(server, 'agency-portal', 'user-info');
 	RegisterEndpoint(server, 'agency-portal', 'validate-token');
 	RegisterEndpoint(server, 'agency-portal', 'wholesale-agreement');
+	RegisterEndpoint(server, 'agency-portal', 'user');
+	RegisterEndpoint(server, 'agency-portal', 'users');
 
 	// auth
 	RegisterEndpoint(server, 'auth', 'agency-portal');

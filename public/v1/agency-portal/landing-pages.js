@@ -12,6 +12,16 @@ const serverHelper = require('../../../server.js');
  * @returns {void}
  */
 async function GetLandingPages(req, res, next) {
+	let error = false;
+
+	// Make sure the authentication payload has everything we are expecting
+	await auth.validateJWT(req, 'pages', 'view').catch(function(e){
+		error = e;
+	});
+	if(error){
+		return next(error);
+	}
+
 	// TO DO: Add support for Agency Networks (take in an angency as a parameter)
 	const agency = req.authentication.agents[0];
 
