@@ -7,6 +7,7 @@
 const crypt = requireShared('./services/crypt.js');
 const moment_timezone = require('moment-timezone');
 const serverHelper = require('../../../../../server.js');
+const validator = requireShared('./helpers/validator.js');
 
 module.exports = class Insurer {
 

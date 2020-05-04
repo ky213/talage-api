@@ -5,6 +5,7 @@
 'use strict';
 
 const serverHelper = require('../../../../../server.js');
+const validator = requireShared('./helpers/validator.js');
 
 module.exports = class Contact {
 
