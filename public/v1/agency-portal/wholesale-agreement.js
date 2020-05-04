@@ -32,7 +32,7 @@ async function GetWholesaleAgreementLink(req, res, next) {
 		`;
 	const agentInfo = await db.query(agentSql).catch(function (e) {
 		log.error(e.message);
-		error = serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+		error = serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
 	});
 	if (error) {
 		return next(error);
@@ -57,7 +57,7 @@ async function GetWholesaleAgreementLink(req, res, next) {
 			if (e) {
 				log.error('Failed to get docusign document for signing. This user will need to be sent the document manually.');
 				log.verbose(e);
-				error = serverHelper.InternalServerError(e);
+				error = serverHelper.InternalError(e);
 			}
 		});
 	if (error) {
@@ -107,7 +107,7 @@ async function PutWholesaleAgreementSigned(req, res, next) {
 	// Run the update query
 	await db.query(updateSql).catch(function (e) {
 		log.error(e.message);
-		e = serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+		e = serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
 	});
 	if (error) {
 		return next(error);

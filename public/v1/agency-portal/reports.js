@@ -200,7 +200,7 @@ async function GetReports(req, res, next) {
 		// Query the database and wait for a result
 		const result = await db.query(queries[queryName]).catch((err) => {
 			log.error(err.message);
-			return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		});
 
 		// Names of reports that should be handled by the singleRowResult helper method

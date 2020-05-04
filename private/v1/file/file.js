@@ -39,7 +39,7 @@ function DeleteFile(req, res, next) {
 	}, function (err) {
 		if (err) {
 			log.warn(err.message);
-			res.send(serverHelper.InternalServerError(err.message));
+			res.send(serverHelper.InternalError(err.message));
 			return;
 		}
 
@@ -84,7 +84,7 @@ function GetFile(req, res, next) {
 	}, function (err, data) {
 		if (err) {
 			log.warn(err.message);
-			res.send(serverHelper.InternalServerError(err.message));
+			res.send(serverHelper.InternalError(err.message));
 			return;
 		}
 
@@ -155,7 +155,7 @@ function PutFile(req, res, next) {
 	}, function (err) {
 		if (err) {
 			log.warn(err.message);
-			res.send(serverHelper.InternalServerError(err.message));
+			res.send(serverHelper.InternalError(err.message));
 			return;
 		}
 

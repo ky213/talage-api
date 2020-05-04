@@ -48,7 +48,7 @@ async function GetToken(req, res, next) {
 		const user_sql = `SELECT \`id\` FROM \`clw_users\` WHERE \`id\` = ${db.escape(req.query.joomla_user)} LIMIT 1;`;
 		const user_result = await db.query(user_sql).catch(function (e) {
 			log.error(e.message);
-			res.send(500, serverHelper.InternalServerError('Error querying database. Check logs.'));
+			res.send(500, serverHelper.InternalError('Error querying database. Check logs.'));
 			error = true;
 		});
 		if (error) {
@@ -66,7 +66,7 @@ async function GetToken(req, res, next) {
 	const sql = `SELECT \`id\`, \`key\` FROM \`#__api_users\` WHERE \`user\` = ${db.escape(req.query.user)} LIMIT 1;`;
 	const result = await db.query(sql).catch(function (e) {
 		log.error(e.message);
-		res.send(500, serverHelper.InternalServerError('Error querying database. Check logs.'));
+		res.send(500, serverHelper.InternalError('Error querying database. Check logs.'));
 		error = true;
 	});
 	if (error) {

@@ -132,7 +132,7 @@ const serverHelper = require('../../../server.js');
 		`;
 	const nameResult = await db.query(nameSQL).catch(function (error) {
 		log.error(error.message);
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 	if (nameResult.length > 0) {
 		throw new Error('This name is already in use. Choose a different one.');
@@ -150,7 +150,7 @@ const serverHelper = require('../../../server.js');
 		`;
 	const slugResult = await db.query(slugSQL).catch(function (error) {
 		log.error(error.message);
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 	if (slugResult.length > 0) {
 		throw new Error('This link is already in use. Choose a different one.');
@@ -206,13 +206,13 @@ async function createLandingPage(req, res, next) {
 	// Run the query
 	const result = await db.query(sql).catch(function (err) {
 		log.error(err.message);
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Make sure the query was successful
 	if (result.affectedRows !== 1) {
 		log.error('Landing page update failed. Query ran successfully; however, no records were affected.');
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	}
 
 	// Send back a success response
@@ -277,7 +277,7 @@ async function createLandingPage(req, res, next) {
 
 		// Run the query
 		const result = await db.query(updateSQL).catch(function(){
-			error = serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+			error = serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
 		});
 		if(error){
 			return next(error);
@@ -286,7 +286,7 @@ async function createLandingPage(req, res, next) {
 		// Make sure the query was successful
 		if(result.affectedRows !== 1){
 			log.error('Landing page delete failed');
-			return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		}
 
 		res.send(200, 'Deleted');
@@ -347,7 +347,7 @@ async function getLandingPage(req, res, next) {
 	// Run the query
 	const landingPage = await db.query(landingPageSQL).catch(function (err) {
 		log.error(err.message);
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Make sure a page was found
@@ -423,13 +423,13 @@ async function updateLandingPage(req, res, next) {
 	// Run the query
 	const result = await db.query(sql).catch(function (err) {
 		log.error(err.message);
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Make sure the query was successful
 	if (result.affectedRows !== 1) {
 		log.error('Landing page update failed. Query ran successfully; however, no records were affected.');
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	}
 
 	// Send back a success response

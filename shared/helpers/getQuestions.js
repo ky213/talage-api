@@ -62,14 +62,14 @@ module.exports = function (activity_codes, industry_code, zip_codes, policy_type
 					fullfil(raw_data);
 				} else {
 					log.warn(`Unable to connect to Question API (${res.statusCode}${raw_data.message ? `: ${raw_data.message}` : ''})`);
-					reject(serverHelper.InternalServerError('Unable to connect to Question API.'));
+					reject(serverHelper.InternalError('Unable to connect to Question API.'));
 				}
 			});
 		});
 
 		req.on('error', function (e) {
 			log.error(e.message);
-			reject(serverHelper.InternalServerError('Unable to connect to Question API'));
+			reject(serverHelper.InternalError('Unable to connect to Question API'));
 		});
 
 		req.end();

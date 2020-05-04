@@ -125,7 +125,7 @@ module.exports = class Insurer {
 			// Make sure we found some payment plans
 			if (had_error || !payment_plans || payment_plans.length <= 0) {
 				log.error(`No payment plans set for ${this.name}`);
-				reject(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				reject(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 				return;
 			}
 
@@ -157,7 +157,7 @@ module.exports = class Insurer {
 
 			// Make sure no errors occured
 			if (had_error) {
-				reject(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				reject(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 				return;
 			}
 

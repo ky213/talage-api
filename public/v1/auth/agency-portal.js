@@ -71,7 +71,7 @@ async function PostToken(req, res, next) {
 	`;
 	const result = await db.query(agencySQL).catch(function (e) {
 		log.error(e.message);
-		res.send(500, serverHelper.InternalServerError('Error querying database. Check logs.'));
+		res.send(500, serverHelper.InternalError('Error querying database. Check logs.'));
 		error = true;
 	});
 	if (error) {
@@ -121,7 +121,7 @@ async function PostToken(req, res, next) {
 		`;
 		const agencies = await db.query(agenciesSQL).catch(function (e) {
 			log.error(e.message);
-			res.send(500, serverHelper.InternalServerError('Error querying database. Check logs.'));
+			res.send(500, serverHelper.InternalError('Error querying database. Check logs.'));
 			error = true;
 		});
 		if (error) {
@@ -145,7 +145,7 @@ async function PostToken(req, res, next) {
 		// Query the database
 		const insurersData = await db.query(insurersSQL).catch(function (e) {
 			log.error(e.message);
-			res.send(500, serverHelper.InternalServerError('Error querying database. Check logs.'));
+			res.send(500, serverHelper.InternalError('Error querying database. Check logs.'));
 			error = true;
 		});
 		if (error) {
@@ -175,7 +175,7 @@ async function PostToken(req, res, next) {
 		`;
 		const wholesaleInfo = await db.query(wholesaleSQL).catch(function (e) {
 			log.error(e.message);
-			res.send(500, serverHelper.InternalServerError('Error querying database. Check logs.'));
+			res.send(500, serverHelper.InternalError('Error querying database. Check logs.'));
 			error = true;
 		});
 		if (error) {

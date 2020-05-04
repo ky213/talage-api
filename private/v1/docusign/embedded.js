@@ -105,7 +105,7 @@ async function PostEmbedded(req, res, next) {
 		const errorMessage = 'Unable to create DocuSign envelope. Check the API logs for more information.';
 		log.error(errorMessage);
 		log.verbose(`${e.message} - ${e.response.body.message}`);
-		error = serverHelper.InternalServerError(errorMessage);
+		error = serverHelper.InternalError(errorMessage);
 	});
 
 	if (error) {
@@ -135,7 +135,7 @@ async function PostEmbedded(req, res, next) {
 		const errorMessage = 'Unable to create DocuSign view. Check the API logs for more information.';
 		log.error(errorMessage);
 		log.verbose(`${e.message} - ${e.response.body.message}`);
-		error = serverHelper.InternalServerError(errorMessage);
+		error = serverHelper.InternalError(errorMessage);
 	});
 
 	if (error) {
@@ -148,7 +148,7 @@ async function PostEmbedded(req, res, next) {
 	// Make sure we got a View URL
 	if (!viewUrl) {
 		log.error('Unable to create Docusign view. No URL returned. Check the API logs for more information.');
-		return next(serverHelper.InternalServerError('We were unable to generate your document for signing at this time. Someone will contact you to complete these documents and open access to your account.'));
+		return next(serverHelper.InternalError('We were unable to generate your document for signing at this time. Someone will contact you to complete these documents and open access to your account.'));
 	}
 
 	res.send(200, {

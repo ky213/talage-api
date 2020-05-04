@@ -68,7 +68,7 @@ async function PostResendOnboardingEmail(req, res, next) {
 	const onboardingEmailResponse = await sendOnboardingEmail(req.authentication.agencyNetwork, req.body.userID, req.body.firstName, req.body.lastName, req.body.agencyName, req.body.slug, req.body.userEmail);
 
 	if (onboardingEmailResponse) {
-		return next(serverHelper.InternalServerError(onboardingEmailResponse));
+		return next(serverHelper.InternalError(onboardingEmailResponse));
 	}
 
 	// Return the response

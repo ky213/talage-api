@@ -40,7 +40,7 @@ async function PostResetPassword(req, res, next) {
 		`;
 	const result = await db.query(agentSQL).catch(function (e) {
 		log.error(e.message);
-		res.send(500, serverHelper.InternalServerError('Error querying database. Check logs.'));
+		res.send(500, serverHelper.InternalError('Error querying database. Check logs.'));
 		error = true;
 	});
 	if (error) {

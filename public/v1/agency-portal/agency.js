@@ -115,13 +115,13 @@ async function getAgency(req, res, next) {
 	// Going to the database to get the user's info
 	const agencyInfo = await db.query(agencyInfoSQL).catch(function (err) {
 		log.error(err.message);
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Make sure we got back the expected data
 	if (!agencyInfo || agencyInfo.length !== 1) {
 		log.error('Agency not found after having passed validation');
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	}
 
 	// Get the agency from the response and do some cleanup
@@ -178,15 +178,15 @@ async function getAgency(req, res, next) {
 	// Query the database
 	const locations = await db.query(locationsSQL).catch(function (err) {
 		log.error(err.message);
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 	const pages = await db.query(pagesSQL).catch(function (err) {
 		log.error(err.message);
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 	const users = await db.query(userSQL).catch(function (err) {
 		log.error(err.message);
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Separate out location IDs and define some variables
@@ -226,11 +226,11 @@ async function getAgency(req, res, next) {
 			`;
 		insurers = await db.query(insurersSQL).catch(function (err) {
 			log.error(err.message);
-			return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		});
 		territories = await db.query(territoriesSQL).catch(function (err) {
 			log.error(err.message);
-			return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		});
 	}
 
@@ -363,7 +363,7 @@ async function PostAgency(req, res, next) {
 	// Run the query
 	const insurers = await db.query(insurersSQL).catch(function (err) {
 		log.error(err.message);
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Convert the territories list into an array
@@ -425,7 +425,7 @@ async function PostAgency(req, res, next) {
 		`;
 	const emailHashResult = await db.query(emailHashSQL).catch(function (e) {
 		log.error(e.message);
-		error = serverHelper.InternalServerError('Error querying database. Check logs.');
+		error = serverHelper.InternalError('Error querying database. Check logs.');
 	});
 	if (error) {
 		return next(error);
@@ -454,7 +454,7 @@ async function PostAgency(req, res, next) {
 		// eslint-disable-next-line  no-await-in-loop
 		const slugExists = await db.query(slugSQL).catch(function (e) {
 			log.error(e.message);
-			return next(serverHelper.InternalServerError('Error querying database. Check logs.'));
+			return next(serverHelper.InternalError('Error querying database. Check logs.'));
 		});
 
 		// If no response was received, this is unique
@@ -509,7 +509,7 @@ async function PostAgency(req, res, next) {
 	// Insert the value into the database
 	const createAgencyResult = await db.query(createAgencySQL).catch(function (e) {
 		log.error(e.message);
-		error = serverHelper.InternalServerError('Error querying database. Check logs.');
+		error = serverHelper.InternalError('Error querying database. Check logs.');
 	});
 	if (error) {
 		return next(error);
@@ -538,7 +538,7 @@ async function PostAgency(req, res, next) {
 	// Insert the value into the database
 	const createLocationResult = await db.query(createDefaultLocationSQL).catch(function (e) {
 		log.error(e.message);
-		error = serverHelper.InternalServerError('Error querying database. Check logs.');
+		error = serverHelper.InternalError('Error querying database. Check logs.');
 	});
 	if (error) {
 		return next(error);
@@ -562,7 +562,7 @@ async function PostAgency(req, res, next) {
 	// Insert the territories
 	await db.query(associateTerritoriesSQL).catch(function (e) {
 		log.error(e.message);
-		error = serverHelper.InternalServerError('Error querying database. Check logs.');
+		error = serverHelper.InternalError('Error querying database. Check logs.');
 	});
 	if (error) {
 		return next(error);
@@ -592,7 +592,7 @@ async function PostAgency(req, res, next) {
 		`;
 	await db.query(associateInsurersSQL).catch(function (e) {
 		log.error(e.message);
-		return next(serverHelper.InternalServerError('Error querying database. Check logs.'));
+		return next(serverHelper.InternalError('Error querying database. Check logs.'));
 	});
 
 	// Create a landing page for this agency
@@ -612,7 +612,7 @@ async function PostAgency(req, res, next) {
 
 	await db.query(landingPageSQL).catch(function (e) {
 		log.error(e.message);
-		return next(serverHelper.InternalServerError('Error querying database. Check logs.'));
+		return next(serverHelper.InternalError('Error querying database. Check logs.'));
 	});
 
 	// Create a user for agency portal access
@@ -625,7 +625,7 @@ async function PostAgency(req, res, next) {
 	log.info('creating user');
 	const createUserResult = await db.query(createUserSQL).catch(function (e) {
 		log.error(e.message);
-		return next(serverHelper.InternalServerError('Error querying database. Check logs.'));
+		return next(serverHelper.InternalError('Error querying database. Check logs.'));
 	});
 
 	// Get the ID of the new agency user
@@ -634,7 +634,7 @@ async function PostAgency(req, res, next) {
 	const onboardingEmailResponse = await sendOnboardingEmail(req.authentication.agencyNetwork, userID, firstName, lastName, name, slug, email);
 
 	if (onboardingEmailResponse) {
-		return next(serverHelper.InternalServerError(onboardingEmailResponse));
+		return next(serverHelper.InternalError(onboardingEmailResponse));
 	}
 
 	// Return the response

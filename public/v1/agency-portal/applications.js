@@ -158,7 +158,7 @@ async function PostApplications(req, res, next) {
 		applicationsTotalCount = (await db.query(applicationsTotalCountSQL))[0].count;
 	} catch (err) {
 		log.error(err.message);
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	}
 
 	/*
@@ -230,7 +230,7 @@ async function PostApplications(req, res, next) {
 		applicationsSearchCount = (await db.query(applicationsSearchCountSQL))[0].count;
 	} catch (err) {
 		log.error(err.message);
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	}
 
 	/*
@@ -260,7 +260,7 @@ async function PostApplications(req, res, next) {
 		applications = await db.query(applicationsSQL);
 	} catch (err) {
 		log.error(err.message);
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	}
 
 	// Exit with default values if no applications were received
