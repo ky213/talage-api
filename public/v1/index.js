@@ -35,6 +35,8 @@ exports.RegisterEndpoints = (server) => {
 	RegisterEndpoint(server, 'agency-portal', 'user-info');
 	RegisterEndpoint(server, 'agency-portal', 'validate-token');
 	RegisterEndpoint(server, 'agency-portal', 'wholesale-agreement');
+	RegisterEndpoint(server, 'agency-portal', 'user');
+	RegisterEndpoint(server, 'agency-portal', 'users');
 
 	// auth
 	RegisterEndpoint(server, 'auth', 'agency-portal');

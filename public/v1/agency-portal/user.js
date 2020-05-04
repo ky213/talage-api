@@ -1,11 +1,10 @@
 'use strict';
-const RestifyError = require('restify-errors');
-const auth = require('../helpers/auth.js');
-const crypt = require('../helpers/crypt.js');
+const auth = require('./helpers/auth.js');
+const crypt = require('../../../shared/services/crypt.js')
 const jwt = require('jsonwebtoken');
 const request = require('request');
 
-module.exports = function(){
+
 
 	/**
 	 * Checks whether the provided agency has an owner other than the current user
@@ -182,7 +181,7 @@ module.exports = function(){
 		// Check that at least some post parameters were received
 		if(!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0){
 			log.info('Bad Request: Parameters missing');
-			return next(new RestifyError.BadRequestError('Parameters missing'));
+			return next(serverHelper.RequestError('Parameters missing'));
 		}
 
 		// Validate the request and get back the data
@@ -191,7 +190,7 @@ module.exports = function(){
 		});
 		if(error){
 			log.warn(error);
-			return next(new RestifyError.BadRequestError(error));
+			return next(serverHelper.RequestError(error));
 		}
 
 		// Determine if this is an agency or agency network
@@ -211,7 +210,7 @@ module.exports = function(){
 
 		// Begin a database transaction
 		const connection = await db.beginTransaction().catch(function(){
-			error = new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+			error = serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
 		});
 		if(error){
 			return next(error);
@@ -232,7 +231,7 @@ module.exports = function(){
 
 			// Run the query
 			await db.query(removeOwnerSQL, connection).catch(function(){
-				error = new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+				error = serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
 			});
 			if(error){
 				return next(error);
@@ -252,7 +251,7 @@ module.exports = function(){
 
 			// Run the query
 			await db.query(removeCanSignSQL, connection).catch(function(){
-				error = new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+				error = serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
 			});
 			if(error){
 				return next(error);
@@ -292,7 +291,7 @@ module.exports = function(){
 
 		// Run the query
 		const result = await db.query(insertSQL, connection).catch(function(){
-			error = new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+			error = serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
 		});
 		if(error){
 			return next(error);
@@ -305,7 +304,7 @@ module.exports = function(){
 			db.rollback(connection);
 
 			log.error('User update failed.');
-			return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		}
 
 		// Commit the transaction
@@ -327,7 +326,7 @@ module.exports = function(){
 
 			// Run the query
 			const agencyNetworkResult = await db.query(agencyNetworkSQL).catch(function(){
-				error = new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+				error = serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
 			});
 			if(error){
 				return;
@@ -454,15 +453,15 @@ module.exports = function(){
 		// Check that query parameters were received
 		if(!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
 			log.info('Bad Request: Query parameters missing');
-			return next(new RestifyError.BadRequestError('Query parameters missing'));
+			return next(serverHelper.RequestError('Query parameters missing'));
 		}
 
 		// Validate the ID
 		if(!Object.prototype.hasOwnProperty.call(req.query, 'id')){
-			return next(new RestifyError.BadRequestError('ID missing'));
+			return next(serverHelper.RequestError('ID missing'));
 		}
 		if(!await validator.userId(req.query.id, agencyOrNetworkID, req.authentication.agencyNetwork)){
-			return next(new RestifyError.BadRequestError('ID is invalid'));
+			return next(serverHelper.RequestError('ID is invalid'));
 		}
 		const id = req.query.id;
 
@@ -470,7 +469,7 @@ module.exports = function(){
 		if(!await hasOtherOwner(agencyOrNetworkID, id, req.authentication.agencyNetwork)){
 			// Log a warning and return an error
 			log.warn('This user is the account owner. You must assign ownership to another user before deleting this account.');
-			return next(new RestifyError.BadRequestError('This user is the account owner. You must assign ownership to another user before deleting this account.'));
+			return next(serverHelper.RequestError('This user is the account owner. You must assign ownership to another user before deleting this account.'));
 		}
 
 		// Make sure there is another signing authority (we are not removing the last one) (this setting does not apply to agency networks)
@@ -478,7 +477,7 @@ module.exports = function(){
 			if(!await hasOtherSigningAuthority(agencyOrNetworkID, id)){
 				// Log a warning and return an error
 				log.warn('This user is the account signing authority. You must assign signing authority to another user before deleting this account.');
-				return next(new RestifyError.BadRequestError('This user is the account signing authority. You must assign signing authority to another user before deleting this account.'));
+				return next(serverHelper.RequestError('This user is the account signing authority. You must assign signing authority to another user before deleting this account.'));
 			}
 		}
 
@@ -495,7 +494,7 @@ module.exports = function(){
 
 		// Run the query
 		const result = await db.query(updateSQL).catch(function(){
-			error = new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+			error = serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
 		});
 		if(error){
 			return next(error);
@@ -504,7 +503,7 @@ module.exports = function(){
 		// Make sure the query was successful
 		if(result.affectedRows !== 1){
 			log.error('User delete failed');
-			return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		}
 
 		res.send(200, 'Deleted');
@@ -532,13 +531,13 @@ module.exports = function(){
 		// Check that query parameters were received
 		if(!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
 			log.info('Bad Request: Query parameters missing');
-			return next(new RestifyError.BadRequestError('Query parameters missing'));
+			return next(serverHelper.RequestError('Query parameters missing'));
 		}
 
 		// Check for required parameters
 		if(!Object.prototype.hasOwnProperty.call(req.query, 'id') || !req.query.id){
 			log.info('Bad Request: You must specify a user');
-			return next(new RestifyError.BadRequestError('You must specify a user'));
+			return next(serverHelper.RequestError('You must specify a user'));
 		}
 
 		// Determine if this is an agency or agency network
@@ -572,7 +571,7 @@ module.exports = function(){
 		`;
 
 		const userInfo = await db.query(userSQL).catch(function(){
-			return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		});
 
 		// Decrypt everything we need
@@ -605,13 +604,13 @@ module.exports = function(){
 		// Check that at least some post parameters were received
 		if(!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0){
 			log.info('Bad Request: Parameters missing');
-			return next(new RestifyError.BadRequestError('Parameters missing'));
+			return next(serverHelper.RequestError('Parameters missing'));
 		}
 
 		// Validate the request and get back the data
 		const data = await validate(req).catch(function(err){
 			log.warn(err.message);
-			error = new RestifyError.BadRequestError(err.message);
+			error = serverHelper.RequestError(err.message);
 		});
 		if(error){
 			return next(error);
@@ -637,16 +636,16 @@ module.exports = function(){
 
 		// Validate the ID
 		if(!Object.prototype.hasOwnProperty.call(req.body, 'id')){
-			return next(new RestifyError.BadRequestError('ID missing'));
+			return next(serverHelper.RequestError('ID missing'));
 		}
 		if(!await validator.userId(req.body.id, agencyOrNetworkID, req.authentication.agencyNetwork)){
-			return next(new RestifyError.BadRequestError('ID is invalid'));
+			return next(serverHelper.RequestError('ID is invalid'));
 		}
 		data.id = req.body.id;
 
 		// Begin a database transaction
 		const connection = await db.beginTransaction().catch(function(){
-			error = new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+			error = serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
 		});
 		if(error){
 			return next(error);
@@ -667,7 +666,7 @@ module.exports = function(){
 
 			// Run the query
 			await db.query(removeOwnerSQL, connection).catch(function(){
-				error = new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+				error = serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
 			});
 			if(error){
 				return next(error);
@@ -680,7 +679,7 @@ module.exports = function(){
 
 			// Log a warning and return an error
 			log.warn('This user must be an owner as no other owners exist. Create a new owner first.');
-			return next(new RestifyError.BadRequestError('This user must be an owner as no other owners exist. Create a new owner first.'));
+			return next(serverHelper.RequestError('This user must be an owner as no other owners exist. Create a new owner first.'));
 		}
 
 		// If the user is being set as the signing authority, remove the current signing authority (this setting does not apply to agency networks)
@@ -697,7 +696,7 @@ module.exports = function(){
 
 				// Run the query
 				await db.query(removeCanSignSQL, connection).catch(function(){
-					error = new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+					error = serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
 				});
 				if(error){
 					return next(error);
@@ -710,7 +709,7 @@ module.exports = function(){
 
 				// Log a warning and return an error
 				log.warn('This user must be the signing authority as no other signing authority exists. Set another user as signing authority first.');
-				return next(new RestifyError.BadRequestError('This user must be the signing authority as no other signing authority exists. Set another user as signing authority first.'));
+				return next(serverHelper.RequestError('This user must be the signing authority as no other signing authority exists. Set another user as signing authority first.'));
 			}
 		}
 
@@ -734,7 +733,7 @@ module.exports = function(){
 
 		// Run the query
 		const result = await db.query(updateSQL, connection).catch(function(){
-			error = new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+			error = serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
 		});
 		if(error){
 			return next(error);
@@ -746,7 +745,7 @@ module.exports = function(){
 			db.rollback(connection);
 
 			log.error('User update failed.');
-			return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		}
 
 		// Commit the transaction
@@ -754,43 +753,9 @@ module.exports = function(){
 		res.send(200, 'Saved');
 	}
 
-	server.del({
-		'name': 'Delete User',
-		'path': '/user'
-	}, restify.plugins.conditionalHandler([
-		{
-			'handler': deleteUser,
-			'version': '1.0.0'
-		}
-	]));
-
-	server.get({
-		'name': 'Get User',
-		'path': '/user'
-	}, restify.plugins.conditionalHandler([
-		{
-			'handler': getUser,
-			'version': '1.0.0'
-		}
-	]));
-
-	server.post({
-		'name': 'Post User',
-		'path': '/user'
-	}, restify.plugins.conditionalHandler([
-		{
-			'handler': createUser,
-			'version': '1.0.0'
-		}
-	]));
-
-	server.put({
-		'name': 'Put User',
-		'path': '/user'
-	}, restify.plugins.conditionalHandler([
-		{
-			'handler': updateUser,
-			'version': '1.0.0'
-		}
-	]));
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddGetAuth('Get User', basePath + '/user', getUser);
+	server.AddPostAuth('Post User', basePath + '/user', createUser);
+	server.AddPutAuth('Put User', basePath + '/user', updateUser);
+	server.AddDeleteAuth('Delete User',basePath + '/user', deleteUser);
 };

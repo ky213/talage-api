@@ -24,7 +24,6 @@ async function agencies(req, res, next) {
 	}
 
 	// Get the agents that we are permitted to view
-	let error = false;
 	const agents = await auth.getAgents(req).catch(function (e) {
 		error = e;
 	});

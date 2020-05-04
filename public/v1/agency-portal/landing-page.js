@@ -245,15 +245,15 @@ async function createLandingPage(req, res, next) {
 		// Check that query parameters were received
 		if(!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
 			log.info('Bad Request: Query parameters missing');
-			return next(new RestifyError.BadRequestError('Query parameters missing'));
+			return next(serverHelper.RequestError('Query parameters missing'));
 		}
 
 		// Validate the ID
 		if(!Object.prototype.hasOwnProperty.call(req.query, 'id')){
-			return next(new RestifyError.BadRequestError('ID missing'));
+			return next(serverHelper.RequestError('ID missing'));
 		}
 		if(!await validator.landingPageId(req.query.id, agency)){
-			return next(new RestifyError.BadRequestError('ID is invalid'));
+			return next(serverHelper.RequestError('ID is invalid'));
 		}
 		const id = req.query.id;
 
@@ -261,7 +261,7 @@ async function createLandingPage(req, res, next) {
 		if(!await hasOtherPrimary(agency, id)){
 			// Log a warning and return an error
 			log.warn('This landing page is your primary page. You must make another page primary before deleting this one.');
-			return next(new RestifyError.BadRequestError('This landing page is your primary page. You must make another page primary before deleting this one.'));
+			return next(serverHelper.RequestError('This landing page is your primary page. You must make another page primary before deleting this one.'));
 		}
 
 		// Update the landing page (we set the state to -2 to signify that the user is deleted)
@@ -277,7 +277,7 @@ async function createLandingPage(req, res, next) {
 
 		// Run the query
 		const result = await db.query(updateSQL).catch(function(){
-			error = new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+			error = serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
 		});
 		if(error){
 			return next(error);
@@ -286,7 +286,7 @@ async function createLandingPage(req, res, next) {
 		// Make sure the query was successful
 		if(result.affectedRows !== 1){
 			log.error('Landing page delete failed');
-			return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		}
 
 		res.send(200, 'Deleted');
@@ -390,7 +390,6 @@ async function updateLandingPage(req, res, next) {
 	}
 
 	// Validate the request and get back the data
-	let error = false;
 	const data = await validate(req, next).catch(function (err) {
 		error = err.message;
 	});
@@ -440,17 +439,8 @@ async function updateLandingPage(req, res, next) {
 
 
 exports.RegisterEndpoint = (server, basePath) => {
-	server.del({
-		'name': 'Delete Landing Page',
-		'path': '/landing-page'
-	}, restify.plugins.conditionalHandler([
-		{
-			'handler': deleteLandingPage,
-			'version': '1.0.0'
-		}
-	]));
-
-
+	
+	server.AddDeleteAuth('Delete Landing Page',basePath + '/landing-page', deleteLandingPage);
 	server.AddGetAuth('Get Landing Page', basePath + '/landing-page', getLandingPage);
 	server.AddPostAuth('Post Landing Page', basePath + '/landing-page', createLandingPage);
 	server.AddPutAuth('Put Landing Page', basePath + '/landing-page', updateLandingPage);

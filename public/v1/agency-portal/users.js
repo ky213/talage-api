@@ -1,9 +1,8 @@
 'use strict';
-const RestifyError = require('restify-errors');
-const auth = require('../helpers/auth.js');
-const crypt = require('../helpers/crypt.js');
+const auth = require('./helpers/auth.js');
+const crypt = require('../../../shared/services/crypt.js')
 
-module.exports = function(){
+
 
 	/**
 	 * Responds to get requests for the users endpoint
@@ -56,7 +55,7 @@ module.exports = function(){
 
 		// Get the users from the database
 		const users = await db.query(usersSQL).catch(function(){
-			return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		});
 
 		// Decrypt everything we need
@@ -80,7 +79,7 @@ module.exports = function(){
 		`;
 
 		const userGroups = await db.query(userGroupsSQL).catch(function(){
-			return next(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		});
 
 		// Return the response
@@ -91,13 +90,11 @@ module.exports = function(){
 		return next();
 	}
 
-	server.get({
-		'name': 'Get users',
-		'path': '/users'
-	}, restify.plugins.conditionalHandler([
-		{
-			'handler': getUsers,
-			'version': '1.0.0'
-		}
-	]));
+	
+
+
+
+
+exports.RegisterEndpoint = (server, basePath) => {
+	server.AddGetAuth('Get users', basePath + '/users', getUsers);
 };

@@ -119,7 +119,6 @@ async function PostApplications(req, res, next) {
 	const endDateSQL = moment(req.params.endDate).format('YYYY-MM-DD HH:mm:ss');
 
 	// Get the agents that we are permitted to view
-	let error = false;
 	const agents = await auth.getAgents(req).catch(function (e) {
 		error = e;
 	});
