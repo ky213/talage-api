@@ -52,4 +52,4 @@ For deployment with pm2, run ```pm2 start --name "Talage API" index.js && pm2 sa
 
 ## Notes:
 
-- If you are running against a local MySQL instance and receive and error regarding incompatibility with "sql_mode=only_full_group_by", please make a note of it and workaround it by running this query locally: ```SET GLOBAL sql_mode='';```
+- If you are running against a local MySQL instance and receive and error regarding incompatibility with "sql_mode=only_full_group_by", please notify someone of it immediately.
