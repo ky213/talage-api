@@ -32,7 +32,7 @@ async function GetBanners(req, res, next) {
 		if (err) {
 			log.error('Failed to get a list of banner files from the server.');
 			log.verbose(err);
-			res.send(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			res.send(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		}
 		// Prase teh body
 		const result = JSON.parse(body);

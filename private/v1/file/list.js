@@ -31,7 +31,7 @@ function GetFileList(req, res) {
 	}, function (err, data) {
 		if (err) {
 			log.warn(err.message);
-			res.send(serverHelper.InternalServerError(err.message));
+			res.send(serverHelper.InternalError(err.message));
 			return;
 		}
 

@@ -20,7 +20,7 @@ async function get_account(req, res, next) {
 
 	let account_data = await db.query(account_sql).catch(function (err) {
 		log.error(err.message);
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// There will only ever be one result
@@ -34,7 +34,7 @@ async function get_account(req, res, next) {
 
 	const timezones = await db.query(timezone_sql).catch(function (err) {
 		log.error(err.message);
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	res.send(200, {
@@ -120,7 +120,7 @@ async function put_account(req, res, next) {
 	const sql = `UPDATE \`#__agency_portal_users\` SET ${set_statements.join(', ')} WHERE id = ${db.escape(req.authentication.userID)} LIMIT 1;`;
 	await db.query(sql).catch(function (err) {
 		log.error(err.message);
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Everything went okay, send a success response

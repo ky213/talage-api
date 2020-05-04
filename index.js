@@ -75,17 +75,17 @@ async function Main() {
 	const isDevelopment = settings.ENV === 'development';
 
 	// Create the public server
-	if (!await server.Create('0.0.0.0', settings.PUBLIC_API_PORT, 'public', true, isDevelopment, LogInfoMessage, LogErrorMessage)) {
+	if (!await server.Create('0.0.0.0', settings.PUBLIC_API_PORT, 'public/public-endpoints', true, isDevelopment, LogInfoMessage, LogErrorMessage)) {
 		LogLocalErrorMessage('Error starting public server. Stopping.');
 		return;
 	}
 	// Create the uptime server
-	if (!await server.Create('0.0.0.0', settings.UPTIME_PORT, 'uptime', false, isDevelopment, LogInfoMessage, LogErrorMessage)) {
+	if (!await server.Create('0.0.0.0', settings.UPTIME_PORT, 'uptime/uptime-endpoints', false, isDevelopment, LogInfoMessage, LogErrorMessage)) {
 		LogLocalErrorMessage('Error starting uptime server. Stopping.');
 		return;
 	}
 	// Create the private server
-	if (!await server.Create('0.0.0.0', settings.PRIVATE_API_PORT, 'private', false, isDevelopment, LogInfoMessage, LogErrorMessage)) {
+	if (!await server.Create('0.0.0.0', settings.PRIVATE_API_PORT, 'private/private-endpoints', false, isDevelopment, LogInfoMessage, LogErrorMessage)) {
 		LogLocalErrorMessage('Error starting private server. Stopping.');
 		return;
 	}

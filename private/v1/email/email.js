@@ -77,7 +77,7 @@ async function PostEmail(req, res, next) {
 	if (!fs.existsSync(template)) {
 		const message = 'There is no email template setup for the specified system.';
 		log.error(message);
-		return next(serverHelper.InternalServerError(message));
+		return next(serverHelper.InternalError(message));
 	}
 
 	// Bring in the Template HTML and perform a couple of replacements
@@ -95,7 +95,7 @@ async function PostEmail(req, res, next) {
 		if (hadError) {
 			const message = 'Unable to retrieve agency information from the database';
 			log.error(message);
-			return next(serverHelper.InternalServerError(message));
+			return next(serverHelper.InternalError(message));
 		}
 
 		let logoHTML = `<h1 style="padding: 35px 0;">${agency[0].name}</h1>`;
@@ -179,7 +179,7 @@ async function PostEmail(req, res, next) {
 			const message = 'An unexpected error was returned from Sendgrid. Check the logs for more information.';
 			log.error(message);
 			log.verbose(util.inspect(error, false, null));
-			res.send(serverHelper.InternalServerError(message));
+			res.send(serverHelper.InternalError(message));
 			return;
 		}
 
@@ -190,7 +190,7 @@ async function PostEmail(req, res, next) {
 				const message = 'Sendgrid may have changed the way it returns errors. Check the logs for more information.';
 				log.error(message);
 				log.verbose(util.inspect(error, false, null));
-				res.send(serverHelper.InternalServerError(message));
+				res.send(serverHelper.InternalError(message));
 				return;
 			}
 
@@ -209,7 +209,7 @@ async function PostEmail(req, res, next) {
 			const message = 'An unexpected error was returned from Sendgrid. Check the logs for more information.';
 			log.error(message);
 			log.verbose(util.inspect(error, false, null));
-			res.send(serverHelper.InternalServerError(message));
+			res.send(serverHelper.InternalError(message));
 		}
 	});
 

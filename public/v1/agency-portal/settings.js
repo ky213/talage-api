@@ -49,7 +49,7 @@ async function GetSettings(req, res, next) {
 		`;
 	const result = await db.query(sql).catch(function (err) {
 		log.error(err.message);
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Reduce the result to just the data we need
@@ -88,7 +88,7 @@ async function GetSettings(req, res, next) {
 		`;
 	const locations = await db.query(locationSQL).catch(function (err) {
 		log.error(err.message);
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Process each location
@@ -126,7 +126,7 @@ async function GetSettings(req, res, next) {
 			`;
 		const insurers = await db.query(insurerSQL).catch(function (err) {
 			log.error(err.message);
-			return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		});
 
 		// Process insurers
@@ -233,7 +233,7 @@ async function PutSettings(req, res, next) {
 			await request(options, function (e, response, body) {
 				// If there was an error, reject
 				if (e) {
-					error = serverHelper.InternalServerError('Well, that wasn\’t supposed to happen. Please try again and if this continues please contact us. (Failed to delete old logo)');
+					error = serverHelper.InternalError('Well, that wasn\’t supposed to happen. Please try again and if this continues please contact us. (Failed to delete old logo)');
 					log.error('Failed to connect to file service.');
 					return;
 				}
@@ -270,7 +270,7 @@ async function PutSettings(req, res, next) {
 			await request(options, function (e, response, body) {
 				// If there was an error, reject
 				if (e) {
-					error = serverHelper.InternalServerError('Well, that wasn\’t supposed to happen. Please try again and if this continues please contact us. (Failed to upload new logo)');
+					error = serverHelper.InternalError('Well, that wasn\’t supposed to happen. Please try again and if this continues please contact us. (Failed to upload new logo)');
 					log.error('Failed to connect to file service.');
 					return;
 				}
@@ -564,7 +564,7 @@ async function PutSettings(req, res, next) {
 	await db.query(agencySQL).catch(function (err) {
 
 		log.error(err.message);
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Update each location
@@ -594,7 +594,7 @@ async function PutSettings(req, res, next) {
 			// eslint-disable-next-line  no-await-in-loop
 			await db.query(locationSQL).catch(function (err) {
 				log.error(err.message);
-				return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 			});
 		}
 	}

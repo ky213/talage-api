@@ -36,7 +36,7 @@ exports.getAgents = function (req) {
 		`;
 		const agencyResult = await db.query(agencySQL).catch(function (e) {
 			log.error(e.message);
-			error = serverHelper.InternalServerError('Error querying database. Check logs.');
+			error = serverHelper.InternalError('Error querying database. Check logs.');
 		});
 		if (error) {
 			reject(error);

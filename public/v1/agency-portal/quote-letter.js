@@ -59,7 +59,7 @@ async function GetQuoteLetter(req, res, next) {
 	// Run the security check
 	const result = await db.query(securityCheckSQL).catch(function (err) {
 		log.error(err.message);
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Make sure we received a valid result
@@ -74,7 +74,7 @@ async function GetQuoteLetter(req, res, next) {
 	// Get the file from our cloud storage service
 	const data = await file.get(`secure/quote-letters/${fileName}`).catch(function (err) {
 		log.error(err.message);
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Return the response

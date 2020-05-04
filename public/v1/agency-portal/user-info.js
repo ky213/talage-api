@@ -54,7 +54,7 @@ async function GetUserInfo(req, res, next) {
 	// Going to the database to get the user's info
 	const userInfo = await db.query(userInfoSQL).catch(function (err) {
 		log.error(err.message);
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Send the user's data back
