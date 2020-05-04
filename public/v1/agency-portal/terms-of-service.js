@@ -24,7 +24,7 @@ async function PutAcceptTermsOfService(req, res, next) {
 	// Run the query
 	await db.query(sql).catch(function (e) {
 		log.error(e.message);
-		error = serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+		error = serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
 	});
 	if (error) {
 		return next(error);

@@ -97,7 +97,7 @@ async function getApplication(req, res, next) {
 	// Query the database
 	const applicationData = await db.query(sql).catch(function (err) {
 		log.error(err.message);
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Make sure an application was found
@@ -148,7 +148,7 @@ async function getApplication(req, res, next) {
 	// Query the database
 	const addressData = await db.query(addressSQL).catch(function (err) {
 		log.error(err.message);
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Decrypt the encrypted fields
@@ -178,7 +178,7 @@ async function getApplication(req, res, next) {
 		// Query the database
 		const codesData = await db.query(codesSQL).catch(function (err) {
 			log.error(err.message);
-			return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		});
 
 		// Loop over each address and do a bit more work
@@ -223,7 +223,7 @@ async function getApplication(req, res, next) {
 
 	const quotes = await db.query(quotesSQL).catch(function (err) {
 		log.error(err.message);
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Add the quotes to the return object and determine the application status

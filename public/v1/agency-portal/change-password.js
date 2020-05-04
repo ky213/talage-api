@@ -58,7 +58,7 @@ async function putChangePassword(req, res, next) {
 	const sql = `UPDATE \`#__agency_portal_users\` SET \`password\`=${db.escape(password)}, \`reset_required\`=0 WHERE id = ${db.escape(req.authentication.userID)} LIMIT 1;`;
 	await db.query(sql).catch(function (err) {
 		log.error(err.message);
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Everything went okay, send a success response

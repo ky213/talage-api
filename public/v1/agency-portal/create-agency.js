@@ -52,7 +52,7 @@ async function GetCreateAgency(req, res, next) {
 		// Run the query
 		const insurers = await db.query(insurersSQL).catch(function (err) {
 			log.error(err.message);
-			return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		});
 
 		// Convert the territories list into an array
@@ -77,7 +77,7 @@ async function GetCreateAgency(req, res, next) {
 		// Run the query
 		const territories = await db.query(territoriesSQL).catch(function (err) {
 			log.error(err.message);
-			return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		});
 
 		// Add each of these territories to the response

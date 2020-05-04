@@ -179,7 +179,7 @@ module.exports = class Business {
 				had_error = true;
 			});
 			if (had_error || !business_info || business_info.length !== 1) {
-				reject(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				reject(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 				return;
 			}
 

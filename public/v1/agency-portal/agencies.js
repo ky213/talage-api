@@ -55,7 +55,7 @@ async function agencies(req, res, next) {
 	// Get the agencies from the database
 	const retAgencies = await db.query(agenciesSQL).catch(function (err) {
 		log.error(err.message);
-		return next(serverHelper.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Return the response
