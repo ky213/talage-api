@@ -371,15 +371,15 @@ const request = require('request');
 		}
 
 		// Create a limited life JWT
-		const token = jwt.sign({'userID': userId}, process.env.AUTH_SECRET_KEY, {'expiresIn': '7d'});
+		const token = jwt.sign({'userID': userId}, settings.AUTH_SECRET_KEY, {'expiresIn': '7d'});
 
 		// Format the brand
-		let brandraw = process.env.BRAND.toLowerCase();
-		let portalurl = process.env.PORTAL_URL;
-		let appurl = process.env.APPLICATION_URL;
+		let brandraw = settings.BRAND.toLowerCase();
+		let portalurl = settings.PORTAL_URL;
+		let appurl = settings.APPLICATION_URL;
 		if (agencyNetwork == 2) {
 			brandraw = 'Digalent';
-			if(process.env.NODE_ENV ==='production'){
+			if(settings.NODE_ENV ==='production'){
 				portalurl = "https://agents.digalent.com"
 				appurl =  "https://insure.digalent.com"
 			}
@@ -405,7 +405,7 @@ const request = require('request');
 		request({
 			'json': emailData,
 			'method': 'POST',
-			'url': `http://${process.env.EMAIL_SVC_HOST}`
+			'url': `http://${settings.EMAIL_SVC_HOST}`
 		}, function(err){
 			if(err){
 				log.error(`Unable to send new user email to ${data.email}. Please send manually.`);

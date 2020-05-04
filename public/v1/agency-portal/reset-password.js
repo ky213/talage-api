@@ -54,11 +54,27 @@ async function PostResetPassword(req, res, next) {
 		// Create a limited life JWT
 		const token = jwt.sign({ 'userID': result[0].id }, settings.AUTH_SECRET_KEY, { 'expiresIn': '15m' });
 
-		// Prepare the email to send to the user
+
+
+		let brandraw = settings.BRAND.toLowerCase();
+		let portalurl = settings.PORTAL_URLL;
+		let appurl = settings.APPLICATION_URL;
+		if (agencyNetwork == 2) {
+			brandraw = 'Digalent';
+			if(settings.NODE_ENV ==='production'){
+				portalurl = "https://agents.digalent.com"
+				appurl =  "https://insure.digalent.com"
+			}
+			else {
+				portalurl = "https://agents.sta.digalent.com"
+				appurl =  "https://sta.digalent.com"
+			}
+		}
+
 		const emailData = {
-			'from': settings.BRAND,
-			'html': `<p style="text-align:center;">A request to reset your password has been recieved. To continue the reset process, please click the button below within 15 minutes.</p><br><p style="text-align: center;"><a href="${settings.PORTAL_URL}/reset-password/${token}" style="background-color:#ED7D31;border-radius:0.25rem;color:#FFF;font-size:1.3rem;padding-bottom:0.75rem;padding-left:1.5rem;padding-top:0.75rem;padding-right:1.5rem;text-decoration:none;text-transform:uppercase;">Reset Password</a></p>`,
-			'subject': `Reset Your ${settings.BRAND.charAt(0).toUpperCase() + settings.BRAND.substr(1).toLowerCase()} Password`,
+			'from': brandraw,
+			'html': `<p style="text-align:center;">A request to reset your password has been recieved. To continue the reset process, please click the button below within 15 minutes.</p><br><p style="text-align: center;"><a href="${portalurl}/reset-password/${token}" style="background-color:#ED7D31;border-radius:0.25rem;color:#FFF;font-size:1.3rem;padding-bottom:0.75rem;padding-left:1.5rem;padding-top:0.75rem;padding-right:1.5rem;text-decoration:none;text-transform:uppercase;">Reset Password</a></p>`,
+			'subject': `Reset Your ${brandraw.charAt(0).toUpperCase() + brandraw.substr(1).toLowerCase()} Password`,
 			'to': req.body.email
 		};
 

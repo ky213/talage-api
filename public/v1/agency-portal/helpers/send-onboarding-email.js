@@ -60,12 +60,12 @@ module.exports = async function (agencyNetwork, userID, firstName, lastName, age
 
 	
 	// Format the brand
-	let brandraw = process.env.BRAND.toLowerCase();
-	let portalurl = process.env.PORTAL_URL;
-	let appurl = process.env.APPLICATION_URL;
+	let brandraw = settings.BRAND.toLowerCase();
+	let portalurl = settings.PORTAL_URL;
+	let appurl = settings.APPLICATION_URL;
 	if(agencyNetwork == 2){
 		brandraw = 'Digalent';
-		if(process.env.NODE_ENV === 'production'){
+		if(settings.NODE_ENV === 'production'){
 			portalurl = 'https://agents.digalent.com';
 			appurl = 'https://insure.digalent.com';
 		}else{
