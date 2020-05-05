@@ -1,5 +1,8 @@
 'use strict';
 
+const util = require('util');
+const Application = require('./helpers/models/Application.js');
+
 async function SocketQuotes(socket) {
 	// Log that a user connected
 	log.info(`${socket.id} - Socket.io connection created`);

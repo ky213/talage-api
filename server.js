@@ -4,7 +4,8 @@ const colors = require('colors');
 const restify = require('restify');
 const RestifyError = require('restify-errors');
 const restifyCORS = require('restify-cors-middleware');
-const jwt = require('restify-jwt-community');
+const jwtRestify = require('restify-jwt-community');
+const jwt = require('jsonwebtoken');
 const auth = require('./public/v1/agency-portal/helpers/auth.js');
 const moment = require('moment');
 const util = require('util');
@@ -16,7 +17,7 @@ const socketIO = require('socket.io');
 
  // JWT middleware for authenticated endpoints
 function ProcessJWT() {
-	return jwt({
+	return jwtRestify({
 		'algorithms': ['HS256', 'RS256'],
 		'requestProperty': 'authentication',
 		'secret': settings.AUTH_SECRET_KEY
@@ -77,6 +78,7 @@ class AbstractedHTTPServer {
 	}
 
 	AddSocket(name, path, connectHandler) {
+		this.socketPaths.push({ name, path });
 		const io = socketIO(this.server.server, { 'path': path });
 
 		// Force authentication on Socket.io connections
@@ -97,7 +99,8 @@ class AbstractedHTTPServer {
 		io.on('connection', connectHandler);
 	}
 
-	server;
+	server = '';
+	socketPaths = [];
 }
 
 /**
@@ -154,10 +157,12 @@ module.exports = {
 
 		// Register endpoints 
 		console.log(`Registering ${endpointPath} endpoints`);
-		require(`./${endpointPath}`).RegisterEndpoints(new AbstractedHTTPServer(server));
+		const abstractedServer = new AbstractedHTTPServer(server);
+		require(`./${endpointPath}`).RegisterEndpoints(abstractedServer);
 		console.log(colors.green('\tCompleted'));
 
 		// Display all registered routes
+		console.log();
 		console.log(colors.cyan('-'.padEnd(80, '-')));
 		console.log(colors.cyan(`Registered ${endpointPath} endpoints`));
 		console.log(colors.cyan('-'.padEnd(80, '-')));
@@ -171,6 +176,11 @@ module.exports = {
 			// Display the full route information
 			console.log(`${colors.green(route.method.padEnd(6, ' '))} ${route.path.padEnd(40, ' ')} ${name}`);
 		}
+		// Display the websocket paths. These are not stored in the restify server so we manage them in a separate list
+		abstractedServer.socketPaths.forEach((socket) => {
+			console.log(`${colors.yellow('SOCKET')} ${socket.path.padEnd(40, ' ')} ${socket.name}`);
+		});
+		console.log();
 
 		// Start the server
 		const serverListen = util.promisify(server.listen.bind(server));
