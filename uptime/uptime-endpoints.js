@@ -25,4 +25,6 @@ async function GetUptime(req, res, next) {
 
 exports.RegisterEndpoints = (server) => {
 	server.AddGet('Uptime Check', '/', GetUptime);
+	//AWS load balancers are up to request /uptime
+	server.AddGet('Uptime Check', '/uptime', GetUptime);
 };
