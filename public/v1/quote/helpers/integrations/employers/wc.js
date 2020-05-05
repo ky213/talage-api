@@ -14,7 +14,7 @@ const Integration = require('../Integration.js');
 const moment_timezone = require('moment-timezone');
 
 // Read the template into memory at load
-const employersWCTemplate = require('jsrender').templates(`${__dirname}/helpers/integrations/employers/wc.xmlt`);
+const employersWCTemplate = require('jsrender').templates('./public/v1/quote/helpers/integrations/employers/wc.xmlt');
 
 module.exports = class EmployersWC extends Integration {
 
@@ -152,12 +152,14 @@ module.exports = class EmployersWC extends Integration {
 
 			// Determine which URL to use
 			let host = '';
-			if (this.insurer.test_mode) {
+			if (this.insurer.test_mode || settings.ENV === 'development') {
 				host = 'api-qa.employers.com';
 			} else {
 				host = 'api.employers.com';
 			}
 			const path = '/DigitalAgencyServices/ws/AcordServices';
+
+			log.info(`Sending application to https://${host}${path}. Remember to connect to the VPN. This can take up to 30 seconds.`);
 
 			// Send the XML to the insurer
 			await this.send_xml_request(host, path, xml).then((result) => {

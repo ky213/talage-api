@@ -6,6 +6,7 @@
 
 const moment = require('moment');
 const serverHelper = require('../../../../../server.js');
+const validator = requireShared('./helpers/validator.js');
 
 module.exports = class Claim {
 

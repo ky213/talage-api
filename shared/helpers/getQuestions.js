@@ -26,9 +26,10 @@ module.exports = function (activity_codes, industry_code, zip_codes, policy_type
 		const options = {
 			'agent': false,
 			'headers': { 'Authorization': `Bearer ${settings.TEST_API_TOKEN}` },
-			'hostname': 'question',
+			'hostname': `localhost`,
+			'port': settings.PUBLIC_API_PORT,
 			'method': 'GET',
-			'path': `/v1?activity_codes=${activity_codes.join(',')}&industry_code=${industry_code}${insurers}&policy_types=${policy_types.join(',')}&zips=${zip_codes.join(',')}&hidden=true`
+			'path': `/v1/question/list?activity_codes=${activity_codes.join(',')}&industry_code=${industry_code}${insurers}&policy_types=${policy_types.join(',')}&zips=${zip_codes.join(',')}&hidden=true`
 		};
 
 		// Send the request

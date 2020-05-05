@@ -48,9 +48,10 @@ module.exports = function (channel, message_type, message, attachment) {
 				'Content-Length': data.length,
 				'Content-Type': 'application/json'
 			},
-			'hostname': 'slack',
+			'hostname': 'localhost',
+			'port': settings.PRIVATE_API_PORT,
 			'method': 'POST',
-			'path': `/post-to-channel`
+			'path': `/v1/slack/post-to-channel`
 		};
 
 		// Send the request

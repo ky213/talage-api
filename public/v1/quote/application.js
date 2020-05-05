@@ -30,6 +30,8 @@ async function PostApplication(req, res, next) {
 		return next(serverHelper.RequestError('Some required data is missing. Please check the documentation.'));
 	}
 
+	const requestedInsurers = Object.prototype.hasOwnProperty.call(req.query, 'insurers') ? req.query.insurers.split(',') : [];
+
 	const application = new Application();
 	let had_error = false;
 
@@ -44,7 +46,7 @@ async function PostApplication(req, res, next) {
 	}
 
 	// Validate
-	await application.validate().catch(function (error) {
+	await application.validate(requestedInsurers).catch(function (error) {
 		had_error = true;
 		res.send(error);
 		log.warn(`Invalid Application: ${error.message}`);

@@ -17,6 +17,7 @@ const Insurer = require('./Insurer.js');
 const Policy = require('./Policy.js');
 const Question = require('./Question.js');
 const serverHelper = require('../../../../../server.js');
+const validator = requireShared('./helpers/validator.js');
 
 module.exports = class Application {
 
@@ -45,9 +46,10 @@ module.exports = class Application {
 	 * Returns a list of the active insurers in the Talage System. Will return only desired insurers based on the request
 	 * received from the user. If no desired insurers are specified, will return all insurers.
 	 *
+	 * @param {object} requestedInsurers - Array of insurer slugs
 	 * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
 	 */
-	get_insurers() {
+	get_insurers(requestedInsurers) {
 		return new Promise(async (fulfill, reject) => {
 			// Get a list of desired insurers
 			let desired_insurers = [];
@@ -107,7 +109,7 @@ module.exports = class Application {
 			}
 
 			// Loop through each desired insurer
-			const insurers = [];
+			let insurers = [];
 			const insurer_promises = [];
 			desired_insurers.forEach((id) => {
 				// Create a new insurer object
@@ -122,6 +124,11 @@ module.exports = class Application {
 
 			// Wait for all the insurers to initialize
 			await Promise.all(insurer_promises);
+
+			// Filter the allowed insurers to only those that are requested
+			if(requestedInsurers !== null && requestedInsurers.length > 0){
+				insurers = insurers.filter((insurer) => requestedInsurers.includes(insurer.slug));
+			}
 
 			// Store and return the insurers
 			this.insurers = insurers;
@@ -315,11 +322,9 @@ module.exports = class Application {
 
 					// Check that the given policy type is enabled for this insurer
 					if (insurer.policy_types.indexOf(policy.type) >= 0) {
-
 						// Check if the integration file for this insurer exists
-						const normalizedPath = `${__dirname}/helpers/integrations/${insurer.slug}/${policy.type.toLowerCase()}.js`;
+						const normalizedPath = `${__dirname}/../integrations/${insurer.slug}/${policy.type.toLowerCase()}.js`;
 						if (fs.existsSync(normalizedPath)) {
-
 							// Require the integration file and add the response to our promises
 							const IntegrationClass = require(normalizedPath);
 							const integration = new IntegrationClass(this, insurer, policy);
@@ -419,6 +424,11 @@ module.exports = class Application {
 	 * @returns {void}
 	 */
 	async send_notifications(quotes) {
+
+		if (settings.ENV === 'development') {
+			log.info('!!! Skipping sending notification (slack and email) due to development environment. !!!');
+			return;
+		}
 
 		// Determine which message will be sent
 		let all_had_quotes = true;
@@ -601,9 +611,10 @@ module.exports = class Application {
 	/**
 	 * Checks that the data supplied is valid
 	 *
+	 * @param {object} requestedInsurers - Array of insurer slugs
 	 * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
 	 */
-	validate() {
+	validate(requestedInsurers) {
 		return new Promise(async (fulfill, reject) => {
 			let stop = false;
 
@@ -631,7 +642,7 @@ module.exports = class Application {
 			}
 
 			// Get a list of insurers and wait for it to return
-			const insurers = await this.get_insurers().catch(async (error) => {
+			const insurers = await this.get_insurers(requestedInsurers).catch(async (error) => {
 				if (error === 'Agent does not support this request') {
 					if (this.agencyLocation.wholesale) {
 						// Switching to the Talage agent
