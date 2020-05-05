@@ -4,8 +4,6 @@ const util = require('util');
 const Application = require('./helpers/models/Application.js');
 
 async function SocketQuotes(socket) {
-	console.log('socketquotes');
-
 	// Log that a user connected
 	log.info(`${socket.id} - Socket.io connection created`);
 	socket.emit('status', 'waiting');
