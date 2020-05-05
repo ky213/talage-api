@@ -4,8 +4,8 @@
 
 'use strict';
 
-const crypt = require('../helpers/crypt.js');
-const file = require('../helpers/file.js');
+const crypt = requireShared('./services/crypt.js');
+const file = requireShared('./services/file.js');
 const htmlentities = require('html-entities').Html5Entities;
 const https = require('https');
 const moment = require('moment');
@@ -1299,7 +1299,7 @@ module.exports = class Integration{
 
 						this.log += `--------======= Response =======--------<br><br><pre>${filteredData}</pre><br><br>`;
 						fulfill(rawData);
-					}else{
+					} else {
 						const error = new Error(`Insurer request encountered a ${res.statusCode} error`);
 						log.error(error.message);
 						log.verbose(rawData);

@@ -322,11 +322,9 @@ module.exports = class Application {
 
 					// Check that the given policy type is enabled for this insurer
 					if (insurer.policy_types.indexOf(policy.type) >= 0) {
-
 						// Check if the integration file for this insurer exists
-						const normalizedPath = `${__dirname}/helpers/integrations/${insurer.slug}/${policy.type.toLowerCase()}.js`;
+						const normalizedPath = `${__dirname}/../integrations/${insurer.slug}/${policy.type.toLowerCase()}.js`;
 						if (fs.existsSync(normalizedPath)) {
-
 							// Require the integration file and add the response to our promises
 							const IntegrationClass = require(normalizedPath);
 							const integration = new IntegrationClass(this, insurer, policy);
@@ -426,6 +424,11 @@ module.exports = class Application {
 	 * @returns {void}
 	 */
 	async send_notifications(quotes) {
+
+		if (settings.ENV === 'development') {
+			log.info('!!! Skipping sending notification (slack and email) due to development environment. !!!');
+			return;
+		}
 
 		// Determine which message will be sent
 		let all_had_quotes = true;

@@ -10,6 +10,7 @@ const fs = require('fs');
 const imgSize = require('./helpers/imgSize.js');
 const util = require('util');
 const serverHelper = require('../../../server.js');
+const validator = requireShared('./helpers/validator.js');
 
 /* -----==== Version 1 Functions ====-----*/
 
