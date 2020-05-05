@@ -126,7 +126,7 @@ module.exports = class Application {
 			await Promise.all(insurer_promises);
 
 			// Filter the allowed insurers to only those that are requested
-			if(requestedInsurers !== null && requestedInsurers.length > 0){
+			if(requestedInsurers && requestedInsurers.length > 0){
 				insurers = insurers.filter((insurer) => requestedInsurers.includes(insurer.slug));
 			}
 
