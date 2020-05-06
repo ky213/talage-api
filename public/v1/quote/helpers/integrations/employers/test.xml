@@ -11,10 +11,10 @@
 					<ItemIdInfo>
 						<OtherIdentifier>
 							<OtherIdTypeCd>Request</OtherIdTypeCd>
-							<UID>d4089ba2-3c59-423c-9b32-53ffaf5a64e3</UID>
+							<UID>d4089ba2-3c59-423c-9b32-53ffaf5a64e4</UID>
 						</OtherIdentifier>
 					</ItemIdInfo>
-					<TransactionRequestDt>2020-01-28</TransactionRequestDt>
+					<TransactionRequestDt>2020-05-04</TransactionRequestDt>
 					<CurCd>USD</CurCd>
 					<Producer>
 						<ItemIdInfo>
@@ -64,8 +64,8 @@
 						<LOBCd>WORK</LOBCd>
 						<ControllingStateProvCd>NV</ControllingStateProvCd>
 						<ContractTerm>
-							<EffectiveDt>2020-01-30</EffectiveDt>
-							<ExpirationDt>2021-01-30</ExpirationDt>
+							<EffectiveDt>2020-05-30</EffectiveDt>
+							<ExpirationDt>2021-05-30</ExpirationDt>
 						</ContractTerm>
 						<BillingMethodCd>CAB</BillingMethodCd>
 						<PaymentOption>

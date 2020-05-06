@@ -18,6 +18,8 @@ Examples:
 
 where 'test.xml' contains the updated xml document you want to test. For convenience, you can install 'xmlformat' (```brew install xmlformat```) and then pipe the curl output to it.
 
+```curl -is -X PUT -H "Content-Type: application/xml" -H "Accept: application/xml" -H "appKey: TALAGE" -H "appToken: 6e4fe5b9-c2ed-4286-a1ce-66ca49d4d379"  -d "@test2.xml" https://api-qa.employers.com/DigitalAgencyServices/acord```
+
 ## Changelog
 
 - **2012-01-24 Scott**
