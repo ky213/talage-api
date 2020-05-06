@@ -2,6 +2,7 @@
 
 const validator = requireShared('./helpers/validator.js');
 const serverHelper = require('../../../server.js');
+const auth = require('./helpers/auth.js');
 
 	/**
 	 * Checks whether the provided agency has a primary page other than the current page
@@ -318,9 +319,9 @@ async function getLandingPage(req, res, next) {
 		log.info('Bad Request: Query parameters missing');
 		return next(serverHelper.RequestError('Query parameters missing'));
 	}
-
+	console.log(req.query);
 	// Check for required parameters
-	if (!Object.prototype.hasOwnProperty.call(req.query, 'page') || !req.query.page) {
+	if (!Object.prototype.hasOwnProperty.call(req.query, 'id') || !req.query.id) {
 		log.info('Bad Request: You must specify a page');
 		return next(serverHelper.RequestError('You must specify a page'));
 	}
@@ -340,7 +341,7 @@ async function getLandingPage(req, res, next) {
 				\`primary\`,
 				\`heading\`
 			FROM \`#__agency_landing_pages\`
-			WHERE \`agency\` = ${parseInt(agency, 10)} AND \`state\` > 0 AND \`id\` = ${parseInt(req.query.page, 10)}
+			WHERE \`agency\` = ${parseInt(agency, 10)} AND \`state\` > 0 AND \`id\` = ${parseInt(req.query.id, 10)}
 			LIMIT 1;
 		`;
 

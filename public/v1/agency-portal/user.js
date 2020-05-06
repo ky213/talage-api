@@ -3,8 +3,8 @@ const auth = require('./helpers/auth.js');
 const crypt = require('../../../shared/services/crypt.js')
 const jwt = require('jsonwebtoken');
 const request = require('request');
-
-
+const serverHelper = require('../../../server.js');
+const validator = requireShared('./helpers/validator.js');
 
 	/**
 	 * Checks whether the provided agency has an owner other than the current user
