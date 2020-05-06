@@ -2,6 +2,7 @@
 
 const request = require('request');
 const serverHelper = require('../../../server.js');
+const auth = require('./helpers/auth.js');
 
 /**
  * Retrieves available banners

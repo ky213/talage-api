@@ -5,7 +5,8 @@
 	"main": "index.js",
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1",
-		"serve": "node index.js"
+		"serve": "node index.js",
+		"lint": "eslint ./public/ ./private/ ./uptime/ ./shared/ *.js"
 	},
 	"repository": {
 		"type": "git",
@@ -49,7 +50,10 @@
 	},
 	"devDependencies": {
 		"jshint": "^2.11.0",
-		"node-dir": "^0.1.17"
+		"node-dir": "^0.1.17",
+		"eslint": "6.8.0",
+		"eslint-plugin-deprecate": "0.7.0",
+		"eslint-plugin-talage": "file:eslint"
 	},
 	"eslintConfig": {
 		"env": {
@@ -57,15 +61,20 @@
 			"node": true
 		},
 		"globals": {
+			"admin": true,
+			"config": true,
 			"db": true,
 			"log": true,
+			"log_auth": true,
 			"restify": true,
-			"server": true
+			"server": true,
+			"validator": true
 		},
 		"parserOptions": {
-			"ecmaVersion": 2017
+			"ecmaVersion": 9
 		},
 		"plugins": [
+			"deprecate",
 			"talage"
 		],
 		"rules": {
@@ -152,18 +161,6 @@
 						"case": {
 							"after": true
 						},
-						"default": {
-							"after": true
-						},
-						"export": {
-							"after": true
-						},
-						"from": {
-							"after": true
-						},
-						"import": {
-							"after": true
-						},
 						"return": {
 							"after": true
 						}
@@ -196,6 +193,7 @@
 			"no-constant-condition": "error",
 			"no-control-regex": "error",
 			"no-debugger": "error",
+			"talage/no-debug-statements": "error",
 			"no-delete-var": "error",
 			"no-div-regex": "error",
 			"no-dupe-args": "error",
@@ -215,13 +213,7 @@
 			"no-extra-bind": "error",
 			"no-extra-boolean-cast": "error",
 			"no-extra-label": "error",
-			"no-extra-parens": [
-				"error",
-				"all",
-				{
-					"nestedBinaryExpressions": false
-				}
-			],
+			"no-extra-parens": "error",
 			"no-extra-semi": "error",
 			"no-fallthrough": "error",
 			"no-floating-decimal": "error",
@@ -240,7 +232,6 @@
 			"no-lone-blocks": "error",
 			"no-lonely-if": "error",
 			"no-loop-func": "error",
-			"no-mixed-operators": "error",
 			"no-mixed-requires": "error",
 			"no-mixed-spaces-and-tabs": "error",
 			"no-multi-assign": "error",
@@ -284,7 +275,6 @@
 			"no-undef": "error",
 			"no-undef-init": "error",
 			"no-undefined": "error",
-			"no-underscore-dangle": "error",
 			"no-unexpected-multiline": "error",
 			"no-unmodified-loop-condition": "error",
 			"no-unneeded-ternary": "error",
@@ -299,7 +289,6 @@
 			"no-useless-computed-key": "error",
 			"no-useless-concat": "error",
 			"no-useless-constructor": "error",
-			"no-useless-escape": "error",
 			"no-useless-rename": "error",
 			"no-useless-return": "error",
 			"no-var": "error",
@@ -309,22 +298,15 @@
 			"object-curly-newline": [
 				"error",
 				{
-					"ObjectExpression": {
-						"minProperties": 1
-					},
-					"ObjectPattern": {
-						"multiline": true
-					},
-					"ImportDeclaration": "never",
-					"ExportDeclaration": {
-						"multiline": true,
-						"minProperties": 3
-					}
+					"minProperties": 2
 				}
 			],
 			"object-curly-spacing": "error",
 			"object-property-newline": "error",
-			"object-shorthand": "error",
+			"object-shorthand": [
+				"error",
+				"never"
+			],
 			"one-var": [
 				"error",
 				"never"
@@ -346,6 +328,7 @@
 			"prefer-promise-reject-errors": "error",
 			"prefer-rest-params": "error",
 			"prefer-template": "error",
+			"quote-props": "error",
 			"quotes": [
 				"error",
 				"single",
@@ -360,6 +343,7 @@
 			"semi": "error",
 			"semi-spacing": "error",
 			"semi-style": "error",
+			"sort-keys": "error",
 			"sort-vars": "error",
 			"space-before-blocks": [
 				"error",

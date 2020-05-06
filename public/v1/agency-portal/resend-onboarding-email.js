@@ -3,6 +3,7 @@
 const util = require('util');
 const sendOnboardingEmail = require('./helpers/send-onboarding-email.js');
 const serverHelper = require('../../../server.js');
+const auth = require('./helpers/auth.js');
 
 /**
  * Resends the onboarding email

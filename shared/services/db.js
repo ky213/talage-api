@@ -34,6 +34,53 @@ exports.Connect = async () => {
 	console.log(colors.green('\tConnected'));
 	return true;
 };
+
+/**
+ * Starts a database transaction
+ *
+ * @returns {Promise} - The database connection
+ */
+exports.beginTransaction = function(){
+	return new Promise(function(fulfill, reject){
+		// Get a single database connection from the pool. All queries in this same transaction will use this same connection.
+		pool.getConnection(function(err, connection){
+			if(err){
+				log.error('Unable to establish single connection to database');
+				reject(new Error('Database connection failed'));
+				return;
+			}
+
+			// Begin the transaction
+			connection.beginTransaction();
+			log.info('Beginning database transaction');
+
+			// Return the connection object
+			fulfill(connection);
+		});
+	});
+};
+
+/**
+ * Commit and end a database transaction
+ *
+ * @param {obj} connection (optional) - A database connection object
+ *
+ * @returns {void}
+ */
+exports.commit = function(connection){
+	if(!connection){
+		log.error('Parameter missing. db.commit() requires a database connection as a parameter');
+		return;
+	}
+
+	// Commit the transaction
+	connection.commit();
+
+	// Release the connection
+	connection.release();
+	log.info('Database transaction committed');
+};
+
 /**
  * Escapes a value for use in SQL queries
  *
@@ -43,6 +90,23 @@ exports.Connect = async () => {
  */
 exports.escape = function (str) {
 	return mysql.escape(str);
+};
+
+/**
+ * Prepares a query for urnnning against our database
+ *
+ * @param {string} sql - The SQL query string to be run
+ *
+ * @returns {string} - The prepared query
+ */
+exports.prepareQuery = function(sql){
+	// Force SQL queries to end in a semicolon for security
+	if(sql.slice(-1) !== ';'){
+		sql += ';';
+	}
+
+	// Replace the prefix placeholder
+	return sql.replace(/#__/g, process.env.DATABASE_PREFIX);
 };
 
 /**
@@ -108,4 +172,25 @@ exports.quoteName = function (name, alias = null) {
 
 	// Otherwise quoted name directly
 	return quotedName;
+};
+
+/**
+ * Rollback and end a database transaction
+ *
+ * @param {obj} connection (optional) - A database connection object
+ *
+ * @returns {void}
+ */
+exports.rollback = function(connection){
+	if(!connection){
+		log.error('Parameter missing. db.rollback() requires a database connection as a parameter');
+		return;
+	}
+
+	// Rollback the transaction
+	connection.rollback();
+
+	// Release the connection
+	connection.release();
+	log.info('Database transaction rolledback');
 };

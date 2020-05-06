@@ -1,6 +1,7 @@
 'use strict';
 
 const serverHelper = require('../../../server.js');
+const auth = require('./helpers/auth.js');
 
 /**
  * Retrieves the landing-pages for the logged in user
