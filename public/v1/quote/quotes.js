@@ -123,4 +123,5 @@ function SocketQuotes(socket){
 
 exports.registerEndpoint = (server, basePath) => {
 	server.addSocket('Quotes socket', `${basePath}/quotes`, SocketQuotes);
+	server.addSocket('Quotes socket (depr)', `/async`, SocketQuotes);
 };

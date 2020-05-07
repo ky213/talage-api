@@ -26,12 +26,12 @@ Unified API combining public APIs and integrating Private APIs as internal modul
 	```
 
 ### Linux (Amazon/CentOS):
-	- Install the build system and Node 12:
-```
+- Install the build system and Node 12:
+	```
 	sudo yum group install "Development Tools"
 	curl -sL https://rpm.nodesource.com/setup_12.x | sudo bash -
 	sudo yum install -y nodejs
-```
+	```
 
 ## Building
 
