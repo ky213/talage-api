@@ -1,6 +1,7 @@
 'use strict';
 
 const serverHelper = require('../../../server.js');
+const auth = require('./helpers/auth.js');
 
 /**
  * Returns data necessary for creating an agency

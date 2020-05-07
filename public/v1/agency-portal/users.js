@@ -1,8 +1,7 @@
 'use strict';
 const auth = require('./helpers/auth.js');
 const crypt = require('../../../shared/services/crypt.js')
-
-
+const serverHelper = require('../../../server.js');
 
 	/**
 	 * Responds to get requests for the users endpoint

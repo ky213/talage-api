@@ -2,6 +2,7 @@
 
 const validator = requireShared('./helpers/validator.js');
 const serverHelper = require('../../../server.js');
+const auth = require('./helpers/auth.js');
 
 /**
  * A function to get the answer from a question

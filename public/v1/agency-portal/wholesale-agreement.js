@@ -3,6 +3,7 @@
 const axios = require('axios');
 const crypt = requireShared('./services/crypt.js');
 const serverHelper = require('../../../server.js');
+const auth = require('./helpers/auth.js');
 
 /**
  * Retrieves the link that will allow a single user to sign the wholesaleAgreement
