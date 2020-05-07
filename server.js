@@ -117,7 +117,11 @@ module.exports = {
 
 		// Log Every Request. If they don't reach the endpoints, then CORS returned a preflight error.
 		server.on('after', (req, res, route, error) => {
-			logInfoHandler(`${moment().format()} ${req.connection.remoteAddress} ${req.method} ${req.url} => ${res.statusCode} '${res.statusMessage}'`);
+			// skip if uptime
+			if((req.url.includes('uptime') === true  || listenPort === 3008) === false){
+				logInfoHandler(`${moment().format()} ${req.connection.remoteAddress} ${req.method} ${req.url} => ${res.statusCode} '${res.statusMessage}'`);
+			}
+			
 		});
 		server.on('error', function (err) {
 			logErrorHandler(`${moment().format()} ${err.toString()}'`);
@@ -197,10 +201,12 @@ module.exports = {
 	},
 
 	RequestError: (message) => {
+		// LOG warn
 		return new RestifyError.BadRequestError(message);
 	},
 
 	InternalError: (message) => {
+		// LOG  - error level. 
 		return new RestifyError.InternalServerError(message);
 	},
 
@@ -213,6 +219,7 @@ module.exports = {
 	},
 
 	NotFoundError: (message) => {
+		// TODO LOG  - probably a code issue in web site or app.
 		return new RestifyError.NotFoundError(message);
 	},
 
