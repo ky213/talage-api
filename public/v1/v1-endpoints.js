@@ -86,8 +86,7 @@ exports.RegisterEndpoints = (server) => {
 
 	// site
 	RegisterEndpoint(server, 'site', 'brand');
-	//uptime
-	RegisterEndpoint(server, 'uptime', 'brand');
+	
 
 	
 	
