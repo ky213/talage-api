@@ -1,0 +1,17 @@
+{
+  "apps": [
+	{
+	  "name": "Talage API",
+	  "ignore_watch": [
+		"logs",
+		"node_modules",
+		"tests",
+		".idea"
+	  ],
+	  "script": "server.js",
+	  "env": {
+		"Holder": "value"
+	  }
+	}
+  ]
+}
