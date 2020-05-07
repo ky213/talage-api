@@ -8,9 +8,9 @@
 		"tests",
 		".idea"
 	  ],
-	  "script": "server.js",
+	  "script": "index.js",
 	  "env": {
-		"Holder": "value"
+		"NODE_ENV": "development"
 	  }
 	}
   ]
