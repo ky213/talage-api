@@ -344,7 +344,7 @@ async function createUser(req, res, next){
 				LIMIT 2;
 			`;
 	const emailContentResult = await db.query(emailContentSQL).catch(function(err){
-		log.error(`DB Erorr Unable to send new user email to ${data.email}. Please send manually.`);
+		log.error(`DB Error Unable to send new user email to ${data.email}. Please send manually.`);
 		log.error(err);
 		error = true;
 	});
@@ -401,7 +401,7 @@ async function createUser(req, res, next){
 	request({
 		'json': emailData,
 		'method': 'POST',
-		'url': `http://${global.settings.EMAIL_SVC_HOST}`
+		'url': `http://localhost:${global.settings.PRIVATE_API_PORT}/v1/email/email`
 	}, function(err){
 		if(err){
 			log.error(`Unable to send new user email to ${data.email}. Please send manually.`);
