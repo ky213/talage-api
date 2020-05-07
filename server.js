@@ -123,11 +123,13 @@ class AbstractedHTTPServer{
 			if(socket.handshake.query && socket.handshake.query.token){
 				jwt.verify(socket.handshake.query.token, global.settings.AUTH_SECRET_KEY, function(err){
 					if(err){
+						log.info(`Socket ${path}: Invalid JWT`);
 						return next(new Error('Invalid authentication token'));
 					}
 					next();
 				});
 			}else{
+				log.info(`Socket ${path}: Could not find JWT in handshake`);
 				return next(new Error('An authentication token must be provided'));
 			}
 		});
