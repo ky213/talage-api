@@ -1,7 +1,7 @@
 'use strict';
-const RestifyError = require('restify-errors');
-const crypt = requireShared('./services/crypt.js');
-const validator = requireShared('./helpers/validator.js');
+
+const crypt = global.requireShared('./services/crypt.js');
+const validator = global.requireShared('./helpers/validator.js');
 const serverHelper = require('../../../server.js');
 
 /**
@@ -13,14 +13,14 @@ const serverHelper = require('../../../server.js');
  *
  * @returns {void}
  */
-async function get_account(req, res, next) {
+async function get_account(req, res, next){
 	const account_sql = `SELECT \`a\`.\`email\`
 				FROM   \`#__agency_portal_users\` AS \`a\`
 				WHERE  \`a\`.\`id\` = ${parseInt(req.authentication.userID, 10)};`;
 
-	let account_data = await db.query(account_sql).catch(function (err) {
+	let account_data = await db.query(account_sql).catch(function(err){
 		log.error(err.message);
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// There will only ever be one result
@@ -32,9 +32,9 @@ async function get_account(req, res, next) {
 	const timezone_sql = `SELECT \`tz\`, \`id\`
 								FROM \`#__timezones\`;`;
 
-	const timezones = await db.query(timezone_sql).catch(function (err) {
+	const timezones = await db.query(timezone_sql).catch(function(err){
 		log.error(err.message);
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	res.send(200, {
@@ -53,11 +53,11 @@ async function get_account(req, res, next) {
  *
  * @returns {void}
  */
-async function put_account(req, res, next) {
+async function put_account(req, res, next){
 	// Check for data
-	if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
+	if(!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0){
 		log.warn('No data was received');
-		return next(serverHelper.RequestError('No data was received'));
+		return next(serverHelper.requestError('No data was received'));
 	}
 
 	// Establish some variables
@@ -66,61 +66,61 @@ async function put_account(req, res, next) {
 	let timezone = 0;
 
 	// If an email was provided, validate it and encrypt
-	if (Object.prototype.hasOwnProperty.call(req.body, 'email')) {
-		if (validator.email(req.body.email)) {
+	if(Object.prototype.hasOwnProperty.call(req.body, 'email')){
+		if(validator.email(req.body.email)){
 			// Encrypt the email
 			email = await crypt.encrypt(req.body.email);
-		} else {
+		}else{
 			log.warn('Email does not meet requirements');
-			return next(serverHelper.RequestError('Email could not be validated'));
+			return next(serverHelper.requestError('Email could not be validated'));
 		}
 	}
 
 	// If a password was provided, validate it and hash
-	if (Object.prototype.hasOwnProperty.call(req.body, 'password')) {
-		if (validator.password(req.body.password)) {
+	if(Object.prototype.hasOwnProperty.call(req.body, 'password')){
+		if(validator.password(req.body.password)){
 			// Hash the password
 			password = await crypt.hashPassword(req.body.password);
-		} else {
+		}else{
 			log.warn('Password does not meet requirements');
-			return next(serverHelper.RequestError('Password does not meet the complexity requirements. It must be at least 8 characters and contain one uppercase letter, one lowercase letter, one number, and one special character'));
+			return next(serverHelper.requestError('Password does not meet the complexity requirements. It must be at least 8 characters and contain one uppercase letter, one lowercase letter, one number, and one special character'));
 		}
 	}
 
-	if (Object.prototype.hasOwnProperty.call(req.body, 'timezone')) {
-		if (validator.timezone(req.body.timezone)) {
+	if(Object.prototype.hasOwnProperty.call(req.body, 'timezone')){
+		if(validator.timezone(req.body.timezone)){
 			// Hash the password
 			timezone = req.body.timezone;
-		} else {
+		}else{
 			log.warn('Timezone is not an int');
-			return next(serverHelper.RequestError('Timezone could not be validated'));
+			return next(serverHelper.requestError('Timezone could not be validated'));
 		}
 	}
 
 	// Do we have something to update?
-	if (!email && !password && !timezone) {
+	if(!email && !password && !timezone){
 		log.warn('There is nothing to update');
-		return next(serverHelper.RequestError('There is nothing to update. Please check the documentation.'));
+		return next(serverHelper.requestError('There is nothing to update. Please check the documentation.'));
 	}
 
 	// Compile the set statements for the update query
 	const set_statements = [];
-	if (email) {
+	if(email){
 		set_statements.push(`\`email\`=${db.escape(email)}`);
 		set_statements.push(`\`email_hash\`=${db.escape(await crypt.hash(req.body.email))}`);
 	}
-	if (password) {
+	if(password){
 		set_statements.push(`\`password\`=${db.escape(password)}`);
 	}
-	if (timezone) {
+	if(timezone){
 		set_statements.push(`\`timezone\`=${db.escape(timezone)}`);
 	}
 
 	// Create and run the UPDATE query
 	const sql = `UPDATE \`#__agency_portal_users\` SET ${set_statements.join(', ')} WHERE id = ${db.escape(req.authentication.userID)} LIMIT 1;`;
-	await db.query(sql).catch(function (err) {
+	await db.query(sql).catch(function(err){
 		log.error(err.message);
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Everything went okay, send a success response
@@ -128,7 +128,7 @@ async function put_account(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (server, basePath) => {
-	server.AddGetAuth('Get account', basePath + '/account', get_account);
-	server.AddPutAuth('Update account', basePath + '/account', put_account);
+exports.registerEndpoint = (server, basePath) => {
+	server.addGetAuth('Get account', `${basePath}/account`, get_account);
+	server.addPutAuth('Update account', `${basePath}/account`, put_account);
 };

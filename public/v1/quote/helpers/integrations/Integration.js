@@ -4,8 +4,8 @@
 
 'use strict';
 
-const crypt = requireShared('./services/crypt.js');
-const file = requireShared('./services/file.js');
+const crypt = global.requireShared('./services/crypt.js');
+const file = global.requireShared('./services/file.js');
 const htmlentities = require('html-entities').Html5Entities;
 const https = require('https');
 const moment = require('moment');
@@ -87,14 +87,14 @@ module.exports = class Integration{
 			// Make sure the _bind() function exists
 			if(typeof this._bind === 'undefined'){
 				log.warn(`${this.insurer} ${this.policy.type} integration does not support binding quotes`);
-				reject(serverHelper.NotFoundError('Insurer integration does not support binding quotes at this time'));
+				reject(serverHelper.notFoundError('Insurer integration does not support binding quotes at this time'));
 				return;
 			}
 
 			// Check for an outage
 			if(this.insurer.outage){
 				log.warn(`${this.insurer} is currently unavailable due to scheduled maintenance`);
-				reject(serverHelper.ServiceUnavailableError('Insurer is currently unavailable due to scheduled maintance'));
+				reject(serverHelper.serviceUnavailableError('Insurer is currently unavailable due to scheduled maintance'));
 				return;
 			}
 
@@ -1299,7 +1299,7 @@ module.exports = class Integration{
 
 						this.log += `--------======= Response =======--------<br><br><pre>${filteredData}</pre><br><br>`;
 						fulfill(rawData);
-					} else {
+					}else{
 						const error = new Error(`Insurer request encountered a ${res.statusCode} error`);
 						log.error(error.message);
 						log.verbose(rawData);

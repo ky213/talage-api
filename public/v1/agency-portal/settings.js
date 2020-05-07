@@ -1,7 +1,7 @@
 'use strict';
 
-const crypt = requireShared('./services/crypt.js');
-const validator = requireShared('./helpers/validator.js');
+const crypt = global.requireShared('./services/crypt.js');
+const validator = global.requireShared('./helpers/validator.js');
 const auth = require('./helpers/auth.js');
 const request = require('request');
 const serverHelper = require('../../../server.js');
@@ -14,7 +14,7 @@ const serverHelper = require('../../../server.js');
  * @param {function} next - The next function to execute
  * @returns {void}
  */
-async function GetSettings(req, res, next) {
+async function GetSettings(req, res, next){
 	let error = false;
 
 	// Make sure the authentication payload has everything we are expecting
@@ -25,10 +25,10 @@ async function GetSettings(req, res, next) {
 		return next(error);
 	}
 
-	const agents = await auth.getAgents(req).catch(function (e) {
+	const agents = await auth.getAgents(req).catch(function(e){
 		error = e;
 	});
-	if (error) {
+	if(error){
 		return next(error);
 	}
 
@@ -47,9 +47,9 @@ async function GetSettings(req, res, next) {
 			WHERE \`id\` = ${db.escape(agents[0])}
 			LIMIT 1;
 		`;
-	const result = await db.query(sql).catch(function (err) {
+	const result = await db.query(sql).catch(function(err){
 		log.error(err.message);
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Reduce the result to just the data we need
@@ -86,14 +86,14 @@ async function GetSettings(req, res, next) {
 			WHERE \`al\`.\`agency\` = ${db.escape(agents[0])}
 			GROUP BY \`al\`.\`id\`;
 		`;
-	const locations = await db.query(locationSQL).catch(function (err) {
+	const locations = await db.query(locationSQL).catch(function(err){
 		log.error(err.message);
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Process each location
 	settings.locations = {};
-	if (locations.length) {
+	if(locations.length){
 
 		// Decrypt data for all locations
 		await crypt.batchProcessObjectArray(locations, 'decrypt', [
@@ -106,7 +106,7 @@ async function GetSettings(req, res, next) {
 		]);
 
 		// Add each location to the settings indexed by ID
-		locations.forEach(function (location) {
+		locations.forEach(function(location){
 			settings.locations[location.id] = location;
 		});
 
@@ -124,13 +124,13 @@ async function GetSettings(req, res, next) {
 				LEFT JOIN \`#__insurers\` AS \`i\` ON \`ali\`.\`insurer\` = \`i\`.\`id\`
 				WHERE \`ali\`.\`agency_location\` IN (${Object.keys(settings.locations)});
 			`;
-		const insurers = await db.query(insurerSQL).catch(function (err) {
+		const insurers = await db.query(insurerSQL).catch(function(err){
 			log.error(err.message);
-			return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		});
 
 		// Process insurers
-		if (insurers.length) {
+		if(insurers.length){
 
 			// Decrypt data for all insurers
 			await crypt.batchProcessObjectArray(insurers, 'decrypt', [
@@ -138,9 +138,9 @@ async function GetSettings(req, res, next) {
 			]);
 
 			// Match the insurers to their locations
-			insurers.forEach(function (insurer) {
+			insurers.forEach(function(insurer){
 				// Make sure this location has an insurers array
-				if (!Object.prototype.hasOwnProperty.call(settings.locations[insurer.agency_location], 'insurers')) {
+				if(!Object.prototype.hasOwnProperty.call(settings.locations[insurer.agency_location], 'insurers')){
 					settings.locations[insurer.agency_location].insurers = [];
 				}
 
@@ -151,13 +151,13 @@ async function GetSettings(req, res, next) {
 	}
 
 	// Remove some data we don't need to return
-	for (const locationIndex in settings.locations) {
-		if (Object.prototype.hasOwnProperty.call(settings.locations, locationIndex)) {
+	for(const locationIndex in settings.locations){
+		if(Object.prototype.hasOwnProperty.call(settings.locations, locationIndex)){
 			// Remove the location ID (it is indexed on this anyway)
 			delete settings.locations[locationIndex].id;
 
 			// Remove the agency_location from insurers
-			settings.locations[locationIndex].insurers.forEach(function (insurer) {
+			settings.locations[locationIndex].insurers.forEach(function(insurer){
 				delete insurer.agency_location;
 			});
 		}
@@ -175,7 +175,7 @@ async function GetSettings(req, res, next) {
  * @param {function} next - The next function to execute
  * @returns {void}
  */
-async function PutSettings(req, res, next) {
+async function PutSettings(req, res, next){
 	let error = false;
 
 	// Make sure the authentication payload has everything we are expecting
@@ -186,20 +186,20 @@ async function PutSettings(req, res, next) {
 		return next(error);
 	}
 
-	const agents = await auth.getAgents(req).catch(function (e) {
+	const agents = await auth.getAgents(req).catch(function(e){
 		error = e;
 	});
-	if (error) {
+	if(error){
 		return next(error);
 	}
 
 	// Check for data
-	if (!req.body) {
+	if(!req.body){
 		log.warn('No data was received');
-		return next(serverHelper.RequestError('No data was received'));
+		return next(serverHelper.requestError('No data was received'));
 	}
 
-	if (typeof req.body === 'object' && Object.keys(req.body).length === 0) {
+	if(typeof req.body === 'object' && Object.keys(req.body).length === 0){
 		res.send(200, 'Nothing to update');
 		return next();
 	}
@@ -219,10 +219,10 @@ async function PutSettings(req, res, next) {
 	settings.slug = req.body.settings.slug ? req.body.settings.slug : '';
 
 	let logo = null;
-	if (Object.prototype.hasOwnProperty.call(req.body.settings, 'logo') && req.body.settings.logo) {
+	if(Object.prototype.hasOwnProperty.call(req.body.settings, 'logo') && req.body.settings.logo){
 		settings.logo = req.body.settings.logo;
 
-		if (Object.prototype.hasOwnProperty.call(req.body, 'removeLogo') && req.body.removeLogo) {
+		if(Object.prototype.hasOwnProperty.call(req.body, 'removeLogo') && req.body.removeLogo){
 			// Establish the options for the request
 			const options = {
 				'method': 'DELETE',
@@ -230,34 +230,34 @@ async function PutSettings(req, res, next) {
 			};
 
 			// Send the request
-			await request(options, function (e, response, body) {
+			await request(options, function(e, response, body){
 				// If there was an error, reject
-				if (e) {
-					error = serverHelper.InternalError('Well, that wasn\’t supposed to happen. Please try again and if this continues please contact us. (Failed to delete old logo)');
+				if(e){
+					error = serverHelper.internalError('Well, that wasn\’t supposed to happen. Please try again and if this continues please contact us. (Failed to delete old logo)');
 					log.error('Failed to connect to file service.');
 					return;
 				}
 
 				// If the response was anything but a success, reject
-				if (response.statusCode !== 200) {
+				if(response.statusCode !== 200){
 					// The response is JSON, parse out the error
 					const message = `${response.statusCode} - ${body.message}`;
 					log.warn(message);
 
 				}
 			});
-			if (error) {
+			if(error){
 				return next(error);
 			}
 		}
 
-		if (Object.prototype.hasOwnProperty.call(req.body, 'logo') && req.body.logo) {
+		if(Object.prototype.hasOwnProperty.call(req.body, 'logo') && req.body.logo){
 
 			// Establish the options for the request
 			logo = `${agents[0]}-${req.body.settings.logo.replace(/[^a-zA-Z0-9-_]/g, '')}`;
 			settings.logo = logo;
 			const options = {
-				'headers': { 'content-type': 'application/json' },
+				'headers': {'content-type': 'application/json'},
 				'json': {
 					'data': req.body.logo,
 					'path': `public/agency-logos/${logo}`
@@ -267,277 +267,277 @@ async function PutSettings(req, res, next) {
 			};
 
 			// Send the request
-			await request(options, function (e, response, body) {
+			await request(options, function(e, response, body){
 				// If there was an error, reject
-				if (e) {
-					error = serverHelper.InternalError('Well, that wasn\’t supposed to happen. Please try again and if this continues please contact us. (Failed to upload new logo)');
+				if(e){
+					error = serverHelper.internalError('Well, that wasn\’t supposed to happen. Please try again and if this continues please contact us. (Failed to upload new logo)');
 					log.error('Failed to connect to file service.');
 					return;
 				}
 
 				// If the response was anything but a success, reject
-				if (response.statusCode !== 200) {
+				if(response.statusCode !== 200){
 					// The response is JSON, parse out the error
 					const message = `${response.statusCode} - ${body.message}`;
 					log.warn(message);
 
 				}
 			});
-			if (error) {
+			if(error){
 				return next(error);
 			}
 		}
 	}
 
 	// Agency Name (required)
-	if (Object.prototype.hasOwnProperty.call(req.body.settings, 'name')) {
-		if (validator.agency_name(req.body.settings.name)) {
+	if(Object.prototype.hasOwnProperty.call(req.body.settings, 'name')){
+		if(validator.agency_name(req.body.settings.name)){
 			settings.name = req.body.settings.name;
-		} else {
+		}else{
 			log.warn('Agency name does not meet requirements');
-			return next(serverHelper.RequestError('Agency name is invalid'));
+			return next(serverHelper.requestError('Agency name is invalid'));
 		}
-	} else {
+	}else{
 		log.warn('Agent name is required');
-		return next(serverHelper.RequestError('Agent name is required'));
+		return next(serverHelper.requestError('Agent name is required'));
 	}
 
 	// Agency Email Address (required)
-	if (Object.prototype.hasOwnProperty.call(req.body.settings, 'email')) {
-		if (validator.email(req.body.settings.email)) {
+	if(Object.prototype.hasOwnProperty.call(req.body.settings, 'email')){
+		if(validator.email(req.body.settings.email)){
 			settings.email = await crypt.encrypt(req.body.settings.email);
-		} else {
+		}else{
 			log.warn('Agency email does not meet requirements');
-			return next(serverHelper.RequestError('Agency email is invalid'));
+			return next(serverHelper.requestError('Agency email is invalid'));
 		}
-	} else {
+	}else{
 		log.warn('Agency email is required');
-		return next(serverHelper.RequestError('Agency email is required'));
+		return next(serverHelper.requestError('Agency email is required'));
 	}
 
 	// Phone Number (required)
-	if (Object.prototype.hasOwnProperty.call(req.body.settings, 'phone') && req.body.settings.phone) {
-		if (validator.phone(req.body.settings.phone)) {
+	if(Object.prototype.hasOwnProperty.call(req.body.settings, 'phone') && req.body.settings.phone){
+		if(validator.phone(req.body.settings.phone)){
 			// Strip out all non-numeric characters
 			req.body.settings.phone = req.body.settings.phone.replace(/\D/g, '');
 
 			settings.phone = await crypt.encrypt(req.body.settings.phone);
-		} else {
+		}else{
 			log.warn('Agency phone does not meet requirements');
-			return next(serverHelper.RequestError('Agency phone is invalid'));
+			return next(serverHelper.requestError('Agency phone is invalid'));
 		}
-	} else {
+	}else{
 		log.warn('Agency phone number is required');
-		return next(serverHelper.RequestError('Agency phone number is required'));
+		return next(serverHelper.requestError('Agency phone number is required'));
 	}
 
 	// California License Number (optional)
-	if (Object.prototype.hasOwnProperty.call(req.body.settings, 'ca_license_number') && req.body.settings.ca_license_number) {
+	if(Object.prototype.hasOwnProperty.call(req.body.settings, 'ca_license_number') && req.body.settings.ca_license_number){
 		// eslint-disable-next-line new-cap
-		if (validator.CALicense(req.body.settings.ca_license_number)) {
+		if(validator.CALicense(req.body.settings.ca_license_number)){
 			settings.ca_license_number = await crypt.encrypt(req.body.settings.ca_license_number);
-		} else {
+		}else{
 			log.warn('CA License number does not meet requirements');
-			return next(serverHelper.RequestError('CA License number is invalid'));
+			return next(serverHelper.requestError('CA License number is invalid'));
 		}
 	}
 
 	// Website (optional)
-	if (Object.prototype.hasOwnProperty.call(req.body.settings, 'website') && req.body.settings.website) {
-		if (validator.website(req.body.settings.website)) {
+	if(Object.prototype.hasOwnProperty.call(req.body.settings, 'website') && req.body.settings.website){
+		if(validator.website(req.body.settings.website)){
 			// Add http:// if it is not present
-			if (req.body.settings.website.indexOf('http://') === -1 && req.body.settings.website.indexOf('https://') === -1) {
+			if(req.body.settings.website.indexOf('http://') === -1 && req.body.settings.website.indexOf('https://') === -1){
 				req.body.settings.website = `http://${req.body.settings.website}`;
 			}
 
 			// Encrypt the website
 			settings.website = await crypt.encrypt(req.body.settings.website);
-		} else {
+		}else{
 			log.warn('Website does not meet requirements');
-			return next(serverHelper.RequestError('Website could not be validated'));
+			return next(serverHelper.requestError('Website could not be validated'));
 		}
 	}
 
 	// First Name (required)
-	if (Object.prototype.hasOwnProperty.call(req.body.settings, 'fname')) {
-		if (validator.name(req.body.settings.fname)) {
+	if(Object.prototype.hasOwnProperty.call(req.body.settings, 'fname')){
+		if(validator.name(req.body.settings.fname)){
 			settings.fname = await crypt.encrypt(req.body.settings.fname);
-		} else {
+		}else{
 			log.warn('Agent first name does not meet requirements');
-			return next(serverHelper.RequestError('Agent first name is invalid'));
+			return next(serverHelper.requestError('Agent first name is invalid'));
 		}
-	} else {
+	}else{
 		log.warn('Agent first name is required');
-		return next(serverHelper.RequestError('Agent first name is required'));
+		return next(serverHelper.requestError('Agent first name is required'));
 	}
 
 	// Last Name (required)
-	if (Object.prototype.hasOwnProperty.call(req.body.settings, 'lname')) {
-		if (validator.name(req.body.settings.lname)) {
+	if(Object.prototype.hasOwnProperty.call(req.body.settings, 'lname')){
+		if(validator.name(req.body.settings.lname)){
 			settings.lname = await crypt.encrypt(req.body.settings.lname);
-		} else {
+		}else{
 			log.warn('Agent last name does not meet requirements');
-			return next(serverHelper.RequestError('Agent last name is invalid'));
+			return next(serverHelper.requestError('Agent last name is invalid'));
 		}
-	} else {
+	}else{
 		log.warn('Agent last name is required');
-		return next(serverHelper.RequestError('Agent first last is required'));
+		return next(serverHelper.requestError('Agent first last is required'));
 	}
 
 	// Validate locations
 	let primaryFound = false;
 	let locationNum = 1;
 	const locations = req.body.settings.locations;
-	for (const locationID in locations) {
-		if (Object.prototype.hasOwnProperty.call(locations, locationID)) {
+	for(const locationID in locations){
+		if(Object.prototype.hasOwnProperty.call(locations, locationID)){
 			const location = req.body.settings.locations[locationID];
 
 			// Address (required)
-			if (Object.prototype.hasOwnProperty.call(location, 'address')) {
-				if (validator.address(location.address)) {
+			if(Object.prototype.hasOwnProperty.call(location, 'address')){
+				if(validator.address(location.address)){
 					// eslint-disable-next-line no-await-in-loop
 					location.address = await crypt.encrypt(location.address);
-				} else {
+				}else{
 					const message = `The Address you entered for location ${locationNum} is not valid`;
 					log.warn(message);
-					return next(serverHelper.RequestError(message));
+					return next(serverHelper.requestError(message));
 				}
-			} else {
+			}else{
 				const message = `An Address is required for location ${locationNum}`;
 				log.warn(message);
-				return next(serverHelper.RequestError(message));
+				return next(serverHelper.requestError(message));
 			}
 
 			// Address Line 2 (optional)
-			if (Object.prototype.hasOwnProperty.call(location, 'address2') && location.address2) {
-				if (validator.address2(location.address2)) {
+			if(Object.prototype.hasOwnProperty.call(location, 'address2') && location.address2){
+				if(validator.address2(location.address2)){
 					// eslint-disable-next-line no-await-in-loop
 					location.address2 = await crypt.encrypt(location.address2);
-				} else {
+				}else{
 					const message = `The Address Line 2 you entered for location ${locationNum} is not valid`;
 					log.warn(message);
-					return next(serverHelper.RequestError(message));
+					return next(serverHelper.requestError(message));
 				}
-			} else {
+			}else{
 				location.address2 = null;
 			}
 
 			// Close Time
-			if (Object.prototype.hasOwnProperty.call(location, 'close_time')) {
-				if (![3,
+			if(Object.prototype.hasOwnProperty.call(location, 'close_time')){
+				if(![3,
 					4,
 					5,
 					6,
 					7,
-					8].includes(location.close_time)) {
+					8].includes(location.close_time)){
 					const message = `The Close Time you entered for location ${locationNum} is not valid (must be 3, 4, 5, 6, 7, or 8)`;
 					log.warn(message);
-					return next(serverHelper.RequestError(message));
+					return next(serverHelper.requestError(message));
 				}
 			}
 
 			// Email Address (required)
-			if (Object.prototype.hasOwnProperty.call(location, 'email')) {
-				if (validator.email(location.email)) {
+			if(Object.prototype.hasOwnProperty.call(location, 'email')){
+				if(validator.email(location.email)){
 					// eslint-disable-next-line no-await-in-loop
 					location.email = await crypt.encrypt(location.email);
-				} else {
+				}else{
 					const message = `The Email Address you entered for location ${locationNum} is not valid`;
 					log.warn(message);
-					return next(serverHelper.RequestError(message));
+					return next(serverHelper.requestError(message));
 				}
-			} else {
+			}else{
 				const message = `An Email Address is required for location ${locationNum}`;
 				log.warn(message);
-				return next(serverHelper.RequestError(message));
+				return next(serverHelper.requestError(message));
 			}
 
 			// First Name (required)
-			if (Object.prototype.hasOwnProperty.call(location, 'fname')) {
-				if (validator.name(location.fname)) {
+			if(Object.prototype.hasOwnProperty.call(location, 'fname')){
+				if(validator.name(location.fname)){
 					// eslint-disable-next-line no-await-in-loop
 					location.fname = await crypt.encrypt(location.fname);
-				} else {
+				}else{
 					const message = `The First Name you entered for location ${locationNum} is not valid`;
 					log.warn(message);
-					return next(serverHelper.RequestError(message));
+					return next(serverHelper.requestError(message));
 				}
-			} else {
+			}else{
 				const message = `A First Name is required for location ${locationNum}`;
 				log.warn(message);
-				return next(serverHelper.RequestError(message));
+				return next(serverHelper.requestError(message));
 			}
 
 			// Last Name (required)
-			if (Object.prototype.hasOwnProperty.call(location, 'lname')) {
-				if (validator.name(location.lname)) {
+			if(Object.prototype.hasOwnProperty.call(location, 'lname')){
+				if(validator.name(location.lname)){
 					// eslint-disable-next-line no-await-in-loop
 					location.lname = await crypt.encrypt(location.lname);
-				} else {
+				}else{
 					const message = `The Last Name you entered for location ${locationNum} is not valid`;
 					log.warn(message);
-					return next(serverHelper.RequestError(message));
+					return next(serverHelper.requestError(message));
 				}
-			} else {
+			}else{
 				const message = `A Last Name is required for location ${locationNum}`;
 				log.warn(message);
-				return next(serverHelper.RequestError(message));
+				return next(serverHelper.requestError(message));
 			}
 
 			// Open Time
-			if (Object.prototype.hasOwnProperty.call(location, 'open_time')) {
-				if (![7,
+			if(Object.prototype.hasOwnProperty.call(location, 'open_time')){
+				if(![7,
 					8,
 					9,
 					10,
-					11].includes(location.open_time)) {
+					11].includes(location.open_time)){
 					const message = `The Open Time you entered for location ${locationNum} is not valid (must be 7, 8, 9, 10, or 11)`;
 					log.warn(message);
-					return next(serverHelper.RequestError(message));
+					return next(serverHelper.requestError(message));
 				}
 			}
 
 			// Phone
-			if (Object.prototype.hasOwnProperty.call(location, 'phone') && location.phone) {
-				if (validator.phone(location.phone)) {
+			if(Object.prototype.hasOwnProperty.call(location, 'phone') && location.phone){
+				if(validator.phone(location.phone)){
 					// Strip out all non-numeric characters
 					location.phone = location.phone.replace(/\D/g, '');
 
 					// eslint-disable-next-line no-await-in-loop
 					location.phone = await crypt.encrypt(location.phone);
-				} else {
+				}else{
 					const message = `The Phone Number you entered for location ${locationNum} is not valid`;
 					log.warn(message);
-					return next(serverHelper.RequestError(message));
+					return next(serverHelper.requestError(message));
 				}
-			} else {
+			}else{
 				location.phone = null;
 			}
 
 			// Primary
-			if (Object.prototype.hasOwnProperty.call(location, 'primary') && location.primary) {
-				if (primaryFound) {
+			if(Object.prototype.hasOwnProperty.call(location, 'primary') && location.primary){
+				if(primaryFound){
 					const message = 'Only one location can be marked as your primary location';
 					log.warn(message);
-					return next(serverHelper.RequestError(message));
+					return next(serverHelper.requestError(message));
 				}
 				primaryFound = true;
 				location.primary = 1;
-			} else {
+			}else{
 				location.primary = 0;
 			}
 
 			// Zip (required)
-			if (Object.prototype.hasOwnProperty.call(location, 'zip')) {
-				if (!validator.zip(location.zip)) {
+			if(Object.prototype.hasOwnProperty.call(location, 'zip')){
+				if(!validator.zip(location.zip)){
 					const message = `The Zip Code you entered for location ${locationNum} is not valid`;
 					log.warn(message);
-					return next(serverHelper.RequestError(message));
+					return next(serverHelper.requestError(message));
 				}
-			} else {
+			}else{
 				const message = `A Zip Code is required for location ${locationNum}`;
 				log.warn(message);
-				return next(serverHelper.RequestError(message));
+				return next(serverHelper.requestError(message));
 			}
 
 			locationNum++;
@@ -546,10 +546,10 @@ async function PutSettings(req, res, next) {
 	}
 
 	// Make sure there was a primary location
-	if (!primaryFound) {
+	if(!primaryFound){
 		const message = 'You must select a location as your primary location';
 		log.warn(message);
-		return next(serverHelper.RequestError(message));
+		return next(serverHelper.requestError(message));
 	}
 
 	// Compile the set statements for the update query
@@ -561,15 +561,15 @@ async function PutSettings(req, res, next) {
 
 	// Create and run the UPDATE query for the agency
 	const agencySQL = `UPDATE \`#__agencies\` SET ${setStatements.join(', ')} WHERE id = ${db.escape(agents[0])} LIMIT 1;`;
-	await db.query(agencySQL).catch(function (err) {
+	await db.query(agencySQL).catch(function(err){
 
 		log.error(err.message);
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Update each location
-	for (const locationID in locations) {
-		if (Object.prototype.hasOwnProperty.call(locations, locationID)) {
+	for(const locationID in locations){
+		if(Object.prototype.hasOwnProperty.call(locations, locationID)){
 			const location = locations[locationID];
 
 			const locationSQL = `
@@ -592,19 +592,19 @@ async function PutSettings(req, res, next) {
 			`;
 
 			// eslint-disable-next-line  no-await-in-loop
-			await db.query(locationSQL).catch(function (err) {
+			await db.query(locationSQL).catch(function(err){
 				log.error(err.message);
-				return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 			});
 		}
 	}
 
 	// Return a success message
-	res.send(200, { 'logo': logo });
+	res.send(200, {'logo': logo});
 	return next();
 }
 
-exports.RegisterEndpoint = (server, basePath) => {
-	server.AddGetAuth('Get settings', basePath + '/settings', GetSettings);
-	server.AddPutAuth('Update settings', basePath + '/settings', PutSettings);
+exports.registerEndpoint = (server, basePath) => {
+	server.addGetAuth('Get settings', `${basePath}/settings`, GetSettings);
+	server.addPutAuth('Update settings', `${basePath}/settings`, PutSettings);
 };

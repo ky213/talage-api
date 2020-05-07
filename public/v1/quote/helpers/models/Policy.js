@@ -7,11 +7,11 @@
 const Claim = require('./Claim.js');
 const moment = require('moment');
 const serverHelper = require('../../../../../server.js');
-const validator = requireShared('./helpers/validator.js');
+const validator = global.requireShared('./helpers/validator.js');
 
-module.exports = class Policy {
+module.exports = class Policy{
 
-	constructor(app) {
+	constructor(app){
 		this.app = app;
 
 		// All Policies
@@ -42,18 +42,18 @@ module.exports = class Policy {
 	 * @param {object} data - The business data
 	 * @returns {void}
 	 */
-	load(data) {
+	load(data){
 		Object.keys(this).forEach((property) => {
-			if (!Object.prototype.hasOwnProperty.call(data, property)) {
+			if(!Object.prototype.hasOwnProperty.call(data, property)){
 				return;
 			}
 
 			// Trim whitespace
-			if (typeof data[property] === 'string') {
+			if(typeof data[property] === 'string'){
 				data[property] = data[property].trim();
 			}
 
-			switch (property) {
+			switch(property){
 				case 'claims':
 					data[property].forEach((c) => {
 						const claim = new Claim();
@@ -66,11 +66,11 @@ module.exports = class Policy {
 					this.expiration_date = moment(this[property]).add(1, 'years');
 					break;
 				case 'insurers':
-					if (Array.isArray(data[property])) {
-						this[property] = data[property].map(function (id) {
+					if(Array.isArray(data[property])){
+						this[property] = data[property].map(function(id){
 							return parseInt(id, 10);
 						});
-					} else {
+					}else{
 						// Pass through for validation
 						this[property] = data[property];
 					}
@@ -87,130 +87,130 @@ module.exports = class Policy {
 	 *
 	 * @returns {Promise.<array, Error>} A promise that returns a boolean indicating whether or not this record is valid, or an Error if rejected
 	 */
-	validate() {
-		return new Promise(async (fulfill, reject) => {
+	validate(){
+		return new Promise(async(fulfill, reject) => {
 			// Validate effective_date
-			if (this.effective_date) {
+			if(this.effective_date){
 				// Check for mm-dd-yyyy formatting
 
-				if (!this.effective_date.isValid()) {
-					reject(serverHelper.RequestError('Invalid formatting for property: effective_date. Expected mm-dd-yyyy'));
+				if(!this.effective_date.isValid()){
+					reject(serverHelper.requestError('Invalid formatting for property: effective_date. Expected mm-dd-yyyy'));
 					return;
 				}
 
 				// Check if this date is in the past
-				if (this.effective_date.isBefore(moment().startOf('day'))) {
-					reject(serverHelper.RequestError('Invalid property: effective_date. The effective date cannot be in the past'));
+				if(this.effective_date.isBefore(moment().startOf('day'))){
+					reject(serverHelper.requestError('Invalid property: effective_date. The effective date cannot be in the past'));
 					return;
 				}
 
 				// Check if this date is too far in the future
-				if (this.effective_date.isAfter(moment().startOf('day').add(90, 'days'))) {
-					reject(serverHelper.RequestError('Invalid property: effective_date. The effective date cannot be more than 90 days in the future'));
+				if(this.effective_date.isAfter(moment().startOf('day').add(90, 'days'))){
+					reject(serverHelper.requestError('Invalid property: effective_date. The effective date cannot be more than 90 days in the future'));
 					return;
 				}
-			} else {
-				reject(serverHelper.RequestError('Missing property: effective_date'));
+			}else{
+				reject(serverHelper.requestError('Missing property: effective_date'));
 				return;
 			}
 
 			// Validate insurers (optional, contains ID's of insurers)
-			if (Array.isArray(this.insurers)) {
-				if (this.insurers.length) {
+			if(Array.isArray(this.insurers)){
+				if(this.insurers.length){
 					let matched_insurer_count = 0;
 					await this.app.insurers.forEach((insurer) => {
-						if (this.insurers.includes(insurer.id) && insurer.policy_types.includes(this.type)) {
+						if(this.insurers.includes(insurer.id) && insurer.policy_types.includes(this.type)){
 							matched_insurer_count++;
 						}
 					});
-					if (this.insurers.length !== matched_insurer_count) {
-						reject(serverHelper.RequestError(`Specified insurer does not support ${this.type}.`));
+					if(this.insurers.length !== matched_insurer_count){
+						reject(serverHelper.requestError(`Specified insurer does not support ${this.type}.`));
 						return;
 					}
 				}
-			} else {
-				reject(serverHelper.RequestError(`Insurers must be specified as an array of IDs.`));
+			}else{
+				reject(serverHelper.requestError(`Insurers must be specified as an array of IDs.`));
 				return;
 			}
 
 			// Validate claims
 			const claim_promises = [];
-			if (this.claims.length) {
-				this.claims.forEach(function (claim) {
+			if(this.claims.length){
+				this.claims.forEach(function(claim){
 					claim_promises.push(claim.validate());
 				});
 			}
-			await Promise.all(claim_promises).catch(function (error) {
+			await Promise.all(claim_promises).catch(function(error){
 				reject(error);
 			});
 
 			// Limits: If this is a WC policy, check if further limit controls are needed
 			const territories = this.app.business.getTerritories();
-			if (this.type === 'WC') {
+			if(this.type === 'WC'){
 				// In CA, force limits to be at least 1,000,000/1,000,000/1,000,000
-				if (territories.includes('CA')) {
-					if (this.limits !== '2000000/2000000/2000000') {
+				if(territories.includes('CA')){
+					if(this.limits !== '2000000/2000000/2000000'){
 						this.limits = '1000000/1000000/1000000';
 					}
 
 					// In OR force limits to be at least 500,000/500,000/500,000
-				} else if (territories.includes('OR')) {
-					if (this.limits === '100000/500000/100000') {
+				}else if(territories.includes('OR')){
+					if(this.limits === '100000/500000/100000'){
 						this.limits = '500000/500000/500000';
 					}
 				}
 			}
 
 			// Validate type
-			if (this.type) {
+			if(this.type){
 				const valid_types = ['BOP',
 					'GL',
 					'WC'];
-				if (valid_types.indexOf(this.type) < 0) {
-					reject(serverHelper.RequestError('Invalid policy type'));
+				if(valid_types.indexOf(this.type) < 0){
+					reject(serverHelper.requestError('Invalid policy type'));
 					return;
 				}
-			} else {
-				reject(serverHelper.RequestError('You must provide a policy type'));
+			}else{
+				reject(serverHelper.requestError('You must provide a policy type'));
 				return;
 			}
 
 			// BOP & GL Specific Properties
-			if (this.type === 'BOP' || this.type === 'GL') {
+			if(this.type === 'BOP' || this.type === 'GL'){
 
 				/**
 				 * Gross Sales Amount
 				 */
-				if (this.gross_sales) {
-					if (!validator.gross_sales(this.gross_sales)) {
-						reject(serverHelper.RequestError('The gross sales amount must be a dollar value greater than 0 and below 100,000,000'));
+				if(this.gross_sales){
+					if(!validator.gross_sales(this.gross_sales)){
+						reject(serverHelper.requestError('The gross sales amount must be a dollar value greater than 0 and below 100,000,000'));
 						return;
 					}
 
 					// Cleanup this input
-					if (typeof this.gross_sales === 'number') {
+					if(typeof this.gross_sales === 'number'){
 						this.gross_sales = Math.round(this.gross_sales);
-					} else {
+					}else{
 						this.gross_sales = Math.round(parseFloat(this.gross_sales.toString().replace('$', '').replace(/,/g, '')));
 					}
-				} else {
-					reject(serverHelper.RequestError('Gross sales amount must be provided'));
+				}else{
+					reject(serverHelper.requestError('Gross sales amount must be provided'));
 					return;
 				}
 			}
 
 			// BOP Specific Properties
-			if (this.type === 'BOP') {
+			if(this.type === 'BOP'){
 
 				/**
 				 * Coverage Lapse Due To Non-Payment
 				 * - Boolean
 				 */
-				if (this.coverage_lapse_non_payment === null) {
-					reject(serverHelper.RequestError('coverage_lapse_non_payment is required, and must be a true or false value'));
+				if(this.coverage_lapse_non_payment === null){
+					reject(serverHelper.requestError('coverage_lapse_non_payment is required, and must be a true or false value'));
 					return;
 				}
-			} else if (this.type === 'GL') {
+			}else if(this.type === 'GL'){
 				// GL Specific Properties
 
 				/**
@@ -222,7 +222,7 @@ module.exports = class Policy {
 				 * 		- 1000
 				 * 		- 1500
 				 */
-				if (['AR',
+				if(['AR',
 					'AZ',
 					'CA',
 					'CO',
@@ -233,36 +233,36 @@ module.exports = class Policy {
 					'OR',
 					'TX',
 					'UT',
-					'WA'].includes(this.app.business.primary_territory)) {
-					if (!this.deductible) {
-						reject(serverHelper.RequestError('You must supply a deductible for GL policies in AR, AZ, CA, CO, ID, NM, NV, OK, OR, TX, UT, or WA. The deductible can be 500, 1000, or 1500'));
+					'WA'].includes(this.app.business.primary_territory)){
+					if(!this.deductible){
+						reject(serverHelper.requestError('You must supply a deductible for GL policies in AR, AZ, CA, CO, ID, NM, NV, OK, OR, TX, UT, or WA. The deductible can be 500, 1000, or 1500'));
 						return;
 					}
-					if (!validator.deductible(this.deductible)) {
-						reject(serverHelper.RequestError('The policy deductible you supplied is invalid. It must be one of 500, 1000, or 1500.'));
+					if(!validator.deductible(this.deductible)){
+						reject(serverHelper.requestError('The policy deductible you supplied is invalid. It must be one of 500, 1000, or 1500.'));
 						return;
 					}
 					this.deductible = parseInt(this.deductible, 10);
-				} else {
+				}else{
 					// Default the deductible
 					this.deductible = 500;
 				}
-			} else if (this.type === 'WC') {
+			}else if(this.type === 'WC'){
 				// WC Specific Properties
 
 				/**
 				 * Coverage Lapse
 				 * - Boolean
 				 */
-				if (this.coverage_lapse === null) {
-					reject(serverHelper.RequestError('coverage_lapse is required, and must be a true or false value'));
+				if(this.coverage_lapse === null){
+					reject(serverHelper.requestError('coverage_lapse is required, and must be a true or false value'));
 					return;
 				}
 			}
 
 			// Limits
-			if (!validator.limits(this.limits, this.type)) {
-				reject(serverHelper.RequestError('The policy limits you supplied are invalid.'));
+			if(!validator.limits(this.limits, this.type)){
+				reject(serverHelper.requestError('The policy limits you supplied are invalid.'));
 				return;
 			}
 

@@ -13,10 +13,10 @@ const serverHelper = require('../../server.js');
  * @param {array} ins - A list of Talage insurer IDs
  * @returns {Promise.<array, Error>} A promise that returns an array of database results if resolved, or an Error if rejected
  */
-module.exports = function (activity_codes, industry_code, zip_codes, policy_types, ins) {
+module.exports = function(activity_codes, industry_code, zip_codes, policy_types, ins){
 	// Insurers are not always needed, parse them out, and if there are none, leave it blank
 	let insurers = '';
-	if (ins) {
+	if(ins){
 		insurers = `&insurers=${ins.join(',')}`;
 	}
 
@@ -25,33 +25,33 @@ module.exports = function (activity_codes, industry_code, zip_codes, policy_type
 		// Set the options for connecting to the Question API
 		const options = {
 			'agent': false,
-			'headers': { 'Authorization': `Bearer ${settings.TEST_API_TOKEN}` },
+			'headers': {'Authorization': `Bearer ${global.settings.TEST_API_TOKEN}`},
 			'hostname': `localhost`,
-			'port': settings.PUBLIC_API_PORT,
 			'method': 'GET',
-			'path': `/v1/question/list?activity_codes=${activity_codes.join(',')}&industry_code=${industry_code}${insurers}&policy_types=${policy_types.join(',')}&zips=${zip_codes.join(',')}&hidden=true`
+			'path': `/v1/question/list?activity_codes=${activity_codes.join(',')}&industry_code=${industry_code}${insurers}&policy_types=${policy_types.join(',')}&zips=${zip_codes.join(',')}&hidden=true`,
+			'port': global.settings.PUBLIC_API_PORT
 		};
 
 		// Send the request
-		const req = http.request(options, function (res) {
+		const req = http.request(options, function(res){
 			let raw_data = '';
 
 			// Grab each chunk of data
-			res.on('data', function (d) {
+			res.on('data', function(d){
 				raw_data += d;
 			});
 
-			res.on('end', function () {
-				if (raw_data) {
+			res.on('end', function(){
+				if(raw_data){
 					raw_data = JSON.parse(raw_data);
 				}
-				if (res.statusCode === 200) {
+				if(res.statusCode === 200){
 
 					// Let's do some cleanup to avoid confusion
-					if (raw_data && typeof raw_data === 'object') {
+					if(raw_data && typeof raw_data === 'object'){
 						raw_data.forEach((question) => {
 							question.possible_answers = {};
-							if (Object.prototype.hasOwnProperty.call(question, 'answers')) {
+							if(Object.prototype.hasOwnProperty.call(question, 'answers')){
 								question.answers.forEach((answer) => {
 									question.possible_answers[parseInt(answer.id, 10)] = answer;
 								});
@@ -61,16 +61,16 @@ module.exports = function (activity_codes, industry_code, zip_codes, policy_type
 					}
 
 					fullfil(raw_data);
-				} else {
+				}else{
 					log.warn(`Unable to connect to Question API (${res.statusCode}${raw_data.message ? `: ${raw_data.message}` : ''})`);
-					reject(serverHelper.InternalError('Unable to connect to Question API.'));
+					reject(serverHelper.internalError('Unable to connect to Question API.'));
 				}
 			});
 		});
 
-		req.on('error', function (e) {
+		req.on('error', function(e){
 			log.error(e.message);
-			reject(serverHelper.InternalError('Unable to connect to Question API'));
+			reject(serverHelper.internalError('Unable to connect to Question API'));
 		});
 
 		req.end();

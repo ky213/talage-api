@@ -7,9 +7,9 @@
 const htmlentities = require('html-entities').Html5Entities;
 const serverHelper = require('../../../../../server.js');
 
-module.exports = class Question {
+module.exports = class Question{
 
-	constructor() {
+	constructor(){
 		this.answer = null;
 		this.answer_id = 0;
 		this.hidden = false;
@@ -29,24 +29,24 @@ module.exports = class Question {
 	 *
 	 * @returns {Boolean} True if the user answered 'Yes' or answered at all, false otherwise
 	 */
-	get_answer_as_boolean() {
+	get_answer_as_boolean(){
 
-		if (this.type === 'Yes/No') {
+		if(this.type === 'Yes/No'){
 			// The higher key is always 'Yes'
 			let highest_id = 0;
 			Object.keys(this.possible_answers).forEach((answer_id) => {
 				answer_id = parseInt(answer_id, 10);
-				if (answer_id > highest_id) {
+				if(answer_id > highest_id){
 					highest_id = answer_id;
 				}
 			});
-			if (this.answer_id === highest_id) {
+			if(this.answer_id === highest_id){
 				return true;
 			}
 			return false;
 		}
 
-		if (this.type === 'Checkboxes' || this.type === 'Select List') {
+		if(this.type === 'Checkboxes' || this.type === 'Select List'){
 			return Boolean(this.answer_id);
 		}
 
@@ -59,12 +59,12 @@ module.exports = class Question {
 	 * @param {object} data - The business data
 	 * @returns {void}
 	 */
-	load(data) {
+	load(data){
 		Object.keys(this).forEach((property) => {
-			if (!Object.prototype.hasOwnProperty.call(data, property)) {
+			if(!Object.prototype.hasOwnProperty.call(data, property)){
 				return;
 			}
-			switch (property) {
+			switch(property){
 				case 'answer':
 					// Don't allow loading
 					data[property] = null;
@@ -94,11 +94,11 @@ module.exports = class Question {
 		});
 
 		// Set the default answer
-		if (!this.answer && !this.answer_id && this.possible_answers) {
-			for (const answer_id in this.possible_answers) {
-				if (Object.prototype.hasOwnProperty.call(this.possible_answers, answer_id)) {
+		if(!this.answer && !this.answer_id && this.possible_answers){
+			for(const answer_id in this.possible_answers){
+				if(Object.prototype.hasOwnProperty.call(this.possible_answers, answer_id)){
 					const answer = this.possible_answers[answer_id];
-					if (Object.prototype.hasOwnProperty.call(answer, 'default') && answer.default) {
+					if(Object.prototype.hasOwnProperty.call(answer, 'default') && answer.default){
 						this.answer_id = answer.id;
 						this.answer = answer.answer;
 					}
@@ -113,34 +113,34 @@ module.exports = class Question {
 	 * @param {int} answer_id - The ID of the answer the user selected
 	 * @returns {Promise.<array, Error>} A promise that returns a boolean indicating whether or not this record is valid, or an Error if rejected
 	 */
-	set_answer(answer_id) {
+	set_answer(answer_id){
 		return new Promise((fulfill, reject) => {
 			// Make sure the question is loaded before continuing
-			if (!this.id) {
+			if(!this.id){
 				log.warn('You must load the question before attempting to set an answer');
-				reject(serverHelper.RequestError(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)})`));
+				reject(serverHelper.requestError(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)})`));
 				return;
 			}
 
 			// For boolean, checkbox, and select questions, set the answer ID or find the equivalent
-			if (this.type === 'Yes/No' || this.type === 'Checkboxes' || this.type === 'Select List') {
+			if(this.type === 'Yes/No' || this.type === 'Checkboxes' || this.type === 'Select List'){
 
 				// If the answer wasn't numeric, it is wrong
-				if (typeof answer_id !== 'number') {
-					reject(serverHelper.RequestError(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)})`));
+				if(typeof answer_id !== 'number'){
+					reject(serverHelper.requestError(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)})`));
 					return;
 				}
 
 				// If the answer isn't one of those that are possible
-				if (!Object.prototype.hasOwnProperty.call(this.possible_answers, answer_id)) {
-					reject(serverHelper.RequestError(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)})`));
+				if(!Object.prototype.hasOwnProperty.call(this.possible_answers, answer_id)){
+					reject(serverHelper.requestError(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)})`));
 					return;
 				}
 
 				// Set the answer ID and determine and set the answer text
 				this.answer_id = answer_id;
 				this.answer = this.possible_answers[answer_id].answer;
-			} else {
+			}else{
 				// For text answer questions
 				this.answer_id = 0;
 				this.answer = answer_id;
@@ -155,29 +155,29 @@ module.exports = class Question {
 	 *
 	 * @returns {Promise.<array, Error>} A promise that returns a boolean indicating whether or not this record is valid, or an Error if rejected
 	 */
-	validate() {
+	validate(){
 		return new Promise((fulfill, reject) => {
 			// If this question is not required, just return true
-			if (!this.required) {
+			if(!this.required){
 				fulfill(true);
 				return;
 			}
 
 			// If the question is single line text, make sure we got an answer (zero is allowed, blank is not)
-			if (this.type === 'Text - Single Line' && (this.answer || this.answer === 0)) {
+			if(this.type === 'Text - Single Line' && (this.answer || this.answer === 0)){
 				fulfill(true);
 				return;
 			}
 
 			// If the question is multi-line text, make sure we got something for an answer (blank is not allowed)
-			if (this.type === 'Text - Multiple Lines' && this.answer) {
+			if(this.type === 'Text - Multiple Lines' && this.answer){
 				fulfill(true);
 				return;
 			}
 
 			// Prepare the error messages
 			let type_help = '';
-			switch (this.type) {
+			switch(this.type){
 				case 'Yes/No':
 					type_help = 'Only boolean values are accepted';
 					break;
@@ -198,18 +198,18 @@ module.exports = class Question {
 			}
 
 			// If no answer ID is set, reject
-			if (!this.answer_id) {
-				reject(serverHelper.RequestError(`Answer to question ${this.id} is invalid. (${type_help})`));
+			if(!this.answer_id){
+				reject(serverHelper.requestError(`Answer to question ${this.id} is invalid. (${type_help})`));
 				return;
 			}
 
 			// Check that the answer ID is one of those available for this question
-			if (Object.keys(this.possible_answers).indexOf(this.answer_id.toString()) >= 0) {
+			if(Object.keys(this.possible_answers).indexOf(this.answer_id.toString()) >= 0){
 				fulfill(true);
 				return;
 			}
 
-			reject(serverHelper.RequestError(`Answer to question ${this.id} is invalid. (${type_help})`));
+			reject(serverHelper.requestError(`Answer to question ${this.id} is invalid. (${type_help})`));
 		});
 	}
 };

@@ -41,43 +41,43 @@ class AbstractedHTTPServer {
 		this.server = server;
 	}
 
-	AddPost(name, path, handler) {
+	addPost(name, path, handler) {
 		this.server.post({ name, path }, handler);
 	}
 
-	AddPostAuth(name, path, handler) {
+	addPostAuth(name, path, handler) {
 		name += ' (auth)';
 		this.server.post({ name, path }, ProcessJWT(), ValidateJWT(handler));
 	}
 
-	AddGet(name, path, handler) {
+	addGet(name, path, handler) {
 		this.server.get({ name, path }, handler);
 	}
 
-	AddGetAuth(name, path, handler) {
+	addGetAuth(name, path, handler) {
 		name += ' (auth)';
 		this.server.get({ name, path }, ProcessJWT(), ValidateJWT(handler));
 	}
 
-	AddPut(name, path, handler) {
+	addPut(name, path, handler) {
 		this.server.put({ name, path }, handler);
 	}
 
-	AddPutAuth(name, path, handler) {
+	addPutAuth(name, path, handler) {
 		name += ' (auth)';
 		this.server.put({ name, path }, ProcessJWT(), ValidateJWT(handler));
 	}
 
-	AddDelete(name, path, handler) {
+	addDelete(name, path, handler) {
 		this.server.del({ name, path }, handler);
 	}
 
-	AddDeleteAuth(name, path, handler) {
+	addDeleteAuth(name, path, handler) {
 		name += ' (auth)';
 		this.server.del({ name, path }, ProcessJWT(), ValidateJWT(handler));
 	}
 
-	AddSocket(name, path, connectHandler) {
+	addSocket(name, path, connectHandler) {
 		this.socketPaths.push({ name, path });
 		const io = socketIO(this.server.server, { 'path': path });
 
@@ -108,7 +108,7 @@ class AbstractedHTTPServer {
  */
 
 module.exports = {
-	Create: async (listenAddress, listenPort, endpointPath, useCORS, isDevelopment, logInfoHandler, logErrorHandler) => {
+	create: async (listenAddress, listenPort, endpointPath, useCORS, isDevelopment, logInfoHandler, logErrorHandler) => {
 		const server = restify.createServer({
 			'dtrace': true,
 			'name': `Talage API: ${endpointPath}`,
@@ -158,7 +158,7 @@ module.exports = {
 		// Register endpoints 
 		console.log(`Registering ${endpointPath} endpoints`);
 		const abstractedServer = new AbstractedHTTPServer(server);
-		require(`./${endpointPath}`).RegisterEndpoints(abstractedServer);
+		require(`./${endpointPath}`).registerEndpoints(abstractedServer);
 		console.log(colors.green('\tCompleted'));
 
 		// Display all registered routes
@@ -196,31 +196,31 @@ module.exports = {
 		return true;
 	},
 
-	RequestError: (message) => {
+	requestError: (message) => {
 		return new RestifyError.BadRequestError(message);
 	},
 
-	InternalError: (message) => {
+	internalError: (message) => {
 		return new RestifyError.InternalServerError(message);
 	},
 
-	InvalidCredentialsError: (message) => {
+	invalidCredentialsError: (message) => {
 		return new RestifyError.InvalidCredentialsError(message);
 	},
 
-	ForbiddenError: (message) => {
+	forbiddenError: (message) => {
 		return new RestifyError.ForbiddenError(message);
 	},
 
-	NotFoundError: (message) => {
+	notFoundError: (message) => {
 		return new RestifyError.NotFoundError(message);
 	},
 
-	NotAuthorizedError: (message) => {
+	notAuthorizedError: (message) => {
 		return new RestifyError.NotAuthorizedError(message);
 	},
 
-	ServiceUnavailableError: (message) => {
+	serviceUnavailableError: (message) => {
 		return new RestifyError.ServiceUnavailableError(message);
 	}
 };

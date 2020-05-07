@@ -1,9 +1,9 @@
 'use strict';
-const crypt = requireShared('./services/crypt.js');
+const crypt = global.requireShared('./services/crypt.js');
 const util = require('util');
 const sendOnboardingEmail = require('./helpers/send-onboarding-email.js');
 const auth = require('./helpers/auth.js');
-const validator = requireShared('./helpers/validator.js');
+const validator = global.requireShared('./helpers/validator.js');
 const serverHelper = require('../../../server.js');
 
 // /**
@@ -27,7 +27,7 @@ const serverHelper = require('../../../server.js');
  *
  * @return {string} - A random 8 character or number string
  */
-function generatePassword() {
+function generatePassword(){
 	return Math.random().toString(36).substr(2, 8);
 }
 
@@ -40,7 +40,7 @@ function generatePassword() {
  *
  * @returns {void}
  */
-async function getAgency(req, res, next) {
+async function getAgency(req, res, next){
 	let error = false;
 
 	// Make sure the authentication payload has everything we are expecting
@@ -52,45 +52,45 @@ async function getAgency(req, res, next) {
 	}
 
 	// Get the agents that we are permitted to view
-	
-	const agents = await auth.getAgents(req).catch(function (e) {
+
+	const agents = await auth.getAgents(req).catch(function(e){
 		error = e;
 	});
-	if (error) {
+	if(error){
 		return next(error);
 	}
 
 	// Make sure this is an agency network
-	if (req.authentication.agencyNetwork === false) {
+	if(req.authentication.agencyNetwork === false){
 		log.info('Forbidden: User is not authorized to access agency information');
-		return next(serverHelper.ForbiddenError('You are not authorized to access this resource'));
+		return next(serverHelper.forbiddenError('You are not authorized to access this resource'));
 	}
 
 	// Check that query parameters were recieved
-	if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
+	if(!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
 		log.info('Bad Request: Query parameters missing');
-		return next(serverHelper.RequestError('Query parameters missing'));
+		return next(serverHelper.requestError('Query parameters missing'));
 	}
 
 	// Check for required parameters
-	if (!Object.prototype.hasOwnProperty.call(req.query, 'agent') || !req.query.agent) {
+	if(!Object.prototype.hasOwnProperty.call(req.query, 'agent') || !req.query.agent){
 		log.info('Bad Request: You must specify an agent');
-		return next(serverHelper.RequestError('You must specify an agent'));
+		return next(serverHelper.requestError('You must specify an agent'));
 	}
 
 	// Localize and sanitize the agent id
 	const agent = parseInt(req.query.agent, 10);
 
 	// Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
-	if (!agents.includes(parseInt(agent, 10))) {
+	if(!agents.includes(parseInt(agent, 10))){
 		log.info('Forbidden: User is not authorized to access the requested agent');
-		return next(serverHelper.ForbiddenError('You are not authorized to access the requested agent'));
+		return next(serverHelper.forbiddenError('You are not authorized to access the requested agent'));
 	}
 
 	// Validate parameters
-	if (!await validator.agent(agent)) {
+	if(!await validator.agent(agent)){
 		log.info('Bad Request: Invalid agent selected');
-		return next(serverHelper.RequestError('The agent you selected is invalid'));
+		return next(serverHelper.requestError('The agent you selected is invalid'));
 	}
 
 	// Prepare to get the information for this agency
@@ -113,21 +113,21 @@ async function getAgency(req, res, next) {
 		`;
 
 	// Going to the database to get the user's info
-	const agencyInfo = await db.query(agencyInfoSQL).catch(function (err) {
+	const agencyInfo = await db.query(agencyInfoSQL).catch(function(err){
 		log.error(err.message);
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Make sure we got back the expected data
-	if (!agencyInfo || agencyInfo.length !== 1) {
+	if(!agencyInfo || agencyInfo.length !== 1){
 		log.error('Agency not found after having passed validation');
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	}
 
 	// Get the agency from the response and do some cleanup
 	const agency = agencyInfo[0];
-	for (const property in agency) {
-		if (typeof agency[property] === 'object' && agency[property] !== null && agency[property].length === 0) {
+	for(const property in agency){
+		if(typeof agency[property] === 'object' && agency[property] !== null && agency[property].length === 0){
 			agency[property] = null;
 		}
 	}
@@ -176,17 +176,17 @@ async function getAgency(req, res, next) {
 		`;
 
 	// Query the database
-	const locations = await db.query(locationsSQL).catch(function (err) {
+	const locations = await db.query(locationsSQL).catch(function(err){
 		log.error(err.message);
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
-	const pages = await db.query(pagesSQL).catch(function (err) {
+	const pages = await db.query(pagesSQL).catch(function(err){
 		log.error(err.message);
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
-	const users = await db.query(userSQL).catch(function (err) {
+	const users = await db.query(userSQL).catch(function(err){
 		log.error(err.message);
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Separate out location IDs and define some variables
@@ -195,7 +195,7 @@ async function getAgency(req, res, next) {
 	let territories = [];
 
 	// If this is an agency network user, get the insurers and territories
-	if (req.authentication.agencyNetwork && req.authentication.insurers.length && locationIDs.length) {
+	if(req.authentication.agencyNetwork && req.authentication.insurers.length && locationIDs.length){
 		// Define queries for insurers and territories
 		const insurersSQL = `
 				SELECT
@@ -224,13 +224,13 @@ async function getAgency(req, res, next) {
 				WHERE ${db.quoteName('lt.agency_location')} IN (${locationIDs.join(',')})
 				ORDER BY ${db.quoteName('t.name')} ASC;
 			`;
-		insurers = await db.query(insurersSQL).catch(function (err) {
+		insurers = await db.query(insurersSQL).catch(function(err){
 			log.error(err.message);
-			return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		});
-		territories = await db.query(territoriesSQL).catch(function (err) {
+		territories = await db.query(territoriesSQL).catch(function(err){
 			log.error(err.message);
-			return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		});
 	}
 
@@ -263,7 +263,7 @@ async function getAgency(req, res, next) {
 		insurersDecrypt]);
 
 	// Sort insurers and territories into the appropriate locations if necessary
-	if (insurers.length || territories.length) {
+	if(insurers.length || territories.length){
 		locations.forEach((location) => {
 			location.insurers = insurers.filter((insurer) => insurer.locationID === location.id);
 			location.territories = territories.filter((territory) => territory.locationID === location.id);
@@ -292,56 +292,56 @@ async function getAgency(req, res, next) {
  *
  * @returns {void}
  */
-async function PostAgency(req, res, next) {
+async function PostAgency(req, res, next){
 	let error = false;
 
 	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req).catch(function (e) {
+	await auth.validateJWT(req).catch(function(e){
 		error = e;
 	});
-	if (error) {
+	if(error){
 		return next(error);
 	}
 
 	// Make sure this is an agency network
-	if (req.authentication.agencyNetwork === false) {
+	if(req.authentication.agencyNetwork === false){
 		log.info('Forbidden: User is not authorized to create agencies');
-		return next(serverHelper.ForbiddenError('You are not authorized to create agencies'));
+		return next(serverHelper.forbiddenError('You are not authorized to create agencies'));
 	}
 
 	// Check for data
-	if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
+	if(!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0){
 		log.warn('No data was received');
-		return next(serverHelper.RequestError('No data was received'));
+		return next(serverHelper.requestError('No data was received'));
 	}
 
 	// Log the entire request
 	log.verbose(util.inspect(req.body, false, null));
 
 	// Make sure all information is present
-	if (!Object.prototype.hasOwnProperty.call(req.body, 'firstName') || typeof req.body.firstName !== 'string' || !req.body.firstName) {
+	if(!Object.prototype.hasOwnProperty.call(req.body, 'firstName') || typeof req.body.firstName !== 'string' || !req.body.firstName){
 		log.warn('firstName is required');
-		return next(serverHelper.RequestError('You must enter an the First Name of the agent'));
+		return next(serverHelper.requestError('You must enter an the First Name of the agent'));
 	}
-	if (!Object.prototype.hasOwnProperty.call(req.body, 'lastName') || typeof req.body.lastName !== 'string' || !req.body.lastName) {
+	if(!Object.prototype.hasOwnProperty.call(req.body, 'lastName') || typeof req.body.lastName !== 'string' || !req.body.lastName){
 		log.warn('lastName is required');
-		return next(serverHelper.RequestError('You must enter an the Last Name of the agent'));
+		return next(serverHelper.requestError('You must enter an the Last Name of the agent'));
 	}
-	if (!Object.prototype.hasOwnProperty.call(req.body, 'name') || typeof req.body.name !== 'string' || !req.body.name) {
+	if(!Object.prototype.hasOwnProperty.call(req.body, 'name') || typeof req.body.name !== 'string' || !req.body.name){
 		log.warn('name is required');
-		return next(serverHelper.RequestError('You must enter an Agency Name'));
+		return next(serverHelper.requestError('You must enter an Agency Name'));
 	}
-	if (!Object.prototype.hasOwnProperty.call(req.body, 'email') || typeof req.body.email !== 'string' || !req.body.email) {
+	if(!Object.prototype.hasOwnProperty.call(req.body, 'email') || typeof req.body.email !== 'string' || !req.body.email){
 		log.warn('email is required');
-		return next(serverHelper.RequestError('You must enter an Email Address'));
+		return next(serverHelper.requestError('You must enter an Email Address'));
 	}
-	if (!Object.prototype.hasOwnProperty.call(req.body, 'territories') || typeof req.body.territories !== 'object' || req.body.territories.length < 1) {
+	if(!Object.prototype.hasOwnProperty.call(req.body, 'territories') || typeof req.body.territories !== 'object' || req.body.territories.length < 1){
 		log.warn('territories are required');
-		return next(serverHelper.RequestError('You must select at least one Territory'));
+		return next(serverHelper.requestError('You must select at least one Territory'));
 	}
-	if (!Object.prototype.hasOwnProperty.call(req.body, 'agencyIDs') || typeof req.body.agencyIDs !== 'object' || Object.keys(req.body.agencyIDs).length < 1) {
+	if(!Object.prototype.hasOwnProperty.call(req.body, 'agencyIDs') || typeof req.body.agencyIDs !== 'object' || Object.keys(req.body.agencyIDs).length < 1){
 		log.warn('agencyIDs are required');
-		return next(serverHelper.RequestError('You must enter at least one Agency ID'));
+		return next(serverHelper.requestError('You must enter at least one Agency ID'));
 	}
 
 	// Begin compiling a list of territories
@@ -361,48 +361,48 @@ async function PostAgency(req, res, next) {
 		`;
 
 	// Run the query
-	const insurers = await db.query(insurersSQL).catch(function (err) {
+	const insurers = await db.query(insurersSQL).catch(function(err){
 		log.error(err.message);
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Convert the territories list into an array
-	insurers.forEach(function (insurer) {
+	insurers.forEach(function(insurer){
 		insurer.territories = insurer.territories.split(',');
 		territoryAbbreviations = territoryAbbreviations.concat(insurer.territories);
 		insurerIDs.push(insurer.id);
 	});
 
 	// Validate
-	if (!validator.agency_name(req.body.name)) {
+	if(!validator.agency_name(req.body.name)){
 		log.warn('Invalid agency name');
-		return next(serverHelper.RequestError('The agency name entered is not valid.'));
+		return next(serverHelper.requestError('The agency name entered is not valid.'));
 	}
-	if (!validator.email(req.body.email)) {
+	if(!validator.email(req.body.email)){
 		log.warn('Invalid email address');
-		return next(serverHelper.RequestError('The email address entered is not valid.'));
+		return next(serverHelper.requestError('The email address entered is not valid.'));
 	}
-	req.body.territories.forEach(function (territoryAbbreviation) {
-		if (!territoryAbbreviations.includes(territoryAbbreviation)) {
-			error = serverHelper.RequestError('Invalid territory in request. Please contact us.');
+	req.body.territories.forEach(function(territoryAbbreviation){
+		if(!territoryAbbreviations.includes(territoryAbbreviation)){
+			error = serverHelper.requestError('Invalid territory in request. Please contact us.');
 		}
 	});
-	if (error) {
+	if(error){
 		return next(error);
 	}
-	for (let insurerID in req.body.agencyIDs) {
-		if (Object.prototype.hasOwnProperty.call(req.body.agencyIDs, insurerID)) {
+	for(let insurerID in req.body.agencyIDs){
+		if(Object.prototype.hasOwnProperty.call(req.body.agencyIDs, insurerID)){
 			// Convert the insurer ID into a number
 			insurerID = parseInt(insurerID, 10);
 
 			// Make sure the insurer ID is permitted
-			if (!insurerIDs.includes(insurerID)) {
-				return next(serverHelper.RequestError('Invalid insurer ID in request. Please contact us.'));
+			if(!insurerIDs.includes(insurerID)){
+				return next(serverHelper.requestError('Invalid insurer ID in request. Please contact us.'));
 			}
 
 			// Make sure the field wasn't left blank
-			if (!req.body.agencyIDs[insurerID]) {
-				return next(serverHelper.RequestError('An agency ID is required for each insurer.'));
+			if(!req.body.agencyIDs[insurerID]){
+				return next(serverHelper.requestError('An agency ID is required for each insurer.'));
 			}
 		}
 	}
@@ -423,15 +423,15 @@ async function PostAgency(req, res, next) {
 			WHERE \`email_hash\` = ${db.escape(emailHash)}
 			LIMIT 1;
 		`;
-	const emailHashResult = await db.query(emailHashSQL).catch(function (e) {
+	const emailHashResult = await db.query(emailHashSQL).catch(function(e){
 		log.error(e.message);
-		error = serverHelper.InternalError('Error querying database. Check logs.');
+		error = serverHelper.internalError('Error querying database. Check logs.');
 	});
-	if (error) {
+	if(error){
 		return next(error);
 	}
-	if (emailHashResult.length > 0) {
-		return next(serverHelper.RequestError('The email address you specified is already associated with another agency. Please check the email address.'));
+	if(emailHashResult.length > 0){
+		return next(serverHelper.requestError('The email address you specified is already associated with another agency. Please check the email address.'));
 	}
 
 	// Generate a slug for this agency (will be used to define their unique storefront link)
@@ -441,7 +441,7 @@ async function PostAgency(req, res, next) {
 	let slug = initalSlug;
 	let verifiedUnique = false;
 	let slugCount = 1;
-	while (!verifiedUnique) {
+	while(!verifiedUnique){
 		// SQL to check if the generated agency slug already exists
 		const slugSQL = `
 				SELECT ${db.quoteName('id')}
@@ -452,18 +452,18 @@ async function PostAgency(req, res, next) {
 
 		// Run the query
 		// eslint-disable-next-line  no-await-in-loop
-		const slugExists = await db.query(slugSQL).catch(function (e) {
+		const slugExists = await db.query(slugSQL).catch(function(e){
 			log.error(e.message);
-			return next(serverHelper.InternalError('Error querying database. Check logs.'));
+			return next(serverHelper.internalError('Error querying database. Check logs.'));
 		});
 
 		// If no response was received, this is unique
-		if (slugExists.length === 0) {
+		if(slugExists.length === 0){
 			verifiedUnique = true;
-		} else {
-			if (slugCount === 1) {
+		}else{
+			if(slugCount === 1){
 				slug = `${slug.substring(0, 27)}-${slugCount}`;
-			} else {
+			}else{
 				slug = slug.substring(0, slug.length - slugCount.toString().length) + slugCount;
 			}
 			slugCount++;
@@ -507,11 +507,11 @@ async function PostAgency(req, res, next) {
 		`;
 
 	// Insert the value into the database
-	const createAgencyResult = await db.query(createAgencySQL).catch(function (e) {
+	const createAgencyResult = await db.query(createAgencySQL).catch(function(e){
 		log.error(e.message);
-		error = serverHelper.InternalError('Error querying database. Check logs.');
+		error = serverHelper.internalError('Error querying database. Check logs.');
 	});
-	if (error) {
+	if(error){
 		return next(error);
 	}
 
@@ -536,11 +536,11 @@ async function PostAgency(req, res, next) {
 		`;
 
 	// Insert the value into the database
-	const createLocationResult = await db.query(createDefaultLocationSQL).catch(function (e) {
+	const createLocationResult = await db.query(createDefaultLocationSQL).catch(function(e){
 		log.error(e.message);
-		error = serverHelper.InternalError('Error querying database. Check logs.');
+		error = serverHelper.internalError('Error querying database. Check logs.');
 	});
-	if (error) {
+	if(error){
 		return next(error);
 	}
 
@@ -560,18 +560,18 @@ async function PostAgency(req, res, next) {
 		`;
 
 	// Insert the territories
-	await db.query(associateTerritoriesSQL).catch(function (e) {
+	await db.query(associateTerritoriesSQL).catch(function(e){
 		log.error(e.message);
-		error = serverHelper.InternalError('Error querying database. Check logs.');
+		error = serverHelper.internalError('Error querying database. Check logs.');
 	});
-	if (error) {
+	if(error){
 		return next(error);
 	}
 
 	// Store the insurers for this agency
 	const agencyIDValues = [];
-	for (const insurerID in agencyIDs) {
-		if (Object.prototype.hasOwnProperty.call(agencyIDs, insurerID)) {
+	for(const insurerID in agencyIDs){
+		if(Object.prototype.hasOwnProperty.call(agencyIDs, insurerID)){
 			// eslint-disable-next-line  no-await-in-loop
 			const insurerAgencyID = await crypt.encrypt(agencyIDs[insurerID]);
 			// eslint-disable-next-line  no-await-in-loop
@@ -590,9 +590,9 @@ async function PostAgency(req, res, next) {
 				${db.quoteName('wc')}
 			) VALUES ${agencyIDValues.join(',')};
 		`;
-	await db.query(associateInsurersSQL).catch(function (e) {
+	await db.query(associateInsurersSQL).catch(function(e){
 		log.error(e.message);
-		return next(serverHelper.InternalError('Error querying database. Check logs.'));
+		return next(serverHelper.internalError('Error querying database. Check logs.'));
 	});
 
 	// Create a landing page for this agency
@@ -610,9 +610,9 @@ async function PostAgency(req, res, next) {
 			);
 		`;
 
-	await db.query(landingPageSQL).catch(function (e) {
+	await db.query(landingPageSQL).catch(function(e){
 		log.error(e.message);
-		return next(serverHelper.InternalError('Error querying database. Check logs.'));
+		return next(serverHelper.internalError('Error querying database. Check logs.'));
 	});
 
 	// Create a user for agency portal access
@@ -623,9 +623,9 @@ async function PostAgency(req, res, next) {
 			VALUES (${db.escape(agencyID)}, ${db.escape(encrypted.email)}, ${db.escape(emailHash)}, ${db.escape(hashedPassword)});
 		`;
 	log.info('creating user');
-	const createUserResult = await db.query(createUserSQL).catch(function (e) {
+	const createUserResult = await db.query(createUserSQL).catch(function(e){
 		log.error(e.message);
-		return next(serverHelper.InternalError('Error querying database. Check logs.'));
+		return next(serverHelper.internalError('Error querying database. Check logs.'));
 	});
 
 	// Get the ID of the new agency user
@@ -633,8 +633,8 @@ async function PostAgency(req, res, next) {
 
 	const onboardingEmailResponse = await sendOnboardingEmail(req.authentication.agencyNetwork, userID, firstName, lastName, name, slug, email);
 
-	if (onboardingEmailResponse) {
-		return next(serverHelper.InternalError(onboardingEmailResponse));
+	if(onboardingEmailResponse){
+		return next(serverHelper.internalError(onboardingEmailResponse));
 	}
 
 	// Return the response
@@ -646,7 +646,7 @@ async function PostAgency(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (server, basePath) => {
-	server.AddGetAuth('Get Agency', basePath + '/agency', getAgency);
-	server.AddPostAuth('Post Agency', basePath + '/agency', PostAgency);
+exports.registerEndpoint = (server, basePath) => {
+	server.addGetAuth('Get Agency', `${basePath}/agency`, getAgency);
+	server.addPostAuth('Post Agency', `${basePath}/agency`, PostAgency);
 };

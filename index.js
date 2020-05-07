@@ -16,78 +16,78 @@ const server = require('./server.js');
 /**
  * Callbacks used by the server to log access and errors
  */
-function LogInfoMessage(message) {
+function LogInfoMessage(message){
 	log.info(message);
 }
-function LogErrorMessage(message) {
+function LogErrorMessage(message){
 	log.error(message);
 }
 
 /**
- * Convenience method to log errors both locally and remotely 
+ * Convenience method to log errors both locally and remotely
  */
-function LogLocalErrorMessage(message) {
-	if (global.log) {
+function LogLocalErrorMessage(message){
+	if(global.log){
 		log.error(message);
 	}
 	console.log(colors.red(message));
 }
 
-async function Main() {
+async function Main(){
 	console.log(colors.green.bold('-'.padEnd(80, '-')));
 	console.log(colors.green.bold('Initializing'));
 	console.log(colors.green.bold('-'.padEnd(80, '-')));
 
 	// Initialize the version
-	if (!await version.Load()) {
+	if(!await version.Load()){
 		LogLocalErrorMessage('Error initializing version. Stopping.');
 		return;
 	}
 
 	// Load the settings from a .env file
-	if (!await globalSettings.Load()) {
+	if(!await globalSettings.Load()){
 		LogLocalErrorMessage('Error loading variables. Stopping.');
 		return;
 	}
 
 	// Connect to the logger
-	if (!await logger.Connect()) {
+	if(!await logger.Connect()){
 		LogLocalErrorMessage('Error connecting to logger. Stopping.');
 		return;
 	}
 
 	// Connect to the database
-	if (!await db.Connect()) {
+	if(!await db.Connect()){
 		LogLocalErrorMessage('Error connecting to database. Stopping.');
 		return;
 	}
 
 	// Connect to S3
-	if (!await s3.Connect()) {
+	if(!await s3.Connect()){
 		LogLocalErrorMessage('Error connecting to S3. Stopping.');
 		return;
 	}
 
 	// Load the database module and make it globally available
-	global.db = requireShared('./services/db.js');
+	global.db = global.requireShared('./services/db.js');
 
 	// Configure the server and register endpoints
 	const isDevelopment = settings.ENV === 'development';
 
 	// Create the public server
-	if (!await server.Create('0.0.0.0', settings.PUBLIC_API_PORT, 'public/public-endpoints', true, isDevelopment, LogInfoMessage, LogErrorMessage)) {
+	if(!await server.create('0.0.0.0', settings.PUBLIC_API_PORT, 'public/public-endpoints', true, isDevelopment, LogInfoMessage, LogErrorMessage)){
 		LogLocalErrorMessage('Error starting public server. Stopping.');
 		return;
 	}
 	// Create the uptime server
-	if (!await server.Create('0.0.0.0', settings.UPTIME_PORT, 'uptime/uptime-endpoints', false, isDevelopment, LogInfoMessage, LogErrorMessage)) {
+	if(!await server.create('0.0.0.0', settings.UPTIME_PORT, 'uptime/uptime-endpoints', false, isDevelopment, LogInfoMessage, LogErrorMessage)){
 		LogLocalErrorMessage('Error starting uptime server. Stopping.');
 		return;
 	}
 	// Create the private server
-	if (!await server.Create('0.0.0.0', settings.PRIVATE_API_PORT, 'private/private-endpoints', false, isDevelopment, LogInfoMessage, LogErrorMessage)) {
+	if(!await server.create('0.0.0.0', settings.PRIVATE_API_PORT, 'private/private-endpoints', false, isDevelopment, LogInfoMessage, LogErrorMessage)){
 		LogLocalErrorMessage('Error starting private server. Stopping.');
-		return;
+
 	}
 }
 

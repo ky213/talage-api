@@ -1,7 +1,7 @@
 'use strict';
 const moment = require('moment');
 const sha1 = require('sha1');
-const crypt = requireShared('./services/crypt.js');
+const crypt = global.requireShared('./services/crypt.js');
 const auth = require('./helpers/auth.js');
 const serverHelper = require('../../../server.js');
 
@@ -13,23 +13,23 @@ const salt = '3h42kize0loh16ke3otxfebkq5rqp91y6uj9jmg751r9ees97l61ycodwbw74o3o';
  * @param {Array} expectedParameters - The list of expected parameters
  * @return {boolean} true or false for if the parameters are valid
  */
-function validateParameters(parent, expectedParameters) {
-	if (!parent) {
+function validateParameters(parent, expectedParameters){
+	if(!parent){
 		log.info('Bad Request: Missing all parameters');
 		return false;
 	}
-	for (let i = 0; i < expectedParameters.length; i++) {
+	for(let i = 0; i < expectedParameters.length; i++){
 		const expectedParameter = expectedParameters[i];
-		if (!Object.prototype.hasOwnProperty.call(parent, expectedParameter.name) || typeof parent[expectedParameter.name] !== expectedParameter.type) {
+		if(!Object.prototype.hasOwnProperty.call(parent, expectedParameter.name) || typeof parent[expectedParameter.name] !== expectedParameter.type){
 			log.info(`Bad Request: Missing ${expectedParameter.name} parameter (${expectedParameter.type})`);
 			return false;
 		}
 		const parameterValue = parent[expectedParameter.name];
-		if (Object.prototype.hasOwnProperty.call(expectedParameter, 'values') && !expectedParameter.values.includes(parameterValue)) {
+		if(Object.prototype.hasOwnProperty.call(expectedParameter, 'values') && !expectedParameter.values.includes(parameterValue)){
 			log.info(`Bad Request: Invalid value for ${expectedParameters[i].name} parameter (${parameterValue})`);
 			return false;
 		}
-		if (expectedParameters[i].verifyDate && !moment(parameterValue).isValid()) {
+		if(expectedParameters[i].verifyDate && !moment(parameterValue).isValid()){
 			log.info(`Bad Request: Invalid date value for ${expectedParameters[i].name} parameter (${parameterValue})`);
 			return false;
 		}
@@ -46,7 +46,7 @@ function validateParameters(parent, expectedParameters) {
  *
  * @returns {void}
  */
-async function PostApplications(req, res, next) {
+async function PostApplications(req, res, next){
 	let error = false;
 	const expectedParameters = [
 		{
@@ -107,10 +107,10 @@ async function PostApplications(req, res, next) {
 	if(error){
 		return next(error);
 	}
-	
+
 	// Validate the parameters
-	if (!validateParameters(req.params, expectedParameters)) {
-		return next(serverHelper.RequestError('Bad Request: missing expected parameter'));
+	if(!validateParameters(req.params, expectedParameters)){
+		return next(serverHelper.requestError('Bad Request: missing expected parameter'));
 	}
 	// All parameters and their values have been validated at this point -SF
 
@@ -119,17 +119,17 @@ async function PostApplications(req, res, next) {
 	const endDateSQL = moment(req.params.endDate).format('YYYY-MM-DD HH:mm:ss');
 
 	// Get the agents that we are permitted to view
-	const agents = await auth.getAgents(req).catch(function (e) {
+	const agents = await auth.getAgents(req).catch(function(e){
 		error = e;
 	});
-	if (error) {
+	if(error){
 		return next(error);
 	}
 
 	// Make sure we got agents
-	if (!agents.length) {
+	if(!agents.length){
 		log.info('Bad Request: No agencies permitted');
-		return next(serverHelper.RequestError('Bad Request: No agencies permitted'));
+		return next(serverHelper.requestError('Bad Request: No agencies permitted'));
 	}
 
 	// Localize data variables that the user is permitted to access
@@ -137,9 +137,9 @@ async function PostApplications(req, res, next) {
 
 	// This is a very special case. If this is the agent 'Solepro' (ID 12) asking for applications, query differently
 	let where = '';
-	if (!agencyNetwork && agents[0] === 12) {
+	if(!agencyNetwork && agents[0] === 12){
 		where += ` AND ${db.quoteName('a.solepro')} = 1`;
-	} else {
+	}else{
 		where += ` AND ${db.quoteName('a.agency')} IN(${agents.join(',')})`;
 	}
 
@@ -154,11 +154,11 @@ async function PostApplications(req, res, next) {
 			${where}
 		`;
 	let applicationsTotalCount = 0;
-	try {
+	try{
 		applicationsTotalCount = (await db.query(applicationsTotalCountSQL))[0].count;
-	} catch (err) {
+	}catch(err){
 		log.error(err.message);
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	}
 
 	/*
@@ -167,7 +167,7 @@ async function PostApplications(req, res, next) {
 	 */
 	let join = '';
 	// Add a text search clause if requested
-	if (req.params.searchText.length > 0) {
+	if(req.params.searchText.length > 0){
 		req.params.searchText = req.params.searchText.toLowerCase();
 		// The search_strings table has partials stored as sha1 hashes
 		const searchTextHash = sha1(req.params.searchText + salt);
@@ -184,17 +184,17 @@ async function PostApplications(req, res, next) {
 					OR ${db.quoteName('zc.territory')} LIKE ${db.escape(`%${req.params.searchText}%`)}
 					OR ${db.quoteName('ss.hash')} = ${db.escape(searchTextHash)}
 			`;
-		if (agencyNetwork) {
+		if(agencyNetwork){
 			// If this user is an agency network role, then we search on the agency name
 			where += ` OR ${db.quoteName('ag.name')} LIKE ${db.escape(`%${req.params.searchText}%`)}`;
-		} else {
+		}else{
 			// Otherwise, we search on industry description
 			where += ` OR ${db.quoteName('ic.description')} LIKE ${db.escape(`%${req.params.searchText}%`)}`;
 		}
 		where += ')';
 	}
 	// Add a application status search clause if requested
-	if (req.params.searchApplicationStatus.length > 0) {
+	if(req.params.searchApplicationStatus.length > 0){
 		where += `
 				AND ${db.quoteName('a.status')} = ${db.escape(req.params.searchApplicationStatus)}
 			`;
@@ -226,11 +226,11 @@ async function PostApplications(req, res, next) {
 			${commonSQL}
 		`;
 	let applicationsSearchCount = 0;
-	try {
+	try{
 		applicationsSearchCount = (await db.query(applicationsSearchCountSQL))[0].count;
-	} catch (err) {
+	}catch(err){
 		log.error(err.message);
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	}
 
 	/*
@@ -256,15 +256,15 @@ async function PostApplications(req, res, next) {
 			OFFSET ${req.params.page * req.params.limit}
 		`;
 	let applications = null;
-	try {
+	try{
 		applications = await db.query(applicationsSQL);
-	} catch (err) {
+	}catch(err){
 		log.error(err.message);
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	}
 
 	// Exit with default values if no applications were received
-	if (!applications.length) {
+	if(!applications.length){
 		res.send(200, {
 			'applications': [],
 			'applicationsSearchCount': 0,
@@ -281,13 +281,13 @@ async function PostApplications(req, res, next) {
 	const applicationIDs = [];
 	applications.forEach((application) => {
 		// Convert the case on the cities
-		if (application.location) {
+		if(application.location){
 			application.location = application.location.replace(/(^([a-zA-Z\p{M}]))|([ -][a-zA-Z\p{M}])/g, (s) => s.toUpperCase());
 		}
 		// These should be handled in a trigger on the applications table -SF
-		if (application.solepro || application.wholesale) {
+		if(application.solepro || application.wholesale){
 			application.status = 'wholesale';
-		} else if (application.status === null) {
+		}else if(application.status === null){
 			application.status = 'incomplete';
 		}
 		applicationIDs.push(application.id);
@@ -306,6 +306,6 @@ async function PostApplications(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (server, basePath) => {
-	server.AddPostAuth('Get applications', basePath + '/applications', PostApplications);
+exports.registerEndpoint = (server, basePath) => {
+	server.addPostAuth('Get applications', `${basePath}/applications`, PostApplications);
 };

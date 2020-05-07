@@ -20,22 +20,22 @@ const sodium = require('sodium').api;
  *
  * @returns {Promise.<object, Error>} - A promise that returns an object containing the nonce as a string if resolved, or an Error if rejected
  */
-function getUniqueNonce() {
-	return new Promise(async function (fulfill, reject) {
+function getUniqueNonce(){
+	return new Promise(async function(fulfill, reject){
 		let duplicate = true;
 		let nonce = '';
 
-		while (duplicate) {
+		while(duplicate){
 			// Generate a random nonce
 			nonce = Buffer.allocUnsafe(sodium.crypto_secretbox_NONCEBYTES);
 			sodium.randombytes(nonce, sodium.crypto_secretbox_NONCEBYTES);
 
 			// Query the database to check if the nonce is unique
 			const sql = `SELECT id FROM #__security_nonces WHERE nonce = '${nonce.toString('hex')}';`;
-			const rows = await db.query(sql).catch(function (error) { // eslint-disable-line no-await-in-loop
+			const rows = await db.query(sql).catch(function(error){ // eslint-disable-line no-await-in-loop
 				reject(error);
 			});
-			if (!rows || rows.length === 0) {
+			if(!rows || rows.length === 0){
 				duplicate = false;
 			}
 		}
@@ -44,7 +44,7 @@ function getUniqueNonce() {
 
 		// Store this nonce so we know it was used
 		const sql = `INSERT INTO #__security_nonces (nonce) VALUES ('${nonce.toString('hex')}');`;
-		await db.query(sql).catch(function (error) {
+		await db.query(sql).catch(function(error){
 			reject(error);
 		});
 	});
@@ -58,16 +58,16 @@ function getUniqueNonce() {
  * @param {string} val - The encrypted value
  * @returns {mixed} - The decrypted value on success, false otherwise
  */
-exports.decrypt = function (val) {
-	if (!val) {
+exports.decrypt = function(val){
+	if(!val){
 		return val;
 	}
 
 	// Make sure this is a string, and if it is not, try to convert it to one
-	if (typeof val !== 'string') {
-		try {
+	if(typeof val !== 'string'){
+		try{
 			val = val.toString();
-		} catch (error) {
+		}catch(error){
 			log.error(error);
 			return false;
 		}
@@ -77,15 +77,15 @@ exports.decrypt = function (val) {
 	const pieces = val.split('|');
 	val = Buffer.from(`00000000000000000000000000000000${pieces[0]}`, 'hex');
 	const nonce = Buffer.from(pieces[1], 'hex');
-	if (nonce.length !== 24) {
+	if(nonce.length !== 24){
 		return false;
 	}
 
 	// Decrypt
-	val = sodium.crypto_secretbox_open(val, nonce, Buffer.from(settings.ENCRYPTION_KEY));
+	val = sodium.crypto_secretbox_open(val, nonce, Buffer.from(global.settings.ENCRYPTION_KEY));
 
 	// Check if decryption was successful, if not, return
-	if (!val) {
+	if(!val){
 		return false;
 	}
 
@@ -102,9 +102,9 @@ exports.decrypt = function (val) {
  * @param {mixed} val - Any value to be encrypted
  * @returns {Promise.<object, Error>} - A promise that returns an object containing the encrypted value as a string if resolved, or an Error if rejected
  */
-exports.encrypt = function (val) {
-	return new Promise(async function (fulfill, reject) {
-		if (!val) {
+exports.encrypt = function(val){
+	return new Promise(async function(fulfill, reject){
+		if(!val){
 			fulfill(false);
 			return;
 		}
@@ -114,17 +114,17 @@ exports.encrypt = function (val) {
 
 		// Get a nonce to use
 		let hadError = false;
-		const nonce = await getUniqueNonce().catch(function (error) {
+		const nonce = await getUniqueNonce().catch(function(error){
 			reject(error);
 			hadError = true;
 		});
-		if (hadError) {
+		if(hadError){
 			fulfill(false);
 			return;
 		}
 
 		// Encrypt
-		val = sodium.crypto_secretbox(Buffer.from(val), nonce, Buffer.from(settings.ENCRYPTION_KEY));
+		val = sodium.crypto_secretbox(Buffer.from(val), nonce, Buffer.from(global.settings.ENCRYPTION_KEY));
 
 		// Convert the value buffer to hex
 		val = Buffer.from(val).toString('hex');
@@ -146,12 +146,12 @@ exports.encrypt = function (val) {
  * @param {string} val - A string to be hashed
  * @return {string} - The hash value
  */
-exports.hash = function (val) {
+exports.hash = function(val){
 	// Convert the value to lowercase
 	val = val.toLowerCase();
 
 	// Salt the value
-	val += settings.SALT;
+	val += global.settings.SALT;
 
 	// Hash the value and return the result
 	return sha1(val);
@@ -163,17 +163,17 @@ exports.hash = function (val) {
  * @param {string} val - A password string to be hashed
  * @return {Promise.<string, Error>} - A promise that returns an string containing the hashed password if successful, or an Error if rejected
  */
-exports.hashPassword = function (val) {
-	return new Promise(function (fulfill, reject) {
+exports.hashPassword = function(val){
+	return new Promise(function(fulfill, reject){
 		// Make sure we have a value to work with
-		if (!val || typeof val !== 'string') {
+		if(!val || typeof val !== 'string'){
 			reject(new Error('Invalid value passed to hashPassword. Must be a non-empty string.'));
 		}
 
 		// Hash the value
 		val = sodium.crypto_pwhash_str(Buffer.from(val, 'utf8'), sodium.crypto_pwhash_OPSLIMIT_INTERACTIVE, sodium.crypto_pwhash_MEMLIMIT_INTERACTIVE);
 
-		if (val) {
+		if(val){
 			// Conver from a buffer to a string
 			val = val.toString();
 
