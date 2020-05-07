@@ -2,23 +2,32 @@
 
 const apiVersion = 'v1';
 
-function RegisterEndpoint(server, namespace, endpointName) {
-	if (namespace != null) {
-		require(`./${namespace}/${endpointName}.js`).RegisterEndpoint(server, `/${apiVersion}/${namespace}`);
-	} else {
-		require(`./${endpointName}.js`).RegisterEndpoint(server, `/${apiVersion}`);
+/**
+ * Registers an endpoint
+ *
+ * @param {object} server - Server object
+ * @param {object} namespace - The namespace for this endpoint
+ * @param {function} endpointName - The endpoint name
+ *
+ * @returns {void}
+ */
+function registerEndpoint(server, namespace, endpointName){
+	if(namespace === null){
+		require(`./${endpointName}.js`).registerEndpoint(server, `/${apiVersion}`);
+	}else{
+		require(`./${namespace}/${endpointName}.js`).registerEndpoint(server, `/${apiVersion}/${namespace}`);
 	}
 }
 
-exports.RegisterEndpoints = (server) => {
-	RegisterEndpoint(server, 'docusign', 'embedded');
-	RegisterEndpoint(server, 'email', 'email');
-	RegisterEndpoint(server, 'encryption', 'decrypt');
-	RegisterEndpoint(server, 'encryption', 'encrypt');
-	RegisterEndpoint(server, 'encryption', 'verify-password');
-	RegisterEndpoint(server, 'encryption', 'hash');
-	RegisterEndpoint(server, 'encryption', 'hash-password');
-	RegisterEndpoint(server, 'file', 'file');
-	RegisterEndpoint(server, 'file', 'list');
-	RegisterEndpoint(server, 'slack', 'post-to-channel');
+exports.registerEndpoints = (server) => {
+	registerEndpoint(server, 'docusign', 'embedded');
+	registerEndpoint(server, 'email', 'email');
+	registerEndpoint(server, 'encryption', 'decrypt');
+	registerEndpoint(server, 'encryption', 'encrypt');
+	registerEndpoint(server, 'encryption', 'verify-password');
+	registerEndpoint(server, 'encryption', 'hash');
+	registerEndpoint(server, 'encryption', 'hash-password');
+	registerEndpoint(server, 'file', 'file');
+	registerEndpoint(server, 'file', 'list');
+	registerEndpoint(server, 'slack', 'post-to-channel');
 };

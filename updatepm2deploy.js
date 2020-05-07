@@ -1,3 +1,5 @@
+/* eslint-disable */
+
 var metadata = require('node-ec2-metadata');
 var Q = require('q');
 var fs = require('fs');

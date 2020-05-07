@@ -8,8 +8,8 @@ const atob = require('atob');
 const moment = require('moment');
 const PdfPrinter = require('pdfmake');
 
-const crypt = requireShared('./services/crypt.js');
-const validator = requireShared('./helpers/validator.js');
+const crypt = global.requireShared('./services/crypt.js');
+const validator = global.requireShared('./helpers/validator.js');
 const checkboxes = require('./helpers/certificate/checkboxes.js');
 const generate = require('./helpers/certificate/generate-page-2-3.js');
 const signature = require('./helpers/signature.js');
@@ -26,73 +26,73 @@ const serverHelper = require('../../../server.js');
  *
  * @returns {void}
  */
-async function PostCertificate(req, res, next) {
+async function PostCertificate(req, res, next){
 
 	/* ---=== Check Request Requirements ===--- */
 
 	// Check for data
-	if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
+	if(!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0){
 		log.info('Bad Request: No data received');
 		res.send(400, {
 			'message': 'No data received',
 			'status': 'error'
 		});
-		return next(serverHelper.RequestError('Bad Request: No data received'));
+		return next(serverHelper.requestError('Bad Request: No data received'));
 	}
 
 	// Make sure basic elements are present
-	if (!req.body.business_id) {
+	if(!req.body.business_id){
 		log.info('Bad Request: Missing Business ID');
 		res.send(400, {
 			'message': 'Missing Business ID',
 			'status': 'error'
 		});
-		return next(serverHelper.RequestError('Bad Request: You must supply a business ID'));
+		return next(serverHelper.requestError('Bad Request: You must supply a business ID'));
 	}
 
 	// Validate the business ID
-	if (!await validator.is_valid_business(req.body.business_id)) {
+	if(!await validator.is_valid_business(req.body.business_id)){
 		log.info('Bad Request: Invalid business id');
 		res.send(400, {
 			'message': 'Invalid business id',
 			'status': 'error'
 		});
-		return next(serverHelper.RequestError('Invalid business id'));
+		return next(serverHelper.requestError('Invalid business id'));
 	}
 
 	// Validate the Certificate Holder
-	if (req.body.certificate_holder) {
-		if (!req.body.certificate_holder.name) {
+	if(req.body.certificate_holder){
+		if(!req.body.certificate_holder.name){
 			log.info('Bad Request: Certificate holder name missing');
 			res.send(400, {
 				'message': 'Certificate holder name missing',
 				'status': 'error'
 			});
-			return next(serverHelper.RequestError('Bad Request: Certificate holder name missing'));
+			return next(serverHelper.requestError('Bad Request: Certificate holder name missing'));
 		}
-		if (!req.body.certificate_holder.address) {
+		if(!req.body.certificate_holder.address){
 			log.info('Bad Request: Certificate holder address missing');
 			res.send(400, {
 				'message': 'Certificate holder address missing',
 				'status': 'error'
 			});
-			return next(serverHelper.RequestError('Bad Request: Certificate holder address missing'));
+			return next(serverHelper.requestError('Bad Request: Certificate holder address missing'));
 		}
-		if (!req.body.certificate_holder.zip) {
+		if(!req.body.certificate_holder.zip){
 			log.info('Bad Request: Certificate holder zip missing');
 			res.send(400, {
 				'message': 'Certificate holder zip missing',
 				'status': 'error'
 			});
-			return next(serverHelper.RequestError('Bad Request: Certificate holder zip missing'));
+			return next(serverHelper.requestError('Bad Request: Certificate holder zip missing'));
 		}
-		if (!validator.is_valid_zip(req.body.certificate_holder.zip)) {
+		if(!validator.is_valid_zip(req.body.certificate_holder.zip)){
 			log.info('Bad Request: Invalid certificate holder zip');
 			res.send(400, {
 				'message': 'Invalid certificate holder zip',
 				'status': 'error'
 			});
-			return next(serverHelper.RequestError('Bad Request: Invalid certificate holder zip'));
+			return next(serverHelper.requestError('Bad Request: Invalid certificate holder zip'));
 		}
 	}
 
@@ -146,23 +146,23 @@ async function PostCertificate(req, res, next) {
 		`;
 
 	// Run the query
-	const certificate_data = await db.query(sql).catch(function (error) {
+	const certificate_data = await db.query(sql).catch(function(error){
 		log.error(error);
 		res.send(400, {
 			'message': `Database Error: ${error}`,
 			'status': 'error'
 		});
-		return next(serverHelper.RequestError(`Database Error: ${error}`));
+		return next(serverHelper.requestError(`Database Error: ${error}`));
 	});
 
 	// Check the number of rows returned
-	if (certificate_data.length === 0) {
+	if(certificate_data.length === 0){
 		log.info('Given business ID has no active policies');
 		res.send(400, {
 			'message': 'Given business ID has no active policies',
 			'status': 'error'
 		});
-		return next(serverHelper.RequestError('Bad Request: Given business ID has no active policies'));
+		return next(serverHelper.requestError('Bad Request: Given business ID has no active policies'));
 	}
 
 	// Define font files
@@ -196,68 +196,68 @@ async function PostCertificate(req, res, next) {
 	let insured = '';
 
 	// If the name is there, decrypt and add it
-	if (certificate_data[0].name.byteLength) {
+	if(certificate_data[0].name.byteLength){
 		const name = await crypt.decrypt(certificate_data[0].name);
 		insured += `${name}\n`;
-	} else {
+	}else{
 		missing_data.push('Insured name');
 	}
 	// If there is a dba, decrypt and add it
-	if (certificate_data[0].dba.byteLength) {
+	if(certificate_data[0].dba.byteLength){
 		const dba = await crypt.decrypt(certificate_data[0].dba);
 		insured += `dba ${dba}\n`;
 	}
 	// If the first address line is there, decrypt and add it
-	if (certificate_data[0].address) {
+	if(certificate_data[0].address){
 		const address = await crypt.decrypt(certificate_data[0].address);
 		insured += `${address}\n`;
-	} else {
+	}else{
 		missing_data.push('Insured address');
 	}
 	// If there is a second address line, decrypt and add it
-	if (certificate_data[0].address2 && certificate_data[0].address2.byteLength) {
+	if(certificate_data[0].address2 && certificate_data[0].address2.byteLength){
 		const address2 = await crypt.decrypt(certificate_data[0].address2);
 		insured += `${address2}\n`;
 	}
-	if (certificate_data[0].zip) {
+	if(certificate_data[0].zip){
 		insured += `${certificate_data[0].city.split(' ').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}, ${certificate_data[0].territory} ${certificate_data[0].zip}`;
-	} else {
+	}else{
 		missing_data.push('Insured zip code');
 	}
 
 	// Build phone number string
 	let phone = '';
-	if (certificate_data[0].agencyPhone.byteLength) {
+	if(certificate_data[0].agencyPhone.byteLength){
 		phone = await crypt.decrypt(certificate_data[0].agencyPhone);
 		phone = `(${phone.substr(0, 3)}) ${phone.substr(3, 3)} - ${phone.substr(6, 4)}`;
-	} else {
+	}else{
 		missing_data.push('Producer phone number');
 	}
 
 	// Build producer name and address
 	let producer = certificate_data[0].agencyName;
-	if (certificate_data[0].mailing_address.byteLength) {
+	if(certificate_data[0].mailing_address.byteLength){
 		const mailingAddress = await crypt.decrypt(certificate_data[0].mailing_address);
 		producer += `\n${mailingAddress}`;
-	} else {
+	}else{
 		missing_data.push('Producer address');
 	}
 	producer += `\n${certificate_data[0].agencyCity.toLowerCase().split(' ').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}, ${certificate_data[0].agencyTerritory} ${certificate_data[0].mailing_zip}`;
 
 	// Contact Name
 	let contact_name = '';
-	if (certificate_data[0].fname && certificate_data[0].lname) {
+	if(certificate_data[0].fname && certificate_data[0].lname){
 		const fName = await crypt.decrypt(certificate_data[0].fname);
 		const lName = await crypt.decrypt(certificate_data[0].lname);
 		contact_name = `${fName} ${lName}`;
-	} else {
+	}else{
 		missing_data.push('Producer contact name');
 	}
 	// Contact email
 	let contact_email = '';
-	if (certificate_data[0].email.byteLength) {
+	if(certificate_data[0].email.byteLength){
 		contact_email = await crypt.decrypt(certificate_data[0].email);
-	} else {
+	}else{
 		missing_data.push('Producer contact email');
 	}
 	const img = [{
@@ -278,7 +278,7 @@ async function PostCertificate(req, res, next) {
 
 	// Define base document
 	const docDefinition = {
-		'background'(currentPage) {
+		'background': function(currentPage){
 			return img[currentPage - 1];
 		},
 		'content': [
@@ -340,15 +340,15 @@ async function PostCertificate(req, res, next) {
 
 	const page_2_data = [];
 
-	certificate_data.forEach(function (data) {
+	certificate_data.forEach(function(data){
 		// If we haven't seen writer add them and the policy they wrote
-		if (!Object.prototype.hasOwnProperty.call(all_writers, data.writer)) {
+		if(!Object.prototype.hasOwnProperty.call(all_writers, data.writer)){
 			// If the writer is null add it to the missing data message
-			if (data.writer === null) {
+			if(data.writer === null){
 				missing_data.push(`${data.policy_type} policy writer`);
 			}
 			// If the NAIC is null add it to the missing data message
-			if (data.naic === null) {
+			if(data.naic === null){
 				missing_data.push(`${data.policy_type} policy writer NAIC`);
 			}
 			all_writers[data.writer] = {
@@ -356,24 +356,24 @@ async function PostCertificate(req, res, next) {
 				'policies': [data.policy_type]
 			};
 			// If we've seen the writer and the policy isn't listed under that writer add it
-		} else if (!all_writers[data.writer].policies.includes(data.policy_type)) {
-			if (data.writer === null) {
+		}else if(!all_writers[data.writer].policies.includes(data.policy_type)){
+			if(data.writer === null){
 				missing_data.push(`${data.policy_type} policy writer`);
 			}
 			// If the NAIC is null add it to the missing data message
-			if (data.naic === null) {
+			if(data.naic === null){
 				missing_data.push(`${data.policy_type} policy writer NAIC`);
 			}
 			all_writers[data.writer].policies.push(data.policy_type);
 		}
 		// If we haven't seen this policy write the policy information
-		if (valid_policy_types.includes(data.policy_type)) {
+		if(valid_policy_types.includes(data.policy_type)){
 			// If WC, save off the row for NY Certificate
-			if (!page_2_data.length && data.policy_type === 'WC' && data.territory === 'NY') {
+			if(!page_2_data.length && data.policy_type === 'WC' && data.territory === 'NY'){
 				page_2_data.push(data);
 			}
 			//  Policy Num, Effective Date, Expiration Date
-			if (data.policy_number === '') {
+			if(data.policy_number === ''){
 				missing_data.push(`${data.policy_type} policy number`);
 			}
 			docDefinition.content.push({
@@ -381,16 +381,16 @@ async function PostCertificate(req, res, next) {
 				'style': styles.policy,
 				'text': data.policy_number
 			},
-				{
-					'absolutePosition': positions[`${data.policy_type}_effective_date`],
-					'style': styles.policy_date,
-					'text': data.effective_date
-				},
-				{
-					'absolutePosition': positions[`${data.policy_type}_expiration_date`],
-					'style': styles.policy_date,
-					'text': data.expiration_date
-				});
+			{
+				'absolutePosition': positions[`${data.policy_type}_effective_date`],
+				'style': styles.policy_date,
+				'text': data.effective_date
+			},
+			{
+				'absolutePosition': positions[`${data.policy_type}_expiration_date`],
+				'style': styles.policy_date,
+				'text': data.expiration_date
+			});
 			// Check Boxes
 			docDefinition.content = docDefinition.content.concat(checkboxes.checkPolicyBoxes(data.policy_type, data.owners_covered));
 
@@ -398,7 +398,7 @@ async function PostCertificate(req, res, next) {
 			valid_policy_types.splice(valid_policy_types.indexOf(data.policy_type), 1);
 		}
 		// Limit_id 10 does not get written on the certificate
-		if (data.limit_id !== 10) {
+		if(data.limit_id !== 10){
 			// Write the limit
 			docDefinition.content.push({
 				'absolutePosition': positions[`${data.policy_type}_limit_${data.limit_id}`],
@@ -409,14 +409,14 @@ async function PostCertificate(req, res, next) {
 	});
 
 	// If there is missing data return message containing what is missing
-	if (missing_data.length) {
+	if(missing_data.length){
 		log.info(`Data was missing for business ${req.body.business_id}`);
 		res.send(400, {
 			'message': `Data was missing for business ${req.body.business_id}`,
 			'missing': missing_data,
 			'status': 'error'
 		});
-		return next(serverHelper.RequestError(`Bad Request: Data was missing for business ${req.body.business_id}`));
+		return next(serverHelper.requestError(`Bad Request: Data was missing for business ${req.body.business_id}`));
 	}
 
 	// Create list of policies on certificate in order of appearance
@@ -424,7 +424,7 @@ async function PostCertificate(req, res, next) {
 		'AL',
 		'UMB',
 		'WC'];
-	used_policies = used_policies.filter(function (policy) {
+	used_policies = used_policies.filter(function(policy){
 		return valid_policy_types.indexOf(policy) === -1;
 	});
 
@@ -436,19 +436,19 @@ async function PostCertificate(req, res, next) {
 		'E'];
 
 	// Add writers and letters to document
-	for (let i = 0; i < used_policies.length; ++i) {
-		Object.entries(all_writers).forEach(function (writer) {
-			if (writer[1].policies.includes(used_policies[i])) {
+	for(let i = 0; i < used_policies.length; ++i){
+		Object.entries(all_writers).forEach(function(writer){
+			if(writer[1].policies.includes(used_policies[i])){
 				docDefinition.content.push({
 					'absolutePosition': positions[`insurer_${letters[0]}`],
 					'text': `${writer[0]}`
 				},
-					{
-						'absolutePosition': positions[`naic_${letters[0]}`],
-						'style': styles.naic,
-						'text': `${writer[1].naic}`
-					});
-				writer[1].policies.forEach(function (policy) {
+				{
+					'absolutePosition': positions[`naic_${letters[0]}`],
+					'style': styles.naic,
+					'text': `${writer[1].naic}`
+				});
+				writer[1].policies.forEach(function(policy){
 					docDefinition.content.push({
 						'absolutePosition': positions[`${policy}_insr_ltr`],
 						'style': styles.letter,
@@ -465,28 +465,28 @@ async function PostCertificate(req, res, next) {
 	let certificate_holder_info = '';
 	const certificate_holder_save_data = {};
 	// If there is a certificate holder add them
-	if (req.body.certificate_holder) {
+	if(req.body.certificate_holder){
 		// Run SQL to retrieve city and state
 		const sql_address = `SELECT \`city\`,
 										\`territory\`
 										FROM \`#__zip_codes\` AS \`z\`
 										WHERE ${req.body.certificate_holder.zip} = \`z\`.\`zip\``;
-		const certificate_holder_location = await db.query(sql_address).catch(function (error) {
+		const certificate_holder_location = await db.query(sql_address).catch(function(error){
 			log.error(error);
 			res.send(400, {
 				'message': `Database Error: ${error}`,
 				'status': 'error'
 			});
-			return next(serverHelper.RequestError(`Database Error: ${error}`));
+			return next(serverHelper.requestError(`Database Error: ${error}`));
 		});
 
-		if (certificate_holder_location.length === 0) {
+		if(certificate_holder_location.length === 0){
 			log.error('No data returned with given certificate holder zip');
 			res.send(400, {
 				'message': 'No data returned with given certificate holder zip',
 				'status': 'error'
 			});
-			return next(serverHelper.RequestError('Bad Request: No data returned with given certificate holder zip'));
+			return next(serverHelper.requestError('Bad Request: No data returned with given certificate holder zip'));
 		}
 
 		certificate_holder_info = `${req.body.certificate_holder.name}\n${req.body.certificate_holder.address}\n${certificate_holder_location[0].city.toLowerCase().
@@ -505,7 +505,7 @@ async function PostCertificate(req, res, next) {
 			'text': certificate_holder_info
 		});
 		// There is no certificate holder
-	} else {
+	}else{
 		docDefinition.content.push({
 			'absolutePosition': positions.certificate_holder,
 			'style': styles.info,
@@ -514,13 +514,13 @@ async function PostCertificate(req, res, next) {
 	}
 
 	// If NY WC applies, build the json with page 2 data and generate page 2 and 3
-	if (page_2_data.length) {
+	if(page_2_data.length){
 
 		let business_phone = '';
-		if (page_2_data[0].phone && page_2_data[0].phone.byteLength) {
+		if(page_2_data[0].phone && page_2_data[0].phone.byteLength){
 			business_phone = await crypt.decrypt(page_2_data[0].phone);
 			business_phone = `(${business_phone.substr(0, 3)}) ${business_phone.substr(3, 3)} - ${business_phone.substr(6, 4)}`;
-		} else {
+		}else{
 			missing_data.push('Business phone number');
 			log.info(`Data was missing for business ${req.body.business_id}`);
 			res.send(400, {
@@ -528,14 +528,14 @@ async function PostCertificate(req, res, next) {
 				'missing': missing_data,
 				'status': 'error'
 			});
-			return next(serverHelper.RequestError(`Bad Request: Data was missing for business ${req.body.business_id}`));
+			return next(serverHelper.requestError(`Bad Request: Data was missing for business ${req.body.business_id}`));
 		}
 
 		const formatted_data = {
 			'agent_name': contact_name,
 			'agent_phone': phone,
 			'certificate_holder': certificate_holder_info,
-			insured,
+			'insured': insured,
 			'phone': business_phone
 		};
 
@@ -559,7 +559,7 @@ async function PostCertificate(req, res, next) {
 	};
 
 	// Encrypt certificate holder data to be written to database if it exists
-	if (req.body.certificate_holder) {
+	if(req.body.certificate_holder){
 		certificate_history.certificate_holder_name = await crypt.encrypt(req.body.certificate_holder.name);
 		certificate_history.certificate_holder_address = await crypt.encrypt(req.body.certificate_holder.address);
 		certificate_history.certificate_holder_city = await crypt.encrypt(certificate_holder_save_data.city);
@@ -572,7 +572,7 @@ async function PostCertificate(req, res, next) {
 
 	// Escape each value, then create values string
 	const values = Object.values(certificate_history);
-	values.forEach(function (value, index) {
+	values.forEach(function(value, index){
 		values[index] = db.escape(value);
 	});
 	const escaped_values = values.join(', ');
@@ -581,22 +581,22 @@ async function PostCertificate(req, res, next) {
 	const certificate_history_sql = `INSERT INTO #__certificate_history(${fields}) VALUES (${escaped_values})`;
 
 	// Write record
-	await db.query(certificate_history_sql).catch(function (error) {
+	await db.query(certificate_history_sql).catch(function(error){
 		log.error(error);
 		res.send(400, {
 			'message': `Database Error: ${error}`,
 			'status': 'error'
 		});
-		return next(serverHelper.RequestError(`Database Error: ${error}`));
+		return next(serverHelper.requestError(`Database Error: ${error}`));
 	});
 
 	const chunks = [];
 	let result = '';
 
-	doc.on('data', function (chunk) {
+	doc.on('data', function(chunk){
 		chunks.push(chunk);
 	});
-	doc.on('end', function () {
+	doc.on('end', function(){
 		result = Buffer.concat(chunks);
 
 		res.writeHead(200, {
@@ -615,6 +615,6 @@ async function PostCertificate(req, res, next) {
 }
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (server, basePath) => {
-	server.AddPost('Get Certificate', basePath + '/certificate', PostCertificate);
+exports.registerEndpoint = (server, basePath) => {
+	server.addPost('Get Certificate', `${basePath}/certificate`, PostCertificate);
 };

@@ -12,7 +12,7 @@ const auth = require('./helpers/auth.js');
  *
  * @returns {void}
  */
-async function GetLandingPages(req, res, next) {
+async function GetLandingPages(req, res, next){
 	let error = false;
 
 	// Make sure the authentication payload has everything we are expecting
@@ -39,9 +39,9 @@ async function GetLandingPages(req, res, next) {
 		`;
 
 	// Run the query
-	const landingPages = await db.query(landingPageSQL).catch(function (err) {
+	const landingPages = await db.query(landingPageSQL).catch(function(err){
 		log.error(err.message);
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Send the user's data back
@@ -49,6 +49,6 @@ async function GetLandingPages(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (server, basePath) => {
-	server.AddGetAuth('Get Landing Pages', basePath + '/landing-pages', GetLandingPages);
+exports.registerEndpoint = (server, basePath) => {
+	server.addGetAuth('Get Landing Pages', `${basePath}/landing-pages`, GetLandingPages);
 };

@@ -14,7 +14,7 @@ const version = 3;
  *
  * @returns {void}
  */
-async function PutAcceptTermsOfService(req, res, next) {
+async function PutAcceptTermsOfService(req, res, next){
 	// Construct the query
 	let error = false;
 	const sql = `
@@ -22,11 +22,11 @@ async function PutAcceptTermsOfService(req, res, next) {
 			VALUES (${req.authentication.userID}, ${db.escape(req.connection.remoteAddress)}, ${version});
 		`;
 	// Run the query
-	await db.query(sql).catch(function (e) {
+	await db.query(sql).catch(function(e){
 		log.error(e.message);
-		error = serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+		error = serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
 	});
-	if (error) {
+	if(error){
 		return next(error);
 	}
 
@@ -38,6 +38,6 @@ async function PutAcceptTermsOfService(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (server, basePath) => {
-	server.AddPutAuth('Record Acceptance of TOS', basePath + '/terms-of-service', PutAcceptTermsOfService);
+exports.registerEndpoint = (server, basePath) => {
+	server.addPutAuth('Record Acceptance of TOS', `${basePath}/terms-of-service`, PutAcceptTermsOfService);
 };

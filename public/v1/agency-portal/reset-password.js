@@ -1,6 +1,6 @@
 'use strict';
 
-const crypt = requireShared('./services/crypt.js');
+const crypt = global.requireShared('./services/crypt.js');
 const jwt = require('jsonwebtoken');
 const request = require('request');
 const serverHelper = require('../../../server.js');
@@ -14,19 +14,19 @@ const serverHelper = require('../../../server.js');
  *
  * @returns {object} res - Returns an authorization token
  */
-async function PostResetPassword(req, res, next) {
+async function PostResetPassword(req, res, next){
 	let error = false;
 
 	// Check for data
-	if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
+	if(!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0){
 		log.info('Bad Request: Missing both email and password');
-		return next(serverHelper.RequestError('You must supply an email address and password'));
+		return next(serverHelper.requestError('You must supply an email address and password'));
 	}
 
 	// Make sure an email was provided
-	if (!req.body.email) {
+	if(!req.body.email){
 		log.info('Missing email');
-		res.send(400, serverHelper.RequestError('Email address is required'));
+		res.send(400, serverHelper.requestError('Email address is required'));
 		return next();
 	}
 
@@ -38,36 +38,30 @@ async function PostResetPassword(req, res, next) {
 			FROM \`#__agency_portal_users\`
 			WHERE \`email_hash\` = ${db.escape(emailHash)} LIMIT 1;
 		`;
-	const result = await db.query(agentSQL).catch(function (e) {
+	const result = await db.query(agentSQL).catch(function(e){
 		log.error(e.message);
-		res.send(500, serverHelper.InternalError('Error querying database. Check logs.'));
+		res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
 		error = true;
 	});
-	if (error) {
+	if(error){
 		return next(false);
 	}
 
 	// Make sure we found a result before doing more processing
-	if (result && result.length) {
+	if(result && result.length){
 		log.info('Email found');
 
 		// Create a limited life JWT
-		const token = jwt.sign({ 'userID': result[0].id }, settings.AUTH_SECRET_KEY, { 'expiresIn': '15m' });
+		const token = jwt.sign({'userID': result[0].id}, global.settings.AUTH_SECRET_KEY, {'expiresIn': '15m'});
 
-
-
-		let brandraw = settings.BRAND.toLowerCase();
-		let portalurl = settings.PORTAL_URLL;
-		let appurl = settings.APPLICATION_URL;
-		if (agencyNetwork == 2) {
+		let brandraw = global.settings.BRAND.toLowerCase();
+		let portalurl = global.settings.PORTAL_URL;
+		if(result[0].agency_network === 2){
 			brandraw = 'Digalent';
-			if(settings.ENV ==='production'){
-				portalurl = "https://agents.digalent.com"
-				appurl =  "https://insure.digalent.com"
-			}
-			else {
-				portalurl = "https://agents.sta.digalent.com"
-				appurl =  "https://sta.digalent.com"
+			if(global.settings.ENV === 'production'){
+				portalurl = 'https://agents.digalent.com';
+			}else{
+				portalurl = 'https://agents.sta.digalent.com';
 			}
 		}
 
@@ -82,9 +76,9 @@ async function PostResetPassword(req, res, next) {
 		request({
 			'json': emailData,
 			'method': 'POST',
-			'url': `http://localhost:${settings.PRIVATE_API_PORT}/v1/email/email`
-		}, function (err) {
-			if (err) {
+			'url': `http://localhost:${global.settings.PRIVATE_API_PORT}/v1/email/email`
+		}, function(err){
+			if(err){
 				log.error(`Failed to send the password reset email to ${req.body.email}. Please contact the user.`);
 				log.verbose(err);
 			}
@@ -100,7 +94,7 @@ async function PostResetPassword(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (server, basePath) => {
-	server.AddPost('Reset Password', basePath + '/reset-password', PostResetPassword);
-	server.AddPost('Reset Password (depr)', basePath + '/resetPassword', PostResetPassword);
+exports.registerEndpoint = (server, basePath) => {
+	server.addPost('Reset Password', `${basePath}/reset-password`, PostResetPassword);
+	server.addPost('Reset Password (depr)', `${basePath}/resetPassword`, PostResetPassword);
 };

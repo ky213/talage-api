@@ -1,20 +1,20 @@
 'use strict';
 
-const crypt = requireShared('./services/crypt.js');
+const crypt = global.requireShared('./services/crypt.js');
 const moment = require('moment');
 const signature = require('../signature.js');
 const styles = require('../document-style/certificate/styles.js');
 const positions = require('../document-style/certificate/positions.js');
 
-exports.page_2_3 = async function (data) {
+exports.page_2_3 = async function(data){
 
 	let ein = '';
-	if (data[0].ein.byteLength) {
+	if(data[0].ein.byteLength){
 		ein = await crypt.decrypt(data[0].ein);
 	}
-	if (data[0].has_ein) {
+	if(data[0].has_ein){
 		ein = `${ein.substr(0, 2)} - ${ein.substr(2, 7)}`;
-	} else {
+	}else{
 		ein = `${ein.substr(0, 3)} - ${ein.substr(3, 2)} - ${ein.substr(5, 4)}`;
 	}
 

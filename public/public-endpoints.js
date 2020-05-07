@@ -1,5 +1,5 @@
 'use strict';
 
-exports.RegisterEndpoints = (server) => {
-	require('./v1/v1-endpoints.js').RegisterEndpoints(server);
+exports.registerEndpoints = (server) => {
+	require('./v1/v1-endpoints.js').registerEndpoints(server);
 };

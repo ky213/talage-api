@@ -1,6 +1,6 @@
 'use strict';
 
-const validator = requireShared('./helpers/validator.js');
+const validator = global.requireShared('./helpers/validator.js');
 
 module.exports = async function(val, agency, agencyNetwork){
 	if(!validator.id(val) || agency && !validator.id(agency)){

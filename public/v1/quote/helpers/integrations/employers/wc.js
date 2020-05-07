@@ -16,14 +16,14 @@ const moment_timezone = require('moment-timezone');
 // Read the template into memory at load
 const employersWCTemplate = require('jsrender').templates('./public/v1/quote/helpers/integrations/employers/wc.xmlt');
 
-module.exports = class EmployersWC extends Integration {
+module.exports = class EmployersWC extends Integration{
 
 	/**
 	 * Requests a quote from Employers and returns. This request is not intended to be called directly.
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
-	_insurer_quote() {
+	_insurer_quote(){
 
 		// These are the statuses returned by the insurer and how they map to our Talage statuses
 		this.possible_api_responses.DECLINE = 'declined';
@@ -58,13 +58,13 @@ module.exports = class EmployersWC extends Integration {
 		];
 
 		// Ensure this entity type is in the entity matrix above
-		if (!(this.app.business.entity_type in entityMatrix)) {
+		if(!(this.app.business.entity_type in entityMatrix)){
 			this.reasons.push('Invalid entity type');
 			return;
 		}
 
 		// Build the Promise
-		return new Promise(async (fulfill) => {
+		return new Promise(async(fulfill) => {
 
 			// Employers has us define our own Request ID
 			this.request_id = this.generate_uuid();
@@ -74,12 +74,12 @@ module.exports = class EmployersWC extends Integration {
 			this.entity_code = entityMatrix[this.app.business.entity_type];
 
 			// Prepare claims by year
-			if (this.policy.claims.length > 0) {
+			if(this.policy.claims.length > 0){
 				// Get the claims organized by year
 				this.claims_by_year = this.claims_to_policy_years();
 				// Loop through all four years and send claims data (If there is a claim, Employers requires 4 years even if the data is 0)
-				for (let i = 1; i <= 4; i++) {
-					if (!Object.prototype.hasOwnProperty.call(this.claims_by_year, i)) {
+				for(let i = 1; i <= 4; i++){
+					if(!Object.prototype.hasOwnProperty.call(this.claims_by_year, i)){
 						// This year had no claims, send with zeros
 						this.claims_by_year[i] = {};
 						this.claims_by_year[i].amount_paid = 0;
@@ -92,7 +92,7 @@ module.exports = class EmployersWC extends Integration {
 
 			// Prepare limits
 			this.bestLimits = this.getBestLimits(carrierLimits);
-			if (!this.bestLimits) {
+			if(!this.bestLimits){
 				this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
 				fulfill(this.return_result('autodeclined'));
 				return;
@@ -100,38 +100,38 @@ module.exports = class EmployersWC extends Integration {
 
 			// Prepare questions
 			this.validQuestions = [];
-			for (const question_id in this.questions) {
-				if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
+			for(const question_id in this.questions){
+				if(Object.prototype.hasOwnProperty.call(this.questions, question_id)){
 					const question = this.questions[question_id];
 
 					// Don't process questions without a code (not for this insurer)
 					const questionCode = this.question_identifiers[question.id];
-					if (!questionCode) {
+					if(!questionCode){
 						continue;
 					}
 
 					// For Yes/No questions, if they are not required and the user answered 'No', simply don't send them
-					if (!required_questions.includes(question.id) && question.type !== 'Yes/No' && !question.hidden && !question.required && !question.get_answer_as_boolean()) {
+					if(!required_questions.includes(question.id) && question.type !== 'Yes/No' && !question.hidden && !question.required && !question.get_answer_as_boolean()){
 						continue;
 					}
 
 					// Get the answer
 					let answer = '';
-					try {
+					try{
 						answer = this.determine_question_answer(question, required_questions.includes(question.id));
-					} catch (error) {
+					}catch(error){
 						this.reasons.push(`Unable to determine answer for question ${question.id}`);
 						fulfill(this.return_result('error'));
 						return;
 					}
 
 					// This question was not answered
-					if (!answer) {
+					if(!answer){
 						continue;
 					}
 
 					// Ensure the question is only yes/no at this point
-					if (question.type !== 'Yes/No') {
+					if(question.type !== 'Yes/No'){
 						this.reasons.push('Unknown question type supported. Employers only has Yes/No.');
 						fulfill(this.return_result('error'));
 						return;
@@ -152,9 +152,9 @@ module.exports = class EmployersWC extends Integration {
 
 			// Determine which URL to use
 			let host = '';
-			if (this.insurer.test_mode || settings.ENV === 'development') {
+			if(this.insurer.test_mode || global.settings.ENV === 'development'){
 				host = 'api-qa.employers.com';
-			} else {
+			}else{
 				host = 'api.employers.com';
 			}
 			const path = '/DigitalAgencyServices/ws/AcordServices';
@@ -167,13 +167,13 @@ module.exports = class EmployersWC extends Integration {
 				let res = result['soap:Envelope']['soap:Body'][0]['eig:getWorkCompPolicyResponse'][0].response[0];
 				const status_code = res.PolicyRs[0].MsgStatus[0].MsgStatusCd[0];
 
-				if (status_code.indexOf('Success') === -1) {
+				if(status_code.indexOf('Success') === -1){
 					this.reasons.push(`Insurer returned status: ${status_code}`);
-					if (Object.prototype.hasOwnProperty.call(res.PolicyRs[0].MsgStatus[0], 'ExtendedStatus')) {
+					if(Object.prototype.hasOwnProperty.call(res.PolicyRs[0].MsgStatus[0], 'ExtendedStatus')){
 						res.PolicyRs[0].MsgStatus[0].ExtendedStatus.forEach((error_obj) => {
 							this.reasons.push(error_obj.ExtendedStatusDesc[0]);
 						});
-						switch (status_code) {
+						switch(status_code){
 							case 'PendingNeedInformation':
 							case 'ResultPendingOutOfBand':
 								// Referred
@@ -195,8 +195,8 @@ module.exports = class EmployersWC extends Integration {
 				let status = null;
 				let policy_number = null;
 
-				res.ItemIdInfo[0].OtherIdentifier.forEach(function (item) {
-					switch (item.OtherIdTypeCd[0]._) {
+				res.ItemIdInfo[0].OtherIdentifier.forEach(function(item){
+					switch(item.OtherIdTypeCd[0]._){
 						case 'PolicyNumber':
 							policy_number = item.OtherId[0];
 							break;
@@ -209,25 +209,25 @@ module.exports = class EmployersWC extends Integration {
 				});
 
 				// Attempt to get the policy number
-				if (policy_number) {
+				if(policy_number){
 					this.number = policy_number;
-				} else {
+				}else{
 					log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find policy number.`);
 				}
 
 				// Attempt to get the amount of the quote
-				try {
+				try{
 					this.amount = parseInt(res.Policy[0].CurrentTermAmt[0].Amt[0], 10);
-				} catch (e) {
+				}catch(e){
 					// This is handled in return_result()
 				}
 
 				// Grab the limits info
-				try {
+				try{
 					res.WorkCompLineBusiness[0].Coverage.forEach((coverage_block) => {
-						if (coverage_block.CoverageCd[0] === 'WCEL') {
+						if(coverage_block.CoverageCd[0] === 'WCEL'){
 							coverage_block.Limit.forEach((limit) => {
-								switch (limit.LimitAppliesToCd[0]) {
+								switch(limit.LimitAppliesToCd[0]){
 									case 'EachClaim':
 										this.limits[1] = limit.FormatCurrencyAmt[0].Amt[0];
 										break;
@@ -244,46 +244,46 @@ module.exports = class EmployersWC extends Integration {
 							});
 						}
 					});
-				} catch (e) {
+				}catch(e){
 					// This is handled in return_result()
 				}
 
 				// Grab the writing company
-				try {
+				try{
 					this.writer = res.Policy[0].CompanyProductCd[0].split('-')[1].trim();
-				} catch (e) {
-					if (status === 'QUOTE' || status === 'PENDING_REFER') {
+				}catch(e){
+					if(status === 'QUOTE' || status === 'PENDING_REFER'){
 						log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.`);
 					}
 				}
 
 				// Grab the file info
-				try {
-					try {
+				try{
+					try{
 						this.quote_letter = {
 							'content_type': res.FileAttachmentInfo[0].AttachmentData[0].ContentTypeCd[0],
 							'data': res.FileAttachmentInfo[0].AttachmentData[0].BinData[0],
 							'file_name': `${this.insurer.name}_ ${this.policy.type}_quote_letter.pdf`,
 							'length': res.FileAttachmentInfo[0].AttachmentData[0].BinLength[0]
 						};
-					} catch (err) {
-						if (status === 'QUOTE') {
+					}catch(err){
+						if(status === 'QUOTE'){
 							log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Changed how it returns the quote letter.`);
 						}
 					}
-				} catch (e) {
-					if (status === 'QUOTE') {
+				}catch(e){
+					if(status === 'QUOTE'){
 						log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find files.`);
 					}
 				}
 
 				// Grab the reasons
-				try {
+				try{
 					res.MsgStatus[0].ExtendedStatus.forEach((error_obj) => {
 						this.reasons.push(`${error_obj.ExtendedStatusCd} - ${error_obj.ExtendedStatusDesc[0]}`);
 					});
-				} catch (e) {
-					if (status === 'INPROGRESS') {
+				}catch(e){
+					if(status === 'INPROGRESS'){
 						log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to reasons.`);
 					}
 				}

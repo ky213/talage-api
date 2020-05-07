@@ -19,48 +19,48 @@ const serverHelper = require('../../../server.js');
  *
  * @returns {void}
  */
-async function PostEmbedded(req, res, next) {
+async function PostEmbedded(req, res, next){
 	let error = false;
 
 	// Check for data
-	if (!req.body || (typeof req.body === 'object' && Object.keys(req.body).length === 0)) {
+	if(!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0){
 		log.warn('No data was received');
-		return next(serverHelper.RequestError('No data was received'));
+		return next(serverHelper.requestError('No data was received'));
 	}
 
 	// Validate the email parameter
-	if (!Object.prototype.hasOwnProperty.call(req.body, 'email') || typeof req.body.email !== 'string' || validator.email(req.body.email) !== true) {
+	if(!Object.prototype.hasOwnProperty.call(req.body, 'email') || typeof req.body.email !== 'string' || validator.email(req.body.email) !== true){
 		const message = 'Invalid \'email\' parameter. An email address is required and must be a valid string.';
 		log.warn(message);
-		return next(serverHelper.RequestError(message));
+		return next(serverHelper.requestError(message));
 	}
 
 	// Validate the name parameter
-	if (!Object.prototype.hasOwnProperty.call(req.body, 'name') || typeof req.body.name !== 'string' || validator.name(req.body.name) !== true) {
+	if(!Object.prototype.hasOwnProperty.call(req.body, 'name') || typeof req.body.name !== 'string' || validator.name(req.body.name) !== true){
 		const message = 'Invalid \'name\' parameter. A name is required and must be a valid string.';
 		log.warn(message);
-		return next(serverHelper.RequestError(message));
+		return next(serverHelper.requestError(message));
 	}
 
 	// Validate the returnUrl parameter
-	if (!Object.prototype.hasOwnProperty.call(req.body, 'returnUrl') || typeof req.body.returnUrl !== 'string') {
+	if(!Object.prototype.hasOwnProperty.call(req.body, 'returnUrl') || typeof req.body.returnUrl !== 'string'){
 		const message = 'Invalid \'returnUrl\' parameter. A returnUrl is required and must be a valid string.';
 		log.warn(message);
-		return next(serverHelper.RequestError(message));
+		return next(serverHelper.requestError(message));
 	}
 
 	// Validate the template parameter
-	if (!Object.prototype.hasOwnProperty.call(req.body, 'template') || typeof req.body.template !== 'string' || validator.uuid(req.body.template) !== true) {
+	if(!Object.prototype.hasOwnProperty.call(req.body, 'template') || typeof req.body.template !== 'string' || validator.uuid(req.body.template) !== true){
 		const message = 'Invalid \'template\' parameter. A template is required and must be a valid UUID.';
 		log.warn(message);
-		return next(serverHelper.RequestError(message));
+		return next(serverHelper.requestError(message));
 	}
 
 	// Validate the user
-	if (!Object.prototype.hasOwnProperty.call(req.body, 'user') || typeof req.body.user !== 'number' || validator.integer(req.body.user) !== true) {
+	if(!Object.prototype.hasOwnProperty.call(req.body, 'user') || typeof req.body.user !== 'number' || validator.integer(req.body.user) !== true){
 		const message = 'Invalid \'user\' parameter. A user is required and must be a valid user ID.';
 		log.warn(message);
-		return next(serverHelper.RequestError(message));
+		return next(serverHelper.requestError(message));
 	}
 
 	// Log the full request
@@ -74,8 +74,10 @@ async function PostEmbedded(req, res, next) {
 	const user = req.body.user;
 
 	// Before we do anything, get a reference to the DocuSign API
-	const docusignApiClient = await require('../helpers/configureAPI.js')();
-
+	const{
+		accountId,
+		docusignApiClient
+	} = await require('../helpers/configureAPI.js')();
 
 	/* ---=== Step 1: Create a complete envelope ===--- */
 
@@ -99,16 +101,14 @@ async function PostEmbedded(req, res, next) {
 	const envelopesApi = new DocuSign.EnvelopesApi(docusignApiClient);
 
 	// Exceptions will be caught by the calling function
-	const envelopeSummary = await envelopesApi.createEnvelope(accountId, {
-		envelopeDefinition: envelope
-	}).catch(function (e) {
+	const envelopeSummary = await envelopesApi.createEnvelope(accountId, {'envelopeDefinition': envelope}).catch(function(e){
 		const errorMessage = 'Unable to create DocuSign envelope. Check the API logs for more information.';
 		log.error(errorMessage);
 		log.verbose(`${e.message} - ${e.response.body.message}`);
-		error = serverHelper.InternalError(errorMessage);
+		error = serverHelper.internalError(errorMessage);
 	});
 
-	if (error) {
+	if(error){
 		return next(error);
 	}
 
@@ -129,16 +129,14 @@ async function PostEmbedded(req, res, next) {
 	viewRequest.userName = name;
 
 	// Call the CreateRecipientView API
-	const viewResults = await envelopesApi.createRecipientView(accountId, envelopeSummary.envelopeId, {
-		recipientViewRequest: viewRequest
-	}).catch(function (e) {
+	const viewResults = await envelopesApi.createRecipientView(accountId, envelopeSummary.envelopeId, {'recipientViewRequest': viewRequest}).catch(function(e){
 		const errorMessage = 'Unable to create DocuSign view. Check the API logs for more information.';
 		log.error(errorMessage);
 		log.verbose(`${e.message} - ${e.response.body.message}`);
-		error = serverHelper.InternalError(errorMessage);
+		error = serverHelper.internalError(errorMessage);
 	});
 
-	if (error) {
+	if(error){
 		return next(error);
 	}
 
@@ -146,9 +144,9 @@ async function PostEmbedded(req, res, next) {
 	const viewUrl = viewResults.url;
 
 	// Make sure we got a View URL
-	if (!viewUrl) {
+	if(!viewUrl){
 		log.error('Unable to create Docusign view. No URL returned. Check the API logs for more information.');
-		return next(serverHelper.InternalError('We were unable to generate your document for signing at this time. Someone will contact you to complete these documents and open access to your account.'));
+		return next(serverHelper.internalError('We were unable to generate your document for signing at this time. Someone will contact you to complete these documents and open access to your account.'));
 	}
 
 	res.send(200, {
@@ -160,6 +158,6 @@ async function PostEmbedded(req, res, next) {
 }
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (server, basePath) => {
-	server.AddPost('Create Embedded DocuSign Document', basePath + '/embedded', PostEmbedded);
+exports.registerEndpoint = (server, basePath) => {
+	server.addPost('Create Embedded DocuSign Document', `${basePath}/embedded`, PostEmbedded);
 };

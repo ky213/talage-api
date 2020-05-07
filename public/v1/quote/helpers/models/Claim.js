@@ -6,11 +6,11 @@
 
 const moment = require('moment');
 const serverHelper = require('../../../../../server.js');
-const validator = requireShared('./helpers/validator.js');
+const validator = global.requireShared('./helpers/validator.js');
 
-module.exports = class Claim {
+module.exports = class Claim{
 
-	constructor() {
+	constructor(){
 		this.amount = 0;
 		this.amount_reserved = 0;
 		this.date = '';
@@ -26,18 +26,18 @@ module.exports = class Claim {
 	 * @param {object} data - The business data
 	 * @returns {void}
 	 */
-	load(data) {
+	load(data){
 		Object.keys(this).forEach((property) => {
-			if (!Object.prototype.hasOwnProperty.call(data, property)) {
+			if(!Object.prototype.hasOwnProperty.call(data, property)){
 				return;
 			}
 
 			// Trim whitespace
-			if (typeof data[property] === 'string') {
+			if(typeof data[property] === 'string'){
 				data[property] = data[property].trim();
 			}
 
-			switch (property) {
+			switch(property){
 				case 'date':
 					this[property] = moment(data[property], 'YYYY-MM-DD');
 					break;
@@ -53,7 +53,7 @@ module.exports = class Claim {
 	 *
 	 * @returns {boolean} True if valid, false otherwise (with error text stored in the error property)
 	 */
-	validate() {
+	validate(){
 		return new Promise((fulfill, reject) => {
 
 			/**
@@ -61,16 +61,16 @@ module.exports = class Claim {
 			 * - >= 0
 			 * - < 15,000,000
 			 */
-			if (this.amount) {
-				if (!validator.claim_amount(this.amount)) {
-					reject(serverHelper.RequestError('The amount must be a dollar value greater than 0 and below 15,000,000'));
+			if(this.amount){
+				if(!validator.claim_amount(this.amount)){
+					reject(serverHelper.requestError('The amount must be a dollar value greater than 0 and below 15,000,000'));
 					return;
 				}
 
 				// Cleanup this input
-				if (typeof this.amount === 'number') {
+				if(typeof this.amount === 'number'){
 					this.amount = Math.round(this.amount);
-				} else {
+				}else{
 					this.amount = Math.round(parseFloat(this.amount.toString().replace('$', '').replace(/,/g, '')));
 				}
 			}
@@ -80,16 +80,16 @@ module.exports = class Claim {
 			 * - >= 0
 			 * - < 15,000,000
 			 */
-			if (this.amount_reserved) {
-				if (!validator.claim_amount(this.amount_reserved)) {
-					reject(serverHelper.RequestError('The amount_reserved must be a dollar value greater than 0 and below 15,000,000'));
+			if(this.amount_reserved){
+				if(!validator.claim_amount(this.amount_reserved)){
+					reject(serverHelper.requestError('The amount_reserved must be a dollar value greater than 0 and below 15,000,000'));
 					return;
 				}
 
 				// Cleanup this input
-				if (typeof this.amount_reserved === 'number') {
+				if(typeof this.amount_reserved === 'number'){
 					this.amount_reserved = Math.round(this.amount_reserved);
-				} else {
+				}else{
 					this.amount_reserved = Math.round(parseFloat(this.amount_reserved.toString().replace('$', '').replace(/,/g, '')));
 				}
 			}
@@ -99,16 +99,16 @@ module.exports = class Claim {
 			 * - Date (enforced with moment() on load())
 			 * - Cannot be in the future
 			 */
-			if (this.date) {
+			if(this.date){
 				//  Valid date
-				if (!this.date.isValid()) {
-					reject(serverHelper.RequestError('Invalid date of claim. Expected YYYY-MM-DD'));
+				if(!this.date.isValid()){
+					reject(serverHelper.requestError('Invalid date of claim. Expected YYYY-MM-DD'));
 					return;
 				}
 
 				// Confirm date is not in the future
-				if (this.date.isAfter(moment())) {
-					reject(serverHelper.RequestError('Invalid date of claim. Date cannot be in the future'));
+				if(this.date.isAfter(moment())){
+					reject(serverHelper.requestError('Invalid date of claim. Date cannot be in the future'));
 					return;
 				}
 			}
@@ -117,10 +117,10 @@ module.exports = class Claim {
 			 * Missed Time
 			 * - Boolean
 			 */
-			if (this.missed_time) {
+			if(this.missed_time){
 				// Other than bool?
-				if (typeof this.missed_time !== 'boolean') {
-					reject(serverHelper.RequestError('Invalid format for missed_time. Expected true/false'));
+				if(typeof this.missed_time !== 'boolean'){
+					reject(serverHelper.requestError('Invalid format for missed_time. Expected true/false'));
 					return;
 				}
 			}
@@ -129,10 +129,10 @@ module.exports = class Claim {
 			 * Open
 			 * - Boolean
 			 */
-			if (this.open) {
+			if(this.open){
 				// Other than bool?
-				if (typeof this.open !== 'boolean') {
-					reject(serverHelper.RequestError('Invalid format for open claims. Expected true/false'));
+				if(typeof this.open !== 'boolean'){
+					reject(serverHelper.requestError('Invalid format for open claims. Expected true/false'));
 					return;
 				}
 			}
@@ -140,8 +140,8 @@ module.exports = class Claim {
 			/**
 			 * Only open claims can have an amount reserved
 			 */
-			if (!this.open && this.amount_reserved !== 0) {
-				reject(serverHelper.RequestError('Only open claims can have an amount reserved'));
+			if(!this.open && this.amount_reserved !== 0){
+				reject(serverHelper.requestError('Only open claims can have an amount reserved'));
 				return;
 			}
 

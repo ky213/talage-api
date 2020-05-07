@@ -1,3 +1,5 @@
+/* eslint-disable */
+
 /**
  * Print the current line and original function calling
  */

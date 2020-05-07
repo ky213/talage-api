@@ -5,7 +5,7 @@
 'use strict';
 
 const util = require('util');
-const wrap = requireShared('helpers/wrap.js');
+const wrap = global.requireShared('helpers/wrap.js');
 
 /**
  * Responds to post requests for all activity codes related to a given territory
@@ -16,9 +16,9 @@ const wrap = requireShared('helpers/wrap.js');
  *
  * @returns {object} res - Returns an array of objects containing activity codes [{"id": 2866}]
  */
-const GetActivityCodes = wrap(async (req, res, next) => {
+const GetActivityCodes = wrap(async(req, res, next) => {
 
-	if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
+	if(!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
 		log.info('Bad Request: You must supply an industry code and territory');
 		res.send(400, {
 			'message': 'You must supply an industry code and territory',
@@ -30,7 +30,7 @@ const GetActivityCodes = wrap(async (req, res, next) => {
 	log.verbose(util.inspect(req.query));
 
 	// Validate the parameters
-	if (!req.query.industry_code) {
+	if(!req.query.industry_code){
 		log.info('Bad Request: You must supply an industry code');
 		res.send(400, {
 			'message': 'You must supply an industry code',
@@ -38,7 +38,7 @@ const GetActivityCodes = wrap(async (req, res, next) => {
 		});
 		return next();
 	}
-	if (!req.query.territory) {
+	if(!req.query.territory){
 		log.info('Bad Request: You must supply a territory');
 		res.send(400, {
 			'message': 'You must supply a territory',
@@ -67,7 +67,7 @@ const GetActivityCodes = wrap(async (req, res, next) => {
 		WHERE inc.territory = ${db.escape(territory)} AND nc.state = 1 AND inc.state = 1 GROUP BY nc.id ORDER BY nc.description;
 		`;
 	let error = false;
-	const codes = await db.query(sql_all_activity_codes).catch(function (e) {
+	const codes = await db.query(sql_all_activity_codes).catch(function(e){
 		log.error(e.message);
 		res.send(500, {
 			'message': 'Internal server. Error',
@@ -75,15 +75,15 @@ const GetActivityCodes = wrap(async (req, res, next) => {
 		});
 		error = true;
 	});
-	if (error) {
+	if(error){
 		return next(false);
 	}
 
-	if (codes && codes.length) {
-		codes.forEach(function (code) {
-			if (code.alternate_names) {
+	if(codes && codes.length){
+		codes.forEach(function(code){
+			if(code.alternate_names){
 				code.alternate_names = code.alternate_names.split(',');
-			} else {
+			}else{
 				delete code.alternate_names;
 			}
 		});
@@ -101,7 +101,7 @@ const GetActivityCodes = wrap(async (req, res, next) => {
 });
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (server, basePath) => {
-	server.AddGet('Get Activity Codes', basePath + '/activity-codes', GetActivityCodes);
-	server.AddGet('Get Activity Codes (depr)', basePath + '/activity_codes', GetActivityCodes);
+exports.registerEndpoint = (server, basePath) => {
+	server.addGet('Get Activity Codes', `${basePath}/activity-codes`, GetActivityCodes);
+	server.addGet('Get Activity Codes (depr)', `${basePath}/activity_codes`, GetActivityCodes);
 };

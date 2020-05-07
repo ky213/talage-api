@@ -1,6 +1,6 @@
 'use strict';
-const crypt = requireShared('./services/crypt.js');
-const validator = requireShared('./helpers/validator.js');
+const crypt = global.requireShared('./services/crypt.js');
+const validator = global.requireShared('./helpers/validator.js');
 const auth = require('./helpers/auth.js');
 const serverHelper = require('../../../server.js');
 
@@ -13,13 +13,13 @@ const serverHelper = require('../../../server.js');
  *
  * @returns {void}
  */
-async function getApplication(req, res, next) {
+async function getApplication(req, res, next){
 	let error = false;
 
 	// Check for data
-	if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
+	if(!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
 		log.info('Bad Request: No data received');
-		return next(serverHelper.RequestError('Bad Request: No data received'));
+		return next(serverHelper.requestError('Bad Request: No data received'));
 	}
 
 	// Make sure the authentication payload has everything we are expecting
@@ -31,28 +31,28 @@ async function getApplication(req, res, next) {
 	}
 
 	// Get the agents that we are permitted to view
-	const agents = await auth.getAgents(req).catch(function (e) {
+	const agents = await auth.getAgents(req).catch(function(e){
 		error = e;
 	});
-	if (error) {
+	if(error){
 		return next(error);
 	}
 
 	// Make sure basic elements are present
-	if (!req.query.id) {
+	if(!req.query.id){
 		log.info('Bad Request: Missing ID');
-		return next(serverHelper.RequestError('Bad Request: You must supply an ID'));
+		return next(serverHelper.requestError('Bad Request: You must supply an ID'));
 	}
 
 	// Validate the application ID
-	if (!await validator.is_valid_id(req.query.id)) {
+	if(!await validator.is_valid_id(req.query.id)){
 		log.info('Bad Request: Invalid id');
-		return next(serverHelper.RequestError('Invalid id'));
+		return next(serverHelper.requestError('Invalid id'));
 	}
 
 	// Check if this is Solepro and grant them special access
 	let where = `${db.quoteName('a.agency')} IN (${agents.join(',')})`;
-	if (agents.length === 1 && agents[0] === 12) {
+	if(agents.length === 1 && agents[0] === 12){
 		// This is Solepro (no restriction on agency ID, just applications tagged to them)
 		where = `${db.quoteName('a.solepro')} = 1`;
 	}
@@ -95,14 +95,14 @@ async function getApplication(req, res, next) {
 		`;
 
 	// Query the database
-	const applicationData = await db.query(sql).catch(function (err) {
+	const applicationData = await db.query(sql).catch(function(err){
 		log.error(err.message);
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Make sure an application was found
-	if (applicationData.length !== 1) {
-		return next(serverHelper.NotFoundError('The application could not be found.'));
+	if(applicationData.length !== 1){
+		return next(serverHelper.notFoundError('The application could not be found.'));
 	}
 
 	// Get the application from the response
@@ -146,9 +146,9 @@ async function getApplication(req, res, next) {
 		`;
 
 	// Query the database
-	const addressData = await db.query(addressSQL).catch(function (err) {
+	const addressData = await db.query(addressSQL).catch(function(err){
 		log.error(err.message);
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Decrypt the encrypted fields
@@ -160,7 +160,7 @@ async function getApplication(req, res, next) {
 
 	// Only process addresses if some were returned
 	application.locations = [];
-	if (addressData.length > 0) {
+	if(addressData.length > 0){
 
 		// Get the activity codes for all addresses
 		const codesSQL = `
@@ -170,25 +170,25 @@ async function getApplication(req, res, next) {
 					${db.quoteName('aac.payroll')}
 				FROM ${db.quoteName('#__address_activity_codes', 'aac')}
 				LEFT JOIN ${db.quoteName('#__activity_codes', 'ac')} ON ${db.quoteName('ac.id')} = ${db.quoteName('aac.ncci_code')}
-				WHERE ${db.quoteName('aac.address')} IN (${addressData.map(function (address) {
-			return address.id;
-		})});
+				WHERE ${db.quoteName('aac.address')} IN (${addressData.map(function(address){
+	return address.id;
+})});
 			`;
 
 		// Query the database
-		const codesData = await db.query(codesSQL).catch(function (err) {
+		const codesData = await db.query(codesSQL).catch(function(err){
 			log.error(err.message);
-			return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		});
 
 		// Loop over each address and do a bit more work
-		addressData.forEach(function (address) {
+		addressData.forEach(function(address){
 
 			// Get all codes that are associated with this address and add them
 			address.activityCodes = [];
-			if (codesData.length > 0) {
-				codesData.forEach(function (code) {
-					if (code.address === address.id) {
+			if(codesData.length > 0){
+				codesData.forEach(function(code){
+					if(code.address === address.id){
 						address.activityCodes.push(code);
 					}
 				});
@@ -221,14 +221,14 @@ async function getApplication(req, res, next) {
 			WHERE ${db.quoteName('q.application')} = ${req.query.id} AND ${db.quoteName('q.state')} = 1;
 		`;
 
-	const quotes = await db.query(quotesSQL).catch(function (err) {
+	const quotes = await db.query(quotesSQL).catch(function(err){
 		log.error(err.message);
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Add the quotes to the return object and determine the application status
 	application.quotes = [];
-	if (quotes.length > 0) {
+	if(quotes.length > 0){
 		// Add the quotes to the response
 		application.quotes = quotes;
 	}
@@ -242,6 +242,6 @@ async function getApplication(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (server, basePath) => {
-	server.AddGetAuth('Get application', basePath + '/application', getApplication);
+exports.registerEndpoint = (server, basePath) => {
+	server.addGetAuth('Get application', `${basePath}/application`, getApplication);
 };
