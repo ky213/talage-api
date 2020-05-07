@@ -46,7 +46,8 @@
 		"sodium": "^3.0.2",
 		"striptags": "^3.1.1",
 		"winston": "^3.2.1",
-		"winston-elasticsearch": "^0.8.8"
+		"winston-elasticsearch": "^0.8.8",
+		"node-ec2-metadata": "0.0.5"
 	},
 	"devDependencies": {
 		"jshint": "^2.11.0",

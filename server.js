@@ -148,7 +148,11 @@ module.exports = {
 		// Log Every Request. If they don't reach the endpoints, then CORS returned a preflight error.
 		// eslint-disable-next-line no-unused-vars
 		server.on('after', (req, res, route, error) => {
-			logInfoHandler(`${moment().format()} ${req.connection.remoteAddress} ${req.method} ${req.url} => ${res.statusCode} '${res.statusMessage}'`);
+			// Skip if uptime
+			if((req.url.includes('uptime') === true || listenPort === 3008) === false){
+				logInfoHandler(`${moment().format()} ${req.connection.remoteAddress} ${req.method} ${req.url} => ${res.statusCode} '${res.statusMessage}'`);
+			}
+
 		});
 		server.on('error', function(err){
 			logErrorHandler(`${moment().format()} ${err.toString()}'`);

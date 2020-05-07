@@ -378,7 +378,7 @@ async function createUser(req, res, next){
 	let portalurl = global.settings.PORTAL_URL;
 	if(agencyNetwork === 2){
 		brandraw = 'Digalent';
-		if(global.settings.NODE_ENV === 'production'){
+		if(global.settings.ENV === 'production'){
 			portalurl = 'https://agents.digalent.com';
 		}else{
 			portalurl = 'https://agents.sta.digalent.com';
@@ -407,6 +407,7 @@ async function createUser(req, res, next){
 			log.error(`Unable to send new user email to ${data.email}. Please send manually.`);
 		}
 	});
+
 }
 
 /**
