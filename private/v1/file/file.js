@@ -17,38 +17,36 @@ const serverHelper = require('../../../server.js');
  *
  * @returns {void}
  */
-function DeleteFile(req, res, next) {
+function DeleteFile(req, res, next){
 
 	// Sanitize the file path
 	let path = '';
-	if (req.query.path) {
+	if(req.query.path){
 		path = req.query.path.replace(/[^a-zA-Z0-9-_/.]/g, '');
 	}
 
 	// Make sure a file path was provided
-	if (!path) {
+	if(!path){
 		const errorMsg = 'You must specify a file path';
 		log.warn(errorMsg);
-		return next(serverHelper.RequestError(errorMsg));
+		return next(serverHelper.requestError(errorMsg));
 	}
 
 	// Call out to S3
-	s3.deleteObject({
-		Bucket: settings.S3_BUCKET,
-		Key: path
-	}, function (err) {
-		if (err) {
+	global.s3.deleteObject({
+		'Bucket': global.settings.S3_BUCKET,
+		'Key': path
+	}, function(err){
+		if(err){
 			log.warn(err.message);
-			res.send(serverHelper.InternalError(err.message));
+			res.send(serverHelper.internalError(err.message));
 			return;
 		}
 
 		log.info('File Deleted, if it Existed');
 
 		// Send the data back to the user
-		res.send(200, {
-			code: 'Success'
-		});
+		res.send(200, {'code': 'Success'});
 	});
 	// FIXME: need to await completion and return next()
 }
@@ -62,29 +60,29 @@ function DeleteFile(req, res, next) {
  *
  * @returns {void}
  */
-function GetFile(req, res, next) {
+function GetFile(req, res, next){
 
 	// Sanitize the file path
 	let path = '';
-	if (req.query.path) {
+	if(req.query.path){
 		path = req.query.path.replace(/[^a-zA-Z0-9-_/.]/g, '');
 	}
 
 	// Make sure a file path was provided
-	if (!path) {
+	if(!path){
 		const errorMsg = 'You must specify a file path';
 		log.warn(errorMsg);
-		return next(serverHelper.RequestError(errorMsg));
+		return next(serverHelper.requestError(errorMsg));
 	}
 
 	// Call out to S3
-	s3.getObject({
-		Bucket: settings.S3_BUCKET,
-		Key: path
-	}, function (err, data) {
-		if (err) {
+	global.s3.getObject({
+		'Bucket': global.settings.S3_BUCKET,
+		'Key': path
+	}, function(err, data){
+		if(err){
 			log.warn(err.message);
-			res.send(serverHelper.InternalError(err.message));
+			res.send(serverHelper.internalError(err.message));
 			return;
 		}
 
@@ -115,66 +113,64 @@ function GetFile(req, res, next) {
  *
  * @returns {void}
  */
-function PutFile(req, res, next) {
+function PutFile(req, res, next){
 
 	// Sanitize the file path
 	let path = '';
-	if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'path')) {
+	if(req.body && Object.prototype.hasOwnProperty.call(req.body, 'path')){
 		path = req.body.path.replace(/[^a-zA-Z0-9-_/.]/g, '');
 	}
 
 	// Make sure a file path was provided
-	if (!path) {
+	if(!path){
 		const errorMsg = 'You must specify a file path';
 		log.warn(errorMsg);
-		return next(serverHelper.RequestError(errorMsg));
+		return next(serverHelper.requestError(errorMsg));
 	}
 
 	// Make sure file data was provided
-	if (!Object.prototype.hasOwnProperty.call(req.body, 'data')) {
+	if(!Object.prototype.hasOwnProperty.call(req.body, 'data')){
 		const errorMsg = 'You must provide file data';
 		log.warn(errorMsg);
-		return next(serverHelper.RequestError(errorMsg));
+		return next(serverHelper.requestError(errorMsg));
 	}
 
 	// Conver to base64
 	const fileBuffer = Buffer.from(req.body.data, 'base64');
 
 	// Make sure the data is valid
-	if (fileBuffer.toString('base64') !== req.body.data) {
+	if(fileBuffer.toString('base64') !== req.body.data){
 		const errorMsg = 'The data you supplied is not valid. It must be base64 encoded';
 		log.warn(errorMsg);
-		return next(serverHelper.RequestError(errorMsg));
+		return next(serverHelper.requestError(errorMsg));
 	}
 
 	// Call out to S3
-	s3.putObject({
-		Body: fileBuffer,
-		Bucket: settings.S3_BUCKET,
-		Key: path
-	}, function (err) {
-		if (err) {
+	global.s3.putObject({
+		'Body': fileBuffer,
+		'Bucket': global.settings.S3_BUCKET,
+		'Key': path
+	}, function(err){
+		if(err){
 			log.warn(err.message);
-			res.send(serverHelper.InternalError(err.message));
+			res.send(serverHelper.internalError(err.message));
 			return;
 		}
 
 		log.info('File saved');
 
 		// Send the data back to the user
-		res.send(200, {
-			code: 'Success'
-		});
+		res.send(200, {'code': 'Success'});
 	});
 	// FIXME: need to await completion and return next()
 }
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (server, basePath) => {
-	server.AddGet('File', basePath + '/file', GetFile);
-	server.AddGet('File (depr)', basePath + '/', GetFile);
-	server.AddPut('File', basePath + '/file', PutFile);
-	server.AddPut('File (depr)', basePath + '/', PutFile);
-	server.AddDelete('File', basePath + '/file', DeleteFile);
-	server.AddDelete('File (depr)', basePath + '/', DeleteFile);
+exports.registerEndpoint = (server, basePath) => {
+	server.addGet('File', `${basePath}/file`, GetFile);
+	server.addGet('File (depr)', `${basePath}/`, GetFile);
+	server.addPut('File', `${basePath}/file`, PutFile);
+	server.addPut('File (depr)', `${basePath}/`, PutFile);
+	server.addDelete('File', `${basePath}/file`, DeleteFile);
+	server.addDelete('File (depr)', `${basePath}/`, DeleteFile);
 };

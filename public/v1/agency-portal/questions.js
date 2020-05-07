@@ -1,6 +1,6 @@
 'use strict';
 
-const validator = requireShared('./helpers/validator.js');
+const validator = global.requireShared('./helpers/validator.js');
 const serverHelper = require('../../../server.js');
 const auth = require('./helpers/auth.js');
 
@@ -9,10 +9,10 @@ const auth = require('./helpers/auth.js');
  * @param {object} question - The answer from a question in the form of a string
  * @return {string} - The answer
  */
-function getAnswer(question) {
-	if (Object.prototype.hasOwnProperty.call(question, 'answer') && question.answer !== null) {
+function getAnswer(question){
+	if(Object.prototype.hasOwnProperty.call(question, 'answer') && question.answer !== null){
 		return question.answer;
-	} else if (Object.prototype.hasOwnProperty.call(question, 'text_answer') && question.text_answer !== null) {
+	}else if(Object.prototype.hasOwnProperty.call(question, 'text_answer') && question.text_answer !== null){
 		return question.text_answer;
 	}
 	return '';
@@ -28,33 +28,33 @@ function getAnswer(question) {
  *
  * @returns {void}
  */
-async function GetQuestions(req, res, next) {
+async function GetQuestions(req, res, next){
 	let error = false;
-	
+
 	// Check for data
-	if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
+	if(!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
 		log.info('Bad Request: No data received');
-		return next(serverHelper.RequestError('Bad Request: No data received'));
+		return next(serverHelper.requestError('Bad Request: No data received'));
 	}
 
 	// Make sure the authentication payload has everything we are expecting
 	await auth.validateJWT(req, 'applications', 'view').catch(function(e){
 		error = e;
 	});
-	if (error) {
+	if(error){
 		return next(error);
 	}
 
 	// Make sure basic elements are present
-	if (!req.query.application_id) {
+	if(!req.query.application_id){
 		log.info('Bad Request: Missing Application ID');
-		return next(serverHelper.RequestError('Bad Request: You must supply an application ID'));
+		return next(serverHelper.requestError('Bad Request: You must supply an application ID'));
 	}
 
 	// Validate the application ID
-	if (!await validator.is_valid_id(req.query.application_id)) {
+	if(!await validator.is_valid_id(req.query.application_id)){
 		log.info('Bad Request: Invalid application id');
-		return next(serverHelper.RequestError('Invalid application id'));
+		return next(serverHelper.requestError('Invalid application id'));
 	}
 
 	const sql = `SELECT qa.answer, aq.text_answer, tq.id, tq.type, tq.parent, tq.parent_answer, tq.sub_level, tq.question
@@ -64,9 +64,9 @@ async function GetQuestions(req, res, next) {
 						WHERE aq.application = ${req.query.application_id}
 						ORDER BY tq.parent`;
 
-	const rawQuestionData = await db.query(sql).catch(function (err) {
+	const rawQuestionData = await db.query(sql).catch(function(err){
 		log.error(err.message);
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 
@@ -79,14 +79,14 @@ async function GetQuestions(req, res, next) {
 	rawQuestionData.forEach((question) => {
 
 		// If this question is a parent then add its info
-		if (question.parent === null) {
+		if(question.parent === null){
 			dependencyList[question.id] = {
 				'answer': getAnswer(question),
 				'children': {},
 				'question': question.question
 			};
 			// If this question is a child add to the children array
-		} else {
+		}else{
 
 			// Store the relationship between this question and its parent
 			childToParent[question.id] = question.parent;
@@ -95,13 +95,13 @@ async function GetQuestions(req, res, next) {
 			const listOfParents = [question.parent];
 
 			// Add all the parent IDs all the way to the top level
-			while (childToParent[listOfParents.slice(-1)[0]]) {
+			while(childToParent[listOfParents.slice(-1)[0]]){
 				listOfParents.push(childToParent[listOfParents.slice(-1)[0]]);
 			}
 
 			// Build a string that will put this question in the proper nesting
 			let str = `dependencyList['${listOfParents.pop()}']`;
-			for (let i = 0; i < listOfParents.length; i++) {
+			for(let i = 0; i < listOfParents.length; i++){
 				str += `.children['${listOfParents.pop()}']`;
 			}
 
@@ -111,19 +111,19 @@ async function GetQuestions(req, res, next) {
 			 * Evaluate the string as a command
 			 * If there is messed up data and the eval doesn't work, then catch the error and move on
 			 */
-			try {
+			try{
 				// eslint-disable-next-line  no-eval
 				eval(str);
-			} catch (e) {
+			}catch(e){
 				log.error(e.message);
 			}
 		}
 	});
 
-	res.send(200, { 'questions': dependencyList });
+	res.send(200, {'questions': dependencyList});
 	return next();
 }
 
-exports.RegisterEndpoint = (server, basePath) => {
-	server.AddGetAuth('Get questions', basePath + '/questions', GetQuestions);
+exports.registerEndpoint = (server, basePath) => {
+	server.addGetAuth('Get questions', `${basePath}/questions`, GetQuestions);
 };

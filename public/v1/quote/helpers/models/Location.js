@@ -6,11 +6,11 @@
 
 const ActivityCode = require('./ActivityCode.js');
 const serverHelper = require('../../../../../server.js');
-const validator = requireShared('./helpers/validator.js');
+const validator = global.requireShared('./helpers/validator.js');
 
-module.exports = class Location {
+module.exports = class Location{
 
-	constructor() {
+	constructor(){
 		this.app = null;
 
 		this.activity_codes = [];
@@ -35,26 +35,26 @@ module.exports = class Location {
 	 * @param {object} data - The business data
 	 * @returns {void}
 	 */
-	load(data) {
+	load(data){
 		Object.keys(this).forEach((property) => {
-			if (!Object.prototype.hasOwnProperty.call(data, property)) {
+			if(!Object.prototype.hasOwnProperty.call(data, property)){
 				return;
 			}
 
 			// Trim whitespace
-			if (typeof data[property] === 'string') {
+			if(typeof data[property] === 'string'){
 				data[property] = data[property].trim();
 			}
 
 			// Perform property specific tasks
-			switch (property) {
+			switch(property){
 				case 'activity_codes':
 					data[property].forEach((c) => {
 						// Check if we have already seen this activity code
 						let match = false;
 						const tmp_id = parseInt(c.id, 10);
-						this.activity_codes.forEach(function (code) {
-							if (tmp_id === code.id) {
+						this.activity_codes.forEach(function(code){
+							if(tmp_id === code.id){
 								match = true;
 
 								// Seems convoluted, but we need to sanitize this payroll value
@@ -65,7 +65,7 @@ module.exports = class Location {
 						});
 
 						// If the activity code is new, add it
-						if (!match) {
+						if(!match){
 							const activity_code = new ActivityCode();
 							activity_code.app = this.app;
 							activity_code.load(c);
@@ -91,42 +91,42 @@ module.exports = class Location {
 	 *
 	 * @returns {Promise.<array, Error>} A promise that returns a boolean indicating whether or not this record is valid, or an Error if rejected
 	 */
-	validate() {
-		return new Promise(async (fulfill, reject) => {
+	validate(){
+		return new Promise(async(fulfill, reject) => {
 
 			// Validate address
-			if (this.address) {
+			if(this.address){
 				// Check for maximum length
-				if (this.address.length > 100) {
-					reject(serverHelper.RequestError('Address exceeds maximum of 100 characters'));
+				if(this.address.length > 100){
+					reject(serverHelper.requestError('Address exceeds maximum of 100 characters'));
 					return;
 				}
-			} else {
-				reject(serverHelper.RequestError('Missing required field: address'));
+			}else{
+				reject(serverHelper.requestError('Missing required field: address'));
 				return;
 			}
 
 			// Validate address2
-			if (this.address2) {
+			if(this.address2){
 				// Check for maximum length
-				if (this.address2.length > 20) {
-					reject(serverHelper.RequestError('Address exceeds maximum of 20 characters'));
+				if(this.address2.length > 20){
+					reject(serverHelper.requestError('Address exceeds maximum of 20 characters'));
 					return;
 				}
 			}
 
 			// Validate activity_codes
-			if (this.app.has_policy_type('WC')) {
-				if (this.activity_codes.length) {
+			if(this.app.has_policy_type('WC')){
+				if(this.activity_codes.length){
 					const activity_code_promises = [];
-					this.activity_codes.forEach(function (activity_code) {
+					this.activity_codes.forEach(function(activity_code){
 						activity_code_promises.push(activity_code.validate());
 					});
-					await Promise.all(activity_code_promises).catch(function (error) {
+					await Promise.all(activity_code_promises).catch(function(error){
 						reject(error);
 					});
-				} else {
-					reject(serverHelper.RequestError('At least 1 class code must be provided per location'));
+				}else{
+					reject(serverHelper.requestError('At least 1 class code must be provided per location'));
 					return;
 				}
 			}
@@ -134,20 +134,20 @@ module.exports = class Location {
 			/*
 			 * Identification Number
 			 */
-			if (this.identification_number) {
-				if (validator.ein(this.identification_number)) {
+			if(this.identification_number){
+				if(validator.ein(this.identification_number)){
 					this.identification_number_type = 'EIN';
-				} else if (this.app.business.entity_type === 'Sole Proprietorship' && validator.ssn(this.identification_number)) {
+				}else if(this.app.business.entity_type === 'Sole Proprietorship' && validator.ssn(this.identification_number)){
 					this.identification_number_type = 'SSN';
-				} else {
-					reject(serverHelper.RequestError('Invalid formatting for property: identification number.'));
+				}else{
+					reject(serverHelper.requestError('Invalid formatting for property: identification number.'));
 					return;
 				}
 
 				// Strip out the slashes, insurers don't like slashes
 				this.identification_number = this.identification_number.replace(/-/g, '');
-			} else {
-				reject(serverHelper.RequestError('Identification Number is required'));
+			}else{
+				reject(serverHelper.requestError('Identification Number is required'));
 				return;
 			}
 
@@ -157,8 +157,8 @@ module.exports = class Location {
 			 * - >= 0
 			 * - <= 99,999
 			 */
-			if (isNaN(this.full_time_employees) || this.full_time_employees < 0 || this.full_time_employees > 255) {
-				reject(serverHelper.RequestError('full_time_employees must be an integer between 0 and 255 inclusive'));
+			if(isNaN(this.full_time_employees) || this.full_time_employees < 0 || this.full_time_employees > 255){
+				reject(serverHelper.requestError('full_time_employees must be an integer between 0 and 255 inclusive'));
 				return;
 			}
 
@@ -168,8 +168,8 @@ module.exports = class Location {
 			 * - >= 0
 			 * - <= 99,999
 			 */
-			if (isNaN(this.part_time_employees) || this.part_time_employees < 0 || this.part_time_employees > 255) {
-				reject(serverHelper.RequestError('part_time_employees must be an integer between 0 and 255 inclusive'));
+			if(isNaN(this.part_time_employees) || this.part_time_employees < 0 || this.part_time_employees > 255){
+				reject(serverHelper.requestError('part_time_employees must be an integer between 0 and 255 inclusive'));
 				return;
 			}
 
@@ -180,39 +180,39 @@ module.exports = class Location {
 			 * - >= 100
 			 * - <= 99,999
 			 */
-			if (this.app.has_policy_type('BOP')) {
-				if (!validator.isSqFtg(this.square_footage) || this.square_footage < 100 || this.square_footage > 99999) {
-					return reject(serverHelper.RequestError('square_footage must be an integer between 100 and 99,999 inclusive'));
+			if(this.app.has_policy_type('BOP')){
+				if(!validator.isSqFtg(this.square_footage) || this.square_footage < 100 || this.square_footage > 99999){
+					return reject(serverHelper.requestError('square_footage must be an integer between 100 and 99,999 inclusive'));
 				}
 			}
 
 			// Validate zip
-			if (this.zip) {
-				if (!validator.isZip(this.zip)) {
-					reject(serverHelper.RequestError('Invalid formatting for property: zip. Expected 5 digit format'));
+			if(this.zip){
+				if(!validator.isZip(this.zip)){
+					reject(serverHelper.requestError('Invalid formatting for property: zip. Expected 5 digit format'));
 					return;
 				}
 
 				// Make sure we have match in our database
 				await db.query(`SELECT \`city\`, \`territory\` FROM \`#__zip_codes\` WHERE \`zip\` = ${this.zip} LIMIT 1;`).then((row) => {
-					if (row) {
+					if(row){
 						this.city = row[0].city;
 						this.territory = row[0].territory;
-					} else {
-						reject(serverHelper.RequestError('The zip code you entered is not valid'));
+					}else{
+						reject(serverHelper.requestError('The zip code you entered is not valid'));
 					}
-				}).catch(function (error) {
+				}).catch(function(error){
 					log.warn(error);
-					reject(serverHelper.RequestError('The zip code you entered is not valid'));
+					reject(serverHelper.requestError('The zip code you entered is not valid'));
 				});
-			} else {
-				reject(serverHelper.RequestError('Missing required field: zip'));
+			}else{
+				reject(serverHelper.requestError('Missing required field: zip'));
 				return;
 			}
 
 
 			// Validate unemployment_number (WC only)
-			if (this.app.has_policy_type('WC')) {
+			if(this.app.has_policy_type('WC')){
 				const unemployment_number_states = [
 					'CO',
 					'HI',
@@ -224,23 +224,23 @@ module.exports = class Location {
 				];
 
 				// Check if an unemployment number is required
-				if (unemployment_number_states.includes(this.territory)) {
-					if (this.unemployment_number === 0) {
-						reject(serverHelper.RequestError(`Unemployment Number is required for all locations in ${unemployment_number_states.join(', ')}`));
+				if(unemployment_number_states.includes(this.territory)){
+					if(this.unemployment_number === 0){
+						reject(serverHelper.requestError(`Unemployment Number is required for all locations in ${unemployment_number_states.join(', ')}`));
 						return;
 					}
-					if (!Number.isInteger(this.unemployment_number)) {
-						reject(serverHelper.RequestError('Unemployment Number must be an integer'));
+					if(!Number.isInteger(this.unemployment_number)){
+						reject(serverHelper.requestError('Unemployment Number must be an integer'));
 						return;
 					}
-				} else {
-					if (this.territory === 'MI' && this.unemployment_number && !Number.isInteger(this.unemployment_number)) {
-						reject(serverHelper.RequestError('Unemployment Number must be an integer'));
+				}else{
+					if(this.territory === 'MI' && this.unemployment_number && !Number.isInteger(this.unemployment_number)){
+						reject(serverHelper.requestError('Unemployment Number must be an integer'));
 						return;
 					}
 					this.unemployment_number = 0;
 				}
-			} else {
+			}else{
 				this.unemployment_number = 0;
 			}
 

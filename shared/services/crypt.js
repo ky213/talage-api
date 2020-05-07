@@ -15,20 +15,18 @@ const request = require('request');
  * @param {string|Object} data - The data to be sent to the encryption service
  * @returns {Promise.<string, Error>} - A promise that returns the result of the request as a string if resolved, or an Error if rejected
  */
-function sendRequest(endpoint, data) {
+function sendRequest(endpoint, data){
 	// Send the request to the encryption service
-	return new Promise(function (resolve, reject) {
+	return new Promise(function(resolve, reject){
 		// Establish the options for the request
 		const options = {
-			'headers': {
-				'accept': 'text/plain'
-			},
+			'headers': {'accept': 'text/plain'},
 			'method': 'POST',
-			'url': `http://localhost:${settings.PRIVATE_API_PORT}/v1/encryption/${endpoint}`
+			'url': `http://localhost:${global.settings.PRIVATE_API_PORT}/v1/encryption/${endpoint}`
 		};
 
 		// Determine what type of data to send
-		switch (typeof data) {
+		switch(typeof data){
 			case 'object':
 				options.json = data;
 				options.headers['content-type'] = 'application/json';
@@ -44,16 +42,16 @@ function sendRequest(endpoint, data) {
 		}
 
 		// Send the request
-		request(options, function (error, response, body) {
+		request(options, function(error, response, body){
 			// If there was an error, reject
-			if (error) {
+			if(error){
 				log.error('Failed to connect to encryption service.');
 				reject(new Error('Failed to connect to encryption service.'));
 				return;
 			}
 
 			// If the response was anything but a success, reject
-			if (response.statusCode !== 200) {
+			if(response.statusCode !== 200){
 				// The response is JSON, parse out the error
 				const message = `${response.statusCode} - ${JSON.parse(body).message}`;
 				log.warn(message);
@@ -75,26 +73,26 @@ function sendRequest(endpoint, data) {
  * @param {string} val - The encrypted value
  * @return {Promise.<string, boolean>} - The decrypted value on success, false otherwise
  */
-exports.decrypt = function (val) {
-	return new Promise(async function (resolve) {
+exports.decrypt = function(val){
+	return new Promise(async function(resolve){
 		// If this is a buffer, convert it to a string
-		if (Buffer.isBuffer(val)) {
+		if(Buffer.isBuffer(val)){
 			val = val.toString();
 		}
 
 		// Make sure this is a string and that it is not empty
-		if (typeof val !== 'string' || val === '') {
+		if(typeof val !== 'string' || val === ''){
 			resolve(false);
 			return;
 		}
 
 		// Send a request to the encryption service
 		let hadError = false;
-		const result = await sendRequest('decrypt', val).catch(function () {
+		const result = await sendRequest('decrypt', val).catch(function(){
 			hadError = true;
 			resolve(false);
 		});
-		if (hadError) {
+		if(hadError){
 			return;
 		}
 
@@ -109,21 +107,21 @@ exports.decrypt = function (val) {
  * @param {mixed} val - Any value to be encrypted
  * @return {Promise.<string, boolean>} - The decrypted value on success, false otherwise
  */
-exports.encrypt = function (val) {
-	return new Promise(async function (resolve) {
+exports.encrypt = function(val){
+	return new Promise(async function(resolve){
 		// Make sure this is a string and that it is not empty
-		if (typeof val !== 'string' || val === '') {
+		if(typeof val !== 'string' || val === ''){
 			resolve(false);
 			return;
 		}
 
 		// Send a request to the encryption service
 		let hadError = false;
-		const result = await sendRequest('encrypt', val).catch(function () {
+		const result = await sendRequest('encrypt', val).catch(function(){
 			hadError = true;
 			resolve(false);
 		});
-		if (hadError) {
+		if(hadError){
 			return;
 		}
 
@@ -138,21 +136,21 @@ exports.encrypt = function (val) {
  * @param {string} val - A value to be hashed
  * @return {Promise.<string, boolean>} - The decrypted value on success, false otherwise
  */
-exports.hash = function (val) {
-	return new Promise(async function (resolve) {
+exports.hash = function(val){
+	return new Promise(async function(resolve){
 		// Make sure this is a string and that it is not empty
-		if (typeof val !== 'string' || val === '') {
+		if(typeof val !== 'string' || val === ''){
 			resolve(false);
 			return;
 		}
 
 		// Send a request to the encryption service
 		let hadError = false;
-		const result = await sendRequest('hash', val).catch(function () {
+		const result = await sendRequest('hash', val).catch(function(){
 			hadError = true;
 			resolve(false);
 		});
-		if (hadError) {
+		if(hadError){
 			return;
 		}
 
@@ -167,21 +165,21 @@ exports.hash = function (val) {
  * @param {string} val - Any value to be hashed
  * @return {Promise.<string, boolean>} - The decrypted value on success, false otherwise
  */
-exports.hashPassword = function (val) {
-	return new Promise(async function (resolve) {
+exports.hashPassword = function(val){
+	return new Promise(async function(resolve){
 		// Make sure this is a string and that it is not empty
-		if (typeof val !== 'string' || val === '') {
+		if(typeof val !== 'string' || val === ''){
 			resolve(false);
 			return;
 		}
 
 		// Send a request to the encryption service
 		let hadError = false;
-		const result = await sendRequest('hashPassword', val).catch(function () {
+		const result = await sendRequest('hashPassword', val).catch(function(){
 			hadError = true;
 			resolve(false);
 		});
-		if (hadError) {
+		if(hadError){
 			return;
 		}
 
@@ -198,10 +196,10 @@ exports.hashPassword = function (val) {
  * @param {string} password - A string entered by the user which will be checked against the hash
  * @return {Promise.<string, boolean>} - The decrypted value on success, false otherwise
  */
-exports.verifyPassword = function (hash, password) {
-	return new Promise(async function (resolve) {
+exports.verifyPassword = function(hash, password){
+	return new Promise(async function(resolve){
 		// Make sure this is a string and that it is not empty
-		if (typeof hash !== 'string' || hash === '' || typeof password !== 'string' || password === '') {
+		if(typeof hash !== 'string' || hash === '' || typeof password !== 'string' || password === ''){
 			resolve(false);
 			return;
 		}
@@ -209,13 +207,13 @@ exports.verifyPassword = function (hash, password) {
 		// Send a request to the encryption service
 		let hadError = false;
 		const result = await sendRequest('verifyPassword', {
-			hash,
-			password
-		}).catch(function () {
+			'hash': hash,
+			'password': password
+		}).catch(function(){
 			hadError = true;
 			resolve(false);
 		});
-		if (hadError) {
+		if(hadError){
 			return;
 		}
 
@@ -224,8 +222,10 @@ exports.verifyPassword = function (hash, password) {
 	});
 };
 
-// ==========================================================
-// docs-api, quote-api, agency-portal/api
+/*
+ * ==========================================================
+ * docs-api, quote-api, agency-portal/api
+ */
 
 /**
  * Takes in an array of objects and decrypts all encrypted values in each object
@@ -236,9 +236,9 @@ exports.verifyPassword = function (hash, password) {
  *
  * @return {mixed} - Returns null for invalid input, promise otherwise
  */
-exports.batchProcessObjectArray = function (objectArray, action, encryptedKeys) {
+exports.batchProcessObjectArray = function(objectArray, action, encryptedKeys){
 	// Make sure an array was provided
-	if (!Array.isArray(objectArray) || objectArray.length === 0) {
+	if(!Array.isArray(objectArray) || objectArray.length === 0){
 		return null;
 	}
 
@@ -255,21 +255,21 @@ exports.batchProcessObjectArray = function (objectArray, action, encryptedKeys) 
  *
  * @return {mixed} - Returns null for invalid input, promise otherwise
  */
-exports.batchProcessObject = function (object, action, encryptedKeys) {
+exports.batchProcessObject = function(object, action, encryptedKeys){
 	// Make sure we got valid arguments
-	if (typeof object !== 'object' || object === null) {
+	if(typeof object !== 'object' || object === null){
 		return null;
 	}
 
 	// Map each encrypted property to a promise that resolves once decryption is complete
 	return Promise.all(encryptedKeys.map((key) => new Promise((resolve) => {
 		// Make sure a valid action was provided
-		if (!Object.prototype.hasOwnProperty.call(module.exports, action)) {
+		if(!Object.prototype.hasOwnProperty.call(module.exports, action)){
 			resolve();
 		}
 
 		// Skip this value if its empty or doesn't exist
-		if (!Object.prototype.hasOwnProperty.call(object, key) || object[key] === null || object[key].length === 0) {
+		if(!Object.prototype.hasOwnProperty.call(object, key) || object[key] === null || object[key].length === 0){
 			resolve();
 		}
 
@@ -277,9 +277,9 @@ exports.batchProcessObject = function (object, action, encryptedKeys) {
 		const handler = module.exports[action];
 		handler(object[key]).then((decryptedValue) => {
 			// Set the value if everything went smootly, null otherwise
-			if (decryptedValue) {
+			if(decryptedValue){
 				object[key] = decryptedValue;
-			} else {
+			}else{
 				object[key] = null;
 			}
 
@@ -287,4 +287,3 @@ exports.batchProcessObject = function (object, action, encryptedKeys) {
 		});
 	})));
 };
-

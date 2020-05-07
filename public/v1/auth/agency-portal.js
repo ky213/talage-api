@@ -4,7 +4,7 @@
 
 'use strict';
 
-const crypt = requireShared('services/crypt.js');
+const crypt = global.requireShared('services/crypt.js');
 const jwt = require('jsonwebtoken');
 const serverHelper = require('../../../server.js');
 
@@ -17,26 +17,26 @@ const serverHelper = require('../../../server.js');
  *
  * @returns {object} res - Returns an authorization token
  */
-async function PostToken(req, res, next) {
+async function PostToken(req, res, next){
 	let error = false;
 
 	// Check for data
-	if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
+	if(!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0){
 		log.info('Bad Request: Missing both email and password');
-		return next(serverHelper.RequestError('You must supply an email address and password'));
+		return next(serverHelper.requestError('You must supply an email address and password'));
 	}
 
 	// Make sure an email was provided
-	if (!req.body.email) {
+	if(!req.body.email){
 		log.info('Missing email');
-		res.send(400, serverHelper.RequestError('Email address is required'));
+		res.send(400, serverHelper.requestError('Email address is required'));
 		return next();
 	}
 
 	// Makes sure a password was provided
-	if (!req.body.password) {
+	if(!req.body.password){
 		log.info('Missing password');
-		res.send(400, serverHelper.RequestError('Password is required'));
+		res.send(400, serverHelper.requestError('Password is required'));
 		return next();
 	}
 
@@ -69,27 +69,27 @@ async function PostToken(req, res, next) {
 		WHERE \`apu\`.\`email_hash\` = ${db.escape(emailHash)} AND \`apu\`.\`state\` > 0
 		LIMIT 1;
 	`;
-	const result = await db.query(agencySQL).catch(function (e) {
+	const result = await db.query(agencySQL).catch(function(e){
 		log.error(e.message);
-		res.send(500, serverHelper.InternalError('Error querying database. Check logs.'));
+		res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
 		error = true;
 	});
-	if (error) {
+	if(error){
 		return next(false);
 	}
 
 	// Make sure we found the user
-	if (!result || !result.length) {
+	if(!result || !result.length){
 		log.info('Authentication failed - Account not found');
 		log.verbose(emailHash);
-		res.send(401, serverHelper.InvalidCredentialsError('Invalid API Credentials'));
+		res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
 		return next();
 	}
 
 	// Check the password
-	if (!await crypt.verifyPassword(result[0].password, req.body.password)) {
+	if(!await crypt.verifyPassword(result[0].password, req.body.password)){
 		log.info('Authentication failed - Bad password');
-		res.send(401, serverHelper.InvalidCredentialsError('Invalid API Credentials'));
+		res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
 		return next();
 	}
 
@@ -100,18 +100,18 @@ async function PostToken(req, res, next) {
 		WHERE \`id\` = ${result[0].id}
 		LIMIT 1;
 	`;
-	db.query(lastLoginSQL).catch(function (e) {
+	db.query(lastLoginSQL).catch(function(e){
 		// If this fails, log the failure but do nothing else
 		log.error(e.message);
 	});
 
 	// Check if this was an agency network
-	if (result[0].agency_network) {
+	if(result[0].agency_network){
 		payload.agencyNetwork = result[0].agency_network;
 	}
 
 	// For agency networks get the agencies they are allowed to access
-	if (payload.agencyNetwork) {
+	if(payload.agencyNetwork){
 
 		// Build and execute the query
 		const agenciesSQL = `
@@ -119,12 +119,12 @@ async function PostToken(req, res, next) {
 			FROM \`#__agencies\`
 			WHERE \`agency_network\` = ${db.escape(payload.agencyNetwork)} AND \`state\` > 0;
 		`;
-		const agencies = await db.query(agenciesSQL).catch(function (e) {
+		const agencies = await db.query(agenciesSQL).catch(function(e){
 			log.error(e.message);
-			res.send(500, serverHelper.InternalError('Error querying database. Check logs.'));
+			res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
 			error = true;
 		});
-		if (error) {
+		if(error){
 			return next(false);
 		}
 
@@ -143,12 +143,12 @@ async function PostToken(req, res, next) {
 		`;
 
 		// Query the database
-		const insurersData = await db.query(insurersSQL).catch(function (e) {
+		const insurersData = await db.query(insurersSQL).catch(function(e){
 			log.error(e.message);
-			res.send(500, serverHelper.InternalError('Error querying database. Check logs.'));
+			res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
 			error = true;
 		});
-		if (error) {
+		if(error){
 			return next(false);
 		}
 
@@ -157,7 +157,7 @@ async function PostToken(req, res, next) {
 		insurersData.forEach((insurer) => {
 			payload.insurers.push(insurer.id);
 		});
-	} else {
+	}else{
 		// Just allow access to the current agency
 		payload.agents.push(result[0].agency);
 
@@ -173,17 +173,17 @@ async function PostToken(req, res, next) {
 			WHERE \`id\` = ${db.escape(result[0].agency)} AND \`state\` > 0
 			LIMIT 1;
 		`;
-		const wholesaleInfo = await db.query(wholesaleSQL).catch(function (e) {
+		const wholesaleInfo = await db.query(wholesaleSQL).catch(function(e){
 			log.error(e.message);
-			res.send(500, serverHelper.InternalError('Error querying database. Check logs.'));
+			res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
 			error = true;
 		});
-		if (error) {
+		if(error){
 			return next(false);
 		}
 
 		// Only agencies who have wholesale enabled and have not signed before should be required to sign
-		if (wholesaleInfo[0].wholesale && !wholesaleInfo[0].wholesale_agreement_signed) {
+		if(wholesaleInfo[0].wholesale && !wholesaleInfo[0].wholesale_agreement_signed){
 			payload.signatureRequired = true;
 		}
 	}
@@ -204,18 +204,16 @@ async function PostToken(req, res, next) {
 	payload.termsOfServiceVersion = result[0].termsOfServiceVersion;
 
 	// This is a valid user, generate and return a token
-	const token = `Bearer ${jwt.sign(payload, settings.AUTH_SECRET_KEY, {
-		'expiresIn': '1h'
-	})}`;
+	const token = `Bearer ${jwt.sign(payload, global.settings.AUTH_SECRET_KEY, {'expiresIn': '1h'})}`;
 	log.info('Token Created');
 	res.send(201, {
 		'status': 'Created',
-		token
+		'token': token
 	});
 	return next();
 }
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (server, basePath) => {
-	server.AddPost('Get Token', basePath + '/agency-portal', PostToken);
+exports.registerEndpoint = (server, basePath) => {
+	server.addPost('Get Token', `${basePath}/agency-portal`, PostToken);
 };

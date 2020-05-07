@@ -15,48 +15,48 @@ const serverHelper = require('../../../server.js');
  *
  * @returns {object} res - Returns an authorization token
  */
-async function PostBrand(req, res, next) {
-	switch (req.body.hostName) {
-		case "tahoe.talageins.com":
-		case "www.talageins.com":
-		case "talageins.com":
+function PostBrand(req, res, next){
+	switch(req.body.hostName){
+		case 'tahoe.talageins.com':
+		case 'www.talageins.com':
+		case 'talageins.com':
 			res.send(200, {
-				brand: "wheelhouse",
-				env: "production",
-				siteURL: "https://www.talageins.com",
-				portalURL: "https://agents.talageins.com",
-				apiURL: "https://api.talageins.com:3000",
-				s3Bucket: "website-images-staging"
+				'apiURL': 'https://api.talageins.com:3000',
+				'brand': 'wheelhouse',
+				'env': 'production',
+				'portalURL': 'https://agents.talageins.com',
+				's3Bucket': 'website-images-staging',
+				'siteURL': 'https://www.talageins.com'
 			});
 			break;
-		case "alpine.talageins.com":
+		case 'alpine.talageins.com':
 			res.send(200, {
-				brand: "wheelhouse",
-				env: "staging",
-				siteURL: "https://alpine.talageins.com",
-				portalURL: "https://alpinewh.talageins.com",
-				apiURL: "https://alpine.talageins.com:3000",
-				s3Bucket: "website-images-staging"
+				'apiURL': 'https://alpine.talageins.com:3000',
+				'brand': 'wheelhouse',
+				'env': 'staging',
+				'portalURL': 'https://alpinewh.talageins.com',
+				's3Bucket': 'website-images-staging',
+				'siteURL': 'https://alpine.talageins.com'
 			});
 			break;
-		case "localhost":
+		case 'localhost':
 			res.send(200, {
-				brand: "wheelhouse",
-				env: "development",
-				siteURL: "http://localhost:8080",
-				portalURL: "http://localhost:8081",
-				apiURL: "http://localhost:3000",
-				s3Bucket: "website-images-staging"
+				'apiURL': 'http://localhost:3000',
+				'brand': 'wheelhouse',
+				'env': 'development',
+				'portalURL': 'http://localhost:8081',
+				's3Bucket': 'website-images-staging',
+				'siteURL': 'http://localhost:8080'
 			});
 			break;
 		default:
-			res.send(400, serverHelper.RequestError('Invalid domain'));
+			res.send(400, serverHelper.requestError('Invalid domain'));
 			break;
 	}
 	return next();
 }
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (server, basePath) => {
-	server.AddPost('Get Site Branding', basePath + '/brand', PostBrand);
+exports.registerEndpoint = (server, basePath) => {
+	server.addPost('Get Site Branding', `${basePath}/brand`, PostBrand);
 };

@@ -1,5 +1,6 @@
 'use strict';
-const id = /^[1-9][0-9]*$/;
+
+const validator = global.requireShared('./helpers/validator.js');
 
 module.exports = async function(val){
 	if(!validator.id(val)){

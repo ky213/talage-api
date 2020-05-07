@@ -11,14 +11,14 @@ const serverHelper = require('../../../server.js');
  *
  * @returns {void}
  */
-async function GetUserInfo(req, res, next) {
+async function GetUserInfo(req, res, next){
 
 	// Localize data variables that the user is permitted to access
 	const agencyNetwork = parseInt(req.authentication.agencyNetwork, 10);
 
 	// Prepare to get the information for this user, building a query based on their user type
 	let userInfoSQL = '';
-	if (agencyNetwork) {
+	if(agencyNetwork){
 		userInfoSQL = `
 				SELECT
 					\`an\`.\`id\` AS agencyNetwork,
@@ -31,7 +31,7 @@ async function GetUserInfo(req, res, next) {
 				WHERE \`au\`.\`id\` = ${parseInt(req.authentication.userID, 10)}
 				LIMIT 1;
 			`;
-	} else {
+	}else{
 		userInfoSQL = `
 				SELECT
 					\`a\`.\`agency_network\` AS agencyNetwork,
@@ -52,9 +52,9 @@ async function GetUserInfo(req, res, next) {
 	}
 
 	// Going to the database to get the user's info
-	const userInfo = await db.query(userInfoSQL).catch(function (err) {
+	const userInfo = await db.query(userInfoSQL).catch(function(err){
 		log.error(err.message);
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Send the user's data back
@@ -62,6 +62,6 @@ async function GetUserInfo(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (server, basePath) => {
-	server.AddGetAuth('Get user information', basePath + '/user-info', GetUserInfo);
+exports.registerEndpoint = (server, basePath) => {
+	server.addGetAuth('Get user information', `${basePath}/user-info`, GetUserInfo);
 };

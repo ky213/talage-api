@@ -1,21 +1,22 @@
 'use strict';
 
-const validator = requireShared('./helpers/validator.js');
+const validator = global.requireShared('./helpers/validator.js');
 const serverHelper = require('../../../server.js');
+const auth = require('./helpers/auth.js');
 
-	/**
-	 * Checks whether the provided agency has a primary page other than the current page
-	 *
-	 * @param {int} agency - The ID of the agency to check
-	 * @param {int} page - The ID of the page to exempt from the check
-	 *
-	 * @return {boolean} - True if the agency has a primary page; false otherwise
-	 */
-	function hasOtherPrimary(agency, page){
-		return new Promise(async function(fulfill){
-			let error = false;
+/**
+ * Checks whether the provided agency has a primary page other than the current page
+ *
+ * @param {int} agency - The ID of the agency to check
+ * @param {int} page - The ID of the page to exempt from the check
+ *
+ * @return {boolean} - True if the agency has a primary page; false otherwise
+ */
+function hasOtherPrimary(agency, page){
+	return new Promise(async function(fulfill){
+		let error = false;
 
-			const sql = `
+		const sql = `
 				SELECT id
 				FROM \`#__agency_landing_pages\`
 				WHERE
@@ -26,94 +27,94 @@ const serverHelper = require('../../../server.js');
 				LIMIT 1;
 			`;
 
-			// Run the query
-			const result = await db.query(sql).catch(function(){
-				error = true;
-				fulfill(false);
-			});
-			if(error){
-				return;
-			}
-
-			// Check the result
-			if(!result || !result.length){
-				fulfill(false);
-				return;
-			}
-
-			fulfill(true);
+		// Run the query
+		const result = await db.query(sql).catch(function(){
+			error = true;
+			fulfill(false);
 		});
+		if(error){
+			return;
+		}
+
+		// Check the result
+		if(!result || !result.length){
+			fulfill(false);
+			return;
+		}
+
+		fulfill(true);
+	});
+}
+
+/**
+ * Validates a landing page and returns a clean data object
+ *
+ * @param {object} request - HTTP request object
+ * @param {function} next - The next function from the request
+ * @return {object} Object containing landing page information
+ */
+async function validate(request, next){
+	// Establish default values
+	const data = {
+		'about': '',
+		'banner': '',
+		'colorScheme': 1,
+		'heading': null,
+		'name': '',
+		'slug': ''
+	};
+
+	// Determine the agency ID
+	const agency = request.authentication.agents[0];
+
+	// Validate each parameter
+
+	// Name
+	if(!Object.prototype.hasOwnProperty.call(request.body, 'name') || !request.body.name){
+		throw new Error('You must enter a page name');
 	}
-
-	/**
-	 * Validates a landing page and returns a clean data object
-	 *
-	 * @param {object} request - HTTP request object
-	 * @param {function} next - The next function from the request
-	 * @return {object} Object containing landing page information
-	 */
-	async function validate(request, next){
-		// Establish default values
-		const data = {
-			'about': '',
-			'banner': '',
-			'colorScheme': 1,
-			'heading': null,
-			'name': '',
-			'slug': ''
-		};
-
-		// Determine the agency ID
-		const agency = request.authentication.agents[0];
-
-		// Validate each parameter
-
-		// Name
-		if(!Object.prototype.hasOwnProperty.call(request.body, 'name') || !request.body.name){
-			throw new Error('You must enter a page name');
-		}
-		if(!validator.landingPageName(request.body.name)){
-			throw new Error('Page name is invalid');
-		}
-		data.name = request.body.name;
+	if(!validator.landingPageName(request.body.name)){
+		throw new Error('Page name is invalid');
+	}
+	data.name = request.body.name;
 
 	// Slug (a.k.a. Link)
-	if (!Object.prototype.hasOwnProperty.call(request.body, 'slug') || !request.body.slug) {
+	if(!Object.prototype.hasOwnProperty.call(request.body, 'slug') || !request.body.slug){
 		throw new Error('You must enter a link');
 	}
-	if (!validator.slug(request.body.slug)) {
+	if(!validator.slug(request.body.slug)){
 		throw new Error('Link is invalid');
 	}
 	data.slug = request.body.slug;
 
 	// Heading
-	if (Object.prototype.hasOwnProperty.call(request.body, 'heading') && request.body.heading) {
-		if (request.body.heading.length > 70) {
+	if(Object.prototype.hasOwnProperty.call(request.body, 'heading') && request.body.heading){
+		if(request.body.heading.length > 70){
 			throw new Error('Heading must be less the 70 characters');
-		} else {
+		}else{
 			data.heading = request.body.heading;
 		}
 	}
 
 	// Banner
-	if (Object.prototype.hasOwnProperty.call(request.body, 'banner') && request.body.banner) {
+	if(Object.prototype.hasOwnProperty.call(request.body, 'banner') && request.body.banner){
 		// TO DO: Validate
 		data.banner = request.body.banner;
 	}
 
 	// Color Scheme (a.k.a Theme)
-	if (Object.prototype.hasOwnProperty.call(request.body, 'colorScheme') && request.body.colorScheme) {
+	if(Object.prototype.hasOwnProperty.call(request.body, 'colorScheme') && request.body.colorScheme){
 		// TO DO: Validate
 		data.colorScheme = request.body.colorScheme;
 	}
 
 	// About
-	if (Object.prototype.hasOwnProperty.call(request.body, 'about') && request.body.about) {
+	if(Object.prototype.hasOwnProperty.call(request.body, 'about') && request.body.about){
 		// Strip out HTML
 		request.body.about = request.body.about.replace(/(<([^>]+)>)/ig, '');
 
 		// Check lengths
-		if (request.body.about.length > 400) {
+		if(request.body.about.length > 400){
 			throw new Error('Reduce the length of your about text to less than 400 characters');
 		}
 
@@ -130,11 +131,11 @@ const serverHelper = require('../../../server.js');
 				${request.body.id ? `AND \`id\` != ${db.escape(request.body.id)}` : ''}
 			;
 		`;
-	const nameResult = await db.query(nameSQL).catch(function (error) {
+	const nameResult = await db.query(nameSQL).catch(function(error){
 		log.error(error.message);
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
-	if (nameResult.length > 0) {
+	if(nameResult.length > 0){
 		throw new Error('This name is already in use. Choose a different one.');
 	}
 
@@ -148,11 +149,11 @@ const serverHelper = require('../../../server.js');
 				${request.body.id ? `AND \`id\` != ${db.escape(request.body.id)}` : ''}
 			;
 		`;
-	const slugResult = await db.query(slugSQL).catch(function (error) {
+	const slugResult = await db.query(slugSQL).catch(function(error){
 		log.error(error.message);
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
-	if (slugResult.length > 0) {
+	if(slugResult.length > 0){
 		throw new Error('This link is already in use. Choose a different one.');
 	}
 
@@ -168,7 +169,7 @@ const serverHelper = require('../../../server.js');
  * @param {function} next - The next function to execute
  * @returns {void}
  */
-async function createLandingPage(req, res, next) {
+async function createLandingPage(req, res, next){
 	let error = false;
 
 	// Make sure the authentication payload has everything we are expecting
@@ -183,18 +184,18 @@ async function createLandingPage(req, res, next) {
 	const agency = req.authentication.agents[0];
 
 	// Check that at least some post parameters were received
-	if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
+	if(!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0){
 		log.info('Bad Request: Parameters missing');
-		return next(serverHelper.RequestError('Parameters missing'));
+		return next(serverHelper.requestError('Parameters missing'));
 	}
 
 	// Validate the request and get back the data
-	const data = await validate(req, next).catch(function (err) {
+	const data = await validate(req, next).catch(function(err){
 		error = err.message;
 	});
-	if (error) {
+	if(error){
 		log.warn(error);
-		return next(serverHelper.RequestError(error));
+		return next(serverHelper.requestError(error));
 	}
 
 	// Commit this update to the database
@@ -204,15 +205,15 @@ async function createLandingPage(req, res, next) {
 		`;
 
 	// Run the query
-	const result = await db.query(sql).catch(function (err) {
+	const result = await db.query(sql).catch(function(err){
 		log.error(err.message);
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Make sure the query was successful
-	if (result.affectedRows !== 1) {
+	if(result.affectedRows !== 1){
 		log.error('Landing page update failed. Query ran successfully; however, no records were affected.');
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	}
 
 	// Send back a success response
@@ -221,51 +222,51 @@ async function createLandingPage(req, res, next) {
 }
 
 /**
-	 * Deletes a single landing page
-	 *
-	 * @param {object} req - HTTP request object
-	 * @param {object} res - HTTP response object
-	 * @param {function} next - The next function to execute
-	 * @returns {void}
-	 */
-	async function deleteLandingPage(req, res, next){
-		let error = false;
+ * Deletes a single landing page
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ * @returns {void}
+ */
+async function deleteLandingPage(req, res, next){
+	let error = false;
 
-		// Make sure the authentication payload has everything we are expecting
-		await auth.validateJWT(req, 'pages', 'manage').catch(function(e){
-			error = e;
-		});
-		if(error){
-			return next(error);
-		}
+	// Make sure the authentication payload has everything we are expecting
+	await auth.validateJWT(req, 'pages', 'manage').catch(function(e){
+		error = e;
+	});
+	if(error){
+		return next(error);
+	}
 
-		// Determine the agency ID
-		const agency = req.authentication.agents[0];
+	// Determine the agency ID
+	const agency = req.authentication.agents[0];
 
-		// Check that query parameters were received
-		if(!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
-			log.info('Bad Request: Query parameters missing');
-			return next(serverHelper.RequestError('Query parameters missing'));
-		}
+	// Check that query parameters were received
+	if(!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
+		log.info('Bad Request: Query parameters missing');
+		return next(serverHelper.requestError('Query parameters missing'));
+	}
 
-		// Validate the ID
-		if(!Object.prototype.hasOwnProperty.call(req.query, 'id')){
-			return next(serverHelper.RequestError('ID missing'));
-		}
-		if(!await validator.landingPageId(req.query.id, agency)){
-			return next(serverHelper.RequestError('ID is invalid'));
-		}
-		const id = req.query.id;
+	// Validate the ID
+	if(!Object.prototype.hasOwnProperty.call(req.query, 'id')){
+		return next(serverHelper.requestError('ID missing'));
+	}
+	if(!await validator.landingPageId(req.query.id, agency)){
+		return next(serverHelper.requestError('ID is invalid'));
+	}
+	const id = req.query.id;
 
-		// Make sure there is a primary page for this agency (we are not removing the primary page)
-		if(!await hasOtherPrimary(agency, id)){
-			// Log a warning and return an error
-			log.warn('This landing page is your primary page. You must make another page primary before deleting this one.');
-			return next(serverHelper.RequestError('This landing page is your primary page. You must make another page primary before deleting this one.'));
-		}
+	// Make sure there is a primary page for this agency (we are not removing the primary page)
+	if(!await hasOtherPrimary(agency, id)){
+		// Log a warning and return an error
+		log.warn('This landing page is your primary page. You must make another page primary before deleting this one.');
+		return next(serverHelper.requestError('This landing page is your primary page. You must make another page primary before deleting this one.'));
+	}
 
-		// Update the landing page (we set the state to -2 to signify that the user is deleted)
-		const updateSQL = `
+	// Update the landing page (we set the state to -2 to signify that the user is deleted)
+	const updateSQL = `
 			UPDATE \`#__agency_landing_pages\`
 			SET
 				\`state\` = -2
@@ -275,23 +276,22 @@ async function createLandingPage(req, res, next) {
 			LIMIT 1;
 		`;
 
-		// Run the query
-		const result = await db.query(updateSQL).catch(function(){
-			error = serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
-		});
-		if(error){
-			return next(error);
-		}
-
-		// Make sure the query was successful
-		if(result.affectedRows !== 1){
-			log.error('Landing page delete failed');
-			return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
-		}
-
-		res.send(200, 'Deleted');
+	// Run the query
+	const result = await db.query(updateSQL).catch(function(){
+		error = serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+	});
+	if(error){
+		return next(error);
 	}
 
+	// Make sure the query was successful
+	if(result.affectedRows !== 1){
+		log.error('Landing page delete failed');
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+	}
+
+	res.send(200, 'Deleted');
+}
 
 
 /**
@@ -302,7 +302,7 @@ async function createLandingPage(req, res, next) {
  * @param {function} next - The next function to execute
  * @returns {void}
  */
-async function getLandingPage(req, res, next) {
+async function getLandingPage(req, res, next){
 	let error = false;
 
 	// Make sure the authentication payload has everything we are expecting
@@ -312,17 +312,16 @@ async function getLandingPage(req, res, next) {
 	if(error){
 		return next(error);
 	}
-	
-	// Check that query parameters were received
-	if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
-		log.info('Bad Request: Query parameters missing');
-		return next(serverHelper.RequestError('Query parameters missing'));
-	}
 
+	// Check that query parameters were received
+	if(!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
+		log.info('Bad Request: Query parameters missing');
+		return next(serverHelper.requestError('Query parameters missing'));
+	}
 	// Check for required parameters
-	if (!Object.prototype.hasOwnProperty.call(req.query, 'page') || !req.query.page) {
+	if(!Object.prototype.hasOwnProperty.call(req.query, 'id') || !req.query.id){
 		log.info('Bad Request: You must specify a page');
-		return next(serverHelper.RequestError('You must specify a page'));
+		return next(serverHelper.requestError('You must specify a page'));
 	}
 
 	// TO DO: Add support for Agency Networks (take in an agency as a parameter)
@@ -340,20 +339,20 @@ async function getLandingPage(req, res, next) {
 				\`primary\`,
 				\`heading\`
 			FROM \`#__agency_landing_pages\`
-			WHERE \`agency\` = ${parseInt(agency, 10)} AND \`state\` > 0 AND \`id\` = ${parseInt(req.query.page, 10)}
+			WHERE \`agency\` = ${parseInt(agency, 10)} AND \`state\` > 0 AND \`id\` = ${parseInt(req.query.id, 10)}
 			LIMIT 1;
 		`;
 
 	// Run the query
-	const landingPage = await db.query(landingPageSQL).catch(function (err) {
+	const landingPage = await db.query(landingPageSQL).catch(function(err){
 		log.error(err.message);
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Make sure a page was found
-	if (landingPage.length !== 1) {
+	if(landingPage.length !== 1){
 		log.warn('Page not found');
-		return next(serverHelper.RequestError('Page not found'));
+		return next(serverHelper.requestError('Page not found'));
 	}
 
 	// Send the user's data back
@@ -369,7 +368,7 @@ async function getLandingPage(req, res, next) {
  * @param {function} next - The next function to execute
  * @returns {void}
  */
-async function updateLandingPage(req, res, next) {
+async function updateLandingPage(req, res, next){
 	let error = false;
 
 	// Make sure the authentication payload has everything we are expecting
@@ -379,30 +378,30 @@ async function updateLandingPage(req, res, next) {
 	if(error){
 		return next(error);
 	}
-	
+
 	// Determine the agency ID
 	const agency = req.authentication.agents[0];
 
 	// Check that at least some post parameters were recieved
-	if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
+	if(!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0){
 		log.info('Bad Request: Parameters missing');
-		return next(serverHelper.RequestError('Parameters missing'));
+		return next(serverHelper.requestError('Parameters missing'));
 	}
 
 	// Validate the request and get back the data
-	const data = await validate(req, next).catch(function (err) {
+	const data = await validate(req, next).catch(function(err){
 		error = err.message;
 	});
-	if (error) {
+	if(error){
 		log.warn(error);
-		return next(serverHelper.RequestError(error));
+		return next(serverHelper.requestError(error));
 	}
 
 	// Validate the ID
-	if (!Object.prototype.hasOwnProperty.call(req.body, 'id')) {
+	if(!Object.prototype.hasOwnProperty.call(req.body, 'id')){
 		throw new Error('ID missing');
 	}
-	if (!await validator.landingPageId(req.body.id)) {
+	if(!await validator.landingPageId(req.body.id)){
 		throw new Error('ID is invalid');
 	}
 	data.id = req.body.id;
@@ -421,15 +420,15 @@ async function updateLandingPage(req, res, next) {
 		`;
 
 	// Run the query
-	const result = await db.query(sql).catch(function (err) {
+	const result = await db.query(sql).catch(function(err){
 		log.error(err.message);
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Make sure the query was successful
-	if (result.affectedRows !== 1) {
+	if(result.affectedRows !== 1){
 		log.error('Landing page update failed. Query ran successfully; however, no records were affected.');
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	}
 
 	// Send back a success response
@@ -438,10 +437,10 @@ async function updateLandingPage(req, res, next) {
 }
 
 
-exports.RegisterEndpoint = (server, basePath) => {
-	
-	server.AddDeleteAuth('Delete Landing Page',basePath + '/landing-page', deleteLandingPage);
-	server.AddGetAuth('Get Landing Page', basePath + '/landing-page', getLandingPage);
-	server.AddPostAuth('Post Landing Page', basePath + '/landing-page', createLandingPage);
-	server.AddPutAuth('Put Landing Page', basePath + '/landing-page', updateLandingPage);
+exports.registerEndpoint = (server, basePath) => {
+
+	server.addDeleteAuth('Delete Landing Page', `${basePath}/landing-page`, deleteLandingPage);
+	server.addGetAuth('Get Landing Page', `${basePath}/landing-page`, getLandingPage);
+	server.addPostAuth('Post Landing Page', `${basePath}/landing-page`, createLandingPage);
+	server.addPutAuth('Put Landing Page', `${basePath}/landing-page`, updateLandingPage);
 };

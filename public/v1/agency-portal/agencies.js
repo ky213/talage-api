@@ -12,7 +12,7 @@ const serverHelper = require('../../../server.js');
  *
  * @returns {void}
  */
-async function agencies(req, res, next) {
+async function agencies(req, res, next){
 	let error = false;
 
 	// Make sure the authentication payload has everything we are expecting
@@ -24,17 +24,17 @@ async function agencies(req, res, next) {
 	}
 
 	// Get the agents that we are permitted to view
-	const agents = await auth.getAgents(req).catch(function (e) {
+	const agents = await auth.getAgents(req).catch(function(e){
 		error = e;
 	});
-	if (error) {
+	if(error){
 		return next(error);
 	}
 
 	// Make sure we got agents
-	if (!agents.length) {
+	if(!agents.length){
 		log.info('Bad Request: No agencies permitted');
-		return next(serverHelper.RequestError('Bad Request: No agencies permitted'));
+		return next(serverHelper.requestError('Bad Request: No agencies permitted'));
 	}
 
 	// Define a query to get a list of agencies
@@ -53,9 +53,9 @@ async function agencies(req, res, next) {
 		`;
 
 	// Get the agencies from the database
-	const retAgencies = await db.query(agenciesSQL).catch(function (err) {
+	const retAgencies = await db.query(agenciesSQL).catch(function(err){
 		log.error(err.message);
-		return next(serverHelper.InternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Return the response
@@ -63,6 +63,6 @@ async function agencies(req, res, next) {
 	return next();
 }
 
-exports.RegisterEndpoint = (server, basePath) => {
-	server.AddGetAuth('Get agencies', basePath + '/agencies', agencies);
+exports.registerEndpoint = (server, basePath) => {
+	server.addGetAuth('Get agencies', `${basePath}/agencies`, agencies);
 };

@@ -2,63 +2,115 @@
 
 const apiVersion = 'v1';
 
-function RegisterEndpoint(server, namespace, endpointName) {
-	if (namespace != null) {
-		require(`./${namespace}/${endpointName}.js`).RegisterEndpoint(server, `/${apiVersion}/${namespace}`);
-	} else {
-		require(`./${endpointName}.js`).RegisterEndpoint(server, `/${apiVersion}`);
+/**
+ * Registers an endpoint
+ *
+ * @param {object} server - Server object
+ * @param {object} namespace - The namespace for this endpoint
+ * @param {function} endpointName - The endpoint name
+ *
+ * @returns {void}
+ */
+function registerEndpoint(server, namespace, endpointName){
+	if(namespace === null){
+		require(`./${endpointName}.js`).registerEndpoint(server, `/${apiVersion}`);
+	}else{
+		require(`./${namespace}/${endpointName}.js`).registerEndpoint(server, `/${apiVersion}/${namespace}`);
 	}
 }
 
-exports.RegisterEndpoints = (server) => {
-	// agency portal
-	RegisterEndpoint(server, 'agency-portal', 'account');
-	//activities removed in 1.5.0
-	//RegisterEndpoint(server, 'agency-portal', 'activities');
-	RegisterEndpoint(server, 'agency-portal', 'agencies');
-	RegisterEndpoint(server, 'agency-portal', 'agency');
-	RegisterEndpoint(server, 'agency-portal', 'application');
-	RegisterEndpoint(server, 'agency-portal', 'applications');
-	RegisterEndpoint(server, 'agency-portal', 'banners');
-	RegisterEndpoint(server, 'agency-portal', 'change-password');
-	RegisterEndpoint(server, 'agency-portal', 'color-schemes');
-	RegisterEndpoint(server, 'agency-portal', 'create-agency');
-	RegisterEndpoint(server, 'agency-portal', 'landing-page');
-	RegisterEndpoint(server, 'agency-portal', 'landing-pages');
-	RegisterEndpoint(server, 'agency-portal', 'questions');
-	RegisterEndpoint(server, 'agency-portal', 'quote-letter');
-	RegisterEndpoint(server, 'agency-portal', 'reports');
-	RegisterEndpoint(server, 'agency-portal', 'resend-onboarding-email');
-	RegisterEndpoint(server, 'agency-portal', 'reset-password');
-	RegisterEndpoint(server, 'agency-portal', 'settings');
-	RegisterEndpoint(server, 'agency-portal', 'terms-of-service');
-	RegisterEndpoint(server, 'agency-portal', 'user-info');
-	RegisterEndpoint(server, 'agency-portal', 'validate-token');
-	RegisterEndpoint(server, 'agency-portal', 'wholesale-agreement');
-	RegisterEndpoint(server, 'agency-portal', 'user');
-	RegisterEndpoint(server, 'agency-portal', 'users');
+// TODO move later....
+/**
+ * Gets the uptime for the public API
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ * @returns {void}
+ */
+async function getUptime(req, res, next){
+	res.setHeader('content-type', 'application/xml');
+	const startTime = process.hrtime();
 
-	// auth
-	RegisterEndpoint(server, 'auth', 'agency-portal');
-	RegisterEndpoint(server, 'auth', 'token');
+	// Check the database connection by selecting all active activity codes
+	let error = false;
+	await db.query('SELECT COUNT(*) FROM `#__api_users`').catch(function(e){
+		log.error(e.message);
+		error = true;
+	});
 
-	// code
-	RegisterEndpoint(server, 'code', 'activity-codes');
-	RegisterEndpoint(server, 'code', 'industry-categories');
-	RegisterEndpoint(server, 'code', 'industry-codes');
+	// Calculate the elapsed time
+	const elapsed = process.hrtime(startTime)[1] / 1000000;
 
-	// doc
-	RegisterEndpoint(server, 'doc', 'acord-form-wc');
-	RegisterEndpoint(server, 'doc', 'certificate');
+	// Send the appropriate response
+	if(error){
+		res.end(`<pingdom_http_custom_check> <status>DOWN</status> <response_time>${elapsed.toFixed(8)}</response_time> <version>${global.version}</version> </pingdom_http_custom_check>`);
+		return next();
+	}
+	res.end(`<pingdom_http_custom_check> <status>OK</status> <response_time>${elapsed.toFixed(8)}</response_time> <version>${global.version}</version> </pingdom_http_custom_check>`);
+	return next();
+}
 
-	// question
-	RegisterEndpoint(server, 'question', 'questions');
+exports.registerEndpoints = (server) => {
+	// Agency portal
+	registerEndpoint(server, 'agency-portal', 'account');
 
-	// quote
-	RegisterEndpoint(server, 'quote', 'application');
-	RegisterEndpoint(server, 'quote', 'bind');
-	RegisterEndpoint(server, 'quote', 'quotes');
+	/*
+	 * Activities removed in 1.5.0
+	 * registerEndpoint(server, 'agency-portal', 'activities');
+	 */
+	registerEndpoint(server, 'agency-portal', 'agencies');
+	registerEndpoint(server, 'agency-portal', 'agency');
+	registerEndpoint(server, 'agency-portal', 'application');
+	registerEndpoint(server, 'agency-portal', 'applications');
+	registerEndpoint(server, 'agency-portal', 'banners');
+	registerEndpoint(server, 'agency-portal', 'change-password');
+	registerEndpoint(server, 'agency-portal', 'color-schemes');
+	registerEndpoint(server, 'agency-portal', 'create-agency');
+	registerEndpoint(server, 'agency-portal', 'landing-page');
+	registerEndpoint(server, 'agency-portal', 'landing-pages');
+	registerEndpoint(server, 'agency-portal', 'questions');
+	registerEndpoint(server, 'agency-portal', 'quote-letter');
+	registerEndpoint(server, 'agency-portal', 'reports');
+	registerEndpoint(server, 'agency-portal', 'resend-onboarding-email');
+	registerEndpoint(server, 'agency-portal', 'reset-password');
+	registerEndpoint(server, 'agency-portal', 'settings');
+	registerEndpoint(server, 'agency-portal', 'terms-of-service');
+	registerEndpoint(server, 'agency-portal', 'user-info');
+	registerEndpoint(server, 'agency-portal', 'validate-token');
+	registerEndpoint(server, 'agency-portal', 'wholesale-agreement');
+	registerEndpoint(server, 'agency-portal', 'user');
+	registerEndpoint(server, 'agency-portal', 'users');
 
-	// site
-	RegisterEndpoint(server, 'site', 'brand');
+	// Auth
+	registerEndpoint(server, 'auth', 'agency-portal');
+	registerEndpoint(server, 'auth', 'token');
+
+	// Code
+	registerEndpoint(server, 'code', 'activity-codes');
+	registerEndpoint(server, 'code', 'industry-categories');
+	registerEndpoint(server, 'code', 'industry-codes');
+
+	// Doc
+	registerEndpoint(server, 'doc', 'acord-form-wc');
+	registerEndpoint(server, 'doc', 'certificate');
+
+	// Question
+	registerEndpoint(server, 'question', 'questions');
+
+	// Quote
+	registerEndpoint(server, 'quote', 'application');
+	registerEndpoint(server, 'quote', 'bind');
+	registerEndpoint(server, 'quote', 'quotes');
+
+	// Site
+	registerEndpoint(server, 'site', 'brand');
+
+	/*
+	 * Server.AddGet('Uptime Check', '/', GetUptime);
+	 * AWS load balancers and pingdom send /uptime
+	 */
+	server.addGet('Uptime Check', '/uptime', getUptime);
+
+
 };

@@ -54,19 +54,19 @@ module.exports = {
 	},
 	'GL_limit_6': {
 		'x': limit_x_position,
-		'y': limit_y_base + (2 * limit_offset)
+		'y': limit_y_base + 2 * limit_offset
 	},
 	'GL_limit_7': {
 		'x': limit_x_position,
-		'y': limit_y_base + (3 * limit_offset)
+		'y': limit_y_base + 3 * limit_offset
 	},
 	'GL_limit_8': {
 		'x': limit_x_position,
-		'y': limit_y_base + (4 * limit_offset)
+		'y': limit_y_base + 4 * limit_offset
 	},
 	'GL_limit_9': {
 		'x': limit_x_position,
-		'y': limit_y_base + (5 * limit_offset)
+		'y': limit_y_base + 5 * limit_offset
 	},
 	'GL_occur_checkbox': {
 		'x': 120,
@@ -166,11 +166,11 @@ module.exports = {
 	},
 	'UMB_limit_11': {
 		'x': limit_x_position,
-		'y': limit_y_base + (12 * limit_offset)
+		'y': limit_y_base + 12 * limit_offset
 	},
 	'UMB_limit_4': {
 		'x': limit_x_position,
-		'y': limit_y_base + (13 * limit_offset)
+		'y': limit_y_base + 13 * limit_offset
 	},
 	'UMB_occur_checkbox': {
 		'x': 120,
@@ -202,15 +202,15 @@ module.exports = {
 	},
 	'WC_limit_1': {
 		'x': limit_x_position,
-		'y': limit_y_base + (16 * limit_offset)
+		'y': limit_y_base + 16 * limit_offset
 	},
 	'WC_limit_2': {
 		'x': limit_x_position,
-		'y': limit_y_base + (17 * limit_offset)
+		'y': limit_y_base + 17 * limit_offset
 	},
 	'WC_limit_3': {
 		'x': limit_x_position,
-		'y': limit_y_base + (18 * limit_offset)
+		'y': limit_y_base + 18 * limit_offset
 	},
 	'WC_per_statute_checkbox': {
 		'x': 430,
