@@ -1,0 +1,8 @@
+{
+  "apps" : [
+    {
+      "name": "Talage API",
+      "script": "./index.js"
+    }
+  ]
+}
