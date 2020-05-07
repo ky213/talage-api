@@ -1,3 +1,5 @@
+/* eslint-disable */
+
 const fs = require('fs');
 // Var check = require('syntax-error');
 const dir = require('node-dir');

@@ -10,10 +10,9 @@ const colors = require('colors');
 
 let conn = null;
 
-exports.Connect = async() => {
+exports.connect = async() => {
 
-	// eslint-disable-next-line
-	console.log(`Connecting to database ${colors.cyan(global.settings.DATABASE_HOST)}`);
+	console.log(`Connecting to database ${colors.cyan(global.settings.DATABASE_HOST)}`); // eslint-disable-line no-console
 
 	// Connect to the database
 	conn = mysql.createPool({
@@ -29,12 +28,10 @@ exports.Connect = async() => {
 		const connection = await util.promisify(conn.getConnection).call(conn);
 		connection.release();
 	}catch(error){
-		// eslint-disable-next-line
-		console.log(colors.red(`\tERROR: ${error.toString()}`));
+		console.log(colors.red(`\tERROR: ${error.toString()}`)); // eslint-disable-line no-console
 		return false;
 	}
-	// eslint-disable-next-line
-	console.log(colors.green('\tConnected'));
+	console.log(colors.green('\tConnected')); // eslint-disable-line no-console
 	return true;
 };
 

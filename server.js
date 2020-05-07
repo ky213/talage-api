@@ -15,82 +15,119 @@ const socketIO = require('socket.io');
  * JWT handlers
  */
 
- // JWT middleware for authenticated endpoints
-function ProcessJWT() {
+/**
+ * Middleware for authenticated endpoints
+ *
+ * @returns {void}
+ */
+function processJWT(){
 	return jwtRestify({
 		'algorithms': ['HS256', 'RS256'],
 		'requestProperty': 'authentication',
-		'secret': settings.AUTH_SECRET_KEY
-	})
-};
+		'secret': global.settings.AUTH_SECRET_KEY
+	});
+}
 
-// Wrap an authenticated endpoint callback with a JWT check
-function ValidateJWT(nextCall) {
-	return async (req, res, next) => {
-		try {
+/**
+ * Middlware for authenticated endpoints which validates the JWT
+ *
+ * @param {function} nextCall - The next function call in the handling chain
+ * @returns {void}
+ */
+function validateJWT(nextCall){
+	return async(req, res, next) => {
+		try{
 			await auth.validateJWT(req);
-		} catch (error) {
+		}catch(error){
 			return next(error);
 		}
 		return nextCall(req, res, next);
-	}
+	};
 }
 
-class AbstractedHTTPServer {
-	constructor(server) {
+class AbstractedHTTPServer{
+	constructor(server){
 		this.server = server;
+		this.socketPaths = [];
 	}
 
-	addPost(name, path, handler) {
-		this.server.post({ name, path }, handler);
+	addPost(name, path, handler){
+		this.server.post({
+			'name': name,
+			'path': path
+		}, handler);
 	}
 
-	addPostAuth(name, path, handler) {
+	addPostAuth(name, path, handler){
 		name += ' (auth)';
-		this.server.post({ name, path }, ProcessJWT(), ValidateJWT(handler));
+		this.server.post({
+			'name': name,
+			'path': path
+		}, processJWT(), validateJWT(handler));
 	}
 
-	addGet(name, path, handler) {
-		this.server.get({ name, path }, handler);
+	addGet(name, path, handler){
+		this.server.get({
+			'name': name,
+			'path': path
+		}, handler);
 	}
 
-	addGetAuth(name, path, handler) {
+	addGetAuth(name, path, handler){
 		name += ' (auth)';
-		this.server.get({ name, path }, ProcessJWT(), ValidateJWT(handler));
+		this.server.get({
+			'name': name,
+			'path': path
+		}, processJWT(), validateJWT(handler));
 	}
 
-	addPut(name, path, handler) {
-		this.server.put({ name, path }, handler);
+	addPut(name, path, handler){
+		this.server.put({
+			'name': name,
+			'path': path
+		}, handler);
 	}
 
-	addPutAuth(name, path, handler) {
+	addPutAuth(name, path, handler){
 		name += ' (auth)';
-		this.server.put({ name, path }, ProcessJWT(), ValidateJWT(handler));
+		this.server.put({
+			'name': name,
+			'path': path
+		}, processJWT(), validateJWT(handler));
 	}
 
-	addDelete(name, path, handler) {
-		this.server.del({ name, path }, handler);
+	addDelete(name, path, handler){
+		this.server.del({
+			'name': name,
+			'path': path
+		}, handler);
 	}
 
-	addDeleteAuth(name, path, handler) {
+	addDeleteAuth(name, path, handler){
 		name += ' (auth)';
-		this.server.del({ name, path }, ProcessJWT(), ValidateJWT(handler));
+		this.server.del({
+			'name': name,
+			'path': path
+		}, processJWT(), validateJWT(handler));
 	}
 
-	addSocket(name, path, connectHandler) {
-		this.socketPaths.push({ name, path });
-		const io = socketIO(this.server.server, { 'path': path });
+	addSocket(name, path, connectHandler){
+		this.socketPaths.push({
+			'name': name,
+			'path': path
+		});
+		const io = socketIO(this.server.server, {'path': path});
 
 		// Force authentication on Socket.io connections
-		io.use(function (socket, next) {
-			if (socket.handshake.query && socket.handshake.query.token) {
-				jwt.verify(socket.handshake.query.token, settings.AUTH_SECRET_KEY, function (err) {
-					if (err) {
+		io.use(function(socket, next){
+			if(socket.handshake.query && socket.handshake.query.token){
+				jwt.verify(socket.handshake.query.token, global.settings.AUTH_SECRET_KEY, function(err){
+					if(err){
 						return next(new Error('Invalid authentication token'));
 					}
 					next();
 				});
-			} else {
+			}else{
 				return next(new Error('An authentication token must be provided'));
 			}
 		});
@@ -98,36 +135,30 @@ class AbstractedHTTPServer {
 		// Handle Socket.io connections
 		io.on('connection', connectHandler);
 	}
-
-	server = '';
-	socketPaths = [];
 }
 
-/**
- * Create a new server
- */
-
 module.exports = {
-	create: async (listenAddress, listenPort, endpointPath, useCORS, isDevelopment, logInfoHandler, logErrorHandler) => {
+	'create': async(listenAddress, listenPort, endpointPath, useCORS, isDevelopment, logInfoHandler, logErrorHandler) => {
 		const server = restify.createServer({
 			'dtrace': true,
 			'name': `Talage API: ${endpointPath}`,
-			'version': version
+			'version': global.version
 		});
 
 		// Log Every Request. If they don't reach the endpoints, then CORS returned a preflight error.
+		// eslint-disable-next-line no-unused-vars
 		server.on('after', (req, res, route, error) => {
 			logInfoHandler(`${moment().format()} ${req.connection.remoteAddress} ${req.method} ${req.url} => ${res.statusCode} '${res.statusMessage}'`);
 		});
-		server.on('error', function (err) {
+		server.on('error', function(err){
 			logErrorHandler(`${moment().format()} ${err.toString()}'`);
 		});
 		// CORS
-		if (useCORS) {
+		if(useCORS){
 			// Note: This should be set to something other than '*' -SF
 			const cors = restifyCORS({
-				'origins': ['*'],
-				'allowHeaders': ['Authorization']
+				'allowHeaders': ['Authorization'],
+				'origins': ['*']
 			});
 			server.pre(cors.preflight);
 			server.use(cors.actual);
@@ -147,7 +178,7 @@ module.exports = {
 		// Set some default headers for security
 		server.use((req, res, next) => {
 			// Strict-Transport-Security (note: do not send this in development as we don't use SSL in development)
-			if (!isDevelopment) {
+			if(!isDevelopment){
 				res.header('Strict-Transport-Security', 'max-age=63072000; includeSubDomains');
 			}
 			// Esnables the Cross-site scripting (XSS) filter built into most recent web browsers
@@ -155,72 +186,58 @@ module.exports = {
 			return next();
 		});
 
-		// Register endpoints 
-		console.log(`Registering ${endpointPath} endpoints`);
+		// Register endpoints
+		console.log(`Registering ${endpointPath} endpoints`); // eslint-disable-line no-console
 		const abstractedServer = new AbstractedHTTPServer(server);
 		require(`./${endpointPath}`).registerEndpoints(abstractedServer);
-		console.log(colors.green('\tCompleted'));
+		console.log(colors.green('\tCompleted')); // eslint-disable-line no-console
 
 		// Display all registered routes
-		console.log();
-		console.log(colors.cyan('-'.padEnd(80, '-')));
-		console.log(colors.cyan(`Registered ${endpointPath} endpoints`));
-		console.log(colors.cyan('-'.padEnd(80, '-')));
+		console.log(); // eslint-disable-line no-console
+		console.log(colors.cyan('-'.padEnd(80, '-'))); // eslint-disable-line no-console
+		console.log(colors.cyan(`Registered ${endpointPath} endpoints`)); // eslint-disable-line no-console
+		console.log(colors.cyan('-'.padEnd(80, '-'))); // eslint-disable-line no-console
 		const routes = server.router.getRoutes();
-		for (const routeName in routes) {
+		for(const routeName in routes){ // eslint-disable-line guard-for-in
 			const route = routes[routeName];
 			// Color code the route name
 			let name = route.spec.name;
 			name = name.replace('(depr)', colors.red('(depr)'));
 			name = name.replace('(auth)', colors.yellow('(auth)'));
 			// Display the full route information
-			console.log(`${colors.green(route.method.padEnd(6, ' '))} ${route.path.padEnd(40, ' ')} ${name}`);
+			console.log(`${colors.green(route.method.padEnd(6, ' '))} ${route.path.padEnd(40, ' ')} ${name}`); // eslint-disable-line no-console
 		}
 		// Display the websocket paths. These are not stored in the restify server so we manage them in a separate list
 		abstractedServer.socketPaths.forEach((socket) => {
-			console.log(`${colors.yellow('SOCKET')} ${socket.path.padEnd(40, ' ')} ${socket.name}`);
+			console.log(`${colors.yellow('SOCKET')} ${socket.path.padEnd(40, ' ')} ${socket.name}`); // eslint-disable-line no-console
 		});
-		console.log();
+		console.log(); // eslint-disable-line no-console
 
 		// Start the server
 		const serverListen = util.promisify(server.listen.bind(server));
-		try {
+		try{
 			await serverListen(listenPort, listenAddress);
-		} catch (error) {
+		}catch(error){
 			logErrorHandler(`Error running ${endpointPath} server: ${error}`);
 			return false;
 		}
-		const startMsg = `Talage API ${endpointPath} server (v${version}) listening on ${listenAddress}:${listenPort} (${settings.ENV} mode)`;
+		const startMsg = `Talage API ${endpointPath} server (v${global.version}) listening on ${listenAddress}:${listenPort} (${global.settings.ENV} mode)`;
 		logInfoHandler(startMsg);
 
 		return true;
 	},
 
-	requestError: (message) => {
-		return new RestifyError.BadRequestError(message);
-	},
+	'forbiddenError': (message) => new RestifyError.ForbiddenError(message),
 
-	internalError: (message) => {
-		return new RestifyError.InternalServerError(message);
-	},
+	'internalError': (message) => new RestifyError.InternalServerError(message),
 
-	invalidCredentialsError: (message) => {
-		return new RestifyError.InvalidCredentialsError(message);
-	},
+	'invalidCredentialsError': (message) => new RestifyError.InvalidCredentialsError(message),
 
-	forbiddenError: (message) => {
-		return new RestifyError.ForbiddenError(message);
-	},
+	'notAuthorizedError': (message) => new RestifyError.NotAuthorizedError(message),
 
-	notFoundError: (message) => {
-		return new RestifyError.NotFoundError(message);
-	},
+	'notFoundError': (message) => new RestifyError.NotFoundError(message),
 
-	notAuthorizedError: (message) => {
-		return new RestifyError.NotAuthorizedError(message);
-	},
+	'requestError': (message) => new RestifyError.BadRequestError(message),
 
-	serviceUnavailableError: (message) => {
-		return new RestifyError.ServiceUnavailableError(message);
-	}
+	'serviceUnavailableError': (message) => new RestifyError.ServiceUnavailableError(message)
 };

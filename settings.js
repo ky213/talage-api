@@ -1,3 +1,5 @@
+'use strict';
+
 // Load the environment
 const environment = require('dotenv');
 const fs = require('fs');
@@ -51,33 +53,33 @@ const requiredVariables = [
 	'SENDGRID_API_KEY'
 ];
 
-exports.Load = async() => {
+exports.load = () => {
 	let variables = null;
 
 	if(fs.existsSync('local.env')){
 		// Load the variables from the aws.env file if it exists
-		console.log('Loading settings from local.env file');
+		console.log('Loading settings from local.env file'); // eslint-disable-line no-console
 		try{
 			variables = environment.parse(fs.readFileSync('local.env', {'encoding': 'utf8'}));
 		}catch(error){
-			console.log(colors.red(`\tError parsing aws.env: ${error}`));
+			console.log(colors.red(`\tError parsing aws.env: ${error}`)); // eslint-disable-line no-console
 			return false;
 		}
 	}else{
 		// Use the environment variables otherwise
-		console.log('Loading settings from environment variables');
+		console.log('Loading settings from environment variables'); // eslint-disable-line no-console
 		variables = process.env;
 	}
 	// Ensure required variables exist and inject them into the global 'settings' object
 	global.settings = {};
 	for(let i = 0; i < requiredVariables.length; i++){
-		if(!variables.hasOwnProperty(requiredVariables[i])){
-			console.log(colors.red(`\tError: missing variable '${requiredVariables[i]}'`));
+		if(!Object.prototype.hasOwnProperty.call(variables, requiredVariables[i])){
+			console.log(colors.red(`\tError: missing variable '${requiredVariables[i]}'`)); // eslint-disable-line no-console
 			return false;
 		}
 		global.settings[requiredVariables[i]] = variables[requiredVariables[i]];
 	}
-	console.log(colors.green('\tCompleted'));
+	console.log(colors.green('\tCompleted')); // eslint-disable-line no-console
 
 	/*
 	 * Add any other global settings here

@@ -27,7 +27,7 @@ module.exports = function(channel, message_type, message, attachment){
 	return new Promise((fullfil, reject) => {
 
 		// If we are are running automated tests, do not send
-		if(settings.ENV === 'test'){
+		if(global.settings.ENV === 'test'){
 			fullfil(true);
 			return;
 		}
@@ -44,14 +44,14 @@ module.exports = function(channel, message_type, message, attachment){
 		const options = {
 			'agent': false,
 			'headers': {
-				'Authorization': `Bearer ${settings.TEST_API_TOKEN}`,
+				'Authorization': `Bearer ${global.settings.TEST_API_TOKEN}`,
 				'Content-Length': data.length,
 				'Content-Type': 'application/json'
 			},
 			'hostname': 'localhost',
-			'port': settings.PRIVATE_API_PORT,
 			'method': 'POST',
-			'path': `/v1/slack/post-to-channel`
+			'path': `/v1/slack/post-to-channel`,
+			'port': global.settings.PRIVATE_API_PORT
 		};
 
 		// Send the request

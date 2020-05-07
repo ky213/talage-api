@@ -1,3 +1,6 @@
+/* eslint sort-keys: 0 */
+// NOTE: disable sorting keys for now until this code is ready
+
 /**
  * Provides functions for logging data
  */
@@ -6,7 +9,6 @@
 
 const winston = require('winston');
 const colors = require('colors');
-const common = require('winston/lib/winston/common');
 const elasticsearch = require('elasticsearch');
 const awsHttpClient = require('http-aws-es');
 const AWS = require('aws-sdk');
@@ -17,15 +19,14 @@ const WinstonElasticsearch = require('winston-elasticsearch');
  * var Q = require('q');
  */
 
+const{format} = require('winston');
 const{
-	createLogger, format
-} = require('winston');
-const{
-	combine, timestamp, label, prettyPrint, printf
+	combine, timestamp, printf
 } = format;
 
-exports.Connect = async() => {
-	console.log('Connecting to log server');
+exports.connect = () => {
+
+	console.log('Connecting to log server'); // eslint-disable-line no-console
 
 	const defaultMetaData = {'SystemName': 'not EC2 - Local Dev'};
 
@@ -63,20 +64,15 @@ exports.Connect = async() => {
 	// Console.log('process.env.AWS_LOG_TO_AWS_ELASTICSEARCH: ' + process.env.AWS_LOG_TO_AWS_ELASTICSEARCH );
 
 	if(global.settings.AWS_LOG_TO_AWS_ELASTICSEARCH === 'YES'){
-		console.log(colors.green('\tLogging to ElasticSearch'));
+		console.log(colors.green('\tLogging to ElasticSearch')); // eslint-disable-line no-console
 
 		// Setup AWS ElasticSearch and Console.
-		console.log('Setting up AWS ElasticSearch logging');
+		console.log('Setting up AWS ElasticSearch logging'); // eslint-disable-line no-console
 
 		const myFormat = printf(({
-			level, message, timestamp
-		}) => `${timestamp} ${level.toUpperCase()}: ${message}`);
+			level, message, timestampValue
+		}) => `${timestampValue} ${level.toUpperCase()}: ${message}`);
 
-		function myFormat2(options){
-			// Options.formatter = null
-			options.systemName = defaultMetaData.SystemName;
-			return options;
-		}
 		// Console logging
 		let consoleLevel = 'debug';
 
@@ -88,8 +84,7 @@ exports.Connect = async() => {
 			'handleExceptions': true,
 			'json': false,
 			'colorize': true,
-			'format': combine(timestamp(),
-				myFormat)
+			'format': combine(timestamp(), myFormat)
 		};
 		transports.push(new winston.transports.Console(consoleOptions));
 
@@ -151,7 +146,7 @@ exports.Connect = async() => {
 			if(winstonElasticsearch){
 				transports.push(winstonElasticsearch);
 			}else{
-				console.log('no winstonElasticsearch');
+				console.log('no winstonElasticsearch'); // eslint-disable-line no-console
 			}
 
 			// ApiLogging  - level in hardwared
@@ -171,17 +166,17 @@ exports.Connect = async() => {
 				 * console.log('ADD AWS WinstonElasticsearchAPI');
 				 */
 			}else{
-				console.log('no winstonElasticsearchAPI');
+				console.log('no winstonElasticsearchAPI'); // eslint-disable-line no-console
 			}
 		}else{
-			console.log('no awsClient');
+			console.log('no awsClient'); // eslint-disable-line no-console
 		}
 
 		// Console.log(defaultMetaData);
 
+		// eslint-disable-next-line new-cap
 		const logger = new winston.createLogger({
-			'format': combine(timestamp(),
-				winston.format.json()),
+			'format': combine(timestamp(), winston.format.json()),
 			'transports': transports,
 			'defaultMeta': defaultMetaData,
 			'exitOnError': false,
@@ -198,40 +193,10 @@ exports.Connect = async() => {
 		});
 		global.log = logger;
 	}else if(global.settings.ENV !== 'test' && global.settings.ENV !== 'development' && global.settings.ENV !== 'local'){
-		console.log(colors.green('\tLogging to logstash'));
-
-		throw colors.red('ERROR: logstash server is not available on AWS');
-
-		const LogstashTransport = global.requireShared('services/winston-logstash-transport.js').LogstashTransport;
-
-		// Add some data that will automatically be included with each log entry
-		const appendMetaInfo = winston.format(function(info){
-			return Object.assign(info, {
-				'@version': global.version,
-				'app': process.env.CYCLE_CONTAINER_IDENTIFIER,
-				'container': process.env.CYCLE_CONTAINER_ID,
-				'container_instance': process.env.CYCLE_INSTANCE_ID,
-				'instance_num': process.env.CYCLE_INSTANCE_IPV6_IP.split(':')[4],
-				'ip': process.env.CYCLE_INSTANCE_IPV6_IP,
-				'provider': process.env.CYCLE_PROVIDER_IDENTIFIER,
-				'server': process.env.CYCLE_SERVER_ID,
-				'system_type': 'api'
-			});
-		});
-
-		// Create the logger
-		global.log = winston.createLogger({
-			'format': winston.format.combine(appendMetaInfo(), winston.format.json()),
-			'level': 'verbose',
-			'transports': new LogstashTransport({
-				'host': `logstash`,
-				'ipv6': true,
-				'port': 5000
-			})
-		});
-		// Module.exports = global.log;
+		console.log(colors.red('ERROR: logstash server is not available on AWS')); // eslint-disable-line no-console
+		return false;
 	}else{
-		console.log(colors.green('\tConnected (logging locally)'));
+		console.log(colors.green('\tConnected (logging locally)')); // eslint-disable-line no-console
 
 		// When not running on Cycle, simply log to console
 		global.log = winston.createLogger({'transports': new winston.transports.Console({
@@ -239,7 +204,6 @@ exports.Connect = async() => {
 				winston.format.printf((info) => `${info.level}: ${info.message}`)),
 			'level': global.settings.ENV === 'test' ? 'error' : 'silly'
 		})});
-		// Module.exports = global.log;
 	}
 	return true;
 };
