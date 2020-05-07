@@ -379,7 +379,7 @@ const validator = requireShared('./helpers/validator.js');
 		let appurl = settings.APPLICATION_URL;
 		if (agencyNetwork == 2) {
 			brandraw = 'Digalent';
-			if(settings.NODE_ENV ==='production'){
+			if(settings.ENV ==='production'){
 				portalurl = "https://agents.digalent.com"
 				appurl =  "https://insure.digalent.com"
 			}
