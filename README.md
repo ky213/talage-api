@@ -8,23 +8,22 @@ Unified API combining public APIs and integrating Private APIs as internal modul
 ## Pre-Requisites
 
 ### Mac OSX:
-	- Install X Code from the App Store, the install the command-line utilities:
-```
-		xcode-select --install
-```
-
-	- Install [Node 12](https://nodejs.org/en/)
-```
-		brew install node@12
-```
-		NOTE: if the ```node``` command can not be found, run 
-```
-		brew link node@12 --force
-```
-	- Install build tools using [Homebrew](https://brew.sh/):
-```
-		brew install libtool autoconf automake
-```
+- Install X Code from the App Store, the install the command-line utilities:
+	```
+	xcode-select --install
+	```
+- Install [Node 12](https://nodejs.org/en/)
+	```
+	brew install node@12
+	```
+	NOTE: if the ```node``` command can not be found, run 
+	```
+	brew link node@12 --force
+	```
+- Install build tools using [Homebrew](https://brew.sh/):
+	```
+	brew install libtool autoconf automake
+	```
 
 ### Linux (Amazon/CentOS):
 	- Install the build system and Node 12:
