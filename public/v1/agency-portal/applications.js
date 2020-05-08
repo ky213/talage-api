@@ -38,6 +38,37 @@ function validateParameters(parent, expectedParameters){
 }
 
 /**
+ * Retrieves quotes for an application and populates application.quotes[]
+ * @param {Object} application - The application
+ * @return {void}
+ */
+async function getQuotes(application){
+	application.quotes = [];
+
+	if(application.location){
+		// Convert the case on the cities
+		application.location = application.location.replace(/(^([a-zA-Z\p{M}]))|([ -][a-zA-Z\p{M}])/g, (s) => s.toUpperCase());
+	}
+	// Retrieve the quotes for this application and populate application.quotes[]
+	const quotesSQL = `
+		SELECT
+			${db.quoteName('status')},
+			${db.quoteName('api_result')},
+			${db.quoteName('bound')}
+		FROM ${db.quoteName('#__quotes', 'a')}
+		WHERE ${db.quoteName('application')} = ${db.escape(application.id)} 
+	`;
+	try{
+		const quotes = await db.query(quotesSQL);
+		quotes.forEach((quote) => {
+			application.quotes.push(quote);
+		});
+	}catch(err){
+		log.info(`Error retrieving quotes for application ${application.id}`);
+	}
+}
+
+/**
  * Responds to get requests for the applications endpoint
  *
  * @param {object} req - HTTP request object
@@ -277,28 +308,18 @@ async function PostApplications(req, res, next){
 	// Decrypt the business names
 	await crypt.batchProcessObjectArray(applications, 'decrypt', ['business']);
 
-	// Process the applications
-	const applicationIDs = [];
+	// Get all quotes for each application
+	const getQuotesPromises = [];
 	applications.forEach((application) => {
-		// Convert the case on the cities
-		if(application.location){
-			application.location = application.location.replace(/(^([a-zA-Z\p{M}]))|([ -][a-zA-Z\p{M}])/g, (s) => s.toUpperCase());
-		}
-		// These should be handled in a trigger on the applications table -SF
-		if(application.solepro || application.wholesale){
-			application.status = 'wholesale';
-		}else if(application.status === null){
-			application.status = 'incomplete';
-		}
-		applicationIDs.push(application.id);
+		getQuotesPromises.push(getQuotes(application));
 	});
+	await Promise.all(getQuotesPromises);
 
 	// Build the response
 	const response = {
 		'applications': applications,
 		'applicationsSearchCount': applicationsSearchCount,
 		'applicationsTotalCount': applicationsTotalCount
-
 	};
 
 	// Return the response
