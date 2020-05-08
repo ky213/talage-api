@@ -472,7 +472,12 @@ module.exports = class Application{
 				const defaultCustomerEmailData = emailData.defaultCustomer ? JSON.parse(emailData.defaultCustomer) : null;
 
 				// Determine the branding to use for this email
-				const brand = emailData.emailBrand === 'wheelhouse' ? 'agency' : `${emailData.emailBrand}-agency`;
+				let brand = emailData.emailBrand === 'wheelhouse' ? 'agency' : `${emailData.emailBrand}-agency`;
+
+				// If this is Talage, update the brand
+				if(this.agencyLocation.agencyId <= 2){
+					brand = 'talage';
+				}
 
 				// Determine which message and subject to use
 				let message = customerEmailData && Object.prototype.hasOwnProperty.call(customerEmailData, 'message') && customerEmailData.message ? customerEmailData.message : defaultCustomerEmailData.message;
