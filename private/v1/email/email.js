@@ -161,6 +161,8 @@ async function PostEmail(req, res, next){
 			req.body.subject = `[DEV TEST] ${req.body.subject}`;
 		}else if(global.settings.ENV === 'staging'){
 			req.body.subject = `[STA TEST] ${req.body.subject}`;
+		}else if(global.settings.ENV === 'demo'){
+			req.body.subject = `[DEMO TEST] ${req.body.subject}`;
 		}
 	}
 

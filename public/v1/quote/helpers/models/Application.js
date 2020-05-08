@@ -505,6 +505,7 @@ module.exports = class Application{
 							break;
 						case 'test':
 						case 'staging':
+						case 'demo':
 						case 'production':
 						default:
 							portalLink = this.agencyLocation.agencyNetwork === 2 ? global.settings.DIGALENT_AGENTS_URL : global.settings.TALAGE_AGENTS_URL;

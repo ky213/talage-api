@@ -380,8 +380,10 @@ async function createUser(req, res, next){
 		brandraw = 'Digalent';
 		if(global.settings.ENV === 'production'){
 			portalurl = 'https://agents.digalent.com';
-		}else{
+		}else if(global.settings.ENV === 'staging')  {
 			portalurl = 'https://agents.sta.digalent.com';
+		}else if(global.settings.ENV === 'demo')  {
+			portalurl = 'https://demo.agents.digalent.com';
 		}
 	}
 	let brand = brandraw.toLowerCase();
