@@ -63,7 +63,7 @@ async function getApplication(req, res, next){
 				${db.quoteName('a.additional_insured', 'additionalInsured')},
 				${db.quoteName('a.agency')},
 				${db.quoteName('a.id')},
-				${db.quoteName('a.last_step')},
+				${db.quoteName('a.last_step', 'lastStep')},
 				${db.quoteName('a.solepro')},
 				${db.quoteName('a.waiver_subrogation', 'waiverSubrogation')},
 				${db.quoteName('a.wholesale')},
