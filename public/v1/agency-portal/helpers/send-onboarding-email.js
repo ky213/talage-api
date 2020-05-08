@@ -70,9 +70,12 @@ module.exports = async function(agencyNetwork, userID, firstName, lastName, agen
 		if(global.settings.ENV === 'production'){
 			portalurl = 'https://agents.digalent.com';
 			appurl = 'https://insure.digalent.com';
-		}else{
+		}else if (global.settings.ENV === 'staging') {
 			portalurl = 'https://agents.sta.digalent.com';
 			appurl = 'https://sta.digalent.com';
+		}else if (global.settings.ENV === 'demo') {
+			portalurl = 'https://demo.agents.digalent.com';
+			appurl = 'https://demo.insure.digalent.com';
 		}
 
 	}

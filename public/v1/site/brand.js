@@ -16,6 +16,7 @@ const serverHelper = require('../../../server.js');
  * @returns {object} res - Returns an authorization token
  */
 function PostBrand(req, res, next){
+	// TODO Branding AND demo
 	switch(req.body.hostName){
 		case 'tahoe.talageins.com':
 		case 'www.talageins.com':
