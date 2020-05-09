@@ -11,12 +11,12 @@ const validator = global.requireShared('./helpers/validator.js');
 module.exports = class Claim{
 
 	constructor(){
-		this.amount = 0;
-		this.amount_reserved = 0;
+		this.amountPaid = 0;
+		this.amountReserved = 0;
 		this.date = '';
 
 		// Worker's Compensation Claims
-		this.missed_time = false;
+		this.missedWork = false;
 		this.open = false;
 	}
 
@@ -57,22 +57,24 @@ module.exports = class Claim{
 		return new Promise((fulfill, reject) => {
 
 			/**
-			 * Amount (dollar amount)
+			 * Amount Paid (dollar amount)
 			 * - >= 0
 			 * - < 15,000,000
 			 */
-			if(this.amount){
-				if(!validator.claim_amount(this.amount)){
+			if(this.amountPaid){
+				if(!validator.claim_amount(this.amountPaid)){
 					reject(serverHelper.requestError('The amount must be a dollar value greater than 0 and below 15,000,000'));
 					return;
 				}
 
 				// Cleanup this input
-				if(typeof this.amount === 'number'){
-					this.amount = Math.round(this.amount);
+				if(typeof this.amountPaid === 'number'){
+					this.amountPaid = Math.round(this.amountPaid);
 				}else{
-					this.amount = Math.round(parseFloat(this.amount.toString().replace('$', '').replace(/,/g, '')));
+					this.amountPaid = Math.round(parseFloat(this.amountPaid.toString().replace('$', '').replace(/,/g, '')));
 				}
+			}else{
+				this.amountPaid = 0;
 			}
 
 			/**
@@ -80,18 +82,20 @@ module.exports = class Claim{
 			 * - >= 0
 			 * - < 15,000,000
 			 */
-			if(this.amount_reserved){
-				if(!validator.claim_amount(this.amount_reserved)){
-					reject(serverHelper.requestError('The amount_reserved must be a dollar value greater than 0 and below 15,000,000'));
+			if(this.amountReserved){
+				if(!validator.claim_amount(this.amountReserved)){
+					reject(serverHelper.requestError('The amountReserved must be a dollar value greater than 0 and below 15,000,000'));
 					return;
 				}
 
 				// Cleanup this input
-				if(typeof this.amount_reserved === 'number'){
-					this.amount_reserved = Math.round(this.amount_reserved);
+				if(typeof this.amountReserved === 'number'){
+					this.amountReserved = Math.round(this.amountReserved);
 				}else{
-					this.amount_reserved = Math.round(parseFloat(this.amount_reserved.toString().replace('$', '').replace(/,/g, '')));
+					this.amountReserved = Math.round(parseFloat(this.amountReserved.toString().replace('$', '').replace(/,/g, '')));
 				}
+			}else{
+				this.amountReserved = 0;
 			}
 
 			/**
@@ -117,10 +121,10 @@ module.exports = class Claim{
 			 * Missed Time
 			 * - Boolean
 			 */
-			if(this.missed_time){
+			if(this.missedWork){
 				// Other than bool?
-				if(typeof this.missed_time !== 'boolean'){
-					reject(serverHelper.requestError('Invalid format for missed_time. Expected true/false'));
+				if(typeof this.missedWork !== 'boolean'){
+					reject(serverHelper.requestError('Invalid format for missedWork. Expected true/false'));
 					return;
 				}
 			}
@@ -140,7 +144,7 @@ module.exports = class Claim{
 			/**
 			 * Only open claims can have an amount reserved
 			 */
-			if(!this.open && this.amount_reserved !== 0){
+			if(!this.open && this.amountReserved){
 				reject(serverHelper.requestError('Only open claims can have an amount reserved'));
 				return;
 			}

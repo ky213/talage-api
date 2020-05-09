@@ -3737,28 +3737,28 @@
 	"entity_code": "LL",
 	"claims_by_year": [
 		{
-			"amount_paid": 0,
-			"amount_reserved": 0,
+			"amountPaid": 0,
+			"amountReserved": 0,
 			"count": 0
 		},
 		{
-			"amount_paid": 10,
-			"amount_reserved": 0,
+			"amountPaid": 10,
+			"amountReserved": 0,
 			"count": 1
 		},
 		{
-			"amount_paid": 20,
-			"amount_reserved": 0,
+			"amountPaid": 20,
+			"amountReserved": 0,
 			"count": 1
 		},
 		{
-			"amount_paid": 30,
-			"amount_reserved": 0,
+			"amountPaid": 30,
+			"amountReserved": 0,
 			"count": 1
 		},
 		{
-			"amount_paid": 40,
-			"amount_reserved": 0,
+			"amountPaid": 40,
+			"amountReserved": 0,
 			"count": 1
 		}
 	],

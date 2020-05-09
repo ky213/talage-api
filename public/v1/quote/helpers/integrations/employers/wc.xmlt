@@ -1,4 +1,4 @@
-<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" 
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
 	xmlns:eig="https://api.employers.com/DigitalAgencyServices/ws/AcordServices">
 	<soap:Body>
 		<eig:getWorkCompPolicy>
@@ -119,7 +119,7 @@
 						<WorkCompLossOrPriorPolicy>
 							<EffectiveDt>{{:~root.policy.effective_date.clone().subtract(#index+1, 'years').format('YYYY-MM-DD')}}</EffectiveDt>
 							<TotalIncurredAmt>
-								<Amt>{{:~root.claims_by_year[#index+1].amount_paid + ~root.claims_by_year[#index+1].amount_reserved}}</Amt>
+								<Amt>{{:~root.claims_by_year[#index+1].amountPaid + ~root.claims_by_year[#index+1].amountReserved}}</Amt>
 							</TotalIncurredAmt>
 							<NumClaims>{{:~root.claims_by_year[#index+1].count}}</NumClaims>
 						</WorkCompLossOrPriorPolicy>

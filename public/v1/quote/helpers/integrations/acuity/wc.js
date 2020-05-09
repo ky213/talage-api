@@ -513,7 +513,7 @@ module.exports = class AcuityWC extends Integration{
 
 									// <PaidTotalAmt>
 									const PaidTotalAmt = WorkCompLossOrPriorPolicy.ele('TotalIncurredAmt');
-										PaidTotalAmt.ele('Amt', claims_by_year[i].amount_paid + claims_by_year[i].amount_reserved);
+										PaidTotalAmt.ele('Amt', claims_by_year[i].amountPaid + claims_by_year[i].amountReserved);
 									// </PaidTotalAmt>
 
 									WorkCompLossOrPriorPolicy.ele('NumClaims', claims_by_year[i].count);
