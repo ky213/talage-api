@@ -77,17 +77,6 @@ module.exports = class EmployersWC extends Integration{
 			if(this.policy.claims.length > 0){
 				// Get the claims organized by year
 				this.claims_by_year = this.claims_to_policy_years();
-				// Loop through all four years and send claims data (If there is a claim, Employers requires 4 years even if the data is 0)
-				for(let i = 1; i <= 4; i++){
-					if(!Object.prototype.hasOwnProperty.call(this.claims_by_year, i)){
-						// This year had no claims, send with zeros
-						this.claims_by_year[i] = {};
-						this.claims_by_year[i].amount_paid = 0;
-						this.claims_by_year[i].amount_reserved = 0;
-						this.claims_by_year[i].count = 0;
-						this.claims_by_year[i].missed_time = 0;
-					}
-				}
 			}
 
 			// Prepare limits

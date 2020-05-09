@@ -114,14 +114,29 @@ module.exports = class Integration{
 	 */
 	claims_to_policy_years(){
 		const claims = {};
+
+		// Get the effective date of the policy
+		const effective_date = this.policy.effective_date.clone();
+
+		// Fill the claims object with some default data (for the policy year, year 1 is within effective date - 1 year, year 2 within 2 years, etc.)
+		for(let i = 1; i <= 5; i++){
+			const c = {};
+			c.amount_paid = 0;
+			c.amount_reserved = 0;
+			c.count = 0;
+			c.effective_date = effective_date.clone().subtract(i, 'years');
+			c.expiration_date = c.effective_date.clone().add(1, 'years');
+			c.missed_time = 0;
+			claims[i] = c;
+		}
+
+		// Loop through each claim and add them to the claims object
 		this.policy.claims.forEach((claim) => {
 
-			// Determine the policy year (year 1 is within effective date - 1 year, year 2 within 2 years, etc.)
-			let effective_date = this.policy.effective_date.clone();
+			// Determine the policy year
 			let year = 0;
 			for(let i = 1; i <= 5; i++){
-				effective_date = effective_date.subtract(1, 'years');
-				if(claim.date.isAfter(effective_date)){
+				if(claim.date.isAfter(this.policy.effective_date.clone().subtract(i, 'years'))){
 					year = i;
 					break;
 				}
@@ -130,18 +145,6 @@ module.exports = class Integration{
 			// Make sure the claim was within the last 5 years
 			if(!year){
 				return;
-			}
-
-			// If claims information was not already started for this year, add it
-			if(!Object.prototype.hasOwnProperty.call(claims, year)){
-				const c = {};
-				c.amount_paid = 0;
-				c.amount_reserved = 0;
-				c.count = 0;
-				c.effective_date = effective_date;
-				c.expiration_date = effective_date.clone().add(1, 'years');
-				c.missed_time = 0;
-				claims[year] = c;
 			}
 
 			// Process this claim
