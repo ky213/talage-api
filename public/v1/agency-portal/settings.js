@@ -179,7 +179,7 @@ async function PutSettings(req, res, next){
 	let error = false;
 
 	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req, 'settings', 'view').catch(function(e){
+	await auth.validateJWT(req, 'settings', 'manage').catch(function(e){
 		error = e;
 	});
 	if(error){

@@ -70,7 +70,7 @@ const GetActivityCodes = wrap(async(req, res, next) => {
 	const codes = await db.query(sql_all_activity_codes).catch(function(e){
 		log.error(e.message);
 		res.send(500, {
-			'message': 'Internal server. Error',
+			'message': 'Internal Server Error',
 			'status': 'error'
 		});
 		error = true;
