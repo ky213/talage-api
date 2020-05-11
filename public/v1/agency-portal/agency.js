@@ -619,8 +619,8 @@ async function PostAgency(req, res, next){
 	const password = generatePassword();
 	const hashedPassword = await crypt.hashPassword(password);
 	const createUserSQL = `
-			INSERT INTO \`#__agency_portal_users\` (\`agency\`, \`email\`, \`email_hash\`, \`password\`)
-			VALUES (${db.escape(agencyID)}, ${db.escape(encrypted.email)}, ${db.escape(emailHash)}, ${db.escape(hashedPassword)});
+			INSERT INTO \`#__agency_portal_users\` (\`agency\`, \`can_sign\`, \`email\`, \`email_hash\`, \`group\`, \`password\`)
+			VALUES (${db.escape(agencyID)}, 1, ${db.escape(encrypted.email)}, ${db.escape(emailHash)}, 1, ${db.escape(hashedPassword)});
 		`;
 	log.info('creating user');
 	const createUserResult = await db.query(createUserSQL).catch(function(e){
