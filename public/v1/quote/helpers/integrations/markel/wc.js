@@ -235,13 +235,12 @@ module.exports = class MarkelWC extends Integration{
 
 										// <PaidTotalAmt>
 										const PaidTotalAmt = WorkCompLossOrPriorPolicy.ele('PaidTotalAmt');
-											PaidTotalAmt.ele('Amt', claims_by_year[year].amount_paid);
+											PaidTotalAmt.ele('Amt', claims_by_year[year].amountPaid);
 										// </PaidTotalAmt>
 
-										// Markel does not support amount_reserved
-
+										// Markel does not support amount reserved
 										WorkCompLossOrPriorPolicy.ele('NumClaims', claims_by_year[year].count);
-										WorkCompLossOrPriorPolicy.ele('NumMedicalClaimsPaid', claims_by_year[year].count - claims_by_year[year].missed_time);
+										WorkCompLossOrPriorPolicy.ele('NumMedicalClaimsPaid', claims_by_year[year].count - claims_by_year[year].missedWork);
 									// <WorkCompLossOrPriorPolicy>
 								}
 							}
@@ -556,7 +555,7 @@ module.exports = class MarkelWC extends Integration{
 								const QuestionAnswerCO1 = WorkCompLineBusiness.ele('QuestionAnswer');
 									QuestionAnswerCO1.ele('QuestionCd', 'com.markel.uw.questions.stateSpecific.co.NumberOfLossTimeClaimsLastYr');
 									QuestionAnswerCO1.ele('YesNoCd', 'NA');
-									QuestionAnswerCO1.ele('Num', Object.prototype.hasOwnProperty.call(claims_by_year, 1) ? claims_by_year[1].missed_time : 0);
+									QuestionAnswerCO1.ele('Num', Object.prototype.hasOwnProperty.call(claims_by_year, 1) ? claims_by_year[1].missedWork : 0);
 								// </QuestionAnswer>
 
 								// How many medical claims of $250 or more were within the last?

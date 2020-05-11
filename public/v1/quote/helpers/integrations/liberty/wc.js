@@ -207,17 +207,17 @@ module.exports = class LibertyWC extends Integration{
 											Loss.ele('LOBCd', 'WORK');
 											Loss.ele('LossDt', claim.date.format('YYYY-MM-DD'));
 											Loss.ele('StateProvCd', this.app.business.primary_territory);
-											Loss.ele('LossCauseCd', claim.missed_time ? 'WLT' : 'WMO');
+											Loss.ele('LossCauseCd', claim.missedWork ? 'WLT' : 'WMO');
 											Loss.ele('ClaimStatusCd', claim.open ? 'open' : 'closed');
 
 											// <TotalPaidAmt>
 											const TotalPaidAmt = Loss.ele('TotalPaidAmt');
-												TotalPaidAmt.ele('Amt', claim.amount);
+												TotalPaidAmt.ele('Amt', claim.amountPaid);
 											// </TotalPaidAmt>
 
 											// <ReservedAmt>
 											const ReservedAmt = Loss.ele('ReservedAmt');
-												ReservedAmt.ele('Amt', claim.amount_reserved);
+												ReservedAmt.ele('Amt', claim.amountReserved);
 											// </ReservedAmt>
 										// </Loss>
 									}

@@ -114,14 +114,29 @@ module.exports = class Integration{
 	 */
 	claims_to_policy_years(){
 		const claims = {};
+
+		// Get the effective date of the policy
+		const effective_date = this.policy.effective_date.clone();
+
+		// Fill the claims object with some default data (for the policy year, year 1 is within effective date - 1 year, year 2 within 2 years, etc.)
+		for(let i = 1; i <= 5; i++){
+			const c = {};
+			c.amountPaid = 0;
+			c.amountReserved = 0;
+			c.count = 0;
+			c.effective_date = effective_date.clone().subtract(i, 'years');
+			c.expiration_date = c.effective_date.clone().add(1, 'years');
+			c.missedWork = 0;
+			claims[i] = c;
+		}
+
+		// Loop through each claim and add them to the claims object
 		this.policy.claims.forEach((claim) => {
 
-			// Determine the policy year (year 1 is within effective date - 1 year, year 2 within 2 years, etc.)
-			let effective_date = this.policy.effective_date.clone();
+			// Determine the policy year
 			let year = 0;
 			for(let i = 1; i <= 5; i++){
-				effective_date = effective_date.subtract(1, 'years');
-				if(claim.date.isAfter(effective_date)){
+				if(claim.date.isAfter(this.policy.effective_date.clone().subtract(i, 'years'))){
 					year = i;
 					break;
 				}
@@ -132,27 +147,12 @@ module.exports = class Integration{
 				return;
 			}
 
-			// If claims information was not already started for this year, add it
-			if(!Object.prototype.hasOwnProperty.call(claims, year)){
-				const c = {};
-				c.amount_paid = 0;
-				c.amount_reserved = 0;
-				c.count = 0;
-				c.effective_date = effective_date;
-				c.expiration_date = effective_date.clone().add(1, 'years');
-				c.missed_time = 0;
-				claims[year] = c;
-			}
-
 			// Process this claim
-			if(claim.open){
-				claims[year].amount_reserved += claim.amount;
-			}else{
-				claims[year].amount_paid += claim.amount;
-			}
+			claims[year].amountReserved += claim.amountReserved;
+			claims[year].amountPaid += claim.amountPaid;
 			claims[year].count++;
-			if(claim.missed_time){
-				claims[year].missed_time++;
+			if(claim.missedWork){
+				claims[year].missedWork++;
 			}
 		});
 
@@ -510,21 +510,21 @@ module.exports = class Integration{
 	get_total_amount_incurred_on_claims(number_of_years){
 
 		// Get the claims data organized by year
-		const claims_by_year = this.claims_to_policy_years();
+		const claimsByYear = this.claims_to_policy_years();
 
 		// Loop through each year of claims
-		let total_incurred = 0;
-		for(const claim_year in claims_by_year){
-			if(Object.prototype.hasOwnProperty.call(claims_by_year, claim_year)){
-				if(claim_year <= number_of_years){
-					total_incurred += claims_by_year[claim_year].amount_paid;
-					total_incurred += claims_by_year[claim_year].amount_reserved;
+		let total = 0;
+		for(const year in claimsByYear){
+			if(Object.prototype.hasOwnProperty.call(claimsByYear, year)){
+				if(year <= number_of_years){
+					total += claimsByYear[year].amountPaid;
+					total += claimsByYear[year].amountReserved;
 				}
 			}
 		}
 
 		// Return the result
-		return total_incurred;
+		return total;
 	}
 
 	/**

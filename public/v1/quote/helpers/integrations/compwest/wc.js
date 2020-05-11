@@ -414,9 +414,9 @@ log.info(`TO DO: As this business could not be written by ${this.insurer.name}, 
 								if(has_claims){
 									const claims_data = this.claims_to_policy_years();
 									CommlPolicySupplement.ele('NumberClaims', this.get_num_claims(4));
-									CommlPolicySupplement.ele('NumberClaims1', claims_data[1]);
-									CommlPolicySupplement.ele('NumberClaims2', claims_data[2]);
-									CommlPolicySupplement.ele('NumberClaims3', claims_data[3]);
+									CommlPolicySupplement.ele('NumberClaims1', claims_data[1].count);
+									CommlPolicySupplement.ele('NumberClaims2', claims_data[2].count);
+									CommlPolicySupplement.ele('NumberClaims3', claims_data[3].count);
 									CommlPolicySupplement.ele('TotalClaimAmount', this.get_total_amount_incurred_on_claims(4));
 								}
 							// <CommlPolicySupplement>
