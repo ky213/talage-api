@@ -32,13 +32,16 @@ async function PostResetPassword(req, res, next){
 
 	// Authenticate the information provided by the user
 	const emailHash = await crypt.hash(req.body.email);
-	const agentSQL = `
+	const sql = `
 			SELECT
-				\`id\`
+				\`apu\`.\`id\`,
+				IFNULL(\`a\`.\`agency_network\`, \`an\`.\`id\`) AS \`agency_network\`
 			FROM \`#__agency_portal_users\`
+			LEFT JOIN \`#__agencies\` AS \`a\` ON \`a\`.\`id\` = \`apu\`.\`agency\`
+			LEFT JOIN \`#__agency_networks\` AS \`an\` ON \`an\`.\`id\` = \`apu\`.\`agency_network\`
 			WHERE \`email_hash\` = ${db.escape(emailHash)} LIMIT 1;
 		`;
-	const result = await db.query(agentSQL).catch(function(e){
+	const result = await db.query(sql).catch(function(e){
 		log.error(e.message);
 		res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
 		error = true;
@@ -54,23 +57,23 @@ async function PostResetPassword(req, res, next){
 		// Create a limited life JWT
 		const token = jwt.sign({'userID': result[0].id}, global.settings.AUTH_SECRET_KEY, {'expiresIn': '15m'});
 
-		let brandraw = global.settings.BRAND.toLowerCase();
+		let brandRaw = global.settings.BRAND.toLowerCase();
 		let portalurl = global.settings.PORTAL_URL;
 		if(result[0].agency_network === 2){
-			brandraw = 'Digalent';
+			brandRaw = 'Digalent';
 			if(global.settings.ENV === 'production'){
 				portalurl = 'https://agents.digalent.com';
-			}else if(global.settings.ENV === 'staging')  {
+			}else if(global.settings.ENV === 'staging'){
 				portalurl = 'https://agents.sta.digalent.com';
-			}else if(global.settings.ENV === 'demo')  {
+			}else if(global.settings.ENV === 'demo'){
 				portalurl = 'https://demo.agents.digalent.com';
 			}
 		}
 
 		const emailData = {
-			'from': brandraw,
+			'from': brandRaw,
 			'html': `<p style="text-align:center;">A request to reset your password has been recieved. To continue the reset process, please click the button below within 15 minutes.</p><br><p style="text-align: center;"><a href="${portalurl}/reset-password/${token}" style="background-color:#ED7D31;border-radius:0.25rem;color:#FFF;font-size:1.3rem;padding-bottom:0.75rem;padding-left:1.5rem;padding-top:0.75rem;padding-right:1.5rem;text-decoration:none;text-transform:uppercase;">Reset Password</a></p>`,
-			'subject': `Reset Your ${brandraw.charAt(0).toUpperCase() + brandraw.substr(1).toLowerCase()} Password`,
+			'subject': `Reset Your ${brandRaw.charAt(0).toUpperCase() + brandRaw.substr(1).toLowerCase()} Password`,
 			'to': req.body.email
 		};
 

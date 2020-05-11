@@ -22,7 +22,7 @@ async function GetIndustryCategories(req, res, next){
 	const categories = await db.query(sql_all_industry_categories).catch(function(e){
 		log.warn(e.message);
 		res.send(500, {
-			'message': 'Internal server. Error',
+			'message': 'Internal Server Error',
 			'status': 'error'
 		});
 		error = true;

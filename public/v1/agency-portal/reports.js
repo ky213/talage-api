@@ -166,7 +166,7 @@ async function GetReports(req, res, next){
 			WHERE
 				${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate} AND
 				${where}
-			GROUP BY YEAR(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')), MONTH(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}'));
+			GROUP BY YEAR(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')), MONTHNAME(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}'));
 			`,
 
 		'premium': `

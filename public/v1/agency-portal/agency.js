@@ -296,7 +296,7 @@ async function PostAgency(req, res, next){
 	let error = false;
 
 	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req).catch(function(e){
+	await auth.validateJWT(req, 'agencies', 'manage').catch(function(e){
 		error = e;
 	});
 	if(error){
