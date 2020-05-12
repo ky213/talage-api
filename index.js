@@ -66,15 +66,15 @@ async function main(){
 	// eslint-disable-next-line no-console
 	console.log(Date());
 
-	// Initialize the version
-	if(!await version.load()){
-		logLocalErrorMessage('Error initializing version. Stopping.');
+	// Load the settings from a .env file - Settings are loaded first
+	if(!globalSettings.load()){
+		logLocalErrorMessage('Error loading variables. Stopping.');
 		return;
 	}
 
-	// Load the settings from a .env file
-	if(!globalSettings.load()){
-		logLocalErrorMessage('Error loading variables. Stopping.');
+	// Initialize the version
+	if(!await version.load()){
+		logLocalErrorMessage('Error initializing version. Stopping.');
 		return;
 	}
 

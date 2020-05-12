@@ -69,8 +69,8 @@ exports.connect = () => {
 	//always log to console. (pm2 logs in production)
 	//console logging
 	var consoleLevel = 'debug';
-	if (process.env.CONSOLE_LOGLEVEL) {
-		consoleLevel = process.env.CONSOLE_LOGLEVEL;
+	if (global.settings.CONSOLE_LOGLEVEL) {
+		consoleLevel = global.settings.CONSOLE_LOGLEVEL;
 	}
 	var consoleOptions = {
 		level: consoleLevel,
