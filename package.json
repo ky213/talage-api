@@ -46,7 +46,7 @@
 		"sodium": "^3.0.2",
 		"striptags": "^3.1.1",
 		"winston": "^3.2.1",
-		"winston-elasticsearch": "^0.8.8",
+		"winston-elasticsearch": "0.8.5",
 		"node-ec2-metadata": "0.0.5"
 	},
 	"devDependencies": {
@@ -171,7 +171,10 @@
 			"lines-around-comment": "error",
 			"lines-between-class-members": "error",
 			"max-statements-per-line": "error",
-			"multiline-comment-style": "error",
+			"multiline-comment-style": [
+				"error",
+				"separate-lines"
+			],
 			"multiline-ternary": [
 				"error",
 				"never"
