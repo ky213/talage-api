@@ -10,7 +10,6 @@
 'use strict';
 
 const winston = require('winston');
-const common = require('winston/lib/winston/common');
 const colors = require('colors');
 const elasticsearch = require('elasticsearch');
 const awsHttpClient = require('http-aws-es');
@@ -22,8 +21,8 @@ const WinstonElasticsearch = require('winston-elasticsearch');
  * var Q = require('q');
  */
 
-const { createLogger, format } = require('winston');
-const { combine, timestamp, label, prettyPrint, printf } = format;
+const { format } = require('winston');
+const { combine, timestamp, printf } = format;
 
 exports.connect = () => {
 
