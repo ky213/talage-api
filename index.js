@@ -56,11 +56,15 @@ function logLocalErrorMessage(message){
  */
 async function main(){
 	// eslint-disable-next-line no-console
+	console.log(Date());
+	// eslint-disable-next-line no-console
 	console.log(colors.green.bold('-'.padEnd(80, '-')));
 	// eslint-disable-next-line no-console
 	console.log(colors.green.bold('Initializing'));
 	// eslint-disable-next-line no-console
 	console.log(colors.green.bold('-'.padEnd(80, '-')));
+	// eslint-disable-next-line no-console
+	console.log(Date());
 
 	// Initialize the version
 	if(!await version.load()){

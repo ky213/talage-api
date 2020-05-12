@@ -1,3 +1,5 @@
+/* eslint-disable */
+
 /* eslint sort-keys: 0 */
 // NOTE: disable sorting keys for now until this code is ready
 
@@ -142,7 +144,7 @@ exports.connect = () => {
 				// Setup differentindex
 
 			};
-			const winstonElasticsearch = new WinstonElasticsearch(elasticSearchOptions);
+			var winstonElasticsearch = new WinstonElasticsearch(elasticSearchOptions);
 			if(winstonElasticsearch){
 				transports.push(winstonElasticsearch);
 			}else{
@@ -192,9 +194,10 @@ exports.connect = () => {
 			'level': elasticSearchLevel
 		});
 		global.log = logger;
-	}else if(global.settings.ENV !== 'test' && global.settings.ENV !== 'development' && global.settings.ENV !== 'local'){
-		console.log(colors.red('ERROR: logstash server is not available on AWS')); // eslint-disable-line no-console
-		return false;
+	// BP it runs on it setting.... env does not matter.	
+	// }else if(global.settings.ENV !== 'test' && global.settings.ENV !== 'development' && global.settings.ENV !== 'local'){
+	// 	console.log(colors.red('ERROR: logstash server is not available on AWS')); // eslint-disable-line no-console
+	// 	return false;
 	}else{
 		console.log(colors.green('\tConnected (logging locally)')); // eslint-disable-line no-console
 
