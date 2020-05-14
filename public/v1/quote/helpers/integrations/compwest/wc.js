@@ -279,8 +279,8 @@ log.info(`TO DO: As this business could not be written by ${this.insurer.name}, 
 					// <ClientApp>
 					const ClientApp = SignonRq.ele('ClientApp');
 
-						// Org (AF Group has asked us to send in the Channel ID in this field. 2 indicates Digalent. Use 1 in all other cases)
-						ClientApp.ele('Org', this.app.agencyLocation.agencyNetwork === 2 ? 2 : 1);
+						// Org (AF Group has asked us to send in the Channel ID in this field. 2 indicates Digalent Storefront. 1 indicates the Talage Digital Agency)
+						ClientApp.ele('Org', (this.app.agencyLocation.id === 2 || this.app.agencyLocation.agencyNetwork === 2 ? 2 : 1));
 
 					// </ClientApp>
 				// </SignonRq>
