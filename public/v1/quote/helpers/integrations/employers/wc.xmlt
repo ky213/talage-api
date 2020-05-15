@@ -1,0 +1,198 @@
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+	xmlns:eig="https://api.employers.com/DigitalAgencyServices/ws/AcordServices">
+	<soap:Body>
+		<eig:getWorkCompPolicy>
+			<request>
+				<appKey>{{:username}}</appKey>
+				<appToken>{{:password}}</appToken>
+				<PolicyRq xmlns="http://www.acord.org/schema/PC/xml/2">
+					<BusinessPurposeTypeCd>NBQ</BusinessPurposeTypeCd>
+					<ItemIdInfo>
+						<OtherIdentifier>
+							<OtherIdTypeCd>Request</OtherIdTypeCd>
+							<UID>{{:request_id}}</UID>
+						</OtherIdentifier>
+					</ItemIdInfo>
+					<TransactionRequestDt>{{:request_date}}</TransactionRequestDt>
+					<CurCd>USD</CurCd>
+					<Producer>
+						<ItemIdInfo>
+							<AgencyId>{{:app.agencyLocation.insurers[insurer.id].agency_id}}</AgencyId>
+						</ItemIdInfo>
+						<ProducerInfo>
+							<ProducerInfoExt Domain="com.employers.digitalagencyservices.acordservice">
+								<AgentId>{{:app.agencyLocation.insurers[insurer.id].agency_id}}-{{:app.agencyLocation.insurers[insurer.id].agent_id}}</AgentId>
+							</ProducerInfoExt>
+						</ProducerInfo>
+					</Producer>
+					<InsuredOrPrincipal>
+						<GeneralPartyInfo>
+							<NameInfo>
+								<CommlName>
+									<CommercialName>{{:app.business.name.substring(0, 60)}}</CommercialName>
+								</CommlName>
+								<LegalEntityCd>{{:entity_code}}</LegalEntityCd>
+								<TaxIdentity>
+									<TaxIdTypeCd>FEIN</TaxIdTypeCd>
+									<TaxId>{{:app.business.locations[0].identification_number}}</TaxId>
+								</TaxIdentity>
+								{{if app.business.dba}}
+								<SupplementaryNameInfo>
+									<SupplementaryNameCd>DBA</SupplementaryNameCd>
+									<SupplementaryName>{{:app.business.dba.substring(0, 60)}}</SupplementaryName>
+								</SupplementaryNameInfo>
+								{{/if}}
+							</NameInfo>
+							<Addr>
+								<AddrTypeCd>MailingAddress</AddrTypeCd>
+								<Addr1>{{:app.business.mailing_address.substring(0, 30)}}</Addr1>
+								{{if app.business.mailing_address2}}
+								<Addr2>{{:app.business.mailing_address2.substring(0, 30)}}</Addr2>
+								{{/if}}
+								<City>{{:app.business.mailing_city}}</City>
+								<StateProvCd>{{:app.business.mailing_territory}}</StateProvCd>
+								<PostalCode>{{:app.business.mailing_zip}}</PostalCode>
+							</Addr>
+							<Communications>
+								{{for app.business.contacts[0].phone itemVar='~phone'}}
+								<PhoneInfo>
+									<PhoneTypeCd>Phone</PhoneTypeCd>
+									<PhoneNumber>+1-{{:~phone.toString().substring(0, 3)}}-{{:~phone.toString().substring(3, 6)}}-{{:~phone.toString().substring(6,10)}}</PhoneNumber>
+								</PhoneInfo>
+								{{/for}}
+								<EmailInfo>
+									<CommunicationUseCd>Business</CommunicationUseCd>
+									<EmailAddr>{{:app.business.contacts[0].email}}</EmailAddr>
+								</EmailInfo>
+							</Communications>
+						</GeneralPartyInfo>
+						<InsuredOrPrincipalInfo>
+							<InsuredOrPrincipalRoleCd>Insured</InsuredOrPrincipalRoleCd>
+						</InsuredOrPrincipalInfo>
+					</InsuredOrPrincipal>
+					<Policy>
+						<LOBCd>WORK</LOBCd>
+						<ControllingStateProvCd>{{:app.business.primary_territory}}</ControllingStateProvCd>
+						<ContractTerm>
+							<EffectiveDt>{{:policy.effective_date.format('YYYY-MM-DD')}}</EffectiveDt>
+							<ExpirationDt>{{:policy.expiration_date.format('YYYY-MM-DD')}}</ExpirationDt>
+						</ContractTerm>
+						<PolicySupplement>
+							<LengthTimeInBusiness>
+								<NumUnits>{{:get_years_in_business()}}</NumUnits>
+								<UnitMeasurementCd>ANN</UnitMeasurementCd>
+							</LengthTimeInBusiness>
+						</PolicySupplement>
+						<PolicyExt Domain="com.employers.digitalagencyservices.acordservice">
+							<AddlEntity>NO</AddlEntity>
+							<CustomerContact>{{:app.business.contacts[0].first_name}} {{:app.business.contacts[0].last_name}}</CustomerContact>
+							<InsuredClaim>NO</InsuredClaim>
+							{{if get_years_in_business() < 3}}
+							<YearsIndExp>{{:app.business.years_of_exp}}</YearsIndExp>
+							{{/if}}
+						</PolicyExt>
+					</Policy>
+					{{for app.business.locations itemVar='~location'}}
+					<Location id="L{{:#index + 1}}">
+						<Addr>
+							<AddrTypeCd>StreetAddress</AddrTypeCd>
+							<Addr1>{{:~location.address.substring(0, 30)}}</Addr1>
+							{{if ~location.address2}}
+							<Addr2>{{:~location.address2.substring(0, 30)}}</Addr2>
+							{{/if}}
+							<City>{{:~location.city}}</City>
+							<StateProvCd>{{:~location.territory}}</StateProvCd>
+							<PostalCode>{{:~location.zip}}</PostalCode>
+						</Addr>
+						{{if ~location.unemployment_number}}
+						<TaxCodeInfo>
+							<TaxCd>{{:~location.unemployment_number}}</TaxCd>
+							<TaxTypeCd>UNEMPLOYMENT NUMBER</TaxTypeCd>
+						</TaxCodeInfo>
+						{{/if}}
+					</Location>
+					{{/for}}
+					<WorkCompLineBusiness>
+						<LOBCd>WORK</LOBCd>
+						{{if policy.claims.length > 0}}
+						{{for start=0 end=4}}
+						<WorkCompLossOrPriorPolicy>
+							<EffectiveDt>{{:~root.policy.effective_date.clone().subtract(#index+1, 'years').format('YYYY-MM-DD')}}</EffectiveDt>
+							<TotalIncurredAmt>
+								<Amt>{{:~root.claims_by_year[#index+1].amountPaid + ~root.claims_by_year[#index+1].amountReserved}}</Amt>
+							</TotalIncurredAmt>
+							<NumClaims>{{:~root.claims_by_year[#index+1].count}}</NumClaims>
+						</WorkCompLossOrPriorPolicy>
+						{{/for}}
+						{{/if}}
+						<WorkCompRateState>
+							<StateProvCd>{{:app.business.primary_territory}}</StateProvCd>
+							{{if app.business.experience_modifier > 0}}
+							{{if app.business.bureau_number > 0}}
+							<NAICCd>{{:app.business.bureau_number}}</NAICCd>
+							{{/if}}
+							<CreditOrSurcharge>
+								<CreditSurchargeCd>EXP</CreditSurchargeCd>
+								<NumericValue>
+									<FormatModFactor>{{:app.business.experience_modifier}}</FormatModFactor>
+								</NumericValue>
+							</CreditOrSurcharge>
+							{{/if}}
+							{{for app.business.locations itemVar='~location'}}
+							<WorkCompLocInfo LocationRef="L{{:#index + 1}}">
+								<NumEmployees>{{:~location.part_time_employees + ~location.full_time_employees}}</NumEmployees>
+								{{for activity_codes itemVar='~code'}}
+								<WorkCompRateClass>
+									<ActualRemunerationAmt>
+										<Amt>{{:payroll}}</Amt>
+									</ActualRemunerationAmt>
+									<RatingClassificationCd>{{:~root.insurer_wc_codes[~location.territory + ~code.id]}}</RatingClassificationCd>
+									<RatingClassificationDesc>{{:~code.description}}</RatingClassificationDesc>
+								</WorkCompRateClass>
+								{{/for}}
+							</WorkCompLocInfo>
+							{{/for}}
+						</WorkCompRateState>
+						<Coverage>
+							<CoverageCd>WCEL</CoverageCd>
+							<Limit>
+								<FormatCurrencyAmt>
+									<Amt>{{:bestLimits[0]}}</Amt>
+								</FormatCurrencyAmt>
+								<LimitAppliesToCd>EachClaim</LimitAppliesToCd>
+							</Limit>
+							<Limit>
+								<FormatCurrencyAmt>
+									<Amt>{{:bestLimits[2]}}</Amt>
+								</FormatCurrencyAmt>
+								<LimitAppliesToCd>EachEmployee</LimitAppliesToCd>
+							</Limit>
+							<Limit>
+								<FormatCurrencyAmt>
+									<Amt>{{:bestLimits[1]}}</Amt>
+								</FormatCurrencyAmt>
+								<LimitAppliesToCd>PolicyLimit</LimitAppliesToCd>
+							</Limit>
+						</Coverage>
+						{{for validQuestions itemVar='~question'}}
+						<QuestionAnswer>
+							{{if ~question.code.startsWith('EMPCO')}}
+							<QuestionCd Domain="com.employers.digitalagencyservices.acordservice">{{:~question.code}}</QuestionCd>
+							{{else}}
+							<QuestionCd>{{:~question.code}}</QuestionCd>
+							{{/if}}
+							<YesNoCd>{{:~question.entry.get_answer_as_boolean() ? 'YES' : 'NO'}}</YesNoCd>
+						</QuestionAnswer>
+						{{/for}}
+						{{if app.business.owners_included && app.business.primary_territory !== 'CA'}}
+						<QuestionAnswer>
+							<QuestionCd Domain="com.employers.digitalagencyservices.acordservice">EMPCO-2000</QuestionCd>
+							<YesNoCd>YES</YesNoCd>
+						</QuestionAnswer>
+						{{/if}}
+					</WorkCompLineBusiness>
+				</PolicyRq>
+			</request>
+		</eig:getWorkCompPolicy>
+	</soap:Body>
+</soap:Envelope>
