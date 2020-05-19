@@ -29,12 +29,14 @@ const requiredVariables = [
 	'SECRET',
 	'TEST_API_TOKEN',
 	// AWS
+	'AWS_KEY',
+	'AWS_SECRET',
 	'AWS_ELASTICSEARCH_ENDPOINT',
 	'AWS_ELASTICSEARCH_LOGLEVEL',
-	'AWS_KEY',
 	'AWS_LOG_TO_AWS_ELASTICSEARCH',
 	'AWS_REGION',
-	'AWS_SECRET',
+	// S3
+	'S3_BUCKET',
 	// Database
 	'DATABASE_NAME',
 	'DATABASE_HOST',
@@ -45,10 +47,6 @@ const requiredVariables = [
 	'PUBLIC_API_PORT',
 	'PRIVATE_API_PORT',
 	'UPTIME_PORT',
-	// S3
-	'S3_ACCESS_KEY_ID',
-	'S3_BUCKET',
-	'S3_SECRET_ACCESS_KEY',
 	// Sendgrid
 	'SENDGRID_API_KEY'
 ];
