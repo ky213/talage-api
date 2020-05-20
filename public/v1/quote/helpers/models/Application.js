@@ -485,9 +485,9 @@ module.exports = class Application{
 
 				// Perform content replacements
 				message = message.replace(/{{Agency}}/g, this.agencyLocation.agency);
-				message = message.replace(/{{Agency Email}}/g, this.agencyLocation.agencyEmail);
-				message = message.replace(/{{Agency Phone}}/g, formatPhone(this.agencyLocation.agencyPhone));
-				message = message.replace(/{{Agency Website}}/g, `<a href="${this.agencyLocation.agencyWebsite}"  rel="noopener noreferrer" target="_blank">${this.agencyLocation.agencyWebsite}</a>`);
+				message = message.replace(/{{Agency Email}}/g, this.agencyLocation.agencyEmail ? this.agencyLocation.agencyEmail : '');
+				message = message.replace(/{{Agency Phone}}/g, this.agencyLocation.agencyPhone ? formatPhone(this.agencyLocation.agencyPhone) : '');
+				message = message.replace(/{{Agency Website}}/g, this.agencyLocation.agencyWebsite ? `<a href="${this.agencyLocation.agencyWebsite}"  rel="noopener noreferrer" target="_blank">${this.agencyLocation.agencyWebsite}</a>` : '');
 				subject = subject.replace(/{{Agency}}/g, this.agencyLocation.agency);
 
 				// Send the email message
@@ -799,10 +799,8 @@ module.exports = class Application{
 				}
 			}
 
-			/*
-			 *  (id: 1015 should have been removed as it was not required). What is the correct way to handle this?
-			 * Note: we cannot hurt questions where a child must be sent
-			 */
+			// (id: 1015 should have been removed as it was not required). What is the correct way to handle this?
+			// Note: we cannot hurt questions where a child must be sent
 
 			// Check agent support
 			await this.agencyLocation.supports_application().catch(function(error){
