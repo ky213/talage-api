@@ -48,7 +48,9 @@ const requiredVariables = [
 	'PRIVATE_API_PORT',
 	'UPTIME_PORT',
 	// Sendgrid
-	'SENDGRID_API_KEY'
+	'SENDGRID_API_KEY',
+	// SQS
+	'SQS_TASK_QUEUE'
 ];
 
 exports.load = () => {
