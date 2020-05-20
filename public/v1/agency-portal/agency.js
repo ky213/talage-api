@@ -32,6 +32,88 @@ function generatePassword(){
 }
 
 /**
+ * Deletes a single Agency
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function deleteAgency(req, res, next){
+	let error = false;
+
+	// Make sure the authentication payload has everything we are expecting
+	await auth.validateJWT(req, 'agencies', 'manage').catch(function(e){
+		error = e;
+	});
+	if(error){
+		return next(error);
+	}
+
+	// Make sure this is an agency network
+	if(req.authentication.agencyNetwork === false){
+		log.info('Forbidden: User is not authorized to delete agencies');
+		return next(serverHelper.forbiddenError('You are not authorized to delete agencies'));
+	}
+
+	// Check that query parameters were received
+	if(!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
+		log.info('Bad Request: Query parameters missing');
+		return next(serverHelper.requestError('Query parameters missing'));
+	}
+
+	// Validate the ID
+	if(!Object.prototype.hasOwnProperty.call(req.query, 'id')){
+		return next(serverHelper.requestError('ID missing'));
+	}
+	if(!await validator.agent(req.query.id)){
+		return next(serverHelper.requestError('ID is invalid'));
+	}
+	const id = parseInt(req.query.id, 10);
+
+	// Get the agencies that we are permitted to manage
+	const agencies = await auth.getAgents(req).catch(function(e){
+		error = e;
+	});
+	if(error){
+		return next(error);
+	}
+
+	// Make sure this Agency Network has access to this Agency
+	if(!agencies.includes(id)){
+		log.info('Forbidden: User is not authorized to delete this agency');
+		return next(serverHelper.forbiddenError('You are not authorized to delete this agency'));
+	}
+
+	// Update the user (we set the state to -2 to signify that the user is deleted)
+	const updateSQL = `
+			UPDATE \`#__agencies\`
+			SET
+				\`state\` = -2
+			WHERE
+				\`id\` = ${id}
+			LIMIT 1;
+		`;
+
+	// Run the query
+	const result = await db.query(updateSQL).catch(function(){
+		error = serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+	});
+	if(error){
+		return next(error);
+	}
+
+	// Make sure the query was successful
+	if(result.affectedRows !== 1){
+		log.error('User delete failed');
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+	}
+
+	res.send(200, 'Deleted');
+}
+
+/**
  * Returns the record for a single Agency
  *
  * @param {object} req - HTTP request object
@@ -292,7 +374,7 @@ async function getAgency(req, res, next){
  *
  * @returns {void}
  */
-async function PostAgency(req, res, next){
+async function postAgency(req, res, next){
 	let error = false;
 
 	// Make sure the authentication payload has everything we are expecting
@@ -647,6 +729,7 @@ async function PostAgency(req, res, next){
 }
 
 exports.registerEndpoint = (server, basePath) => {
+	server.addDeleteAuth('Delete Agency', `${basePath}/agency`, deleteAgency);
 	server.addGetAuth('Get Agency', `${basePath}/agency`, getAgency);
-	server.addPostAuth('Post Agency', `${basePath}/agency`, PostAgency);
+	server.addPostAuth('Post Agency', `${basePath}/agency`, postAgency);
 };

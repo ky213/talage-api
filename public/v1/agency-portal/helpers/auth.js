@@ -110,13 +110,6 @@ exports.validateJWT = function(req, permission, permissionType){
 			return;
 		}
 
-		// Validate all agents
-		if(!await validator.agents(agentIDs)){
-			log.info('Forbidden: JWT payload is invalid (one or more agent)');
-			reject(serverHelper.forbiddenError('User is not properly authenticated'));
-			hadError = true;
-		}
-
 		// Make sure the agencyNetwork is what we are expecting
 		if(typeof req.authentication.agencyNetwork !== 'number' && typeof req.authentication.agencyNetwork !== 'boolean'){
 			log.info('Forbidden: JWT payload is invalid (agencyNetwork)');
