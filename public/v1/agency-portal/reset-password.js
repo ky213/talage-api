@@ -36,7 +36,7 @@ async function PostResetPassword(req, res, next){
 			SELECT
 				\`apu\`.\`id\`,
 				IFNULL(\`a\`.\`agency_network\`, \`an\`.\`id\`) AS \`agency_network\`
-			FROM \`#__agency_portal_users\`
+			FROM \`#__agency_portal_users\` AS \`apu\`
 			LEFT JOIN \`#__agencies\` AS \`a\` ON \`a\`.\`id\` = \`apu\`.\`agency\`
 			LEFT JOIN \`#__agency_networks\` AS \`an\` ON \`an\`.\`id\` = \`apu\`.\`agency_network\`
 			WHERE \`email_hash\` = ${db.escape(emailHash)} LIMIT 1;
