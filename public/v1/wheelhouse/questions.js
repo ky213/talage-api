@@ -59,7 +59,7 @@ async function GetQuestions(req, res, next) {
 
 	// The object which will hold all the questions in the correct nesting
 	const dependencyList = {};
-	// The object to hold child ID: parentID
+	// The object to hold child ID: childId
 	const childToParent = {};
 
 	// Go through the data and build place the child questions under their parents
@@ -74,36 +74,40 @@ async function GetQuestions(req, res, next) {
 			};
 			// If this question is a child add to the children array
 		} else {
-
 			// Store the relationship between this question and its parent
 			childToParent[question.id] = question.parent;
 
 			// The array of the IDs of all the parents for this question
 			const listOfParents = [question.parent];
-
 			// Add all the parent IDs all the way to the top level
 			while (childToParent[listOfParents.slice(-1)[0]]) {
 				listOfParents.push(childToParent[listOfParents.slice(-1)[0]]);
 			}
 
-			// Build a string that will put this question in the proper nesting
-			let str = `dependencyList['${listOfParents.pop()}']`;
-			for (let i = 0; i < listOfParents.length; i++) {
-				str += `.children['${listOfParents.pop()}']`;
-			}
+			let childId = listOfParents.pop();
 
-			str += `.children['${question.id}'] = { question: ${db.escape(question.question)}, answer: ${db.escape(getAnswer(question))}, children: {}};`;
-
-			/*
-			 * Evaluate the string as a command
-			 * If there is messed up data and the eval doesn't work, then catch the error and move on
-			 */
-			try {
-				// eslint-disable-next-line  no-eval
-				eval(str);
-			} catch (e) {
-				log.error(e.message);
+			//If parent of childId does not exist
+			if (!dependencyList.hasOwnProperty(childId)) {
+				log.error('Parent Question,', question.parent, ",does not exist");
 			}
+			let child = dependencyList[childId];
+			//Build objects for parents with children questions for dependencyList
+				do {
+					if (!child) {
+						log.error('Child Does Not Exist')
+					}
+					childId = listOfParents.pop();
+					//If childId is undefined, listofParents is empty, build child object
+					if (!childId) {
+						childId = question.id;
+						console.log(question.id)
+						child.children[childId] = { 'question': question.question, 'answer': question.answer, 'children': {} };
+					}
+					else {
+						child = child.children[childId];
+					}
+				} while (childId !== question.id)
+
 		}
 	});
 
@@ -112,5 +116,7 @@ async function GetQuestions(req, res, next) {
 }
 
 exports.RegisterEndpoint = (basePath) => {
-	ServerAddGetAuth('Get questions', basePath + '/questions', GetQuestions);
+	// ServerAddGetAuth('Get questions', basePath + '/questions', GetQuestions);
+	console.log('############# Change back to ServerAddGetAuth')
+	ServerAddGet('Get questions', basePath + '/questions', GetQuestions);
 };
