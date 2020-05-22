@@ -57,6 +57,8 @@ function hasOtherOwner(agency, user, agencyNetwork = false){
 	});
 }
 
+exports.hasOtherOwner = hasOtherOwner;
+
 /**
  * Checks whether the provided agency has a signing authority other than the current user
  *
@@ -98,6 +100,8 @@ function hasOtherSigningAuthority(agency, user){
 		fulfill(true);
 	});
 }
+
+exports.hasOtherSigningAuthority = hasOtherSigningAuthority;
 
 /**
  * Validates a user and returns a clean data object
@@ -860,5 +864,4 @@ exports.registerEndpoint = (server, basePath) => {
 	server.addPostAuth('Post User', `${basePath}/user`, createUser);
 	server.addPutAuth('Put User', `${basePath}/user`, updateUser);
 	server.addDeleteAuth('Delete User', `${basePath}/user`, deleteUser);
-	server.addDeleteAuth('Delete Agency User', `${basePath}/agency-user`, deleteAgencyUser);
 };
