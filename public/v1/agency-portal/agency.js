@@ -249,12 +249,15 @@ async function getAgency(req, res, next){
 		`;
 	const userSQL = `
 			SELECT
-				${db.quoteName('id')},
-				${db.quoteName('last_login')},
-				IF(${db.quoteName('state')} >= 1, 'Active', 'Inactive') AS ${db.quoteName('state')},
-				${db.quoteName('email')}
-			FROM ${db.quoteName('#__agency_portal_users')}
-			WHERE ${db.quoteName('agency')} = ${agent};
+				\`apu\`.\`id\`,
+				\`apu\`.\`last_login\` AS \`lastLogin\`,
+				\`apu\`.\`email\`,
+				\`apu\`.\`can_sign\` AS \`canSign\`,
+				\`apg\`.\`id\` AS \`group\`,
+				\`apg\`.\`name\` AS \`groupRole\`
+			FROM \`#__agency_portal_users\` AS \`apu\`
+			LEFT JOIN \`#__agency_portal_user_groups\` AS \`apg\` ON \`apu\`.\`group\` = \`apg\`.\`id\`
+			WHERE \`apu\`.\`agency\` = ${agent} AND state > 0;
 		`;
 
 	// Query the database
