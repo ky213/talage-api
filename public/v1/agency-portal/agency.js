@@ -1,4 +1,5 @@
 'use strict';
+const Agency = require('./helpers/models/Agency.js');
 const crypt = global.requireShared('./services/crypt.js');
 const util = require('util');
 const sendOnboardingEmail = require('./helpers/send-onboarding-email.js');
@@ -731,8 +732,89 @@ async function postAgency(req, res, next){
 	return next();
 }
 
+/**
+ * Creates a single Agency
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function updateAgency(req, res, next){
+	let error = false;
+
+	// Make sure the authentication payload has everything we are expecting
+	await auth.validateJWT(req, 'agencies', 'manage').catch(function(e){
+		error = e;
+	});
+	if(error){
+		return next(error);
+	}
+
+	// Make sure this is an agency network
+	if(req.authentication.agencyNetwork === false){
+		log.info('Forbidden: User is not authorized to create agencies');
+		return next(serverHelper.forbiddenError('You are not authorized to create agencies'));
+	}
+
+	// Check for data
+	if(!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0){
+		log.warn('No data was received');
+		return next(serverHelper.requestError('No data was received'));
+	}
+
+	// Log the entire request
+	log.verbose(util.inspect(req.body, false, null));
+
+	// Validate the ID
+	if(!Object.prototype.hasOwnProperty.call(req.body, 'id')){
+		return next(serverHelper.requestError('ID missing'));
+	}
+	if(!await validator.agent(req.body.id)){
+		return next(serverHelper.requestError('ID is invalid'));
+	}
+	const id = parseInt(req.body.id, 10);
+
+	// Get the agencies that we are permitted to manage
+	const agencies = await auth.getAgents(req).catch(function(e){
+		error = e;
+	});
+	if(error){
+		return next(error);
+	}
+
+	// Make sure this Agency Network has access to this Agency
+	if(!agencies.includes(id)){
+		log.info('Forbidden: User is not authorized to delete this agency');
+		return next(serverHelper.forbiddenError('You are not authorized to delete this agency'));
+	}
+
+	// Initialize an agency object
+	const agency = new Agency();
+
+	// Load the request data into it
+	try{
+		await agency.load(req.body);
+	}catch(err){
+		return next(err);
+	}
+
+	//  Save the agency
+	try{
+		await agency.save();
+	}catch(err){
+		return next(err);
+	}
+
+	// Send back a success response
+	res.send(200, 'Saved');
+	return next();
+}
+
 exports.registerEndpoint = (server, basePath) => {
 	server.addDeleteAuth('Delete Agency', `${basePath}/agency`, deleteAgency);
 	server.addGetAuth('Get Agency', `${basePath}/agency`, getAgency);
 	server.addPostAuth('Post Agency', `${basePath}/agency`, postAgency);
+	server.addPutAuth('Put Agency', `${basePath}/agency`, updateAgency);
 };
