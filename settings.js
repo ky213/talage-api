@@ -70,8 +70,13 @@ exports.load = () => {
 		console.log('Loading settings from environment variables'); // eslint-disable-line no-console
 		variables = process.env;
 	}
-	// Ensure required variables exist and inject them into the global 'settings' object
+
 	global.settings = {};
+	
+	//need to add optional settings.
+	global.settings = variables;
+	
+	// Ensure required variables exist and inject them into the global 'settings' object
 	for(let i = 0; i < requiredVariables.length; i++){
 		if(!Object.prototype.hasOwnProperty.call(variables, requiredVariables[i])){
 			console.log(colors.red(`\tError: missing variable '${requiredVariables[i]}'`)); // eslint-disable-line no-console
