@@ -259,7 +259,9 @@ var processAbandonQuote = async function (applicationId){
 
             //send email:
             // Send the email
-            if(email.send(quotes[0].email, subject, message, {'application': applicationId, 'agency_location': quotes[0].agencyLocation}, quotes[0].emailBrand)){
+            emailResp = await email.send(quotes[0].email, subject, message, {'application': applicationId, 'agency_location': quotes[0].agencyLocation}, quotes[0].emailBrand);
+            log.debug("emailResp = " + emailResp);
+            if(emailResp === false){
                slack('#alerts', 'warning','The system failed to remind the insured to revisit their quotes for application #${applicationId}. Please follow-up manually.' );
             }
 
@@ -305,8 +307,9 @@ var processAbandonQuote = async function (applicationId){
 
 
                   // Send the email
-                    if(email.send(quotes[0].agencyEmail, subject, message, {'application': applicationId, 'agency_location': quotes[0].agencyLocation}, quote.emailBrand)){
-                        slack('#alerts', 'warning','The system failed to inform an agency of the abandoned quote' + (quotes.length === 1 ? '' : 's') + ' for application #${applicationId}. Please follow-up manually.');
+                  emailResp = await email.send(quotes[0].agencyEmail, subject, message, {'application': applicationId, 'agency_location': quotes[0].agencyLocation}, quote.emailBrand);
+                  if(emailResp === false){
+                        slack('#alerts', 'warning','The system failed to inform an agency of the abandoned quote' + (quotes.length === 1 ? '' : 's') + ' for application ${applicationId}. Please follow-up manually.');
                     }
 
                 // log.debug('Agency subject: ' + subject)
