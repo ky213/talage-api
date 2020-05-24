@@ -23,7 +23,7 @@ exports.processtask = async function (queueMessage){
         log.debug('sent at: ' + sentDatetime.toString())
         
         //DO STUFF
-        let error = null;
+        //let error = null;
         try{
             await abandonquotetask();
             await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle);
@@ -72,12 +72,12 @@ var abandonquotetask = async function (){
                 AND a.state  = 13
             ORDER BY q.policy_type DESC
     `;
-    log.debug(appIdSQL)
+    //log.debug(appIdSQL)
 	let appIds = null;
 	try{
         appIds = await db.query(appIdSQL);
-        log.debug('returned appIds');
-        log.debug(JSON.stringify(appIds));
+        // log.debug('returned appIds');
+        // log.debug(JSON.stringify(appIds));
 	}catch(err){
 		log.error("abandonquotetask getting appid list error " + err);
 		throw err;
@@ -249,8 +249,8 @@ var processAbandonQuote = async function (applicationId){
             subject = subject.replace(/{{is\/are}}/g, quotes.length === 1 ? 'is' : 'are');
             subject = subject.replace(/{{s}}/g, quotes.length === 1 ? '' : 's');
 
-            log.debug('Insured subject: ' + subject)
-            log.debug('Insured message: ' + message)
+            // log.debug('Insured subject: ' + subject)
+            // log.debug('Insured message: ' + message)
 
             //send email:
             // Send the email
@@ -305,8 +305,8 @@ var processAbandonQuote = async function (applicationId){
                         slack.sendSlackMessage('#alerts', 'warning','The system failed to inform an agency of the abandoned quote' + (quotes.length === 1 ? '' : 's') + ' for application #${applicationId}. Please follow-up manually.');
                     }
 
-                log.debug('Agency subject: ' + subject)
-                log.debug('Agency message: ' + message)
+                // log.debug('Agency subject: ' + subject)
+                // log.debug('Agency message: ' + message)
             }
 
             return true;

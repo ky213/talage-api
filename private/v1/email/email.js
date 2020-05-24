@@ -172,8 +172,7 @@ async function PostEmail(req, res, next){
 			req.body.subject = `[DEMO TEST] ${req.body.subject}`;
 		}
 	}
-	log.debug("email: " + req.body.to )
-	log.debug("sendgrid body: " + JSON.stringify(req.body))
+	
 	// Set the Sendgrid API key
 	Sendgrid.setApiKey(global.settings.SENDGRID_API_KEY);
 
