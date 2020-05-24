@@ -146,6 +146,13 @@ async function PostEmail(req, res, next){
 		to = to.join(',');
 	}
 	to = to.replace(/^(.)(.*)(.)@(.*)$/, `$1****$3@$4`);
+
+	if(global.settings.ENV === 'development' && global.settings.OVERRIDE_EMAIL && global.settings.OVERRIDE_EMAIL === 'YES'){
+		to = global.settings.TEST_EMAIL
+		req.body.to = global.settings.TEST_EMAIL
+		log.debug('Overriding email: ' + req.body.to)
+	}
+
 	log.verbose(util.inspect({
 		'from': req.body.from,
 		'subject': req.body.subject,
@@ -165,7 +172,8 @@ async function PostEmail(req, res, next){
 			req.body.subject = `[DEMO TEST] ${req.body.subject}`;
 		}
 	}
-
+	log.debug("email: " + req.body.to )
+	log.debug("sendgrid body: " + JSON.stringify(req.body))
 	// Set the Sendgrid API key
 	Sendgrid.setApiKey(global.settings.SENDGRID_API_KEY);
 
