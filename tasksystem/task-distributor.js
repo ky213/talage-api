@@ -3,6 +3,7 @@
 //global.queueHandler
 
 const abandonquoteProcessor = require('./task-abandonquote');
+const abandonAppProcessor = require('./task-abandonapplication.js');
 
 /**
  * Task Distributor
@@ -20,6 +21,10 @@ exports.distributeTask = async function (queueMessage){
             case "abandonquote" :
                 log.debug('abandonquote task')
                 abandonquoteProcessor.processtask(queueMessage)
+                break;
+             case "abandonapplication" :
+                log.debug('abandonapplication task')
+                abandonAppProcessor.processtask(queueMessage)
                 break;
             default:
                 log.error('Bad taskname message ' + JSON.stringify(queueMessage) );

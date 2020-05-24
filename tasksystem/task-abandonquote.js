@@ -72,8 +72,10 @@ var abandonquotetask = async function (){
                 AND a.state  = 13
             ORDER BY q.policy_type DESC
     `;
-    //log.debug(appIdSQL)
-	let appIds = null;
+    
+    log.debug(appIdSQL)
+    
+    let appIds = null;
 	try{
         appIds = await db.query(appIdSQL);
         // log.debug('returned appIds');
@@ -99,11 +101,14 @@ var abandonquotetask = async function (){
             }
             
             if(error === null && succesfulProcess === true){
-                // await markApplicationProcess(quoteAppid.applicationId).catch(function(err){
-                //     log.error(`Error get abandon quotes from DB for ${applicationId} error:  ${err}`);
-                // })
+                await markApplicationProcess(quoteAppid.applicationId).catch(function(err){
+                    log.error(`Error marking abandon quotes in DB for ${quoteAppid.applicationId} error:  ${err}`);
+                    error = err;
+                })
             }
-           
+            if(error === null){
+                log.info(`Process abandon quotes for appId: ${quoteAppid.applicationId}`);
+            }
         }
     }
 
@@ -255,13 +260,12 @@ var processAbandonQuote = async function (applicationId){
             //send email:
             // Send the email
             if(email.send(quotes[0].email, subject, message, {'application': applicationId, 'agency_location': quotes[0].agencyLocation}, quotes[0].emailBrand)){
-               slack.sendSlackMessage('#alerts', 'warning','The system failed to remind the insured to revisit their quotes for application #${applicationId}. Please follow-up manually.' );
+               slack('#alerts', 'warning','The system failed to remind the insured to revisit their quotes for application #${applicationId}. Please follow-up manually.' );
             }
 
             /* ---=== Email to Agency (not sent to Talage) ===--- */
 
             // Only send for non-Talage accounts that are not wholesale
-            log.debug('Wholesale: ' + quotes[0].wholesale);
             if(quotes[0].wholesale == false && quotes[0].agency !== 1){
                
                 quotes[0].businessName =  await crypt.decrypt(quotes[0].businessName);
@@ -302,7 +306,7 @@ var processAbandonQuote = async function (applicationId){
 
                   // Send the email
                     if(email.send(quotes[0].agencyEmail, subject, message, {'application': applicationId, 'agency_location': quotes[0].agencyLocation}, quote.emailBrand)){
-                        slack.sendSlackMessage('#alerts', 'warning','The system failed to inform an agency of the abandoned quote' + (quotes.length === 1 ? '' : 's') + ' for application #${applicationId}. Please follow-up manually.');
+                        slack('#alerts', 'warning','The system failed to inform an agency of the abandoned quote' + (quotes.length === 1 ? '' : 's') + ' for application #${applicationId}. Please follow-up manually.');
                     }
 
                 // log.debug('Agency subject: ' + subject)
@@ -324,6 +328,13 @@ var processAbandonQuote = async function (applicationId){
 
 var markApplicationProcess = async function (applicationId){
     
+    const updateSQL = `UPDATE clw_talage_applications
+	                   SET  abandoned_email = 1 
+	                   where id = ${applicationId} `;
     
-
+    // Update application record
+	await db.query(updateSQL).catch(function(e){
+		log.error('Abandon Quote flage update error: ' + e.message);
+		throw e;
+	});
 }
