@@ -14,7 +14,7 @@ const globalSettings = require('./settings.js');
 const utility = require('./shared/helpers/utility.js');
 const taskDistributor = require('./tasksystem/task-distributor.js');
 const queueHandler = require('./tasksystem/queueHandler.js');
-
+const responseObject = require('./tasksystem/response-object.js')
 
 /**
  * Convenience method to log errors both locally and remotely. This is used to display messages both on the console and in the error logs.
@@ -24,7 +24,7 @@ const queueHandler = require('./tasksystem/queueHandler.js');
  */
 function logLocalErrorMessage(message){
 	if(global.log){
-		log.error(message);
+		log.error("Global error trap: " + message);
 	}
 	// eslint-disable-next-line no-console
 	console.log(colors.red(message));
@@ -51,7 +51,7 @@ async function processQueue(){
 					taskDistributor.distributeTask(message);
 				}
 			}
-		}else if(status === statusObject.errorQueueWaitTimeout){
+		}else if(status === responseObject.errorQueueWaitTimeout){
 			// We timed out waiting for a message
 			await utility.Sleep(100);
 		}else{
@@ -114,12 +114,12 @@ async function main(){
 	if(global.settings.ENV === 'development' && global.settings.RUN_LOCAL_TASK && global.settings.RUN_LOCAL_TASK === 'YES'){
 		log.debug('Auto Running Task');
 		//require file.
-		const taskAbandonQuote = require('./tasksystem/task-abandonquote.js');
+		const taskProcessor = require('./tasksystem/task-abandonapplication.js');
 		//run task
-		await taskAbandonQuote.abandonquotetaskExternal().catch(function(err){
-			log.debug(error);
+		await taskProcessor.taskProcessorExternal().catch(function(err){
+			log.debug('taskProcessor error: ' + err);
 		});
-
+		log.debug('Finished Running Task');
 	}
 
 	

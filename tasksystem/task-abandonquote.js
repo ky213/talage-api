@@ -46,7 +46,7 @@ exports.processtask = async function (queueMessage){
  * @param {} 
  * @returns {void}
  */
-exports.abandonquotetaskExternal = async function (){
+exports.taskProcessorExternal = async function (){
     let error = null;
     await abandonquotetask().catch(err => error = err );
     if(error){
@@ -55,6 +55,12 @@ exports.abandonquotetaskExternal = async function (){
     return;
 }
 
+/**
+ * task processor
+ *
+ * @param {} 
+ * @returns {void}
+ */
 var abandonquotetask = async function (){
      
      const oneHourAgo =  moment().subtract(1,'h');
@@ -107,7 +113,7 @@ var abandonquotetask = async function (){
                 })
             }
             if(error === null){
-                log.info(`Process abandon quotes for appId: ${quoteAppid.applicationId}`);
+                log.info(`Processed abandon quotes for appId: ${quoteAppid.applicationId}`);
             }
         }
     }
@@ -223,7 +229,7 @@ var processAbandonQuote = async function (applicationId){
             let quotesHTML = '<br><div align="center"><table border="0" cellpadding="0" cellspacing="0" width="425">';
             //loop quotes and include
             let lastPolicyType = '';
-            for(i=0;i< quotes.length;i++){
+            for(let i=0;i< quotes.length;i++){
                 const quote = quotes[i];
                 if(quotes.length > 1){
                     // Show the policy type heading
@@ -233,14 +239,14 @@ var processAbandonQuote = async function (applicationId){
                     }
                 }
                 // Determine the Quote Result
-                quoteResult = quote.api_result.indexOf('_') ?  quote.api_result.substr(stringFunctions.ucwords(quote.api_result), 0,  quote.api_result.indexOf('_')) : stringFunctions.ucwords(quote.api_result);
+                const quoteResult = quote.api_result.indexOf('_') ?  quote.api_result.substr(stringFunctions.ucwords(quote.api_result), 0,  quote.api_result.indexOf('_')) : stringFunctions.ucwords(quote.api_result);
                 // Write a row of the table
                 quotesHTML = quotesHTML +  `<tr><td width=\"180\"><img alt=\"${quote.insurer}\" src=\"https://talageins.com/${quote.logo}\" width=\"100%\"></td><td width=\"20\"></td><td align=\"center\">` + quoteResult + `</td><td width=\"20\"></td><td style=\"padding-left:20px;font-size:30px;\">` + stringFunctions.number_format(quote.amount) + `</td></tr>`;
             }
             quotesHTML = quotesHTML +  '</table></div><br>';
 
-            message = customerEmailData && customerEmailData.message  ? customerEmailData.message : defaultCustomerEmailData.message;
-            subject = customerEmailData && customerEmailData.subject ? customerEmailData.subject : defaultCustomerEmailData.subject;
+            let message = customerEmailData && customerEmailData.message  ? customerEmailData.message : defaultCustomerEmailData.message;
+            let subject = customerEmailData && customerEmailData.subject ? customerEmailData.subject : defaultCustomerEmailData.subject;
            
             // Perform content replacements
             message = message.replace(/{{Agency}}/g, agencyName);
@@ -259,10 +265,10 @@ var processAbandonQuote = async function (applicationId){
 
             //send email:
             // Send the email
-            emailResp = await email.send(quotes[0].email, subject, message, {'application': applicationId, 'agency_location': quotes[0].agencyLocation}, quotes[0].emailBrand);
+            let emailResp = await email.send(quotes[0].email, subject, message, {'application': applicationId, 'agency_location': quotes[0].agencyLocation}, quotes[0].emailBrand);
             log.debug("emailResp = " + emailResp);
             if(emailResp === false){
-               slack('#alerts', 'warning','The system failed to remind the insured to revisit their quotes for application #${applicationId}. Please follow-up manually.' );
+               slack('#alerts', 'warning',`The system failed to remind the insured to revisit their quotes for application #${applicationId}. Please follow-up manually.` );
             }
 
             /* ---=== Email to Agency (not sent to Talage) ===--- */
@@ -281,10 +287,10 @@ var processAbandonQuote = async function (applicationId){
                 const portalLink = global.settings.PORTAL_URL;
                 
                 // Format the full name and phone number
-                fullName = stringFunctions.ucwords(stringFunctions.strtolower(quotes[0].fname) + ' ' + stringFunctions.strtolower(quotes[0].lname));
-                phone = '';
+                let fullName = stringFunctions.ucwords(stringFunctions.strtolower(quotes[0].fname) + ' ' + stringFunctions.strtolower(quotes[0].lname));
+                let phone = '';
                 if(quotes[0].phone){
-                    phone = formatPhone(quotes[0].phone);;
+                    phone = formatPhone(quotes[0].phone);
                 }
 
                 //  // Determine which message and subject to use
@@ -307,9 +313,9 @@ var processAbandonQuote = async function (applicationId){
 
 
                   // Send the email
-                  emailResp = await email.send(quotes[0].agencyEmail, subject, message, {'application': applicationId, 'agency_location': quotes[0].agencyLocation}, quote.emailBrand);
+                  emailResp = await email.send(quotes[0].agencyEmail, subject, message, {'application': applicationId, 'agency_location': quotes[0].agencyLocation}, quotes[0].emailBrand);
                   if(emailResp === false){
-                        slack('#alerts', 'warning','The system failed to inform an agency of the abandoned quote' + (quotes.length === 1 ? '' : 's') + ' for application ${applicationId}. Please follow-up manually.');
+                        slack('#alerts', 'warning','The system failed to inform an agency of the abandoned quote' + (quotes.length === 1 ? '' : 's') + ` for application ${applicationId}. Please follow-up manually.`);
                     }
 
                 // log.debug('Agency subject: ' + subject)
@@ -337,7 +343,7 @@ var markApplicationProcess = async function (applicationId){
     
     // Update application record
 	await db.query(updateSQL).catch(function(e){
-		log.error('Abandon Quote flage update error: ' + e.message);
+		log.error('Abandon Quote flag update error: ' + e.message);
 		throw e;
 	});
 }
