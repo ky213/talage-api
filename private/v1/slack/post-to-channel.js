@@ -365,7 +365,7 @@ async function PostToChannel(req, res, next){
 
 	// Add a message for testing
 	if(global.settings.ENV !== 'production' && req.body.channel !== '#debug'){
-		footer = `*In production this would be sent to the ${req.body.channel} channel*`;
+		footer = `*In production this would be sent to the ${req.body.channel} channel*, From: ${global.settings.ENV} `;
 		req.body.channel = '#debug';
 	}
 
