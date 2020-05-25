@@ -37,7 +37,7 @@ function logLocalErrorMessage(message){
  */
 async function processQueue(){
 	// Repeatedly grab work items
-	log.info('Processing task queue...');
+	log.info('Processing task queue: ' + global.settings.SQS_TASK_QUEUE);
 	while(true){
 		// eslint-disable-next-line no-await-in-loop
 		const status = await queueHandler.getTaskQueueItem();
@@ -109,7 +109,7 @@ async function main(){
 		logLocalErrorMessage('Error initialzing  to queueHandler. Stopping.');
 		return;
 	}
-	log.debug('checking develop settings ' + global.settings.RUN_LOCAL_TASK )
+	log.debug('checking develop setting RUN_LOCAL_TASK ' + (global.settings.RUN_LOCAL_TASK ?  global.settings.RUN_LOCAL_TASK : "NO"))
 	//local development of tasks run one of the task.
 	if(global.settings.ENV === 'development' && global.settings.RUN_LOCAL_TASK && global.settings.RUN_LOCAL_TASK === 'YES'){
 		log.debug('Auto Running Task');

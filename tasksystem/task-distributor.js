@@ -19,11 +19,11 @@ exports.distributeTask = async function (queueMessage){
     if(messageBody.taskname){
         switch(messageBody.taskname){
             case "abandonquote" :
-                log.debug('abandonquote task')
+                log.info('abandonquote task')
                 abandonquoteProcessor.processtask(queueMessage)
                 break;
              case "abandonapplication" :
-                log.debug('abandonapplication task')
+                log.info('abandonapplication task')
                 abandonAppProcessor.processtask(queueMessage)
                 break;
             default:
