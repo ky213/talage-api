@@ -4,6 +4,7 @@
 
 const abandonquoteProcessor = require('./task-abandonquote');
 const abandonAppProcessor = require('./task-abandonapplication.js');
+const checkinRecords = require('./task-checkin-records.js');
 
 /**
  * Task Distributor
@@ -25,6 +26,10 @@ exports.distributeTask = async function (queueMessage){
              case "abandonapplication" :
                 log.info('abandonapplication task')
                 abandonAppProcessor.processtask(queueMessage)
+                break;
+            case "checkinrecords" :
+                log.info('checkinrecords task')
+                checkinRecords.processtask(queueMessage)
                 break;
             default:
                 log.error('Bad taskname message ' + JSON.stringify(queueMessage) );
