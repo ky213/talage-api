@@ -181,7 +181,7 @@ async function getAgency(req, res, next){
 			SELECT
 				${db.quoteName('id')},
 				IF(${db.quoteName('state')} >= 1, 'Active', 'Inactive') AS ${db.quoteName('state')},
-				${db.quoteName('name', 'agencyName')},
+				${db.quoteName('name')},
 				${db.quoteName('ca_license_number', 'californiaLicenseNumber')},
 				${db.quoteName('email')},
 				${db.quoteName('fname')},
@@ -733,7 +733,7 @@ async function postAgency(req, res, next){
 }
 
 /**
- * Creates a single Agency
+ * Updates a single Agency
  *
  * @param {object} req - HTTP request object
  * @param {object} res - HTTP response object
@@ -764,9 +764,6 @@ async function updateAgency(req, res, next){
 		return next(serverHelper.requestError('No data was received'));
 	}
 
-	// Log the entire request
-	log.verbose(util.inspect(req.body, false, null));
-
 	// Validate the ID
 	if(!Object.prototype.hasOwnProperty.call(req.body, 'id')){
 		return next(serverHelper.requestError('ID missing'));
@@ -794,21 +791,25 @@ async function updateAgency(req, res, next){
 	const agency = new Agency();
 
 	// Load the request data into it
-	try{
-		await agency.load(req.body);
-	}catch(err){
-		return next(err);
+	await agency.load(req.body).catch(function(err){
+		error = err;
+	});
+	if(error){
+		return next(error);
 	}
 
-	//  Save the agency
-	try{
-		await agency.save();
-	}catch(err){
-		return next(err);
+	// Save the agency
+	await agency.save().catch(function(err){
+		error = err;
+	});
+	if(error){
+		return next(error);
 	}
 
 	// Send back a success response
-	res.send(200, 'Saved');
+	res.send(200, {
+		'logo': agency.logo
+	});
 	return next();
 }
 
