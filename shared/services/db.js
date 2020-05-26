@@ -194,3 +194,23 @@ exports.rollback = function(connection){
 	connection.release();
 	log.info('Database transaction rolledback');
 };
+
+/**
+ * Modifies the String prototype and adds a new capability, 'toSnakeCase' which will convert
+ * the string to snake_case. Usage: string.toSnakeCase()
+ */
+Object.defineProperty(String.prototype, 'toSnakeCase', {
+	value(){
+		return this.split(/(?=[A-Z])/).join('_').toLowerCase();
+	}
+});
+
+/**
+ * Modifies the String prototype and adds a new capability, 'toCamelCase' which will convert
+ * the string to camelCase. Usage: string.toCamelCase()
+ */
+Object.defineProperty(String.prototype, 'toCamelCase', {
+	value(){
+		return this.toLowerCase().replace(/[^a-zA-Z0-9]+(.)/g, (m, chr) => chr.toUpperCase());
+	}
+});

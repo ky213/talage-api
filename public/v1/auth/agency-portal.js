@@ -17,7 +17,7 @@ const serverHelper = require('../../../server.js');
  *
  * @returns {object} res - Returns an authorization token
  */
-async function PostToken(req, res, next){
+async function postToken(req, res, next){
 	let error = false;
 
 	// Check for data
@@ -215,5 +215,5 @@ async function PostToken(req, res, next){
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-	server.addPost('Get Token', `${basePath}/agency-portal`, PostToken);
+	server.addPost('Get Token', `${basePath}/agency-portal`, postToken);
 };
