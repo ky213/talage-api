@@ -115,7 +115,5 @@ async function GetQuestions(req, res, next) {
 }
 
 exports.RegisterEndpoint = (basePath) => {
-	// ServerAddGetAuth('Get questions', basePath + '/questions', GetQuestions);
-	console.log('############# Change back to ServerAddGetAuth')
-	ServerAddGet('Get questions', basePath + '/questions', GetQuestions);
+	ServerAddGetAuth('Get questions', basePath + '/questions', GetQuestions);
 };
