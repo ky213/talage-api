@@ -47,11 +47,11 @@ module.exports = async function(agencyNetwork, userID, firstName, lastName, agen
 	}
 
 	// Populate the email subject
-	const emailSubject = '';
+	let emailSubject = '';
 	if(emailContentResult[0].emailData && emailContentResult[0].emailData.subject){
-		emailMessage = emailContentResult[0].emailData.subject;
+		emailSubject = emailContentResult[0].emailData.subject;
 	}else if(emailContentResult[1] && emailContentResult[1].emailData && emailContentResult[1].emailData.subject){
-		emailMessage = emailContentResult[1].emailData.subject;
+		emailSubject = emailContentResult[1].emailData.subject;
 	}else{
 		log.error('send-onboarding-email: Could not find email subject');
 		return 'Could not find email subject';

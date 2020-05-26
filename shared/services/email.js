@@ -121,7 +121,8 @@ exports.send = async function(recipients, subject, content, keys = {}, brand = '
 	}, function(e){
 		error = true;
 		if(e){
-			log.error(`Email helper: Failed to send email to ${recipients}.`);
+			// do not log emails....
+			log.error(`Email helper: Failed to send email.`);
 			log.verbose(e);
 		}
 	});
