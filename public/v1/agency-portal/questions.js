@@ -96,12 +96,13 @@ async function GetQuestions(req, res, next) {
 			while (childToParent[listOfParents.slice(-1)[0]]) {
 				listOfParents.push(childToParent[listOfParents.slice(-1)[0]]);
 			}
+			// Save the original list of parents to a string for logging output
+			const listOfParentsString = listOfParents.toString();
 
 			let childId = listOfParents.pop();
-
 			//If parent of childId does not exist
 			if (!dependencyList.hasOwnProperty(childId)) {
-				log.error(`Child ${childId} Does Not Exist: question.parent=${question.parent} question.id=${question.id} listOfParents=${listOfParents}`);
+				log.error(`Child question ${childId} Does Not Exist: question.parent=${question.parent} question.id=${question.id} listOfParents=${listOfParentsString}`);
 				return;
 			}
 
@@ -109,7 +110,7 @@ async function GetQuestions(req, res, next) {
 			//Build objects for parents with children questions for dependencyList
 			do {
 				if (!child) {
-					log.error(`Child ${childId} Does Not Exist: question.parent=${question.parent} question.id=${question.id} listOfParents=${listOfParents}`);
+					log.error(`Child question ${childId} Does Not Exist: question.parent=${question.parent} question.id=${question.id} listOfParents=${listOfParentsString}`);
 					return;
 				}
 				childId = listOfParents.pop();
