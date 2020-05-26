@@ -12,29 +12,32 @@ const DocuSign = require('docusign-esign');
  *
  * @returns {object} - A reference to the DocuSign API class
  */
-module.exports = async function(){
+module.exports = async function () {
 
 	// Initialize the API
 	const docusignApiClient = new DocuSign.ApiClient();
+
+	// Load the DocuSign configuration object
+	const config = require(global.settings.ENV === 'production' ? './config.js' : './config.dev.js');
 
 	// Determine which is the proper server to use for DocuSign
 	docusignApiClient.setOAuthBasePath(config.authBasePath);
 
 	// Get the token
-	const token = await require('./getToken.js')();
+	const token = await require('./getToken.js')(config);
 
 	// Set the token to be sent with each API request
 	docusignApiClient.addDefaultHeader('Authorization', `Bearer ${token}`);
 	let accountId = null;
 	// Get our user info
 	await docusignApiClient.getUserInfo(token).
-		then(function(userInfo){
-		// Grab the account ID and store it globally
+		then(function (userInfo) {
+			// Grab the account ID and store it globally
 			accountId = userInfo.accounts[0].accountId;
 
 			// Set the path used for API requests
 			docusignApiClient.setBasePath(`${userInfo.accounts[0].baseUri}/restapi`);
-		}).catch(function(error){
+		}).catch(function (error) {
 			log.error('Unable to get User Info from DocuSign.');
 			log.verbose(error);
 
