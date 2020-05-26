@@ -1,6 +1,6 @@
 'use strict';
 
-const helper = requireShared('helpers/helper.js');
+const helper = global.requireShared('helpers/helper.js');
 
 /**
  * Checks whether the limits set is valid.

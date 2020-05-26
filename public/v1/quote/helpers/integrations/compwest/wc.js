@@ -12,17 +12,17 @@
 'use strict';
 
 const Integration = require('../Integration.js');
-const RestifyError = require('restify-errors');
 const builder = require('xmlbuilder');
 const moment = require('moment');
 const util = require('util');
+const serverHelper = require('../../../../../../server.js');
 
 module.exports = class CompwestWC extends Integration{
 
 	/**
 	 * Makes a request to Accident Fund to bind a policy.  This method is not intended to be called directly
 	 *
-	 * @returns {Promise.<string, RestifyError>} A promise that returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a RestifyError if rejected
+	 * @returns {Promise.<string, ServerError>} A promise that returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a ServerError if rejected
 	 */
 	_bind(){
 		// May payment plans
@@ -36,9 +36,8 @@ module.exports = class CompwestWC extends Integration{
 		// Build the Promise
 		return new Promise(async(fulfill, reject) => {
 
-
 			// Temporarily turn off bind
-			reject(new RestifyError.InternalServerError('Bind is currently disabled for this insurer'));
+			reject(serverHelper.internalError('Bind is currently disabled for this insurer'));
 			return;
 
 			// CompWest has us define our own Request ID
@@ -146,20 +145,20 @@ module.exports = class CompwestWC extends Integration{
 					case 'SMARTEDITS':
 						this.log += `--------======= Bind Error =======--------<br><br>${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`;
 						log.error(`${this.insurer.name} ${this.policy.type} Bind Integration Error(s):\n--- ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`);
-						reject(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+						reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 						return;
 					case 'UNAUTHENTICATED':
 					case 'UNAUTHORIZED':
 						message_type = status === 'UNAUTHENTICATED' ? 'Incorrect' : 'Locked';
 						this.log += `--------======= ${message_type} Agency ID =======--------<br><br>We attempted to process a bind request, but the Agency ID set for the agent was ${message_type.toLowerCase()} and no quote could be processed.`;
 						log.error(`${this.insurer.name} ${this.policy.type} Bind ${message_type} Agency ID`);
-						reject(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+						reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 						return;
 					default:
 						this.log += '--------======= Unexpected API Response =======--------';
 						this.log += util.inspect(res, false, null);
 						log.error(`${this.insurer.name} ${status} Bind - Unexpected response code by API `);
-						reject(new RestifyError.InternalServerError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+						reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 				}
 			}).catch((error) => {
 				log.error(util.inspect(error));
@@ -280,8 +279,8 @@ log.info(`TO DO: As this business could not be written by ${this.insurer.name}, 
 					// <ClientApp>
 					const ClientApp = SignonRq.ele('ClientApp');
 
-						// Org (AF Group has asked us to send in the Channel ID in this field. 2 indicates Digalent. Use 1 in all other cases)
-						ClientApp.ele('Org', this.app.agencyLocation.agencyNetwork === 2 ? 2 : 1);
+						// Org (AF Group has asked us to send in the Channel ID in this field. 2 indicates Digalent Storefront. 1 indicates the Talage Digital Agency)
+						ClientApp.ele('Org', (this.app.agencyLocation.id === 2 || this.app.agencyLocation.agencyNetwork === 2 ? 2 : 1));
 
 					// </ClientApp>
 				// </SignonRq>
@@ -415,9 +414,9 @@ log.info(`TO DO: As this business could not be written by ${this.insurer.name}, 
 								if(has_claims){
 									const claims_data = this.claims_to_policy_years();
 									CommlPolicySupplement.ele('NumberClaims', this.get_num_claims(4));
-									CommlPolicySupplement.ele('NumberClaims1', claims_data[1]);
-									CommlPolicySupplement.ele('NumberClaims2', claims_data[2]);
-									CommlPolicySupplement.ele('NumberClaims3', claims_data[3]);
+									CommlPolicySupplement.ele('NumberClaims1', claims_data[1].count);
+									CommlPolicySupplement.ele('NumberClaims2', claims_data[2].count);
+									CommlPolicySupplement.ele('NumberClaims3', claims_data[3].count);
 									CommlPolicySupplement.ele('TotalClaimAmount', this.get_total_amount_incurred_on_claims(4));
 								}
 							// <CommlPolicySupplement>

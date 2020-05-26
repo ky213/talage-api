@@ -4,11 +4,11 @@
 
 'use strict';
 
-const RestifyError = require('restify-errors');
+const serverHelper = require('../../../../../server.js');
 
-module.exports = class ActivityCode {
+module.exports = class ActivityCode{
 
-	constructor() {
+	constructor(){
 		this.app = null;
 
 		this.description = '';
@@ -24,23 +24,23 @@ module.exports = class ActivityCode {
 	 * @param {object} data - The business data
 	 * @returns {void}
 	 */
-	load(data) {
+	load(data){
 		Object.keys(this).forEach((property) => {
-			if (!Object.prototype.hasOwnProperty.call(data, property)) {
+			if(!Object.prototype.hasOwnProperty.call(data, property)){
 				return;
 			}
 
 			// Trim whitespace
-			if (typeof data[property] === 'string') {
+			if(typeof data[property] === 'string'){
 				data[property] = data[property].trim();
 			}
 
-			switch (property) {
+			switch(property){
 				case 'id':
 					this[property] = parseInt(data[property], 10);
 					break;
 				case 'payroll':
-					if (typeof data[property] === 'string') {
+					if(typeof data[property] === 'string'){
 						// Strip out dollar signs or commas
 						data[property] = data[property].replace('$', '').replace(/,/g, '');
 
@@ -64,43 +64,43 @@ module.exports = class ActivityCode {
 	 *
 	 * @returns {Promise.<array, Error>} A promise that returns a boolean indicating whether or not this record is valid, or an Error if rejected
 	 */
-	validate() {
-		return new Promise(async (fulfill, reject) => {
+	validate(){
+		return new Promise(async(fulfill, reject) => {
 			let rejected = false;
 
 			// ID
-			if (isNaN(this.id)) {
-				reject(ServerRequestError('You must supply a valid ID with each class code.'));
+			if(isNaN(this.id)){
+				reject(serverHelper.requestError('You must supply a valid ID with each class code.'));
 				return;
 			}
 
 			// Check that the ID is valid
 			await db.query(`SELECT \`description\`FROM \`#__activity_codes\` WHERE \`id\` = ${this.id} LIMIT 1;`).then((rows) => {
-				if (rows.length !== 1) {
-					reject(ServerRequestError(`The activity code you selected (ID: ${this.id}) is not valid.`));
+				if(rows.length !== 1){
+					reject(serverHelper.requestError(`The activity code you selected (ID: ${this.id}) is not valid.`));
 					rejected = true;
 					return;
 				}
 				this.description = rows[0].description;
-			}).catch(function (error) {
+			}).catch(function(error){
 				log.error(error);
 				reject(error);
 			});
 
 			// Payroll
-			if (isNaN(this.payroll)) {
-				reject(ServerRequestError(`Invalid payroll amount (Activity Code ${this.id})`));
+			if(isNaN(this.payroll)){
+				reject(serverHelper.requestError(`Invalid payroll amount (Activity Code ${this.id})`));
 				return;
 			}
 
-			if (this.app.has_policy_type('WC')) {
-				if (this.payroll < 1) {
-					reject(ServerRequestError(`You must provide a payroll for each activity code (Activity Code ${this.id})`));
+			if(this.app.has_policy_type('WC')){
+				if(this.payroll < 1){
+					reject(serverHelper.requestError(`You must provide a payroll for each activity code (Activity Code ${this.id})`));
 					return;
 				}
 			}
 
-			if (!rejected) {
+			if(!rejected){
 				fulfill(true);
 			}
 		});

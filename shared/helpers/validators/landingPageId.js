@@ -1,8 +1,9 @@
 'use strict';
-const id = /^[1-9][0-9]*$/;
+
+const validator = global.requireShared('./helpers/validator.js');
 
 module.exports = async function(val){
-	if(!id.test(val)){
+	if(!validator.id(val)){
 		return false;
 	}
 
@@ -10,7 +11,7 @@ module.exports = async function(val){
 	const sql = `
 		SELECT \`id\`
 		FROM \`#__agency_landing_pages\`
-		WHERE \`id\` = ${db.escape(val)}
+		WHERE \`id\` = ${parseInt(val, 10)}
 		LIMIT 1;
 	`;
 

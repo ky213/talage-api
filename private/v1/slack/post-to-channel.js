@@ -2,6 +2,7 @@
 
 const request = require('request');
 const util = require('util');
+const serverHelper = require('../../../server.js');
 
 /**
  * Responds to post requests for slack messages
@@ -12,7 +13,7 @@ const util = require('util');
  *
  * @returns {object} res - Returns the state of the message (if it was sent)
  */
-async function PostToChannel(req, res, next) {
+async function PostToChannel(req, res, next){
 	// Gifs for celebrations
 	const celebration_gifs = [
 		'https://media.giphy.com/media/87NS05bya11mg/giphy.gif',
@@ -105,45 +106,45 @@ async function PostToChannel(req, res, next) {
 		'#where-am-i'];
 
 
-	if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
+	if(!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0){
 		log.warn('No data was received');
 		res.send(400, {
 			'error': true,
 			'message': 'No data was received'
 		});
-		return next(ServerBadRequestError('No data was received'));
+		return next(serverHelper.badRequestError('No data was received'));
 	}
 
 	log.verbose(util.inspect(req.body));
 
 	// Validate Channel
-	if (req.body.channel) {
+	if(req.body.channel){
 
 		req.body.channel = req.body.channel.toLowerCase();
 
-		if (req.body.channel.charAt(0) !== '#') {
+		if(req.body.channel.charAt(0) !== '#'){
 			req.body.channel = `#${req.body.channel}`; // Add # to beginning of channel
 		}
 
-		if (!/^#[a-z_-]{1,22}$/.test(req.body.channel)) {
+		if(!/^#[a-z_-]{1,22}$/.test(req.body.channel)){
 			log.warn(`Channel ${req.body.channel} is not valid`);
 			res.send(400, {
 				'channel': `Channel ${req.body.channel} is not valid`,
 				'error': true
 			});
 
-			return next(ServerBadRequestError(`Channel ${req.body.channel} is not valid`));
+			return next(serverHelper.badRequestError(`Channel ${req.body.channel} is not valid`));
 		}
 
 
-		if (!valid_channels.includes(req.body.channel)) {
+		if(!valid_channels.includes(req.body.channel)){
 			log.warn(`Invalid channel: ${req.body.channel}. Defaulted to #debug`);
 			response_messages.invalid_channel = `Invalid channel: ${req.body.channel}. Defaulted to #debug`;
 			req.body.channel = '#debug';
 		}
 
 
-	} else {
+	}else{
 		log.warn('Missing property: channel. Defaulted to #debug.');
 		response_messages.missing_channel = 'Missing Property: channel. Defaulted to #debug.';
 		footer = '*A channel was not provided with this message*';
@@ -151,11 +152,11 @@ async function PostToChannel(req, res, next) {
 	}
 
 
-	if (req.body.message_type) {
+	if(req.body.message_type){
 
 		req.body.message_type = req.body.message_type.toLowerCase();
 
-		if (!/^[a-z]{1,10}$/.test(req.body.message_type)) {
+		if(!/^[a-z]{1,10}$/.test(req.body.message_type)){
 			log.warn(`Message type ${req.body.message_type} is not valid`);
 
 			const response = {
@@ -166,13 +167,13 @@ async function PostToChannel(req, res, next) {
 			res.send(400, Object.assign(response, response_messages));
 		}
 
-		if (!valid_message_types.includes(req.body.message_type)) {
+		if(!valid_message_types.includes(req.body.message_type)){
 			log.warn(`Invalid message_type: ${req.body.message_type}. Message still sent to slack.`);
 			response_messages.invalid_message_type = `Invalid message_type: ${req.body.message_type}. Message still sent to slack.`;
 		}
 
 		// Figure out colors and message type
-		switch (req.body.message_type) {
+		switch(req.body.message_type){
 			case 'celebrate':
 				button_style = 'primary';
 				color = '#0000FF';
@@ -201,16 +202,16 @@ async function PostToChannel(req, res, next) {
 			default:
 				break; // Everything has a default value already. See variable declarations
 		}
-	} else {
+	}else{
 		log.warn('Missing property: message_type');
 		response_messages.missing_message_type = 'Missing property: message_type';
 	}
 
 
 	// Message
-	if (req.body.message) {
+	if(req.body.message){
 
-		if (typeof req.body.message !== 'string') {
+		if(typeof req.body.message !== 'string'){
 			log.warn('Message must be given as a string');
 
 			const response = {
@@ -220,10 +221,10 @@ async function PostToChannel(req, res, next) {
 
 			res.send(400, Object.assign(response, response_messages));
 
-			return next(ServerBadRequestError('Message must be given as a string'));
+			return next(serverHelper.badRequestError('Message must be given as a string'));
 		}
 
-	} else {
+	}else{
 		log.warn('Missing property: message');
 
 		const response = {
@@ -233,12 +234,12 @@ async function PostToChannel(req, res, next) {
 
 		res.send(400, Object.assign(response, response_messages));
 
-		return next(ServerBadRequestError('Missing property: message'));
+		return next(serverHelper.badRequestError('Missing property: message'));
 	}
 
-	if (req.body.attachment) {
+	if(req.body.attachment){
 
-		if (req.body.attachment.title && typeof req.body.attachment.title !== 'string') {
+		if(req.body.attachment.title && typeof req.body.attachment.title !== 'string'){
 			log.warn('Attachment title must be given as a string');
 
 			const response = {
@@ -248,10 +249,10 @@ async function PostToChannel(req, res, next) {
 
 			res.send(400, Object.assign(response, response_messages));
 
-			return next(ServerBadRequestError('Attachment title must be given as a string'));
+			return next(serverHelper.badRequestError('Attachment title must be given as a string'));
 		}
 
-		if (req.body.attachment.text && typeof req.body.attachment.text !== 'string') {
+		if(req.body.attachment.text && typeof req.body.attachment.text !== 'string'){
 			log.warn('Attachment text must be given as a string');
 
 			const response = {
@@ -261,13 +262,13 @@ async function PostToChannel(req, res, next) {
 
 			res.send(400, Object.assign(response, response_messages));
 
-			return next(ServerBadRequestError('Attachment text must be given as a string'));
+			return next(serverHelper.badRequestError('Attachment text must be given as a string'));
 		}
 
 
 		// Attachment_fields sanitization
-		if (req.body.attachment.fields) {
-			if (typeof req.body.attachment.fields instanceof Array) {
+		if(req.body.attachment.fields){
+			if(typeof req.body.attachment.fields instanceof Array){
 				log.warn('Attachment Fields must be given as an array of JSON objects');
 
 				const response = {
@@ -277,17 +278,17 @@ async function PostToChannel(req, res, next) {
 
 				res.send(400, Object.assign(response, response_messages));
 
-				return next(ServerBadRequestError('Attachment Fields must be given as an array of JSON objects'));
+				return next(serverHelper.badRequestError('Attachment Fields must be given as an array of JSON objects'));
 			}
 
-			if (!req.body.attachment.fields.length) {
+			if(!req.body.attachment.fields.length){
 				log.warn('Attachment Fields must have at least one object');
 				response_messages.empty_fields = 'Attachment Fields must have at least one object';
 			}
 
 			// Indexes are used so they can be given back to the user if something goes wrong
-			for (let i = 0; i < req.body.attachment.fields.length; ++i) {
-				if (!req.body.attachment.fields[i].title) {
+			for(let i = 0; i < req.body.attachment.fields.length; ++i){
+				if(!req.body.attachment.fields[i].title){
 					log.warn(`The field at index ${i} is missing title`);
 					const response = {
 						'Attachment Fields': `The field at index ${i} is missing title`,
@@ -296,10 +297,10 @@ async function PostToChannel(req, res, next) {
 
 					res.send(400, Object.assign(response, response_messages));
 
-					return next(ServerBadRequestError(`The field at index ${i} is missing title`));
+					return next(serverHelper.badRequestError(`The field at index ${i} is missing title`));
 				}
 
-				if (!req.body.attachment.fields[i].value) {
+				if(!req.body.attachment.fields[i].value){
 					log.warn(`The attachment field at index ${i} is missing value`);
 
 					const response = {
@@ -309,16 +310,16 @@ async function PostToChannel(req, res, next) {
 
 					res.send(400, Object.assign(response, response_messages));
 
-					return next(ServerBadRequestError(`The field at index ${i} is missing value`));
+					return next(serverHelper.badRequestError(`The field at index ${i} is missing value`));
 				}
 
-				if (req.body.attachment.fields[i].short) {
-					if (typeof req.body.attachment.fields[i].short === 'string') {
-						if (req.body.attachment.fields[i].short === 'true') {
+				if(req.body.attachment.fields[i].short){
+					if(typeof req.body.attachment.fields[i].short === 'string'){
+						if(req.body.attachment.fields[i].short === 'true'){
 							req.body.attachment.fields[i].short = true;
-						} else if (req.body.attachment.fields[i].short === 'false') {
+						}else if(req.body.attachment.fields[i].short === 'false'){
 							req.body.attachment.fields[i].short = false;
-						} else {
+						}else{
 							log.warn(`The attachment field at index ${i} has short that is not true or false`);
 
 							const response = {
@@ -328,9 +329,9 @@ async function PostToChannel(req, res, next) {
 
 							res.send(400, Object.assign(response, response_messages));
 
-							return next(ServerBadRequestError(`The field at index ${i} has short that is not true or false`));
+							return next(serverHelper.badRequestError(`The field at index ${i} has short that is not true or false`));
 						}
-					} else if (typeof req.body.attachment.fields[i].short !== 'boolean') {
+					}else if(typeof req.body.attachment.fields[i].short !== 'boolean'){
 						log.warn(`The attachment field at index ${i} has short that is not a boolean`);
 
 						const response = {
@@ -340,7 +341,7 @@ async function PostToChannel(req, res, next) {
 
 						res.send(400, Object.assign(response, response_messages));
 
-						return next(ServerBadRequestError(`The field at index ${i} has short that is not a boolean`));
+						return next(serverHelper.badRequestError(`The field at index ${i} has short that is not a boolean`));
 					}
 				}
 			}
@@ -349,7 +350,7 @@ async function PostToChannel(req, res, next) {
 	}
 
 	// App ID sanitization
-	if (req.body.attachment && req.body.attachment.application_id && !/^\d{3,5}$/.test(req.body.attachment.application_id)) {
+	if(req.body.attachment && req.body.attachment.application_id && !/^\d{3,5}$/.test(req.body.attachment.application_id)){
 		log.warn(`Application id ${req.body.attachment.application_id} is not valid`);
 
 		const response = {
@@ -359,22 +360,22 @@ async function PostToChannel(req, res, next) {
 
 		res.send(400, Object.assign(response, response_messages));
 
-		return next(ServerBadRequestError(`Application id ${req.body.attachment.application_id} is not valid`));
+		return next(serverHelper.badRequestError(`Application id ${req.body.attachment.application_id} is not valid`));
 	}
 
 	// Add a message for testing
-	if (settings.ENV !== 'production' && req.body.channel !== '#debug') {
-		footer = `*In production this would be sent to the ${req.body.channel} channel*`;
+	if(global.settings.ENV !== 'production' && req.body.channel !== '#debug'){
+		footer = `*In production this would be sent to the ${req.body.channel} channel*, From: ${global.settings.ENV} `;
 		req.body.channel = '#debug';
 	}
 
 	// Create fallback text
 	fallback_text = req.body.message;
-	if (fallback_text.indexOf('ALL quotes') !== -1) {
+	if(fallback_text.indexOf('ALL quotes') !== -1){
 		fallback_text = `${req.body.attachment.text} and received ALL quotes`;
-	} else if (fallback_text.indexOf('SOME quotes') !== -1) {
+	}else if(fallback_text.indexOf('SOME quotes') !== -1){
 		fallback_text = `${req.body.attachment.text} and received SOME quotes`;
-	} else if (fallback_text.indexOf('NO quotes') !== -1) {
+	}else if(fallback_text.indexOf('NO quotes') !== -1){
 		fallback_text = `${req.body.attachment.text} and received NO quotes`;
 	}
 
@@ -389,8 +390,8 @@ async function PostToChannel(req, res, next) {
 		'username': username
 	};
 
-	if (req.body.attachment && req.body.attachment.application_id) {
-		let url = `https://${settings.SITE_URL}/administrator/index.php?option=com_talage&view=application&layout=edit&id=${req.body.attachment.application_id}`;
+	if(req.body.attachment && req.body.attachment.application_id){
+		const url = `https://${global.settings.SITE_URL}/administrator/index.php?option=com_talage&view=application&layout=edit&id=${req.body.attachment.application_id}`;
 
 		post_data.attachments[0].actions.push({
 			'style': button_style,
@@ -400,44 +401,52 @@ async function PostToChannel(req, res, next) {
 		});
 	}
 
-	if (req.body.attachment && req.body.attachment.text) {
+	// For alerts and debug channels all instance info
+	log.info(`req.body.channel: ${req.body.channel}`);
+	if(req.body.channel === '#debug' || req.body.channel === '#alerts'){
+		if(process.env.HOSTNAME && process.env.INSTANCE_ID){
+			footer = `${footer} HOSTNAME: ${process.env.HOSTNAME} INSTANCE: ${process.env.INSTANCE_ID}`;
+		}
+	}
+
+	if(req.body.attachment && req.body.attachment.text){
 		post_data.attachments[0].pretext = req.body.message;
 		post_data.attachments[0].text = req.body.attachment.text;
-	} else {
+	}else{
 		post_data.attachments[0].text = req.body.message;
 	}
 
 
 	// Add the message to the 'title' of the message and add fields to the body of the message
-	if (req.body.attachment) {
+	if(req.body.attachment){
 
-		if (req.body.attachment.fields) {
+		if(req.body.attachment.fields){
 			post_data.attachments[0].fields = req.body.attachment.fields;
 		}
-		if (req.body.attachment.title) {
+		if(req.body.attachment.title){
 			post_data.attachments[0].title = req.body.attachment.title;
 		}
 	}
 
-	if (req.body.message_type === 'celebrate') {
+	if(req.body.message_type === 'celebrate'){
 		post_data.attachments[0].image_url = celebration_gifs[Math.floor(Math.random() * celebration_gifs.length)];
 	}
 
 	// Add footer if it exists
-	if (footer !== '') {
+	if(footer !== ''){
 		post_data.attachments[0].footer = footer;
 	}
 
 	log.info(`Post data: ${util.inspect(post_data)}`);
-	await request.post('https://hooks.slack.com/services/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', { 'json': post_data }, (error, slackRes, body) => {
-		if (error) {
+	await request.post('https://hooks.slack.com/services/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', {'json': post_data}, (error, slackRes, body) => {
+		if(error){
 			log.error(error);
 			res.send(error.statusCode, {
 				'body': body,
 				'error': true,
 				'status': error.statusCode
 			});
-		} else {
+		}else{
 			log.info(`statusCode: ${slackRes.statusCode}`);
 			log.info(`body: ${body}`);
 			const response = {
@@ -454,6 +463,6 @@ async function PostToChannel(req, res, next) {
 }
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddPost('Post message', basePath + '/post-to-channel', PostToChannel);
+exports.registerEndpoint = (server, basePath) => {
+	server.addPost('Post message', `${basePath}/post-to-channel`, PostToChannel);
 };

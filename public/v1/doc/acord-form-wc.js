@@ -1,15 +1,15 @@
 'use strict';
 
 const PdfPrinter = require('pdfmake');
-const crypt = requireShared('./services/crypt.js');
+const crypt = global.requireShared('./services/crypt.js');
 const moment = require('moment');
 
-const validator = requireShared('./helpers/validator.js');
+const validator = global.requireShared('./helpers/validator.js');
 const signature = require('./helpers/signature.js');
 const generate = require('./helpers/acord-form-wc.js');
 const styles = require('./helpers/document-style/acord-form-wc/styles.js');
 const positions = require('./helpers/document-style/acord-form-wc/positions.js');
-
+const serverHelper = require('../../../server.js');
 
 /**
  * Responds to get requests for the certificate endpoint
@@ -20,47 +20,47 @@ const positions = require('./helpers/document-style/acord-form-wc/positions.js')
  *
  * @returns {void}
  */
-async function GetACORDFormWC(req, res, next) {
+async function GetACORDFormWC(req, res, next){
 
 	/* ---=== Check Request Requirements ===--- */
 
 	// Check for data
-	if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
+	if(!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
 		log.info('Bad Request: No data received');
 		res.send(400, {
 			'message': 'No data received',
 			'status': 'error'
 		});
-		return next(ServerRequestError('Bad Request: No data received'));
+		return next(serverHelper.requestError('Bad Request: No data received'));
 	}
 
 	// Make sure basic elements are present
-	if (!req.query.application_id) {
+	if(!req.query.application_id){
 		log.info('Bad Request: Missing Application ID');
 		res.send(400, {
 			'message': 'Missing Application ID',
 			'status': 'error'
 		});
-		return next(ServerRequestError('Bad Request: You must supply an application ID'));
+		return next(serverHelper.requestError('Bad Request: You must supply an application ID'));
 	}
 
 	// Validate the application ID
-	if (!await validator.is_valid_application(req.query.application_id)) {
+	if(!await validator.is_valid_application(req.query.application_id)){
 		log.info('Bad Request: Invalid application id');
 		res.send(400, {
 			'message': 'Invalid application id',
 			'status': 'error'
 		});
-		return next(ServerRequestError('Invalid application id'));
+		return next(serverHelper.requestError('Invalid application id'));
 	}
 
-	if (req.query.insurer_id && !await validator.isValidInsurer(req.query.insurer_id)) {
+	if(req.query.insurer_id && !await validator.isValidInsurer(req.query.insurer_id)){
 		log.info('Bad Request: Invalid insurer id');
 		res.send(400, {
 			'message': 'Invalid insurer id',
 			'status': 'error'
 		});
-		return next(ServerRequestError('Invalid insurer id'));
+		return next(serverHelper.requestError('Invalid insurer id'));
 	}
 
 	// Application and business information query
@@ -126,46 +126,46 @@ async function GetACORDFormWC(req, res, next) {
 					WHERE  \`app\`.\`id\` = ${req.query.application_id}`;
 
 	// Run the query
-	const application_data = await db.query(sql).catch(function (error) {
+	const application_data = await db.query(sql).catch(function(error){
 		log.error(error);
 		res.send(400, {
 			'message': `Database Error: ${error}`,
 			'status': 'error'
 		});
-		return next(ServerRequestError(`Database Error: ${error}`));
+		return next(serverHelper.requestError(`Database Error: ${error}`));
 	});
 
 	// Check the number of rows returned
-	if (application_data.length === 0) {
+	if(application_data.length === 0){
 		log.error('Invalid Application ID');
 		res.send(400, {
 			'message': 'Invalid Application ID',
 			'status': 'error'
 		});
-		return next(ServerRequestError('Bad Request: Invalid Application ID'));
+		return next(serverHelper.requestError('Bad Request: Invalid Application ID'));
 	}
 
-	if (!application_data[0].policy_type || application_data[0].policy_type !== 'WC') {
+	if(!application_data[0].policy_type || application_data[0].policy_type !== 'WC'){
 		log.error(`Application ${req.query.application_id} is not WC`);
 		res.send(400, {
 			'message': `Application ${req.query.application_id} is not WC`,
 			'status': 'error'
 		});
-		return next(ServerRequestError(`Application ${req.query.application_id} is not WC`));
+		return next(serverHelper.requestError(`Application ${req.query.application_id} is not WC`));
 	}
 
 	// Check for a business name
 	let applicant_name = '';
-	if (application_data[0].name && application_data[0].name.byteLength) {
+	if(application_data[0].name && application_data[0].name.byteLength){
 		const name = await crypt.decrypt(application_data[0].name);
 		applicant_name += `${name}\n`;
-	} else {
+	}else{
 		log.error(`Business name missing for application ${req.query.application_id}`);
 		res.send(400, {
 			'message': `Business name missing for application ${req.query.application_id}`,
 			'status': 'error'
 		});
-		return next(ServerRequestError(`Business name missing for application ${req.query.application_id}`));
+		return next(serverHelper.requestError(`Business name missing for application ${req.query.application_id}`));
 	}
 
 	// Missing data array
@@ -173,10 +173,10 @@ async function GetACORDFormWC(req, res, next) {
 
 	// Build producer name and address
 	let agency = application_data[0].agencyName;
-	if (application_data[0].mailing_address && application_data[0].mailing_address.byteLength) {
+	if(application_data[0].mailing_address && application_data[0].mailing_address.byteLength){
 		const mailingAddress = await crypt.decrypt(application_data[0].mailing_address);
 		agency += `\n${mailingAddress}`;
-	} else {
+	}else{
 		missing_data.push('Agency address');
 	}
 	agency += `\n${application_data[0].agencyCity.split(' ').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}, ${application_data[0].agencyTerritory} ${application_data[0].mailing_zip}`;
@@ -184,61 +184,61 @@ async function GetACORDFormWC(req, res, next) {
 
 	// Producer Name
 	let producer_name = '';
-	if (application_data[0].producerFName && application_data[0].producerLName) {
+	if(application_data[0].producerFName && application_data[0].producerLName){
 		const fName = await crypt.decrypt(application_data[0].producerFName);
 		const lName = await crypt.decrypt(application_data[0].producerLName);
 		producer_name = `${fName} ${lName}`;
-	} else {
+	}else{
 		missing_data.push('Producer contact name');
 	}
 
 	// Producer office phone
 	let producer_phone = '';
-	if (application_data[0].agencyPhone && application_data[0].agencyPhone.byteLength) {
+	if(application_data[0].agencyPhone && application_data[0].agencyPhone.byteLength){
 		producer_phone = await crypt.decrypt(application_data[0].agencyPhone);
 		producer_phone = `(${producer_phone.substr(0, 3)}) ${producer_phone.substr(3, 3)} - ${producer_phone.substr(6, 4)}`;
-	} else {
+	}else{
 		missing_data.push('Producer phone number');
 	}
 
 	// Producer email
 	let producer_email = '';
-	if (application_data[0].agencyEmail && application_data[0].agencyEmail.byteLength) {
+	if(application_data[0].agencyEmail && application_data[0].agencyEmail.byteLength){
 		producer_email = await crypt.decrypt(application_data[0].agencyEmail);
-	} else {
+	}else{
 		missing_data.push('Producer contact email');
 	}
 
 	// Contact Name
 	let contactName = '';
-	if (application_data[0].contactFName && application_data[0].contactLName) {
+	if(application_data[0].contactFName && application_data[0].contactLName){
 		const fName = await crypt.decrypt(application_data[0].contactFName);
 		const lName = await crypt.decrypt(application_data[0].contactLName);
 		contactName = `${fName} ${lName}`;
-	} else {
+	}else{
 		missing_data.push('Contact name');
 	}
 
 	// Contact Phone
 	let contactPhone = '';
-	if (application_data[0].contactPhone && application_data[0].contactPhone.byteLength) {
+	if(application_data[0].contactPhone && application_data[0].contactPhone.byteLength){
 		contactPhone = await crypt.decrypt(application_data[0].contactPhone);
 		contactPhone = `(${contactPhone.substr(0, 3)}) ${contactPhone.substr(3, 3)} - ${contactPhone.substr(6, 4)}`;
-	} else {
+	}else{
 		missing_data.push('Contact phone number');
 	}
 
 	// Contact Email
 	let contactEmail = '';
-	if (application_data[0].contactEmail && application_data[0].contactEmail.byteLength) {
+	if(application_data[0].contactEmail && application_data[0].contactEmail.byteLength){
 		contactEmail = await crypt.decrypt(application_data[0].contactEmail);
-	} else {
+	}else{
 		missing_data.push('Contact email');
 	}
 
 	// Applicant website
 	let applicant_website = '';
-	if (application_data[0].website && application_data[0].website.byteLength) {
+	if(application_data[0].website && application_data[0].website.byteLength){
 		applicant_website = await crypt.decrypt(application_data[0].website);
 
 		// Strip off http:// and https://
@@ -248,12 +248,12 @@ async function GetACORDFormWC(req, res, next) {
 
 	// Applicant ein
 	let ein = '';
-	if (application_data[0].ein && application_data[0].ein.byteLength) {
+	if(application_data[0].ein && application_data[0].ein.byteLength){
 		ein = await crypt.decrypt(application_data[0].ein);
 	}
-	if (application_data[0].has_ein) {
+	if(application_data[0].has_ein){
 		ein = `${ein.substr(0, 2)} - ${ein.substr(2, 7)}`;
-	} else {
+	}else{
 		ein = `${ein.substr(0, 3)} - ${ein.substr(3, 2)} - ${ein.substr(5, 4)}`;
 	}
 
@@ -304,7 +304,7 @@ async function GetACORDFormWC(req, res, next) {
 
 	// Define base document
 	const docDefinition = {
-		'background'(currentPage) {
+		'background': function(currentPage){
 			return img[currentPage - 1];
 		},
 		'content': [
@@ -418,18 +418,18 @@ async function GetACORDFormWC(req, res, next) {
 	const territories = [];
 	let found_mailing_address = false;
 
-	for (const index in application_data) {
-		if (Object.prototype.hasOwnProperty.call(application_data, index)) {
+	for(const index in application_data){
+		if(Object.prototype.hasOwnProperty.call(application_data, index)){
 			const data = application_data[index];
 
 			// Store address number for state rating page
 			let location_num = 0;
 
 			// If we haven't seen the territory yet
-			if (!territories.includes(data.territory) && !territories.includes(`\n${data.territory}`)) {
-				if (territories.length % 5 === 0) {
+			if(!territories.includes(data.territory) && !territories.includes(`\n${data.territory}`)){
+				if(territories.length % 5 === 0){
 					territories.push(`\n${data.territory}`);
-				} else {
+				}else{
 					territories.push(data.territory);
 				}
 
@@ -438,26 +438,26 @@ async function GetACORDFormWC(req, res, next) {
 			}
 
 			// If we haven't seen the address yet
-			if (!addresses.includes(data.address_id)) {
+			if(!addresses.includes(data.address_id)){
 
 				// Add address to list of addresses seen
 				addresses.push(data.address_id);
 
 				let street_address = '';
 				let city = '';
-				if (data.city) {
+				if(data.city){
 					city = data.city.split(' ').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 				}
 
-				if (data.address && data.address.byteLength) {
+				if(data.address && data.address.byteLength){
 					const address = await crypt.decrypt(data.address); // eslint-disable-line no-await-in-loop
 					street_address += `${address}`;
-				} else {
+				}else{
 					missing_data.push('Business location address');
 				}
 
 				// If this is the mailing address, add it to the top of the form and write it as Location 01
-				if (data.billing) {
+				if(data.billing){
 					found_mailing_address = true;
 					location_num = 1;
 
@@ -475,7 +475,7 @@ async function GetACORDFormWC(req, res, next) {
 					]);
 
 
-					if (data.address2 && data.address2.byteLength) {
+					if(data.address2 && data.address2.byteLength){
 						const address2 = await crypt.decrypt(data.address2); // eslint-disable-line no-await-in-loop
 						street_address += `${address2}\n`;
 					}
@@ -487,7 +487,7 @@ async function GetACORDFormWC(req, res, next) {
 						'text': `${street_address}\n${city}, ${data.territory} ${data.zip}`
 					});
 
-				} else {
+				}else{
 					// Add as next location
 					location_num = addresses.length + (found_mailing_address ? 0 : 1);
 
@@ -495,25 +495,23 @@ async function GetACORDFormWC(req, res, next) {
 						{
 							'absolutePosition': {
 								'x': positions.location.x,
-								'y': positions.location.y + ((location_num - 1) * location_offset)
+								'y': positions.location.y + (location_num - 1) * location_offset
 							},
 							'text': `${street_address}, ${city}, ${data.county}, ${data.territory}, ${data.zip}`
 						}, {
 							'absolutePosition': {
 								'x': positions.location_num.x,
-								'y': positions.location_num.y + ((location_num - 1) * location_offset)
+								'y': positions.location_num.y + (location_num - 1) * location_offset
 							},
 							// eslint-disable-next-line no-undefined
-							'text': location_num.toLocaleString(undefined, {
-								'minimumIntegerDigits': 2
-							})
+							'text': location_num.toLocaleString(undefined, {'minimumIntegerDigits': 2})
 						}
 					];
 
 					// Only 3 locations on the first page
-					if (location_num < 4) {
+					if(location_num < 4){
 						docDefinition.content = docDefinition.content.concat(new_location);
-					} else {
+					}else{
 						// Add the location to the overflow page
 					}
 
@@ -530,7 +528,7 @@ async function GetACORDFormWC(req, res, next) {
 			}
 
 			// If we haven't seen this activity code at this location yet, add it
-			if (!Object.prototype.hasOwnProperty.call(activity_code_data[data.territory][data.address_id].activity_codes, data.activity_code)) {
+			if(!Object.prototype.hasOwnProperty.call(activity_code_data[data.territory][data.address_id].activity_codes, data.activity_code)){
 				activity_code_data[data.territory][data.address_id].activity_codes[data.activity_code] = data.payroll;
 				activity_code_data[data.territory][data.address_id].total_payroll += data.payroll;
 
@@ -544,14 +542,14 @@ async function GetACORDFormWC(req, res, next) {
 	sql_ncci = sql_ncci.concat(')');
 
 	// If there is more than one territory where the business operates adjust the background function
-	if (territories.length > 1) {
-		docDefinition.background = function (currentPage) {
+	if(territories.length > 1){
+		docDefinition.background = function(currentPage){
 			// If we're on the first page return the background for the first page
-			if (currentPage === 1) {
+			if(currentPage === 1){
 				return img[0];
 			}
 			// If we're on a page 2 state rating sheet
-			if (currentPage >= 2 && currentPage <= territories.length + 1) {
+			if(currentPage >= 2 && currentPage <= territories.length + 1){
 				return img[1];
 			}
 			// The current page is after the state rating sheets
@@ -560,13 +558,13 @@ async function GetACORDFormWC(req, res, next) {
 	}
 
 	// Make sure the mailing address was found at some point
-	if (!found_mailing_address) {
+	if(!found_mailing_address){
 		log.error(`Business address missing for application ${req.query.application_id}`);
 		res.send(400, {
 			'message': `Business address missing for application ${req.query.application_id}`,
 			'status': 'error'
 		});
-		return next(ServerRequestError(`Business address missing for application ${req.query.application_id}`));
+		return next(serverHelper.requestError(`Business address missing for application ${req.query.application_id}`));
 	}
 
 	// Add list of territories
@@ -579,9 +577,9 @@ async function GetACORDFormWC(req, res, next) {
 	let hasCA = false;
 	let hasOR = false;
 	territories.forEach((terr) => {
-		if (terr.trim() === 'CA') {
+		if(terr.trim() === 'CA'){
 			hasCA = true;
-		} else if (terr.trim() === 'OR') {
+		}else if(terr.trim() === 'OR'){
 			hasOR = true;
 		}
 	});
@@ -591,7 +589,7 @@ async function GetACORDFormWC(req, res, next) {
 	let limit2 = '';
 	let limit3 = '';
 	// eslint-disable-next-line default-case
-	switch (application_data[0].limits) {
+	switch(application_data[0].limits){
 		// 1M-1M-1M
 		case '100000010000001000000':
 			limit1 = '1,000,000';
@@ -606,11 +604,11 @@ async function GetACORDFormWC(req, res, next) {
 			break;
 		// 500K-1M-500K
 		case '5000001000000500000':
-			if (hasCA) {
+			if(hasCA){
 				limit1 = '1,000,000';
 				limit2 = '1,000,000';
 				limit3 = '1,000,000';
-			} else {
+			}else{
 				limit1 = '500,000';
 				limit2 = '1,000,000';
 				limit3 = '500,000';
@@ -618,11 +616,11 @@ async function GetACORDFormWC(req, res, next) {
 			break;
 		// 500K-500K-500K
 		case '500000500000500000':
-			if (hasCA) {
+			if(hasCA){
 				limit1 = '1,000,000';
 				limit2 = '1,000,000';
 				limit3 = '1,000,000';
-			} else {
+			}else{
 				limit1 = '500,000';
 				limit2 = '500,000';
 				limit3 = '500,000';
@@ -630,15 +628,15 @@ async function GetACORDFormWC(req, res, next) {
 			break;
 		// 100K-500K-500K
 		case '100000500000100000':
-			if (hasCA) {
+			if(hasCA){
 				limit1 = '1,000,000';
 				limit2 = '1,000,000';
 				limit3 = '1,000,000';
-			} else if (hasOR) {
+			}else if(hasOR){
 				limit1 = '500,000';
 				limit2 = '500,000';
 				limit3 = '500,000';
-			} else {
+			}else{
 				limit1 = '100,000';
 				limit2 = '500,000';
 				limit3 = '100,000';
@@ -650,56 +648,56 @@ async function GetACORDFormWC(req, res, next) {
 		'absolutePosition': positions.employers_liability_1,
 		'text': limit1
 	},
-		{
-			'absolutePosition': positions.employers_liability_2,
-			'text': limit2
-		},
-		{
-			'absolutePosition': positions.employers_liability_3,
-			'text': limit3
-		});
+	{
+		'absolutePosition': positions.employers_liability_2,
+		'text': limit2
+	},
+	{
+		'absolutePosition': positions.employers_liability_3,
+		'text': limit3
+	});
 
 	// Add the contact information
 	const contact_info_offset = 12;
-	for (let i = 0; i < 3; i++) {
+	for(let i = 0; i < 3; i++){
 		docDefinition.content = docDefinition.content.concat([{
 			'absolutePosition': {
 				'x': positions.contact_info_name.x,
-				'y': positions.contact_info_name.y + (i * contact_info_offset)
+				'y': positions.contact_info_name.y + i * contact_info_offset
 			},
 			'text': contactName
 		},
 		{
 			'absolutePosition': {
 				'x': positions.contact_info_phone.x,
-				'y': positions.contact_info_phone.y + (i * contact_info_offset)
+				'y': positions.contact_info_phone.y + i * contact_info_offset
 			},
 			'text': contactPhone
 		},
 		{
 			'absolutePosition': {
 				'x': positions.contact_info_email.x,
-				'y': positions.contact_info_email.y + (i * contact_info_offset)
+				'y': positions.contact_info_email.y + i * contact_info_offset
 			},
 			'text': contactEmail
 		}]);
 	}
 
 	// Adding excluded owners
-	if (!application_data[0].owners_covered) {
-		if (application_data[0].owners && application_data[0].owners.byteLength) {
+	if(!application_data[0].owners_covered){
+		if(application_data[0].owners && application_data[0].owners.byteLength){
 
 			let owners = await crypt.decrypt(application_data[0].owners);
 			owners = JSON.parse(owners);
 			const owner_offset = 24;
 
 			// The maximum number of owners that can be listed on this page is 4
-			for (let i = 0; i < owners.length && i < 4; i++) {
+			for(let i = 0; i < owners.length && i < 4; i++){
 				docDefinition.content = docDefinition.content.concat([
 					{
 						'absolutePosition': {
 							'x': positions.owner_loc_num.x,
-							'y': positions.owner_loc_num.y + (i * owner_offset)
+							'y': positions.owner_loc_num.y + i * owner_offset
 						},
 						'style': styles.owner,
 						'text': '01'
@@ -707,7 +705,7 @@ async function GetACORDFormWC(req, res, next) {
 					{
 						'absolutePosition': {
 							'x': positions.owner.x,
-							'y': positions.owner.y + (i * owner_offset)
+							'y': positions.owner.y + i * owner_offset
 						},
 						'style': styles.owner,
 						'text': `${owners[i].fname} ${owners[i].lname}`
@@ -715,7 +713,7 @@ async function GetACORDFormWC(req, res, next) {
 					{
 						'absolutePosition': {
 							'x': positions.owner_duties.x,
-							'y': positions.owner_duties.y + (i * owner_offset)
+							'y': positions.owner_duties.y + i * owner_offset
 						},
 						'style': styles.owner,
 						'text': 'OWNER'
@@ -723,14 +721,14 @@ async function GetACORDFormWC(req, res, next) {
 					{
 						'absolutePosition': {
 							'x': positions.owner_inc_exc.x,
-							'y': positions.owner_inc_exc.y + (i * owner_offset)
+							'y': positions.owner_inc_exc.y + i * owner_offset
 						},
 						'style': styles.owner,
 						'text': 'EXC'
 					}
 				]);
 			}
-		} else {
+		}else{
 			missing_data.push(`Owners excluded, but no names given`);
 		}
 	}
@@ -740,14 +738,14 @@ async function GetACORDFormWC(req, res, next) {
 
 	// Query for insurers ncci codes
 	let ncci_data = [];
-	if (application_data[0].insurer) {
-		ncci_data = await db.query(sql_ncci).catch(function (error) {
+	if(application_data[0].insurer){
+		ncci_data = await db.query(sql_ncci).catch(function(error){
 			log.error(error);
 			res.send(400, {
 				'message': `Database Error: ${error}`,
 				'status': 'error'
 			});
-			return next(ServerRequestError(`Database Error: ${error}`));
+			return next(serverHelper.requestError(`Database Error: ${error}`));
 		});
 	}
 
@@ -755,40 +753,40 @@ async function GetACORDFormWC(req, res, next) {
 	let stateRatingResult = -1;
 
 	// Check that all the activity codes are supported by the selected insurer
-	if (ncci_data.length) {
+	if(ncci_data.length){
 		// Convert all activity_codes into an array
-		ncci_data.map(function (code) {
+		ncci_data.map(function(code){
 			code.activity_codes = code.activity_codes.split(',');
 			return code;
 		});
 
 		// Combine duplicate activity codes
-		for (const territory in activity_code_data) {
-			if (Object.prototype.hasOwnProperty.call(activity_code_data, territory)) {
+		for(const territory in activity_code_data){
+			if(Object.prototype.hasOwnProperty.call(activity_code_data, territory)){
 				// Loop over each location in this territory
-				for (const locationId in activity_code_data[territory]) {
-					if (Object.prototype.hasOwnProperty.call(activity_code_data[territory], locationId)) {
+				for(const locationId in activity_code_data[territory]){
+					if(Object.prototype.hasOwnProperty.call(activity_code_data[territory], locationId)){
 						// For this location, combine activity codes as necessary
 						const activityCodes = {};
 						const seenCodes = {};
-						for (const activityCode in activity_code_data[territory][locationId].activity_codes) {
-							if (Object.prototype.hasOwnProperty.call(activity_code_data[territory][locationId].activity_codes, activityCode)) {
+						for(const activityCode in activity_code_data[territory][locationId].activity_codes){
+							if(Object.prototype.hasOwnProperty.call(activity_code_data[territory][locationId].activity_codes, activityCode)){
 								// Isolate the payroll
 								const payroll = activity_code_data[territory][locationId].activity_codes[activityCode];
 
 								// Get the NCCI code that corresponds to this activity code
 								let ncci = '';
-								ncci_data.forEach(function (codeObj) {
-									if (codeObj.activity_codes.includes(activityCode)) {
+								ncci_data.forEach(function(codeObj){
+									if(codeObj.activity_codes.includes(activityCode)){
 										ncci = codeObj.code + (codeObj.sub ? codeObj.sub : '');
 									}
 								});
 
 								// Check if this ncci code is the same as one already seen in this location, and if so, combine them
-								if (Object.keys(seenCodes).includes(ncci)) {
+								if(Object.keys(seenCodes).includes(ncci)){
 									// Combine
 									activityCodes[seenCodes[ncci]] += payroll;
-								} else {
+								}else{
 									// Add this code as a separate code
 									activityCodes[activityCode] = payroll;
 
@@ -810,13 +808,13 @@ async function GetACORDFormWC(req, res, next) {
 		stateRatingResult = generate.state_rating_sheets(activity_code_data, ncci_data);
 	}
 
-	if (!ncci_data.length || stateRatingResult === -1) {
+	if(!ncci_data.length || stateRatingResult === -1){
 		missing_data.push('One or more activity codes are not supported by this insurer');
 		docDefinition.content.push({
 			'pageBreak': 'before',
 			'text': ''
 		});
-	} else {
+	}else{
 		docDefinition.content = docDefinition.content.concat(stateRatingResult);
 	}
 
@@ -884,32 +882,32 @@ async function GetACORDFormWC(req, res, next) {
 	// eslint-disable-next-line no-useless-escape
 	const sql_questions = sql_base.concat(Object.keys(general_information_questions).join(' or \`app_q\`.\`question\` = ')).concat(')');
 
-	const question_data = await db.query(sql_questions).catch(function (error) {
+	const question_data = await db.query(sql_questions).catch(function(error){
 		log.error(error);
 		res.send(400, {
 			'message': `Database Error: ${error}`,
 			'status': 'error'
 		});
-		return next(ServerRequestError(`Database Error: ${error}`));
+		return next(serverHelper.requestError(`Database Error: ${error}`));
 	});
 
 	const num_questions_page_3 = 16;
 	const page_4_questions = [];
 
 	// If there are no questions then don't fill in that section
-	if (question_data.length) {
-		question_data.forEach(function (question) {
+	if(question_data.length){
+		question_data.forEach(function(question){
 
 			let question_answer = '';
 
 			// If it is a yes or no question, check the box. If there is a text answer write it in
-			if (question.type === 1) {
-				if (question.answer === 'Yes') {
+			if(question.type === 1){
+				if(question.answer === 'Yes'){
 					question_answer = 'Y';
-				} else if (question.answer === 'No') {
+				}else if(question.answer === 'No'){
 					question_answer = 'N';
 				}
-			} else {
+			}else{
 				question_answer = question.text_answer;
 			}
 			const answer = {
@@ -918,9 +916,9 @@ async function GetACORDFormWC(req, res, next) {
 				'text': question_answer
 			};
 			// If the question is on page 3, add it to page 3
-			if (general_information_questions[question.number] <= num_questions_page_3) {
+			if(general_information_questions[question.number] <= num_questions_page_3){
 				docDefinition.content.push(answer);
-			} else {
+			}else{
 				// The question is on page 4, add it to page 4 array to be added after document page break
 				page_4_questions.push(answer);
 			}
@@ -931,10 +929,10 @@ async function GetACORDFormWC(req, res, next) {
 		});
 
 		// Write in default answer to remaining questions
-		Object.values(general_information_questions).forEach(function (question) {
+		Object.values(general_information_questions).forEach(function(question){
 			let answer_text = '';
 			// Default answers to not include text explanations, all text questions are left blank
-			if (question % 1 === 0) {
+			if(question % 1 === 0){
 				// Default answer for all non-text questions
 				answer_text = 'N';
 			}
@@ -944,9 +942,9 @@ async function GetACORDFormWC(req, res, next) {
 				'text': answer_text
 			};
 			// If the question is on page 3, add it to page 3
-			if (question <= num_questions_page_3) {
+			if(question <= num_questions_page_3){
 				docDefinition.content.push(answer);
-			} else {
+			}else{
 				// The question is on page 4, add it to page 4 array to be added after document page break
 				page_4_questions.push(answer);
 			}
@@ -963,7 +961,7 @@ async function GetACORDFormWC(req, res, next) {
 	docDefinition.content = docDefinition.content.concat(page_4_questions);
 
 	// If the agent is Talage
-	if (application_data[0].agent === 1) {
+	if(application_data[0].agent === 1){
 		// Add producer's signature
 		docDefinition.content.push({
 			'absolutePosition': positions.signature,
@@ -978,29 +976,27 @@ async function GetACORDFormWC(req, res, next) {
 
 	const chunks = [];
 
-	doc.on('data', function (chunk) {
+	doc.on('data', function(chunk){
 		chunks.push(chunk);
 	});
 
-	if (Object.hasOwnProperty.call(req.query, 'response') && req.query.response === 'json') {
+	if(Object.hasOwnProperty.call(req.query, 'response') && req.query.response === 'json'){
 		doc.on('end', () => {
 			const result = Buffer.concat(chunks);
-			const response = {
-				'pdf': result.toString('base64')
-			};
+			const response = {'pdf': result.toString('base64')};
 
-			if (missing_data.length) {
+			if(missing_data.length){
 				response.status = 'warning';
 				response.missing_data = missing_data;
-			} else {
+			}else{
 				response.status = 'ok';
 			}
 
 			res.send(200, response);
 		});
-	} else {
+	}else{
 		let ending = '';
-		doc.on('end', function () {
+		doc.on('end', function(){
 			ending = Buffer.concat(chunks);
 
 			res.writeHead(200, {
@@ -1016,11 +1012,10 @@ async function GetACORDFormWC(req, res, next) {
 	doc.end();
 	log.info('Certificate Generated!');
 
-
 	return next();
 }
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddGet('Get Certificate', basePath + '/acord-form-wc', GetACORDFormWC);
+exports.registerEndpoint = (server, basePath) => {
+	server.addGet('Get Certificate', `${basePath}/acord-form-wc`, GetACORDFormWC);
 };

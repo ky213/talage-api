@@ -506,24 +506,14 @@ module.exports = class AcuityWC extends Integration{
 
 							// Loop through all four years and send claims data
 							for(let i = 1; i <= 3; i++){
-								if(!Object.prototype.hasOwnProperty.call(claims_by_year, i)){
-									// This year had no claims, send with zeros
-									claims_by_year[i] = {};
-									claims_by_year[i].amount_paid = 0;
-									claims_by_year[i].amount_reserved = 0;
-									claims_by_year[i].count = 0;
-								}
-
-								const effective_date = this.policy.effective_date.clone().subtract(i, 'years');
-
 								// <WorkCompLossOrPriorPolicy>
 								const WorkCompLossOrPriorPolicy = WorkCompLineBusiness.ele('WorkCompLossOrPriorPolicy');
-									WorkCompLossOrPriorPolicy.ele('EffectiveDt', effective_date.format('YYYY-MM-DD'));
-									WorkCompLossOrPriorPolicy.ele('ExpirationDt', effective_date.clone().add(1, 'years').format('YYYY-MM-DD'));
+									WorkCompLossOrPriorPolicy.ele('EffectiveDt', claims_by_year[i].effective_date.format('YYYY-MM-DD'));
+									WorkCompLossOrPriorPolicy.ele('ExpirationDt', claims_by_year[i].expiration_date.format('YYYY-MM-DD'));
 
 									// <PaidTotalAmt>
 									const PaidTotalAmt = WorkCompLossOrPriorPolicy.ele('TotalIncurredAmt');
-										PaidTotalAmt.ele('Amt', claims_by_year[i].amount_paid + claims_by_year[i].amount_reserved);
+										PaidTotalAmt.ele('Amt', claims_by_year[i].amountPaid + claims_by_year[i].amountReserved);
 									// </PaidTotalAmt>
 
 									WorkCompLossOrPriorPolicy.ele('NumClaims', claims_by_year[i].count);
@@ -655,8 +645,8 @@ module.exports = class AcuityWC extends Integration{
 							fulfill(this.return_error('error', 'We are currently unable to connect to this insurer'));
 							return;
 						case '500':
-							this.log += '--------======= Server Error =======--------';
-							log.warn(`${this.insurer.name} 500 - Server Error `);
+							this.log += '--------======= server. Error =======--------';
+							log.warn(`${this.insurer.name} 500 - server. Error `);
 							this.reasons.push('Insurer encountered a server error');
 							fulfill(this.return_error('error', 'We are currently unable to connect to this insurer'));
 							return;

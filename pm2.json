@@ -1,0 +1,18 @@
+{
+  "apps": [
+	{
+	  "name": "Talage API",
+	  "env": {
+		"NODE_ENV": "development"
+	  },
+	  "ignore_watch": [
+		"logs",
+		"node_modules",
+		"tests",
+		".idea"
+	  ],
+	  "script": "index.js",
+	  "watch_options" : {"usePolling": true}
+	}
+  ]
+}

@@ -5,6 +5,7 @@
 'use strict';
 
 const crypt = require('./helpers/crypt.js');
+const serverHelper = require('../../../server.js').serverHelper;
 
 /* -----==== Version 1 Functions ====-----*/
 
@@ -17,17 +18,17 @@ const crypt = require('./helpers/crypt.js');
  *
  * @returns {void}
  */
-async function PostEncrypt(req, res, next) {
+async function PostEncrypt(req, res, next){
 	// Check for data
-	if (!req.body) {
+	if(!req.body){
 		log.warn('No data was received');
-		return next(ServerRequestError('No data was received'));
+		return next(serverHelper.requestError('No data was received'));
 	}
 
 	// Make sure this is a string
-	if (typeof req.body !== 'string') {
+	if(typeof req.body !== 'string'){
 		log.warn('Value must be a string');
-		return next(ServerRequestError('Value must be a string'));
+		return next(serverHelper.requestError('Value must be a string'));
 	}
 
 	// Encrypt the data
@@ -39,6 +40,6 @@ async function PostEncrypt(req, res, next) {
 }
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddPost('Encrypt', basePath + '/encrypt', PostEncrypt);
+exports.registerEndpoint = (server, basePath) => {
+	server.addPost('Encrypt', `${basePath}/encrypt`, PostEncrypt);
 };

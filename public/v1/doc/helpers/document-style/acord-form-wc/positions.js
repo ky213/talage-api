@@ -266,10 +266,6 @@ module.exports = {
 		'x': 55,
 		'y': activity_code_y
 	},
-	'rating_sheet_sub_code': {
-		'x': 107,
-		'y': activity_code_y
-	},
 	'rating_sheet_description': {
 		'x': 130,
 		'y': activity_code_y
@@ -292,6 +288,10 @@ module.exports = {
 	},
 	'rating_sheet_payroll': {
 		'x': 420,
+		'y': activity_code_y
+	},
+	'rating_sheet_sub_code': {
+		'x': 107,
 		'y': activity_code_y
 	},
 	'rating_sheet_territory': {

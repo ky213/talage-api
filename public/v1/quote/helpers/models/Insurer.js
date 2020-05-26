@@ -4,13 +4,14 @@
 
 'use strict';
 
-const crypt = requireShared('./services/crypt.js');
-const RestifyError = require('restify-errors');
+const crypt = global.requireShared('./services/crypt.js');
 const moment_timezone = require('moment-timezone');
+const serverHelper = require('../../../../../server.js');
+const validator = global.requireShared('./helpers/validator.js');
 
-module.exports = class Insurer {
+module.exports = class Insurer{
 
-	constructor() {
+	constructor(){
 		this.id = 0;
 		this.logo = '';
 		this.name = '';
@@ -22,7 +23,7 @@ module.exports = class Insurer {
 		this.rating = '';
 		this.slug = '';
 		this.state = 1;
-		this.test_mode = settings.ENV === 'production' ? 0 : 1;
+		this.test_mode = global.settings.ENV === 'production' ? 0 : 1;
 		this.test_password = '';
 		this.test_username = '';
 		this.username = '';
@@ -34,8 +35,8 @@ module.exports = class Insurer {
 	 *
 	 * @return {string} - The password used to sign in to this insurer's API
 	 */
-	get_password() {
-		if (this.test_mode) {
+	get_password(){
+		if(this.test_mode){
 			return crypt.decrypt(this.test_password);
 		}
 		return crypt.decrypt(this.password);
@@ -47,8 +48,8 @@ module.exports = class Insurer {
 	 *
 	 * @return {string} - The username used to sign in to this insurer's API
 	 */
-	get_username() {
-		if (this.test_mode) {
+	get_username(){
+		if(this.test_mode){
 			return crypt.decrypt(this.test_username);
 		}
 		return crypt.decrypt(this.username);
@@ -60,11 +61,11 @@ module.exports = class Insurer {
 	 * @param {int} id - The ID of the insurer
 	 * @returns {Promise.<object, Error>} True on success, Error on failure.
 	 */
-	init(id) {
-		return new Promise(async (fulfill, reject) => {
+	init(id){
+		return new Promise(async(fulfill, reject) => {
 			// Validate the provided ID
-			if (!await validator.insurer(id)) {
-				reject(ServerRequestError('Invalid insurer'));
+			if(!await validator.insurer(id)){
+				reject(serverHelper.requestError('Invalid insurer'));
 				return;
 			}
 
@@ -80,22 +81,22 @@ module.exports = class Insurer {
 
 			// Run that query
 			let had_error = false;
-			const rows = await db.query(sql).catch(function (error) {
+			const rows = await db.query(sql).catch(function(error){
 				log.error(error);
 				had_error = true;
 			});
 
 			// Make sure we found the insurer, if not, the ID is bad
-			if (had_error || !rows || rows.length !== 1) {
-				reject(ServerRequestError('Invalid insurer'));
+			if(had_error || !rows || rows.length !== 1){
+				reject(serverHelper.requestError('Invalid insurer'));
 				return;
 			}
 
 			// Load the results of the query into this object
-			for (const property in rows[0]) {
+			for(const property in rows[0]){
 				// Make sure this property is part of the rows[0] object and that it is alsoa. property of this object
-				if (Object.prototype.hasOwnProperty.call(rows[0], property) && Object.prototype.hasOwnProperty.call(this, property)) {
-					switch (property) {
+				if(Object.prototype.hasOwnProperty.call(rows[0], property) && Object.prototype.hasOwnProperty.call(this, property)){
+					switch(property){
 						case 'outages':
 							this[property] = Boolean(rows[0][property]);
 							continue;
@@ -117,22 +118,22 @@ module.exports = class Insurer {
 			`;
 
 			// Run that query
-			const payment_plans = await db.query(payment_plan_sql).catch(function (error) {
+			const payment_plans = await db.query(payment_plan_sql).catch(function(error){
 				log.error(error);
 				had_error = true;
 			});
 
 			// Make sure we found some payment plans
-			if (had_error || !payment_plans || payment_plans.length <= 0) {
+			if(had_error || !payment_plans || payment_plans.length <= 0){
 				log.error(`No payment plans set for ${this.name}`);
-				reject(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 				return;
 			}
 
 			// Loop through the results and store them in this object
-			for (const i in payment_plans) {
+			for(const i in payment_plans){
 				// Make sure this property is a direct child of its parent
-				if (Object.prototype.hasOwnProperty.call(payment_plans, i)) {
+				if(Object.prototype.hasOwnProperty.call(payment_plans, i)){
 					this.payment_options.push({
 						'description': payment_plans[i].description,
 						'id': payment_plans[i].id,
@@ -150,22 +151,22 @@ module.exports = class Insurer {
 			`;
 
 			// Run that query
-			const packages = await db.query(packages_sql).catch(function (error) {
+			const packages = await db.query(packages_sql).catch(function(error){
 				log.error(error);
 				had_error = true;
 			});
 
 			// Make sure no errors occured
-			if (had_error) {
-				reject(ServerInternalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			if(had_error){
+				reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 				return;
 			}
 
 			// Loop through the results and store them in this object
-			if (packages && packages.length > 0) {
-				for (const i in packages) {
+			if(packages && packages.length > 0){
+				for(const i in packages){
 					// Make sure this property is a direct child of its parent
-					if (Object.prototype.hasOwnProperty.call(packages, i)) {
+					if(Object.prototype.hasOwnProperty.call(packages, i)){
 						this.packages.push({
 							'description': packages[i].description,
 							'id': packages[i].id,

@@ -4,15 +4,15 @@
 
 'use strict';
 
-const RestifyError = require('restify-errors');
-const crypt = require('../helpers/crypt.js');
-const file = require('../helpers/file.js');
+const crypt = global.requireShared('./services/crypt.js');
+const file = global.requireShared('./services/file.js');
 const htmlentities = require('html-entities').Html5Entities;
 const https = require('https');
 const moment = require('moment');
 const util = require('util');
 const{'v4': uuidv4} = require('uuid');
 const xmlToObj = require('xml2js').parseString;
+const serverHelper = require('../../../../../server.js');
 
 module.exports = class Integration{
 
@@ -78,7 +78,7 @@ module.exports = class Integration{
 	/**
 	 * An entry point for binding a quote that conducts some necessary pre-processing before calling the insurer_bind function.
 	 *
-	 * @returns {Promise.<string, RestifyError>} A promise that returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a RestifyError if rejected
+	 * @returns {Promise.<string, ServerError>} A promise that returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a ServerError if rejected
 	 */
 	bind(){
 		log.info(`${this.insurer.name} ${this.policy.type} Bind Started (mode: ${this.insurer.test_mode ? 'test' : 'live'})`);
@@ -87,14 +87,14 @@ module.exports = class Integration{
 			// Make sure the _bind() function exists
 			if(typeof this._bind === 'undefined'){
 				log.warn(`${this.insurer} ${this.policy.type} integration does not support binding quotes`);
-				reject(new RestifyError.NotFoundError('Insurer integration does not support binding quotes at this time'));
+				reject(serverHelper.notFoundError('Insurer integration does not support binding quotes at this time'));
 				return;
 			}
 
 			// Check for an outage
 			if(this.insurer.outage){
 				log.warn(`${this.insurer} is currently unavailable due to scheduled maintenance`);
-				reject(new RestifyError.ServiceUnavailableError('Insurer is currently unavailable due to scheduled maintance'));
+				reject(serverHelper.serviceUnavailableError('Insurer is currently unavailable due to scheduled maintance'));
 				return;
 			}
 
@@ -114,14 +114,29 @@ module.exports = class Integration{
 	 */
 	claims_to_policy_years(){
 		const claims = {};
+
+		// Get the effective date of the policy
+		const effective_date = this.policy.effective_date.clone();
+
+		// Fill the claims object with some default data (for the policy year, year 1 is within effective date - 1 year, year 2 within 2 years, etc.)
+		for(let i = 1; i <= 5; i++){
+			const c = {};
+			c.amountPaid = 0;
+			c.amountReserved = 0;
+			c.count = 0;
+			c.effective_date = effective_date.clone().subtract(i, 'years');
+			c.expiration_date = c.effective_date.clone().add(1, 'years');
+			c.missedWork = 0;
+			claims[i] = c;
+		}
+
+		// Loop through each claim and add them to the claims object
 		this.policy.claims.forEach((claim) => {
 
-			// Determine the policy year (year 1 is within effective date - 1 year, year 2 within 2 years, etc.)
-			let effective_date = this.policy.effective_date.clone();
+			// Determine the policy year
 			let year = 0;
 			for(let i = 1; i <= 5; i++){
-				effective_date = effective_date.subtract(1, 'years');
-				if(claim.date.isAfter(effective_date)){
+				if(claim.date.isAfter(this.policy.effective_date.clone().subtract(i, 'years'))){
 					year = i;
 					break;
 				}
@@ -132,27 +147,12 @@ module.exports = class Integration{
 				return;
 			}
 
-			// If claims information was not already started for this year, add it
-			if(!Object.prototype.hasOwnProperty.call(claims, year)){
-				const c = {};
-				c.amount_paid = 0;
-				c.amount_reserved = 0;
-				c.count = 0;
-				c.effective_date = effective_date;
-				c.expiration_date = effective_date.clone().add(1, 'years');
-				c.missed_time = 0;
-				claims[year] = c;
-			}
-
 			// Process this claim
-			if(claim.open){
-				claims[year].amount_reserved += claim.amount;
-			}else{
-				claims[year].amount_paid += claim.amount;
-			}
+			claims[year].amountReserved += claim.amountReserved;
+			claims[year].amountPaid += claim.amountPaid;
 			claims[year].count++;
-			if(claim.missed_time){
-				claims[year].missed_time++;
+			if(claim.missedWork){
+				claims[year].missedWork++;
 			}
 		});
 
@@ -199,7 +199,7 @@ module.exports = class Integration{
 
 		// If there are not at least 2 activity codes, just return what we have
 		if(this.grouped_activity_codes.length < 2){
-			return this.grouped_activity_codes;
+			return this.grouped_activity_codes[0];
 		}
 
 		// Sort the activity codes based on payroll
@@ -510,21 +510,21 @@ module.exports = class Integration{
 	get_total_amount_incurred_on_claims(number_of_years){
 
 		// Get the claims data organized by year
-		const claims_by_year = this.claims_to_policy_years();
+		const claimsByYear = this.claims_to_policy_years();
 
 		// Loop through each year of claims
-		let total_incurred = 0;
-		for(const claim_year in claims_by_year){
-			if(Object.prototype.hasOwnProperty.call(claims_by_year, claim_year)){
-				if(claim_year <= number_of_years){
-					total_incurred += claims_by_year[claim_year].amount_paid;
-					total_incurred += claims_by_year[claim_year].amount_reserved;
+		let total = 0;
+		for(const year in claimsByYear){
+			if(Object.prototype.hasOwnProperty.call(claimsByYear, year)){
+				if(year <= number_of_years){
+					total += claimsByYear[year].amountPaid;
+					total += claimsByYear[year].amountReserved;
 				}
 			}
 		}
 
 		// Return the result
-		return total_incurred;
+		return total;
 	}
 
 	/**

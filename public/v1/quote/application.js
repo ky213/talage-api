@@ -6,6 +6,7 @@
 
 const util = require('util');
 const Application = require('./helpers/models/Application.js');
+const serverHelper = require('../../../server.js');
 
 /**
  * Responds to POST requests and returns policy quotes
@@ -16,49 +17,51 @@ const Application = require('./helpers/models/Application.js');
  *
  * @returns {void}
  */
-async function PostApplication(req, res, next) {
+async function PostApplication(req, res, next){
 	// Check for data
-	if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
+	if(!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0){
 		log.warn('No data was received');
-		return next(ServerRequestError('No data was received'));
+		return next(serverHelper.requestError('No data was received'));
 	}
 
 	// Make sure basic elements are present
-	if (!req.body.business || !Object.prototype.hasOwnProperty.call(req.body, 'id') || !req.body.policies) {
+	if(!req.body.business || !Object.prototype.hasOwnProperty.call(req.body, 'id') || !req.body.policies){
 		log.warn('Some required data is missing');
-		return next(ServerRequestError('Some required data is missing. Please check the documentation.'));
+		return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
 	}
+
+	const requestedInsurers = Object.prototype.hasOwnProperty.call(req.query, 'insurers') ? req.query.insurers.split(',') : [];
 
 	const application = new Application();
 	let had_error = false;
 
 	// Load
-	await application.load(req.params).catch(function (error) {
+	await application.load(req.params).catch(function(error){
 		had_error = true;
 		res.send(error);
 		log.warn(`Cannot Load Application: ${error.message}`);
 	});
-	if (had_error) {
+	if(had_error){
 		return next();
 	}
 
 	// Validate
-	await application.validate().catch(function (error) {
+	await application.validate(requestedInsurers).catch(function(error){
 		had_error = true;
 		res.send(error);
 		log.warn(`Invalid Application: ${error.message}`);
 	});
-	if (had_error) {
+	if(had_error){
 		return next();
 	}
 
 	// Check if Testing and Send Test Response
-	if (application.test) {
+	if(application.test){
 		// Test Response
-		await application.run_test().then(function (response) {
+		await application.run_test().then(function(response){
 			log.verbose(util.inspect(response, false, null));
 			res.send(200, response);
-		}).catch(function (error) {
+		}).catch(function(error){
 			log.error(`Error ${error.message}`);
 			res.send(error);
 		});
@@ -66,12 +69,12 @@ async function PostApplication(req, res, next) {
 	}
 
 	// Send Non-Test Response
-	await application.run_quotes().then(function (response) {
+	await application.run_quotes().then(function(response){
 
 		// Strip out file data and log
-		const logResponse = { ...response };
-		logResponse.quotes.forEach(function (quote) {
-			if (Object.prototype.hasOwnProperty.call(quote, 'letter') && Object.prototype.hasOwnProperty.call(quote.letter, 'data')) {
+		const logResponse = {...response};
+		logResponse.quotes.forEach(function(quote){
+			if(Object.prototype.hasOwnProperty.call(quote, 'letter') && Object.prototype.hasOwnProperty.call(quote.letter, 'data')){
 				quote.letter.data = '...';
 			}
 		});
@@ -79,7 +82,7 @@ async function PostApplication(req, res, next) {
 
 		// Send the response to the user
 		res.send(200, response);
-	}).catch(function (error) {
+	}).catch(function(error){
 		log.error(`Error ${error.message}`);
 		res.send(error);
 	});
@@ -87,7 +90,7 @@ async function PostApplication(req, res, next) {
 }
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddPost('Post Application', basePath + '/application', PostApplication);
-	ServerAddPost('Post Application (depr)', basePath + '/', PostApplication);
+exports.registerEndpoint = (server, basePath) => {
+	server.addPost('Post Application', `${basePath}/application`, PostApplication);
+	server.addPost('Post Application (depr)', `${basePath}/`, PostApplication);
 };

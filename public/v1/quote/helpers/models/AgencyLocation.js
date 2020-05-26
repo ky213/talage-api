@@ -4,12 +4,13 @@
 
 'use strict';
 
-const crypt = requireShared('./services/crypt.js');
-const RestifyError = require('restify-errors');
+const crypt = global.requireShared('./services/crypt.js');
+const serverHelper = require('../../../../../server.js');
+const validator = global.requireShared('./helpers/validator.js');
 
-module.exports = class AgencyLocation {
+module.exports = class AgencyLocation{
 
-	constructor(app) {
+	constructor(app){
 		this.app = app;
 
 		this.agency = '';
@@ -32,10 +33,10 @@ module.exports = class AgencyLocation {
 	 *
 	 * @returns {Promise.<object, Error>} True on success, Error on failure.
 	 */
-	init() {
-		return new Promise(async (fulfill, reject) => {
+	init(){
+		return new Promise(async(fulfill, reject) => {
 			// Make sure we can load the agency data
-			if (!this.id) {
+			if(!this.id){
 				reject(new Error('You must set an agency location ID before running init.'));
 				return;
 			}
@@ -75,14 +76,14 @@ module.exports = class AgencyLocation {
 			`);
 
 			// Wait for all queries to return
-			const results = await Promise.all(queries.map((sql) => db.query(sql))).catch(function (error) {
+			const results = await Promise.all(queries.map((sql) => db.query(sql))).catch(function(error){
 				log.error(error);
 				reject(error);
 				hadError = true;
 			});
 
 			// Stop if there was an error
-			if (hadError) {
+			if(hadError){
 				return;
 			}
 
@@ -103,17 +104,17 @@ module.exports = class AgencyLocation {
 			this.wholesale = Boolean(agencyInfo[0].wholesale);
 
 			// Extract the insurer info
-			for (const insurerId in insurers) {
-				if (Object.prototype.hasOwnProperty.call(insurers, insurerId)) {
+			for(const insurerId in insurers){
+				if(Object.prototype.hasOwnProperty.call(insurers, insurerId)){
 					const insurer = insurers[insurerId];
 
 					// Decrypt the agent's information
-					if (!insurer.agency_id) {
+					if(!insurer.agency_id){
 						log.warn('Agency missing Agency ID in configuration.');
 						return;
 					}
 					insurer.agency_id = await crypt.decrypt(insurer.agency_id); // eslint-disable-line no-await-in-loop
-					if (!insurer.agent_id) {
+					if(!insurer.agent_id){
 						log.warn('Agency missing Agent ID in configuration.');
 						return;
 					}
@@ -129,41 +130,41 @@ module.exports = class AgencyLocation {
 
 			// Check that we have all of the required data
 			const missing = [];
-			if (!this.agency) {
+			if(!this.agency){
 				missing.push('Agency Name');
 			}
-			if (!this.agencyEmail) {
+			if(!this.agencyEmail){
 				missing.push('Agency Email');
 			}
-			if (!this.first_name) {
+			if(!this.first_name){
 				missing.push('Agent First Name');
 			}
-			if (!this.last_name) {
+			if(!this.last_name){
 				missing.push('Agent Last Name');
 			}
-			if (!this.territories) {
+			if(!this.territories){
 				missing.push('Territories');
 			}
 
 			// Check that each insurer has API settings
-			if (this.insurers) {
-				for (const insurer in this.insurers) {
-					if (Object.prototype.hasOwnProperty.call(this.insurers, insurer)) {
-						if (!this.insurers[insurer].agency_id || !this.insurers[insurer].agent_id) {
+			if(this.insurers){
+				for(const insurer in this.insurers){
+					if(Object.prototype.hasOwnProperty.call(this.insurers, insurer)){
+						if(!this.insurers[insurer].agency_id || !this.insurers[insurer].agent_id){
 							log.warn(`Agency insurer ID ${insurer} disabled because it was missing the agency_id, agent_id, or both.`);
 							delete this.insurers[insurer];
 						}
 					}
 				}
 
-				if (!Object.keys(this.insurers).length) {
+				if(!Object.keys(this.insurers).length){
 					missing.push('Insurers');
 				}
-			} else {
+			}else{
 				missing.push('Insurers');
 			}
 
-			if (missing.length) {
+			if(missing.length){
 				log.error(`Agency application failed because the Agent was not fully configured. Missing: ${missing.join(', ')}`);
 				reject(new Error('Agent not fully configured. Please contact us.'));
 				return;
@@ -179,15 +180,15 @@ module.exports = class AgencyLocation {
 	 * @param {object} data - The business data
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing an example API response if resolved, or an Error if rejected
 	 */
-	load(data) {
+	load(data){
 		return new Promise((fulfill) => {
 			Object.keys(this).forEach((property) => {
-				if (!Object.prototype.hasOwnProperty.call(data, property)) {
+				if(!Object.prototype.hasOwnProperty.call(data, property)){
 					return;
 				}
 
 				// Trim whitespace
-				if (typeof data[property] === 'string') {
+				if(typeof data[property] === 'string'){
 					data[property] = data[property].trim();
 				}
 
@@ -203,13 +204,13 @@ module.exports = class AgencyLocation {
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns true if this application is supported, rejects with a RestifyError.BadRequestError if not
 	 */
-	supports_application() {
+	supports_application(){
 		return new Promise((fulfill, reject) => {
 			// Territories
 			this.app.business.locations.forEach((location) => {
-				if (!this.territories.includes(location.territory)) {
+				if(!this.territories.includes(location.territory)){
 					log.info(`Agent does not have ${location.territory} enabled`);
-					reject(ServerRequestError('The specified agent is not setup to support this application.'));
+					reject(serverHelper.requestError('The specified agent is not setup to support this application.'));
 
 				}
 			});
@@ -217,16 +218,16 @@ module.exports = class AgencyLocation {
 			// Policy Types
 			this.app.policies.forEach((policy) => {
 				let match_found = false;
-				for (const insurer in this.insurers) {
-					if (Object.prototype.hasOwnProperty.call(this.insurers, insurer)) {
-						if (this.insurers[insurer][policy.type.toLowerCase()] === 1) {
+				for(const insurer in this.insurers){
+					if(Object.prototype.hasOwnProperty.call(this.insurers, insurer)){
+						if(this.insurers[insurer][policy.type.toLowerCase()] === 1){
 							match_found = true;
 						}
 					}
 				}
-				if (!match_found) {
+				if(!match_found){
 					log.info(`Agent does not have ${policy.type} policies enabled`);
-					reject(ServerRequestError('The specified agent is not setup to support this application.'));
+					reject(serverHelper.requestError('The specified agent is not setup to support this application.'));
 
 				}
 			});
@@ -240,16 +241,16 @@ module.exports = class AgencyLocation {
 	 *
 	 * @returns {Promise.<array, Error>} A promise that returns a boolean indicating whether or not this record is valid, or an Error if rejected
 	 */
-	validate() {
-		return new Promise(async (fulfill, reject) => {
+	validate(){
+		return new Promise(async(fulfill, reject) => {
 
 			/**
 			 * Key (required) - This is how we uniquelly identify agents
 			 */
-			if (this.key) {
+			if(this.key){
 				// Check formatting
-				if (!await validator.agent(this.key)) {
-					reject(ServerRequestError('Invalid agent provided.'));
+				if(!await validator.agent(this.key)){
+					reject(serverHelper.requestError('Invalid agent provided.'));
 					return;
 				}
 			}

@@ -5,6 +5,7 @@
 'use strict';
 
 const crypt = require('./helpers/crypt.js');
+const serverHelper = require('../../../server.js');
 
 /* -----==== Version 1 Functions ====-----*/
 
@@ -17,23 +18,23 @@ const crypt = require('./helpers/crypt.js');
  *
  * @returns {void}
  */
-async function PostDecrypt(req, res, next) {
+async function PostDecrypt(req, res, next){
 	// Check for data
-	if (!req.body) {
+	if(!req.body){
 		log.warn('No data was received');
-		return next(ServerRequestError('No data was received'));
+		return next(serverHelper.requestError('No data was received'));
 	}
 
 	// Make sure this is a string
-	if (typeof req.body !== 'string') {
+	if(typeof req.body !== 'string'){
 		log.warn('Value must be a string');
-		return next(ServerRequestError('Value must be a string'));
+		return next(serverHelper.requestError('Value must be a string'));
 	}
 
 	// A valid encryptin string will include a pipe character which separates the cryptographic string from the nonce
-	if (req.body.indexOf('|') < 0) {
+	if(req.body.indexOf('|') < 0){
 		log.warn('Value is missing a pipe, indicating it is not an encrypted string');
-		return next(ServerRequestError('Value is not an encrypted string'));
+		return next(serverHelper.requestError('Value is not an encrypted string'));
 	}
 
 	// Decrypt the data
@@ -45,6 +46,6 @@ async function PostDecrypt(req, res, next) {
 }
 
 /* -----==== Endpoints ====-----*/
-exports.RegisterEndpoint = (basePath) => {
-	ServerAddPost('Decrypt', basePath + '/decrypt', PostDecrypt);
+exports.registerEndpoint = (server, basePath) => {
+	server.addPost('Decrypt', `${basePath}/decrypt`, PostDecrypt);
 };

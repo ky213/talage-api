@@ -3,10 +3,10 @@
 const styles = require('../document-style/certificate/styles.js');
 const positions = require('../document-style/certificate/positions.js');
 
-exports.checkPolicyBoxes = function (policy, owners_covered) {
+exports.checkPolicyBoxes = function(policy, owners_covered){
 
 	// Check boxes for Commercial General Liability
-	if (policy === 'GL') {
+	if(policy === 'GL'){
 		return [{
 			'absolutePosition': positions.GL_commercial_GL_checkbox,
 			'style': styles.checkbox,
@@ -26,13 +26,13 @@ exports.checkPolicyBoxes = function (policy, owners_covered) {
 	}
 
 	// Check boxes for Automobile Liability
-	else if (policy === 'AL') {
+	else if(policy === 'AL'){
 		// TO DO: Check boxes for Automobile Liability
 		return [];
 		// eslint-disable-next-line brace-style
 	}
 	// Check boxes for Umbrella Liability
-	else if (policy === 'UMB') {
+	else if(policy === 'UMB'){
 		return [{
 			'absolutePosition': positions.UMB_umbrella_liab_checkbox,
 			'style': styles.checkbox,
@@ -51,8 +51,8 @@ exports.checkPolicyBoxes = function (policy, owners_covered) {
 		// eslint-disable-next-line brace-style
 	}
 	// Check boxs for Workers Compensation
-	else if (policy === 'WC') {
-		if (!owners_covered) {
+	else if(policy === 'WC'){
+		if(!owners_covered){
 			// Exclusion = Y, Description of Operations - OWNER IS EXCLUDED
 			return [{
 				'absolutePosition': positions.WC_exclusion_checkbox,

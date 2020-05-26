@@ -9,13 +9,14 @@ const Business = require('./Business.js');
 const Application = require('./Application.js');
 const Insurer = require('./Insurer.js');
 const Policy = require('./Policy.js');
-const RestifyError = require('restify-errors');
 const fs = require('fs');
-const slack = requireShared('./services/slack.js');
+const slack = global.requireShared('./services/slack.js');
+const serverHelper = require('../../../../../server.js');
+const validator = global.requireShared('./helpers/validator.js');
 
-module.exports = class Quote {
+module.exports = class Quote{
 
-	constructor() {
+	constructor(){
 		this.amount = 0;
 		this.api_result = '';
 		this.app = new Application();
@@ -29,34 +30,34 @@ module.exports = class Quote {
 	/**
 	 * Binds this quote, if possible
 	 *
-	 * @returns {Promise.<string, RestifyError>} A promise that returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a RestifyError on failure
+	 * @returns {Promise.<string, ServerError>} A promise that returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a ServerError on failure
 	 */
-	bind() {
-		return new Promise(async (fulfill, reject) => {
+	bind(){
+		return new Promise(async(fulfill, reject) => {
 
 			// Make sure this quote is not already bound
-			if (this.bound) {
+			if(this.bound){
 				log.info('Quote already bound');
-				reject(ServerRequestError('Quote already bound. No action taken.'));
+				reject(serverHelper.requestError('Quote already bound. No action taken.'));
 				return;
 			}
 
 			// Make sure that this quote was quoted by the API
-			if (this.api_result !== 'quoted') {
+			if(this.api_result !== 'quoted'){
 				// If this was a price indication, let's send a Slack message
-				if (this.api_result === 'referred_with_price') {
+				if(this.api_result === 'referred_with_price'){
 					this.send_slack_notification('indication');
 				}
 
 				// Return an error
 				log.info(`Quotes with an api_result of '${this.api_result}' are not eligible to be bound.`);
-				reject(ServerRequestError('Quote not eligible for binding'));
+				reject(serverHelper.requestError('Quote not eligible for binding'));
 				return;
 			}
 
 			// Check that an integration file exists for this insurer and store a reference to it for later use
 			const path = `${__dirname}/helpers/integrations/${this.insurer.slug}/${this.policy.type.toLowerCase()}.js`;
-			if (fs.existsSync(path)) {
+			if(fs.existsSync(path)){
 
 				// Create an instance of the Integration class
 				const IntegrationClass = require(path);
@@ -70,7 +71,7 @@ module.exports = class Quote {
 					this.send_slack_notification('requested');
 					reject(error);
 				});
-			} else {
+			}else{
 				// The insurer does not support bind, just send a requested Slack message
 				this.send_slack_notification('requested');
 			}
@@ -82,19 +83,19 @@ module.exports = class Quote {
 	 *
 	 * @param {int} id - The ID of the quote
 	 * @param {int} payment_plan - The ID of the payment plan selected by the user
-	 * @returns {Promise.<null, RestifyError>} A promise that fulfills on success or returns a RestifyError on failure
+	 * @returns {Promise.<null, ServerError>} A promise that fulfills on success or returns a ServerError on failure
 	 */
-	load(id, payment_plan) {
-		return new Promise(async (fulfill, reject) => {
+	load(id, payment_plan){
+		return new Promise(async(fulfill, reject) => {
 			// Validate the ID
-			if (!await validator.isID(id)) {
-				reject(ServerRequestError('Invalid quote ID'));
+			if(!await validator.isID(id)){
+				reject(serverHelper.requestError('Invalid quote ID'));
 				return;
 			}
 
 			// Validate the payment plan
-			if (!await validator.payment_plan(payment_plan)) {
-				reject(ServerRequestError('Invalid payment plan'));
+			if(!await validator.payment_plan(payment_plan)){
+				reject(serverHelper.requestError('Invalid payment plan'));
 				return;
 			}
 
@@ -119,25 +120,25 @@ module.exports = class Quote {
 				FROM \`#__quotes\` AS \`q\`
 				LEFT JOIN \`#__applications\` AS \`a\` ON \`a\`.\`id\` = \`q\`.\`application\`
 				WHERE \`q\`.\`id\` = ${db.escape(parseInt(id, 10))} AND \`q\`.\`state\` = 1 LIMIT 1;`;
-			const rows = await db.query(sql).catch(function (error) {
+			const rows = await db.query(sql).catch(function(error){
 				log.error(error);
 				had_error = true;
 			});
 
 			// Make sure we found the quote, if nott, the ID is bad
-			if (had_error || !rows || rows.length !== 1) {
-				reject(ServerRequestError('Invalid quote ID'));
+			if(had_error || !rows || rows.length !== 1){
+				reject(serverHelper.requestError('Invalid quote ID'));
 				return;
 			}
 
 			// Store the data locally
-			for (const property in rows[0]) {
+			for(const property in rows[0]){
 				// Make sure this property is part of the rows[0] object
-				if (!Object.prototype.hasOwnProperty.call(rows[0], property)) {
+				if(!Object.prototype.hasOwnProperty.call(rows[0], property)){
 					continue;
 				}
 
-				switch (property) {
+				switch(property){
 					case 'agency_location':
 						// Add the agent as an ID of the agent
 						this.app.agencyLocation.id = rows[0].wholesale === 1 || rows[0][property] === null ? 1 : rows[0][property];
@@ -148,66 +149,66 @@ module.exports = class Quote {
 						continue;
 					case 'business':
 						// Initialize the business with this ID
-						await this.app.business.load_by_id(rows[0][property]).catch(function (error) {// eslint-disable-line no-await-in-loop,no-loop-func
+						await this.app.business.load_by_id(rows[0][property]).catch(function(error){// eslint-disable-line no-await-in-loop,no-loop-func
 							reject(error);
 							had_error = true;
 						});
 						continue;
 					default:
 						// Check if this is an policy property
-						if (property.startsWith('policy_')) {
+						if(property.startsWith('policy_')){
 							const policy_property = property.replace('policy_', '');
 
 							// Check if this is a property of the insurer object, and if it is, add it
-							if (Object.prototype.hasOwnProperty.call(this.policy, policy_property)) {
+							if(Object.prototype.hasOwnProperty.call(this.policy, policy_property)){
 								this.policy[policy_property] = rows[0][property];
 							}
 						}
 
 						// This may be a property of this object, if it is, save the property locally
-						if (Object.prototype.hasOwnProperty.call(this, property)) {
+						if(Object.prototype.hasOwnProperty.call(this, property)){
 							this[property] = rows[0][property];
 						}
 						break;
 				}
 			}
-			if (had_error) {
+			if(had_error){
 				return;
 			}
 
 			// Load up an insurer based on the ID found
 			const insurer = new Insurer();
-			this.insurer = await insurer.init(this.insurer).catch(function (error) {
+			this.insurer = await insurer.init(this.insurer).catch(function(error){
 				had_error = true;
 				reject(error);
 			});
-			if (had_error) {
+			if(had_error){
 				return;
 			}
 
 			// Translate JSON
-			if (this.policy.json) {
+			if(this.policy.json){
 				this.policy.json = JSON.parse(this.policy.json);
 			}
 
 			// Check that this payment plan belongs to the insurer
 			const payment_plan_sql = `SELECT COUNT(\`id\`) FROM \`#__insurer_payment_plans\` WHERE \`payment_plan\` = ${db.escape(parseInt(payment_plan, 10))} AND \`insurer\` = ${db.escape(parseInt(this.insurer.id, 10))} LIMIT 1;`;
-			const payment_plan_rows = await db.query(payment_plan_sql).catch(function (error) {
+			const payment_plan_rows = await db.query(payment_plan_sql).catch(function(error){
 				log.error(error);
 				had_error = true;
 			});
-			if (had_error || !payment_plan_rows || payment_plan_rows.length !== 1 || !Object.prototype.hasOwnProperty.call(payment_plan_rows[0], 'COUNT(`id`)') || payment_plan_rows[0]['COUNT(`id`)'] !== 1) {
-				reject(ServerRequestError('Payment plan does not belong to the insurer who provided this quote'));
+			if(had_error || !payment_plan_rows || payment_plan_rows.length !== 1 || !Object.prototype.hasOwnProperty.call(payment_plan_rows[0], 'COUNT(`id`)') || payment_plan_rows[0]['COUNT(`id`)'] !== 1){
+				reject(serverHelper.requestError('Payment plan does not belong to the insurer who provided this quote'));
 				return;
 			}
 			this.payment_plan = payment_plan;
 
 			// Initialize the agent
-			await this.app.agencyLocation.init().catch(function (error) {
+			await this.app.agencyLocation.init().catch(function(error){
 				reject(error);
 				had_error = true;
 			});
-			if (had_error) {
+			if(had_error){
 				return;
 			}
 
@@ -221,9 +222,9 @@ module.exports = class Quote {
 	 * @param {string} type - The type of message to send (indication, referred, requested, or bound)
 	 * @return {void}
 	 */
-	send_slack_notification(type) {
+	send_slack_notification(type){
 		// Only send a Slack notification if the agent is Talage
-		if (this.app.agencyLocation.agencyId <= 2) {
+		if(this.app.agencyLocation.agencyId <= 2){
 			// Build out the 'attachment' for the Slack message
 			const attachment = {
 				'application_id': this.app.id,
@@ -251,7 +252,7 @@ module.exports = class Quote {
 				]
 			};
 
-			switch (type) {
+			switch(type){
 				case 'bound':
 					slack('customer_success', 'celebrate', '*Application Bound!*', attachment);
 					return;
