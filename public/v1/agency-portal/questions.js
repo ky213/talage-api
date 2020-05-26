@@ -101,14 +101,16 @@ async function GetQuestions(req, res, next) {
 
 			//If parent of childId does not exist
 			if (!dependencyList.hasOwnProperty(childId)) {
-				log.error(`Parent Question, ${question.parent}, does not exist`);
+				log.error(`Child ${childId} Does Not Exist: question.parent=${question.parent} question.id=${question.id} listOfParents=${listOfParents}`);
+				return;
 			}
 
 			let child = dependencyList[childId];
 			//Build objects for parents with children questions for dependencyList
 			do {
 				if (!child) {
-					log.error(`Child Does Not Exist. Question Id = ${question.id}, Question.parent = ${question.parents}, ListofParents = ${listOfParents}`);
+					log.error(`Child ${childId} Does Not Exist: question.parent=${question.parent} question.id=${question.id} listOfParents=${listOfParents}`);
+					return;
 				}
 				childId = listOfParents.pop();
 				//If childId is undefined, listofParents is empty, build child object
