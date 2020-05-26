@@ -166,7 +166,8 @@ async function GetReports(req, res, next){
 			WHERE
 				${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate} AND
 				${where}
-			GROUP BY YEAR(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')), MONTHNAME(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}'));
+			GROUP BY YEAR(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')), MONTH(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')), MONTHNAME(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}'))
+			ORDER BY YEAR(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')), MONTH(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')), MONTHNAME(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}'));
 			`,
 
 		'premium': `
@@ -186,7 +187,7 @@ async function GetReports(req, res, next){
 				LIMIT 1;
 			`
 	};
-
+	log.debug(queries['monthlyTrends']);
 	// Define a list of queries to be executed based on the request type
 	const selectedQueries = initialRequest ? ['minDate', 'hasApplications'] : ['funnel',
 		'geography',
