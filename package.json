@@ -53,8 +53,7 @@
 		"jshint": "^2.11.0",
 		"node-dir": "^0.1.17",
 		"eslint": "6.8.0",
-		"eslint-plugin-deprecate": "0.7.0",
-		"eslint-plugin-talage": "file:eslint"
+		"eslint-plugin-deprecate": "0.7.0"
 	},
 	"eslintConfig": {
 		"env": {
@@ -183,7 +182,7 @@
 			"new-parens": "error",
 			"no-alert": "error",
 			"no-array-constructor": "error",
-			"no-await-in-loop": "error",
+			"no-await-in-loop": "off",
 			"no-buffer-constructor": "error",
 			"no-caller": "error",
 			"no-case-declarations": "error",
@@ -194,7 +193,7 @@
 			"no-confusing-arrow": "error",
 			"no-console": "error",
 			"no-const-assign": "error",
-			"no-constant-condition": "error",
+			"no-constant-condition": "off",
 			"no-control-regex": "error",
 			"no-debugger": "error",
 			"talage/no-debug-statements": "error",
@@ -238,7 +237,7 @@
 			"no-loop-func": "error",
 			"no-mixed-requires": "error",
 			"no-mixed-spaces-and-tabs": "error",
-			"no-multi-assign": "error",
+			"no-multi-assign": "off",
 			"no-multi-spaces": "error",
 			"no-multi-str": "error",
 			"no-multiple-empty-lines": "error",
@@ -341,7 +340,7 @@
 				}
 			],
 			"radix": "error",
-			"require-await": "error",
+			"require-await": "off",
 			"require-jsdoc": "error",
 			"require-yield": "error",
 			"semi": "error",

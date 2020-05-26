@@ -8,8 +8,8 @@ exports.connect = async() => {
 	// eslint-disable-next-line no-console
 	console.log('Connecting to Amazon S3');
 	AWS.config.update({
-		'accessKeyId': global.settings.S3_ACCESS_KEY_ID,
-		'secretAccessKey': global.settings.S3_SECRET_ACCESS_KEY
+		'accessKeyId': global.settings.AWS_KEY,
+		'secretAccessKey': global.settings.AWS_SECRET
 	});
 
 	global.s3 = new AWS.S3();

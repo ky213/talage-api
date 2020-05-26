@@ -21,6 +21,7 @@ const requiredVariables = [
 	'PORTAL_URL',
 	'API_URL',
 	'DIGALENT_AGENTS_URL',
+	'DIGALENT_SITE_URL',
 	'TALAGE_AGENTS_URL',
 	// Internal Credentials
 	'AUTH_SECRET_KEY',
@@ -29,12 +30,14 @@ const requiredVariables = [
 	'SECRET',
 	'TEST_API_TOKEN',
 	// AWS
+	'AWS_KEY',
+	'AWS_SECRET',
 	'AWS_ELASTICSEARCH_ENDPOINT',
 	'AWS_ELASTICSEARCH_LOGLEVEL',
-	'AWS_KEY',
 	'AWS_LOG_TO_AWS_ELASTICSEARCH',
 	'AWS_REGION',
-	'AWS_SECRET',
+	// S3
+	'S3_BUCKET',
 	// Database
 	'DATABASE_NAME',
 	'DATABASE_HOST',
@@ -45,12 +48,10 @@ const requiredVariables = [
 	'PUBLIC_API_PORT',
 	'PRIVATE_API_PORT',
 	'UPTIME_PORT',
-	// S3
-	'S3_ACCESS_KEY_ID',
-	'S3_BUCKET',
-	'S3_SECRET_ACCESS_KEY',
 	// Sendgrid
-	'SENDGRID_API_KEY'
+	'SENDGRID_API_KEY',
+	// SQS
+	'SQS_TASK_QUEUE'
 ];
 
 exports.load = () => {
@@ -70,8 +71,13 @@ exports.load = () => {
 		console.log('Loading settings from environment variables'); // eslint-disable-line no-console
 		variables = process.env;
 	}
-	// Ensure required variables exist and inject them into the global 'settings' object
+
 	global.settings = {};
+	
+	//need to add optional settings.
+	global.settings = variables;
+	
+	// Ensure required variables exist and inject them into the global 'settings' object
 	for(let i = 0; i < requiredVariables.length; i++){
 		if(!Object.prototype.hasOwnProperty.call(variables, requiredVariables[i])){
 			console.log(colors.red(`\tError: missing variable '${requiredVariables[i]}'`)); // eslint-disable-line no-console
