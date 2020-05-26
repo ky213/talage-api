@@ -1,12 +1,8 @@
 const moment = require('moment');
-const crypt = global.requireShared('./services/crypt.js');
-const email = global.requireShared('./services/email.js');
-const slack = global.requireShared('./services/slack.js');
-const formatPhone = global.requireShared('./helpers/formatPhone.js');
-//const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+
 
 /**
- * AbandonApplication Task processor
+ * Checkin Records Task processor
  *
  * @param {string} message - message from queue
  * @returns {void}
