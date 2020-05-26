@@ -110,14 +110,17 @@ module.exports = class Agency{
 		for(const property in properties){
 
 			// Create local property with default value (local properties are denoted with an underscore)
-			this[`_${property}`] = properties[property].default;
+			this[`#${property}`] = properties[property].default;
 
 			// Create getters and setters
 			Object.defineProperty(this, property, {
 
+				// Look at using a hash instead of an underscore
+
+
 				// Returns the local value of the property
 				get: () => {
-					return this[`_${property}`];
+					return this[`#${property}`];
 				},
 
 				// Performs validation and sets the property into the local value
@@ -143,7 +146,7 @@ module.exports = class Agency{
 					}
 
 					// Set the value locally
-					this[`_${property}`] = value;
+					this[`#${property}`] = value;
 				}
 			});
 		}
