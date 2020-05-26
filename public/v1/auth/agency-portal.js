@@ -204,7 +204,7 @@ async function PostToken(req, res, next){
 	payload.termsOfServiceVersion = result[0].termsOfServiceVersion;
 
 	// This is a valid user, generate and return a token
-	const token = `Bearer ${jwt.sign(payload, global.settings.AUTH_SECRET_KEY, {'expiresIn': '1h'})}`;
+	const token = `Bearer ${jwt.sign(payload, global.settings.AUTH_SECRET_KEY, {'expiresIn': '15h'})}`;
 	log.info('Token Created');
 	res.send(201, {
 		'status': 'Created',
