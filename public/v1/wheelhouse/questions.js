@@ -98,13 +98,12 @@ async function GetQuestions(req, res, next) {
 					}
 					childId = listOfParents.pop();
 					//If childId is undefined, listofParents is empty, build child object
-					if (!childId) {
-						childId = question.id;
-						console.log(question.id)
-						child.children[childId] = { 'question': question.question, 'answer': question.answer, 'children': {} };
+					if (childId) {
+						child = child.children[childId];
 					}
 					else {
-						child = child.children[childId];
+						childId = question.id;
+						child.children[childId] = { 'question': question.question, 'answer': question.answer, 'children': {} };
 					}
 				} while (childId !== question.id)
 
