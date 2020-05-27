@@ -6,6 +6,7 @@
 
 const crypt = global.requireShared('./services/crypt.js');
 const helper = global.requireShared('./helpers/helper.js');
+const imgSize = require('image-size');
 const request = require('request');
 const serverHelper = require('../../../../../server.js');
 const{'v4': uuidv4} = require('uuid');
@@ -296,20 +297,31 @@ module.exports = class Agency{
 						return;
 					}
 
-					// Check the file size (max 50KB)
-					if(this.logo.substring(this.logo.indexOf(',') + 1).length * 0.75 > 50000){
-						reject(serverHelper.requestError('Logo too large. The maximum file size is 50KB.'));
+					// Isolate the file data from the type prefix
+					const logoData = this.logo.substring(this.logo.indexOf(',') + 1);
+
+					// Check the minimum image size
+					const logoBuffer = Buffer.from(logoData, 'base64');
+					const logoDimensions = imgSize(logoBuffer);
+					if(logoDimensions.height < 200 || logoDimensions.width < 655){
+						reject(serverHelper.requestError('The logo you supplied is too small. We want it to look great, and that requires that it be at least 655 pixels wide by 200 pixels tall.'));
 						return;
 					}
 
-					// Generate a random file name
+					// Check the file size (max 150KB)
+					if(logoData.length * 0.75 > 150000){
+						reject(serverHelper.requestError('Logo too large. The maximum file size is 150KB.'));
+						return;
+					}
+
+					// Generate a random file name (defeats caching issues issues)
 					const fileName = `${this.id}-${uuidv4().substring(24)}.${extension}`;
 
 					// Store to S3
 					const options = {
 						'headers': {'content-type': 'application/json'},
 						'json': {
-							'data': this.logo.substring(this.logo.indexOf(',') + 1),
+							'data': logoData,
 							'path': `public/agency-logos/${fileName}`
 						},
 						'method': 'PUT',
