@@ -52,12 +52,19 @@ async function PutBind(req, res, next){
 	await quote.bind().catch(function(err){
 		error = err;
 		log.warn(`Cannot Bind: ${err.message}`);
-	}).then(function(result){
-		// Everything looks good, send a positive response
-		res.send(200, {
-			'code': result,
-			'message': result === 'Bound' ? 'Quote successfully bound' : 'Quote was referred to underwriting. The agent of record should follow up.'
+		// Send an error
+		res.send(500, {
+			'error': true,
+			'message': 'Unable to bind the policy. Please contact Talage at customersuccess@talageins.com'
 		});
+	}).then(function(result){
+		if (!error) {
+			// Everything looks good, send a positive response
+			res.send(200, {
+				'code': result,
+				'message': result === 'Bound' ? 'Quote successfully bound' : 'Quote was referred to underwriting. The agent of record should follow up.'
+			});
+		}
 	});
 	if(error){
 		return next(error);
