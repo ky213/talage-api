@@ -24,7 +24,8 @@ function processJWT(){
 	return jwtRestify({
 		'algorithms': ['HS256', 'RS256'],
 		'requestProperty': 'authentication',
-		'secret': global.settings.AUTH_SECRET_KEY
+		'secret': global.settings.AUTH_SECRET_KEY,
+		credentialsRequired: false
 	});
 }
 
