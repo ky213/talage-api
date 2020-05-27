@@ -252,7 +252,7 @@ async function PutSettings(req, res, next){
 
 		if(Object.prototype.hasOwnProperty.call(req.body, 'logo') && req.body.logo){
 			// Establish the options for the request
-			logo = `${agents[0]}-${req.body.settings.logo.replace(/[^a-zA-Z0-9-_.]/g, '')}`;
+			logo = `${agents[0]}-${req.body.settings.logo.replace(/[^a-zA-Z0-9-_]/g, '')}`;
 			settings.logo = logo;
 			const options = {
 				'headers': {'content-type': 'application/json'},
