@@ -56,7 +56,7 @@ module.exports = class Quote{
 			}
 
 			// Check that an integration file exists for this insurer and store a reference to it for later use
-			const path = `${__dirname}/../helpers/integrations/${this.insurer.slug}/${this.policy.type.toLowerCase()}.js`;
+			const path = `${__dirname}/../integrations/${this.insurer.slug}/${this.policy.type.toLowerCase()}.js`;
 			if(fs.existsSync(path)){
 
 				// Create an instance of the Integration class
@@ -75,6 +75,7 @@ module.exports = class Quote{
 				// The insurer does not support bind, just send a requested Slack message
 				log.error(`bind request: Invalid path to integration ${path}`);
 				this.send_slack_notification('requested');
+				reject(new Error("Invalid path to integration"));
 			}
 		});
 	}
