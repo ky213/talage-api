@@ -50,6 +50,6 @@ function GetValidateToken(req, res, next){
 }
 
 exports.registerEndpoint = (server, basePath) => {
-	server.addGetAuth('Validate JWT', `${basePath}/validate-token`, GetValidateToken);
-	server.addGetAuth('Validate JWT (depr)', `${basePath}/validateToken`, GetValidateToken);
+	server.addGet('Validate JWT', `${basePath}/validate-token`, GetValidateToken);
+	server.addGet('Validate JWT (depr)', `${basePath}/validateToken`, GetValidateToken);
 };

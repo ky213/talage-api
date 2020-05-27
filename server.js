@@ -86,7 +86,7 @@ class AbstractedHTTPServer{
 		this.server.put({
 			'name': name,
 			'path': path
-		}, handler);
+		}, processJWT(), handler);
 	}
 
 	addPutAuth(name, path, handler){
