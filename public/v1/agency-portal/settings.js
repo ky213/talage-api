@@ -226,9 +226,8 @@ async function PutSettings(req, res, next){
 			// Establish the options for the request
 			const options = {
 				'method': 'DELETE',
-				'url': `http://localhost:${settings.PRIVATE_API_PORT}/v1/file/file?path=public/agent-logos/${req.body.removeLogo}`
+				'url': `http://localhost:${global.settings.PRIVATE_API_PORT}/v1/file/file?path=public/agency-logos/${req.body.removeLogo}`
 			};
-
 			// Send the request
 			await request(options, function(e, response, body){
 				// If there was an error, reject
@@ -252,7 +251,6 @@ async function PutSettings(req, res, next){
 		}
 
 		if(Object.prototype.hasOwnProperty.call(req.body, 'logo') && req.body.logo){
-
 			// Establish the options for the request
 			logo = `${agents[0]}-${req.body.settings.logo.replace(/[^a-zA-Z0-9-_]/g, '')}`;
 			settings.logo = logo;
@@ -263,7 +261,7 @@ async function PutSettings(req, res, next){
 					'path': `public/agency-logos/${logo}`
 				},
 				'method': 'PUT',
-				'url': `http://localhost:${settings.PRIVATE_API_PORT}/v1/file/file`
+				'url': `http://localhost:${global.settings.PRIVATE_API_PORT}/v1/file/file`
 			};
 
 			// Send the request
