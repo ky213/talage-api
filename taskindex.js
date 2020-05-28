@@ -13,7 +13,7 @@ const db = require('./shared/services/db.js');
 const globalSettings = require('./settings.js');
 const utility = require('./shared/helpers/utility.js');
 const taskDistributor = require('./tasksystem/task-distributor.js');
-const queueHandler = require('./tasksystem/queueHandler.js');
+const queueHandler = require('./tasksystem/queuehandler.js');
 const responseObject = require('./tasksystem/response-object.js')
 
 /**
