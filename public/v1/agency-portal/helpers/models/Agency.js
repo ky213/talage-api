@@ -4,13 +4,19 @@
 
 'use strict';
 
+const AgencyLocation = require('./AgencyLocation.js');
 const crypt = global.requireShared('./services/crypt.js');
+const DatabaseObject = require('./DatabaseObject.js');
 const helper = global.requireShared('./helpers/helper.js');
 const imgSize = require('image-size');
 const request = require('request');
 const serverHelper = require('../../../../../server.js');
 const{'v4': uuidv4} = require('uuid');
 const validator = global.requireShared('./helpers/validator.js');
+
+var constructors = {
+   'AgencyLocation': AgencyLocation
+};
 
 // Define the properties of this class and their settings
 const properties = {
@@ -59,6 +65,14 @@ const properties = {
 		],
 		'type': 'string'
 	},
+	'locations': {
+		'class': 'AgencyLocation',
+		'default': [],
+		'encrypted': false,
+		'required': false,
+		'rules': [],
+		'type': 'object'
+	},
 	'logo': {
 		'default': null,
 		'encrypted': false,
@@ -104,83 +118,10 @@ const properties = {
 	}
 };
 
-module.exports = class Agency{
+module.exports = class Agency extends DatabaseObject{
 
 	constructor(){
-		// Loop over each property
-		for(const property in properties){
-
-			// Create local property with default value (local properties are denoted with an underscore)
-			this[`#${property}`] = properties[property].default;
-
-			// Create getters and setters
-			Object.defineProperty(this, property, {
-
-				// Look at using a hash instead of an underscore
-
-
-				// Returns the local value of the property
-				get: () => {
-					return this[`#${property}`];
-				},
-
-				// Performs validation and sets the property into the local value
-				set: (value) => {
-
-					// Verify the data type
-					if(typeof value !== properties[property].type){
-						throw serverHelper.internalError(`Unexpected data type for ${property}, expecting ${properties[property].type}`);
-					}
-
-					// For strings, trim whitespace
-					if(typeof value === 'string'){
-						value = value.trim();
-					}
-
-					// Validate the property value
-					if(properties[property].rules){
-						for(const func of properties[property].rules){
-							if(!func(value)){
-								throw serverHelper.requestError(`The ${property} you provided is invalid`);
-							}
-						}
-					}
-
-					// Set the value locally
-					this[`#${property}`] = value;
-				}
-			});
-		}
-	}
-
-	/**
-	 * Populates this object with data
-	 *
-	 * @param {object} data - Data to be loaded
-	 * @returns {Promise.<Boolean, Error>} A promise that returns true if resolved, or an Error if rejected
-	 */
-	load(data){
-		return new Promise((fulfill) => {
-			// Loop through and load all data items into this object
-			for(const property in properties){
-
-				// Only set properties that were provided in the data
-				if(!Object.prototype.hasOwnProperty.call(data, property) || !data[property]){
-
-					// Enforce required fields
-					if(properties[property].required){
-						throw serverHelper.requestError(`${property} is required`);
-					}
-
-					continue;
-				}
-
-				// Store the value of the property in this object
-				this[property] = data[property];
-			}
-
-			fulfill(true);
-		});
+		super('#__agencies', properties, constructors);
 	}
 
 	/**
@@ -365,53 +306,13 @@ module.exports = class Agency{
 				return;
 			}
 
-			// Build the update statements by looping over properties
-			const setStatements = [];
-			for(const property in properties){
-
-				// Localize the data value
-				let value = this[property];
-
-				// Check if we need to encrypt this value, and if so, encrypt
-				if(properties[property].encrypted && value){
-					value = await crypt.encrypt(value);
-				}
-
-				// Write the set statement for this value
-				setStatements.push(`\`${property.toSnakeCase()}\` = ${db.escape(value)}`);
-			}
-
-			// Create the update query
-			const sql = `
-				UPDATE
-					\`#__agencies\`
-				SET
-					${setStatements.join(',')}
-				WHERE
-					\`id\` = ${db.escape(this.id)}
-				LIMIT 1;
-			`;
-
-			// Run the query
-			const result = await db.query(sql).catch(function(err){
-				// Check if this was
-				if(err.errno === 1062){
-					rejected = true;
-					reject(serverHelper.requestError('The link (slug) you selected is already taken. Please choose another one.'));
-					return;
-				}
+			// Save
+			log.debug('about to save');
+			await DatabaseObject.prototype.save.call(this).catch(function(err){
 				rejected = true;
-				reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				reject(err);
 			});
 			if(rejected){
-				return;
-			}
-
-
-			// Make sure the query was successful
-			if(result.affectedRows !== 1){
-				log.error(`Agency update failed. Query ran successfully; however, an unexpected number of records were affected. (${result.affectedRows} records)`);
-				reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 				return;
 			}
 
