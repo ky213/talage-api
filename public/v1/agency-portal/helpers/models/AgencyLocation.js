@@ -21,6 +21,15 @@ const properties = {
 		],
 		'type': 'string' // the data type
 	},
+	'address2': {
+		'default': null,
+		'encrypted': true,
+		'required': false,
+		'rules': [
+			validator.address2
+		],
+		'type': 'string'
+	},
 	'email': {
 		'default': null,
 		'encrypted': true,
