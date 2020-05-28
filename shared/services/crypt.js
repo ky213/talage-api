@@ -222,10 +222,8 @@ exports.verifyPassword = function(hash, password){
 	});
 };
 
-/*
- * ==========================================================
- * docs-api, quote-api, agency-portal/api
- */
+// ==========================================================
+// Docs-api, quote-api, agency-portal/api
 
 /**
  * Takes in an array of objects and decrypts all encrypted values in each object

@@ -120,7 +120,7 @@ module.exports = class CompwestWC extends Integration{
 				host = 'npsv.afgroup.com';
 			}else{
 				fulfill(this.return_error('error', 'Under Development', 'Binding from this insurer in production is currently under development, as such you will not receive a quote back at this time.'));
-				return;
+
 			}
 			const path = '/TEST_DigitalAq/rest/getbindworkcompquote';// Send the XML to the insurer
 
@@ -280,7 +280,7 @@ log.info(`TO DO: As this business could not be written by ${this.insurer.name}, 
 					const ClientApp = SignonRq.ele('ClientApp');
 
 						// Org (AF Group has asked us to send in the Channel ID in this field. 2 indicates Digalent Storefront. 1 indicates the Talage Digital Agency)
-						ClientApp.ele('Org', (this.app.agencyLocation.id === 2 || this.app.agencyLocation.agencyNetwork === 2 ? 2 : 1));
+						ClientApp.ele('Org', this.app.agencyLocation.id === 2 || this.app.agencyLocation.agencyNetwork === 2 ? 2 : 1);
 
 					// </ClientApp>
 				// </SignonRq>

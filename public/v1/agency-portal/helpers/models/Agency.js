@@ -5,29 +5,25 @@
 'use strict';
 
 const AgencyLocation = require('./AgencyLocation.js');
-const crypt = global.requireShared('./services/crypt.js');
 const DatabaseObject = require('./DatabaseObject.js');
-const helper = global.requireShared('./helpers/helper.js');
 const imgSize = require('image-size');
 const request = require('request');
 const serverHelper = require('../../../../../server.js');
 const{'v4': uuidv4} = require('uuid');
 const validator = global.requireShared('./helpers/validator.js');
 
-var constructors = {
-   'AgencyLocation': AgencyLocation
-};
+const constructors = {'AgencyLocation': AgencyLocation};
 
 // Define the properties of this class and their settings
 const properties = {
-	'caLicenseNumber': { // the name of the property
-		'default': null, // default value
-		'encrypted': true, // whether or not it is encrypted before storing in the database
-		'required': false, // whether or not it is required
-		'rules': [ // the validation functions that must pass for this value
+	'caLicenseNumber': { // The name of the property
+		'default': null, // Default value
+		'encrypted': true, // Whether or not it is encrypted before storing in the database
+		'required': false, // Whether or not it is required
+		'rules': [
 			validator.CALicense
 		],
-		'type': 'string' // the data type
+		'type': 'string' // The data type
 	},
 	'email': {
 		'default': null,
@@ -66,6 +62,7 @@ const properties = {
 		'type': 'string'
 	},
 	'locations': {
+		// 'associatedField': 'agency', // The ID of this object will be placed into this property
 		'class': 'AgencyLocation',
 		'default': [],
 		'encrypted': false,
@@ -130,12 +127,12 @@ module.exports = class Agency extends DatabaseObject{
 	 * @returns {Promise.<Boolean, Error>} A promise that returns true if successful, or an Error if rejected
 	 */
 	removeLogo(){
-		return new Promise(async (fulfill, reject) => {
+		return new Promise(async(fulfill, reject) => {
 
 			// If no logo is set, reject and stop
 			if(!this.id){
 				log.warn('Cannot remove agency logo when no agency ID is specified');
-				reject(false);
+				fulfill(false);
 				return;
 			}
 
@@ -152,10 +149,10 @@ module.exports = class Agency extends DatabaseObject{
 
 			// Run the query
 			let rejected = false;
-			const pathResult = await db.query(pathSQL).catch(function(err){
+			const pathResult = await db.query(pathSQL).catch(function(){
 				rejected = true;
 				log.error('Unable to get path of existing agency logo');
-				return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 			});
 			if(rejected){
 				return;
@@ -173,7 +170,7 @@ module.exports = class Agency extends DatabaseObject{
 			// Remove the defunct logo from cloud storage
 			const options = {
 				'method': 'DELETE',
-				'url': `http://localhost:${settings.PRIVATE_API_PORT}/v1/file/file?path=public/agency-logos/${path}`
+				'url': `http://localhost:${global.settings.PRIVATE_API_PORT}/v1/file/file?path=public/agency-logos/${path}`
 			};
 
 			// Send the request
@@ -209,7 +206,7 @@ module.exports = class Agency extends DatabaseObject{
 	 * @returns {Promise.<Boolean, Error>} A promise that returns true if resolved, or an Error if rejected
 	 */
 	save(){
-		return new Promise(async (fulfill, reject) => {
+		return new Promise(async(fulfill, reject) => {
 			let rejected = false;
 
 			// Handle the logo file
@@ -233,7 +230,9 @@ module.exports = class Agency extends DatabaseObject{
 
 					// Isolate the extension
 					const extension = this.logo.substring(11, this.logo.indexOf(';'));
-				 	if(!['gif', 'jpeg', 'png'].includes(extension)){
+					if(!['gif',
+						'jpeg',
+						'png'].includes(extension)){
 						reject(serverHelper.requestError('Please upload your logo in gif, jpeg, or preferably png format.'));
 						return;
 					}
@@ -266,7 +265,7 @@ module.exports = class Agency extends DatabaseObject{
 							'path': `public/agency-logos/${fileName}`
 						},
 						'method': 'PUT',
-						'url': `http://localhost:${settings.PRIVATE_API_PORT}/v1/file/file`
+						'url': `http://localhost:${global.settings.PRIVATE_API_PORT}/v1/file/file`
 					};
 
 					// Send the request

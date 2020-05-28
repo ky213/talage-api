@@ -107,10 +107,8 @@ async function GetQuestions(req, res, next){
 
 			str += `.children['${question.id}'] = { question: ${db.escape(question.question)}, answer: ${db.escape(getAnswer(question))}, children: {}};`;
 
-			/*
-			 * Evaluate the string as a command
-			 * If there is messed up data and the eval doesn't work, then catch the error and move on
-			 */
+			// Evaluate the string as a command
+			// If there is messed up data and the eval doesn't work, then catch the error and move on
 			try{
 				// eslint-disable-next-line  no-eval
 				eval(str);

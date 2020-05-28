@@ -799,10 +799,8 @@ module.exports = class Application{
 				}
 			}
 
-			/*
-			 *  (id: 1015 should have been removed as it was not required). What is the correct way to handle this?
-			 * Note: we cannot hurt questions where a child must be sent
-			 */
+			// (id: 1015 should have been removed as it was not required). What is the correct way to handle this?
+			// Note: we cannot hurt questions where a child must be sent
 
 			// Check agent support
 			await this.agencyLocation.supports_application().catch(function(error){

@@ -18,10 +18,8 @@ module.exports = async function(agencyNetwork, userID, firstName, lastName, agen
 		return 'Error querying database. Check logs.';
 	});
 
-	/*
-	 * Get the onboaring email message and subject. It checks to see if result 0 has it, and then checks if result 1 has it.
-	 * Note: Shouldn't we be guaranteed to have both a message and subject in the first result? Why are multiple results returned?
-	 */
+	// Get the onboaring email message and subject. It checks to see if result 0 has it, and then checks if result 1 has it.
+	// Note: Shouldn't we be guaranteed to have both a message and subject in the first result? Why are multiple results returned?
 
 	// Ensure we have at least one valid result
 	if(!emailContentResult || !emailContentResult[0]){
@@ -97,11 +95,9 @@ module.exports = async function(agencyNetwork, userID, firstName, lastName, agen
 	};
 
 
-	/*
-	 * Format the brand
-	 * let brand = global.settings.BRAND.toLowerCase();
-	 * brand = `${brand.charAt(0).toUpperCase() + brand.slice(1)}`;
-	 */
+	// Format the brand
+	// Let brand = global.settings.BRAND.toLowerCase();
+	// Brand = `${brand.charAt(0).toUpperCase() + brand.slice(1)}`;
 
 	// Send an email to the user
 	request({

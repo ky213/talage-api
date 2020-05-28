@@ -81,10 +81,8 @@ exports.load = () => {
 	}
 	console.log(colors.green('\tCompleted')); // eslint-disable-line no-console
 
-	/*
-	 * Add any other global settings here
-	 * global.settings. = ;
-	 */
+	// Add any other global settings here
+	// Global.settings. = ;
 
 	return true;
 };

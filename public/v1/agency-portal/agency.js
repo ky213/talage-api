@@ -216,6 +216,13 @@ async function getAgency(req, res, next){
 	}
 
 	// Define some queries to get locations, pages and users
+	const allTerritoriesSQL = `
+		SELECT
+			\`abbr\`,
+			\`name\`
+		FROM \`clw_talage_territories\`
+		ORDER BY \`name\` ASC;
+	`;
 	const locationsSQL = `
 			SELECT
 				${db.quoteName('l.id')},
@@ -235,6 +242,21 @@ async function getAgency(req, res, next){
 			LEFT JOIN ${db.quoteName('#__zip_codes', 'z')} ON z.zip = l.zip
 			WHERE ${db.quoteName('l.agency')} = ${agent} AND l.state > 0;
 		`;
+	const networkInsurersSQL = `
+		SELECT
+			\`i\`.\`id\`,
+			\`i\`.\`logo\`,
+			\`i\`.\`name\`,
+		GROUP_CONCAT(\`it\`.\`territory\`) AS \`territories\`
+		FROM \`clw_talage_agency_network_insurers\` AS \`agi\`
+		LEFT JOIN \`clw_talage_insurers\` AS \`i\` ON \`agi\`.\`insurer\` = \`i\`.\`id\`
+		LEFT JOIN \`clw_talage_insurer_territories\` AS \`it\` ON \`i\`.\`id\` = \`it\`.\`insurer\`
+		WHERE
+			\`agi\`.\`agency_network\` = 1 AND
+			\`i\`.\`state\` = 1
+		GROUP BY \`i\`.\`id\`
+		ORDER BY \`i\`.\`name\` ASC;
+	`;
 	const pagesSQL = `
 			SELECT
 				${db.quoteName('id')},
@@ -262,7 +284,15 @@ async function getAgency(req, res, next){
 		`;
 
 	// Query the database
+	const allTerritories = await db.query(allTerritoriesSQL).catch(function(err){
+		log.error(err.message);
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+	});
 	const locations = await db.query(locationsSQL).catch(function(err){
+		log.error(err.message);
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+	});
+	const networkInsurers = await db.query(networkInsurersSQL).catch(function(err){
 		log.error(err.message);
 		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
@@ -352,15 +382,25 @@ async function getAgency(req, res, next){
 	if(insurers.length || territories.length){
 		locations.forEach((location) => {
 			location.insurers = insurers.filter((insurer) => insurer.locationID === location.id);
-			location.territories = territories.filter((territory) => territory.locationID === location.id);
+			location.territories = territories.filter((territory) => territory.locationID === location.id).map(function(territory){
+				return territory.abbr;
+			});
 		});
 	}
+
+	// Convert the network insurer territory data into an array
+	networkInsurers.map(function(networkInsurer){
+		networkInsurer.territories = networkInsurer.territories.split(',');
+		return networkInsurer;
+	});
 
 	// Build the response
 	const response = {
 		...agency,
 		'locations': locations,
+		'networkInsurers': networkInsurers,
 		'pages': pages,
+		'territories': allTerritories,
 		'users': users
 	};
 
@@ -568,10 +608,8 @@ async function postAgency(req, res, next){
 		'lastName'
 	]);
 
-	/*
-	 * Create the agency
-	 * log.debug('TO DO: We need a wholesale toggle switch on the screen, but hidden for some Agency Networks');
-	 */
+	// Create the agency
+	// Log.debug('TO DO: We need a wholesale toggle switch on the screen, but hidden for some Agency Networks');
 	const createAgencySQL = `
 			INSERT INTO ${db.quoteName('#__agencies')} (
 				${db.quoteName('name')},
@@ -807,9 +845,7 @@ async function updateAgency(req, res, next){
 	}
 
 	// Send back a success response
-	res.send(200, {
-		'logo': agency.logo
-	});
+	res.send(200, {'logo': agency.logo});
 	return next();
 }
 

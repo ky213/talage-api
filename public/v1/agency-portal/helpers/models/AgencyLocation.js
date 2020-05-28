@@ -4,22 +4,24 @@
 
 'use strict';
 
-const crypt = global.requireShared('./services/crypt.js');
+// Const AgencyLocationTerritory = require('./AgencyLocationTerritory');
 const DatabaseObject = require('./DatabaseObject.js');
-const helper = global.requireShared('./helpers/helper.js');
-const serverHelper = require('../../../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
+
+// Var constructors = {
+// AgencyLocationTerritory
+// };
 
 // Define the properties of this class and their settings
 const properties = {
-	'address': { // the name of the property
-		'default': null, // default value
-		'encrypted': true, // whether or not it is encrypted before storing in the database
-		'required': true, // whether or not it is required
-		'rules': [ // the validation functions that must pass for this value
+	'address': { // The name of the property
+		'default': null, // Default value
+		'encrypted': true, // Whether or not it is encrypted before storing in the database
+		'required': true, // Whether or not it is required
+		'rules': [
 			validator.address
 		],
-		'type': 'string' // the data type
+		'type': 'string' // The data type
 	},
 	'address2': {
 		'default': null,
@@ -30,6 +32,16 @@ const properties = {
 		],
 		'type': 'string'
 	},
+
+	// 'agency': {
+	// 'default': null,
+	// 'encrypted': false,
+	// 'required': false,
+	// 'rules': [
+	// Validator.id
+	// ],
+	// 'type': 'number'
+	// },
 	'email': {
 		'default': null,
 		'encrypted': true,
@@ -75,6 +87,16 @@ const properties = {
 		],
 		'type': 'string'
 	},
+
+	// 'territories': {
+	// 'associatedField': 'agencyLocation', // The ID of this object will be placed into this property
+	// 'class': 'AgencyLocationTerritory',
+	// 'default': [],
+	// 'encrypted': false,
+	// 'required': true,
+	// 'rules': [],
+	// 'type': 'object'
+	// },
 	'zip': {
 		'default': null,
 		'encrypted': false,

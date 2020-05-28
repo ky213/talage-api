@@ -39,10 +39,8 @@ module.exports = class AdditionalInsured{
 	 */
 	validate(){
 
-		/*
-		 * TO DO: Validate all fields here
-		 * Store the most recent validation message in the 'error' property
-		 */
+		// TO DO: Validate all fields here
+		// Store the most recent validation message in the 'error' property
 		return true;
 	}
 };

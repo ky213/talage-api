@@ -1,5 +1,4 @@
 'use strict';
-const auth = require('./helpers/auth.js');
 const serverHelper = require('../../../server.js');
 
 /**
@@ -12,8 +11,6 @@ const serverHelper = require('../../../server.js');
  * @returns {void}
  */
 async function getUserGroups(req, res, next){
-	let error = false;
-
 	// Get the user groups, excluding 'Administrator' for now as this permission is currently unused. It will be added soon.
 	const userGroupsSQL = `
 			SELECT
