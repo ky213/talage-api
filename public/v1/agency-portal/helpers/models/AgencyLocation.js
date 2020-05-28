@@ -12,14 +12,23 @@ const validator = global.requireShared('./helpers/validator.js');
 
 // Define the properties of this class and their settings
 const properties = {
-	'email': { // the name of the property
+	'address': { // the name of the property
 		'default': null, // default value
 		'encrypted': true, // whether or not it is encrypted before storing in the database
 		'required': true, // whether or not it is required
 		'rules': [ // the validation functions that must pass for this value
-			validator.email
+			validator.address
 		],
 		'type': 'string' // the data type
+	},
+	'email': {
+		'default': null,
+		'encrypted': true,
+		'required': true,
+		'rules': [
+			validator.email
+		],
+		'type': 'string'
 	},
 	'fname': {
 		'default': null,
@@ -54,6 +63,15 @@ const properties = {
 		'required': false,
 		'rules': [
 			validator.phone
+		],
+		'type': 'string'
+	},
+	'zip': {
+		'default': null,
+		'encrypted': false,
+		'required': true,
+		'rules': [
+			validator.zip
 		],
 		'type': 'string'
 	}

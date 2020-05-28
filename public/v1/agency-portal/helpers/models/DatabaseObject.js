@@ -44,11 +44,6 @@ module.exports = class DatabaseObject{
 				// Performs validation and sets the property into the local value
 				set: (value) => {
 
-					log.debug('setting ' + property);
-					const util = require('util');
-					log.debug(this.constructor.name);
-					log.debug(util.inspect(this.#properties));
-
 					// Verify the data type
 					if(typeof value !== this.#properties[property].type){
 						throw serverHelper.internalError(`Unexpected data type for ${property}, expecting ${this.#properties[property].type}`);
@@ -83,9 +78,10 @@ module.exports = class DatabaseObject{
 	 */
 	load(data){
 		return new Promise((fulfill, reject) => {
+			let rejected = false;
+
 			// Loop through and load all data items into this object
 			for(const property in this.#properties){
-				let rejected = false;
 
 				// Only set properties that were provided in the data
 				if(!Object.prototype.hasOwnProperty.call(data, property) || !data[property]){
@@ -112,6 +108,9 @@ module.exports = class DatabaseObject{
 							rejected = true;
 							reject(e);
 						}
+						if(rejected){
+							return;
+						}
 
 						// Replace the data with the class version
 						data[property][index] = obj;
@@ -122,7 +121,15 @@ module.exports = class DatabaseObject{
 				}
 
 				// Store the value of the property in this object
-				this[property] = data[property];
+				try{
+					this[property] = data[property];
+				}catch(error){
+					rejected = true;
+					reject(error);
+				}
+			}
+			if(rejected){
+				return;
 			}
 
 			fulfill(true);

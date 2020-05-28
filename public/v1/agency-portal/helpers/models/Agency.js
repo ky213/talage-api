@@ -307,7 +307,6 @@ module.exports = class Agency extends DatabaseObject{
 			}
 
 			// Save
-			log.debug('about to save');
 			await DatabaseObject.prototype.save.call(this).catch(function(err){
 				rejected = true;
 				reject(err);

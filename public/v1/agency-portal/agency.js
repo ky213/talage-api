@@ -227,7 +227,7 @@ async function getAgency(req, res, next){
 				${db.quoteName('l.address2')},
 				${db.quoteName('z.city')},
 				${db.quoteName('z.territory')},
-				${db.quoteName('l.zip')},
+				LPAD(CONVERT(${db.quoteName('l.zip')},char), 5, '0') AS zip,
 				${db.quoteName('l.open_time', 'openTime')},
 				${db.quoteName('l.close_time', 'closeTime')},
 				${db.quoteName('l.primary')}
