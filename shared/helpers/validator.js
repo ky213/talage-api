@@ -19,10 +19,8 @@ const sqFtg = /[0-9]/;
 const website = /^(https?:\/\/)?(((([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!$&'()*+,;=])*)?(((\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5])\.(\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5])\.(\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5])\.(\d|[1-9]\d|1\d\d|2[0-4]\d|25[0-5]))|((([a-z]|\d|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(([a-z]|\d|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])*([a-z]|\d|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])))\.)+(([a-z]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(([a-z]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])*([a-z]|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])))\.?)(\d*)?)(\/((([a-zA-Z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!$&'()*+,;=])+(\/(([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!$&'()*+,;=])*)*)?)?(\?((([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!$&'()*+,;=])|[\uE000-\uF8FF]|\/|\?)*)?(#((([a-z]|\d|-|\.|_|~|[\u00A0-\uD7FF\uF900-\uFDCF\uFDF0-\uFFEF])|(%[\da-f]{2})|[!$&'()*+,;=])|\/|\?)*)?$/i;
 const year = /^[1|2]{1}[7|8|9|0]{1}[0-9]{2}/;
 
-/*
- * ============================================================
- * Most repos
- */
+// ============================================================
+// Most repos
 
 // Load in validators from the sub file
 const normalizedPath = require('path').join(global.sharedPath, 'helpers', 'validators');
@@ -30,10 +28,8 @@ require('fs').readdirSync(normalizedPath).forEach(function(file){
 	module.exports[file.replace('.js', '')] = global.requireShared(`helpers/validators/${file}`);
 });
 
-/*
- * ============================================================
- * agency-portal/api
- */
+// ============================================================
+// Agency-portal/api
 
 exports.is_valid_id = function(id){
 	if(typeof id === 'string'){
@@ -67,10 +63,8 @@ exports.is_valid_zip = function(given_zip){
 	return positive_integer.test(given_zip) && zip.test(given_zip);
 };
 
-/*
- * ============================================================
- * auth-api, code-api, quote-api (different), slack-api
- */
+// ============================================================
+// Auth-api, code-api, quote-api (different), slack-api
 
 exports.isID = function(val){
 	if(isNaN(val) || val < 1){
@@ -79,10 +73,8 @@ exports.isID = function(val){
 	return true;
 };
 
-/*
- * ============================================================
- * docs-api
- */
+// ============================================================
+// Docs-api
 
 exports.is_valid_application = async function(id){
 	if(positive_integer.test(id)){
@@ -118,10 +110,8 @@ exports.isValidInsurer = async function(id){
 	return false;
 };
 
-/*
- * ============================================================
- * quote-api
- */
+// ============================================================
+// Quote-api
 
 exports.isBusinessName = function(val){
 	return Boolean(business_name.test(val));

@@ -1,8 +1,5 @@
 'use strict';
 const auth = require('./helpers/auth.js');
-const crypt = require('../../../shared/services/crypt.js');
-const jwt = require('jsonwebtoken');
-const request = require('request');
 const serverHelper = require('../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
 

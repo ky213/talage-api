@@ -45,10 +45,8 @@ module.exports = class Contact{
 	validate(){
 		return new Promise((fulfill, reject) => {
 
-			/*
-			 * TO DO: Validate all fields here
-			 * Store the most recent validation message in the 'error' property
-			 */
+			// TO DO: Validate all fields here
+			// Store the most recent validation message in the 'error' property
 
 			// Validate email
 			const email_result = validator.email(this.email);
