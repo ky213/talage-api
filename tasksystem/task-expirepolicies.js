@@ -62,7 +62,7 @@ var expirePoliciesTask = async function (){
         WHERE state = 1 
             AND expiration_Date < '${now.utc().format(datetimeFormat)}'
     `;
-   
+    
     await db.query(updateSQL).catch(function(e){
         log.error(`Expiring Policiies caused an error: ` + e.message);
     });
