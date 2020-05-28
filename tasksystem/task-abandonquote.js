@@ -13,14 +13,11 @@ const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
  */
 exports.processtask = async function (queueMessage){
 
-    //TODO check sent time over 10 seconds do not process.
-    var sentDatetime = moment.unix(queueMessage.Attributes.SentTimestamp/1000);
-    var now = moment();
-    var messageAge = moment.duration(now.diff(sentDatetime),'seconds');
-    if(messageAge < 10){
-        const messageBody = JSON.parse(queueMessage.Body);
-        log.debug(JSON.stringify(messageBody));
-        log.debug('sent at: ' + sentDatetime.toString())
+    //check sent time over 30 seconds do not process.
+    var sentDatetime = moment.unix(queueMessage.Attributes.SentTimestamp/1000).utc();
+    var now = moment().utc();
+    const messageAge = now.unix() - sentDatetime.unix();
+    if(messageAge < 30){
         
         //DO STUFF
         //let error = null;
@@ -79,7 +76,7 @@ var abandonquotetask = async function (){
             ORDER BY q.policy_type DESC
     `;
     
-    log.debug(appIdSQL)
+    // log.debug(appIdSQL)
     
     let appIds = null;
 	try{

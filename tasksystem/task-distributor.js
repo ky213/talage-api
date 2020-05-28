@@ -1,9 +1,5 @@
 
-
-//global.queueHandler
-
-const abandonquoteProcessor = require('./task-abandonquote');
-const abandonAppProcessor = require('./task-abandonapplication.js');
+const fs = require('fs');
 
 /**
  * Task Distributor
@@ -13,36 +9,26 @@ const abandonAppProcessor = require('./task-abandonapplication.js');
  */
 exports.distributeTask = async function (queueMessage){
 
-
     const messageBody = JSON.parse(queueMessage.Body);
 
     if(messageBody.taskname){
-        switch(messageBody.taskname){
-            case "abandonquote" :
-                log.debug('abandonquote task')
-                abandonquoteProcessor.processtask(queueMessage)
-                break;
-             case "abandonapplication" :
-                log.debug('abandonapplication task')
-                abandonAppProcessor.processtask(queueMessage)
-                break;
-            default:
-                log.error('Bad taskname message ' + JSON.stringify(queueMessage) );
-                 break;
+        const path = `${__dirname}/task-${messageBody.taskname}.js`;
+        log.debug('task file: ' + path);
+        if(fs.existsSync(path)){
+            log.info('processing ' + messageBody.taskname)
+            const taskProcessor = require(path);
+            taskProcessor.processtask(queueMessage);
+        }else{
+            log.error('No Processor file for taskname ' + messageBody.taskname);
         }
-    
     }
     else{
         //Bad taskqueue message
         log.error('Bad taskqueue message ' + JSON.stringify(queueMessage) );
-
-        //delete the message ???
-
-
+        //delete the message
+        await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle);
 
     }
-    
-
 }
 
 

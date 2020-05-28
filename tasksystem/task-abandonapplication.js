@@ -13,15 +13,13 @@ const formatPhone = global.requireShared('./helpers/formatPhone.js');
  */
 exports.processtask = async function (queueMessage){
 
-    // check sent time over 10 seconds do not process.
-    var sentDatetime = moment.unix(queueMessage.Attributes.SentTimestamp/1000);
-    var now = moment();
-    var messageAge = moment.duration(now.diff(sentDatetime),'seconds');
-    if(messageAge < 10){
-        const messageBody = JSON.parse(queueMessage.Body);
-        log.debug(JSON.stringify(messageBody));
-        log.debug('sent at: ' + sentDatetime.toString())
-        
+    // check sent time over 30 seconds do not process.
+    var sentDatetime = moment.unix(queueMessage.Attributes.SentTimestamp/1000).utc();
+    var now = moment().utc();
+    const messageAge = now.unix() - sentDatetime.unix();
+    //log.debug("messageAge: " + messageAge );
+    if(messageAge < 30){
+          
         // DO STUFF
         try{
             await abandonAppTask();
