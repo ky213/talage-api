@@ -94,7 +94,7 @@ var abandonAppTask = async function (){
             }
             catch(err){
                 error = err;
-                log.debug('catch error from await ' + err);
+                log.debug('abandon app catch error from await ' + err);
             }
             
             if(error === null && succesfulProcess === true){

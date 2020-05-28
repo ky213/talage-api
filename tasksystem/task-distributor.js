@@ -13,7 +13,7 @@ exports.distributeTask = async function (queueMessage){
 
     if(messageBody.taskname){
         const path = `${__dirname}/task-${messageBody.taskname}.js`;
-        log.debug('task file: ' + path);
+        //log.debug('task file: ' + path);
         if(fs.existsSync(path)){
             log.info('processing ' + messageBody.taskname)
             const taskProcessor = require(path);
