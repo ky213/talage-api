@@ -12,7 +12,7 @@ const serverHelper = require('../../../../../server.js');
 const{'v4': uuidv4} = require('uuid');
 const validator = global.requireShared('./helpers/validator.js');
 
-const constructors = {'AgencyLocation': AgencyLocation};
+const constructors = {AgencyLocation};
 
 // Define the properties of this class and their settings
 const properties = {

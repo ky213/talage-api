@@ -312,15 +312,20 @@ async function getAgency(req, res, next){
 
 	// If this is an agency network user, get the insurers and territories
 	if(req.authentication.agencyNetwork && req.authentication.insurers.length && locationIDs.length){
+
 		// Define queries for insurers and territories
 		const insurersSQL = `
 				SELECT
-					${db.quoteName('i.id')},
+					${db.quoteName('i.id', 'insurer')},
 					${db.quoteName('i.logo')},
 					${db.quoteName('i.name')},
+					${db.quoteName('li.id')},
 					${db.quoteName('li.agency_location', 'locationID')},
-					${db.quoteName('li.agency_id', 'agencyID')},
-					${db.quoteName('li.agent_id', 'agentID')}
+					${db.quoteName('li.agency_id', 'agencyId')},
+					${db.quoteName('li.agent_id', 'agentId')},
+					${db.quoteName('li.bop')},
+					${db.quoteName('li.gl')},
+					${db.quoteName('li.wc')}
 				FROM ${db.quoteName('#__agency_location_insurers', 'li')}
 				LEFT JOIN ${db.quoteName('#__insurers', 'i')} ON ${db.quoteName('li.insurer')} = ${db.quoteName('i.id')}
 				WHERE
@@ -369,7 +374,7 @@ async function getAgency(req, res, next){
 	]);
 	const usersDecrypt = crypt.batchProcessObjectArray(users, 'decrypt', ['email']);
 	const insurersDecrypt = crypt.batchProcessObjectArray(insurers, 'decrypt', [
-		'agencyID', 'agentID'
+		'agencyId', 'agentId'
 	]);
 
 	// Wait for all data to decrypt
@@ -465,8 +470,8 @@ async function postAgency(req, res, next){
 		log.warn('territories are required');
 		return next(serverHelper.requestError('You must select at least one Territory'));
 	}
-	if(!Object.prototype.hasOwnProperty.call(req.body, 'agencyIDs') || typeof req.body.agencyIDs !== 'object' || Object.keys(req.body.agencyIDs).length < 1){
-		log.warn('agencyIDs are required');
+	if(!Object.prototype.hasOwnProperty.call(req.body, 'agencyIds') || typeof req.body.agencyIds !== 'object' || Object.keys(req.body.agencyIds).length < 1){
+		log.warn('agencyIds are required');
 		return next(serverHelper.requestError('You must enter at least one Agency ID'));
 	}
 
@@ -516,8 +521,8 @@ async function postAgency(req, res, next){
 	if(error){
 		return next(error);
 	}
-	for(let insurerID in req.body.agencyIDs){
-		if(Object.prototype.hasOwnProperty.call(req.body.agencyIDs, insurerID)){
+	for(let insurerID in req.body.agencyIds){
+		if(Object.prototype.hasOwnProperty.call(req.body.agencyIds, insurerID)){
 			// Convert the insurer ID into a number
 			insurerID = parseInt(insurerID, 10);
 
@@ -527,7 +532,7 @@ async function postAgency(req, res, next){
 			}
 
 			// Make sure the field wasn't left blank
-			if(!req.body.agencyIDs[insurerID]){
+			if(!req.body.agencyIds[insurerID]){
 				return next(serverHelper.requestError('An agency ID is required for each insurer.'));
 			}
 		}
@@ -539,7 +544,7 @@ async function postAgency(req, res, next){
 	const lastName = req.body.lastName;
 	const name = req.body.name;
 	const territories = req.body.territories;
-	const agencyIDs = req.body.agencyIDs;
+	const agencyIds = req.body.agencyIds;
 
 	// Make sure we don't already have an user tied to this email address
 	const emailHash = await crypt.hash(email);
@@ -640,7 +645,7 @@ async function postAgency(req, res, next){
 	}
 
 	// Get the ID of the new agency
-	const agencyID = createAgencyResult.insertId;
+	const agencyId = createAgencyResult.insertId;
 
 	// Create a default location for this agency
 	const createDefaultLocationSQL = `
@@ -651,7 +656,7 @@ async function postAgency(req, res, next){
 				${db.quoteName('lname')},
 				${db.quoteName('primary')}
 			) VALUES (
-				${db.escape(agencyID)},
+				${db.escape(agencyId)},
 				${db.escape(encrypted.email)},
 				${db.escape(encrypted.firstName)},
 				${db.escape(encrypted.lastName)},
@@ -693,14 +698,14 @@ async function postAgency(req, res, next){
 	}
 
 	// Store the insurers for this agency
-	const agencyIDValues = [];
-	for(const insurerID in agencyIDs){
-		if(Object.prototype.hasOwnProperty.call(agencyIDs, insurerID)){
+	const agencyIdValues = [];
+	for(const insurerID in agencyIds){
+		if(Object.prototype.hasOwnProperty.call(agencyIds, insurerID)){
 			// eslint-disable-next-line  no-await-in-loop
-			const insurerAgencyID = await crypt.encrypt(agencyIDs[insurerID]);
+			const insureragencyId = await crypt.encrypt(agencyIds[insurerID]);
 			// eslint-disable-next-line  no-await-in-loop
-			const insurerAgentID = await crypt.encrypt('placeholder-unsupported');
-			agencyIDValues.push(`(${db.escape(locationID)}, ${db.escape(insurerID)}, ${db.escape(insurerAgencyID)}, ${db.escape(insurerAgentID)}, 0, 0 ,1)`);
+			const insureragentId = await crypt.encrypt('placeholder-unsupported');
+			agencyIdValues.push(`(${db.escape(locationID)}, ${db.escape(insurerID)}, ${db.escape(insureragencyId)}, ${db.escape(insureragentId)}, 0, 0 ,1)`);
 		}
 	}
 	const associateInsurersSQL = `
@@ -712,7 +717,7 @@ async function postAgency(req, res, next){
 				${db.quoteName('bop')},
 				${db.quoteName('gl')},
 				${db.quoteName('wc')}
-			) VALUES ${agencyIDValues.join(',')};
+			) VALUES ${agencyIdValues.join(',')};
 		`;
 	await db.query(associateInsurersSQL).catch(function(e){
 		log.error(e.message);
@@ -727,7 +732,7 @@ async function postAgency(req, res, next){
 				${db.quoteName('slug')},
 				${db.quoteName('primary')}
 			) VALUES (
-				${db.escape(agencyID)},
+				${db.escape(agencyId)},
 				${db.escape('Get Quotes')},
 				${db.escape('get-quotes')},
 				${db.escape(1)}
@@ -744,7 +749,7 @@ async function postAgency(req, res, next){
 	const hashedPassword = await crypt.hashPassword(password);
 	const createUserSQL = `
 			INSERT INTO \`#__agency_portal_users\` (\`agency\`, \`can_sign\`, \`email\`, \`email_hash\`, \`group\`, \`password\`)
-			VALUES (${db.escape(agencyID)}, 1, ${db.escape(encrypted.email)}, ${db.escape(emailHash)}, 1, ${db.escape(hashedPassword)});
+			VALUES (${db.escape(agencyId)}, 1, ${db.escape(encrypted.email)}, ${db.escape(emailHash)}, 1, ${db.escape(hashedPassword)});
 		`;
 	log.info('creating user');
 	const createUserResult = await db.query(createUserSQL).catch(function(e){
@@ -763,7 +768,7 @@ async function postAgency(req, res, next){
 
 	// Return the response
 	res.send(200, {
-		'agencyID': agencyID,
+		'agencyId': agencyId,
 		'code': 'Success',
 		'message': 'Agency Created'
 	});
