@@ -44,8 +44,10 @@ module.exports = class DatabaseObject{
 				// Performs validation and sets the property into the local value
 				set: (value) => {
 
+					let expectedDataType = this.#properties[property].type;
+
 					// Verify the data type
-					if(typeof value !== this.#properties[property].type){
+					if(expectedDataType !== typeof value){
 						throw serverHelper.internalError(`Unexpected data type for ${property}, expecting ${this.#properties[property].type}`);
 					}
 
@@ -117,7 +119,7 @@ module.exports = class DatabaseObject{
 					});
 				}
 				if(rejected){
-					return;
+					break;
 				}
 
 				// Store the value of the property in this object
@@ -128,6 +130,7 @@ module.exports = class DatabaseObject{
 					reject(error);
 				}
 			}
+
 			if(rejected){
 				return;
 			}
@@ -156,6 +159,22 @@ module.exports = class DatabaseObject{
 				log.warn('INSERT NOT YET SETUP, DOING NOTHING');
 			}
 
+			// Save has succeeded so far, now handle anything with a save handler
+			for(const property in this.#properties){
+				// Skip any properties without a save handler
+				if(!Object.prototype.hasOwnProperty.call(this.#properties[property], 'saveHandler') || !this.#properties[property].saveHandler){
+					continue;
+				}
+
+				// There is a save handler, run it
+				try{
+					await this[this.#properties[property].saveHandler]();
+				}catch(error){
+					reject(error);
+					return;
+				}
+			}
+
 			fulfill(true);
 		});
 	}
@@ -174,7 +193,7 @@ module.exports = class DatabaseObject{
 			for(const property in this.#properties){
 
 				// If this property has a Class, skip it as it will be handled later
-				if(Object.prototype.hasOwnProperty.call(this.#properties[property], 'class') && this.#properties[property].class){
+				if((Object.prototype.hasOwnProperty.call(this.#properties[property], 'class') && this.#properties[property].class) || (Object.prototype.hasOwnProperty.call(this.#properties[property], 'saveHandler') && this.#properties[property].saveHandler)){
 					continue;
 				}
 
@@ -235,14 +254,15 @@ module.exports = class DatabaseObject{
 				const value = this[property];
 
 				// Loop over each value and save them
-				value.forEach(function(val){
+				for(const val of value){
+					// Save the value
 					try{
-						val.save();
+						await val.save();
 					}catch(error){
 						rejected = true;
 						reject(error);
 					}
-				});
+				}
 			}
 			if(rejected){
 				return;
