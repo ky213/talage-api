@@ -4,13 +4,9 @@
 
 'use strict';
 
-// Const AgencyLocationTerritory = require('./AgencyLocationTerritory');
 const DatabaseObject = require('./DatabaseObject.js');
+const serverHelper = require('../../../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
-
-// Var constructors = {
-// AgencyLocationTerritory
-// };
 
 // Define the properties of this class and their settings
 const properties = {
@@ -88,15 +84,15 @@ const properties = {
 		'type': 'string'
 	},
 
-	// 'territories': {
-	// 'associatedField': 'agencyLocation', // The ID of this object will be placed into this property
-	// 'class': 'AgencyLocationTerritory',
-	// 'default': [],
-	// 'encrypted': false,
-	// 'required': true,
-	// 'rules': [],
-	// 'type': 'object'
-	// },
+	'territories': {
+		'default': [],
+		'encrypted': false,
+		'required': true,
+		'rules': [],
+		'saveHandler': 'associateTerritories',
+		'type': 'object'
+
+	},
 	'zip': {
 		'default': null,
 		'encrypted': false,
@@ -111,5 +107,65 @@ const properties = {
 module.exports = class AgencyLocation extends DatabaseObject{
 	constructor(){
 		super('#__agency_locations', properties);
+	}
+
+	/**
+	 * Associates the territories to this location
+	 *
+	 * @returns {Promise.<Boolean, Error>} A promise that returns true if resolved, or an Error if rejected
+	 */
+	associateTerritories(){
+		return new Promise(async(fulfill, reject) => {
+			let rejected = false;
+
+			// Check for needed data, if it is not present, skip
+			if(!this.id || !this.territories || !this.territories.length){
+				log.error('AgencyLocation associateTerritories() missing required data. Unable to run.');
+				reject(new serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				return;
+			}
+
+			// Compile some insert statements
+			const inserts = [];
+			for(const abbr of this.territories){
+				inserts.push(`(${db.escape(this.id)}, ${db.escape(abbr)})`);
+			}
+
+			// Remove unassociated territories
+			const deleteSQL = `
+				DELETE FROM
+					\`#__agency_location_territories\`
+				WHERE
+					\`agency_location\` = ${db.escape(this.id)} AND
+					\`territory\` NOT IN (${this.territories.map((territory) => db.escape(territory)).join(',')});
+			`;
+
+			// Run the query
+			await db.query(deleteSQL).catch(function(error){
+				rejected = true;
+				reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			});
+			if(rejected){
+				return;
+			}
+
+			// Associate all new codes, leaving existing ones unchanged
+			const associateSQL = `
+				INSERT INTO \`#__agency_location_territories\` (\`agency_location\`, \`territory\`)
+				VALUES ${inserts.join(',')}
+				ON DUPLICATE KEY UPDATE \`id\` = \`id\`;
+			`;
+
+			// Run the query
+			await db.query(associateSQL).catch(function(error){
+				rejected = true;
+				reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			});
+			if(rejected){
+				return;
+			}
+
+			fulfill(true);
+		});
 	}
 };
