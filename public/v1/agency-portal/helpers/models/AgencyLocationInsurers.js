@@ -10,14 +10,22 @@ const validator = global.requireShared('./helpers/validator.js');
 
 // Define the properties of this class and their settings
 const properties = {
-	'agencyId': { // The name of the property
-		'default': null, // Default value
+	'agentId': { // The name of the property
+		'default': 'placeholder-unsupported', // Default value
 		'encrypted': true, // Whether or not it is encrypted before storing in the database
-		'required': true, // Whether or not it is required
+		'required': false, // Whether or not it is required
 		'rules': [],
 		'type': 'string' // The data type
 	},
-	/*'agencyLocation': {
+	'agencyId': {
+		'default': null,
+		'encrypted': true,
+		'required': true,
+		'rules': [],
+		'type': 'string'
+
+	},
+	'agencyLocation': {
 		'default': 0,
 		'encrypted': false,
 		'required': false,
@@ -25,7 +33,7 @@ const properties = {
 			validator.id
 		],
 		'type': 'number'
-	},*/
+	},
 	'id': {
 		'default': 0,
 		'encrypted': false,

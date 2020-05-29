@@ -253,6 +253,7 @@ async function getAgency(req, res, next){
 		LEFT JOIN \`clw_talage_insurer_territories\` AS \`it\` ON \`i\`.\`id\` = \`it\`.\`insurer\`
 		WHERE
 			\`agi\`.\`agency_network\` = 1 AND
+			\`i\`.\`id\` IN (${req.authentication.insurers.join(',')}) AND
 			\`i\`.\`state\` = 1
 		GROUP BY \`i\`.\`id\`
 		ORDER BY \`i\`.\`name\` ASC;
@@ -334,6 +335,7 @@ async function getAgency(req, res, next){
 					${db.quoteName('i.state')} > 0
 				ORDER BY ${db.quoteName('i.name')} ASC;
 			`;
+
 		const territoriesSQL = `
 				SELECT
 					${db.quoteName('lt.id')},
