@@ -73,6 +73,79 @@ module.exports = class DatabaseObject{
 	}
 
 	/**
+	 * Adds a new object into the database
+	 */
+	insert(){
+		return new Promise(async (fulfill, reject) => {
+			let rejected = false;
+
+			if(this.id){
+				log.error('Attempt to insert record with ID. Would result in duplication. Stopping.');
+				reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				return;
+			}
+
+			// Build the columns and values lists by looping over properties
+			const columns = [];
+			const values = [];
+			for(const property in this.#properties){
+
+				// If this property has a Class, skip it as it will be handled later
+				if((Object.prototype.hasOwnProperty.call(this.#properties[property], 'class') && this.#properties[property].class) || (Object.prototype.hasOwnProperty.call(this.#properties[property], 'saveHandler') && this.#properties[property].saveHandler)){
+					continue;
+				}
+
+				// Skip the ID column
+				if(property === 'id'){
+					continue;
+				}
+
+				// Localize the data value
+				let value = this[property];
+
+				// Check if we need to encrypt this value, and if so, encrypt
+				if(this.#properties[property].encrypted && value){
+					value = await crypt.encrypt(value);
+				}
+
+				// Store the column and value
+				columns.push(`\`${property.toSnakeCase()}\``);
+				values.push(`${db.escape(value)}`);
+			}
+
+			// Create the insert query
+			const sql = `
+				INSERT INTO \`${this.#table}\` (${columns.join(',')})
+				VALUES (${values.join(',')});
+			`;
+
+			// Run the query
+			const result = await db.query(sql).catch(function(error){
+				// Check if this was
+				if(error.errno === 1062){
+					rejected = true;
+					reject(serverHelper.requestError('The link (slug) you selected is already taken. Please choose another one.'));
+					return;
+				}
+				rejected = true;
+				reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			});
+			if(rejected){
+				return;
+			}
+
+			// Make sure the query was successful
+			if(result.affectedRows !== 1){
+				log.error(`Insert failed. Query ran successfully; however, an unexpected number of records were affected. (${result.affectedRows} records)`);
+				reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				return;
+			}
+
+			fulfill(true);
+		});
+	}
+
+	/**
 	 * Populates this object with data
 	 *
 	 * @param {object} data - Data to be loaded
@@ -146,6 +219,8 @@ module.exports = class DatabaseObject{
 	 */
 	save(){
 		return new Promise(async (fulfill, reject) => {
+			let rejected = false;
+
 			if(this.id){
 				// Update this record
 				try{
@@ -156,23 +231,56 @@ module.exports = class DatabaseObject{
 				}
 			}else{
 				// Insert a new record
-				log.warn('INSERT NOT YET SETUP, DOING NOTHING');
-			}
-
-			// Save has succeeded so far, now handle anything with a save handler
-			for(const property in this.#properties){
-				// Skip any properties without a save handler
-				if(!Object.prototype.hasOwnProperty.call(this.#properties[property], 'saveHandler') || !this.#properties[property].saveHandler){
-					continue;
-				}
-
-				// There is a save handler, run it
 				try{
-					await this[this.#properties[property].saveHandler]();
+					await this.insert();
 				}catch(error){
 					reject(error);
 					return;
 				}
+			}
+
+			// For child objects, save each
+			for(const property in this.#properties){
+
+				// Process save handlers
+				if(Object.prototype.hasOwnProperty.call(this.#properties[property], 'saveHandler') && this.#properties[property].saveHandler){
+					// There is a save handler, run it
+					try{
+						await this[this.#properties[property].saveHandler]();
+					}catch(error){
+						rejected = true;
+						reject(error);
+						break;
+					}
+					continue;
+				}
+
+				// Skip non-class based properties
+				if(!Object.prototype.hasOwnProperty.call(this.#properties[property], 'class') || !this.#properties[property].class){
+					continue;
+				}
+
+				// Localize the data value
+				const value = this[property];
+
+				// Loop over each value and save them
+				for(const val of value){
+					// If there is an associatedField, add the ID of this object into it
+					if(Object.prototype.hasOwnProperty.call(this.#properties[property], 'associatedField') && this.#properties[property].associatedField){
+						val[this.#properties[property].associatedField] = this.id;
+					}
+
+					// Save the value
+					try{
+						await val.save();
+					}catch(error){
+						rejected = true;
+						reject(error);
+					}
+				}
+			}
+			if(rejected){
+				return;
 			}
 
 			fulfill(true);
@@ -237,34 +345,8 @@ module.exports = class DatabaseObject{
 
 			// Make sure the query was successful
 			if(result.affectedRows !== 1){
-				log.error(`Agency update failed. Query ran successfully; however, an unexpected number of records were affected. (${result.affectedRows} records)`);
+				log.error(`Update failed. Query ran successfully; however, an unexpected number of records were affected. (${result.affectedRows} records)`);
 				reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
-				return;
-			}
-
-			// For child objects, save each
-			for(const property in this.#properties){
-
-				// Skip non-class based properties
-				if(!Object.prototype.hasOwnProperty.call(this.#properties[property], 'class') || !this.#properties[property].class){
-					continue;
-				}
-
-				// Localize the data value
-				const value = this[property];
-
-				// Loop over each value and save them
-				for(const val of value){
-					// Save the value
-					try{
-						await val.save();
-					}catch(error){
-						rejected = true;
-						reject(error);
-					}
-				}
-			}
-			if(rejected){
 				return;
 			}
 

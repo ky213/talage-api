@@ -69,6 +69,7 @@ const properties = {
 		'type': 'number'
 	},
 	'insurers': {
+		'associatedField': 'agencyLocation', // The ID of this object will be placed into this property of each object
 		'class': 'AgencyLocationInsurers',
 		'default': [],
 		'encrypted': false,
