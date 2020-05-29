@@ -4,9 +4,12 @@
 
 'use strict';
 
+const AgencyLocationInsurers = require('./AgencyLocationInsurers');
 const DatabaseObject = require('./DatabaseObject.js');
 const serverHelper = require('../../../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
+
+const constructors = {AgencyLocationInsurers};
 
 // Define the properties of this class and their settings
 const properties = {
@@ -65,6 +68,14 @@ const properties = {
 		],
 		'type': 'number'
 	},
+	'insurers': {
+		'class': 'AgencyLocationInsurers',
+		'default': [],
+		'encrypted': false,
+		'required': true,
+		'rules': [],
+		'type': 'object'
+	},
 	'lname': {
 		'default': null,
 		'encrypted': true,
@@ -83,7 +94,6 @@ const properties = {
 		],
 		'type': 'string'
 	},
-
 	'territories': {
 		'default': [],
 		'encrypted': false,
@@ -106,7 +116,7 @@ const properties = {
 
 module.exports = class AgencyLocation extends DatabaseObject{
 	constructor(){
-		super('#__agency_locations', properties);
+		super('#__agency_locations', properties, constructors);
 	}
 
 	/**
