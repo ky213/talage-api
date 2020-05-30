@@ -131,9 +131,7 @@ module.exports = class Location{
 				}
 			}
 
-			/*
-			 * Identification Number
-			 */
+			// Identification Number
 			if(this.identification_number){
 				if(validator.ein(this.identification_number)){
 					this.identification_number_type = 'EIN';
@@ -173,13 +171,11 @@ module.exports = class Location{
 				return;
 			}
 
-			/*
-			 * Validate square footage
-			 * BOP specific
-			 * - Integer (enforced with parseInt() on load())
-			 * - >= 100
-			 * - <= 99,999
-			 */
+			// Validate square footage
+			// BOP specific
+			// - Integer (enforced with parseInt() on load())
+			// - >= 100
+			// - <= 99,999
 			if(this.app.has_policy_type('BOP')){
 				if(!validator.isSqFtg(this.square_footage) || this.square_footage < 100 || this.square_footage > 99999){
 					return reject(serverHelper.requestError('square_footage must be an integer between 100 and 99,999 inclusive'));

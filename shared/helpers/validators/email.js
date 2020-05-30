@@ -8,29 +8,23 @@ module.exports = function(val){
 		if(!email.test(val)){
 			return false;
 
-			/*
-			 * Quote-api
-			 * return 'Invalid email address in contact';
-			 */
+			// Quote-api
+			// Return 'Invalid email address in contact';
 		}
 
 		// Check length
 		if(val.length > 100){
 			return false;
 
-			/*
-			 * Quote-api
-			 * return 'Email exceeds maximum length of 100 characters';
-			 */
+			// Quote-api
+			// Return 'Email exceeds maximum length of 100 characters';
 
 		}
 	}else{
 		return false;
 
-		/*
-		 * Quote-api
-		 * return 'Missing required field in contact: email';
-		 */
+		// Quote-api
+		// Return 'Missing required field in contact: email';
 	}
 	return true;
 };

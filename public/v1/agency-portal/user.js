@@ -11,11 +11,11 @@ const validator = global.requireShared('./helpers/validator.js');
  *
  * @param {int} agency - The ID of the agency to check
  * @param {int} user - The ID of the user to exempt from the check
- * @param {boolean} agencyNetwork - Whether or not this is an agency network
+ * @param {boolean} agencyNetwork - (optional) Whether or not this is an agency network
  *
  * @return {boolean} - True if the agency has an owner; false otherwise
  */
-function hasOtherOwner(agency, user, agencyNetwork){
+function hasOtherOwner(agency, user, agencyNetwork = false){
 	return new Promise(async function(fulfill){
 		let error = false;
 
@@ -56,6 +56,8 @@ function hasOtherOwner(agency, user, agencyNetwork){
 		fulfill(true);
 	});
 }
+
+exports.hasOtherOwner = hasOtherOwner;
 
 /**
  * Checks whether the provided agency has a signing authority other than the current user
@@ -98,6 +100,8 @@ function hasOtherSigningAuthority(agency, user){
 		fulfill(true);
 	});
 }
+
+exports.hasOtherSigningAuthority = hasOtherSigningAuthority;
 
 /**
  * Validates a user and returns a clean data object
