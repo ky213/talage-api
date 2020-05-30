@@ -837,9 +837,6 @@ async function updateAgency(req, res, next){
 		return a.primary ? 1 : -1;
 	});
 
-	const util = require('util');
-	util.inspect(req.body.locations);
-
 	// Initialize an agency object
 	const agency = new Agency();
 
