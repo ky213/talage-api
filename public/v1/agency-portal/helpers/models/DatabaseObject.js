@@ -141,6 +141,9 @@ module.exports = class DatabaseObject{
 				return;
 			}
 
+			// Store the ID in this object
+			this.id = result.insertId;
+
 			fulfill(true);
 		});
 	}

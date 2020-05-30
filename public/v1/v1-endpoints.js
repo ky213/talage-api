@@ -64,6 +64,7 @@ exports.registerEndpoints = (server) => {
 	registerEndpoint(server, 'agency-portal', 'applications');
 	registerEndpoint(server, 'agency-portal', 'banners');
 	registerEndpoint(server, 'agency-portal', 'change-password');
+	registerEndpoint(server, 'agency-portal', 'cityTerritory');
 	registerEndpoint(server, 'agency-portal', 'color-schemes');
 	registerEndpoint(server, 'agency-portal', 'create-agency');
 	registerEndpoint(server, 'agency-portal', 'landing-page');
