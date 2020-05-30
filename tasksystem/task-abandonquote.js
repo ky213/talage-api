@@ -1,3 +1,5 @@
+'use strict';
+
 const moment = require('moment');
 const crypt = global.requireShared('./services/crypt.js');
 const email = global.requireShared('./services/email.js');
@@ -8,31 +10,34 @@ const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 /**
  * AbandonQuote Task processor
  *
- * @param {string} message - message from queue
+ * @param {string} queueMessage - message from queue
  * @returns {void}
  */
-exports.processtask = async function (queueMessage){
-
+exports.processtask = async function(queueMessage){
+    let error = null;
     //check sent time over 30 seconds do not process.
-    var sentDatetime = moment.unix(queueMessage.Attributes.SentTimestamp/1000).utc();
+    var sentDatetime = moment.unix(queueMessage.Attributes.SentTimestamp / 1000).utc();
     var now = moment().utc();
     const messageAge = now.unix() - sentDatetime.unix();
     if(messageAge < 30){
-        
+
         //DO STUFF
-        //let error = null;
-        try{
-            await abandonquotetask();
-            await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle);
+
+        await abandonquotetask().catch(err => error = err);
+        await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err){
+            error = err;
+        });
+        if(error){
+            log.error("Error abandonquotetask deleteTaskQueueItem " + error);
         }
-        catch(err){
-            log.error("Error abandonquotetask " + err);
-        } 
         return;
     }
     else {
         log.info('removing old Abandon Quote Message from queue');
-        await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle)
+        await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(err => error = err)
+        if(error){
+            log.error("Error abandonquotetask deleteTaskQueueItem old " + error);
+        }
         return;
     }
 }
@@ -40,14 +45,13 @@ exports.processtask = async function (queueMessage){
 /**
  * Exposes abandonquotetask for testing
  *
- * @param {} 
  * @returns {void}
  */
-exports.taskProcessorExternal = async function (){
+exports.taskProcessorExternal = async function(){
     let error = null;
-    await abandonquotetask().catch(err => error = err );
+    await abandonquotetask().catch(err => error = err);
     if(error){
-        log.error ('abandonquotetask external: ' + error);
+        log.error('abandonquotetask external: ' + error);
     }
     return;
 }
@@ -55,13 +59,12 @@ exports.taskProcessorExternal = async function (){
 /**
  * task processor
  *
- * @param {} 
  * @returns {void}
  */
-var abandonquotetask = async function (){
-     
-     const oneHourAgo =  moment().subtract(1,'h');
-     const twoHourAgo =  moment().subtract(2,'h');
+var abandonquotetask = async function(){
+
+     const oneHourAgo = moment().subtract(1,'h');
+     const twoHourAgo = moment().subtract(2,'h');
      //get list....
     const appIdSQL = `
             SELECT DISTINCT
@@ -75,22 +78,23 @@ var abandonquotetask = async function (){
                 AND a.state  = 13
             ORDER BY q.policy_type DESC
     `;
-    
+
     // log.debug(appIdSQL)
-    
+
     let appIds = null;
 	try{
         appIds = await db.query(appIdSQL);
         // log.debug('returned appIds');
         // log.debug(JSON.stringify(appIds));
-	}catch(err){
+	}
+catch(err){
 		log.error("abandonquotetask getting appid list error " + err);
 		throw err;
 	}
     //process list.....
-    if (appIds && appIds.length >0   ){
+    if(appIds && appIds.length > 0){
         for(let i = 0; i < appIds.length; i++){
-            const quoteAppid= appIds[i];
+            const quoteAppid = appIds[i];
             log.debug(JSON.stringify(quoteAppid.applicationId));
 
             let error = null
@@ -102,7 +106,7 @@ var abandonquotetask = async function (){
                 error = err;
                 log.debug('catch error from await ' + err);
             }
-            
+
             if(error === null && succesfulProcess === true){
                 await markApplicationProcess(quoteAppid.applicationId).catch(function(err){
                     log.error(`Error marking abandon quotes in DB for ${quoteAppid.applicationId} error:  ${err}`);
@@ -118,8 +122,8 @@ var abandonquotetask = async function (){
     return;
 }
 
-var processAbandonQuote = async function (applicationId){
-    //get   
+var processAbandonQuote = async function(applicationId){
+    //get
     const quoteAppSQL = `
         SELECT
             a.agency_location AS agencyLocation,
@@ -158,9 +162,9 @@ var processAbandonQuote = async function (applicationId){
         WHERE 
         a.id =  ${applicationId}
     `;
-    
+
     let quotes = null;
-	try {
+	try{
         quotes = await db.query(quoteAppSQL);
     }
     catch(err){
@@ -170,8 +174,8 @@ var processAbandonQuote = async function (applicationId){
     }
 
     if(quotes && quotes.length > 0){
-       
-        const agencyNetwork = quotes[0].agency_network; 
+
+        const agencyNetwork = quotes[0].agency_network;
         //Get email content
         const emailContentSQL = `
             SELECT
@@ -184,7 +188,7 @@ var processAbandonQuote = async function (applicationId){
             ORDER BY id DESC
             LIMIT 2; 
         `;
-       
+
         let error = null;
         const emailContentResultArray = await db.query(emailContentSQL).catch(function(err){
             log.error(`DB Error Unable to get email content for abandon quote. appid: ${applicationId}.  error: ${err}`);
@@ -193,58 +197,57 @@ var processAbandonQuote = async function (applicationId){
         if(error){
             return false;
         }
-            
-        if(emailContentResultArray && emailContentResultArray.length >0 ){
+
+        if(emailContentResultArray && emailContentResultArray.length > 0){
             const emailContentResult = emailContentResultArray[0];
             //decrypt info...
-            quotes[0].email =  await crypt.decrypt(quotes[0].email);
-            quotes[0].agencyEmail =  await crypt.decrypt(quotes[0].agencyEmail);
-            quotes[0].agencyPhone =  await crypt.decrypt(quotes[0].agencyPhone);
-            quotes[0].agencyWebsite =  await crypt.decrypt(quotes[0].agencyWebsite);
+            quotes[0].email = await crypt.decrypt(quotes[0].email);
+            quotes[0].agencyEmail = await crypt.decrypt(quotes[0].agencyEmail);
+            quotes[0].agencyPhone = await crypt.decrypt(quotes[0].agencyPhone);
+            quotes[0].agencyWebsite = await crypt.decrypt(quotes[0].agencyWebsite);
 
-            let customerEmailData = emailContentResult.customerEmailData ? JSON.parse(emailContentResult.customerEmailData) : null;
-            let defaultCustomerEmailData = emailContentResult.defaultCustomerEmailData ? JSON.parse(emailContentResult.defaultCustomerEmailData) : null;
+            const customerEmailData = emailContentResult.customerEmailData ? JSON.parse(emailContentResult.customerEmailData) : null;
+            const defaultCustomerEmailData = emailContentResult.defaultCustomerEmailData ? JSON.parse(emailContentResult.defaultCustomerEmailData) : null;
 
             let agencyName = quotes[0].agencyName
             let agencyPhone = '';
-            let brand = quotes[0].emailBrand === 'wheelhouse' ? 'agency' : quotes[0].emailBrand.agency;
+            //let brand = quotes[0].emailBrand === 'wheelhouse' ? 'agency' : quotes[0].emailBrand.agency;
 
-            if(quotes[0].wholesale || quotes[0].agency == 1 || quotes[0].agency == 2){
+            if(quotes[0].wholesale || quotes[0].agency === 1 || quotes[0].agency === 2){
                 // Override the agency info with Talage
                 agencyName = 'Talage';
                 agencyPhone = '833-4-TALAGE';
-                brand = 'talage';
+               // brand = 'talage';
                 quotes[0].agencyEmail = 'info@talageins.com';
                 quotes[0].agencyWebsite = 'https://talageins.com';
-            } else{
+            }
+            else if(quotes[0].agencyPhone){
                 // Format the phone number
-                if(quotes[0].agencyPhone){
-                    agencyPhone = formatPhone(quotes[0].agencyPhone);
-                }
+                agencyPhone = formatPhone(quotes[0].agencyPhone);
             }
 
             let quotesHTML = '<br><div align="center"><table border="0" cellpadding="0" cellspacing="0" width="425">';
             //loop quotes and include
             let lastPolicyType = '';
-            for(let i=0;i< quotes.length;i++){
+            for(let i = 0; i < quotes.length; i++){
                 const quote = quotes[i];
                 if(quotes.length > 1){
                     // Show the policy type heading
                     if(quote.policyType !== lastPolicyType){
                         lastPolicyType = quote.policyType;
-                        quotesHTML = quotesHTML +  `<tr><td colspan=\"5\" style=\"text-align: center; font-weight: bold\">${quote.policyType}</td></tr>`;
+                        quotesHTML += `<tr><td colspan=\"5\" style=\"text-align: center; font-weight: bold\">${quote.policyType}</td></tr>`;
                     }
                 }
                 // Determine the Quote Result
-                const quoteResult = quote.api_result.indexOf('_') ?  quote.api_result.substr(stringFunctions.ucwords(quote.api_result), 0,  quote.api_result.indexOf('_')) : stringFunctions.ucwords(quote.api_result);
+                const quoteResult = quote.api_result.indexOf('_') ? quote.api_result.substr(stringFunctions.ucwords(quote.api_result), 0, quote.api_result.indexOf('_')) : stringFunctions.ucwords(quote.api_result);
                 // Write a row of the table
-                quotesHTML = quotesHTML +  `<tr><td width=\"180\"><img alt=\"${quote.insurer}\" src=\"https://talageins.com/${quote.logo}\" width=\"100%\"></td><td width=\"20\"></td><td align=\"center\">` + quoteResult + `</td><td width=\"20\"></td><td style=\"padding-left:20px;font-size:30px;\">` + stringFunctions.number_format(quote.amount) + `</td></tr>`;
+                quotesHTML = quotesHTML + `<tr><td width=\"180\"><img alt=\"${quote.insurer}\" src=\"https://talageins.com/${quote.logo}\" width=\"100%\"></td><td width=\"20\"></td><td align=\"center\">` + quoteResult + `</td><td width=\"20\"></td><td style=\"padding-left:20px;font-size:30px;\">` + stringFunctions.number_format(quote.amount) + `</td></tr>`;
             }
-            quotesHTML = quotesHTML +  '</table></div><br>';
+            quotesHTML += '</table></div><br>';
 
-            let message = customerEmailData && customerEmailData.message  ? customerEmailData.message : defaultCustomerEmailData.message;
+            let message = customerEmailData && customerEmailData.message ? customerEmailData.message : defaultCustomerEmailData.message;
             let subject = customerEmailData && customerEmailData.subject ? customerEmailData.subject : defaultCustomerEmailData.subject;
-           
+
             // Perform content replacements
             message = message.replace(/{{Agency}}/g, agencyName);
             message = message.replace(/{{Agency Email}}/g, quotes[0].agencyEmail);
@@ -262,38 +265,42 @@ var processAbandonQuote = async function (applicationId){
 
             //send email:
             // Send the email
-            let emailResp = await email.send(quotes[0].email, subject, message, {'application': applicationId, 'agency_location': quotes[0].agencyLocation}, quotes[0].emailBrand);
+            const keyData = {
+                'application': applicationId,
+                'agency_location': quotes[0].agencyLocation
+                }
+            let emailResp = await email.send(quotes[0].email, subject, message, keyData, quotes[0].emailBrand);
             log.debug("emailResp = " + emailResp);
             if(emailResp === false){
-               slack('#alerts', 'warning',`The system failed to remind the insured to revisit their quotes for application #${applicationId}. Please follow-up manually.` );
+               slack('#alerts', 'warning',`The system failed to remind the insured to revisit their quotes for application #${applicationId}. Please follow-up manually.`);
             }
 
             /* ---=== Email to Agency (not sent to Talage) ===--- */
 
             // Only send for non-Talage accounts that are not wholesale
-            if(quotes[0].wholesale == false && quotes[0].agency !== 1){
-               
-                quotes[0].businessName =  await crypt.decrypt(quotes[0].businessName);
-                quotes[0].fname =  await crypt.decrypt(quotes[0].fname);
-                quotes[0].lname =  await crypt.decrypt(quotes[0].lname);
-                quotes[0].phone =  await crypt.decrypt(quotes[0].phone);
+            if(quotes[0].wholesale === false && quotes[0].agency !== 1){
 
-                let agencyEmailData = emailContentResult.agencyEmailData ? JSON.parse(emailContentResult.agencyEmailData) : null;
-                let defaultAgencyEmailData = emailContentResult.defaultAgencyEmailData ? JSON.parse(emailContentResult.defaultAgencyEmailData) : null;
-                
+                quotes[0].businessName = await crypt.decrypt(quotes[0].businessName);
+                quotes[0].fname = await crypt.decrypt(quotes[0].fname);
+                quotes[0].lname = await crypt.decrypt(quotes[0].lname);
+                quotes[0].phone = await crypt.decrypt(quotes[0].phone);
+
+                const agencyEmailData = emailContentResult.agencyEmailData ? JSON.parse(emailContentResult.agencyEmailData) : null;
+                const defaultAgencyEmailData = emailContentResult.defaultAgencyEmailData ? JSON.parse(emailContentResult.defaultAgencyEmailData) : null;
+
                 const portalLink = global.settings.PORTAL_URL;
-                
+
                 // Format the full name and phone number
-                let fullName = stringFunctions.ucwords(stringFunctions.strtolower(quotes[0].fname) + ' ' + stringFunctions.strtolower(quotes[0].lname));
+                const fullName = stringFunctions.ucwords(stringFunctions.strtolower(quotes[0].fname) + ' ' + stringFunctions.strtolower(quotes[0].lname));
                 let phone = '';
                 if(quotes[0].phone){
                     phone = formatPhone(quotes[0].phone);
                 }
 
                 //  // Determine which message and subject to use
-                 message = agencyEmailData && agencyEmailData.message  ? agencyEmailData.message : defaultAgencyEmailData.message;
+                 message = agencyEmailData && agencyEmailData.message ? agencyEmailData.message : defaultAgencyEmailData.message;
                  subject = agencyEmailData && agencyEmailData.subject ? agencyEmailData.subject : defaultAgencyEmailData.subject;
-                
+
 
                 //already have quotesHTML from above
 
@@ -310,7 +317,12 @@ var processAbandonQuote = async function (applicationId){
 
 
                   // Send the email
-                  emailResp = await email.send(quotes[0].agencyEmail, subject, message, {'application': applicationId, 'agency_location': quotes[0].agencyLocation}, quotes[0].emailBrand);
+                const keyData2 = {
+                    'application': applicationId,
+                    'agency_location': quotes[0].agencyLocation
+                };
+
+                  emailResp = await email.send(quotes[0].agencyEmail, subject, message, keyData2, quotes[0].emailBrand);
                   if(emailResp === false){
                         slack('#alerts', 'warning','The system failed to inform an agency of the abandoned quote' + (quotes.length === 1 ? '' : 's') + ` for application ${applicationId}. Please follow-up manually.`);
                     }
@@ -323,7 +335,7 @@ var processAbandonQuote = async function (applicationId){
         }
         else {
             log.error('AbandonQuote missing emailcontent for agencynetwork: ' + agencyNetwork);
-            return false ;
+            return false;
         }
     }
     else {
@@ -332,12 +344,12 @@ var processAbandonQuote = async function (applicationId){
 
 }
 
-var markApplicationProcess = async function (applicationId){
-    
+var markApplicationProcess = async function(applicationId){
+
     const updateSQL = `UPDATE clw_talage_applications
 	                   SET  abandoned_email = 1 
 	                   where id = ${applicationId} `;
-    
+
     // Update application record
 	await db.query(updateSQL).catch(function(e){
 		log.error('Abandon Quote flag update error: ' + e.message);
