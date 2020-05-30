@@ -28,7 +28,7 @@ function DeleteFile(req, res, next){
 	// Make sure a file path was provided
 	if(!path){
 		const errorMsg = 'You must specify a file path';
-		log.warn(errorMsg);
+		log.warn("File Service DEL: " +  errorMsg);
 		return next(serverHelper.requestError(errorMsg));
 	}
 
@@ -38,7 +38,7 @@ function DeleteFile(req, res, next){
 		'Key': path
 	}, function(err){
 		if(err){
-			log.warn(err.message);
+			log.warn("File Service DEL: " + err.message);
 			res.send(serverHelper.internalError(err.message));
 			return;
 		}
@@ -71,7 +71,7 @@ function GetFile(req, res, next){
 	// Make sure a file path was provided
 	if(!path){
 		const errorMsg = 'You must specify a file path';
-		log.warn(errorMsg);
+		log.warn("File Service GET: " + errorMsg);
 		return next(serverHelper.requestError(errorMsg));
 	}
 
@@ -81,7 +81,7 @@ function GetFile(req, res, next){
 		'Key': path
 	}, function(err, data){
 		if(err){
-			log.warn(err.message);
+			log.error("File Service GET: " + err.message);
 			res.send(serverHelper.internalError(err.message));
 			return;
 		}
@@ -124,14 +124,14 @@ function PutFile(req, res, next){
 	// Make sure a file path was provided
 	if(!path){
 		const errorMsg = 'You must specify a file path';
-		log.warn(errorMsg);
+		log.warn("File Service PUT: " + errorMsg);
 		return next(serverHelper.requestError(errorMsg));
 	}
 
 	// Make sure file data was provided
 	if(!Object.prototype.hasOwnProperty.call(req.body, 'data')){
 		const errorMsg = 'You must provide file data';
-		log.warn(errorMsg);
+		log.warn("File Service PUT: " + errorMsg);
 		return next(serverHelper.requestError(errorMsg));
 	}
 
@@ -141,7 +141,7 @@ function PutFile(req, res, next){
 	// Make sure the data is valid
 	if(fileBuffer.toString('base64') !== req.body.data){
 		const errorMsg = 'The data you supplied is not valid. It must be base64 encoded';
-		log.warn(errorMsg);
+		log.warn("File Service PUT: " + errorMsg);
 		return next(serverHelper.requestError(errorMsg));
 	}
 
@@ -152,7 +152,7 @@ function PutFile(req, res, next){
 		'Key': path
 	}, function(err){
 		if(err){
-			log.warn(err.message);
+			log.error("File Service PUT: " + err.message);
 			res.send(serverHelper.internalError(err.message));
 			return;
 		}
