@@ -31,16 +31,15 @@ const properties = {
 		],
 		'type': 'string'
 	},
-
-	// 'agency': {
-	// 'default': null,
-	// 'encrypted': false,
-	// 'required': false,
-	// 'rules': [
-	// Validator.id
-	// ],
-	// 'type': 'number'
-	// },
+	'agency': {
+		'default': null,
+		'encrypted': false,
+		'required': false,
+		'rules': [
+			validator.id
+		],
+		'type': 'number'
+	},
 	'email': {
 		'default': null,
 		'encrypted': true,
@@ -94,6 +93,15 @@ const properties = {
 			validator.phone
 		],
 		'type': 'string'
+	},
+	'primary': {
+		'default': null,
+		'encrypted': false,
+		'required': false,
+		'rules': [
+			validator.boolean
+		],
+		'type': 'boolean'
 	},
 	'territories': {
 		'default': [],
