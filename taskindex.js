@@ -114,7 +114,7 @@ async function main(){
 	if(global.settings.ENV === 'development' && global.settings.RUN_LOCAL_TASK && global.settings.RUN_LOCAL_TASK === 'YES'){
 		log.debug('Auto Running Task');
 		//require file.
-		const taskProcessor = require('./tasksystem/task-abandonapplication.js');
+		const taskProcessor = require('./tasksystem/task-test-outreach.js');
 		//run task
 		await taskProcessor.taskProcessorExternal().catch(function(err){
 			log.debug('taskProcessor error: ' + err);

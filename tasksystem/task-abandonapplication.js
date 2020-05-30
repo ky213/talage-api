@@ -2,6 +2,7 @@ const moment = require('moment');
 const crypt = global.requireShared('./services/crypt.js');
 const email = global.requireShared('./services/email.js');
 const slack = global.requireShared('./services/slack.js');
+const outreachsvc = global.requireShared('./services/outreachsvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 //const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
@@ -153,6 +154,8 @@ var processAbandonApp = async function (applicationId){
     }
 
     if(appDBJSON && appDBJSON.length > 0){
+
+
        
         const agencyNetwork = appDBJSON[0].agency_network; 
         //Get email content
@@ -254,29 +257,66 @@ var markApplicationProcess = async function (applicationId){
  * @returns {void}
  */
 var processTalageQuitters = async function(){
-    const datetimeFormat = 'YYYY-MM-DD hh:mm';
+    // const datetimeFormat = 'YYYY-MM-DD hh:mm';
     const oneHourAgo =  moment().subtract(1,'h');
     const twoHourAgo =  moment().subtract(2,'h');
-   
-    const updateAppSQL = `
-    UPDATE clw_talage_applications 
-        SET state = 10
-    WHERE ( agency IS NULL AND agency = 1 OR wholesale = 1 )
-        AND created BETWEEN  '${twoHourAgo.utc().format(datetimeFormat)}' AND '${oneHourAgo.utc().format(datetimeFormat)}'
-        AND last_step BETWEEN 1 AND 7
-        AND solepro  = 0
-        and abandoned_app_email = 0
-        AND state  = 1
+
+    //get contacts
+    const appSQL = `
+        SELECT
+            a.id as applicationId,
+            c.email as 'email',
+            c.fname as 'fname',
+            c.lname as 'lname',
+            c.phone as 'phone',
+            an.email_brand AS emailBrand
+        FROM clw_talage_applications AS a
+            LEFT JOIN clw_talage_agencies AS ag ON a.agency = ag.id
+            LEFT JOIN clw_talage_contacts AS c ON a.business = c.business
+        WHERE ( a.agency IS NULL AND a.agency = 1 OR a.wholesale = 1
+        AND a.created BETWEEN  '${twoHourAgo.utc().format()}' AND '${oneHourAgo.utc().format()}'
+        AND a.last_step BETWEEN 1 AND 7
+        AND a.solepro  = 0
+        and a.abandoned_app_email = 0
+        AND a.state  = 1
     `;
-    //log.debug(updateAppSQL)
+    
+    let appDBJSON = null;
+	try {
+        appDBJSON = await db.query(appSQL);
+    }
+    catch(err){
+        log.error(`Error getting Talage abandon applications from DB error:  ${err}`);
+        // Do not throw error other abandon applications may need to be processed.
+        return false;
+    }
 
-
-    await db.query(updateAppSQL).catch(function(e){
-        log.error('Abandon Application Talage or wholesale state update error: ' + e.message);
-        //do not throw error.  wholesale needs to run.
-        // throw e;
-    });
-
+    if(appDBJSON && appDBJSON.length > 0){
+        // Add to outreach
+        let updateDB = true;
+        for(let i = 0; i < appDBJSON.length; i++){
+            const contact= appDBJSON[i];
+            contactInfo = {"email": contact.email,
+                        "fname": contact.fname,
+                        "lname": contact.lname,
+                        "phone": contact.phone,
+            }
+            const outreachResponse = await outreachsvc.add_to_outreach(contactInfo, 'Quote Quitters' )
+            if(outreachResponse === false ){
+                updateDB = false;
+            }
+        }
+        if(updateDB === true ){
+            const updateAppSQL = `
+            UPDATE clw_talage_applications 
+                SET state = 10
+            WHERE a.id =  ${appDBJSON[i].applicationId}
+            `;
+            await db.query(updateAppSQL).catch(function(e){
+                log.error('Abandon Application Talage or wholesale state update error: ' + e.message);
+            });
+        }
+    }
     return;
 
 }
