@@ -181,7 +181,7 @@ async function getAgency(req, res, next){
 			SELECT
 				${db.quoteName('id')},
 				IF(${db.quoteName('state')} >= 1, 'Active', 'Inactive') AS ${db.quoteName('state')},
-				${db.quoteName('name', 'agencyName')},
+				${db.quoteName('name')},
 				${db.quoteName('ca_license_number', 'californiaLicenseNumber')},
 				${db.quoteName('email')},
 				${db.quoteName('fname')},
@@ -216,6 +216,13 @@ async function getAgency(req, res, next){
 	}
 
 	// Define some queries to get locations, pages and users
+	const allTerritoriesSQL = `
+		SELECT
+			\`abbr\`,
+			\`name\`
+		FROM \`clw_talage_territories\`
+		ORDER BY \`name\` ASC;
+	`;
 	const locationsSQL = `
 			SELECT
 				${db.quoteName('l.id')},
@@ -227,7 +234,7 @@ async function getAgency(req, res, next){
 				${db.quoteName('l.address2')},
 				${db.quoteName('z.city')},
 				${db.quoteName('z.territory')},
-				${db.quoteName('l.zip')},
+				LPAD(CONVERT(${db.quoteName('l.zip')},char), 5, '0') AS zip,
 				${db.quoteName('l.open_time', 'openTime')},
 				${db.quoteName('l.close_time', 'closeTime')},
 				${db.quoteName('l.primary')}
@@ -235,6 +242,22 @@ async function getAgency(req, res, next){
 			LEFT JOIN ${db.quoteName('#__zip_codes', 'z')} ON z.zip = l.zip
 			WHERE ${db.quoteName('l.agency')} = ${agent} AND l.state > 0;
 		`;
+	const networkInsurersSQL = `
+		SELECT
+			\`i\`.\`id\`,
+			\`i\`.\`logo\`,
+			\`i\`.\`name\`,
+		GROUP_CONCAT(\`it\`.\`territory\`) AS \`territories\`
+		FROM \`clw_talage_agency_network_insurers\` AS \`agi\`
+		LEFT JOIN \`clw_talage_insurers\` AS \`i\` ON \`agi\`.\`insurer\` = \`i\`.\`id\`
+		LEFT JOIN \`clw_talage_insurer_territories\` AS \`it\` ON \`i\`.\`id\` = \`it\`.\`insurer\`
+		WHERE
+			\`agi\`.\`agency_network\` = 1 AND
+			\`i\`.\`id\` IN (${req.authentication.insurers.join(',')}) AND
+			\`i\`.\`state\` = 1
+		GROUP BY \`i\`.\`id\`
+		ORDER BY \`i\`.\`name\` ASC;
+	`;
 	const pagesSQL = `
 			SELECT
 				${db.quoteName('id')},
@@ -262,7 +285,15 @@ async function getAgency(req, res, next){
 		`;
 
 	// Query the database
+	const allTerritories = await db.query(allTerritoriesSQL).catch(function(err){
+		log.error(err.message);
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+	});
 	const locations = await db.query(locationsSQL).catch(function(err){
+		log.error(err.message);
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+	});
+	const networkInsurers = await db.query(networkInsurersSQL).catch(function(err){
 		log.error(err.message);
 		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
@@ -282,15 +313,20 @@ async function getAgency(req, res, next){
 
 	// If this is an agency network user, get the insurers and territories
 	if(req.authentication.agencyNetwork && req.authentication.insurers.length && locationIDs.length){
+
 		// Define queries for insurers and territories
 		const insurersSQL = `
 				SELECT
-					${db.quoteName('i.id')},
+					${db.quoteName('i.id', 'insurer')},
 					${db.quoteName('i.logo')},
 					${db.quoteName('i.name')},
+					${db.quoteName('li.id')},
 					${db.quoteName('li.agency_location', 'locationID')},
-					${db.quoteName('li.agency_id', 'agencyID')},
-					${db.quoteName('li.agent_id', 'agentID')}
+					${db.quoteName('li.agency_id', 'agencyId')},
+					${db.quoteName('li.agent_id', 'agentId')},
+					${db.quoteName('li.bop')},
+					${db.quoteName('li.gl')},
+					${db.quoteName('li.wc')}
 				FROM ${db.quoteName('#__agency_location_insurers', 'li')}
 				LEFT JOIN ${db.quoteName('#__insurers', 'i')} ON ${db.quoteName('li.insurer')} = ${db.quoteName('i.id')}
 				WHERE
@@ -299,6 +335,7 @@ async function getAgency(req, res, next){
 					${db.quoteName('i.state')} > 0
 				ORDER BY ${db.quoteName('i.name')} ASC;
 			`;
+
 		const territoriesSQL = `
 				SELECT
 					${db.quoteName('lt.id')},
@@ -339,7 +376,7 @@ async function getAgency(req, res, next){
 	]);
 	const usersDecrypt = crypt.batchProcessObjectArray(users, 'decrypt', ['email']);
 	const insurersDecrypt = crypt.batchProcessObjectArray(insurers, 'decrypt', [
-		'agencyID', 'agentID'
+		'agencyId', 'agentId'
 	]);
 
 	// Wait for all data to decrypt
@@ -352,15 +389,25 @@ async function getAgency(req, res, next){
 	if(insurers.length || territories.length){
 		locations.forEach((location) => {
 			location.insurers = insurers.filter((insurer) => insurer.locationID === location.id);
-			location.territories = territories.filter((territory) => territory.locationID === location.id);
+			location.territories = territories.filter((territory) => territory.locationID === location.id).map(function(territory){
+				return territory.abbr;
+			});
 		});
 	}
+
+	// Convert the network insurer territory data into an array
+	networkInsurers.map(function(networkInsurer){
+		networkInsurer.territories = networkInsurer.territories.split(',');
+		return networkInsurer;
+	});
 
 	// Build the response
 	const response = {
 		...agency,
 		'locations': locations,
+		'networkInsurers': networkInsurers,
 		'pages': pages,
+		'territories': allTerritories,
 		'users': users
 	};
 
@@ -425,8 +472,8 @@ async function postAgency(req, res, next){
 		log.warn('territories are required');
 		return next(serverHelper.requestError('You must select at least one Territory'));
 	}
-	if(!Object.prototype.hasOwnProperty.call(req.body, 'agencyIDs') || typeof req.body.agencyIDs !== 'object' || Object.keys(req.body.agencyIDs).length < 1){
-		log.warn('agencyIDs are required');
+	if(!Object.prototype.hasOwnProperty.call(req.body, 'agencyIds') || typeof req.body.agencyIds !== 'object' || Object.keys(req.body.agencyIds).length < 1){
+		log.warn('agencyIds are required');
 		return next(serverHelper.requestError('You must enter at least one Agency ID'));
 	}
 
@@ -476,8 +523,8 @@ async function postAgency(req, res, next){
 	if(error){
 		return next(error);
 	}
-	for(let insurerID in req.body.agencyIDs){
-		if(Object.prototype.hasOwnProperty.call(req.body.agencyIDs, insurerID)){
+	for(let insurerID in req.body.agencyIds){
+		if(Object.prototype.hasOwnProperty.call(req.body.agencyIds, insurerID)){
 			// Convert the insurer ID into a number
 			insurerID = parseInt(insurerID, 10);
 
@@ -487,7 +534,7 @@ async function postAgency(req, res, next){
 			}
 
 			// Make sure the field wasn't left blank
-			if(!req.body.agencyIDs[insurerID]){
+			if(!req.body.agencyIds[insurerID]){
 				return next(serverHelper.requestError('An agency ID is required for each insurer.'));
 			}
 		}
@@ -499,7 +546,7 @@ async function postAgency(req, res, next){
 	const lastName = req.body.lastName;
 	const name = req.body.name;
 	const territories = req.body.territories;
-	const agencyIDs = req.body.agencyIDs;
+	const agencyIds = req.body.agencyIds;
 
 	// Make sure we don't already have an user tied to this email address
 	const emailHash = await crypt.hash(email);
@@ -568,10 +615,8 @@ async function postAgency(req, res, next){
 		'lastName'
 	]);
 
-	/*
-	 * Create the agency
-	 * log.debug('TO DO: We need a wholesale toggle switch on the screen, but hidden for some Agency Networks');
-	 */
+	// Create the agency
+	// Log.debug('TO DO: We need a wholesale toggle switch on the screen, but hidden for some Agency Networks');
 	const createAgencySQL = `
 			INSERT INTO ${db.quoteName('#__agencies')} (
 				${db.quoteName('name')},
@@ -602,7 +647,7 @@ async function postAgency(req, res, next){
 	}
 
 	// Get the ID of the new agency
-	const agencyID = createAgencyResult.insertId;
+	const agencyId = createAgencyResult.insertId;
 
 	// Create a default location for this agency
 	const createDefaultLocationSQL = `
@@ -613,7 +658,7 @@ async function postAgency(req, res, next){
 				${db.quoteName('lname')},
 				${db.quoteName('primary')}
 			) VALUES (
-				${db.escape(agencyID)},
+				${db.escape(agencyId)},
 				${db.escape(encrypted.email)},
 				${db.escape(encrypted.firstName)},
 				${db.escape(encrypted.lastName)},
@@ -655,14 +700,14 @@ async function postAgency(req, res, next){
 	}
 
 	// Store the insurers for this agency
-	const agencyIDValues = [];
-	for(const insurerID in agencyIDs){
-		if(Object.prototype.hasOwnProperty.call(agencyIDs, insurerID)){
+	const agencyIdValues = [];
+	for(const insurerID in agencyIds){
+		if(Object.prototype.hasOwnProperty.call(agencyIds, insurerID)){
 			// eslint-disable-next-line  no-await-in-loop
-			const insurerAgencyID = await crypt.encrypt(agencyIDs[insurerID]);
+			const insureragencyId = await crypt.encrypt(agencyIds[insurerID]);
 			// eslint-disable-next-line  no-await-in-loop
-			const insurerAgentID = await crypt.encrypt('placeholder-unsupported');
-			agencyIDValues.push(`(${db.escape(locationID)}, ${db.escape(insurerID)}, ${db.escape(insurerAgencyID)}, ${db.escape(insurerAgentID)}, 0, 0 ,1)`);
+			const insureragentId = await crypt.encrypt('placeholder-unsupported');
+			agencyIdValues.push(`(${db.escape(locationID)}, ${db.escape(insurerID)}, ${db.escape(insureragencyId)}, ${db.escape(insureragentId)}, 0, 0 ,1)`);
 		}
 	}
 	const associateInsurersSQL = `
@@ -674,7 +719,7 @@ async function postAgency(req, res, next){
 				${db.quoteName('bop')},
 				${db.quoteName('gl')},
 				${db.quoteName('wc')}
-			) VALUES ${agencyIDValues.join(',')};
+			) VALUES ${agencyIdValues.join(',')};
 		`;
 	await db.query(associateInsurersSQL).catch(function(e){
 		log.error(e.message);
@@ -689,7 +734,7 @@ async function postAgency(req, res, next){
 				${db.quoteName('slug')},
 				${db.quoteName('primary')}
 			) VALUES (
-				${db.escape(agencyID)},
+				${db.escape(agencyId)},
 				${db.escape('Get Quotes')},
 				${db.escape('get-quotes')},
 				${db.escape(1)}
@@ -706,7 +751,7 @@ async function postAgency(req, res, next){
 	const hashedPassword = await crypt.hashPassword(password);
 	const createUserSQL = `
 			INSERT INTO \`#__agency_portal_users\` (\`agency\`, \`can_sign\`, \`email\`, \`email_hash\`, \`group\`, \`password\`)
-			VALUES (${db.escape(agencyID)}, 1, ${db.escape(encrypted.email)}, ${db.escape(emailHash)}, 1, ${db.escape(hashedPassword)});
+			VALUES (${db.escape(agencyId)}, 1, ${db.escape(encrypted.email)}, ${db.escape(emailHash)}, 1, ${db.escape(hashedPassword)});
 		`;
 	log.info('creating user');
 	const createUserResult = await db.query(createUserSQL).catch(function(e){
@@ -725,7 +770,7 @@ async function postAgency(req, res, next){
 
 	// Return the response
 	res.send(200, {
-		'agencyID': agencyID,
+		'agencyId': agencyId,
 		'code': 'Success',
 		'message': 'Agency Created'
 	});
@@ -733,7 +778,7 @@ async function postAgency(req, res, next){
 }
 
 /**
- * Creates a single Agency
+ * Updates a single Agency
  *
  * @param {object} req - HTTP request object
  * @param {object} res - HTTP response object
@@ -764,9 +809,6 @@ async function updateAgency(req, res, next){
 		return next(serverHelper.requestError('No data was received'));
 	}
 
-	// Log the entire request
-	log.verbose(util.inspect(req.body, false, null));
-
 	// Validate the ID
 	if(!Object.prototype.hasOwnProperty.call(req.body, 'id')){
 		return next(serverHelper.requestError('ID missing'));
@@ -794,21 +836,23 @@ async function updateAgency(req, res, next){
 	const agency = new Agency();
 
 	// Load the request data into it
-	try{
-		await agency.load(req.body);
-	}catch(err){
-		return next(err);
+	await agency.load(req.body).catch(function(err){
+		error = err;
+	});
+	if(error){
+		return next(error);
 	}
 
-	//  Save the agency
-	try{
-		await agency.save();
-	}catch(err){
-		return next(err);
+	// Save the agency
+	await agency.save().catch(function(err){
+		error = err;
+	});
+	if(error){
+		return next(error);
 	}
 
 	// Send back a success response
-	res.send(200, 'Saved');
+	res.send(200, {'logo': agency.logo});
 	return next();
 }
 

@@ -174,10 +174,8 @@ async function PostApplications(req, res, next){
 		where += ` AND ${db.quoteName('a.agency')} IN(${agents.join(',')})`;
 	}
 
-	/*
-	 * ================================================================================
-	 * Get the total number of applications for this agency
-	 */
+	// ================================================================================
+	// Get the total number of applications for this agency
 	const applicationsTotalCountSQL = `
 			SELECT COUNT(DISTINCT ${db.quoteName('a.id')}) as count
 			FROM ${db.quoteName('#__applications', 'a')}
@@ -192,10 +190,8 @@ async function PostApplications(req, res, next){
 		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	}
 
-	/*
-	 * ================================================================================
-	 * Build the SQL search query
-	 */
+	// ================================================================================
+	// Build the SQL search query
 	let join = '';
 	// Add a text search clause if requested
 	if(req.params.searchText.length > 0){
@@ -231,10 +227,8 @@ async function PostApplications(req, res, next){
 			`;
 	}
 
-	/*
-	 * ================================================================================
-	 * Build the common SQL between the total count and paginated results
-	 */
+	// ================================================================================
+	// Build the common SQL between the total count and paginated results
 	const commonSQL = `
 			FROM ${db.quoteName('#__applications', 'a')}
 			LEFT JOIN ${db.quoteName('#__businesses', 'b')} ON ${db.quoteName('b.id')} = ${db.quoteName('a.business')}
@@ -247,11 +241,9 @@ async function PostApplications(req, res, next){
 				${where}
 		`;
 
-	/*
-	 * ================================================================================
-	 * Get the number of total applications in the query. This can change between requests as applications are added so it needs to be calculated
-	 * every time for proper pagination in the frontend.
-	 */
+	// ================================================================================
+	// Get the number of total applications in the query. This can change between requests as applications are added so it needs to be calculated
+	// Every time for proper pagination in the frontend.
 	const applicationsSearchCountSQL = `
 			SELECT COUNT(DISTINCT ${db.quoteName('a.id')}) as count
 			${commonSQL}
@@ -264,10 +256,8 @@ async function PostApplications(req, res, next){
 		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	}
 
-	/*
-	 * ================================================================================
-	 * Get the requested applications
-	 */
+	// ================================================================================
+	// Get the requested applications
 	const applicationsSQL = `
 			SELECT
 				DISTINCT ${db.quoteName('a.id')},

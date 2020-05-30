@@ -66,6 +66,7 @@ async function getApplication(req, res, next){
 				${db.quoteName('a.last_step', 'lastStep')},
 				${db.quoteName('a.solepro')},
 				${db.quoteName('a.waiver_subrogation', 'waiverSubrogation')},
+				${db.quoteName('b.website')},
 				${db.quoteName('a.wholesale')},
 				${db.quoteName('ag.name', 'agencyName')},
 				${db.quoteName('b.id', 'businessID')},
@@ -119,7 +120,8 @@ async function getApplication(req, res, next){
 		'fname',
 		'lname',
 		'owners',
-		'phone'
+		'phone',
+		'website'
 	]);
 
 	// Decode the owners
