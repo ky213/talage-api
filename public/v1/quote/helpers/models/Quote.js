@@ -123,7 +123,7 @@ module.exports = class Quote{
 				LEFT JOIN \`#__applications\` AS \`a\` ON \`a\`.\`id\` = \`q\`.\`application\`
 				WHERE \`q\`.\`id\` = ${db.escape(parseInt(id, 10))} AND \`q\`.\`state\` = 1 LIMIT 1;`;
 			const rows = await db.query(sql).catch(function(error){
-				log.error(error);
+				log.error("load quote error " + error);
 				had_error = true;
 			});
 
@@ -196,7 +196,7 @@ module.exports = class Quote{
 			// Check that this payment plan belongs to the insurer
 			const payment_plan_sql = `SELECT COUNT(\`id\`) FROM \`#__insurer_payment_plans\` WHERE \`payment_plan\` = ${db.escape(parseInt(payment_plan, 10))} AND \`insurer\` = ${db.escape(parseInt(this.insurer.id, 10))} LIMIT 1;`;
 			const payment_plan_rows = await db.query(payment_plan_sql).catch(function(error){
-				log.error(error);
+				log.error("DB payment plan SELECT error: " + error);
 				had_error = true;
 			});
 			if(had_error || !payment_plan_rows || payment_plan_rows.length !== 1 || !Object.prototype.hasOwnProperty.call(payment_plan_rows[0], 'COUNT(`id`)') || payment_plan_rows[0]['COUNT(`id`)'] !== 1){
