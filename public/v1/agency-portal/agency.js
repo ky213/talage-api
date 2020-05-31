@@ -226,6 +226,7 @@ async function getAgency(req, res, next){
 	const locationsSQL = `
 			SELECT
 				${db.quoteName('l.id')},
+				${db.quoteName('l.state')},
 				${db.quoteName('l.email')},
 				${db.quoteName('l.fname')},
 				${db.quoteName('l.lname')},
@@ -836,9 +837,6 @@ async function updateAgency(req, res, next){
 	req.body.locations.sort(function(a){
 		return a.primary ? 1 : -1;
 	});
-
-	const util = require('util');
-	util.inspect(req.body.locations);
 
 	// Initialize an agency object
 	const agency = new Agency();

@@ -9,7 +9,7 @@ const DatabaseObject = require('./DatabaseObject.js');
 const serverHelper = require('../../../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
 
-const constructors = {AgencyLocationInsurers};
+const constructors = {'AgencyLocationInsurers': AgencyLocationInsurers};
 
 // Define the properties of this class and their settings
 const properties = {
@@ -101,7 +101,14 @@ const properties = {
 		'rules': [
 			validator.boolean
 		],
-		'type': 'boolean'
+		'type': 'number'
+	},
+	'state': {
+		'default': 1,
+		'encrypted': false,
+		'required': false,
+		'rules': [],
+		'type': 'number'
 	},
 	'territories': {
 		'default': [],
@@ -140,7 +147,7 @@ module.exports = class AgencyLocation extends DatabaseObject{
 			// Check for needed data, if it is not present, skip
 			if(!this.id || !this.territories || !this.territories.length){
 				log.error('AgencyLocation associateTerritories() missing required data. Unable to run.');
-				reject(new serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 				return;
 			}
 
@@ -160,7 +167,7 @@ module.exports = class AgencyLocation extends DatabaseObject{
 			`;
 
 			// Run the query
-			await db.query(deleteSQL).catch(function(error){
+			await db.query(deleteSQL).catch(function(){
 				rejected = true;
 				reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 			});
@@ -176,7 +183,7 @@ module.exports = class AgencyLocation extends DatabaseObject{
 			`;
 
 			// Run the query
-			await db.query(associateSQL).catch(function(error){
+			await db.query(associateSQL).catch(function(){
 				rejected = true;
 				reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 			});
