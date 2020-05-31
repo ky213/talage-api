@@ -55,7 +55,6 @@ dir.files(__dirname, function (err, files) {
      for (var i = 0; i < files.length; i++) {
           var file = files[i];
           if (file.indexOf('node_modules') === -1
-                  && file.indexOf('public') === -1
                   && file.indexOf('tests') === -1
                   && file.indexOf('test') === -1
                   && file.indexOf('coverage') === -1

@@ -1,58 +1,69 @@
+'use strict';
+
 const moment = require('moment');
 
 
 /**
  * Checkin Records Task processor
  *
- * @param {string} message - message from queue
+ * @param {string} queueMessage - message from queue
  * @returns {void}
  */
-exports.processtask = async function (queueMessage){
+exports.processtask = async function(queueMessage){
 
-    // check sent time. over 30 minutes seconds do not process.
-    var sentDatetime = moment.unix(queueMessage.Attributes.SentTimestamp/1000).utc();
-    var now = moment().utc();
-    const messageAge = now.unix() - sentDatetime.unix();
-    if(messageAge < 1800){
-        // DO STUFF
-        try{
-            await checkinRecordsTask();
-            await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle);
+    if(queueMessage && queueMessage.Attributes && queueMessage.Attributes.SentTimestamp){
+        let error = null;
+        // Check sent time. over 30 minutes seconds do not process.
+        const sentDatetime = moment.unix(queueMessage.Attributes.SentTimestamp / 1000).utc();
+        const now = moment().utc();
+        const messageAge = now.unix() - sentDatetime.unix();
+        if(messageAge < 1800){
+            // DO STUFF
+
+            await checkinRecordsTask().catch(err => error = err);
+            await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err){
+                error = err;
+            });
+            if(error){
+                log.error("Error checkinRecordsTask deleteTaskQueueItem " + error);
+            }
+            return;
         }
-        catch(err){
-            log.error("Error checkinRecordsTask " + err);
-        } 
-        return;
+        else {
+            log.warn('removing old checkinRecordsTask Message from queue');
+            await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(err => error = err)
+            if(error){
+                log.error("Error checkinRecordsTask deleteTaskQueueItem old " + error);
+            }
+            return;
+        }
     }
     else {
-        log.debug('removing old checkinRecordsTask Message from queue');
-        await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle)
-        return;
+        log.error("Task Checkin bad queueMessage " + JSON.stringify(queueMessage));
+        return
     }
 }
 
 /**
  * Exposes checkinRecordsTask for testing
  *
- * @param {} 
  * @returns {void}
  */
-exports.taskProcessorExternal = async function (){
+exports.taskProcessorExternal = async function(){
     let error = null;
-    await checkinRecordsTask().catch(err => error = err );
+    const resp = await checkinRecordsTask().catch(err => error = err);
     if(error){
-        log.error ('abandonAppTask external: ' + error);
+        log.error('abandonAppTask external: ' + error);
     }
-    return;
+    return resp;
 }
 
 /**
  * Exposes checkinRecordsTask for testing
  *
- * @param {} 
  * @returns {void}
  */
-var checkinRecordsTask = async function (){
+var checkinRecordsTask = async function(){
 
     const tables = [
         'clw_talage_activity_codes',
@@ -60,18 +71,18 @@ var checkinRecordsTask = async function (){
         'clw_talage_agencies',
         'clw_talage_applications',
         'clw_talage_associations',
-        'clw_talage_businesses', 
-        'clw_talage_industry_codes', 
-        'clw_talage_industry_code_categories', 
+        'clw_talage_businesses',
+        'clw_talage_industry_codes',
+        'clw_talage_industry_code_categories',
         'clw_talage_insurers',
         'clw_talage_landing_pages',
         'clw_talage_messages',
-        'clw_talage_outages', 
+        'clw_talage_outages',
         'clw_talage_policies',
         'clw_talage_questions',
-        'clw_talage_territories'];
+        'clw_talage_territories'
+    ];
 
-    
     for(let i = 0; i < tables.length; i++){
         const updateSQL = `
             UPDATE ${tables[i]} 
@@ -83,12 +94,8 @@ var checkinRecordsTask = async function (){
         log.info("removing checkouts from " + tables[i])
         await db.query(updateSQL).catch(function(e){
             log.error(`Checkin records for table ${tables[i]} caused an error: ` + e.message);
+
         });
     }
-    return;
+    return true;
 }
-
-
-
-
-
