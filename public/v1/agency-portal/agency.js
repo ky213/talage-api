@@ -226,6 +226,7 @@ async function getAgency(req, res, next){
 	const locationsSQL = `
 			SELECT
 				${db.quoteName('l.id')},
+				${db.quoteName('l.state')},
 				${db.quoteName('l.email')},
 				${db.quoteName('l.fname')},
 				${db.quoteName('l.lname')},
