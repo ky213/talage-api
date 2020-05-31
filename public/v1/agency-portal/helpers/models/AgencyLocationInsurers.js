@@ -5,25 +5,24 @@
 'use strict';
 
 const DatabaseObject = require('./DatabaseObject.js');
-const serverHelper = require('../../../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
 
 // Define the properties of this class and their settings
 const properties = {
-	'agentId': { // The name of the property
-		'default': 'placeholder-unsupported', // Default value
+	'agencyId': { // The name of the property
+		'default': null, // Default value
 		'encrypted': true, // Whether or not it is encrypted before storing in the database
-		'required': false, // Whether or not it is required
+		'required': true, // Whether or not it is required
 		'rules': [],
 		'type': 'string' // The data type
+
 	},
-	'agencyId': {
-		'default': null,
+	'agentId': {
+		'default': 'placeholder-unsupported',
 		'encrypted': true,
-		'required': true,
+		'required': false,
 		'rules': [],
 		'type': 'string'
-
 	},
 	'agencyLocation': {
 		'default': 0,
@@ -59,10 +58,9 @@ const properties = {
 		'rules': [],
 		'type': 'number'
 	}
-	/*
-	bop
-	gl
-	*/
+
+	// Bop
+	// Gl
 };
 
 module.exports = class AgencyLocationInsurers extends DatabaseObject{

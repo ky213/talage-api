@@ -63,18 +63,19 @@ const requiredVariables = [
 exports.load = () => {
 	let variables = {};
 
-	if (fs.existsSync('local.env')) {
+	if(fs.existsSync('local.env')){
 		// Load the variables from the aws.env file if it exists
 		console.log('Loading settings from local.env file');
-		try {
-			variables = environment.parse(fs.readFileSync('local.env', { 'encoding': 'utf8' }));
-		} catch (error) {
+		try{
+			variables = environment.parse(fs.readFileSync('local.env', {'encoding': 'utf8'}));
+		}
+		catch(error){
 			console.log(colors.red(`\tError parsing aws.env: ${error}`));
 			return false;
 		}
-		if (settingsDebugOutput) {
+		if(settingsDebugOutput){
 			requiredVariables.forEach((variableName) => {
-				if (variables.hasOwnProperty(variableName)) {
+				if(variables.hasOwnProperty(variableName)){
 					console.log(colors.yellow(`\tSetting ${variableName}=${variables[variableName]}`));
 				}
 			});
@@ -84,8 +85,8 @@ exports.load = () => {
 	// Load the environment variables over the local.env variables
 	console.log('Loading settings from environment variables');
 	requiredVariables.forEach((variableName) => {
-		if (process.env.hasOwnProperty(variableName)) {
-			if (settingsDebugOutput) {
+		if(process.env.hasOwnProperty(variableName)){
+			if(settingsDebugOutput){
 				console.log(colors.yellow(`\t${variables.hasOwnProperty(variableName) ? 'Overriding' : 'Setting'} ${variableName}=${process.env[variableName]}`));
 			}
 			variables[variableName] = process.env[variableName];
@@ -100,8 +101,8 @@ exports.load = () => {
 	global.settings = variables;
 
 	// Ensure required variables exist and inject them into the global 'settings' object
-	for (let i = 0; i < requiredVariables.length; i++) {
-		if (!Object.prototype.hasOwnProperty.call(variables, requiredVariables[i])) {
+	for(let i = 0; i < requiredVariables.length; i++){
+		if(!Object.prototype.hasOwnProperty.call(variables, requiredVariables[i])){
 			console.log(colors.red(`\tError: missing variable '${requiredVariables[i]}'`));
 			return false;
 		}

@@ -149,7 +149,7 @@ async function getAgency(req, res, next){
 		return next(serverHelper.forbiddenError('You are not authorized to access this resource'));
 	}
 
-	// Check that query parameters were recieved
+	// Check that query parameters were received
 	if(!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
 		log.info('Bad Request: Query parameters missing');
 		return next(serverHelper.requestError('Query parameters missing'));
@@ -226,6 +226,7 @@ async function getAgency(req, res, next){
 	const locationsSQL = `
 			SELECT
 				${db.quoteName('l.id')},
+				${db.quoteName('l.state')},
 				${db.quoteName('l.email')},
 				${db.quoteName('l.fname')},
 				${db.quoteName('l.lname')},
@@ -831,6 +832,11 @@ async function updateAgency(req, res, next){
 		log.info('Forbidden: User is not authorized to delete this agency');
 		return next(serverHelper.forbiddenError('You are not authorized to delete this agency'));
 	}
+
+	// Ensure the primary location is loaded LAST in the array to prevent MySQL unique constraint errors when saving
+	req.body.locations.sort(function(a){
+		return a.primary ? 1 : -1;
+	});
 
 	// Initialize an agency object
 	const agency = new Agency();

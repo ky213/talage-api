@@ -4,9 +4,11 @@
 	"description": "Talage API",
 	"main": "index.js",
 	"scripts": {
-		"test": "echo \"Error: no test specified\" && exit 1",
 		"serve": "node index.js",
-		"lint": "eslint ./private/ ./public/ ./uptime/ ./shared/ *.js"
+		"lint": "eslint ./private/ ./public/ ./uptime/ ./shared/ *.js",
+		"test": "mocha --reporter spec",
+		"testnyc": "nyc --reporter=html mocha",
+		"testcoverage": "nyc --reporter=html mocha"
 	},
 	"repository": {
 		"type": "git",
@@ -50,10 +52,18 @@
 		"winston-elasticsearch": "0.8.5"
 	},
 	"devDependencies": {
-		"jshint": "^2.11.0",
-		"node-dir": "^0.1.17",
+		"chai": "^4.2.0",
 		"eslint": "6.8.0",
-		"eslint-plugin-deprecate": "0.7.0"
+		"eslint-config-prettier": "^6.11.0",
+		"eslint-plugin-deprecate": "0.7.0",
+		"jshint": "^2.11.0",
+		"mocha": "^7.2.0",
+		"node-dir": "^0.1.17",
+		"node-mocks-http": "^1.8.1",
+		"nyc": "^15.0.1",
+		"rewire": "^5.0.0",
+		"simple-mock": "^0.8.0",
+		"sinon": "^9.0.2"
 	},
 	"eslintConfig": {
 		"env": {
@@ -74,8 +84,7 @@
 			"ecmaVersion": 9
 		},
 		"plugins": [
-			"deprecate",
-			"talage"
+			"deprecate"
 		],
 		"rules": {
 			"accessor-pairs": "error",
@@ -92,21 +101,21 @@
 				}
 			],
 			"arrow-body-style": "error",
-			"arrow-parens": "error",
+			"arrow-parens": "off",
 			"arrow-spacing": "error",
 			"block-scoped-var": "error",
 			"block-spacing": [
 				"error",
 				"never"
 			],
-			"brace-style": "error",
+			"brace-style": ["error", "stroustrup", { "allowSingleLine": true }],
 			"callback-return": "error",
-			"capitalized-comments": "error",
+			"capitalized-comments": "off",
 			"comma-dangle": [
 				"error",
 				"never"
 			],
-			"comma-spacing": "error",
+			"comma-spacing": "off",
 			"comma-style": "error",
 			"computed-property-spacing": "error",
 			"consistent-this": "error",
@@ -127,7 +136,7 @@
 			"func-call-spacing": "error",
 			"func-name-matching": "error",
 			"func-style": [
-				"error",
+				"off",
 				"declaration"
 			],
 			"function-paren-newline": [
@@ -143,7 +152,7 @@
 				"beside"
 			],
 			"indent": [
-				"error",
+				"off",
 				"tab",
 				{
 					"SwitchCase": 1
@@ -161,8 +170,24 @@
 						"case": {
 							"after": true
 						},
+						"default": {
+							"after": true
+						},
+						"export": {
+							"after": true
+						},
+						"from": {
+							"after": true
+						},
+						"import": {
+							"after": true
+						},
 						"return": {
 							"after": true
+						},
+						"else": {
+							"after": true,
+							"before": true
 						}
 					}
 				}
@@ -178,7 +203,7 @@
 				"error",
 				"never"
 			],
-			"new-cap": "error",
+			"new-cap": "off",
 			"new-parens": "error",
 			"no-alert": "error",
 			"no-array-constructor": "error",
@@ -196,7 +221,6 @@
 			"no-constant-condition": "off",
 			"no-control-regex": "error",
 			"no-debugger": "error",
-			"talage/no-debug-statements": "error",
 			"no-delete-var": "error",
 			"no-div-regex": "error",
 			"no-dupe-args": "error",
@@ -204,7 +228,7 @@
 			"no-dupe-keys": "error",
 			"no-duplicate-case": "error",
 			"no-duplicate-imports": "error",
-			"no-else-return": "error",
+			"no-else-return": "off",
 			"no-empty": "error",
 			"no-empty-character-class": "error",
 			"no-empty-function": "error",
@@ -254,15 +278,15 @@
 			"no-octal-escape": "error",
 			"no-path-concat": "error",
 			"no-process-exit": "error",
-			"no-proto": "error",
-			"no-prototype-builtins": "error",
+			"no-proto": "off",
+			"no-prototype-builtins": "off",
 			"no-redeclare": "error",
 			"no-regex-spaces": "error",
 			"no-restricted-globals": "error",
 			"no-restricted-imports": "error",
 			"no-restricted-modules": "error",
 			"no-restricted-properties": "error",
-			"no-return-assign": "error",
+			"no-return-assign": "off",
 			"no-return-await": "error",
 			"no-script-url": "error",
 			"no-self-assign": "error",
@@ -287,14 +311,14 @@
 			"no-unused-expressions": "error",
 			"no-unused-labels": "error",
 			"no-unused-vars": "error",
-			"no-use-before-define": "error",
+			"no-use-before-define": "off",
 			"no-useless-call": "error",
 			"no-useless-computed-key": "error",
 			"no-useless-concat": "error",
 			"no-useless-constructor": "error",
 			"no-useless-rename": "error",
-			"no-useless-return": "error",
-			"no-var": "error",
+			"no-useless-return": "off",
+			"no-var": "off",
 			"no-void": "error",
 			"no-whitespace-before-property": "error",
 			"no-with": "error",
@@ -330,10 +354,10 @@
 			"prefer-numeric-literals": "error",
 			"prefer-promise-reject-errors": "error",
 			"prefer-rest-params": "error",
-			"prefer-template": "error",
+			"prefer-template": "off",
 			"quote-props": "error",
 			"quotes": [
-				"error",
+				"off",
 				"single",
 				{
 					"allowTemplateLiterals": true
@@ -343,11 +367,11 @@
 			"require-await": "off",
 			"require-jsdoc": "error",
 			"require-yield": "error",
-			"semi": "error",
+			"semi": "off",
 			"semi-spacing": "error",
 			"semi-style": "error",
-			"sort-keys": "error",
-			"sort-vars": "error",
+			"sort-keys": "off",
+			"sort-vars": "off",
 			"space-before-blocks": [
 				"error",
 				"never"
@@ -359,7 +383,7 @@
 			"space-in-parens": "error",
 			"space-infix-ops": "error",
 			"space-unary-ops": "error",
-			"spaced-comment": "error",
+			"spaced-comment": "off",
 			"strict": "error",
 			"switch-colon-spacing": "error",
 			"symbol-description": "error",
@@ -371,7 +395,7 @@
 			"use-isnan": "error",
 			"valid-jsdoc": "error",
 			"valid-typeof": "error",
-			"vars-on-top": "error",
+			"vars-on-top": "off",
 			"wrap-iife": [
 				"error",
 				"inside"

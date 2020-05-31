@@ -12,7 +12,7 @@ const serverHelper = require('../../../../../server.js');
 const{'v4': uuidv4} = require('uuid');
 const validator = global.requireShared('./helpers/validator.js');
 
-const constructors = {AgencyLocation};
+const constructors = {'AgencyLocation': AgencyLocation};
 
 // Define the properties of this class and their settings
 const properties = {
@@ -62,7 +62,7 @@ const properties = {
 		'type': 'string'
 	},
 	'locations': {
-		// 'associatedField': 'agency', // The ID of this object will be placed into this property
+		'associatedField': 'agency', // The ID of this object will be placed into this property
 		'class': 'AgencyLocation',
 		'default': [],
 		'encrypted': false,

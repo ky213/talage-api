@@ -5,7 +5,7 @@
 global.sharedPath = require('path').join(__dirname, 'shared');
 global.requireShared = (moduleName) => require(`${global.sharedPath}/${moduleName}`);
 
-const AWS = require('aws-sdk');
+
 const colors = require('colors');
 
 const logger = require('./shared/services/logger.js');
@@ -44,17 +44,19 @@ async function processQueue(){
 		if(status.success){
 			if(status.data.Messages && status.data.Messages.length >0){
 				const messages = status.data.Messages;
-				//log.debug(`Retrieved ${messages.length} messages`);
+				// log.debug(`Retrieved ${messages.length} messages`);
 				for(let i = 0; i < messages.length; i++){
 					// Set references to fields for convenience
 					const message = messages[i];
 					taskDistributor.distributeTask(message);
 				}
 			}
-		}else if(status === responseObject.errorQueueWaitTimeout){
+		}
+		else if(status === responseObject.errorQueueWaitTimeout){
 			// We timed out waiting for a message
 			await utility.Sleep(100);
-		}else{
+		}
+		else {
 			// We had an error waiting for a message. Add log entry
 			log.error(`ERROR: ${status.error}`);
 		}
@@ -114,15 +116,13 @@ async function main(){
 	if(global.settings.ENV === 'development' && global.settings.RUN_LOCAL_TASK && global.settings.RUN_LOCAL_TASK === 'YES'){
 		log.debug('Auto Running Task');
 		//require file.
-		const taskProcessor = require('./tasksystem/task-abandonapplication.js');
+		//const taskProcessor = require('./tasksystem/task-test-outreach.js');
 		//run task
-		await taskProcessor.taskProcessorExternal().catch(function(err){
-			log.debug('taskProcessor error: ' + err);
-		});
+		// await taskProcessor.taskProcessorExternal().catch(function(err){
+		// 	log.debug('taskProcessor error: ' + err);
+		// });
 		log.debug('Finished Running Task');
 	}
-
-	
 }
 
 main();

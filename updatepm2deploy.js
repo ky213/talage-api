@@ -56,7 +56,9 @@ else {
 function savepm2deployed(pm2json) {
     fs.writeFileSync(outputFile, JSON.stringify(pm2json, null, 2));
 
-    pm2json.name ="Task Processor"
+    pm2json.apps[0].name ="Task Processor"
+    pm2json.apps[0].script ="taskindex.js"
+
     fs.writeFileSync(outputFile2, JSON.stringify(pm2json, null, 2));
     process.exit(0);
 
