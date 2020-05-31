@@ -29,6 +29,7 @@ const requiredVariables = [
 	'DIGALENT_AGENTS_URL',
 	'DIGALENT_SITE_URL',
 	'TALAGE_AGENTS_URL',
+	'APPLICATION_URL',
 	// Internal Credentials
 	'AUTH_SECRET_KEY',
 	'ENCRYPTION_KEY',
