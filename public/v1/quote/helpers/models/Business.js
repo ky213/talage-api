@@ -647,11 +647,9 @@ module.exports = class Business{
 				}
 			}
 
-			/*
-			 * Years of Experience (conditionally required)
-			 * - Only required if founded less than 3 years ago
-			 * - Must be a number between 0 and 99
-			 */
+			// Years of Experience (conditionally required)
+			// - Only required if founded less than 3 years ago
+			// - Must be a number between 0 and 99
 			if(this.founded.isAfter(moment().subtract(3, 'years'))){
 				if(this.years_of_exp < 0 || this.years_of_exp > 99){
 					reject(serverHelper.requestError('Invalid value for property: years_of_exp. Value must be between 0 and 100 (not inclusive)'));

@@ -66,6 +66,7 @@ async function getApplication(req, res, next){
 				${db.quoteName('a.last_step', 'lastStep')},
 				${db.quoteName('a.solepro')},
 				${db.quoteName('a.waiver_subrogation', 'waiverSubrogation')},
+				${db.quoteName('b.website')},
 				${db.quoteName('a.wholesale')},
 				${db.quoteName('ag.name', 'agencyName')},
 				${db.quoteName('b.id', 'businessID')},
@@ -81,7 +82,7 @@ async function getApplication(req, res, next){
 				${db.quoteName('c.phone')},
 				${db.quoteName('z.city')},
 				${db.quoteName('z.territory')},
-				${db.quoteName('z.zip')},
+				LPAD(CONVERT(${db.quoteName('z.zip')},char), 5, '0') AS zip,
 				GROUP_CONCAT(${db.quoteName('apt.policy_type')}) AS policy_types
 			FROM ${db.quoteName('#__applications', 'a')}
 			LEFT JOIN ${db.quoteName('#__application_policy_types', 'apt')} ON ${db.quoteName('a.id')} = ${db.quoteName('apt.application')}
@@ -119,7 +120,8 @@ async function getApplication(req, res, next){
 		'fname',
 		'lname',
 		'owners',
-		'phone'
+		'phone',
+		'website'
 	]);
 
 	// Decode the owners

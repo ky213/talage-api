@@ -1,8 +1,8 @@
 'use strict';
 
-const validator = global.requireShared('./helpers/validator.js');
-const serverHelper = require('../../../server.js');
 const auth = require('./helpers/auth.js');
+const serverHelper = require('../../../server.js');
+const validator = global.requireShared('./helpers/validator.js');
 
 /**
  * Checks whether the provided agency has a primary page other than the current page
@@ -230,18 +230,16 @@ async function createLandingPage(req, res, next){
  * @returns {void}
  */
 async function deleteLandingPage(req, res, next){
+	let agency = null;
 	let error = false;
 
 	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req, 'pages', 'manage').catch(function(e){
+	await auth.validateJWT(req, req.authentication.agencyNetwork ? 'agencies' : 'pages', 'manage').catch(function(e){
 		error = e;
 	});
 	if(error){
 		return next(error);
 	}
-
-	// Determine the agency ID
-	const agency = req.authentication.agents[0];
 
 	// Check that query parameters were received
 	if(!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
@@ -249,7 +247,36 @@ async function deleteLandingPage(req, res, next){
 		return next(serverHelper.requestError('Query parameters missing'));
 	}
 
-	// Validate the ID
+	// Determine the agency ID
+	if(req.authentication.agencyNetwork){
+		// This is an agency network user, they can only modify agencies in their network
+
+		// Get the agencies that we are permitted to manage
+		const agencies = await auth.getAgents(req).catch(function(e){
+			error = e;
+		});
+		if(error){
+			return next(error);
+		}
+
+		// Validate the Agency ID
+		if(!Object.prototype.hasOwnProperty.call(req.query, 'agency')){
+			return next(serverHelper.requestError('Agency missing'));
+		}
+		if(!await validator.agent(req.query.agency)){
+			return next(serverHelper.requestError('Agency is invalid'));
+		}
+		if(!agencies.includes(parseInt(req.query.agency, 10))){
+			return next(serverHelper.requestError('Agency is invalid'));
+		}
+
+		agency = req.query.agency;
+	}else{
+		// This is an agency user, they can only handle their own agency
+		agency = req.authentication.agents[0];
+	}
+
+	// Validate the Landing Page ID
 	if(!Object.prototype.hasOwnProperty.call(req.query, 'id')){
 		return next(serverHelper.requestError('ID missing'));
 	}
@@ -261,8 +288,8 @@ async function deleteLandingPage(req, res, next){
 	// Make sure there is a primary page for this agency (we are not removing the primary page)
 	if(!await hasOtherPrimary(agency, id)){
 		// Log a warning and return an error
-		log.warn('This landing page is your primary page. You must make another page primary before deleting this one.');
-		return next(serverHelper.requestError('This landing page is your primary page. You must make another page primary before deleting this one.'));
+		log.warn('This landing page is the primary page. You must make another page primary before deleting this one.');
+		return next(serverHelper.requestError('This landing page is the primary page. You must make another page primary before deleting this one.'));
 	}
 
 	// Update the landing page (we set the state to -2 to signify that the user is deleted)
@@ -438,7 +465,6 @@ async function updateLandingPage(req, res, next){
 
 
 exports.registerEndpoint = (server, basePath) => {
-
 	server.addDeleteAuth('Delete Landing Page', `${basePath}/landing-page`, deleteLandingPage);
 	server.addGetAuth('Get Landing Page', `${basePath}/landing-page`, getLandingPage);
 	server.addPostAuth('Post Landing Page', `${basePath}/landing-page`, createLandingPage);

@@ -27,6 +27,7 @@ async function GetWholesaleAgreementLink(req, res, next){
 	// Get the information about this agent
 	const agentSql = `
 			SELECT
+				\`agency_network\`,
 				\`email\`,
 				\`fname\`,
 				\`lname\`
@@ -52,7 +53,7 @@ async function GetWholesaleAgreementLink(req, res, next){
 	const signingReq = await axios.post(`http://localhost:${global.settings.PRIVATE_API_PORT}/v1/docusign/embedded`, {
 		'email': email,
 		'name': `${firstName} ${lastName}`,
-		'returnUrl': `${global.settings.PORTAL_URL}/wholesale-agreement?token=${req.headers.authorization.replace('Bearer ', '')}`,
+		'returnUrl': `${agentInfo[0].agency_network === 2 ? global.settings.DIGALENT_AGENTS_URL : global.settings.PORTAL_URL}/wholesale-agreement`,
 		'template': global.settings.ENV === 'production' ? '7143efde-6013-4f4a-b514-f43bc8e97a63' : '5849d7ae-1ee1-4277-805a-248fd4bf71b7', // This is the template ID defined in our DocuSign account. It corresponds to the Talage Wholesale Agreement
 		'user': req.authentication.userID
 	}).

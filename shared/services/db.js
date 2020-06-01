@@ -129,8 +129,8 @@ exports.query = function(sql){
 		// Run the query on the database
 		conn.query(sql, function(err, rows){
 			if(err){
-				log.error(err);
-				log.info(sql);
+				log.error('db query error: ' + err);
+				log.info('sql: ' + sql);
 				// Docs-api had 'reject(new Error(err));'
 				reject(err);
 				return;
@@ -194,3 +194,21 @@ exports.rollback = function(connection){
 	connection.release();
 	log.info('Database transaction rolledback');
 };
+
+/**
+ * Modifies the String prototype and adds a new capability, 'toSnakeCase' which will convert
+ * the string to snake_case. Usage: string.toSnakeCase()
+ */
+// eslint-disable-next-line no-extend-native
+Object.defineProperty(String.prototype, 'toSnakeCase', {'value': function(){
+	return this.split(/(?=[A-Z])/).join('_').toLowerCase();
+}});
+
+/**
+ * Modifies the String prototype and adds a new capability, 'toCamelCase' which will convert
+ * the string to camelCase. Usage: string.toCamelCase()
+ */
+// eslint-disable-next-line no-extend-native
+Object.defineProperty(String.prototype, 'toCamelCase', {'value': function(){
+	return this.toLowerCase().replace(/[^a-zA-Z0-9]+(.)/g, (m, chr) => chr.toUpperCase());
+}});

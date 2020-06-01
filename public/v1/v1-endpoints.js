@@ -55,16 +55,16 @@ exports.registerEndpoints = (server) => {
 	// Agency portal
 	registerEndpoint(server, 'agency-portal', 'account');
 
-	/*
-	 * Activities removed in 1.5.0
-	 * registerEndpoint(server, 'agency-portal', 'activities');
-	 */
+	// Activities removed in 1.5.0
+	// RegisterEndpoint(server, 'agency-portal', 'activities');
 	registerEndpoint(server, 'agency-portal', 'agencies');
 	registerEndpoint(server, 'agency-portal', 'agency');
+	registerEndpoint(server, 'agency-portal', 'agency-user');
 	registerEndpoint(server, 'agency-portal', 'application');
 	registerEndpoint(server, 'agency-portal', 'applications');
 	registerEndpoint(server, 'agency-portal', 'banners');
 	registerEndpoint(server, 'agency-portal', 'change-password');
+	registerEndpoint(server, 'agency-portal', 'cityTerritory');
 	registerEndpoint(server, 'agency-portal', 'color-schemes');
 	registerEndpoint(server, 'agency-portal', 'create-agency');
 	registerEndpoint(server, 'agency-portal', 'landing-page');
@@ -80,6 +80,7 @@ exports.registerEndpoints = (server) => {
 	registerEndpoint(server, 'agency-portal', 'validate-token');
 	registerEndpoint(server, 'agency-portal', 'wholesale-agreement');
 	registerEndpoint(server, 'agency-portal', 'user');
+	registerEndpoint(server, 'agency-portal', 'userGroups');
 	registerEndpoint(server, 'agency-portal', 'users');
 
 	// Auth
@@ -106,10 +107,8 @@ exports.registerEndpoints = (server) => {
 	// Site
 	registerEndpoint(server, 'site', 'brand');
 
-	/*
-	 * Server.AddGet('Uptime Check', '/', GetUptime);
-	 * AWS load balancers and pingdom send /uptime
-	 */
+	// Server.AddGet('Uptime Check', '/', GetUptime);
+	// AWS load balancers and pingdom send /uptime
 	server.addGet('Uptime Check', '/uptime', getUptime);
 
 
