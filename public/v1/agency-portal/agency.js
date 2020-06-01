@@ -253,7 +253,6 @@ async function getAgency(req, res, next){
 		LEFT JOIN \`clw_talage_insurers\` AS \`i\` ON \`agi\`.\`insurer\` = \`i\`.\`id\`
 		LEFT JOIN \`clw_talage_insurer_territories\` AS \`it\` ON \`i\`.\`id\` = \`it\`.\`insurer\`
 		WHERE
-			\`agi\`.\`agency_network\` = 1 AND
 			\`i\`.\`id\` IN (${req.authentication.insurers.join(',')}) AND
 			\`i\`.\`state\` = 1
 		GROUP BY \`i\`.\`id\`
