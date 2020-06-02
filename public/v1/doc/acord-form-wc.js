@@ -750,7 +750,7 @@ async function GetACORDFormWC(req, res, next){
 						'style': styles.owner,
 						'text': 'EXC'
 					}
-				]);First
+				]);
 			}
 		} else {
 			missing_data.push(`Owners excluded, but no names given`);
