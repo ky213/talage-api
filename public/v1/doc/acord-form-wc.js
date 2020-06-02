@@ -73,6 +73,7 @@ async function GetACORDFormWC(req, res, next){
 					\`b\`.\`entity_type\`,
 					\`b\`.\`ncci_number\`,
 					\`b\`.\`owners\`,
+					\`b\`.\`num_owners\`,
 					\`i_code\`.\`sic\`,
 					\`i_code\`.\`naics\`,
 					\`i_code\`.\`description\` AS \`industry_description\`,
@@ -108,6 +109,7 @@ async function GetACORDFormWC(req, res, next){
 					\`a_c\`.\`payroll\`,
 					\`a\`.\`full_time_employees\`,
 					\`a\`.\`part_time_employees\`,
+					\`payment\`.\`name\` AS \`payment\`,
 					${req.query.insurer_id ? `\`insurers\`.\`name\` AS \`insurer\`,` : ''}
 					\`claims\`.\`id\`
 					FROM \`#__applications\` AS \`app\`
@@ -122,6 +124,8 @@ async function GetACORDFormWC(req, res, next){
 					LEFT JOIN \`#__industry_codes\` AS \`i_code\` ON \`b\`.\`industry_code\` = \`i_code\`.\`id\`
 					LEFT JOIN \`#__claims\` AS \`claims\` ON \`claims\`.\`application\` = \`app\`.\`id\`
 					LEFT JOIN \`#__address_activity_codes\` AS \`a_c\` ON \`a\`.\`id\` = \`a_c\`.\`address\`
+					LEFT JOIN \`#__policies\` AS \`policies\` ON \`policies\`.\`application\` =  \`app\`.\`id\`
+					LEFT JOIN \`#__payment_plans\` AS \`payment\` ON \`policies\`.\`payment_plan\` =  \`payment\`.\`id\`
 					${req.query.insurer_id ? `LEFT JOIN \`#__insurers\` AS \`insurers\` ON  \`insurers\`.\`id\` = ${req.query.insurer_id}` : ''}
 					WHERE  \`app\`.\`id\` = ${req.query.application_id}`;
 
@@ -257,6 +261,14 @@ async function GetACORDFormWC(req, res, next){
 		ein = `${ein.substr(0, 3)} - ${ein.substr(3, 2)} - ${ein.substr(5, 4)}`;
 	}
 
+	//Determine the payment plan (if it exists) so the correct check box can be marked
+	let other_payment_plan = true;
+	if(application_data[0].payment){
+		if(application_data[0].payment === 'Semi-Annual' || application_data[0].payment === 'Annual' || application_data[0].payment === 'Quarterly'){
+			other_payment_plan = false;
+		}
+	}
+
 	// Define font files
 	const fonts = {
 		'Courier': {
@@ -332,6 +344,10 @@ async function GetACORDFormWC(req, res, next){
 				'text': producer_email
 			},
 			{
+				'absolutePosition': positions.insurer_id,
+				'text': req.query.insurer_id ? req.query.insurer_id : ''
+			},
+			{
 				'absolutePosition': positions.company,
 				'text': application_data[0].insurer ? application_data[0].insurer : ''
 			},
@@ -378,6 +394,14 @@ async function GetACORDFormWC(req, res, next){
 			},
 			{
 				'absolutePosition': positions.billing_plan,
+				'text': 'X'
+			},
+			{
+				'absolutePosition': positions.payment_plan,
+				'text': other_payment_plan ? application_data[0].payment : ''
+			},
+			{
+				'absolutePosition': other_payment_plan ? positions.other_payment_plan_checkbox : positions[application_data[0].payment],
 				'text': 'X'
 			},
 			{
@@ -726,11 +750,18 @@ async function GetACORDFormWC(req, res, next){
 						'style': styles.owner,
 						'text': 'EXC'
 					}
-				]);
+				]);First
 			}
-		}else{
+		} else {
 			missing_data.push(`Owners excluded, but no names given`);
 		}
+	} else {
+		docDefinition.content = docDefinition.content.concat([
+			{
+				'absolutePosition': positions.owner,
+				'text': application_data[0].num_owners + ' OWNERS INCLUDED IN COVERAGE'
+			}
+			]);
 	}
 
 	// Group the NCCI codes

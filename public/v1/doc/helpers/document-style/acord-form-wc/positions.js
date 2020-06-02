@@ -14,6 +14,10 @@ module.exports = {
 		'x': 47,
 		'y': 70
 	},
+	'Annual': {
+		'x': 292,
+		'y': 241.5
+	},
 	'applicant_email': {
 		'x': 310,
 		'y': 147.5
@@ -206,6 +210,10 @@ module.exports = {
 		'x': 30,
 		'y': 225
 	},
+	'insurer_id': {
+		'x': 47,
+		'y': 196
+	},
 	'location': {
 		'x': locations_x,
 		'y': 310
@@ -226,6 +234,14 @@ module.exports = {
 		'x': 225,
 		'y': 90
 	},
+	'other_payment_plan': {
+		'x': 365,
+		'y': 243
+	},
+	'other_payment_plan_checkbox': {
+		'x': 354,
+		'y': 243
+	},
 	'owner': {
 		'x': 70,
 		'y': individuals_inc_exc_y
@@ -241,6 +257,10 @@ module.exports = {
 	'owner_loc_num': {
 		'x': 45,
 		'y': individuals_inc_exc_y
+	},
+	'payment_plan': {
+		'x': 370,
+		'y': 243
 	},
 	'producer_email': {
 		'x': 60,
@@ -261,6 +281,10 @@ module.exports = {
 	'proposed_exp_date': {
 		'x': 125,
 		'y': 398
+	},
+	'Quarterly': {
+		'x': 292,
+		'y': 268.5
 	},
 	'rating_sheet_class_code': {
 		'x': 55,
@@ -301,6 +325,10 @@ module.exports = {
 	'rating_sheet_total_pages': {
 		'x': 184,
 		'y': 26
+	},
+	'Semi-Annual': {
+		'x': 292,
+		'y': 254.5
 	},
 	'sic': {
 		'x': 477,
