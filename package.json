@@ -108,7 +108,13 @@
 				"error",
 				"never"
 			],
-			"brace-style": ["error", "stroustrup", { "allowSingleLine": true }],
+			"brace-style": [
+				"error",
+				"stroustrup",
+				{
+					"allowSingleLine": true
+				}
+			],
 			"callback-return": "error",
 			"capitalized-comments": "off",
 			"comma-dangle": [

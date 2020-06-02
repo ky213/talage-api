@@ -82,6 +82,7 @@ async function getApplication(req, res, next){
 				${db.quoteName('c.phone')},
 				${db.quoteName('z.city')},
 				${db.quoteName('z.territory')},
+				${db.quoteName('ad.unemployment_num', 'unemploymentNum')},
 				LPAD(CONVERT(${db.quoteName('z.zip')},char), 5, '0') AS zip,
 				GROUP_CONCAT(${db.quoteName('apt.policy_type')}) AS policy_types
 			FROM ${db.quoteName('#__applications', 'a')}
@@ -90,6 +91,7 @@ async function getApplication(req, res, next){
 			LEFT JOIN ${db.quoteName('#__contacts', 'c')} ON ${db.quoteName('c.business')} = ${db.quoteName('b.id')}
 			LEFT JOIN ${db.quoteName('#__zip_codes', 'z')} ON ${db.quoteName('z.zip')} = ${db.quoteName('b.mailing_zip')}
 			LEFT JOIN ${db.quoteName('#__agencies', 'ag')} ON ${db.quoteName('a.agency')} = ${db.quoteName('ag.id')}
+			LEFT JOIN ${db.quoteName('#__addresses', 'ad')} ON ${db.quoteName('a.business')} = ${db.quoteName('ad.business')} AND ${db.quoteName('ad.billing')} = 1
 			WHERE  ${db.quoteName('a.id')} = ${req.query.id} AND ${where}
 			GROUP BY ${db.quoteName('a.id')}
 			LIMIT 1;
