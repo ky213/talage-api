@@ -2,6 +2,9 @@
 
 const fs = require('fs');
 
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
+
 /**
  * Task Distributor
  *
@@ -21,16 +24,15 @@ exports.distributeTask = async function(queueMessage){
             taskProcessor.processtask(queueMessage);
         }
         else {
-            log.error('No Processor file for taskname ' + messageBody.taskname);
+            log.error('No Processor file for taskname ' + messageBody.taskname + __location);
         }
+        return true;
     }
     else {
         //Bad taskqueue message
-        log.error('Bad taskqueue message ' + JSON.stringify(queueMessage) );
+        log.error('Bad taskqueue message ' + JSON.stringify(queueMessage) + __location);
         //delete the message
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle);
-
+        return true;
     }
 }
-
-

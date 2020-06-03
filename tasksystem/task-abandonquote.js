@@ -199,13 +199,13 @@ var processAbandonQuote = async function(applicationId){
         }
 
         if(emailContentResultArray && emailContentResultArray.length > 0){
-            const emailContentResult = emailContentResultArray[0];
             //decrypt info...
             quotes[0].email = await crypt.decrypt(quotes[0].email);
             quotes[0].agencyEmail = await crypt.decrypt(quotes[0].agencyEmail);
             quotes[0].agencyPhone = await crypt.decrypt(quotes[0].agencyPhone);
             quotes[0].agencyWebsite = await crypt.decrypt(quotes[0].agencyWebsite);
 
+            const emailContentResult = emailContentResultArray[0];
             const customerEmailData = emailContentResult.customerEmailData ? JSON.parse(emailContentResult.customerEmailData) : null;
             const defaultCustomerEmailData = emailContentResult.defaultCustomerEmailData ? JSON.parse(emailContentResult.defaultCustomerEmailData) : null;
 
@@ -288,7 +288,7 @@ var processAbandonQuote = async function(applicationId){
                 const agencyEmailData = emailContentResult.agencyEmailData ? JSON.parse(emailContentResult.agencyEmailData) : null;
                 const defaultAgencyEmailData = emailContentResult.defaultAgencyEmailData ? JSON.parse(emailContentResult.defaultAgencyEmailData) : null;
 
-                const portalLink = global.settings.PORTAL_URL;
+                const portalLink = agencyNetwork === 1 ? global.settings.PORTAL_URL : global.settings.DIGALENT_AGENTS_URL;
 
                 // Format the full name and phone number
                 const fullName = stringFunctions.ucwords(stringFunctions.strtolower(quotes[0].fname) + ' ' + stringFunctions.strtolower(quotes[0].lname));
@@ -322,10 +322,10 @@ var processAbandonQuote = async function(applicationId){
                     'agency_location': quotes[0].agencyLocation
                 };
 
-                  emailResp = await email.send(quotes[0].agencyEmail, subject, message, keyData2, quotes[0].emailBrand);
-                  if(emailResp === false){
-                        slack('#alerts', 'warning','The system failed to inform an agency of the abandoned quote' + (quotes.length === 1 ? '' : 's') + ` for application ${applicationId}. Please follow-up manually.`);
-                    }
+                emailResp = await email.send(quotes[0].agencyEmail, subject, message, keyData2, quotes[0].emailBrand);
+                if(emailResp === false){
+                    slack('#alerts', 'warning','The system failed to inform an agency of the abandoned quote' + (quotes.length === 1 ? '' : 's') + ` for application ${applicationId}. Please follow-up manually.`);
+                }
 
                 // log.debug('Agency subject: ' + subject)
                 // log.debug('Agency message: ' + message)

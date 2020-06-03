@@ -27,7 +27,7 @@ async function PostEmail(req, res, next){
 
 	// Check for data
 	if(!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0){
-		log.warn("Email Service PostEmail: " + 'No data was received');
+		log.warn('Email Service PostEmail: No data was received');
 		return next(serverHelper.requestError('No data was received'));
 	}
 
@@ -118,9 +118,10 @@ async function PostEmail(req, res, next){
 				}
 
 				logoHTML = `<img alt="${agency[0].name}" src="https://${global.settings.S3_BUCKET}.s3-us-west-1.amazonaws.com/public/agency-logos/${agency[0].logo}" height="${imgInfo.height}" width="${imgInfo.width}">`;
-			}catch(e){
-				// This sucks, but we will fail back to the default email heading for safety
-				log.warn("Email Service PostEmail: " + `Agency ${req.body.agency} logo image not found. Defaulting to text for logo. (${e})`);
+			}
+			catch(e){
+				// we will fail back to the default email heading for safety
+				log.warn(`Email Service PostEmail: Agency ${req.body.agency} logo image not found. Defaulting to text for logo. (${e})`);
 			}
 		}
 
@@ -147,10 +148,30 @@ async function PostEmail(req, res, next){
 	}
 	to = to.replace(/^(.)(.*)(.)@(.*)$/, `$1****$3@$4`);
 
-	if(global.settings.ENV === 'development' && global.settings.OVERRIDE_EMAIL && global.settings.OVERRIDE_EMAIL === 'YES'){
-		to = global.settings.TEST_EMAIL
-		req.body.to = global.settings.TEST_EMAIL
-		log.debug('Overriding email: ' + req.body.to)
+	// DO NOT send non talageins.com email in development (local) or awsdev
+	// Scheduled tasks and db restores may lead to applications or agencies with "real" emails
+	// in dev databases.
+	if(global.settings.ENV === 'development' || global.settings.ENV === 'awsdev'){
+		// Hard override
+		if(global.settings.OVERRIDE_EMAIL && global.settings.OVERRIDE_EMAIL === 'YES' && global.settings.TEST_EMAIL){
+			to = global.settings.TEST_EMAIL
+			req.body.to = global.settings.TEST_EMAIL
+			log.debug('Overriding email: ' + req.body.to)
+		}
+		else if(req.body.to.endsWith('@talageins.com') === false && req.body.includes(',')){
+			// Soft override
+			// eslint-disable-next-line keyword-spacing
+			if(global.settings.TEST_EMAIL){
+				to = global.settings.TEST_EMAIL
+				req.body.to = global.settings.TEST_EMAIL
+			}
+			else {
+				const overrideEmail = 'brian@talageins.com'
+				to = overrideEmail;
+				req.body.to = overrideEmail;
+			}
+		}
+
 	}
 
 	log.verbose(util.inspect({
@@ -161,18 +182,27 @@ async function PostEmail(req, res, next){
 	}, false, null));
 
 	// Adjust the subject based on the environment
-	if(Object.prototype.hasOwnProperty.call(req.body, 'subject') && typeof req.body.subject === 'string'){
+	if(req.body && req.body.subject && typeof req.body.subject === 'string' && global.settings.ENV !== 'production'){
 		if(global.settings.ENV === 'test'){
 			req.body.subject = `[TEST] ${req.body.subject}`;
-		}else if(global.settings.ENV === 'development'){
+		}
+		else if(global.settings.ENV === 'development' || global.settings.ENV === 'awsdev'){
 			req.body.subject = `[DEV TEST] ${req.body.subject}`;
-		}else if(global.settings.ENV === 'staging'){
+		}
+		else if(global.settings.ENV === 'staging'){
 			req.body.subject = `[STA TEST] ${req.body.subject}`;
-		}else if(global.settings.ENV === 'demo'){
+		}
+		else if(global.settings.ENV === 'demo'){
 			req.body.subject = `[DEMO TEST] ${req.body.subject}`;
 		}
+		else {
+			//unknown or new env setting
+			log.error("email unknown ENV setting " + global.settings.ENV);
+			req.body.subject = `[DEV TEST] ${req.body.subject}`;
+
+		}
 	}
-	
+
 	// Set the Sendgrid API key
 	Sendgrid.setApiKey(global.settings.SENDGRID_API_KEY);
 
@@ -214,7 +244,8 @@ async function PostEmail(req, res, next){
 			const message = `Sendgrid returned the following errors: ${errors.join(', ')}`;
 			log.warn(`Email Failed: ${message}`);
 			res.send(serverHelper.requestError(message));
-		}else{
+		}
+		else {
 			// Some other type of error occurred
 			const message = 'An unexpected error was returned from Sendgrid. Check the logs for more information.';
 			log.error("Email Service PostEmail: " + message);

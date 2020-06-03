@@ -1,10 +1,14 @@
 /* eslint sort-keys: "off"*/
 
 'use strict';
+
+const moment = require('moment');
+
 // Add global helpers to load shared modules
 global.sharedPath = require('path').join(__dirname, 'shared');
 global.requireShared = (moduleName) => require(`${global.sharedPath}/${moduleName}`);
-
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 const colors = require('colors');
 
@@ -42,7 +46,7 @@ async function processQueue(){
 		// eslint-disable-next-line no-await-in-loop
 		const status = await queueHandler.getTaskQueueItem();
 		if(status.success){
-			if(status.data.Messages && status.data.Messages.length >0){
+			if(status.data.Messages && status.data.Messages.length > 0){
 				const messages = status.data.Messages;
 				// log.debug(`Retrieved ${messages.length} messages`);
 				for(let i = 0; i < messages.length; i++){
@@ -111,17 +115,27 @@ async function main(){
 		logLocalErrorMessage('Error initialzing  to queueHandler. Stopping.');
 		return;
 	}
-	log.debug('checking develop setting RUN_LOCAL_TASK ' + (global.settings.RUN_LOCAL_TASK ?  global.settings.RUN_LOCAL_TASK : "NO"))
-	//local development of tasks run one of the task.
+
+
+	log.debug('checking develop setting RUN_LOCAL_TASK ' + (global.settings.RUN_LOCAL_TASK ? global.settings.RUN_LOCAL_TASK : "NO"))
+
+	// local development of tasks run one of the task.
 	if(global.settings.ENV === 'development' && global.settings.RUN_LOCAL_TASK && global.settings.RUN_LOCAL_TASK === 'YES'){
 		log.debug('Auto Running Task');
-		//require file.
-		//const taskProcessor = require('./tasksystem/task-test-outreach.js');
-		//run task
-		// await taskProcessor.taskProcessorExternal().catch(function(err){
-		// 	log.debug('taskProcessor error: ' + err);
-		// });
-		log.debug('Finished Running Task');
+		const taskJson = {"taskname": "abandonapplication"};
+		const messageTS = moment().utc().valueOf();
+		const messageAtributes = {"SentTimestamp": messageTS};
+		const testMessage = {
+							"Body": JSON.stringify(taskJson),
+							"Attributes": messageAtributes,
+							"ReceiptHandle": "TEST"
+						};
+		const messageString = JSON.stringify(testMessage);
+		log.debug(messageString);
+		const resp = await taskDistributor.distributeTask(testMessage).catch(function(err){
+			log.debug('taskProcessor error: ' + err + __location);
+		});
+		log.debug('Finished Running Task' + resp);
 	}
 }
 
