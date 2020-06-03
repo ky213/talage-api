@@ -68,6 +68,7 @@ async function getApplication(req, res, next){
 				${db.quoteName('a.waiver_subrogation', 'waiverSubrogation')},
 				${db.quoteName('b.website')},
 				${db.quoteName('a.wholesale')},
+				${db.quoteName('ad.unemployment_num', 'unemploymentNum')},
 				${db.quoteName('ag.name', 'agencyName')},
 				${db.quoteName('b.id', 'businessID')},
 				${db.quoteName('b.name', 'businessName')},
@@ -76,13 +77,13 @@ async function getApplication(req, res, next){
 				${db.quoteName('b.mailing_address', 'address')},
 				${db.quoteName('b.mailing_address2', 'address2')},
 				${db.quoteName('b.owners')},
+				${db.quoteName('b.founded')},
 				${db.quoteName('c.email')},
 				${db.quoteName('c.fname')},
 				${db.quoteName('c.lname')},
 				${db.quoteName('c.phone')},
 				${db.quoteName('z.city')},
 				${db.quoteName('z.territory')},
-				${db.quoteName('ad.unemployment_num', 'unemploymentNum')},
 				LPAD(CONVERT(${db.quoteName('z.zip')},char), 5, '0') AS zip,
 				GROUP_CONCAT(${db.quoteName('apt.policy_type')}) AS policy_types
 			FROM ${db.quoteName('#__applications', 'a')}
