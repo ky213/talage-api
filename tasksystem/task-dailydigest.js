@@ -195,7 +195,7 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
             // Link setup.
             const portalLink = agencyNetwork === 1 ? global.settings.PORTAL_URL : global.settings.DIGALENT_AGENTS_URL;
 
-            let applicationList = '<br><table border="1" cellspacing="0" cellpadding="4" width="100%"><thead><tr><th>Business Name</th><th>Contact Name</th><th>Contact Email</th><th>Contact Phone</th><th>Wholesale</th><th>Sole Pro</th></tr></thead><tbody>';
+            let applicationList = '<br><table border="1" cellspacing="0" cellpadding="4" width="100%"><thead><tr><th>Business Name</th><th>Contact Name</th><th>Contact Email</th><th>Contact Phone</th><th>Wholesale</th></tr></thead><tbody>';
 
             appCount = appDBJSON.length;
             for(let i = 0; i < appDBJSON.length; i++){
@@ -209,10 +209,12 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
                 app.phone = await crypt.decrypt(appDB.phone);
                 app.phone = formatPhone(app.phone);
 
-                const wholesale = appDB.wholesale > 0 ? "Y" : "";
-                const solepro = appDB.solepro > 0 ? "Y" : "";
+                let wholesale = appDB.wholesale > 0 ? "Talage" : "";
+                if(appDB.solepro === 1){
+                    wholesale = "SolePro"
+                }
 
-                applicationList += '<tr><td>' + app.name + '</td><td>' + app.fname + ' ' + app.lname + '</td><td>' + app.email + '</td><td>' + app.phone + '</td><td>' + wholesale + '</td><td>' + solepro + '</td></tr>';
+                applicationList += '<tr><td>' + app.name + '</td><td>' + app.fname + ' ' + app.lname + '</td><td>' + app.email + '</td><td>' + app.phone + '</td><td>' + wholesale + '</td></tr>';
             }
 
             applicationList += '</tbody></table><br>';
