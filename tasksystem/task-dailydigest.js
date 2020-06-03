@@ -130,7 +130,9 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
             c.email,
             c.fname,
             c.lname,
-            c.phone
+            c.phone,
+            a.wholesale,
+            a.solepro
         FROM clw_talage_applications AS a
             LEFT JOIN clw_talage_businesses AS b ON b.id = a.business
             LEFT JOIN clw_talage_contacts AS c ON a.business = c.business
@@ -156,7 +158,6 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
             WHERE id = ${db.escape(agencyLocationDB.agency_network)}
             ORDER BY id DESC `;
 
-        log.debug(emailContentSQL);
         let error = null;
         const emailContentResultArray = await db.query(emailContentSQL).catch(function(err){
             log.error(`DB Error Unable to get email content for Daily Digest. agency_network: ${db.escape(agencyLocationDB.agency_network)}.  error: ${err}` + __location);
@@ -178,7 +179,6 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
             catch(e){
                 log.warn(`DailyDigest message JSON parse error: ${e}` + __location)
             }
-            log.debug(JSON.stringify(emailContentResult))
 
              // Determine which message and subject to use
             let message = emailContentResult.emailData && emailContentResult.emailData.message && emailContentResult.emailData.message !== "" ? emailContentResult.emailData.message : emailContentResult.defaultEmailData.message;
@@ -195,7 +195,7 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
             // Link setup.
             const portalLink = agencyNetwork === 1 ? global.settings.PORTAL_URL : global.settings.DIGALENT_AGENTS_URL;
 
-            let applicationList = '<br><table border="1" cellspacing="0" cellpadding="4" width="100%"><thead><tr><th>Business Name</th><th>Contact Name</th><th>Contact Email</th><th>Contact Phone</th></tr></thead><tbody>';
+            let applicationList = '<br><table border="1" cellspacing="0" cellpadding="4" width="100%"><thead><tr><th>Business Name</th><th>Contact Name</th><th>Contact Email</th><th>Contact Phone</th><th>Wholesale</th><th>Sole Pro</th></tr></thead><tbody>';
 
             appCount = appDBJSON.length;
             for(let i = 0; i < appDBJSON.length; i++){
@@ -209,7 +209,10 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
                 app.phone = await crypt.decrypt(appDB.phone);
                 app.phone = formatPhone(app.phone);
 
-                applicationList += '<tr><td>' + app.name + '</td><td>' + app.fname + ' ' + app.lname + '</td><td>' + app.email + '</td><td>' + app.phone + '</td></tr>';
+                const wholesale = appDB.wholesale > 0 ? "Y" : "";
+                const solepro = appDB.solepro > 0 ? "Y" : "";
+
+                applicationList += '<tr><td>' + app.name + '</td><td>' + app.fname + ' ' + app.lname + '</td><td>' + app.email + '</td><td>' + app.phone + '</td><td>' + wholesale + '</td><td>' + solepro + '</td></tr>';
             }
 
             applicationList += '</tbody></table><br>';
@@ -227,15 +230,13 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
             }
 
             const agencyLocationEmail = await crypt.decrypt(agencyLocationDB.agencyEmail);
-            log.debug('agencyLocationEmail: ' + agencyLocationEmail);
 
             const keyData = {'agency_location': agencyLocationDB.alid};
             // send email
             const emailResp = await email.send(agencyLocationEmail, subject, message, keyData, agencyLocationDB.emailBrand);
-            log.debug("emailResp: " + emailResp);
-            // if(emailResp === false){
-            //     slack('#alerts', 'warning',`The system failed to send daily digest email for Agency Location  #${agencyLocationDB.alid}.`);
-            // }
+            if(emailResp === false){
+                slack('#alerts', 'warning',`The system failed to send daily digest email for Agency Location  #${agencyLocationDB.alid}.`);
+            }
 
         }
         else {

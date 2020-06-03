@@ -199,13 +199,13 @@ var processAbandonQuote = async function(applicationId){
         }
 
         if(emailContentResultArray && emailContentResultArray.length > 0){
-            const emailContentResult = emailContentResultArray[0];
             //decrypt info...
             quotes[0].email = await crypt.decrypt(quotes[0].email);
             quotes[0].agencyEmail = await crypt.decrypt(quotes[0].agencyEmail);
             quotes[0].agencyPhone = await crypt.decrypt(quotes[0].agencyPhone);
             quotes[0].agencyWebsite = await crypt.decrypt(quotes[0].agencyWebsite);
 
+            const emailContentResult = emailContentResultArray[0];
             const customerEmailData = emailContentResult.customerEmailData ? JSON.parse(emailContentResult.customerEmailData) : null;
             const defaultCustomerEmailData = emailContentResult.defaultCustomerEmailData ? JSON.parse(emailContentResult.defaultCustomerEmailData) : null;
 
