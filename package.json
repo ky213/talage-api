@@ -26,6 +26,7 @@
 		"aws-sdk": "^2.656.0",
 		"axios": "^0.19.2",
 		"colors": "^1.4.0",
+		"csv": "^5.3.2",
 		"docusign-esign": "^5.3.0",
 		"dotenv": "^8.2.0",
 		"elasticsearch": "^16.7.1",
@@ -108,7 +109,13 @@
 				"error",
 				"never"
 			],
-			"brace-style": ["error", "stroustrup", { "allowSingleLine": true }],
+			"brace-style": [
+				"error",
+				"stroustrup",
+				{
+					"allowSingleLine": true
+				}
+			],
 			"callback-return": "error",
 			"capitalized-comments": "off",
 			"comma-dangle": [
@@ -160,9 +167,9 @@
 			],
 			"init-declarations": "error",
 			"jsx-quotes": "error",
-			"key-spacing": "error",
+			"key-spacing": "off",
 			"keyword-spacing": [
-				"error",
+				"off",
 				{
 					"before": false,
 					"after": false,
@@ -340,7 +347,7 @@
 			],
 			"operator-assignment": "error",
 			"operator-linebreak": [
-				"error",
+				"off",
 				"none"
 			],
 			"prefer-const": "error",
