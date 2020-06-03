@@ -66,8 +66,15 @@ async function getApplication(req, res, next){
 				${db.quoteName('a.last_step', 'lastStep')},
 				${db.quoteName('a.solepro')},
 				${db.quoteName('a.waiver_subrogation', 'waiverSubrogation')},
+				${db.quoteName('a.years_of_exp', 'yearsOfExp')},
 				${db.quoteName('b.website')},
 				${db.quoteName('a.wholesale')},
+				${db.quoteName('a.bop_effective_date', 'businessOwner\'sPolicyEffectiveDate')},
+				${db.quoteName('a.bop_expiration_date', 'businessOwner\'sPolicyExpirationDate')},
+				${db.quoteName('a.gl_effective_date', 'generalLiabilityEffectiveDate')},
+				${db.quoteName('a.gl_expiration_date', 'generalLiabilityExpirationDate')},
+				${db.quoteName('a.wc_effective_date', 'workers\'CompensationEffectiveDate')},
+				${db.quoteName('a.wc_expiration_date', 'workers\'CompensationExpirationDate')},
 				${db.quoteName('ad.unemployment_num', 'unemploymentNum')},
 				${db.quoteName('ag.name', 'agencyName')},
 				${db.quoteName('b.id', 'businessID')},
@@ -223,6 +230,8 @@ async function getApplication(req, res, next){
 			LEFT JOIN  ${db.quoteName('#__payment_plans', 'pay')} ON ${db.quoteName('pay.id')} = ${db.quoteName('p.payment_plan')}
 			LEFT JOIN  ${db.quoteName('#__insurers', 'i')} ON ${db.quoteName('i.id')} = ${db.quoteName('q.insurer')}
 			LEFT JOIN  ${db.quoteName('#__policy_types', 'pt')} ON ${db.quoteName('pt.abbr')} = ${db.quoteName('q.policy_type')}
+			LEFT JOIN  ${db.quoteName('#__applications', 'a')} ON ${db.quoteName('q.application')} = ${db.quoteName('a.id')}
+			
 			WHERE ${db.quoteName('q.application')} = ${req.query.id} AND ${db.quoteName('q.state')} = 1;
 		`;
 
