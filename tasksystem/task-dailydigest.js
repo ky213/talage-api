@@ -163,7 +163,6 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
         WHERE 
         a.agency_location = ${agencyLocationDB.alid}
         AND a.created BETWEEN  '${yesterdayBegin.utc().format()}' AND '${yesterdayEnd.utc().format()}'
-        AND a.last_step BETWEEN < 8
     `;
 
     let appDBJSON = null;
