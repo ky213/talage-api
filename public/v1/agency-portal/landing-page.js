@@ -60,6 +60,8 @@ async function validate(request, next){
 		'banner': '',
 		'colorScheme': 1,
 		'heading': null,
+		'industryCode': null,
+		'industryCodeCategory': null,
 		'name': '',
 		'slug': ''
 	};
@@ -68,6 +70,58 @@ async function validate(request, next){
 	const agency = request.authentication.agents[0];
 
 	// Validate each parameter
+
+	// About (optional)
+	if(Object.prototype.hasOwnProperty.call(request.body, 'about') && request.body.about){
+		// Strip out HTML
+		request.body.about = request.body.about.replace(/(<([^>]+)>)/ig, '');
+
+		// Check lengths
+		if(request.body.about.length > 400){
+			throw new Error('Reduce the length of your about text to less than 400 characters');
+		}
+
+		data.about = request.body.about;
+	}
+
+	// Banner (optional)
+	if(Object.prototype.hasOwnProperty.call(request.body, 'banner') && request.body.banner){
+		if(!await validator.banner(request.body.banner)){
+			throw new Error('Banner is invalid');
+		}
+		data.banner = request.body.banner;
+	}
+
+	// Color Scheme (a.k.a Theme)
+	if(Object.prototype.hasOwnProperty.call(request.body, 'colorScheme') && request.body.colorScheme){
+		// TO DO: Validate
+		data.colorScheme = request.body.colorScheme;
+	}
+
+	// Heading (optional)
+	if(Object.prototype.hasOwnProperty.call(request.body, 'heading') && request.body.heading){
+		if(request.body.heading.length > 70){
+			throw new Error('Heading must be less the 70 characters');
+		}else{
+			data.heading = request.body.heading;
+		}
+	}
+
+	// Industry Code Category (optional)
+	if(Object.prototype.hasOwnProperty.call(request.body, 'industryCodeCategory') && request.body.industryCodeCategory){
+		if(!await validator.industryCodeCategory(request.body.industryCodeCategory)){
+			throw new Error('Industry Code Category is invalid');
+		}
+		data.industryCodeCategory = request.body.industryCodeCategory;
+
+		// Industry Code (optional) - only applicable if an Industry Code Category is set
+		if(Object.prototype.hasOwnProperty.call(request.body, 'industryCode') && request.body.industryCode){
+			if(!await validator.industry_code(request.body.industryCode)){
+				throw new Error('Industry Code is invalid');
+			}
+			data.industryCode = request.body.industryCode;
+		}
+	}
 
 	// Name
 	if(!Object.prototype.hasOwnProperty.call(request.body, 'name') || !request.body.name){
@@ -86,40 +140,6 @@ async function validate(request, next){
 		throw new Error('Link is invalid');
 	}
 	data.slug = request.body.slug;
-
-	// Heading
-	if(Object.prototype.hasOwnProperty.call(request.body, 'heading') && request.body.heading){
-		if(request.body.heading.length > 70){
-			throw new Error('Heading must be less the 70 characters');
-		}else{
-			data.heading = request.body.heading;
-		}
-	}
-
-	// Banner
-	if(Object.prototype.hasOwnProperty.call(request.body, 'banner') && request.body.banner){
-		// TO DO: Validate
-		data.banner = request.body.banner;
-	}
-
-	// Color Scheme (a.k.a Theme)
-	if(Object.prototype.hasOwnProperty.call(request.body, 'colorScheme') && request.body.colorScheme){
-		// TO DO: Validate
-		data.colorScheme = request.body.colorScheme;
-	}
-
-	// About
-	if(Object.prototype.hasOwnProperty.call(request.body, 'about') && request.body.about){
-		// Strip out HTML
-		request.body.about = request.body.about.replace(/(<([^>]+)>)/ig, '');
-
-		// Check lengths
-		if(request.body.about.length > 400){
-			throw new Error('Reduce the length of your about text to less than 400 characters');
-		}
-
-		data.about = request.body.about;
-	}
 
 	// Check for duplicate name
 	const nameSQL = `
@@ -200,8 +220,8 @@ async function createLandingPage(req, res, next){
 
 	// Commit this update to the database
 	const sql = `
-			INSERT INTO \`#__agency_landing_pages\` (\`about\`, \`agency\`, \`banner\`, \`color_scheme\`, \`heading\`, \`name\`, \`slug\`)
-			VALUES (${db.escape(data.about)}, ${db.escape(agency)}, ${db.escape(data.banner)}, ${db.escape(data.colorScheme)}, ${db.escape(data.heading)}, ${db.escape(data.name)}, ${db.escape(data.slug)});
+			INSERT INTO \`#__agency_landing_pages\` (\`about\`, \`agency\`, \`banner\`, \`color_scheme\`, \`heading\`, \`industry_code\`, \`industry_code_category\`, \`name\`, \`slug\`)
+			VALUES (${db.escape(data.about)}, ${db.escape(agency)}, ${db.escape(data.banner)}, ${db.escape(data.colorScheme)}, ${db.escape(data.heading)}, ${db.escape(data.industry_code)}, ${db.escape(data.industry_code_category)}, ${db.escape(data.name)}, ${db.escape(data.slug)});
 		`;
 
 	// Run the query
@@ -361,6 +381,8 @@ async function getLandingPage(req, res, next){
 				\`about\`,
 				\`banner\`,
 				\`color_scheme\` AS 'colorScheme',
+				\`industry_code\` AS 'industryCode',
+				\`industry_code_category\` AS 'industryCodeCategory',
 				\`name\`,
 				\`slug\`,
 				\`primary\`,
@@ -409,7 +431,7 @@ async function updateLandingPage(req, res, next){
 	// Determine the agency ID
 	const agency = req.authentication.agents[0];
 
-	// Check that at least some post parameters were recieved
+	// Check that at least some post parameters were received
 	if(!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0){
 		log.info('Bad Request: Parameters missing');
 		return next(serverHelper.requestError('Parameters missing'));
@@ -440,6 +462,8 @@ async function updateLandingPage(req, res, next){
 				\`banner\` = ${db.escape(data.banner)},
 				\`color_scheme\` = ${db.escape(data.colorScheme)},
 				\`heading\` = ${db.escape(data.heading)},
+				\`industry_code\` = ${db.escape(data.industryCode)},
+				\`industry_code_category\` = ${db.escape(data.industryCodeCategory)},
 				\`name\` = ${db.escape(data.name)},
 				\`slug\` = ${db.escape(data.slug)}
 			WHERE \`id\` = ${db.escape(data.id)} AND \`agency\` = ${db.escape(agency)}
