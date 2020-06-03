@@ -158,7 +158,7 @@ async function PostEmail(req, res, next){
 			req.body.to = global.settings.TEST_EMAIL
 			log.debug('Overriding email: ' + req.body.to)
 		}
-		else if(req.body.to.endsWith('@talageins.com') === false && req.body.includes(',')){
+		else if(req.body.to.endsWith('@talageins.com') === false || req.body.includes(',')){
 			// Soft override
 			// eslint-disable-next-line keyword-spacing
 			if(global.settings.TEST_EMAIL){
