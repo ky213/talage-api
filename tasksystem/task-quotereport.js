@@ -22,7 +22,6 @@ exports.processtask = async function(queueMessage){
     var sentDatetime = moment.unix(queueMessage.Attributes.SentTimestamp / 1000).utc();
     var now = moment().utc();
     const messageAge = now.unix() - sentDatetime.unix();
-    //log.debug("messageAge: " + messageAge );
     if(messageAge < 1800){
         // DO STUFF
 
@@ -38,7 +37,7 @@ exports.processtask = async function(queueMessage){
         return;
     }
     else {
-        log.debug('removing old Abandon Application Message from queue');
+        log.info('removing old Abandon Application Message from queue');
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(err => error = err)
         if(error){
             log.error("Error quote report deleteTaskQueueItem old " + error + __location);
@@ -62,9 +61,6 @@ exports.taskProcessorExternal = async function(){
 }
 
 var quoteReportTask = async function(){
-
-
-   // const losAngeles = moment.tz("America/Los_Angeles");
 
     const yesterdayBegin = moment.tz("America/Los_Angeles").subtract(1,'d').startOf('day');
     const yesterdayEnd = moment.tz("America/Los_Angeles").subtract(1,'d').endOf('day');
@@ -94,12 +90,10 @@ var quoteReportTask = async function(){
     GROUP BY
         q.id
     `;
-    log.debug(quoteSQL)
     let quoteListDBJSON = null;
 
     quoteListDBJSON = await db.query(quoteSQL).catch(function(err){
         log.error(`Error get quote list from DB. error:  ${err}` + __location);
-        // Do not throw error other abandon applications may need to be processed.
         return false;
     });
     const cvsHeaderColumns = {
@@ -160,9 +154,7 @@ var quoteReportTask = async function(){
             };
             const attachments = [];
             attachments.push(attachmentJson);
-            log.debug('Sending email')
             const emailResp = await email.send(toEmail, 'Quote Report', 'Your daily quote report is attached.', {}, 'talage', 0, attachments);
-            log.debug("emailResp = " + emailResp);
             if(emailResp === false){
                 slack('#alerts', 'warning',`The system failed to send Quote Report email.`);
             }
