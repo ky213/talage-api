@@ -79,7 +79,14 @@
 			"log_auth": true,
 			"restify": true,
 			"server": true,
-			"validator": true
+			"validator": true,
+			"__file": true,
+			"__line": true,
+			"__location": true,
+			"describe": true,
+			"beforeEach": true,
+			"afterEach": true,
+			"it": true
 		},
 		"parserOptions": {
 			"ecmaVersion": 9
