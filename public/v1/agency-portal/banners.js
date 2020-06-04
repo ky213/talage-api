@@ -1,6 +1,6 @@
 'use strict';
 
-const request = require('request');
+const axios = require('axios');
 const serverHelper = require('../../../server.js');
 const auth = require('./helpers/auth.js');
 
@@ -24,25 +24,19 @@ async function GetBanners(req, res, next){
 		return next(error);
 	}
 
-
-	// Get a list of banners on the server
-	await request({
-		'method': 'GET',
-		'url': `http://localhost:${global.settings.PRIVATE_API_PORT}/v1/file/list?prefix=public/agency-banners`
-	}, function(err, response, body){
-		if(err){
-			log.error('Failed to get a list of banner files from the server.');
-			log.verbose(err);
-			res.send(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
-		}
-		// Prase teh body
-		const result = JSON.parse(body);
-
+	// Get the banner images from the file service
+	await axios.get(`http://localhost:${global.settings.PRIVATE_API_PORT}/v1/file/list?prefix=public/agency-banners`)
+	.then(function(response){
 		// Remove the first element as it is just the folder
-		result.shift();
+		response.data.shift();
 
 		// Parse and send the data back
-		res.send(200, result);
+		res.send(200, response.data);
+	})
+	.catch(function(err){
+		log.error('Failed to get a list of banner files from the server.');
+		log.verbose(err);
+		res.send(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	return next();

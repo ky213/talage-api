@@ -7,6 +7,8 @@
 const crypt = require('./crypt.js');
 const moment_timezone = require('moment-timezone');
 const request = require('request');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 /**
  * Sends an email to the address specified through our email service and saves the message data in the database
@@ -18,9 +20,10 @@ const request = require('request');
  * @param {object} keys - (optional) An object of property names and values to tie this email to, an be an application id, agencyLocation, or both (preferred)
  * @param {string} brand - (optional) The name of the brand to use for this email (Default is talage)
  * @param {int} agency - (optional) The ID of the agency whose branding will appear on the email (brand must be agency or digalent-agency)
+  @param {int} attachments - (optional) Array of JSON for attachments
  * @return {boolean} - True if successful; false otherwise
  */
-exports.send = async function(recipients, subject, content, keys = {}, brand = 'talage', agency = 0){
+exports.send = async function(recipients, subject, content, keys = {}, brand = 'talage', agency = 0, attachments){
 	// If we are in the test environment, don't send and just return true
 	if(global.settings.ENV === 'test'){
 		return true;
@@ -59,7 +62,7 @@ exports.send = async function(recipients, subject, content, keys = {}, brand = '
 	}
 
 	// If there were keys supplied, write the appropriate records to the database
-	if(typeof keys === 'object' && Object.keys(keys).length){
+	if(keys && typeof keys === 'object' && Object.keys(keys).length){
 		// Get the current time in the Pacific timezone
 		const now = moment_timezone.tz('America/Los_Angeles');
 
@@ -106,6 +109,9 @@ exports.send = async function(recipients, subject, content, keys = {}, brand = '
 		'subject': subject,
 		'to': recipients
 	};
+	if(attachments){
+		requestData.attachments = attachments;
+	}
 
 	// If an agency was supplied, add it to the request
 	if(agency){
