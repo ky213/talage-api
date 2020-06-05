@@ -246,5 +246,8 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
             return false;
         }
     }
+    else {
+        log.info(`DailyDigest: No Activity for Agency Location: ${db.escape(agencyLocationDB.alid)}.`)
+    }
     return true;
 }
