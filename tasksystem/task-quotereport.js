@@ -166,6 +166,15 @@ var quoteReportTask = async function(){
         }
     }
     else {
+        log.info("Quote Report: No quotes to report ");
+        let toEmail = 'adam@talageins.com';
+        if(global.settings.ENV !== 'production'){
+            toEmail = 'brian@talageins.com';
+        }
+        const emailResp = await email.send(toEmail, 'Quote Report', 'Your daily quote report: No Quotes.', {}, 'talage', 0);
+        if(emailResp === false){
+            slack('#alerts', 'warning',`The system failed to send Quote Report email.`);
+        }
         return;
     }
 }
