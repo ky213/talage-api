@@ -18,7 +18,7 @@ async function getApplication(req, res, next){
 
 	// Check for data
 	if(!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
-		log.info('Bad Request: No data received');
+		log.error('Bad Request: No data received ' + __location);
 		return next(serverHelper.requestError('Bad Request: No data received'));
 	}
 
@@ -27,6 +27,7 @@ async function getApplication(req, res, next){
 		error = e;
 	});
 	if(error){
+		log.error('Error get application validateJWT ' + error + __location);
 		return next(error);
 	}
 
@@ -35,18 +36,19 @@ async function getApplication(req, res, next){
 		error = e;
 	});
 	if(error){
+		log.error('Error get application getAgents ' + error + __location);
 		return next(error);
 	}
 
 	// Make sure basic elements are present
 	if(!req.query.id){
-		log.info('Bad Request: Missing ID');
+		log.error('Bad Request: Missing ID ' + __location);
 		return next(serverHelper.requestError('Bad Request: You must supply an ID'));
 	}
 
 	// Validate the application ID
 	if(!await validator.is_valid_id(req.query.id)){
-		log.info('Bad Request: Invalid id');
+		log.error('Bad Request: Invalid id ' + __location);
 		return next(serverHelper.requestError('Invalid id'));
 	}
 
@@ -88,6 +90,7 @@ async function getApplication(req, res, next){
 				${db.quoteName('b.mailing_address2', 'address2')},
 				${db.quoteName('b.owners')},
 				${db.quoteName('b.founded')},
+				${db.quoteName('b.entity_type', 'entityType')},
 				${db.quoteName('c.email')},
 				${db.quoteName('c.fname')},
 				${db.quoteName('c.lname')},
@@ -110,12 +113,13 @@ async function getApplication(req, res, next){
 
 	// Query the database
 	const applicationData = await db.query(sql).catch(function(err){
-		log.error(err.message);
+		log.error('Error get application database query ' + err.message + __location);
 		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Make sure an application was found
 	if(applicationData.length !== 1){
+		log.error('Error get application, application not found ' + __location);
 		return next(serverHelper.notFoundError('The application could not be found.'));
 	}
 
@@ -135,7 +139,7 @@ async function getApplication(req, res, next){
 		'owners',
 		'phone',
 		'website'
-	]);
+	])
 
 	// Decode the owners
 	application.owners = JSON.parse(application.owners);
