@@ -31,19 +31,19 @@ exports.send = async function(recipients, subject, content, keys = {}, brand = '
 
 	// Make sure we have recipients
 	if(!recipients || !recipients.length){
-		log.warn('Email helper: You must supply recipients when using send()');
+		log.warn('Email helper: You must supply recipients when using send()' + __location);
 		return false;
 	}
 
 	// Make sure we have a subject
 	if(typeof subject !== 'string' || !subject){
-		log.warn('Email helper: You must supply a subject when using send()');
+		log.warn('Email helper: You must supply a subject when using send()' + __location);
 		return false;
 	}
 
 	// Make sure we have content
 	if(typeof content !== 'string' || !content){
-		log.warn('Email helper: You must supply content when using send()');
+		log.warn('Email helper: You must supply content when using send()' + __location);
 		return false;
 	}
 
@@ -51,7 +51,7 @@ exports.send = async function(recipients, subject, content, keys = {}, brand = '
 	if(brand && typeof brand === 'string'){
 		brand = brand.toLowerCase();
 	}else{
-		log.warn('Email helper: Invalid brand supplied to send(), must be a string');
+		log.warn('Email helper: Invalid brand supplied to send(), must be a string' + __location);
 		return false;
 	}
 
@@ -128,8 +128,8 @@ exports.send = async function(recipients, subject, content, keys = {}, brand = '
 		error = true;
 		if(e){
 			// do not log emails....
-			log.error(`Email helper: Failed to send email.`);
-			log.verbose(e);
+			log.error(`Email helper: Failed to send email.` + __location);
+			log.verbose(e + __location);
 		}
 	});
 
