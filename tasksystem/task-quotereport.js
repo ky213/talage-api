@@ -7,7 +7,7 @@ const csvStringify = util.promisify(require("csv-stringify"));
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-const email = global.requireShared('./services/email.js');
+const email = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slack.js');
 
 /**

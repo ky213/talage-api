@@ -2,7 +2,7 @@
 
 const moment = require('moment');
 const crypt = global.requireShared('./services/crypt.js');
-const email = global.requireShared('./services/email.js');
+const email = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slack.js');
 // const outreachsvc = global.requireShared('./services/outreachsvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');

@@ -5,7 +5,7 @@
 'use strict';
 
 const util = require('util');
-const email = global.requireShared('./services/email.js');
+const email = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slack.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const get_questions = global.requireShared('./helpers/getQuestions.js');
