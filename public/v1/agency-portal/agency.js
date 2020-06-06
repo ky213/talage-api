@@ -226,6 +226,7 @@ async function getAgency(req, res, next){
 	const locationsSQL = `
 			SELECT
 				${db.quoteName('l.id')},
+				${db.quoteName('l.state')},
 				${db.quoteName('l.email')},
 				${db.quoteName('l.fname')},
 				${db.quoteName('l.lname')},
@@ -252,7 +253,6 @@ async function getAgency(req, res, next){
 		LEFT JOIN \`clw_talage_insurers\` AS \`i\` ON \`agi\`.\`insurer\` = \`i\`.\`id\`
 		LEFT JOIN \`clw_talage_insurer_territories\` AS \`it\` ON \`i\`.\`id\` = \`it\`.\`insurer\`
 		WHERE
-			\`agi\`.\`agency_network\` = 1 AND
 			\`i\`.\`id\` IN (${req.authentication.insurers.join(',')}) AND
 			\`i\`.\`state\` = 1
 		GROUP BY \`i\`.\`id\`
@@ -836,9 +836,6 @@ async function updateAgency(req, res, next){
 	req.body.locations.sort(function(a){
 		return a.primary ? 1 : -1;
 	});
-
-	const util = require('util');
-	util.inspect(req.body.locations);
 
 	// Initialize an agency object
 	const agency = new Agency();

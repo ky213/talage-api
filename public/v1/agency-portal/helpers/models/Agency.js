@@ -6,13 +6,13 @@
 
 const AgencyLocation = require('./AgencyLocation.js');
 const DatabaseObject = require('./DatabaseObject.js');
+const axios = require('axios');
 const imgSize = require('image-size');
-const request = require('request');
 const serverHelper = require('../../../../../server.js');
 const{'v4': uuidv4} = require('uuid');
 const validator = global.requireShared('./helpers/validator.js');
 
-const constructors = {AgencyLocation};
+const constructors = {'AgencyLocation': AgencyLocation};
 
 // Define the properties of this class and their settings
 const properties = {
@@ -168,29 +168,11 @@ module.exports = class Agency extends DatabaseObject{
 			}
 
 			// Remove the defunct logo from cloud storage
-			const options = {
-				'method': 'DELETE',
-				'url': `http://localhost:${global.settings.PRIVATE_API_PORT}/v1/file/file?path=public/agency-logos/${path}`
-			};
-
-			// Send the request
-			await request(options, function(e, response, body){
-				// If there was an error, reject
-				if(e){
-					rejected = true;
-					reject(serverHelper.internalError('Well, that wasn\’t supposed to happen. Please try again and if this continues please contact us. (Failed to delete old logo)'));
-					log.error('Failed to connect to file service.');
-					return;
-				}
-
-				// If the response was anything but a success, reject
-				if(response.statusCode !== 200){
-					// The response is JSON, parse out the error
-					rejected = true;
-					const message = `${response.statusCode} - ${body.message}`;
-					log.warn(message);
-					reject(serverHelper.internalError(message));
-				}
+			await axios.delete(`http://localhost:${global.settings.PRIVATE_API_PORT}/v1/file/file?path=public/agency-logos/${path}`)
+			.catch(function(){
+				rejected = true;
+				reject(serverHelper.internalError('Well, that wasn\’t supposed to happen. Please try again and if this continues please contact us. (Failed to delete old logo)'));
+				log.error('Failed to connect to file service.');
 			});
 			if(rejected){
 				return;
@@ -257,35 +239,15 @@ module.exports = class Agency extends DatabaseObject{
 					// Generate a random file name (defeats caching issues issues)
 					const fileName = `${this.id}-${uuidv4().substring(24)}.${extension}`;
 
-					// Store to S3
-					const options = {
-						'headers': {'content-type': 'application/json'},
-						'json': {
-							'data': logoData,
-							'path': `public/agency-logos/${fileName}`
-						},
-						'method': 'PUT',
-						'url': `http://localhost:${global.settings.PRIVATE_API_PORT}/v1/file/file`
-					};
-
-					// Send the request
-					await request(options, function(e, response, body){
-						// If there was an error, reject
-						if(e){
-							rejected = true;
-							reject(serverHelper.internalError('Well, that wasn\’t supposed to happen. Please try again and if this continues please contact us. (Failed to upload new logo)'));
-							log.error('Failed to connect to file service.');
-							return;
-						}
-
-						// If the response was anything but a success, reject
-						if(response.statusCode !== 200){
-							// The response is JSON, parse out the error
-							rejected = true;
-							const message = `${response.statusCode} - ${body.message}`;
-							log.warn(message);
-							reject(serverHelper.internalError(message));
-						}
+					// Store on S3
+					await axios.put(`http://localhost:${global.settings.PRIVATE_API_PORT}/v1/file/file`, {
+						'data': logoData,
+						'path': `public/agency-logos/${fileName}`
+					})
+					.catch(function(){
+						rejected = true;
+						reject(serverHelper.internalError('Well, that wasn\’t supposed to happen. Please try again and if this continues please contact us. (Failed to upload new logo)'));
+						log.error('Failed to connect to file service.');
 					});
 					if(rejected){
 						return;
