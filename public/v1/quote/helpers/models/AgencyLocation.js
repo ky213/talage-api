@@ -77,7 +77,7 @@ module.exports = class AgencyLocation{
 
 			// Wait for all queries to return
 			const results = await Promise.all(queries.map((sql) => db.query(sql))).catch(function(error){
-				log.error(error);
+				log.error("DB queries error: " + error);
 				reject(error);
 				hadError = true;
 			});
@@ -160,7 +160,8 @@ module.exports = class AgencyLocation{
 				if(!Object.keys(this.insurers).length){
 					missing.push('Insurers');
 				}
-			}else{
+			}
+			else {
 				missing.push('Insurers');
 			}
 
