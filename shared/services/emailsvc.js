@@ -165,8 +165,12 @@ exports.send = async function(recipients, subject, content, keys = {}, brand = '
 		const insertQuery = `INSERT INTO #__messages (${Object.keys(columns).join(',')}) VALUES (${Object.values(columns).map(function(val){
 			return db.escape(val);
 		}).join(',')})`;
-		db.query(insertQuery).catch(function(){
-			log.error('Unable to record email message in the database' + __location);
+		db.query(insertQuery).then(function(){
+			//log.debug(JSON.stringify(results));
+			//log.debug("id: " + results.insertId);
+
+		}).catch(function(err){
+			log.error('Unable to record email message in the database' + err + __location);
 		});
 	}
 

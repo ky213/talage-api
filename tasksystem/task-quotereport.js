@@ -8,7 +8,7 @@ const csvStringify = util.promisify(require("csv-stringify"));
 const tracker = global.requireShared('./helpers/tracker.js');
 
 const email = global.requireShared('./services/emailsvc.js');
-const slack = global.requireShared('./services/slack.js');
+const slack = global.requireShared('./services/slacksvc.js');
 
 /**
  * Quotereport Task processor
@@ -156,7 +156,7 @@ var quoteReportTask = async function(){
             attachments.push(attachmentJson);
             const emailResp = await email.send(toEmail, 'Quote Report', 'Your daily quote report is attached.', {}, 'talage', 0, attachments);
             if(emailResp === false){
-                slack('#alerts', 'warning',`The system failed to send Quote Report email.`);
+                slack.send('#alerts', 'warning',`The system failed to send Quote Report email.`);
             }
             return;
         }
@@ -173,7 +173,7 @@ var quoteReportTask = async function(){
         }
         const emailResp = await email.send(toEmail, 'Quote Report', 'Your daily quote report: No Quotes.', {}, 'talage', 0);
         if(emailResp === false){
-            slack('#alerts', 'warning',`The system failed to send Quote Report email.`);
+            slack.send('#alerts', 'warning',`The system failed to send Quote Report email.`);
         }
         return;
     }
