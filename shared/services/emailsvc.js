@@ -195,6 +195,7 @@ exports.send = async function(recipients, subject, content, keys = {}, brand = '
 
 		}
 	}
+	emailJSON.to = recipients;
 
 	// DO NOT send non talageins.com email in development (local) or awsdev
 	// Scheduled tasks and db restores may lead to applications or agencies with "real" emails
