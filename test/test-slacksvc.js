@@ -139,3 +139,51 @@ describe("Slacksvc Send, ", function (){
     });
 
 });
+
+
+describe("Slacksvc send2SlackJSON, ", function (){
+    //let sandbox = null;
+
+    beforeEach(function(done) {
+        simple.mock(log, 'error').callFn(function () {});
+        simple.mock(log, 'warn').callFn(function () {});
+        simple.mock(log, 'info').callFn(function () {});
+        simple.mock(log, 'debug').callFn(function () {});
+        simple.mock(log, 'silly').callFn(function () {});
+        simple.mock(log, 'verbose').callFn(function () {});
+        sinon.stub(db, "query");
+
+        global.settings.SLACK_DO_NOT_SEND = "YES";
+
+        done();
+    });
+
+    afterEach(function(done) {
+        simple.restore();
+        db.query.restore();
+        done();
+    });
+
+    it('SlackSvc.send2SlackJSON - good', async function(){
+
+        let error = null;
+
+        const slackData = {
+            'attachment': null,
+            'channel': 'debug',
+            'message': 'test message',
+            'message_type': 'ok'
+        };
+        const resp = await taskSlackSvc.send2SlackJSON(slackData).catch(err => error = err);
+        should.not.exist(error);
+        assert.equal(resp, true);
+    });
+
+    it('SlackSvc.send2SlackJSON - no input', async function(){
+
+        let error = null;
+        const resp = await taskSlackSvc.send2SlackJSON({}).catch(err => error = err);
+        should.exist(error);
+         assert.equal(resp, "Error: No data was received");
+    });
+});
