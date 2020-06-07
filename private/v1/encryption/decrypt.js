@@ -4,7 +4,7 @@
 
 'use strict';
 
-const crypt = require('./helpers/crypt.js');
+const crypt = global.requireShared('./services/crypt.js');
 const serverHelper = require('../../../server.js');
 
 /* -----==== Version 1 Functions ====-----*/

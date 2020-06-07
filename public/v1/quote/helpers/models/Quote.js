@@ -10,7 +10,7 @@ const Application = require('./Application.js');
 const Insurer = require('./Insurer.js');
 const Policy = require('./Policy.js');
 const fs = require('fs');
-const slack = global.requireShared('./services/slack.js');
+const slack = global.requireShared('./services/slacksvc.js');
 const serverHelper = require('../../../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
 
@@ -256,19 +256,19 @@ module.exports = class Quote{
 
 			switch(type){
 				case 'bound':
-					slack('customer_success', 'celebrate', '*Application Bound!*', attachment);
+					slack.send('customer_success', 'celebrate', '*Application Bound!*', attachment);
 					return;
 				case 'indication':
-					slack('customer_success', 'warning', '*Process Manually ASAP! Request to Bind Policy With Price Indication*', attachment);
+					slack.send('customer_success', 'warning', '*Process Manually ASAP! Request to Bind Policy With Price Indication*', attachment);
 					return;
 				case 'referred':
-					slack('customer_success', 'ok', '*Bind Requested but Referred*', attachment);
+					slack.send('customer_success', 'ok', '*Bind Requested but Referred*', attachment);
 					return;
 				case 'requested':
-					slack('customer_success', 'celebrate', '*Request to Bind Policy*', attachment);
+					slack.send('customer_success', 'celebrate', '*Request to Bind Policy*', attachment);
 					return;
 				default:
-					slack('alerts', 'error', `Quote API Bind Endpoint encountered unexpected Slack notification type of ${type}`);
+					slack.send('alerts', 'error', `Quote API Bind Endpoint encountered unexpected Slack notification type of ${type}`);
 			}
 		}
 	}

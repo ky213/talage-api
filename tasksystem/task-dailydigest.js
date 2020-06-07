@@ -2,8 +2,8 @@
 
 const moment = require('moment');
 const crypt = global.requireShared('./services/crypt.js');
-const email = global.requireShared('./services/email.js');
-const slack = global.requireShared('./services/slack.js');
+const email = global.requireShared('./services/emailsvc.js');
+const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 // eslint-disable-next-line no-unused-vars
@@ -237,7 +237,7 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
             // send email
             const emailResp = await email.send(agencyLocationEmail, subject, message, keyData, agencyLocationDB.emailBrand);
             if(emailResp === false){
-                slack('#alerts', 'warning',`The system failed to send daily digest email for Agency Location  #${agencyLocationDB.alid}.`);
+                slack.send('#alerts', 'warning',`The system failed to send daily digest email for Agency Location  #${agencyLocationDB.alid}.`);
             }
 
         }

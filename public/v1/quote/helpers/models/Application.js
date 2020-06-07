@@ -5,8 +5,8 @@
 'use strict';
 
 const util = require('util');
-const email = global.requireShared('./services/email.js');
-const slack = global.requireShared('./services/slack.js');
+const email = global.requireShared('./services/emailsvc.js');
+const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const get_questions = global.requireShared('./helpers/getQuestions.js');
 
@@ -571,11 +571,11 @@ module.exports = class Application{
 
 			// Send a message to Slack
 			if(all_had_quotes){
-				slack('customer_success', 'ok', 'Application completed and the user received ALL quotes', attachment);
+				slack.send('customer_success', 'ok', 'Application completed and the user received ALL quotes', attachment);
 			}else if(some_quotes){
-				slack('customer_success', 'ok', 'Application completed and only SOME quotes returned', attachment);
+				slack.send('customer_success', 'ok', 'Application completed and only SOME quotes returned', attachment);
 			}else{
-				slack('customer_success', 'warning', 'Application completed, but the user received NO quotes', attachment);
+				slack.send('customer_success', 'warning', 'Application completed, but the user received NO quotes', attachment);
 			}
 		}
 	}

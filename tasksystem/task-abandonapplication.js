@@ -2,8 +2,8 @@
 
 const moment = require('moment');
 const crypt = global.requireShared('./services/crypt.js');
-const email = global.requireShared('./services/email.js');
-const slack = global.requireShared('./services/slack.js');
+const email = global.requireShared('./services/emailsvc.js');
+const slack = global.requireShared('./services/slacksvc.js');
 // const outreachsvc = global.requireShared('./services/outreachsvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 
@@ -221,7 +221,7 @@ var processAbandonApp = async function(applicationId){
             const emailResp = await email.send(appDBJSON[0].email, subject, message, keys , appDBJSON[0].emailBrand, appDBJSON[0].agency);
             //log.debug("emailResp = " + emailResp);
             if(emailResp === false){
-               slack('#alerts', 'warning',`The system failed to remind the insured to revisit their application ${applicationId}. Please follow-up manually.`, {'application_id': applicationId});
+               slack.send('#alerts', 'warning',`The system failed to remind the insured to revisit their application ${applicationId}. Please follow-up manually.`, {'application_id': applicationId});
             }
             return true;
         }
