@@ -7,7 +7,7 @@
 const request = require('request');
 const util = require('util');
 // eslint-disable-next-line no-unused-vars
-const tracker = global.requireShared('./helpers/tracker.js');
+const tracker = global.requireShared('/helpers/tracker.js');
 
 /**
  * Gets all questions that match the provided information for a business
@@ -27,19 +27,19 @@ const tracker = global.requireShared('./helpers/tracker.js');
  */
 exports.send = async function(channel, message_type, message, attachment){
 	// Return a promise
-
+	// moving to right be for POST to slack.
 	// If we are are running automated tests, do not send
-	if(global.settings.ENV === 'test'){
-		return true;
-	}
+	// if(global.settings.ENV === 'test'){
+	// 	return true;
+	// }
 
 	// Build the data object to be sent
-	const slackData = JSON.stringify({
+	const slackData = {
 		'attachment': attachment,
 		'channel': channel,
 		'message': message,
 		'message_type': message_type
-	});
+	};
 
 	// Send the request
 
@@ -51,34 +51,6 @@ exports.send = async function(channel, message_type, message, attachment){
 	return slackResp;
 };
 
-// module.exports = function(channel, message_type, message, attachment){
-// 	// Return a promise
-// 	return new Promise((fullfil, reject) => {
-
-// 		// If we are are running automated tests, do not send
-// 		if(global.settings.ENV === 'test'){
-// 			fullfil(true);
-// 			return;
-// 		}
-
-// 		// Build the data object to be sent
-// 		const slackData = JSON.stringify({
-// 			'attachment': attachment,
-// 			'channel': channel,
-// 			'message': message,
-// 			'message_type': message_type
-// 		});
-
-// 		// Send the request
-
-// 		const slackResp = await send2SlackInternal(slackData).catch(function(err){
-// 			reject(err);
-// 		});
-
-// 		fulfill(slackResp);
-
-// 	});
-// };
 
 exports.send2SlackJSON = async function(slackReqJSON){
 
@@ -226,12 +198,12 @@ var send2SlackInternal = async function(slackReqJSON){
 		slackReqJSON.message_type = slackReqJSON.message_type.toLowerCase();
 
 		if(!/^[a-z]{1,10}$/.test(slackReqJSON.message_type)){
-			log.error(`Message type ${slackReqJSON.message_type} is not valid` + __location);
+			log.error(`send2SlackInternal: Message type ${slackReqJSON.message_type} is not valid` + __location);
 			throw new Error(`Message type ${slackReqJSON.message_type} is not valid`);
 		}
 
 		if(!valid_message_types.includes(slackReqJSON.message_type)){
-			log.warn(`Invalid message_type: ${slackReqJSON.message_type}. Message still sent to slack.`);
+			log.warn(`send2SlackInternal: Invalid message_type: ${slackReqJSON.message_type}. Message still sent to slack.` + __location);
 			response_messages.invalid_message_type = `Invalid message_type: ${slackReqJSON.message_type}. Message still sent to slack.`;
 		}
 
@@ -265,8 +237,9 @@ var send2SlackInternal = async function(slackReqJSON){
 			default:
 				break; // Everything has a default value already. See variable declarations
 		}
-	}else{
-		log.warn('Missing property: message_type');
+	}
+	else{
+		log.warn('send2SlackInternal: Missing property: message_type' + __location);
 		response_messages.missing_message_type = 'Missing property: message_type';
 	}
 
@@ -275,25 +248,25 @@ var send2SlackInternal = async function(slackReqJSON){
 	if(slackReqJSON.message){
 
 		if(typeof slackReqJSON.message !== 'string'){
-			log.error('Slack: Message must be given as a string'+ __location);
+			log.error('send2SlackInternal: Message must be given as a string' + __location);
 			throw new Error('Message must be a string');
 		}
 
 	}
 	else{
-		log.warn('Missing property: message');
+		log.error('send2SlackInternal: Missing property: message' + __location);
 		throw new Error('Missing property: message');
 	}
 
 	if(slackReqJSON.attachment){
 
 		if(slackReqJSON.attachment.title && typeof slackReqJSON.attachment.title !== 'string'){
-			log.error('Attachment title must be given as a string');
+			log.error('send2SlackInternal: Attachment title must be given as a string' + __location);
 			throw new Error('Attachment title must be given as a string');
 		}
 
 		if(slackReqJSON.attachment.text && typeof slackReqJSON.attachment.text !== 'string'){
-			log.warn('Attachment text must be given as a string');
+			log.error('send2SlackInternal: Attachment text must be given as a string' + __location);
 
 			throw new Error('Attachment text must be given as a string');
 		}
@@ -302,25 +275,25 @@ var send2SlackInternal = async function(slackReqJSON){
 		// Attachment_fields sanitization
 		if(slackReqJSON.attachment.fields){
 			if(typeof slackReqJSON.attachment.fields instanceof Array){
-				log.error('Attachment Fields must be given as an array of JSON objects');
+				log.error('send2SlackInternal: Attachment Fields must be given as an array of JSON objects' + __location);
 
 				throw new Error('Attachment Fields must be given as an array of JSON objects');
 			}
 
 			if(!slackReqJSON.attachment.fields.length){
-				log.warn('Attachment Fields must have at least one object');
+				log.warn('send2SlackInternal: Attachment Fields must have at least one object' + __location);
 				response_messages.empty_fields = 'Attachment Fields must have at least one object';
 			}
 
 			// Indexes are used so they can be given back to the user if something goes wrong
 			for(let i = 0; i < slackReqJSON.attachment.fields.length; ++i){
 				if(!slackReqJSON.attachment.fields[i].title){
-					log.error(`The field at index ${i} is missing title`);
+					log.error(`send2SlackInternal: The field at index ${i} is missing title` + __location);
 					throw new Error(`The field at index ${i} is missing title`);
 				}
 
 				if(!slackReqJSON.attachment.fields[i].value){
-					log.error(`The attachment field at index ${i} is missing value`);
+					log.error(`send2SlackInternal: The attachment field at index ${i} is missing value` + __location);
 					throw new Error(`The attachment field at index ${i} is missing value`);
 				}
 
@@ -333,12 +306,12 @@ var send2SlackInternal = async function(slackReqJSON){
 							slackReqJSON.attachment.fields[i].short = false;
 						}
 						else{
-							log.error(`The attachment field at index ${i} has short that is not true or false`);
+							log.error(`send2SlackInternal: he attachment field at index ${i} has short that is not true or false` + __location);
 							throw new Error(`The attachment field at index ${i} has short that is not true or false`);
 						}
 					}
 					else if(typeof slackReqJSON.attachment.fields[i].short !== 'boolean'){
-						log.error(`The attachment field at index ${i} has short that is not a boolean`);
+						log.error(`send2SlackInternal: The attachment field at index ${i} has short that is not a boolean` + __location);
 						throw new Error(`The attachment field at index ${i} has short that is not a boolean`);
 					}
 				}
@@ -349,7 +322,7 @@ var send2SlackInternal = async function(slackReqJSON){
 
 	// App ID sanitization
 	if(slackReqJSON.attachment && slackReqJSON.attachment.application_id && !/^\d{3,5}$/.test(slackReqJSON.attachment.application_id)){
-		log.error(`Application id ${slackReqJSON.attachment.application_id} is not valid`);
+		log.error(`send2SlackInternal: Application id ${slackReqJSON.attachment.application_id} is not valid` + __location);
 		throw new Error(`Application id ${slackReqJSON.attachment.application_id} is not valid`);
 
 	}
@@ -364,9 +337,11 @@ var send2SlackInternal = async function(slackReqJSON){
 	fallback_text = slackReqJSON.message;
 	if(fallback_text.indexOf('ALL quotes') !== -1){
 		fallback_text = `${slackReqJSON.attachment.text} and received ALL quotes`;
-	}else if(fallback_text.indexOf('SOME quotes') !== -1){
+	}
+	else if(fallback_text.indexOf('SOME quotes') !== -1){
 		fallback_text = `${slackReqJSON.attachment.text} and received SOME quotes`;
-	}else if(fallback_text.indexOf('NO quotes') !== -1){
+	}
+	else if(fallback_text.indexOf('NO quotes') !== -1){
 		fallback_text = `${slackReqJSON.attachment.text} and received NO quotes`;
 	}
 
@@ -430,6 +405,13 @@ var send2SlackInternal = async function(slackReqJSON){
 	}
 
 	log.info(`Post data: ${util.inspect(post_data)}`);
+
+	// eslint-disable-next-line no-extra-parens
+	if(global.settings.ENV === 'test' || (global.settings.SLACK_DO_NOT_SEND && global.settings.SLACK_DO_NOT_SEND === "YES")){
+		log.info("Not sending to Slack do to config")
+		return true;
+	}
+
 	await request.post('https://hooks.slack.com/services/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', {'json': post_data}, (error, slackRes, body) => {
 		if(error){
 			log.error("Slack API error: resp: " + slackRes + " error: " + error + " body " + body + __location);

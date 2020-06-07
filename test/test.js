@@ -1,4 +1,6 @@
-// TODO load index.js to get globals loaded ??
+/* eslint-disable no-unused-vars */
+'use strict';
+
 //global setup mimic index.js.
 global.sharedPath = require('path').join(__dirname, '../shared');
 global.requireShared = (moduleName) => require(`${global.sharedPath}${moduleName}`);
@@ -8,12 +10,13 @@ const globalSettings = require('../settings.js');
 const AWS = require('aws-sdk');
 const queueHandler = require('../tasksystem/queuehandler.js');
 
+// eslint-disable-next-line require-jsdoc
 function logLocalErrorMessage(message){
 	if(global.log){
 		log.error(message);
 	}
 	// eslint-disable-next-line no-console
-	console.log(colors.red(message));
+	console.log(message);
 }
 
 // ####### setup globals for mocking ###################################
@@ -32,7 +35,7 @@ if(!logger.connect()){
     return;
 }
 
-// DO NOT Connect to database for Unit tests.  
+// DO NOT Connect to database for Unit tests.
 //      DB connection and requests should be mocked.
 global.db = global.requireShared('/services/db.js');
 
@@ -43,5 +46,6 @@ global.s3 = new AWS.S3();
 global.queueHandler = queueHandler;
 
 
-// ##########  TESTS #################################
-var testTaskCheckinrecords = require('./test-task-checkinrecords.js')
+// // ##########  TESTS #################################
+// var testTaskCheckinrecords = require('./test-task-checkinrecords.js')
+// var testSlackSvc = require('./test-slacksvc.js')
