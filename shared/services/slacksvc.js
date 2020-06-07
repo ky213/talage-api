@@ -7,7 +7,7 @@
 const request = require('request');
 const util = require('util');
 // eslint-disable-next-line no-unused-vars
-const tracker = global.requireShared('./helpers/tracker.js');
+const tracker = global.requireShared('/helpers/tracker.js');
 
 /**
  * Gets all questions that match the provided information for a business
@@ -27,19 +27,19 @@ const tracker = global.requireShared('./helpers/tracker.js');
  */
 exports.send = async function(channel, message_type, message, attachment){
 	// Return a promise
-
+	// moving to right be for POST to slack.
 	// If we are are running automated tests, do not send
-	if(global.settings.ENV === 'test'){
-		return true;
-	}
+	// if(global.settings.ENV === 'test'){
+	// 	return true;
+	// }
 
 	// Build the data object to be sent
-	const slackData = JSON.stringify({
+	const slackData = {
 		'attachment': attachment,
 		'channel': channel,
 		'message': message,
 		'message_type': message_type
-	});
+	};
 
 	// Send the request
 
@@ -51,34 +51,6 @@ exports.send = async function(channel, message_type, message, attachment){
 	return slackResp;
 };
 
-// module.exports = function(channel, message_type, message, attachment){
-// 	// Return a promise
-// 	return new Promise((fullfil, reject) => {
-
-// 		// If we are are running automated tests, do not send
-// 		if(global.settings.ENV === 'test'){
-// 			fullfil(true);
-// 			return;
-// 		}
-
-// 		// Build the data object to be sent
-// 		const slackData = JSON.stringify({
-// 			'attachment': attachment,
-// 			'channel': channel,
-// 			'message': message,
-// 			'message_type': message_type
-// 		});
-
-// 		// Send the request
-
-// 		const slackResp = await send2SlackInternal(slackData).catch(function(err){
-// 			reject(err);
-// 		});
-
-// 		fulfill(slackResp);
-
-// 	});
-// };
 
 exports.send2SlackJSON = async function(slackReqJSON){
 
@@ -430,6 +402,11 @@ var send2SlackInternal = async function(slackReqJSON){
 	}
 
 	log.info(`Post data: ${util.inspect(post_data)}`);
+
+	if(global.settings.ENV === 'test'){
+		return true;
+	}
+
 	await request.post('https://hooks.slack.com/services/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', {'json': post_data}, (error, slackRes, body) => {
 		if(error){
 			log.error("Slack API error: resp: " + slackRes + " error: " + error + " body " + body + __location);
