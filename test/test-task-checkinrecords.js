@@ -12,6 +12,8 @@ var simple = require('simple-mock');
 //var rewire = require('rewire');
 var sinon = require('sinon');
 const moment = require('moment');
+// eslint-disable-next-line no-unused-vars
+var testGlobal = require('./test.js');
 
 
 var taskCheckinrecords = require('../tasksystem/task-checkinrecords.js')
