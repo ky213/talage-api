@@ -157,7 +157,7 @@ var send2SlackInternal = async function(slackReqJSON){
 
 	if(!slackReqJSON || typeof slackReqJSON !== 'object' || Object.keys(slackReqJSON).length === 0){
 		log.error('send2SlackInternal No data was received' + __location);
-		throw new Error('send2SlackInternal No data was received');
+		throw new Error('No data was received');
 	}
 
 	log.verbose(util.inspect(slackReqJSON) + __location);
