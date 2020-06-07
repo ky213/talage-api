@@ -4,7 +4,7 @@
 
 'use strict';
 
-const crypt = require('./helpers/crypt.js');
+const crypt = global.requireShared('./services/crypt.js');
 const serverHelper = require('../../../server.js').serverHelper;
 
 /* -----==== Version 1 Functions ====-----*/
@@ -40,6 +40,7 @@ async function PostHashPassword(req, res, next){
 }
 
 /* -----==== Endpoints ====-----*/
+// should require Auth - internal function during user creation.
 exports.registerEndpoint = (server, basePath) => {
 	server.addPost('Hash Password', `${basePath}/hash-password`, PostHashPassword);
 	server.addPost('Hash Password (depr)', `${basePath}/hashPassword`, PostHashPassword);
