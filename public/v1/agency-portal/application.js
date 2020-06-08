@@ -18,7 +18,7 @@ async function getApplication(req, res, next){
 
 	// Check for data
 	if(!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
-		log.info('Bad Request: No data received');
+		log.error('Bad Request: No data received ' + __location);
 		return next(serverHelper.requestError('Bad Request: No data received'));
 	}
 
@@ -27,6 +27,7 @@ async function getApplication(req, res, next){
 		error = e;
 	});
 	if(error){
+		log.error('Error get application validateJWT ' + error + __location);
 		return next(error);
 	}
 
@@ -35,18 +36,19 @@ async function getApplication(req, res, next){
 		error = e;
 	});
 	if(error){
+		log.error('Error get application getAgents ' + error + __location);
 		return next(error);
 	}
 
 	// Make sure basic elements are present
 	if(!req.query.id){
-		log.info('Bad Request: Missing ID');
+		log.error('Bad Request: Missing ID ' + __location);
 		return next(serverHelper.requestError('Bad Request: You must supply an ID'));
 	}
 
 	// Validate the application ID
 	if(!await validator.is_valid_id(req.query.id)){
-		log.info('Bad Request: Invalid id');
+		log.error('Bad Request: Invalid id ' + __location);
 		return next(serverHelper.requestError('Invalid id'));
 	}
 
@@ -66,8 +68,19 @@ async function getApplication(req, res, next){
 				${db.quoteName('a.last_step', 'lastStep')},
 				${db.quoteName('a.solepro')},
 				${db.quoteName('a.waiver_subrogation', 'waiverSubrogation')},
+				${db.quoteName('a.years_of_exp', 'yearsOfExp')},
 				${db.quoteName('b.website')},
 				${db.quoteName('a.wholesale')},
+				${db.quoteName('a.bop_effective_date', 'businessOwner\'sPolicyEffectiveDate')},
+				${db.quoteName('a.bop_expiration_date', 'businessOwner\'sPolicyExpirationDate')},
+				${db.quoteName('a.gl_effective_date', 'generalLiabilityEffectiveDate')},
+				${db.quoteName('a.gl_expiration_date', 'generalLiabilityExpirationDate')},
+				${db.quoteName('a.wc_effective_date', 'workers\'CompensationEffectiveDate')},
+				${db.quoteName('a.wc_expiration_date', 'workers\'CompensationExpirationDate')},
+				${db.quoteName('a.limits')},
+				${db.quoteName('a.wc_limits', 'wcLimits')},
+				${db.quoteName('a.deductible')},
+				${db.quoteName('ad.unemployment_num', 'unemploymentNum')},
 				${db.quoteName('ag.name', 'agencyName')},
 				${db.quoteName('b.id', 'businessID')},
 				${db.quoteName('b.name', 'businessName')},
@@ -76,6 +89,8 @@ async function getApplication(req, res, next){
 				${db.quoteName('b.mailing_address', 'address')},
 				${db.quoteName('b.mailing_address2', 'address2')},
 				${db.quoteName('b.owners')},
+				${db.quoteName('b.founded')},
+				${db.quoteName('b.entity_type', 'entityType')},
 				${db.quoteName('c.email')},
 				${db.quoteName('c.fname')},
 				${db.quoteName('c.lname')},
@@ -90,6 +105,7 @@ async function getApplication(req, res, next){
 			LEFT JOIN ${db.quoteName('#__contacts', 'c')} ON ${db.quoteName('c.business')} = ${db.quoteName('b.id')}
 			LEFT JOIN ${db.quoteName('#__zip_codes', 'z')} ON ${db.quoteName('z.zip')} = ${db.quoteName('b.mailing_zip')}
 			LEFT JOIN ${db.quoteName('#__agencies', 'ag')} ON ${db.quoteName('a.agency')} = ${db.quoteName('ag.id')}
+			LEFT JOIN ${db.quoteName('#__addresses', 'ad')} ON ${db.quoteName('a.business')} = ${db.quoteName('ad.business')} AND ${db.quoteName('ad.billing')} = 1
 			WHERE  ${db.quoteName('a.id')} = ${req.query.id} AND ${where}
 			GROUP BY ${db.quoteName('a.id')}
 			LIMIT 1;
@@ -97,12 +113,13 @@ async function getApplication(req, res, next){
 
 	// Query the database
 	const applicationData = await db.query(sql).catch(function(err){
-		log.error(err.message);
+		log.error('Error get application database query ' + err.message + __location);
 		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Make sure an application was found
 	if(applicationData.length !== 1){
+		log.error('Error get application, application not found ' + __location);
 		return next(serverHelper.notFoundError('The application could not be found.'));
 	}
 
@@ -122,7 +139,7 @@ async function getApplication(req, res, next){
 		'owners',
 		'phone',
 		'website'
-	]);
+	])
 
 	// Decode the owners
 	application.owners = JSON.parse(application.owners);
@@ -220,6 +237,8 @@ async function getApplication(req, res, next){
 			LEFT JOIN  ${db.quoteName('#__payment_plans', 'pay')} ON ${db.quoteName('pay.id')} = ${db.quoteName('p.payment_plan')}
 			LEFT JOIN  ${db.quoteName('#__insurers', 'i')} ON ${db.quoteName('i.id')} = ${db.quoteName('q.insurer')}
 			LEFT JOIN  ${db.quoteName('#__policy_types', 'pt')} ON ${db.quoteName('pt.abbr')} = ${db.quoteName('q.policy_type')}
+			LEFT JOIN  ${db.quoteName('#__applications', 'a')} ON ${db.quoteName('q.application')} = ${db.quoteName('a.id')}
+			
 			WHERE ${db.quoteName('q.application')} = ${req.query.id} AND ${db.quoteName('q.state')} = 1;
 		`;
 
