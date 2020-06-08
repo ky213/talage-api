@@ -128,20 +128,21 @@ exports.send = async function(recipients, subject, content, keys = {}, brand = '
 		emailJSON.html = emailJSON.html.replace('{{logo}}', logoHTML);
 	}
 
+	//Setup storing sent email.
+	// Get the current time in the Pacific timezone
+	const now = moment_timezone.tz('America/Los_Angeles');
+	// Begin populating a list of columns to insert into the database
+	const columns = {
+		'checked_out': '0',
+		'message': await crypt.encrypt(content),
+		'sent': now.format('YYYY-MM-DD HH:mm:ss'),
+		'subject': emailJSON.subject
+	};
+
+
 
 	// If there were keys supplied, write the appropriate records to the database
 	if(keys && typeof keys === 'object' && Object.keys(keys).length){
-		// Get the current time in the Pacific timezone
-		const now = moment_timezone.tz('America/Los_Angeles');
-
-		// Begin populating a list of columns to insert into the database
-		const columns = {
-			'checked_out': '0',
-			'message': await crypt.encrypt(content),
-			'sent': now.format('YYYY-MM-DD HH:mm:ss'),
-			'subject': emailJSON.subject
-		};
-
 		// Handle the Application key
 		if(Object.prototype.hasOwnProperty.call(keys, 'application') && typeof keys.application === 'number' && keys.application > 0){
 			// Add the application to the columns list
@@ -160,18 +161,6 @@ exports.send = async function(recipients, subject, content, keys = {}, brand = '
 			// Add the agencyLocation to the columns list
 			columns.agency_location = keys.agencyLocation;
 		}
-
-		// Store a record of this sent message
-		const insertQuery = `INSERT INTO #__messages (${Object.keys(columns).join(',')}) VALUES (${Object.values(columns).map(function(val){
-			return db.escape(val);
-		}).join(',')})`;
-		db.query(insertQuery).then(function(){
-			//log.debug(JSON.stringify(results));
-			//log.debug("id: " + results.insertId);
-
-		}).catch(function(err){
-			log.error('Unable to record email message in the database' + err + __location);
-		});
 	}
 
 	// Adjust the subject based on the environment
@@ -217,12 +206,17 @@ exports.send = async function(recipients, subject, content, keys = {}, brand = '
 				emailJSON.to = overrideEmail;
 			}
 		}
-
 	}
 
 	if(attachments){
 		emailJSON.attachments = attachments;
 	}
+
+	// Store mail before sending to SendGrid
+	// Store a record of this sent message
+	await saveEmailToDb(columns, emailJSON.to).catch(function(err){
+		log.error("saveEmailToDb error: " + err + __location);
+	});
 
 	const sendGridResp = await sendUsingSendGrid(emailJSON).catch(function(err){
 		log.error("SendUsingSendGrid error: " + err + __location);
@@ -231,6 +225,39 @@ exports.send = async function(recipients, subject, content, keys = {}, brand = '
 	return sendGridResp;
 
 };
+
+var saveEmailToDb = async function(columns, recipients){
+	const insertQuery = `INSERT INTO clw_talage_messages (${Object.keys(columns).join(',')}) VALUES (${Object.values(columns).map(function(val){
+		return db.escape(val);
+	}).join(',')})`;
+	let messagesId = null;
+	await db.query(insertQuery).then(function(results){
+		messagesId = results.insertId;
+	}).catch(function(err){
+		log.error('Unable to record email message in the database' + err + " sql: " + insertQuery + __location);
+		throw err;
+	});
+	if(messagesId){
+		log.debug('recipients:' + recipients)
+		//write to message_recipents table  clw_talage_message_recipients
+		const recipientsList = recipients.split(',');
+		let error = null;
+		for(let i = 0; i < recipientsList.length; i++){
+			const encryptRecipent = await crypt.encrypt(recipientsList[i]);
+			const hashRecipent = await crypt.hash(recipientsList[i]);
+			const insertQuery2 = `Insert INTO clw_talage_message_recipients (message,recipient,email_hash ) VALUES (${messagesId}, '${encryptRecipent}', '${hashRecipent}' )`
+			// eslint-disable-next-line no-loop-func
+			await db.query(insertQuery2).catch(function(errDb){
+				log.error('Unable to record email messager ecipient in the database' + errDb + " sql: " + insertQuery2 + __location);
+				error = errDb;
+			});
+		}
+		if(error){
+			throw error;
+		}
+	}
+	return true;
+}
 
 var sendUsingSendGrid = async function(emailJSON){
 
