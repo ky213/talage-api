@@ -30,7 +30,7 @@ function GetFileList(req, res){
 		'Prefix': prefix
 	}, function(err, data){
 		if(err){
-			log.error("File Service LIST: " + err.message);
+			log.error("File Service LIST: " + err.message + __location);
 			res.send(serverHelper.internalError(err.message));
 			return;
 		}
