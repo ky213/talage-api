@@ -7,7 +7,7 @@
 		"serve": "node index.js",
 		"lint": "eslint ./private/ ./public/ ./uptime/ ./shared/ *.js",
 		"test": "mocha --reporter mochawesome",
-		"testnyc": "nyc --reporter mochawesome mocha",
+		"testnyc": "nyc --reporter html mocha",
 		"testcoverage": "nyc --reporter html mocha"
 	},
 	"repository": {
