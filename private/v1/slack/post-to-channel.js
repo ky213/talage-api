@@ -83,7 +83,7 @@ async function PostToChannel(req, res, next){
 
 	}
 	else{
-		log.warn('Missing property: channel. Defaulted to #debug.');
+		log.warn('Missing property: channel. Defaulted to #debug.' + __location);
 		response_messages.missing_channel = 'Missing Property: channel. Defaulted to #debug.';
 		req.body.channel = '#debug';
 	}
@@ -105,7 +105,7 @@ async function PostToChannel(req, res, next){
 		}
 
 		if(!valid_message_types.includes(req.body.message_type)){
-			log.warn(`Invalid message_type: ${req.body.message_type}. Message still sent to slack.`);
+			log.warn(`Invalid message_type: ${req.body.message_type}. Message still sent to slack.` + __location);
 			response_messages.invalid_message_type = `Invalid message_type: ${req.body.message_type}. Message still sent to slack.`;
 		}
 	}
@@ -119,7 +119,7 @@ async function PostToChannel(req, res, next){
 	if(req.body.message){
 
 		if(typeof req.body.message !== 'string'){
-			log.warn('Message must be given as a string');
+			log.warn('Message must be given as a string' + __location);
 
 			const response = {
 				'error': true,
@@ -132,7 +132,7 @@ async function PostToChannel(req, res, next){
 
 	}
 	else{
-		log.warn('Missing property: message');
+		log.warn('Missing property: message' + __location);
 
 		const response = {
 			'error': true,
@@ -160,7 +160,7 @@ async function PostToChannel(req, res, next){
 		}
 
 		if(req.body.attachment.text && typeof req.body.attachment.text !== 'string'){
-			log.warn('Attachment text must be given as a string');
+			log.warn('Attachment text must be given as a string' + __location);
 
 			const response = {
 				'error': true,
@@ -176,7 +176,7 @@ async function PostToChannel(req, res, next){
 		// Attachment_fields sanitization
 		if(req.body.attachment.fields){
 			if(typeof req.body.attachment.fields instanceof Array){
-				log.warn('Attachment Fields must be given as an array of JSON objects');
+				log.warn('Attachment Fields must be given as an array of JSON objects' + __location);
 
 				const response = {
 					'Attachment Fields': 'Attachment Fields must be given as an array of JSON objects',
@@ -189,14 +189,14 @@ async function PostToChannel(req, res, next){
 			}
 
 			if(!req.body.attachment.fields.length){
-				log.warn('Attachment Fields must have at least one object');
+				log.warn('Attachment Fields must have at least one object' + __locations);
 				response_messages.empty_fields = 'Attachment Fields must have at least one object';
 			}
 
 			// Indexes are used so they can be given back to the user if something goes wrong
 			for(let i = 0; i < req.body.attachment.fields.length; ++i){
 				if(!req.body.attachment.fields[i].title){
-					log.warn(`The field at index ${i} is missing title`);
+					log.warn(`The field at index ${i} is missing title` + __location);
 					const response = {
 						'Attachment Fields': `The field at index ${i} is missing title`,
 						'error': true
@@ -208,7 +208,7 @@ async function PostToChannel(req, res, next){
 				}
 
 				if(!req.body.attachment.fields[i].value){
-					log.warn(`The attachment field at index ${i} is missing value`);
+					log.warn(`The attachment field at index ${i} is missing value` + __location);
 
 					const response = {
 						'Attachment Fields': `The attachment field at index ${i} is missing value`,
@@ -229,7 +229,7 @@ async function PostToChannel(req, res, next){
 							req.body.attachment.fields[i].short = false;
 						}
 						else{
-							log.warn(`The attachment field at index ${i} has short that is not true or false`);
+							log.warn(`The attachment field at index ${i} has short that is not true or false` + __location);
 
 							const response = {
 								'Attachment Fields': `The field at index ${i} has short that is not true or false`,
@@ -242,7 +242,7 @@ async function PostToChannel(req, res, next){
 						}
 					}
 					else if(typeof req.body.attachment.fields[i].short !== 'boolean'){
-						log.warn(`The attachment field at index ${i} has short that is not a boolean`);
+						log.warn(`The attachment field at index ${i} has short that is not a boolean` + __location);
 
 						const response = {
 							'Attachment Fields': `The field at index ${i} has short that is not a boolean`,
@@ -261,7 +261,7 @@ async function PostToChannel(req, res, next){
 
 	// App ID sanitization
 	if(req.body.attachment && req.body.attachment.application_id && !/^\d{3,5}$/.test(req.body.attachment.application_id)){
-		log.warn(`Application id ${req.body.attachment.application_id} is not valid`);
+		log.warn(`Application id ${req.body.attachment.application_id} is not valid`+ __location);
 
 		const response = {
 			'Application id': `Application id ${req.body.attachment.application_id} is not valid`,
@@ -274,7 +274,7 @@ async function PostToChannel(req, res, next){
 	}
 
 	if(!slackSvc){
-		log.error('bad slackSvc reference');
+		log.error('bad slackSvc reference'+ __location);
 	}
 	const slackResp = await slackSvc.send2SlackJSON(req.body).catch(function(err){
 
