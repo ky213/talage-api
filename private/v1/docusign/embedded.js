@@ -104,7 +104,7 @@ async function PostEmbedded(req, res, next) {
 	// Exceptions will be caught by the calling function
 	const envelopeSummary = await envelopesApi.createEnvelope(accountId, { 'envelopeDefinition': envelope }).catch(function (e) {
 		const errorMessage = 'Unable to create DocuSign envelope. Check the API logs for more information.';
-		log.error("Docusign Service PostEmbedded : " + errorMessage);
+		log.error("Docusign Service PostEmbedded : " + errorMessage + __location);
 		log.verbose(`${e.message} - ${e.response.body.message}`);
 		error = serverHelper.internalError(errorMessage);
 	});
@@ -132,7 +132,7 @@ async function PostEmbedded(req, res, next) {
 	// Call the CreateRecipientView API
 	const viewResults = await envelopesApi.createRecipientView(accountId, envelopeSummary.envelopeId, { 'recipientViewRequest': viewRequest }).catch(function (e) {
 		const errorMessage = 'Unable to create DocuSign view. Check the API logs for more information.';
-		log.error("Docusign Service PostEmbedded : " + errorMessage);
+		log.error("Docusign Service PostEmbedded : " + errorMessage + __location);
 		log.verbose(`${e.message} - ${e.response.body.message}`);
 		error = serverHelper.internalError(errorMessage);
 	});
@@ -146,7 +146,7 @@ async function PostEmbedded(req, res, next) {
 
 	// Make sure we got a View URL
 	if (!viewUrl) {
-		log.error("Docusign Service PostEmbedded : " + 'Unable to create Docusign view. No URL returned. Check the API logs for more information.');
+		log.error("Docusign Service PostEmbedded : " + 'Unable to create Docusign view. No URL returned. Check the API logs for more information.' + error.message + __location);
 		return next(serverHelper.internalError('We were unable to generate your document for signing at this time. Someone will contact you to complete these documents and open access to your account.'));
 	}
 
