@@ -6,9 +6,9 @@
 	"scripts": {
 		"serve": "node index.js",
 		"lint": "eslint ./private/ ./public/ ./uptime/ ./shared/ *.js",
-		"test": "mocha --reporter spec",
-		"testnyc": "nyc --reporter=html mocha",
-		"testcoverage": "nyc --reporter=html mocha"
+		"test": "mocha --reporter mochawesome",
+		"testnyc": "nyc --reporter mochawesome mocha",
+		"testcoverage": "nyc --reporter html mocha"
 	},
 	"repository": {
 		"type": "git",
@@ -59,6 +59,8 @@
 		"eslint-plugin-deprecate": "0.7.0",
 		"jshint": "^2.11.0",
 		"mocha": "^7.2.0",
+		"mochawesome": "^6.1.1",
+		"mochawesome-report-generator": "^5.1.0",
 		"node-dir": "^0.1.17",
 		"node-mocks-http": "^1.8.1",
 		"nyc": "^15.0.1",
