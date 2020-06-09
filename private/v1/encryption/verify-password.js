@@ -21,25 +21,25 @@ const cryptsvc = global.requireShared('./services/crypt.js');
 async function PostVerifyPassword(req, res, next){
 	// Check for data
 	if(!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0){
-		log.warn('No data was received');
+		log.warn('No data was received' + __location);
 		return next(serverHelper.requestError('No data was received'));
 	}
 
 	// Make sure we have a data object
 	if(typeof req.body !== 'object'){
-		log.warn('Data recieved was not a JSON object. Check your Content-Type header.');
+		log.warn('Data recieved was not a JSON object. Check your Content-Type header.' + __location);
 		return next(serverHelper.requestError('Incorrect data format'));
 	}
 
 	// Hash
 	if(!Object.prototype.hasOwnProperty.call(req.body, 'hash') || !req.body.hash){
-		log.warn('Bad Request: Missing Hash');
+		log.warn('Bad Request: Missing Hash' + __location);
 		return next(serverHelper.requestError('You must supply a known good password hash to be checked'));
 	}
 
 	// Password
 	if(!Object.prototype.hasOwnProperty.call(req.body, 'password') || !req.body.password){
-		log.warn('Bad Request: Missing Password');
+		log.warn('Bad Request: Missing Password' + __location);
 		return next(serverHelper.requestError('You must supply a password to check against the hash'));
 	}
 	// TODO system error handling...
