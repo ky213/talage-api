@@ -62,7 +62,10 @@ async function validate(request, next){
 		'heading': null,
 		'industryCode': null,
 		'industryCodeCategory': null,
+		'introHeading': null,
+		'introText': null,
 		'name': '',
+		'showIndustrySection': true,
 		'slug': ''
 	};
 
@@ -102,9 +105,11 @@ async function validate(request, next){
 	if(Object.prototype.hasOwnProperty.call(request.body, 'heading') && request.body.heading){
 		if(request.body.heading.length > 70){
 			throw new Error('Heading must be less the 70 characters');
-		}else{
-			data.heading = request.body.heading;
 		}
+		if(!validator.landingPageHeading(request.body.heading)){
+			throw new Error('Heading is invalid');
+		}
+		data.heading = request.body.heading;
 	}
 
 	// Industry Code Category (optional)
@@ -123,6 +128,30 @@ async function validate(request, next){
 		}
 	}
 
+	// Intro Heading (optional)
+	if(Object.prototype.hasOwnProperty.call(request.body, 'introHeading') && request.body.introHeading){
+		if(request.body.introHeading.length > 70){
+			throw new Error('Introduction Heading must be less the 70 characters');
+		}
+		if(!validator.landingPageHeading(request.body.introHeading)){
+			throw new Error('Introduction Heading is invalid');
+		}
+		data.introHeading = request.body.introHeading;
+	}
+
+	// Intro Text (optional)
+	if(Object.prototype.hasOwnProperty.call(request.body, 'introText') && request.body.introText){
+		// Strip out HTML
+		request.body.introText = request.body.introText.replace(/(<([^>]+)>)/ig, '');
+
+		// Check lengths
+		if(request.body.introText.length > 400){
+			throw new Error('Reduce the length of your introduction text to less than 400 characters');
+		}
+
+		data.introText = request.body.introText;
+	}
+
 	// Name
 	if(!Object.prototype.hasOwnProperty.call(request.body, 'name') || !request.body.name){
 		throw new Error('You must enter a page name');
@@ -131,6 +160,13 @@ async function validate(request, next){
 		throw new Error('Page name is invalid');
 	}
 	data.name = request.body.name;
+
+	// Show Industry Section (optional)
+	if(Object.prototype.hasOwnProperty.call(request.body, 'showIndustrySection')){
+		if(typeof request.body.showIndustrySection === 'boolean' && !request.body.showIndustrySection){
+			data.showIndustrySection = false;
+		}
+	}
 
 	// Slug (a.k.a. Link)
 	if(!Object.prototype.hasOwnProperty.call(request.body, 'slug') || !request.body.slug){
@@ -218,13 +254,29 @@ async function createLandingPage(req, res, next){
 		return next(serverHelper.requestError(error));
 	}
 
-	// Commit this update to the database
+	// Define the data to be inserted, column: value
+	const insertData = {
+		'about': data.about,
+		'agency': agency,
+		'banner': data.banner,
+		'color_scheme': data.colorScheme,
+		'heading': data.heading,
+		'industry_code': data.industryCode,
+		'industry_code_category': data.industryCodeCategory,
+		'intro_heading': data.introHeading,
+		'intro_text': data.introText,
+		'name': data.name,
+		'show_industry_section': data.showIndustrySection,
+		'slug': data.slug
+	};
+
+	// Create the SQL to insert this item into the database
 	const sql = `
-			INSERT INTO \`#__agency_landing_pages\` (\`about\`, \`agency\`, \`banner\`, \`color_scheme\`, \`heading\`, \`industry_code\`, \`industry_code_category\`, \`name\`, \`slug\`)
-			VALUES (${db.escape(data.about)}, ${db.escape(agency)}, ${db.escape(data.banner)}, ${db.escape(data.colorScheme)}, ${db.escape(data.heading)}, ${db.escape(data.industry_code)}, ${db.escape(data.industry_code_category)}, ${db.escape(data.name)}, ${db.escape(data.slug)});
+			INSERT INTO \`#__agency_landing_pages\` (${Object.keys(insertData).map((key) => `\`${key}\``).join(',')})
+			VALUES (${Object.values(insertData).map((key) => db.escape(key)).join(',')});
 		`;
 
-	// Run the query
+	// Commit this update to the database
 	const result = await db.query(sql).catch(function(err){
 		log.error(err.message);
 		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
@@ -383,7 +435,10 @@ async function getLandingPage(req, res, next){
 				\`color_scheme\` AS 'colorScheme',
 				\`industry_code\` AS 'industryCode',
 				\`industry_code_category\` AS 'industryCodeCategory',
+				\`intro_heading\` AS 'introHeading',
+				\`intro_text\` AS 'introText',
 				\`name\`,
+				\`show_industry_section\` AS 'showIndustrySection',
 				\`slug\`,
 				\`primary\`,
 				\`heading\`
@@ -464,7 +519,10 @@ async function updateLandingPage(req, res, next){
 				\`heading\` = ${db.escape(data.heading)},
 				\`industry_code\` = ${db.escape(data.industryCode)},
 				\`industry_code_category\` = ${db.escape(data.industryCodeCategory)},
+				\`intro_heading\` = ${db.escape(data.introHeading)},
+				\`intro_text\` = ${db.escape(data.introText)},
 				\`name\` = ${db.escape(data.name)},
+				\`show_industry_section\` = ${db.escape(data.showIndustrySection)},
 				\`slug\` = ${db.escape(data.slug)}
 			WHERE \`id\` = ${db.escape(data.id)} AND \`agency\` = ${db.escape(agency)}
 			LIMIT 1;
