@@ -25,42 +25,42 @@ async function PostEmbedded(req, res, next) {
 
 	// Check for data
 	if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
-		log.warn("Docusign Service PostEmbedded : " + 'No data was received');
+		log.warn("Docusign Service PostEmbedded : " + 'No data was received' + __location);
 		return next(serverHelper.requestError('No data was received'));
 	}
 
 	// Validate the email parameter
 	if (!Object.prototype.hasOwnProperty.call(req.body, 'email') || typeof req.body.email !== 'string' || validator.email(req.body.email) !== true) {
 		const message = 'Invalid \'email\' parameter. An email address is required and must be a valid string.';
-		log.warn("Docusign Service PostEmbedded : " + message);
+		log.warn("Docusign Service PostEmbedded : " + message + __location);
 		return next(serverHelper.requestError(message));
 	}
 
 	// Validate the name parameter
 	if (!Object.prototype.hasOwnProperty.call(req.body, 'name') || typeof req.body.name !== 'string' || validator.name(req.body.name) !== true) {
 		const message = 'Invalid \'name\' parameter. A name is required and must be a valid string.';
-		log.warn("Docusign Service PostEmbedded : " + message);
+		log.warn("Docusign Service PostEmbedded : " + message + __location);
 		return next(serverHelper.requestError(message));
 	}
 
 	// Validate the returnUrl parameter
 	if (!Object.prototype.hasOwnProperty.call(req.body, 'returnUrl') || typeof req.body.returnUrl !== 'string') {
 		const message = 'Invalid \'returnUrl\' parameter. A returnUrl is required and must be a valid string.';
-		log.warn("Docusign Service PostEmbedded : " + message);
+		log.warn("Docusign Service PostEmbedded : " + message + __location);
 		return next(serverHelper.requestError(message));
 	}
 
 	// Validate the template parameter
 	if (!Object.prototype.hasOwnProperty.call(req.body, 'template') || typeof req.body.template !== 'string' || validator.uuid(req.body.template) !== true) {
 		const message = 'Invalid \'template\' parameter. A template is required and must be a valid UUID.';
-		log.warn("Docusign Service PostEmbedded : " + message);
+		log.warn("Docusign Service PostEmbedded : " + message + __location);
 		return next(serverHelper.requestError(message));
 	}
 
 	// Validate the user
 	if (!Object.prototype.hasOwnProperty.call(req.body, 'user') || typeof req.body.user !== 'number' || validator.integer(req.body.user) !== true) {
 		const message = 'Invalid \'user\' parameter. A user is required and must be a valid user ID.';
-		log.warn("Docusign Service PostEmbedded : " + message);
+		log.warn("Docusign Service PostEmbedded : " + message + __location);
 		return next(serverHelper.requestError(message));
 	}
 
