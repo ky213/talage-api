@@ -163,3 +163,42 @@ exports.get = function(path){
 		});
 	});
 };
+
+/**
+ * Return URL for files list S3
+ *
+ * @param {String} s3Prefix - s3 path prefix
+ *
+ * @returns {Object} array of file urls
+ */
+exports.GetFileList = async function(s3Prefix){
+	return new Promise(async function(resolve,reject){
+		// Check if a prefix was supplied
+		let prefix = '';
+		if(s3Prefix){
+			prefix = s3Prefix.replace(/[^a-zA-Z0-9-_/.]/g, '');
+		}
+		// Call out to S3
+		global.s3.listObjectsV2({
+			'Bucket': global.settings.S3_BUCKET,
+			'Prefix': prefix
+		}, function(err, data){
+			if(err){
+				log.error("File Service LIST: " + err.message + __location);
+				reject(err);
+				//return false;
+			}
+			// Reduce down to just the part we care about
+			try {
+				data = data.Contents.map(function(item){
+					return `https://${global.settings.S3_BUCKET}.s3-us-west-1.amazonaws.com/${item.Key}`;
+				});
+			}
+			catch(err2){
+				log.error("GetFileListS3 data processing error: " + err2 + __location);
+			}
+			// Send the data back to caller
+			resolve(data);
+		});
+	});
+}
