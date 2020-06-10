@@ -78,8 +78,15 @@ async function GetQuoteLetter(req, res, next){
 	});
 
 	// Return the response
-	res.send(200, data);
-	return next();
+	if(data && data.Body){
+		log.debug("quote letter: " + JSON.stringify(data));
+		res.send(200, data.Body);
+		return next();
+	}
+	else {
+		log.error("file get error: no file content" + __location);
+		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+	}
 }
 
 exports.registerEndpoint = (server, basePath) => {
