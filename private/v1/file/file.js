@@ -5,6 +5,9 @@
 'use strict';
 
 const serverHelper = require('../../../server.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
+const fileSvc = global.requireShared('services/file.js');
 
 /* -----==== Version 1 Functions ====-----*/
 
@@ -32,13 +35,14 @@ function DeleteFile(req, res, next){
 		return next(serverHelper.requestError(errorMsg));
 	}
 
+
 	// Call out to S3
 	global.s3.deleteObject({
 		'Bucket': global.settings.S3_BUCKET,
 		'Key': path
 	}, function(err){
 		if(err){
-			log.warn("File Service DEL: " + err.message + __location);
+			log.warn("File Service DEL: " + err.message + " path: " + path + __location);
 			res.send(serverHelper.internalError(err.message));
 			return;
 		}
@@ -75,21 +79,9 @@ function GetFile(req, res, next){
 		return next(serverHelper.requestError(errorMsg));
 	}
 
-	// Call out to S3
-	global.s3.getObject({
-		'Bucket': global.settings.S3_BUCKET,
-		'Key': path
-	}, function(err, data){
-		if(err){
-			log.error("File Service GET: " + err.message + __location);
-			res.send(serverHelper.internalError(err.message));
-			return;
-		}
-
-		// Convert the Body to Base64
+	fileSvc.get(path).then(function(data){
 		data.Body = data.Body.toString('base64');
-
-		// Remove items we don't care about
+		//	Remove items we don't care about
 		delete data.AcceptRanges;
 		delete data.LastModified;
 		delete data.ETag;
@@ -100,7 +92,38 @@ function GetFile(req, res, next){
 
 		// Send the data back to the user
 		res.send(200, data);
+		next();
+
+	}).catch(function(err){
+		return next(serverHelper.requestError(err.message));
 	});
+
+	// // Call out to S3
+	// global.s3.getObject({
+	// 	'Bucket': global.settings.S3_BUCKET,
+	// 	'Key': path
+	// }, function(err, data){
+	// 	if(err){
+	// 		log.error("File Service GET: " + err.message + __location);
+	// 		res.send(serverHelper.internalError(err.message));
+	// 		return;
+	// 	}
+
+	// 	// Convert the Body to Base64
+	// 	data.Body = data.Body.toString('base64');
+
+	// 	// Remove items we don't care about
+	// 	delete data.AcceptRanges;
+	// 	delete data.LastModified;
+	// 	delete data.ETag;
+	// 	delete data.Metadata;
+	// 	delete data.TagCount;
+
+	// 	log.info('Returning file');
+
+	// 	// Send the data back to the user
+	// 	res.send(200, data);
+	// });
 	// FIXME: need to await completion and return next()
 }
 
