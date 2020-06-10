@@ -5,7 +5,7 @@
 'use strict';
 
 const crypt = global.requireShared('./services/crypt.js');
-const file = global.requireShared('./services/filesvc.js');
+const fileSvc = global.requireShared('./services/filesvc.js');
 const htmlentities = require('html-entities').Html5Entities;
 const https = require('https');
 const moment = require('moment');
@@ -860,7 +860,7 @@ module.exports = class Integration{
 			const fileName = `${this.generate_uuid()}.pdf`;
 
 			// Store the quote letter in our cloud storage
-			await file.store(`secure/quote-letters/${fileName}`, this.quote_letter.data).then(function(result){
+			await fileSvc.store(`secure/quote-letters/${fileName}`, this.quote_letter.data).then(function(result){
 				if(result){
 					// The file was successfully saved, store the file name in the database
 					columns.push('quote_letter');

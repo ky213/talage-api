@@ -158,10 +158,7 @@ exports.get = function(path){
 			delete data.TagCount;
 
 			log.info('Returning file' + __location);
-
-			// Send the data back to the user
 			resolve(data);
-			return data;
 
 		});
 	});
