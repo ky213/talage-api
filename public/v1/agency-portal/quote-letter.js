@@ -79,7 +79,6 @@ async function GetQuoteLetter(req, res, next){
 
 	// Return the response
 	if(data && data.Body){
-		log.debug("quote letter: " + JSON.stringify(data));
 		res.send(200, data.Body);
 		return next();
 	}
