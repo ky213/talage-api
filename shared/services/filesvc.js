@@ -50,7 +50,7 @@ exports.store = async function(path, data){
 		// If there was an error, return false
 		if(e){
 			rtn = false;
-			log.error('Failed to connect to file service.');
+			log.error('Failed to connect to file service.' );
 			return;
 		}
 
@@ -131,7 +131,8 @@ exports.get = function(path){
 
 		// Make sure we have a path
 		if(!path || !path.length){
-			log.warn('File helper: You must supply a path when using get()');
+			log.error('File helper: You must supply a path when using get()' + __location);
+			resolve("No path supplied");
 			return false;
 		}
 
@@ -141,9 +142,9 @@ exports.get = function(path){
 			'Key': path
 		}, function(err, data){
 			if(err){
-				log.error("File Service GET: " + err.message + __location);
+				log.error("File Service GET: " + err.message + 'Bucket: ' + global.settings.S3_BUCKET + " path: " + path + __location);
 				reject(err);
-				return;
+				return false;
 			}
 
 			// Convert the Body to Base64
@@ -156,52 +157,11 @@ exports.get = function(path){
 			delete data.Metadata;
 			delete data.TagCount;
 
-			log.info('Returning file');
+			log.info('Returning file' + __location);
 
 			// Send the data back to the user
 			resolve(data);
-		});
-	});
-};
-
-
-exports.getOld = function(path){
-	return new Promise(async function(resolve){
-
-		// Make sure we have a path
-		if(!path || !path.length){
-			log.warn('File helper: You must supply a path when using get()');
-			return false;
-		}
-
-		// Compose the options for the request to the file service
-		const options = {
-			'method': 'GET',
-			'url': `http://localhost:${global.settings.PRIVATE_API_PORT}/v1/file/file?path=${path}`
-		};
-
-		// Send the request
-		await request(options, function(e, response, body){
-
-			// If there was an error, return false
-			if(e){
-				log.error('Failed to connect to file service.');
-				resolve(false);
-				return;
-			}
-
-			// If the response was anything but a success, return false
-			if(response.statusCode !== 200){
-				// The response is JSON, parse out the error
-				const message = `${response.statusCode} - ${body.message}`;
-				log.warn(message);
-				resolve(false);
-				return;
-			}
-
-			// Return the file data
-			body = JSON.parse(body);
-			resolve(body.Body);
+			return;
 		});
 	});
 };

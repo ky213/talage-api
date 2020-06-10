@@ -1,6 +1,6 @@
 'use strict';
 
-const file = global.requireShared('./services/file.js');
+const fileSvc = global.requireShared('./services/filesvc.js');
 const auth = require('./helpers/auth.js');
 const serverHelper = require('../../../server.js');
 
@@ -18,7 +18,7 @@ async function GetQuoteLetter(req, res, next){
 
 	// Check for data
 	if(!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
-		log.info('Bad Request: No data received');
+		log.info('Bad Request: No data received' + __location);
 		return next(serverHelper.requestError('Bad Request: No data received'));
 	}
 
@@ -40,7 +40,7 @@ async function GetQuoteLetter(req, res, next){
 
 	// Make sure basic elements are present
 	if(!req.query.file){
-		log.info('Bad Request: Missing File');
+		log.info('Bad Request: Missing File' + __location);
 		return next(serverHelper.requestError('Bad Request: You must supply a File'));
 	}
 
@@ -58,13 +58,13 @@ async function GetQuoteLetter(req, res, next){
 
 	// Run the security check
 	const result = await db.query(securityCheckSQL).catch(function(err){
-		log.error(err.message);
+		log.error(err.message + __location);
 		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Make sure we received a valid result
 	if(!result || !result[0] || !Object.prototype.hasOwnProperty.call(result[0], 'quote_letter') || !result[0].quote_letter){
-		log.warn('Request for quote letter denied. Possible security violation.');
+		log.error('Request for quote letter denied. Possible security violation.' + __location);
 		return next(serverHelper.notAuthorizedError('You do not have permission to access this resource.'));
 	}
 
@@ -72,8 +72,8 @@ async function GetQuoteLetter(req, res, next){
 	const fileName = result[0].quote_letter;
 
 	// Get the file from our cloud storage service
-	const data = await file.get(`secure/quote-letters/${fileName}`).catch(function(err){
-		log.error(err.message);
+	const data = await fileSvc.get(`secure/quote-letters/${fileName}`).catch(function(err){
+		log.error("file get error: " + err.message + __location);
 		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
