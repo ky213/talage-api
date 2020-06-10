@@ -202,9 +202,9 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
                 const appDB = appDBJSON[i];
                 // eslint-disable-next-line prefer-const
                 let app = {};
-                app.name = stringFunctions.ucwords(appDB.businessName);
-                app.fname = stringFunctions.ucwords(appDB.fname);
-                app.lname = stringFunctions.ucwords(appDB.lname);
+                app.name = stringFunctions.ucwords(await crypt.decrypt(appDB.businessName));
+                app.fname = stringFunctions.ucwords(await crypt.decrypt(appDB.fname));
+                app.lname = stringFunctions.ucwords(await crypt.decrypt(appDB.lname));
                 app.email = await crypt.decrypt(appDB.email);
                 app.phone = await crypt.decrypt(appDB.phone);
                 app.phone = formatPhone(app.phone);
