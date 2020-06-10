@@ -161,7 +161,8 @@ exports.get = function(path){
 
 			// Send the data back to the user
 			resolve(data);
-			return;
+			return data;
+
 		});
 	});
 };
