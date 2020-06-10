@@ -5,7 +5,7 @@
 'use strict';
 
 const crypt = global.requireShared('./services/crypt.js');
-const file = global.requireShared('./services/file.js');
+const file = global.requireShared('./services/filesvc.js');
 const htmlentities = require('html-entities').Html5Entities;
 const https = require('https');
 const moment = require('moment');
