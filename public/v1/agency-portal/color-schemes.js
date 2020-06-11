@@ -12,17 +12,7 @@ const auth = require('./helpers/auth.js');
  *
  * @returns {void}
  */
-async function GetColorSchemes(req, res, next){
-	let error = false;
-
-	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req, 'pages', 'view').catch(function(e){
-		error = e;
-	});
-	if(error){
-		return next(error);
-	}
-
+async function getColorSchemes(req, res, next) {
 	// Build a query that will return all of the landing pages
 	const colorSchemesSQL = `
 			SELECT
@@ -36,9 +26,9 @@ async function GetColorSchemes(req, res, next){
 		`;
 
 	// Run the query
-	const colorSchemes = await db.query(colorSchemesSQL).catch(function(err){
+	const colorSchemes = await db.query(colorSchemesSQL).catch(function (err) {
 		log.error(err.message);
-		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Send the data back
@@ -47,5 +37,5 @@ async function GetColorSchemes(req, res, next){
 }
 
 exports.registerEndpoint = (server, basePath) => {
-	server.addGetAuth('Get Color Schemes', `${basePath}/color-schemes`, GetColorSchemes);
+	server.addGetAuth('Get Color Schemes', `${basePath}/color-schemes`, getColorSchemes, 'pages', 'view');
 };

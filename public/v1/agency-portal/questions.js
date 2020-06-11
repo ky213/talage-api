@@ -9,14 +9,13 @@ const auth = require('./helpers/auth.js');
  * @param {object} question - The answer from a question in the form of a string
  * @return {string} - The answer
  */
-function getAnswer(question){
-	if(Object.prototype.hasOwnProperty.call(question, 'answer') && question.answer !== null){
+function getAnswer(question) {
+	if (Object.prototype.hasOwnProperty.call(question, 'answer') && question.answer !== null) {
 		return question.answer;
-	}else if(Object.prototype.hasOwnProperty.call(question, 'text_answer') && question.text_answer !== null){
+	} else if (Object.prototype.hasOwnProperty.call(question, 'text_answer') && question.text_answer !== null) {
 		return question.text_answer;
 	}
 	return '';
-
 }
 
 /**
@@ -28,31 +27,21 @@ function getAnswer(question){
  *
  * @returns {void}
  */
-async function GetQuestions(req, res, next){
-	let error = false;
-
+async function getQuestions(req, res, next) {
 	// Check for data
-	if(!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
+	if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
 		log.info('Bad Request: No data received');
 		return next(serverHelper.requestError('Bad Request: No data received'));
 	}
 
-	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req, 'applications', 'view').catch(function(e){
-		error = e;
-	});
-	if(error){
-		return next(error);
-	}
-
 	// Make sure basic elements are present
-	if(!req.query.application_id){
+	if (!req.query.application_id) {
 		log.info('Bad Request: Missing Application ID');
 		return next(serverHelper.requestError('Bad Request: You must supply an application ID'));
 	}
 
 	// Validate the application ID
-	if(!await validator.is_valid_id(req.query.application_id)){
+	if (!(await validator.is_valid_id(req.query.application_id))) {
 		log.info('Bad Request: Invalid application id');
 		return next(serverHelper.requestError('Invalid application id'));
 	}
@@ -64,11 +53,10 @@ async function GetQuestions(req, res, next){
 						WHERE aq.application = ${req.query.application_id}
 						ORDER BY tq.parent`;
 
-	const rawQuestionData = await db.query(sql).catch(function(err){
+	const rawQuestionData = await db.query(sql).catch(function (err) {
 		log.error(err.message);
-		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});
-
 
 	// The object which will hold all the questions in the correct nesting
 	const dependencyList = {};
@@ -77,23 +65,22 @@ async function GetQuestions(req, res, next){
 
 	// Go through the data and build place the child questions under their parents
 	rawQuestionData.forEach((question) => {
-
 		// If this question is a parent then add its info
-		if(question.parent === null){
+		if (question.parent === null) {
 			dependencyList[question.id] = {
-				'answer': getAnswer(question),
-				'children': {},
-				'question': question.question
+				answer: getAnswer(question),
+				children: {},
+				question: question.question
 			};
 			// If this question is a child add to the children array
-		}else{
+		} else {
 			// Store the relationship between this question and its parent
 			childToParent[question.id] = question.parent;
 
 			// The array of the IDs of all the parents for this question
 			const listOfParents = [question.parent];
 			// Add all the parent IDs all the way to the top level
-			while(childToParent[listOfParents.slice(-1)[0]]){
+			while (childToParent[listOfParents.slice(-1)[0]]) {
 				listOfParents.push(childToParent[listOfParents.slice(-1)[0]]);
 			}
 			// Save the original list of parents to a string for logging output
@@ -101,39 +88,38 @@ async function GetQuestions(req, res, next){
 
 			let childId = listOfParents.pop();
 			// If parent of childId does not exist
-			if(!dependencyList.hasOwnProperty(childId)){
+			if (!dependencyList.hasOwnProperty(childId)) {
 				log.error(`Child question ${childId} Does Not Exist: question.parent=${question.parent} question.id=${question.id} listOfParents=${listOfParentsString}`);
 				return;
 			}
 
 			let child = dependencyList[childId];
 			// Build objects for parents with children questions for dependencyList
-			do{
-				if(!child){
+			do {
+				if (!child) {
 					log.error(`Child question ${childId} Does Not Exist: question.parent=${question.parent} question.id=${question.id} listOfParents=${listOfParentsString}`);
 					return;
 				}
 				childId = listOfParents.pop();
 				// If childId is undefined, listofParents is empty, build child object
-				if(childId){
+				if (childId) {
 					child = child.children[childId];
-				}else{
+				} else {
 					childId = question.id;
 					child.children[childId] = {
-						'question': question.question,
-						'answer': question.answer,
-						'children': {}
+						question: question.question,
+						answer: question.answer,
+						children: {}
 					};
 				}
-			}while(childId !== question.id);
-
+			} while (childId !== question.id);
 		}
 	});
 
-	res.send(200, {'questions': dependencyList});
+	res.send(200, { questions: dependencyList });
 	return next();
 }
 
 exports.registerEndpoint = (server, basePath) => {
-	server.addGetAuth('Get questions', `${basePath}/questions`, GetQuestions);
+	server.addGetAuth('Get questions', `${basePath}/questions`, getQuestions, 'applications', 'view');
 };
