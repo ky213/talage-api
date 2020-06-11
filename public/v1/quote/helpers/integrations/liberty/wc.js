@@ -461,7 +461,7 @@ module.exports = class LibertyWC extends Integration{
 				try{
 					this.request_id = res.Policy[0].QuoteInfo[0].CompanysQuoteNumber[0];
 				}catch(e){
-					log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.`);
+					log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.`+ __location);
 				}
 
 				// Attempt to get the amount of the quote
@@ -479,7 +479,7 @@ module.exports = class LibertyWC extends Integration{
 					});
 				}catch(e){
 					if(status === 'Reject'){
-						log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find reasons.`);
+						log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find reasons.`+ __location);
 					}
 				}
 
@@ -499,7 +499,7 @@ module.exports = class LibertyWC extends Integration{
 										this.limits[3] = limit.FormatCurrencyAmt[0].Amt[0];
 										break;
 									default:
-										log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response`);
+										log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response`+ __location);
 										break;
 								}
 							});
