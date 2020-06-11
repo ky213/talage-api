@@ -87,7 +87,7 @@ async function deleteAgency(req, res, next){
 		return next(serverHelper.forbiddenError('You are not authorized to delete this agency'));
 	}
 
-	// Update the user (we set the state to -2 to signify that the user is deleted)
+	// Update the Agency (we set the state to -2 to signify that the Agency is deleted)
 	const updateSQL = `
 			UPDATE \`#__agencies\`
 			SET

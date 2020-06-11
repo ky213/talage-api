@@ -61,15 +61,6 @@ const properties = {
 		],
 		'type': 'string'
 	},
-	'locations': {
-		'associatedField': 'agency', // The ID of this object will be placed into this property
-		'class': 'AgencyLocation',
-		'default': [],
-		'encrypted': false,
-		'required': false,
-		'rules': [],
-		'type': 'object'
-	},
 	'logo': {
 		'default': null,
 		'encrypted': false,
