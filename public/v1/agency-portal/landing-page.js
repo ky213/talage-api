@@ -369,18 +369,41 @@ async function getLandingPage(req, res, next){
 			WHERE \`agency\` = ${parseInt(agency, 10)} AND \`state\` > 0 AND \`id\` = ${parseInt(req.query.id, 10)}
 			LIMIT 1;
 		`;
+		// Run the query
+		const landingPage = await db.query(landingPageSQL).catch(function(err){
+			log.error(err.message);
+			return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		});
+		// Make sure a page was found
+		if(landingPage.length !== 1){
+			log.warn('Page not found');
+			return next(serverHelper.requestError('Page not found'));
+		}else {
+			// if the page was found continue and query for the page color scheme
+			const colorInformationSQL = `
+				SELECT 
+				\`name\`,
+				\`primary\`,
+				\`secondary\`
+				FROM  \`#__color_schemes\`
+				WHERE \`id\` = ${landingPage[0].colorScheme}
+			`;
+			
+			const colorSchemeInfo = await db.query(colorInformationSQL).catch(function(err){
+				log.error(err.message);
+				return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			});
+			// make sure the color scheme was found
+			if(landingPage.length !== 1){
+				log.warn('Page not found');
+				return next(serverHelper.requestError('Page not found'));
+			}else {
 
-	// Run the query
-	const landingPage = await db.query(landingPageSQL).catch(function(err){
-		log.error(err.message);
-		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
-	});
-
-	// Make sure a page was found
-	if(landingPage.length !== 1){
-		log.warn('Page not found');
-		return next(serverHelper.requestError('Page not found'));
-	}
+				// if found go ahead and add and then set the customColorInfo field to either the scheme info or null which indicates it is not a custom color info
+				landingPage[0].customColorInfo = colorSchemeInfo[0].name == "Custom" ? colorSchemeInfo[0] : null;
+			}
+		}
+		
 
 	// Send the user's data back
 	res.send(200, landingPage[0]);
