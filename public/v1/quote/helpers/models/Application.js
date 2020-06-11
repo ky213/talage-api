@@ -5,8 +5,8 @@
 'use strict';
 
 const util = require('util');
-const email = global.requireShared('./services/email.js');
-const slack = global.requireShared('./services/slack.js');
+const email = global.requireShared('./services/emailsvc.js');
+const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const get_questions = global.requireShared('./helpers/getQuestions.js');
 
@@ -571,11 +571,11 @@ module.exports = class Application{
 
 			// Send a message to Slack
 			if(all_had_quotes){
-				slack('customer_success', 'ok', 'Application completed and the user received ALL quotes', attachment);
+				slack.send('customer_success', 'ok', 'Application completed and the user received ALL quotes', attachment);
 			}else if(some_quotes){
-				slack('customer_success', 'ok', 'Application completed and only SOME quotes returned', attachment);
+				slack.send('customer_success', 'ok', 'Application completed and only SOME quotes returned', attachment);
 			}else{
-				slack('customer_success', 'warning', 'Application completed, but the user received NO quotes', attachment);
+				slack.send('customer_success', 'warning', 'Application completed, but the user received NO quotes', attachment);
 			}
 		}
 	}
@@ -608,8 +608,8 @@ module.exports = class Application{
 				WHERE id = ${this.id}
 				LIMIT 1;
 			`;
-			db.query(sql).catch(() => {
-				log.error('Unable to update application status.');
+			db.query(sql).catch( function(error){
+				log.error('Unable to update application status. ' + error);
 			});
 		}
 	}
@@ -626,6 +626,7 @@ module.exports = class Application{
 
 			// Agent
 			await this.agencyLocation.validate().catch(function(error){
+				log.error("Location.validate() error " + error);
 				reject(error);
 				stop = true;
 			});
@@ -635,6 +636,7 @@ module.exports = class Application{
 
 			// Initialize the agent so it is ready for later
 			await this.agencyLocation.init().catch(function(error){
+				log.error("Location.init() error " + error);
 				reject(error);
 				stop = true;
 			});
@@ -668,6 +670,7 @@ module.exports = class Application{
 					reject(serverHelper.requestError('The Agent specified cannot support this policy.'));
 					stop = true;
 				}else{
+					log.error("get insurers error " + error);
 					reject(error);
 					stop = true;
 				}
@@ -682,6 +685,7 @@ module.exports = class Application{
 
 			// Validate the business
 			await this.business.validate().catch(function(error){
+				log.error("business.validate() error " + error);
 				reject(error);
 				stop = true;
 			});
@@ -708,6 +712,7 @@ module.exports = class Application{
 			const insurer_ids = this.get_insurer_ids();
 			const wc_codes = this.get_wc_codes();
 			const questions = await get_questions(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids).catch(function(error){
+				log.error("get_questions error " + error);
 				reject(error);
 			});
 
@@ -729,6 +734,7 @@ module.exports = class Application{
 							const user_answer = user_questions[q.id];
 
 							q.set_answer(user_answer).catch(function(error){
+								log.error("set answers error " + error);
 								reject(error);
 								has_error = true;
 							});
@@ -804,6 +810,7 @@ module.exports = class Application{
 
 			// Check agent support
 			await this.agencyLocation.supports_application().catch(function(error){
+				log.error("agencyLocation.supports_application() error " + error);
 				reject(error);
 				stop = true;
 			});

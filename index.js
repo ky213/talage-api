@@ -13,7 +13,7 @@ const version = require('./version.js');
 const server = require('./server.js');
 
 // Inject the tracker code
-require('./tracker.js');
+//require('./tracker.js');
 
 /**
  * Log informational messages

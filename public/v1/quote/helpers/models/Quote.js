@@ -10,7 +10,7 @@ const Application = require('./Application.js');
 const Insurer = require('./Insurer.js');
 const Policy = require('./Policy.js');
 const fs = require('fs');
-const slack = global.requireShared('./services/slack.js');
+const slack = global.requireShared('./services/slacksvc.js');
 const serverHelper = require('../../../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
 
@@ -123,7 +123,7 @@ module.exports = class Quote{
 				LEFT JOIN \`#__applications\` AS \`a\` ON \`a\`.\`id\` = \`q\`.\`application\`
 				WHERE \`q\`.\`id\` = ${db.escape(parseInt(id, 10))} AND \`q\`.\`state\` = 1 LIMIT 1;`;
 			const rows = await db.query(sql).catch(function(error){
-				log.error(error);
+				log.error("load quote error " + error);
 				had_error = true;
 			});
 
@@ -196,7 +196,7 @@ module.exports = class Quote{
 			// Check that this payment plan belongs to the insurer
 			const payment_plan_sql = `SELECT COUNT(\`id\`) FROM \`#__insurer_payment_plans\` WHERE \`payment_plan\` = ${db.escape(parseInt(payment_plan, 10))} AND \`insurer\` = ${db.escape(parseInt(this.insurer.id, 10))} LIMIT 1;`;
 			const payment_plan_rows = await db.query(payment_plan_sql).catch(function(error){
-				log.error(error);
+				log.error("DB payment plan SELECT error: " + error);
 				had_error = true;
 			});
 			if(had_error || !payment_plan_rows || payment_plan_rows.length !== 1 || !Object.prototype.hasOwnProperty.call(payment_plan_rows[0], 'COUNT(`id`)') || payment_plan_rows[0]['COUNT(`id`)'] !== 1){
@@ -256,19 +256,19 @@ module.exports = class Quote{
 
 			switch(type){
 				case 'bound':
-					slack('customer_success', 'celebrate', '*Application Bound!*', attachment);
+					slack.send('customer_success', 'celebrate', '*Application Bound!*', attachment);
 					return;
 				case 'indication':
-					slack('customer_success', 'warning', '*Process Manually ASAP! Request to Bind Policy With Price Indication*', attachment);
+					slack.send('customer_success', 'warning', '*Process Manually ASAP! Request to Bind Policy With Price Indication*', attachment);
 					return;
 				case 'referred':
-					slack('customer_success', 'ok', '*Bind Requested but Referred*', attachment);
+					slack.send('customer_success', 'ok', '*Bind Requested but Referred*', attachment);
 					return;
 				case 'requested':
-					slack('customer_success', 'celebrate', '*Request to Bind Policy*', attachment);
+					slack.send('customer_success', 'celebrate', '*Request to Bind Policy*', attachment);
 					return;
 				default:
-					slack('alerts', 'error', `Quote API Bind Endpoint encountered unexpected Slack notification type of ${type}`);
+					slack.send('alerts', 'error', `Quote API Bind Endpoint encountered unexpected Slack notification type of ${type}`);
 			}
 		}
 	}

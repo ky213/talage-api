@@ -64,7 +64,7 @@ module.exports = class AcuityWC extends Integration{
 
 			// Check Industry Code Support
 			if(!this.industry_code.cgl){
-				log.error(`${this.insurer.name} ${this.policy.type} Integration File: CGL not set for Industry Code ${this.industry_code.id} `);
+				log.error(`${this.insurer.name} ${this.policy.type} Integration File: CGL not set for Industry Code ${this.industry_code.id} ` + __location);
 				fulfill(this.return_error('error', 'Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 				return;
 			}
@@ -189,7 +189,7 @@ module.exports = class AcuityWC extends Integration{
 									// </CommlName>
 
 									if(!(this.app.business.entity_type in entityMatrix)){
-										log.error(`${this.insurer.name} WC Integration File: Invalid Entity Type `);
+										log.error(`${this.insurer.name} WC Integration File: Invalid Entity Type ` + __location);
 										fulfill(this.return_error('error', 'We have no idea what went wrong, but we\'re on it'));
 										return;
 									}
@@ -303,7 +303,7 @@ module.exports = class AcuityWC extends Integration{
 							let QuestionAnswer = null;
 
 							const question_identifiers = await this.get_question_identifiers().catch((error) => {
-								log.error(`${this.insurer.name} WC is unable to get question identifiers.${error}`);
+								log.error(`${this.insurer.name} WC is unable to get question identifiers.${error}`+ __location);
 								fulfill(this.return_error('error', 'We have no idea what went wrong, but we\'re on it'));
 							});
 
@@ -634,31 +634,31 @@ module.exports = class AcuityWC extends Integration{
 					switch(error_code){
 						case '401':
 							this.log += '--------======= Authorization failed =======--------';
-							log.error(`${this.insurer.name} 401 - Authorization Failed, Check Headers `);
+							log.error(`${this.insurer.name} 401 - Authorization Failed, Check Headers ` + __location);
 							this.reasons.push('Unable to connect to API. Check headers.');
 							fulfill(this.return_error('error', 'We are currently unable to connect to this insurer'));
 							return;
 						case '403':
 							this.log += '--------======= Authentication Failed =======--------';
-							log.error(`${this.insurer.name} 403 - Authentication Failed `);
+							log.error(`${this.insurer.name} 403 - Authentication Failed ` + __location);
 							this.reasons.push('Unable to connect to API. Check credentials.');
 							fulfill(this.return_error('error', 'We are currently unable to connect to this insurer'));
 							return;
 						case '500':
 							this.log += '--------======= server. Error =======--------';
-							log.warn(`${this.insurer.name} 500 - server. Error `);
+							log.warn(`${this.insurer.name} 500 - server. Error ` + __location);
 							this.reasons.push('Insurer encountered a server error');
 							fulfill(this.return_error('error', 'We are currently unable to connect to this insurer'));
 							return;
 						case '504':
 							this.log += '--------======= Insurer Timeout Error =======--------';
-							log.warn(`${this.insurer.name} 504 - Insurer Timeout Error `);
+							log.warn(`${this.insurer.name} 504 - Insurer Timeout Error ` + __location);
 							this.reasons.push(`Insurer's system timedout (our connection was good).`);
 							fulfill(this.return_error('error', 'We are currently unable to connect to this insurer'));
 							return;
 						default:
 							this.log += '--------======= Unexpected API Error =======--------';
-							log.error(`${this.insurer.name} ${error_code} - Unexpected error code from API `);
+							log.error(`${this.insurer.name} ${error_code} - Unexpected error code from API ` + __location);
 							this.reasons.push(`Unexpected HTTP error code of ${error_code} returned from API.`);
 							fulfill(this.return_error('error', 'We are currently unable to connect to this insurer'));
 							return;
@@ -708,7 +708,7 @@ module.exports = class AcuityWC extends Integration{
 
 								// An error other than decline
 								this.log += `--------======= Application Error =======--------<br><br>${errors.join('<br>')}`;
-								log.error(`${this.insurer.name} Integration Error(s):\n--- ${errors.join('\n--- ')} `);
+								log.error(`${this.insurer.name} Integration Error(s):\n--- ${errors.join('\n--- ')} ` + __location);
 								errors.forEach((error) => {
 									this.reasons.push(error);
 								});
@@ -737,7 +737,7 @@ module.exports = class AcuityWC extends Integration{
 								try{
 									amount = parseInt(res.PolicySummaryInfo[0].FullTermAmt[0].Amt[0], 10);
 								}catch(e){
-									log.error(`${this.insurer.name} Integration Error: Quote structure changed. Unable to quote amount.`);
+									log.error(`${this.insurer.name} Integration Error: Quote structure changed. Unable to quote amount.`+ __location);
 									this.reasons.push('A quote was generated, but our API was unable to isolate it.');
 									fulfill(this.return_error('error', 'Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 									return;
@@ -757,12 +757,12 @@ module.exports = class AcuityWC extends Integration{
 												this.limits[3] = limit.FormatInteger[0];
 												break;
 											default:
-												log.warn(`${this.insurer.name} Integration Error: Unexpected limit found in response `);
+												log.warn(`${this.insurer.name} Integration Error: Unexpected limit found in response ` + __location);
 												break;
 										}
 									});
 								}catch(e){
-									log.warn(`${this.insurer.name} Integration Error: Quote structure changed. Unable to find limits. `);
+									log.warn(`${this.insurer.name} Integration Error: Quote structure changed. Unable to find limits. ` + __location);
 								}
 
 								// Grab the file info
@@ -778,7 +778,7 @@ it will remain available? The data and file information needs to be stored in th
 
 */
 								}catch(e){
-									log.warn(`${this.insurer.name} Integration Error: Quote structure changed. Unable to quote letter.`);
+									log.warn(`${this.insurer.name} Integration Error: Quote structure changed. Unable to quote letter.` + __location);
 								}
 
 								this.log += `--------======= Success! =======--------<br><br>Quote: ${amount}<br>Application ID: ${this.request_id}`;
@@ -787,32 +787,32 @@ it will remain available? The data and file information needs to be stored in th
 							case 'com.acuity_NonBindableQuote':
 								this.log += '--------======= Application Referred =======--------<br><br>';
 								if(errors){
-									log.warn(`${this.insurer.name} referred with the following messages:\n--- ${errors.join('\n--- ')} `);
+									log.warn(`${this.insurer.name} referred with the following messages:\n--- ${errors.join('\n--- ')} ` + __location);
 									this.log += `Referred with the following errors:<br>${errors.join('<br>')}`;
 								}
 								fulfill(this.return_error('referred', `${this.insurer.name} needs a little more time to make a decision`));
 								return;
 							default:
 								this.log += `--------======= Unknown Status	=======--------<br><br>${result.response}<br><br>`;
-								log.error(`${this.insurer.name} - Unexpected status code of ${res.PolicySummaryInfo[0].PolicyStatusCd[0]} from API `);
+								log.error(`${this.insurer.name} - Unexpected status code of ${res.PolicySummaryInfo[0].PolicyStatusCd[0]} from API ` + __location);
 								fulfill(this.return_error('error', 'We have no idea what went wrong, but we\'re on it'));
 								return;
 						}
 					case 503:
 						this.log += '--------======= Insurer Down =======--------<br><br>';
-						log.warn(`${this.insurer.name} - Outage in insurer's system `);
+						log.warn(`${this.insurer.name} - Outage in insurer's system ` + __location);
 						this.reasons.push(`The insurer's system was unavailable at the time of quote.`);
 						fulfill(this.return_error('error', 'We are currently unable to connect to this insurer'));
 						return;
 					default:
 						this.log += '--------======= Unexpected API Error =======--------<br><br>';
-						log.error(`${this.insurer.name} - Unexpected status code of ${status_code} from API `);
+						log.error(`${this.insurer.name} - Unexpected status code of ${status_code} from API ` + __location);
 						this.reasons.push(`Unknown status of '${status_code}' recieved from API`);
 						fulfill(this.return_error('error', 'We are currently unable to connect to this insurer'));
 
 				}
 			}).catch((error) => {
-				log.error(error.message);
+				log.error(error.message + __location);
 				this.reasons.push('Problem connecting to insurer');
 				fulfill(this.return_error('error', 'We have no idea what went wrong, but we\'re on it'));
 			});

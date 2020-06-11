@@ -175,7 +175,7 @@ module.exports = class Business{
 			// Execute that query
 			let had_error = false;
 			const business_info = await db.query(sql).catch(function(error){
-				log.error(error);
+				log.error("Loading business error: " + error);
 				had_error = true;
 			});
 			if(had_error || !business_info || business_info.length !== 1){
@@ -220,6 +220,8 @@ module.exports = class Business{
 			 * - Must be a string composed of 5 numeric digits
 			 * - Must exist in our database
 			 */
+
+			// TODO Consistent return ERROR type - currently mixed 
 			if(this.zip){
 				// Check formatting
 				if(!validator.isZip(this.zip)){
@@ -232,6 +234,7 @@ module.exports = class Business{
 					log.error(db_error);
 					const error = new Error(db_error);
 					error.code = 500;
+					// TODO Consistent return ERROR type - currently mixed 
 					reject(error);
 
 				});
@@ -243,7 +246,8 @@ module.exports = class Business{
 
 				this.primary_territory = rows[0].territory;
 
-			}else{
+			}
+			else {
 				reject(serverHelper.requestError('Missing required field: zip'));
 				return;
 			}
@@ -297,7 +301,8 @@ module.exports = class Business{
 						reject(serverHelper.requestError('Bureau Number must be formatted as 99-99-99'));
 						return;
 					}
-				}else if(!validator.isBureauNumberNotCA(this.bureau_number)){
+				}
+				else if(!validator.isBureauNumberNotCA(this.bureau_number)){
 					// Expected Formatting for all other states is 999999999
 					reject(serverHelper.requestError('Bureau Number must be numeric'));
 					return;
@@ -318,10 +323,12 @@ module.exports = class Business{
 					error = contact_error;
 				});
 				if(error){
+					// TODO Consistent return ERROR type - currently mixed
 					reject(error);
 					return;
 				}
-			}else{
+			}
+			else {
 				reject(serverHelper.requestError('At least 1 contact must be provided'));
 				return;
 			}
@@ -364,7 +371,8 @@ module.exports = class Business{
 					reject(serverHelper.requestError('Invalid data in property: entity_type'));
 					return;
 				}
-			}else{
+			}
+			else {
 				reject(serverHelper.requestError('Missing property: entity_type'));
 				return;
 			}
@@ -407,7 +415,8 @@ module.exports = class Business{
 					reject(serverHelper.requestError('Invalid value for property: founded. Founded date is far past'));
 					return;
 				}
-			}else{
+			}
+			else {
 				reject(serverHelper.requestError('Missing property: founded'));
 				return;
 			}
@@ -424,7 +433,8 @@ module.exports = class Business{
 					reject(serverHelper.requestError('The industry code ID you provided is not valid'));
 					return;
 				}
-			}else{
+			}
+			else {
 				reject(serverHelper.requestError('Missing property: industry_code'));
 				return;
 			}
@@ -443,10 +453,12 @@ module.exports = class Business{
 					error = location_error;
 				});
 				if(error){
+					// TODO Consistent return ERROR type - currently mixed
 					reject(error);
 					return;
 				}
-			}else{
+			}
+			else {
 				reject(serverHelper.requestError('At least 1 location must be provided'));
 				return;
 			}
@@ -461,7 +473,8 @@ module.exports = class Business{
 						reject(serverHelper.requestError('Invalid management structure. Must be either "member" or "manager."'));
 						return;
 					}
-				}else{
+				}
+				else {
 					reject(serverHelper.requestError('Missing required field: management_structure'));
 					return;
 				}
@@ -477,7 +490,8 @@ module.exports = class Business{
 					reject(serverHelper.requestError('Mailing address exceeds maximum of 100 characters'));
 					return;
 				}
-			}else{
+			}
+			else {
 				reject(serverHelper.requestError('Missing required field: mailing_address'));
 				return;
 			}
@@ -497,14 +511,17 @@ module.exports = class Business{
 					if(row){
 						this.mailing_city = row[0].city;
 						this.mailing_territory = row[0].territory;
-					}else{
+					}
+					else
+					{
 						reject(serverHelper.requestError('The mailing_zip code you entered is not valid'));
 					}
 				}).catch(function(error){
-					log.warn(error);
+					log.warn("DB mailing_zip code error: " + error);
 					reject(serverHelper.requestError('The mailing_zip code you entered is not valid'));
 				});
-			}else{
+			}
+			else {
 				reject(serverHelper.requestError('Missing required field: mailing_zip'));
 				return;
 			}
@@ -526,7 +543,8 @@ module.exports = class Business{
 					reject(serverHelper.requestError('Name exceeds maximum length of 100 characters'));
 					return;
 				}
-			}else{
+			}
+			else {
 				reject(serverHelper.requestError('Missing required field: name'));
 				return;
 			}

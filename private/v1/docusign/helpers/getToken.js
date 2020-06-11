@@ -36,7 +36,7 @@ async function getNewToken(config) {
 		accessToken = result.body.access_token;
 		tokenExpirationTime = moment().add(result.body.expires_in, 's');
 	}, function (error) {
-		log.error(`Unable to authenicate to DocuSign. (${error.status} ${error.message})`);
+		log.error(`Unable to authenicate to DocuSign. (${error.status} ${error.message})` + __location);
 		if (error.response.res.text === '{"error":"consent_required"}') {
 			log.verbose(`Consent needs to be provided. Try https://${config.authBasePath}/oauth/auth?response_type=code&scope=signature%20impersonation&client_id=${config.integrationKey}&redirect_uri=https://agents.insurancewheelhouse.com`);
 		} else {
