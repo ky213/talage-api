@@ -47,7 +47,7 @@ module.exports = class BtisGL extends Integration{
 				'grant_type': 'client_credentials'
 			});
 			const token_response = await this.send_json_request(host, '/v1/authentication/connect/token', token_request_data).catch((error) => {
-				log.error(error.message);
+				log.error(error.message + __location);
 				had_error = true;
 				fulfill(this.return_error('error', 'Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 			});
@@ -104,7 +104,7 @@ module.exports = class BtisGL extends Integration{
 
 			// Determine the limits ID
 			const carrierLimits = await this.send_json_request(host, `/GL/v1/gateway/lookup/limits/?stateName=${this.app.business.primary_territory}&effectiveDate=${this.policy.effective_date.format('YYYY-MM-DD')}`, null, {'x-access-token': token}).catch((error) => {
-				log.error(error.message);
+				log.error(error.message + __location);
 				fulfill(this.return_error('error', 'Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 			});
 
@@ -140,7 +140,7 @@ module.exports = class BtisGL extends Integration{
 			data.BusinessInformation = {};
 			data.BusinessInformation.DBA = this.app.business.dba ? this.app.business.dba : this.app.business.name;
 			if(!(this.app.business.entity_type in entity_matrix)){
-				log.error('BTIS GL Integration File: Invalid Entity Type');
+				log.error('BTIS GL Integration File: Invalid Entity Type' + __location);
 				fulfill(this.return_error('error', 'We have no idea what went wrong, but we\'re on it'));
 				return;
 			}
@@ -225,7 +225,7 @@ module.exports = class BtisGL extends Integration{
 
 			// Get the identifiers for each question
 			const question_identifiers = await this.get_question_identifiers().catch((error) => {
-				log.error(`BTIS GL is unable to get question identifiers. ${error}`);
+				log.error(`BTIS GL is unable to get question identifiers. ${error}` + __location);
 				fulfill(this.return_error('error', 'Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 			});
 
@@ -277,7 +277,7 @@ module.exports = class BtisGL extends Integration{
 
 						// Make an additional 'Quote' call to take this app out of submitted status, don't wait b/c we really don't care
 						this.send_json_request(host, `/GL/v1/gateway/quote?submissionId=${this.request_id}`, JSON.stringify(data), {'x-access-token': token}, 'PUT').catch((error) => {
-							log.error(`BTIS Quote Endpoint Returned Error ${util.inspect(error, false, null)}`);
+							log.error(`BTIS Quote Endpoint Returned Error ${util.inspect(error, false, null)}`+ __location);
 						});
 
 						// Get the amount of the quote (from the Silver package only, per Adam)
@@ -285,7 +285,7 @@ module.exports = class BtisGL extends Integration{
 						try{
 							amount = result.submission.results.total_premium;
 						}catch(e){
-							log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to quote amount.`);
+							log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to quote amount.`+ __location);
 							this.reasons.push('A quote was generated, but our API was unable to isolate it.');
 							fulfill(this.return_error('error', 'Our bad. Something went wrong, but we\'re on it. Expect to hear from us'));
 							return;
@@ -308,7 +308,7 @@ module.exports = class BtisGL extends Integration{
 								'9': policy_limits[2]
 							};
 						}catch(e){
-							log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find limits.`);
+							log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find limits.`+__location);
 						}
 
 						// Return the quote
@@ -319,17 +319,17 @@ module.exports = class BtisGL extends Integration{
 						result.referralReasons.forEach((reason) => {
 							this.log += `- ${reason}<br>`;
 							this.reasons.push(reason);
-							log.warn(`Referred by Insurer With Message: ${reason}`);
+							log.warn(`Referred by Insurer With Message: ${reason}`+ __location);
 						});
 						fulfill(this.return_error('referred', `${this.insurer.name} needs a little more time to make a decision`));
 					}
 				}else{
-					log.error(`BTIS Submit Endpoint Returned Error ${result.message}`);
+					log.error(`BTIS Submit Endpoint Returned Error ${result.message}`+__location);
 					this.reasons.push(result.message);
 					fulfill(this.return_error('error', 'We have no idea what went wrong, but we\'re on it'));
 				}
 			}).catch((error) => {
-				log.error(`BTIS Submit Endpoint Returned Error ${util.inspect(error, false, null)}`);
+				log.error(`BTIS Submit Endpoint Returned Error ${util.inspect(error, false, null)}`+ __location);
 				this.reasons.push('Problem connecting to insurer');
 				fulfill(this.return_error('error', 'We have no idea what went wrong, but we\'re on it'));
 			});

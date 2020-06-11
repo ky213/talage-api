@@ -38,7 +38,7 @@ module.exports = async function () {
 			// Set the path used for API requests
 			docusignApiClient.setBasePath(`${userInfo.accounts[0].baseUri}/restapi`);
 		}).catch(function (error) {
-			log.error('Unable to get User Info from DocuSign.');
+			log.error('Unable to get User Info from DocuSign.' + error + __location);
 			log.verbose(error);
 
 		});

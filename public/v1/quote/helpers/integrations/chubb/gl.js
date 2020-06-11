@@ -88,7 +88,7 @@ module.exports = class ChubbGL extends Integration{
 				'App_ID': this.username,
 				'App_Key': this.password
 			}, 'POST').catch((error) => {
-				log.error(error.message);
+				log.error(error.message + __location);
 				hadError = true;
 				fulfill(this.return_error('error', 'Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 			});
@@ -629,10 +629,10 @@ module.exports = class ChubbGL extends Integration{
 						if(status !== 'Success'){
 							try{
 								const error_message = res.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0];
-								log.warn(`Error Returned by Carrier: ${error_message}`);
+								log.warn(`Error Returned by Carrier: ${error_message}`+ __location);
 								this.log += `Error Returned by Carrier: ${error_message}`;
 							}catch(e){
-								log.warn(`${this.insurer.name} ${this.policy.type} Error Returned by Carrier: Quote structure changed. Unable to find error message.`);
+								log.warn(`${this.insurer.name} ${this.policy.type} Error Returned by Carrier: Quote structure changed. Unable to find error message.`+__location);
 							}
 						}
 
@@ -654,7 +654,7 @@ module.exports = class ChubbGL extends Integration{
 						try{
 							this.writer = res.CommlPolicy[0].WritingCompany[0];
 						}catch(e){
-							log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.`);
+							log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.`+ __location);
 						}
 
 						// Grab the limits info
@@ -691,7 +691,7 @@ module.exports = class ChubbGL extends Integration{
 						fulfill(this.return_result('error'));
 				}
 			}).catch(() => {
-				log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.`);
+				log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.`+ __location);
 				fulfill(this.return_result('error'));
 			});
 		});

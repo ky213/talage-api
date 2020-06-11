@@ -3,6 +3,9 @@
 const auth = require('./helpers/auth.js');
 const serverHelper = require('../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
+
 
 /**
  * Checks whether the provided agency has a primary page other than the current page
@@ -60,7 +63,12 @@ async function validate(request, next){
 		'banner': '',
 		'colorScheme': 1,
 		'heading': null,
+		'industryCode': null,
+		'industryCodeCategory': null,
+		'introHeading': null,
+		'introText': null,
 		'name': '',
+		'showIndustrySection': true,
 		'slug': ''
 	};
 
@@ -69,46 +77,7 @@ async function validate(request, next){
 
 	// Validate each parameter
 
-	// Name
-	if(!Object.prototype.hasOwnProperty.call(request.body, 'name') || !request.body.name){
-		throw new Error('You must enter a page name');
-	}
-	if(!validator.landingPageName(request.body.name)){
-		throw new Error('Page name is invalid');
-	}
-	data.name = request.body.name;
-
-	// Slug (a.k.a. Link)
-	if(!Object.prototype.hasOwnProperty.call(request.body, 'slug') || !request.body.slug){
-		throw new Error('You must enter a link');
-	}
-	if(!validator.slug(request.body.slug)){
-		throw new Error('Link is invalid');
-	}
-	data.slug = request.body.slug;
-
-	// Heading
-	if(Object.prototype.hasOwnProperty.call(request.body, 'heading') && request.body.heading){
-		if(request.body.heading.length > 70){
-			throw new Error('Heading must be less the 70 characters');
-		}else{
-			data.heading = request.body.heading;
-		}
-	}
-
-	// Banner
-	if(Object.prototype.hasOwnProperty.call(request.body, 'banner') && request.body.banner){
-		// TO DO: Validate
-		data.banner = request.body.banner;
-	}
-
-	// Color Scheme (a.k.a Theme)
-	if(Object.prototype.hasOwnProperty.call(request.body, 'colorScheme') && request.body.colorScheme){
-		// TO DO: Validate
-		data.colorScheme = request.body.colorScheme;
-	}
-
-	// About
+	// About (optional)
 	if(Object.prototype.hasOwnProperty.call(request.body, 'about') && request.body.about){
 		// Strip out HTML
 		request.body.about = request.body.about.replace(/(<([^>]+)>)/ig, '');
@@ -121,6 +90,96 @@ async function validate(request, next){
 		data.about = request.body.about;
 	}
 
+	// Banner (optional)
+	if(Object.prototype.hasOwnProperty.call(request.body, 'banner') && request.body.banner){
+		if(!await validator.banner(request.body.banner)){
+			throw new Error('Banner is invalid');
+		}
+		data.banner = request.body.banner;
+	}
+
+	// Color Scheme (a.k.a Theme)
+	if(Object.prototype.hasOwnProperty.call(request.body, 'colorScheme') && request.body.colorScheme){
+		// TO DO: Validate
+		data.colorScheme = request.body.colorScheme;
+	}
+
+	// Heading (optional)
+	if(Object.prototype.hasOwnProperty.call(request.body, 'heading') && request.body.heading){
+		if(request.body.heading.length > 70){
+			throw new Error('Heading must be less the 70 characters');
+		}
+		if(!validator.landingPageHeading(request.body.heading)){
+			throw new Error('Heading is invalid');
+		}
+		data.heading = request.body.heading;
+	}
+
+	// Industry Code Category (optional)
+	if(Object.prototype.hasOwnProperty.call(request.body, 'industryCodeCategory') && request.body.industryCodeCategory){
+		if(!await validator.industryCodeCategory(request.body.industryCodeCategory)){
+			throw new Error('Industry Code Category is invalid');
+		}
+		data.industryCodeCategory = request.body.industryCodeCategory;
+
+		// Industry Code (optional) - only applicable if an Industry Code Category is set
+		if(Object.prototype.hasOwnProperty.call(request.body, 'industryCode') && request.body.industryCode){
+			if(!await validator.industry_code(request.body.industryCode)){
+				throw new Error('Industry Code is invalid');
+			}
+			data.industryCode = request.body.industryCode;
+		}
+	}
+
+	// Intro Heading (optional)
+	if(Object.prototype.hasOwnProperty.call(request.body, 'introHeading') && request.body.introHeading){
+		if(request.body.introHeading.length > 70){
+			throw new Error('Introduction Heading must be less the 70 characters');
+		}
+		if(!validator.landingPageHeading(request.body.introHeading)){
+			throw new Error('Introduction Heading is invalid');
+		}
+		data.introHeading = request.body.introHeading;
+	}
+
+	// Intro Text (optional)
+	if(Object.prototype.hasOwnProperty.call(request.body, 'introText') && request.body.introText){
+		// Strip out HTML
+		request.body.introText = request.body.introText.replace(/(<([^>]+)>)/ig, '');
+
+		// Check lengths
+		if(request.body.introText.length > 400){
+			throw new Error('Reduce the length of your introduction text to less than 400 characters');
+		}
+
+		data.introText = request.body.introText;
+	}
+
+	// Name
+	if(!Object.prototype.hasOwnProperty.call(request.body, 'name') || !request.body.name){
+		throw new Error('You must enter a page name');
+	}
+	if(!validator.landingPageName(request.body.name)){
+		throw new Error('Page name is invalid');
+	}
+	data.name = request.body.name;
+
+	// Show Industry Section (optional)
+	if(Object.prototype.hasOwnProperty.call(request.body, 'showIndustrySection')){
+		if(typeof request.body.showIndustrySection === 'boolean' && !request.body.showIndustrySection){
+			data.showIndustrySection = false;
+		}
+	}
+
+	// Slug (a.k.a. Link)
+	if(!Object.prototype.hasOwnProperty.call(request.body, 'slug') || !request.body.slug){
+		throw new Error('You must enter a link');
+	}
+	if(!validator.slug(request.body.slug)){
+		throw new Error('Link is invalid');
+	}
+	data.slug = request.body.slug;
+
 	// Check for duplicate name
 	const nameSQL = `
 			SELECT \`id\`
@@ -132,7 +191,7 @@ async function validate(request, next){
 			;
 		`;
 	const nameResult = await db.query(nameSQL).catch(function(error){
-		log.error(error.message);
+		log.error(error.message + __location);
 		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 	if(nameResult.length > 0){
@@ -198,13 +257,29 @@ async function createLandingPage(req, res, next){
 		return next(serverHelper.requestError(error));
 	}
 
-	// Commit this update to the database
+	// Define the data to be inserted, column: value
+	const insertData = {
+		'about': data.about,
+		'agency': agency,
+		'banner': data.banner,
+		'color_scheme': data.colorScheme,
+		'heading': data.heading,
+		'industry_code': data.industryCode,
+		'industry_code_category': data.industryCodeCategory,
+		'intro_heading': data.introHeading,
+		'intro_text': data.introText,
+		'name': data.name,
+		'show_industry_section': data.showIndustrySection,
+		'slug': data.slug
+	};
+
+	// Create the SQL to insert this item into the database
 	const sql = `
-			INSERT INTO \`#__agency_landing_pages\` (\`about\`, \`agency\`, \`banner\`, \`color_scheme\`, \`heading\`, \`name\`, \`slug\`)
-			VALUES (${db.escape(data.about)}, ${db.escape(agency)}, ${db.escape(data.banner)}, ${db.escape(data.colorScheme)}, ${db.escape(data.heading)}, ${db.escape(data.name)}, ${db.escape(data.slug)});
+			INSERT INTO \`#__agency_landing_pages\` (${Object.keys(insertData).map((key) => `\`${key}\``).join(',')})
+			VALUES (${Object.values(insertData).map((key) => db.escape(key)).join(',')});
 		`;
 
-	// Run the query
+	// Commit this update to the database
 	const result = await db.query(sql).catch(function(err){
 		log.error(err.message);
 		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
@@ -271,7 +346,8 @@ async function deleteLandingPage(req, res, next){
 		}
 
 		agency = req.query.agency;
-	}else{
+	}
+	else{
 		// This is an agency user, they can only handle their own agency
 		agency = req.authentication.agents[0];
 	}
@@ -343,11 +419,13 @@ async function getLandingPage(req, res, next){
 	// Check that query parameters were received
 	if(!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
 		log.info('Bad Request: Query parameters missing');
+		res.send(400, {});
 		return next(serverHelper.requestError('Query parameters missing'));
 	}
 	// Check for required parameters
 	if(!Object.prototype.hasOwnProperty.call(req.query, 'id') || !req.query.id){
 		log.info('Bad Request: You must specify a page');
+		res.send(400, {});
 		return next(serverHelper.requestError('You must specify a page'));
 	}
 
@@ -361,7 +439,12 @@ async function getLandingPage(req, res, next){
 				\`about\`,
 				\`banner\`,
 				\`color_scheme\` AS 'colorScheme',
+				\`industry_code\` AS 'industryCode',
+				\`industry_code_category\` AS 'industryCodeCategory',
+				\`intro_heading\` AS 'introHeading',
+				\`intro_text\` AS 'introText',
 				\`name\`,
+				\`show_industry_section\` AS 'showIndustrySection',
 				\`slug\`,
 				\`primary\`,
 				\`heading\`
@@ -372,13 +455,15 @@ async function getLandingPage(req, res, next){
 
 	// Run the query
 	const landingPage = await db.query(landingPageSQL).catch(function(err){
-		log.error(err.message);
+		log.error(err.message + __location);
+		res.send(500, {});
 		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Make sure a page was found
 	if(landingPage.length !== 1){
-		log.warn('Page not found');
+		log.warn('Page not found' + __location);
+		res.send(500, {});
 		return next(serverHelper.requestError('Page not found'));
 	}
 
@@ -409,9 +494,9 @@ async function updateLandingPage(req, res, next){
 	// Determine the agency ID
 	const agency = req.authentication.agents[0];
 
-	// Check that at least some post parameters were recieved
+	// Check that at least some post parameters were received
 	if(!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0){
-		log.info('Bad Request: Parameters missing');
+		log.info('Bad Request: Parameters missing' + __location);
 		return next(serverHelper.requestError('Parameters missing'));
 	}
 
@@ -420,7 +505,7 @@ async function updateLandingPage(req, res, next){
 		error = err.message;
 	});
 	if(error){
-		log.warn(error);
+		log.warn(error + __location);
 		return next(serverHelper.requestError(error));
 	}
 
@@ -440,7 +525,12 @@ async function updateLandingPage(req, res, next){
 				\`banner\` = ${db.escape(data.banner)},
 				\`color_scheme\` = ${db.escape(data.colorScheme)},
 				\`heading\` = ${db.escape(data.heading)},
+				\`industry_code\` = ${db.escape(data.industryCode)},
+				\`industry_code_category\` = ${db.escape(data.industryCodeCategory)},
+				\`intro_heading\` = ${db.escape(data.introHeading)},
+				\`intro_text\` = ${db.escape(data.introText)},
 				\`name\` = ${db.escape(data.name)},
+				\`show_industry_section\` = ${db.escape(data.showIndustrySection)},
 				\`slug\` = ${db.escape(data.slug)}
 			WHERE \`id\` = ${db.escape(data.id)} AND \`agency\` = ${db.escape(agency)}
 			LIMIT 1;
@@ -448,7 +538,7 @@ async function updateLandingPage(req, res, next){
 
 	// Run the query
 	const result = await db.query(sql).catch(function(err){
-		log.error(err.message);
+		log.error(err.message + __location);
 		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 

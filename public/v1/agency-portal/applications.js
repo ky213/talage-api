@@ -56,7 +56,7 @@ async function getQuotes(application){
 			${db.quoteName('api_result')},
 			${db.quoteName('bound')}
 		FROM ${db.quoteName('#__quotes', 'a')}
-		WHERE ${db.quoteName('application')} = ${db.escape(application.id)} 
+		WHERE ${db.quoteName('application')} = ${db.escape(application.id)}
 	`;
 	try{
 		const quotes = await db.query(quotesSQL);
@@ -167,7 +167,7 @@ async function PostApplications(req, res, next){
 	const agencyNetwork = parseInt(req.authentication.agencyNetwork, 10);
 
 	// This is a very special case. If this is the agent 'Solepro' (ID 12) asking for applications, query differently
-	let where = '';
+	let where = (agencyNetwork === 2 ? ' AND a.agency != 42' : '');
 	if(!agencyNetwork && agents[0] === 12){
 		where += ` AND ${db.quoteName('a.solepro')} = 1`;
 	}else{
@@ -179,7 +179,7 @@ async function PostApplications(req, res, next){
 	const applicationsTotalCountSQL = `
 			SELECT COUNT(DISTINCT ${db.quoteName('a.id')}) as count
 			FROM ${db.quoteName('#__applications', 'a')}
-			WHERE ${db.quoteName('a.state')} >= 1 
+			WHERE ${db.quoteName('a.state')} >= 1
 			${where}
 		`;
 	let applicationsTotalCount = 0;
@@ -236,7 +236,7 @@ async function PostApplications(req, res, next){
 			LEFT JOIN ${db.quoteName('#__zip_codes', 'zc')} ON ${db.quoteName('zc.zip')} = ${db.quoteName('a.zip')}
 			LEFT JOIN ${db.quoteName('#__agencies', 'ag')} ON ${db.quoteName('a.agency')} = ${db.quoteName('ag.id')}
 			${join}
-			WHERE ${db.quoteName('a.state')} >= 1 
+			WHERE ${db.quoteName('a.state')} >= 1
 				AND ${db.quoteName('a.created')} BETWEEN CAST(${db.escape(startDateSQL)} AS DATE) AND CAST(${db.escape(endDateSQL)} AS DATE)
 				${where}
 		`;

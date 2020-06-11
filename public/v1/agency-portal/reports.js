@@ -101,6 +101,8 @@ async function GetReports(req, res, next){
 	let where = `${db.quoteName('a.agency')} IN(${agents.join(',')})`;
 	if(!agencyNetwork && agents[0] === 12){
 		where = `${db.quoteName('a.solepro')} = 1`;
+	}else if(agencyNetwork === 2){
+		where += ' AND a.agency != 42';
 	}
 
 	// List of accepted parameters to query from the database
@@ -187,7 +189,7 @@ async function GetReports(req, res, next){
 				LIMIT 1;
 			`
 	};
-	log.debug(queries['monthlyTrends']);
+	//log.debug(queries['monthlyTrends']);
 	// Define a list of queries to be executed based on the request type
 	const selectedQueries = initialRequest ? ['minDate', 'hasApplications'] : ['funnel',
 		'geography',

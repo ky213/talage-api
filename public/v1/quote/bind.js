@@ -45,6 +45,7 @@ async function PutBind(req, res, next){
 		log.warn(`Cannot Load Quote: ${err.message}`);
 	});
 	if(error){
+		// TODO Consistent next ERROR type - currently mixed downstream
 		return next(error);
 	}
 
@@ -58,7 +59,7 @@ async function PutBind(req, res, next){
 			'message': 'Unable to bind the policy. Please contact Talage at customersuccess@talageins.com'
 		});
 	}).then(function(result){
-		if (!error) {
+		if(!error){
 			// Everything looks good, send a positive response
 			res.send(200, {
 				'code': result,
