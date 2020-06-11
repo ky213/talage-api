@@ -370,7 +370,7 @@ module.exports = class Application{
 								quote_promises.push(integration.quote());
 							}
 						}else{
-							log.warn(`Insurer integration file does not exist: ${insurer.name} ${policy.type}`);
+							log.warn(`Insurer integration file does not exist: ${insurer.name} ${policy.type}` + __location);
 						}
 					}
 				});
@@ -456,7 +456,7 @@ module.exports = class Application{
 			LIMIT 1;`;
 
 			let emailData = await db.query(sql).catch(function(){
-				log.error('Unable to get No Quote email content from the database');
+				log.error('Unable to get No Quote email content from the database' + __location);
 			});
 
 			if(emailData && emailData[0]){
@@ -609,7 +609,7 @@ module.exports = class Application{
 				LIMIT 1;
 			`;
 			db.query(sql).catch( function(error){
-				log.error('Unable to update application status. ' + error);
+				log.error('Unable to update application status. ' + error + __location);
 			});
 		}
 	}
@@ -626,7 +626,7 @@ module.exports = class Application{
 
 			// Agent
 			await this.agencyLocation.validate().catch(function(error){
-				log.error("Location.validate() error " + error);
+				log.error("Location.validate() error " + error + __location);
 				reject(error);
 				stop = true;
 			});
@@ -670,7 +670,7 @@ module.exports = class Application{
 					reject(serverHelper.requestError('The Agent specified cannot support this policy.'));
 					stop = true;
 				}else{
-					log.error("get insurers error " + error);
+					log.error("get insurers error " + error + __location);
 					reject(error);
 					stop = true;
 				}
@@ -685,7 +685,7 @@ module.exports = class Application{
 
 			// Validate the business
 			await this.business.validate().catch(function(error){
-				log.error("business.validate() error " + error);
+				log.error("business.validate() error " + error + __location);
 				reject(error);
 				stop = true;
 			});
@@ -712,7 +712,7 @@ module.exports = class Application{
 			const insurer_ids = this.get_insurer_ids();
 			const wc_codes = this.get_wc_codes();
 			const questions = await get_questions(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids).catch(function(error){
-				log.error("get_questions error " + error);
+				log.error("get_questions error " + error + __location);
 				reject(error);
 			});
 
@@ -734,7 +734,7 @@ module.exports = class Application{
 							const user_answer = user_questions[q.id];
 
 							q.set_answer(user_answer).catch(function(error){
-								log.error("set answers error " + error);
+								log.error("set answers error " + error + __location);
 								reject(error);
 								has_error = true;
 							});
@@ -766,7 +766,7 @@ module.exports = class Application{
 
 							// If no parent was found, throw an error
 							if(!parent_question){
-								log.error(`Question ${question.id} has invalid parent setting. (${htmlentities.decode(question.text).replace('%', '%%')})`);
+								log.error(`Question ${question.id} has invalid parent setting. (${htmlentities.decode(question.text).replace('%', '%%')})` + __location);
 								reject(serverHelper.requestError('An unexpected error has occurred. Our team has been alerted and will contact you.'));
 								return;
 							}
@@ -810,7 +810,7 @@ module.exports = class Application{
 
 			// Check agent support
 			await this.agencyLocation.supports_application().catch(function(error){
-				log.error("agencyLocation.supports_application() error " + error);
+				log.error("agencyLocation.supports_application() error " + error + __location);
 				reject(error);
 				stop = true;
 			});
