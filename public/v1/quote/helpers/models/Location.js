@@ -198,7 +198,7 @@ module.exports = class Location{
 						reject(serverHelper.requestError('The zip code you entered is not valid'));
 					}
 				}).catch(function(error){
-					log.warn(error);
+					log.warn(error + __location);
 					reject(serverHelper.requestError('The zip code you entered is not valid'));
 				});
 			}else{
