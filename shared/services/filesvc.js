@@ -5,9 +5,8 @@
  */
 
 'use strict';
-
-const request = require('request');
-const AWS = require('aws-sdk');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 //So we can reference exports. functions.
 var _this = this;
@@ -42,40 +41,7 @@ exports.store = async function(path, data){
 		return res;
 	}).catch(function(err){
 		throw err;
-	})
-
-	// Compose the options for the request to the file service
-	// const options = {
-	// 	'headers': {'content-type': 'application/json'},
-	// 	'json': {
-	// 		'data': data,
-	// 		'path': path
-	// 	},
-	// 	'method': 'PUT',
-	// 	'url': `http://localhost:${global.settings.PRIVATE_API_PORT}/v1/file/file`
-	// };
-
-	// // Send the request
-	// let rtn = true;
-	// await request(options, function(e, response, body){
-
-	// 	// If there was an error, return false
-	// 	if(e){
-	// 		rtn = false;
-	// 		log.error('Failed to connect to file service.' );
-	// 		return;
-	// 	}
-
-	// 	// If the response was anything but a success, return false
-	// 	if(response.statusCode !== 200){
-	// 		// The response is JSON, parse out the error
-	// 		const message = `${response.statusCode} - ${body.message}`;
-	// 		log.warn(message);
-	// 		rtn = false;
-	// 	}
-	// });
-
-	//return rtn;
+	});
 };
 
 /**
