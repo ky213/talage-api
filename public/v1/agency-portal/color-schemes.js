@@ -13,11 +13,7 @@ async function validate(request, next){
 		'tertiary': '',
 		'tertiary_accent': ''
 	};
-
-	// Determine the agency ID
-	const agency = request.authentication.agents[0];
-
-	// TODO: Validate each parameter
+	
 	// For now only validating the primary and secondary color schemes
 	if( !Object.prototype.hasOwnProperty.call(request.body, 'primary') || !request.body.primary){
 		throw new Error('You must choose a primary color');
@@ -109,33 +105,52 @@ async function PutColorScheme(req, res, next){
 		return next(serverHelper.requestError(error));
 	}
 
-	// commit this update to the database
-	const sql = `
-			INSERT INTO \`#__color_schemes\` 
-			(\`name\`, \`primary\`,\`primary_accent\`,\`secondary\`,\`secondary_accent\`,\`tertiary\`,\`tertiary_accent\`)
-			VALUES (${db.escape(`Custom`)}, ${db.escape(data.primary)}, ${db.escape(data.primary_accent)}, ${db.escape(data.secondary)}, ${db.escape(data.secondary_accent)}, ${db.escape(data.tertiary)}, ${db.escape(data.tertiary_accent)})
+	// see if record already exists
+	const recordSearchQuery = `
+		SELECT 
+			\`id\`
+		FROM \`#__color_schemes\` 					
+		WHERE \`primary\` = ${db.escape(data.primary)} && \`secondary\` = ${db.escape(data.secondary)}
 	`;
-
-	// Run the query
-	const createCustomColorResult = await db.query(sql).catch(function(err){
-		log.error(err.message);
+	// variable to hold existing id
+	const exisitingColorId = await db.query(recordSearchQuery).catch(function(err){
+		log.error(`Error when trying to check if custom color already exists. \n ${err.message}`);
 		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
+	log.error(`The query for an exisiting object ${exisitingColorId}`)
+	// variable to hold new color id
+	let newColorId = null;
 
-	// Make sure the query was successful
-	if(createCustomColorResult.affectedRows !== 1){
-		log.error('Custom color scheme update failed. Query ran successfully; however, no records were affected.');
-		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+	// if record does not exist then go ahead and insert into db
+	// commit this update to the database
+	if (exisitingColorId.length === 0){
+		const sql = `
+				INSERT INTO \`#__color_schemes\` 
+				(\`name\`, \`primary\`,\`primary_accent\`,\`secondary\`,\`secondary_accent\`,\`tertiary\`,\`tertiary_accent\`)
+				VALUES (${db.escape(`Custom`)}, ${db.escape(data.primary)}, ${db.escape(data.primary_accent)}, ${db.escape(data.secondary)}, ${db.escape(data.secondary_accent)}, ${db.escape(data.tertiary)}, ${db.escape(data.tertiary_accent)})
+		`;
+		// Run the query
+		const createCustomColorResult = await db.query(sql).catch(function(err){
+			log.error(err.message);
+			return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		});
+		// Make sure the query was successful
+		if(createCustomColorResult.affectedRows === 1){
+			newColorId = createCustomColorResult.insertId;
+		} else {
+			log.error('Custom color scheme update failed. Query ran successfully; however, no records were affected.');
+			return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		}
 	}
 
-	// get the id of the custom color
-	const customColorId = createCustomColorResult.insertId;
+	const customColorId = exisitingColorId.length === 0 ? newColorId : exisitingColorId[0].id;
 
 	//send back the color id
 	res.send(200, customColorId);
 	return next();
 
 }
+
 exports.registerEndpoint = (server, basePath) => {
 	server.addGetAuth('Get Color Scheme', `${basePath}/color-scheme`, GetColorScheme);
 	server.addPutAuth('Put Color Scheme', `${basePath}/color-scheme`, PutColorScheme);
