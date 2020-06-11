@@ -28,7 +28,7 @@ async function createAgencyLocation(req, res, next){
 
 	// Make sure this is an agency network
 	if(req.authentication.agencyNetwork === false){
-		log.info('Forbidden: User is not authorized to create agency locations');
+		log.info('Forbidden: Only Agency Networks are authorized to create agency locations');
 		return next(serverHelper.forbiddenError('You are not authorized to create agency locations'));
 	}
 
@@ -91,7 +91,7 @@ async function deleteAgencyLocation(req, res, next){
 
 	// Make sure this is an agency network
 	if(req.authentication.agencyNetwork === false){
-		log.info('Forbidden: User is not authorized to delete agency locations');
+		log.info('Forbidden: Only Agency Networks are authorized to delete agency locations');
 		return next(serverHelper.forbiddenError('You are not authorized to delete agency locations'));
 	}
 
@@ -210,18 +210,20 @@ function getAgencyByLocationId(id){
 async function updateAgencyLocation(req, res, next){
 	let error = false;
 
+	// Determine which permissions group to use (start with the default permission needed by an agency network)
+	let permissionGroup = 'agencies';
+
+	// If this is not an agency network, use the agency specific permissions
+	if(req.authentication.agencyNetwork === false){
+		permissionGroup = 'settings';
+	}
+
 	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req, 'agencies', 'manage').catch(function(e){
+	await auth.validateJWT(req, permissionGroup, 'view').catch(function(e){
 		error = e;
 	});
 	if(error){
 		return next(error);
-	}
-
-	// Make sure this is an agency network
-	if(req.authentication.agencyNetwork === false){
-		log.info('Forbidden: User is not authorized to create agency locations');
-		return next(serverHelper.forbiddenError('You are not authorized to create agency locations'));
 	}
 
 	// Check for data
@@ -239,21 +241,28 @@ async function updateAgencyLocation(req, res, next){
 	}
 	const id = parseInt(req.body.id, 10);
 
-	// If no agency was supplied, get the Agency ID corresponding to this location and load it into the request object
-	if(!req.body.agency){
-		try{
-			req.body.agency = await getAgencyByLocationId(id);
-		}catch(err){
-			return next(err);
-		}
-	}
-
 	// Get the agencies that the user is permitted to manage
 	const agencies = await auth.getAgents(req).catch(function(e){
 		error = e;
 	});
 	if(error){
 		return next(error);
+	}
+
+	// If no agency is supplied, get one
+	if(!req.body.agency){
+		// Determine how to get the agency ID
+		if(req.authentication.agencyNetwork === false){
+			// If this is an Agency Network User, get the agency from the location
+			try{
+				req.body.agency = await getAgencyByLocationId(id);
+			}catch(err){
+				return next(err);
+			}
+		}else{
+			// If this is an Agency User, get the agency from their permissions
+			req.body.agency = agencies[0];
+		}
 	}
 
 	// Security Check: Make sure this Agency Network has access to this Agency

@@ -110,6 +110,9 @@ async function postToken(req, res, next){
 		payload.agencyNetwork = result[0].agency_network;
 	}
 
+	// Store a local copy of the agency network ID for later use (not in the payload)
+	let agencyNetwork = payload.agencyNetwork;
+
 	// For agency networks get the agencies they are allowed to access
 	if(payload.agencyNetwork){
 
@@ -133,30 +136,6 @@ async function postToken(req, res, next){
 		agencies.forEach((agency) => {
 			payload.agents.push(agency.id);
 		});
-
-		// Build a query to get all of the insurers this agency network can use
-		const insurersSQL = `
-			SELECT \`i\`.\`id\`
-			FROM \`#__insurers\` AS \`i\`
-			RIGHT JOIN \`#__agency_network_insurers\` AS \`ani\` ON \`i\`.\`id\` = \`ani\`.\`insurer\`
-			WHERE \`ani\`.\`agency_network\` = ${db.escape(payload.agencyNetwork)} AND \`i\`.\`state\` > 0;
-		`;
-
-		// Query the database
-		const insurersData = await db.query(insurersSQL).catch(function(e){
-			log.error(e.message);
-			res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
-			error = true;
-		});
-		if(error){
-			return next(false);
-		}
-
-		// Store the insurers in the payload
-		payload.insurers = [];
-		insurersData.forEach((insurer) => {
-			payload.insurers.push(insurer.id);
-		});
 	}else{
 		// Just allow access to the current agency
 		payload.agents.push(result[0].agency);
@@ -167,6 +146,7 @@ async function postToken(req, res, next){
 		// Determine whether or not the user needs to sign a wholesale agreement
 		const wholesaleSQL = `
 			SELECT
+				\`agency_network\`,
 				\`wholesale\` ,
 				\`wholesale_agreement_signed\`
 			FROM \`#__agencies\`
@@ -186,7 +166,34 @@ async function postToken(req, res, next){
 		if(wholesaleInfo[0].wholesale && !wholesaleInfo[0].wholesale_agreement_signed){
 			payload.signatureRequired = true;
 		}
+
+		// Store the agency network ID locally for later use
+		agencyNetwork = wholesaleInfo[0].agency_network;
 	}
+
+	// Build a query to get all of the insurers this agency network can use
+	const insurersSQL = `
+		SELECT \`i\`.\`id\`
+		FROM \`#__insurers\` AS \`i\`
+		RIGHT JOIN \`#__agency_network_insurers\` AS \`ani\` ON \`i\`.\`id\` = \`ani\`.\`insurer\`
+		WHERE \`ani\`.\`agency_network\` = ${db.escape(agencyNetwork)} AND \`i\`.\`state\` > 0;
+	`;
+
+	// Query the database
+	const insurersData = await db.query(insurersSQL).catch(function(e){
+		log.error(e.message);
+		res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
+		error = true;
+	});
+	if(error){
+		return next(false);
+	}
+
+	// Store the insurers in the payload
+	payload.insurers = [];
+	insurersData.forEach((insurer) => {
+		payload.insurers.push(insurer.id);
+	});
 
 	// Add the user ID to the payload
 	payload.userID = result[0].id;

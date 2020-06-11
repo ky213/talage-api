@@ -16,7 +16,7 @@ const properties = {
 	'address': { // The name of the property
 		'default': null, // Default value
 		'encrypted': true, // Whether or not it is encrypted before storing in the database
-		'required': true, // Whether or not it is required
+		'required': false, // Whether or not it is required
 		'rules': [
 			validator.address
 		],
@@ -122,7 +122,7 @@ const properties = {
 	'zip': {
 		'default': null,
 		'encrypted': false,
-		'required': true,
+		'required': false,
 		'rules': [
 			validator.zip
 		],

@@ -7,22 +7,6 @@ const auth = require('./helpers/auth.js');
 const validator = global.requireShared('./helpers/validator.js');
 const serverHelper = require('../../../server.js');
 
-// /**
-//  * Generates a random key for an agency
-//  *
-//  * @return {string} - A random 16 character string
-//  */
-// Function generateKey(){
-// 	Const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-// 	Const result = [];
-//
-// 	For(let i = 0; i < 16; i++){
-// 		Result.push(characters.charAt(Math.floor(Math.random() * 64)));
-// 	}
-//
-// 	Return result.join('');
-// }
-
 /**
  * Generates a random password for the user's first login
  *
@@ -126,8 +110,16 @@ async function deleteAgency(req, res, next){
 async function getAgency(req, res, next){
 	let error = false;
 
+	// Determine which permissions group to use (start with the default permission needed by an agency network)
+	let permissionGroup = 'agencies';
+
+	// If this is not an agency network, use the agency specific permissions
+	if(req.authentication.agencyNetwork === false){
+		permissionGroup = 'settings';
+	}
+
 	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req, 'agencies', 'view').catch(function(e){
+	await auth.validateJWT(req, permissionGroup, 'view').catch(function(e){
 		error = e;
 	});
 	if(error){
@@ -135,18 +127,11 @@ async function getAgency(req, res, next){
 	}
 
 	// Get the agents that we are permitted to view
-
 	const agents = await auth.getAgents(req).catch(function(e){
 		error = e;
 	});
 	if(error){
 		return next(error);
-	}
-
-	// Make sure this is an agency network
-	if(req.authentication.agencyNetwork === false){
-		log.info('Forbidden: User is not authorized to access agency information');
-		return next(serverHelper.forbiddenError('You are not authorized to access this resource'));
 	}
 
 	// Check that query parameters were received
@@ -161,8 +146,13 @@ async function getAgency(req, res, next){
 		return next(serverHelper.requestError('You must specify an agent'));
 	}
 
-	// Localize and sanitize the agent id
-	const agent = parseInt(req.query.agent, 10);
+	// By default, the use first agency available to this user (for non-agency network users, they will only have one which is their agency)
+	let agent = agents[0];
+
+	// If this is an agency network, use the one from the request
+	if(req.authentication.agencyNetwork !== false){
+		agent = parseInt(req.query.agent, 10);
+	}
 
 	// Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
 	if(!agents.includes(parseInt(agent, 10))){
@@ -311,8 +301,8 @@ async function getAgency(req, res, next){
 	let insurers = [];
 	let territories = [];
 
-	// If this is an agency network user, get the insurers and territories
-	if(req.authentication.agencyNetwork && req.authentication.insurers.length && locationIDs.length){
+	// Get the insurers and territories
+	if(req.authentication.insurers.length && locationIDs.length){
 
 		// Define queries for insurers and territories
 		const insurersSQL = `
@@ -438,7 +428,7 @@ async function postAgency(req, res, next){
 
 	// Make sure this is an agency network
 	if(req.authentication.agencyNetwork === false){
-		log.info('Forbidden: User is not authorized to create agencies');
+		log.info('Forbidden: Only Agency Networks are authorized to create agencies');
 		return next(serverHelper.forbiddenError('You are not authorized to create agencies'));
 	}
 
@@ -789,18 +779,20 @@ async function postAgency(req, res, next){
 async function updateAgency(req, res, next){
 	let error = false;
 
+	// Determine which permissions group to use (start with the default permission needed by an agency network)
+	let permissionGroup = 'agencies';
+
+	// If this is not an agency network, use the agency specific permissions
+	if(req.authentication.agencyNetwork === false){
+		permissionGroup = 'settings';
+	}
+
 	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req, 'agencies', 'manage').catch(function(e){
+	await auth.validateJWT(req, permissionGroup, 'view').catch(function(e){
 		error = e;
 	});
 	if(error){
 		return next(error);
-	}
-
-	// Make sure this is an agency network
-	if(req.authentication.agencyNetwork === false){
-		log.info('Forbidden: User is not authorized to create agencies');
-		return next(serverHelper.forbiddenError('You are not authorized to create agencies'));
 	}
 
 	// Check for data
