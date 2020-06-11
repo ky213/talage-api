@@ -1,3 +1,4 @@
+/* eslint-disable array-element-newline */
 /* eslint-disable prefer-promise-reject-errors */
 /* eslint-disable no-undef */
 /* eslint-disable space-before-function-paren */
@@ -103,6 +104,90 @@ describe("Filesvc - Get ", function (){
             error = err;
             should.exist(error);
             should.not.exist(resp);
+            done();
+        });
+
+    });
+
+
+});
+
+describe("Filesvc - GetFileList ", function (){
+    //let sandbox = null;
+
+    beforeEach(function(done) {
+        simple.mock(log, 'error').callFn(function () {});
+        simple.mock(log, 'warn').callFn(function () {});
+        simple.mock(log, 'info').callFn(function () {});
+        simple.mock(log, 'debug').callFn(function () {});
+        simple.mock(log, 'silly').callFn(function () {});
+        simple.mock(log, 'verbose').callFn(function () {});
+        //sinon.stub(s3, "getObject");
+
+        global.settings.SLACK_DO_NOT_SEND = "YES";
+
+        done();
+    });
+
+    afterEach(function(done) {
+       simple.restore()
+       done();
+    });
+
+    it('Filesvc.get - good', function(done){
+        var s3RespObj = {};
+        s3RespObj = {
+            "IsTruncated": false,
+            "Contents": [
+              {
+                "Key": "public/agency-banners/",
+                "LastModified": "2020-01-01T02:28:42.000Z",
+                "ETag": "\"d41d8cd98f00b204e9800998ecf8427e\"",
+                "Size": 0,
+                "StorageClass": "STANDARD"
+              },
+              {
+                "Key": "public/agency-banners/barber.jpg",
+                "LastModified": "2020-01-03T00:34:24.000Z",
+                "ETag": "\"a480c8448a1446e588e1ebfb8dc3692d\"",
+                "Size": 102232,
+                "StorageClass": "STANDARD"
+              }
+            ]
+        };
+        simple.mock(global.s3, 'listObjectsV2').callbackWith(null, s3RespObj);
+        let error = null;
+        let resp = null;
+        taskFileSvc.GetFileList("public/agency-banners/test.txt").then(function(data){
+            resp = data;
+            should.not.exist(error);
+            should.exist(resp);
+            assert.isAbove(resp.length, 0, "Array greater than 0");
+            done();
+        }).catch(function(err){
+            error = err;
+            should.not.exist(error);
+            should.exist(resp);
+            assert.isAbove(resp.length, 0, "Array greater than 0");
+            done();
+        });
+
+    });
+
+    it('Filesvc.get - S3 Error', function(done){
+
+        simple.mock(global.s3, 'listObjectsV2').callbackWith(new Error("test Error"), null);
+        let error = null;
+        let resp = null;
+        taskFileSvc.GetFileList("public/agency-banners/test.txt").then(function(data){
+            resp = data;
+            should.exist(error, "Error should be returned not not here");
+            should.not.exist(resp, "resp should not exits");
+            done();
+        }).catch(function(err){
+            error = err;
+            should.exist(error, "Error should be returned");
+            should.not.exist(resp, "resp should not exits");
             done();
         });
 
