@@ -29,6 +29,5 @@ exports.registerEndpoints = (server) => {
 	//registerEndpoint(server, 'encryption', 'hash');
 	registerEndpoint(server, 'encryption', 'hash-password');
 	registerEndpoint(server, 'file', 'file');
-	registerEndpoint(server, 'file', 'list');
 	registerEndpoint(server, 'slack', 'post-to-channel');
 };

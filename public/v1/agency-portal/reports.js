@@ -189,7 +189,7 @@ async function GetReports(req, res, next){
 				LIMIT 1;
 			`
 	};
-	log.debug(queries['monthlyTrends']);
+	//log.debug(queries['monthlyTrends']);
 	// Define a list of queries to be executed based on the request type
 	const selectedQueries = initialRequest ? ['minDate', 'hasApplications'] : ['funnel',
 		'geography',

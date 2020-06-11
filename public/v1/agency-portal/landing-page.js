@@ -3,6 +3,9 @@
 const auth = require('./helpers/auth.js');
 const serverHelper = require('../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
+
 
 /**
  * Checks whether the provided agency has a primary page other than the current page
@@ -188,7 +191,7 @@ async function validate(request, next){
 			;
 		`;
 	const nameResult = await db.query(nameSQL).catch(function(error){
-		log.error(error.message);
+		log.error(error.message + __location);
 		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 	if(nameResult.length > 0){
@@ -343,7 +346,8 @@ async function deleteLandingPage(req, res, next){
 		}
 
 		agency = req.query.agency;
-	}else{
+	}
+	else{
 		// This is an agency user, they can only handle their own agency
 		agency = req.authentication.agents[0];
 	}
@@ -415,11 +419,13 @@ async function getLandingPage(req, res, next){
 	// Check that query parameters were received
 	if(!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
 		log.info('Bad Request: Query parameters missing');
+		res.send(400, {});
 		return next(serverHelper.requestError('Query parameters missing'));
 	}
 	// Check for required parameters
 	if(!Object.prototype.hasOwnProperty.call(req.query, 'id') || !req.query.id){
 		log.info('Bad Request: You must specify a page');
+		res.send(400, {});
 		return next(serverHelper.requestError('You must specify a page'));
 	}
 
@@ -449,13 +455,15 @@ async function getLandingPage(req, res, next){
 
 	// Run the query
 	const landingPage = await db.query(landingPageSQL).catch(function(err){
-		log.error(err.message);
+		log.error(err.message + __location);
+		res.send(500, {});
 		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Make sure a page was found
 	if(landingPage.length !== 1){
-		log.warn('Page not found');
+		log.warn('Page not found' + __location);
+		res.send(500, {});
 		return next(serverHelper.requestError('Page not found'));
 	}
 
@@ -488,7 +496,7 @@ async function updateLandingPage(req, res, next){
 
 	// Check that at least some post parameters were received
 	if(!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0){
-		log.info('Bad Request: Parameters missing');
+		log.info('Bad Request: Parameters missing' + __location);
 		return next(serverHelper.requestError('Parameters missing'));
 	}
 
@@ -497,7 +505,7 @@ async function updateLandingPage(req, res, next){
 		error = err.message;
 	});
 	if(error){
-		log.warn(error);
+		log.warn(error + __location);
 		return next(serverHelper.requestError(error));
 	}
 
@@ -530,7 +538,7 @@ async function updateLandingPage(req, res, next){
 
 	// Run the query
 	const result = await db.query(sql).catch(function(err){
-		log.error(err.message);
+		log.error(err.message + __location);
 		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 
