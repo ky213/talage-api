@@ -35,7 +35,7 @@ async function getUptime(req, res, next){
 	// Check the database connection by selecting all active activity codes
 	let error = false;
 	await db.query('SELECT COUNT(*) FROM `#__api_users`').catch(function(e){
-		log.error(e.message);
+		log.error(e.message + __location);
 		error = true;
 	});
 

@@ -29,7 +29,7 @@ function SocketQuotes(socket){
 		try{
 			data = JSON.parse(data);
 		}catch(error){
-			log.warn('Invalid JSON');
+			log.warn('Invalid JSON' + __location);
 			socket.emit('status', 'error');
 			socket.emit('message', 'Invalid JSON');
 			return;
@@ -39,7 +39,7 @@ function SocketQuotes(socket){
 
 		// Very basic validation
 		if(!data.business || !Object.prototype.hasOwnProperty.call(data, 'id') || !data.policies){
-			log.warn('Some required data is missing');
+			log.warn('Some required data is missing' + __location);
 			socket.emit('status', 'error');
 			socket.emit('message', 'Invalid Application - Some required data is missing. Please check the documentation.');
 			return;
@@ -52,7 +52,7 @@ function SocketQuotes(socket){
 			had_error = true;
 			socket.emit('status', 'error');
 			socket.emit('message', error.message);
-			log.warn(`Cannot Load Application: ${error.message}`);
+			log.warn(`Cannot Load Application: ${error.message}` + __location);
 			socket.disconnect();
 		});
 		if(had_error){
@@ -64,7 +64,7 @@ function SocketQuotes(socket){
 			had_error = true;
 			socket.emit('status', 'error');
 			socket.emit('message', error.message);
-			log.warn(`Invalid Application: ${error.message}`);
+			log.warn(`Invalid Application: ${error.message}` + __location);
 			socket.disconnect();
 		});
 		if(had_error){
@@ -105,7 +105,7 @@ function SocketQuotes(socket){
 			}).catch(function(error){
 				socket.emit('status', 'error');
 				socket.emit('message', error.message);
-				log.warn(error.message);
+				log.warn(error.message + __location);
 				socket.disconnect();
 			});
 			return;
@@ -115,7 +115,7 @@ function SocketQuotes(socket){
 		await application.run_quotes(socket).catch(function(error){
 			socket.emit('status', 'error');
 			socket.emit('message', error.message);
-			log.warn(error.message);
+			log.warn(error.message + __location);
 			socket.disconnect();
 		});
 	});

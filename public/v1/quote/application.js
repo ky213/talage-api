@@ -20,13 +20,13 @@ const serverHelper = require('../../../server.js');
 async function PostApplication(req, res, next){
 	// Check for data
 	if(!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0){
-		log.warn('No data was received');
+		log.warn('No data was received' + __location);
 		return next(serverHelper.requestError('No data was received'));
 	}
 
 	// Make sure basic elements are present
 	if(!req.body.business || !Object.prototype.hasOwnProperty.call(req.body, 'id') || !req.body.policies){
-		log.warn('Some required data is missing');
+		log.warn('Some required data is missing' + __location);
 		return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
 	}
 
@@ -39,7 +39,7 @@ async function PostApplication(req, res, next){
 	await application.load(req.params).catch(function(error){
 		had_error = true;
 		res.send(error);
-		log.warn(`Cannot Load Application: ${error.message}`);
+		log.warn(`Cannot Load Application: ${error.message}` + __location);
 	});
 	if(had_error){
 		return next();
@@ -49,7 +49,7 @@ async function PostApplication(req, res, next){
 	await application.validate(requestedInsurers).catch(function(error){
 		had_error = true;
 		res.send(error);
-		log.warn(`Invalid Application: ${error.message}`);
+		log.warn(`Invalid Application: ${error.message}` + __location);
 	});
 	if(had_error){
 		return next();
@@ -62,7 +62,7 @@ async function PostApplication(req, res, next){
 			log.verbose(util.inspect(response, false, null));
 			res.send(200, response);
 		}).catch(function(error){
-			log.error(`Error ${error.message}`);
+			log.error(`Error ${error.message}` + __location);
 			res.send(error);
 		});
 		return next();
@@ -83,7 +83,7 @@ async function PostApplication(req, res, next){
 		// Send the response to the user
 		res.send(200, response);
 	}).catch(function(error){
-		log.error(`Error ${error.message}`);
+		log.error(`Error ${error.message}` + __location);
 		res.send(error);
 	});
 	return next();

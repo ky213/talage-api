@@ -301,7 +301,7 @@ module.exports = class PieWC extends Integration{
 				try{
 					this.request_id = res.id;
 				}catch(e){
-					log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.`);
+					log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.`+ __location);
 				}
 
 				// Attempt to get the amount of the quote
@@ -328,7 +328,7 @@ module.exports = class PieWC extends Integration{
 									this.limits[3] = limit;
 									break;
 								default:
-									log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response`);
+									log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response`+ __location);
 									break;
 							}
 						}
@@ -341,7 +341,7 @@ module.exports = class PieWC extends Integration{
 				try{
 					this.policy_info.writer = res.insuranceCompany;
 				}catch(e){
-					log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.`);
+					log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.`+ __location);
 				}
 
 				// Dirty? (Indicates a Valen outage)

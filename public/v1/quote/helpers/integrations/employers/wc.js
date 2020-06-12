@@ -201,7 +201,7 @@ module.exports = class EmployersWC extends Integration{
 				if(policy_number){
 					this.number = policy_number;
 				}else{
-					log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find policy number.`);
+					log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find policy number.`+ __location);
 				}
 
 				// Attempt to get the amount of the quote
@@ -227,7 +227,7 @@ module.exports = class EmployersWC extends Integration{
 										this.limits[3] = limit.FormatCurrencyAmt[0].Amt[0];
 										break;
 									default:
-										log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response`);
+										log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response`+ __location);
 										break;
 								}
 							});
@@ -242,7 +242,7 @@ module.exports = class EmployersWC extends Integration{
 					this.writer = res.Policy[0].CompanyProductCd[0].split('-')[1].trim();
 				}catch(e){
 					if(status === 'QUOTE' || status === 'PENDING_REFER'){
-						log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.`);
+						log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.`+ __location);
 					}
 				}
 
@@ -257,12 +257,12 @@ module.exports = class EmployersWC extends Integration{
 						};
 					}catch(err){
 						if(status === 'QUOTE'){
-							log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Changed how it returns the quote letter.`);
+							log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Changed how it returns the quote letter.`+__location);
 						}
 					}
 				}catch(e){
 					if(status === 'QUOTE'){
-						log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find files.`);
+						log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find files.`+__location);
 					}
 				}
 
@@ -273,14 +273,14 @@ module.exports = class EmployersWC extends Integration{
 					});
 				}catch(e){
 					if(status === 'INPROGRESS'){
-						log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to reasons.`);
+						log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to reasons.`+__location);
 					}
 				}
 
 				// Send the result of the request
 				fulfill(this.return_result(status));
 			}).catch(() => {
-				log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.`);
+				log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.`+__location);
 				fulfill(this.return_result('error'));
 			});
 		});
