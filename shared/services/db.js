@@ -131,7 +131,7 @@ exports.query = function(sql){
 		conn.query(sql, function(err, rows){
 			if(err){
 				log.error('db query error: ' + err);
-				log.info('sql: ' + sql);
+				log.error('sql: ' + sql);
 				// Docs-api had 'reject(new Error(err));'
 				reject(err);
 				return;
