@@ -1,7 +1,6 @@
 'use strict';
 
 const serverHelper = require('../../../server.js');
-const auth = require('./helpers/auth.js');
 const colorConverter = require('color-converter').default;
 
 function calculateAccentColor(rgbColorString) {
@@ -50,17 +49,7 @@ async function validate(request, next) {
  *
  * @returns {void}
  */
-async function GetColorScheme(req, res, next) {
-	let error = false;
-
-	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req, 'pages', 'view').catch(function (e) {
-		error = e;
-	});
-	if (error) {
-		return next(error);
-	}
-
+async function getColorSchemes(req, res, next) {
 	// Build a query that will return all of the landing pages
 	// We are excluding custom colors name
 	const colorSchemesSQL = `
@@ -75,13 +64,14 @@ async function GetColorScheme(req, res, next) {
 		`;
 
 	// Run the query
-	const colorSchemes = await db.query(colorSchemesSQL).catch(function (err) {
+	try {
+		const colorSchemes = await db.query(colorSchemesSQL);
+		// Send the data back
+		res.send(200, colorSchemes);
+	} catch (err) {
 		log.error(err.message);
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-	});
-
-	// Send the data back
-	res.send(200, colorSchemes);
+	}
 	return next();
 }
 
@@ -93,16 +83,8 @@ async function GetColorScheme(req, res, next) {
  * @param {function} next - The next function to execute
  * @returns {void}
  */
-async function PutColorScheme(req, res, next) {
+async function putColorScheme(req, res, next) {
 	let error = false;
-
-	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req, 'pages', 'manage').catch(function (e) {
-		error = e;
-	});
-	if (error) {
-		return next(error);
-	}
 
 	// Check that at least some put parameters were received
 	if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
@@ -174,6 +156,6 @@ async function PutColorScheme(req, res, next) {
 }
 
 exports.registerEndpoint = (server, basePath) => {
-	server.addGetAuth('Get Color Scheme', `${basePath}/color-scheme`, GetColorScheme);
-	server.addPutAuth('Put Color Scheme', `${basePath}/color-scheme`, PutColorScheme);
+	server.addGetAuth('Get Color Schemes', `${basePath}/color-schemes`, getColorSchemes, 'pages', 'view');
+	server.addPutAuth('Update Color Scheme', `${basePath}/color-scheme`, putColorScheme, 'pages', 'manage');
 };

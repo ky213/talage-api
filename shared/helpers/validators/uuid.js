@@ -13,7 +13,8 @@ module.exports = function(uuid){
 		if(!regex.test(uuid)){
 			return 'Invalid uuid';
 		}
-	}else{
+	}
+else{
 		return 'Missing required field: uuid';
 	}
 	return true;

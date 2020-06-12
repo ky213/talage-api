@@ -230,14 +230,6 @@ async function validate(request, next) {
 async function createLandingPage(req, res, next) {
 	let error = false;
 
-	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req, 'pages', 'manage').catch(function (e) {
-		error = e;
-	});
-	if (error) {
-		return next(error);
-	}
-
 	// Determine the agency ID
 	const agency = req.authentication.agents[0];
 
@@ -312,11 +304,10 @@ async function deleteLandingPage(req, res, next) {
 	let error = false;
 
 	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req, req.authentication.agencyNetwork ? 'agencies' : 'pages', 'manage').catch(function (e) {
-		error = e;
-	});
-	if (error) {
-		return next(error);
+	// FIXME: conditional permissions handling. May need a separate endpiont between networks and agencies -SF
+	const jwtErrorMessage = await auth.validateJWT(req, req.authentication.agencyNetwork ? 'agencies' : 'pages', 'manage');
+	if (jwtErrorMessage) {
+		return next(serverHelper.forbiddenError(jwtErrorMessage));
 	}
 
 	// Check that query parameters were received
@@ -407,16 +398,6 @@ async function deleteLandingPage(req, res, next) {
  * @returns {void}
  */
 async function getLandingPage(req, res, next) {
-	let error = false;
-
-	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req, 'pages', 'manage').catch(function (e) {
-		error = e;
-	});
-	if (error) {
-		return next(error);
-	}
-
 	// Check that query parameters were received
 	if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
 		log.info('Bad Request: Query parameters missing');
@@ -477,11 +458,14 @@ async function getLandingPage(req, res, next) {
 				FROM  \`#__color_schemes\`
 				WHERE \`id\` = ${landingPage[0].colorScheme}
 			`;
-
-	const colorSchemeInfo = await db.query(colorInformationSQL).catch(function (err) {
-		log.error(err.message);
+	let colorSchemeInfo;
+	try {
+		colorSchemeInfo = await db.query(colorInformationSQL);
+	} catch (err) {
+		log.error(err.message + __location);
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-	});
+	}
+
 	// make sure the color scheme was found
 	if (landingPage.length !== 1) {
 		log.warn('Page not found');
@@ -506,14 +490,6 @@ async function getLandingPage(req, res, next) {
  */
 async function updateLandingPage(req, res, next) {
 	let error = false;
-
-	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req, 'pages', 'manage').catch(function (e) {
-		error = e;
-	});
-	if (error) {
-		return next(error);
-	}
 
 	// Determine the agency ID
 	const agency = req.authentication.agents[0];
@@ -561,10 +537,13 @@ async function updateLandingPage(req, res, next) {
 		`;
 
 	// Run the query
-	const result = await db.query(sql).catch(function (err) {
+	let result;
+	try {
+		result = await db.query(sql);
+	} catch (err) {
 		log.error(err.message + __location);
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-	});
+	}
 
 	// Make sure the query was successful
 	if (result.affectedRows !== 1) {
@@ -578,8 +557,8 @@ async function updateLandingPage(req, res, next) {
 }
 
 exports.registerEndpoint = (server, basePath) => {
-	server.addDeleteAuth('Delete Landing Page', `${basePath}/landing-page`, deleteLandingPage);
-	server.addGetAuth('Get Landing Page', `${basePath}/landing-page`, getLandingPage);
-	server.addPostAuth('Post Landing Page', `${basePath}/landing-page`, createLandingPage);
-	server.addPutAuth('Put Landing Page', `${basePath}/landing-page`, updateLandingPage);
+	server.addPostAuth('Create Landing Page', `${basePath}/landing-page`, createLandingPage, 'pages', 'manage');
+	server.addGetAuth('Get Landing Page', `${basePath}/landing-page`, getLandingPage, 'pages', 'manage');
+	server.addPutAuth('Update Landing Page', `${basePath}/landing-page`, updateLandingPage, 'pages', 'manage');
+	server.addDeleteAuth('Delete Landing Page', `${basePath}/landing-page`, deleteLandingPage /* permissions handled in deleteLandingPage */);
 };

@@ -31,7 +31,8 @@ function GetValidateToken(req, res, next){
 	try{
 		jwt.verify(req.query.token, global.settings.AUTH_SECRET_KEY);
 		valid = true;
-	}catch(error){
+	}
+catch(error){
 		log.warn(error.message);
 		valid = false;
 	}

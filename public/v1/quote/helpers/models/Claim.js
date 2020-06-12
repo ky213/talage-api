@@ -70,10 +70,12 @@ module.exports = class Claim{
 				// Cleanup this input
 				if(typeof this.amountPaid === 'number'){
 					this.amountPaid = Math.round(this.amountPaid);
-				}else{
+				}
+else{
 					this.amountPaid = Math.round(parseFloat(this.amountPaid.toString().replace('$', '').replace(/,/g, '')));
 				}
-			}else{
+			}
+else{
 				this.amountPaid = 0;
 			}
 
@@ -91,10 +93,12 @@ module.exports = class Claim{
 				// Cleanup this input
 				if(typeof this.amountReserved === 'number'){
 					this.amountReserved = Math.round(this.amountReserved);
-				}else{
+				}
+else{
 					this.amountReserved = Math.round(parseFloat(this.amountReserved.toString().replace('$', '').replace(/,/g, '')));
 				}
-			}else{
+			}
+else{
 				this.amountReserved = 0;
 			}
 

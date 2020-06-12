@@ -14,22 +14,22 @@ const salt = '3h42kize0loh16ke3otxfebkq5rqp91y6uj9jmg751r9ees97l61ycodwbw74o3o';
  * @return {boolean} true or false for if the parameters are valid
  */
 function validateParameters(parent, expectedParameters){
-	if(!parent){
+	if (!parent){
 		log.info('Bad Request: Missing all parameters');
 		return false;
 	}
-	for(let i = 0; i < expectedParameters.length; i++){
+	for (let i = 0; i < expectedParameters.length; i++){
 		const expectedParameter = expectedParameters[i];
-		if(!Object.prototype.hasOwnProperty.call(parent, expectedParameter.name) || typeof parent[expectedParameter.name] !== expectedParameter.type){
+		if (!Object.prototype.hasOwnProperty.call(parent, expectedParameter.name) || typeof parent[expectedParameter.name] !== expectedParameter.type){
 			log.info(`Bad Request: Missing ${expectedParameter.name} parameter (${expectedParameter.type})`);
 			return false;
 		}
 		const parameterValue = parent[expectedParameter.name];
-		if(Object.prototype.hasOwnProperty.call(expectedParameter, 'values') && !expectedParameter.values.includes(parameterValue)){
+		if (Object.prototype.hasOwnProperty.call(expectedParameter, 'values') && !expectedParameter.values.includes(parameterValue)){
 			log.info(`Bad Request: Invalid value for ${expectedParameters[i].name} parameter (${parameterValue})`);
 			return false;
 		}
-		if(expectedParameters[i].verifyDate && !moment(parameterValue).isValid()){
+		if (expectedParameters[i].verifyDate && !moment(parameterValue).isValid()){
 			log.info(`Bad Request: Invalid date value for ${expectedParameters[i].name} parameter (${parameterValue})`);
 			return false;
 		}
@@ -45,7 +45,7 @@ function validateParameters(parent, expectedParameters){
 async function getQuotes(application){
 	application.quotes = [];
 
-	if(application.location){
+	if (application.location){
 		// Convert the case on the cities
 		application.location = application.location.replace(/(^([a-zA-Z\p{M}]))|([ -][a-zA-Z\p{M}])/g, (s) => s.toUpperCase());
 	}
@@ -58,12 +58,13 @@ async function getQuotes(application){
 		FROM ${db.quoteName('#__quotes', 'a')}
 		WHERE ${db.quoteName('application')} = ${db.escape(application.id)}
 	`;
-	try{
+	try {
 		const quotes = await db.query(quotesSQL);
 		quotes.forEach((quote) => {
 			application.quotes.push(quote);
 		});
-	}catch(err){
+	}
+ catch (err){
 		log.info(`Error retrieving quotes for application ${application.id}`);
 	}
 }
@@ -77,70 +78,62 @@ async function getQuotes(application){
  *
  * @returns {void}
  */
-async function PostApplications(req, res, next){
+async function getApplications(req, res, next){
 	let error = false;
 	const expectedParameters = [
 		{
-			'name': 'page',
-			'type': 'number'
+			"name": 'page',
+			"type": 'number'
 		},
 		{
-			'name': 'limit',
-			'type': 'number'
+			"name": 'limit',
+			"type": 'number'
 		},
 		{
-			'name': 'sort',
-			'type': 'string',
-			'values': ['business',
-				'status',
-				'agencyName',
-				'industry',
-				'location',
-				'date']
+			"name": 'sort',
+			"type": 'string',
+			"values": ['business',
+'status',
+'agencyName',
+'industry',
+'location',
+'date']
 		},
 		{
-			'name': 'sortDescending',
-			'type': 'boolean'
+			"name": 'sortDescending',
+			"type": 'boolean'
 		},
 		{
-			'name': 'searchText',
-			'type': 'string'
+			"name": 'searchText',
+			"type": 'string'
 		},
 		{
-			'name': 'searchApplicationStatus',
-			'type': 'string',
-			'values': ['',
-				'bound',
-				'request_to_bind_referred',
-				'request_to_bind',
-				'quoted_referred',
-				'quoted',
-				'referred',
-				'declined',
-				'error']
+			"name": 'searchApplicationStatus',
+			"type": 'string',
+			"values": ['',
+'bound',
+'request_to_bind_referred',
+'request_to_bind',
+'quoted_referred',
+'quoted',
+'referred',
+'declined',
+'error']
 		},
 		{
-			'name': 'startDate',
-			'type': 'string',
-			'verifyDate': true
+			"name": 'startDate',
+			"type": 'string',
+			"verifyDate": true
 		},
 		{
-			'name': 'endDate',
-			'type': 'string',
-			'verifyDate': true
+			"name": 'endDate',
+			"type": 'string',
+			"verifyDate": true
 		}
 	];
 
-	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req, 'applications', 'view').catch(function(e){
-		error = e;
-	});
-	if(error){
-		return next(error);
-	}
-
 	// Validate the parameters
-	if(!validateParameters(req.params, expectedParameters)){
+	if (!validateParameters(req.params, expectedParameters)){
 		return next(serverHelper.requestError('Bad Request: missing expected parameter'));
 	}
 	// All parameters and their values have been validated at this point -SF
@@ -153,12 +146,12 @@ async function PostApplications(req, res, next){
 	const agents = await auth.getAgents(req).catch(function(e){
 		error = e;
 	});
-	if(error){
+	if (error){
 		return next(error);
 	}
 
 	// Make sure we got agents
-	if(!agents.length){
+	if (!agents.length){
 		log.info('Bad Request: No agencies permitted');
 		return next(serverHelper.requestError('Bad Request: No agencies permitted'));
 	}
@@ -167,10 +160,11 @@ async function PostApplications(req, res, next){
 	const agencyNetwork = parseInt(req.authentication.agencyNetwork, 10);
 
 	// This is a very special case. If this is the agent 'Solepro' (ID 12) asking for applications, query differently
-	let where = (agencyNetwork === 2 ? ' AND a.agency != 42' : '');
-	if(!agencyNetwork && agents[0] === 12){
+	let where = agencyNetwork === 2 ? ' AND a.agency != 42' : '';
+	if (!agencyNetwork && agents[0] === 12){
 		where += ` AND ${db.quoteName('a.solepro')} = 1`;
-	}else{
+	}
+ else {
 		where += ` AND ${db.quoteName('a.agency')} IN(${agents.join(',')})`;
 	}
 
@@ -183,18 +177,19 @@ async function PostApplications(req, res, next){
 			${where}
 		`;
 	let applicationsTotalCount = 0;
-	try{
+	try {
 		applicationsTotalCount = (await db.query(applicationsTotalCountSQL))[0].count;
-	}catch(err){
+	}
+ catch (err){
 		log.error(err.message);
-		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	}
 
 	// ================================================================================
 	// Build the SQL search query
 	let join = '';
 	// Add a text search clause if requested
-	if(req.params.searchText.length > 0){
+	if (req.params.searchText.length > 0){
 		req.params.searchText = req.params.searchText.toLowerCase();
 		// The search_strings table has partials stored as sha1 hashes
 		const searchTextHash = sha1(req.params.searchText + salt);
@@ -211,17 +206,18 @@ async function PostApplications(req, res, next){
 					OR ${db.quoteName('zc.territory')} LIKE ${db.escape(`%${req.params.searchText}%`)}
 					OR ${db.quoteName('ss.hash')} = ${db.escape(searchTextHash)}
 			`;
-		if(agencyNetwork){
+		if (agencyNetwork){
 			// If this user is an agency network role, then we search on the agency name
 			where += ` OR ${db.quoteName('ag.name')} LIKE ${db.escape(`%${req.params.searchText}%`)}`;
-		}else{
+		}
+ else {
 			// Otherwise, we search on industry description
 			where += ` OR ${db.quoteName('ic.description')} LIKE ${db.escape(`%${req.params.searchText}%`)}`;
 		}
 		where += ')';
 	}
 	// Add a application status search clause if requested
-	if(req.params.searchApplicationStatus.length > 0){
+	if (req.params.searchApplicationStatus.length > 0){
 		where += `
 				AND ${db.quoteName('a.status')} = ${db.escape(req.params.searchApplicationStatus)}
 			`;
@@ -249,11 +245,12 @@ async function PostApplications(req, res, next){
 			${commonSQL}
 		`;
 	let applicationsSearchCount = 0;
-	try{
+	try {
 		applicationsSearchCount = (await db.query(applicationsSearchCountSQL))[0].count;
-	}catch(err){
+	}
+ catch (err){
 		log.error(err.message);
-		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	}
 
 	// ================================================================================
@@ -277,20 +274,20 @@ async function PostApplications(req, res, next){
 			OFFSET ${req.params.page * req.params.limit}
 		`;
 	let applications = null;
-	try{
+	try {
 		applications = await db.query(applicationsSQL);
-	}catch(err){
+	}
+ catch (err){
 		log.error(err.message);
-		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	}
 
 	// Exit with default values if no applications were received
-	if(!applications.length){
+	if (!applications.length){
 		res.send(200, {
-			'applications': [],
-			'applicationsSearchCount': 0,
-			'applicationsTotalCount': applicationsTotalCount
-
+			"applications": [],
+			"applicationsSearchCount": 0,
+			"applicationsTotalCount": applicationsTotalCount
 		});
 		return next();
 	}
@@ -307,9 +304,9 @@ async function PostApplications(req, res, next){
 
 	// Build the response
 	const response = {
-		'applications': applications,
-		'applicationsSearchCount': applicationsSearchCount,
-		'applicationsTotalCount': applicationsTotalCount
+		"applications": applications,
+		"applicationsSearchCount": applicationsSearchCount,
+		"applicationsTotalCount": applicationsTotalCount
 	};
 
 	// Return the response
@@ -318,5 +315,5 @@ async function PostApplications(req, res, next){
 }
 
 exports.registerEndpoint = (server, basePath) => {
-	server.addPostAuth('Get applications', `${basePath}/applications`, PostApplications);
+	server.addPostAuth('Get applications', `${basePath}/applications`, getApplications, 'applications', 'view');
 };

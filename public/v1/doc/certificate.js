@@ -199,7 +199,8 @@ async function PostCertificate(req, res, next){
 	if(certificate_data[0].name.byteLength){
 		const name = await crypt.decrypt(certificate_data[0].name);
 		insured += `${name}\n`;
-	}else{
+	}
+else{
 		missing_data.push('Insured name');
 	}
 	// If there is a dba, decrypt and add it
@@ -211,7 +212,8 @@ async function PostCertificate(req, res, next){
 	if(certificate_data[0].address){
 		const address = await crypt.decrypt(certificate_data[0].address);
 		insured += `${address}\n`;
-	}else{
+	}
+else{
 		missing_data.push('Insured address');
 	}
 	// If there is a second address line, decrypt and add it
@@ -221,7 +223,8 @@ async function PostCertificate(req, res, next){
 	}
 	if(certificate_data[0].zip){
 		insured += `${certificate_data[0].city.split(' ').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}, ${certificate_data[0].territory} ${certificate_data[0].zip}`;
-	}else{
+	}
+else{
 		missing_data.push('Insured zip code');
 	}
 
@@ -230,7 +233,8 @@ async function PostCertificate(req, res, next){
 	if(certificate_data[0].agencyPhone.byteLength){
 		phone = await crypt.decrypt(certificate_data[0].agencyPhone);
 		phone = `(${phone.substr(0, 3)}) ${phone.substr(3, 3)} - ${phone.substr(6, 4)}`;
-	}else{
+	}
+else{
 		missing_data.push('Producer phone number');
 	}
 
@@ -239,7 +243,8 @@ async function PostCertificate(req, res, next){
 	if(certificate_data[0].mailing_address.byteLength){
 		const mailingAddress = await crypt.decrypt(certificate_data[0].mailing_address);
 		producer += `\n${mailingAddress}`;
-	}else{
+	}
+else{
 		missing_data.push('Producer address');
 	}
 	producer += `\n${certificate_data[0].agencyCity.toLowerCase().split(' ').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}, ${certificate_data[0].agencyTerritory} ${certificate_data[0].mailing_zip}`;
@@ -250,14 +255,16 @@ async function PostCertificate(req, res, next){
 		const fName = await crypt.decrypt(certificate_data[0].fname);
 		const lName = await crypt.decrypt(certificate_data[0].lname);
 		contact_name = `${fName} ${lName}`;
-	}else{
+	}
+else{
 		missing_data.push('Producer contact name');
 	}
 	// Contact email
 	let contact_email = '';
 	if(certificate_data[0].email.byteLength){
 		contact_email = await crypt.decrypt(certificate_data[0].email);
-	}else{
+	}
+else{
 		missing_data.push('Producer contact email');
 	}
 	const img = [{
@@ -356,7 +363,8 @@ async function PostCertificate(req, res, next){
 				'policies': [data.policy_type]
 			};
 			// If we've seen the writer and the policy isn't listed under that writer add it
-		}else if(!all_writers[data.writer].policies.includes(data.policy_type)){
+		}
+else if(!all_writers[data.writer].policies.includes(data.policy_type)){
 			if(data.writer === null){
 				missing_data.push(`${data.policy_type} policy writer`);
 			}
@@ -505,7 +513,8 @@ async function PostCertificate(req, res, next){
 			'text': certificate_holder_info
 		});
 		// There is no certificate holder
-	}else{
+	}
+else{
 		docDefinition.content.push({
 			'absolutePosition': positions.certificate_holder,
 			'style': styles.info,
@@ -520,7 +529,8 @@ async function PostCertificate(req, res, next){
 		if(page_2_data[0].phone && page_2_data[0].phone.byteLength){
 			business_phone = await crypt.decrypt(page_2_data[0].phone);
 			business_phone = `(${business_phone.substr(0, 3)}) ${business_phone.substr(3, 3)} - ${business_phone.substr(6, 4)}`;
-		}else{
+		}
+else{
 			missing_data.push('Business phone number');
 			log.info(`Data was missing for business ${req.body.business_id}`);
 			res.send(400, {

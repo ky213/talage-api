@@ -42,7 +42,8 @@ async function putChangePassword(req, res, next){
 		if(validator.password(req.body.password)){
 			// Hash the password
 			password = await crypt.hashPassword(req.body.password);
-		}else{
+		}
+else{
 			log.warn('Password does not meet requirements');
 			return next(serverHelper.requestError('Password does not meet the complexity requirements. It must be at least 8 characters and contain one uppercase letter, one lowercase letter, one number, and one special character'));
 		}
