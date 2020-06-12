@@ -144,25 +144,25 @@ module.exports = class CompwestWC extends Integration{
 					case 'ERRORED':
 					case 'SMARTEDITS':
 						this.log += `--------======= Bind Error =======--------<br><br>${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`;
-						log.error(`${this.insurer.name} ${this.policy.type} Bind Integration Error(s):\n--- ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`);
+						log.error(`${this.insurer.name} ${this.policy.type} Bind Integration Error(s):\n--- ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`+ __location);
 						reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 						return;
 					case 'UNAUTHENTICATED':
 					case 'UNAUTHORIZED':
 						message_type = status === 'UNAUTHENTICATED' ? 'Incorrect' : 'Locked';
 						this.log += `--------======= ${message_type} Agency ID =======--------<br><br>We attempted to process a bind request, but the Agency ID set for the agent was ${message_type.toLowerCase()} and no quote could be processed.`;
-						log.error(`${this.insurer.name} ${this.policy.type} Bind ${message_type} Agency ID`);
+						log.error(`${this.insurer.name} ${this.policy.type} Bind ${message_type} Agency ID`+ __location);
 						reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 						return;
 					default:
 						this.log += '--------======= Unexpected API Response =======--------';
 						this.log += util.inspect(res, false, null);
-						log.error(`${this.insurer.name} ${status} Bind - Unexpected response code by API `);
+						log.error(`${this.insurer.name} ${status} Bind - Unexpected response code by API ` + __location);
 						reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 				}
 			}).catch((error) => {
-				log.error(util.inspect(error));
-				log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.`);
+				log.error(util.inspect(error) + __location);
+				log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.`+__location);
 				fulfill(this.return_result('error'));
 			});
 		});
@@ -339,7 +339,7 @@ log.info(`TO DO: As this business could not be written by ${this.insurer.name}, 
 									// </CommlName>
 
 									if(!(this.app.business.entity_type in entityMatrix)){
-										log.error(`${this.insurer.name} WC Integration File: Invalid Entity Type`);
+										log.error(`${this.insurer.name} WC Integration File: Invalid Entity Type` + __location);
 										this.reasons.push(`${this.insurer.name} WC Integration File: Invalid Entity Type`);
 										fulfill(this.return_result('error'));
 										return;
@@ -566,7 +566,7 @@ log.info('TO DO: Determine what we are doing on <com.afg_WorkSafeCredit> - Michi
 										if(Object.prototype.hasOwnProperty.call(questionAttributes, 'xml_section') && Object.prototype.hasOwnProperty.call(questionAttributes, 'code')){
 											embeddedQuestions[`${questionAttributes.xml_section}-${questionAttributes.code}`] = this.questions[questionId];
 										}else{
-											log.error(`The AF Group embedded question "${this.question_details[questionId].identifier}" has invalid attributes.`);
+											log.error(`The AF Group embedded question "${this.question_details[questionId].identifier}" has invalid attributes.`+ __location);
 										}
 									}
 								}
@@ -664,7 +664,7 @@ log.info('TO DO: Determine what we are doing on <com.afg_WorkSafeCredit> - Michi
 					case 'UNAUTHORIZED':
 						message_type = status === 'UNAUTHENTICATED' ? 'Incorrect' : 'Locked';
 						this.log += `--------======= ${message_type} Agency ID =======--------<br><br>We attempted to process a quote, but the Agency ID set for the agent was ${message_type.toLowerCase()} and no quote could be processed.`;
-						log.error(`${this.insurer.name} ${this.policy.type} ${message_type} Agency ID`);
+						log.error(`${this.insurer.name} ${this.policy.type} ${message_type} Agency ID`+ __location);
 // This was a misconfiguration on the Agent's part, pick it up under the Talage agency for a better user experience
 						this.reasons.push(`${status} - ${message_type} Agency ID`);
 						fulfill(this.return_result('error'));
@@ -672,7 +672,7 @@ log.info('TO DO: Determine what we are doing on <com.afg_WorkSafeCredit> - Michi
 					case 'ERRORED':
 					case 'SMARTEDITS':
 						this.log += `--------======= Application Error =======--------<br><br>${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`;
-						log.error(`${this.insurer.name} ${this.policy.type} Integration Error(s):\n--- ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`);
+						log.error(`${this.insurer.name} ${this.policy.type} Integration Error(s):\n--- ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`+__location);
 						this.reasons.push(`${status} - ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`);
 						fulfill(this.return_result('error'));
 						return;
@@ -708,7 +708,7 @@ log.info('TO DO: Determine what we are doing on <com.afg_WorkSafeCredit> - Michi
 							'length': res['com.afg_Base64PDF'][0].length
 						};
 					}catch(err){
-						log.error(`It looks like ${this.insurer.name} changed how they return the quote letter attachments.`);
+						log.error(`It looks like ${this.insurer.name} changed how they return the quote letter attachments.`+ __location);
 					}
 				}
 
@@ -742,8 +742,8 @@ log.info('TO DO: Determine what we are doing on <com.afg_WorkSafeCredit> - Michi
 				// Send the result of the request
 				fulfill(this.return_result(status));
 			}).catch((error) => {
-				log.error(util.inspect(error));
-				log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.`);
+				log.error(util.inspect(error) + __location);
+				log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.` + __location);
 				fulfill(this.return_result('error'));
 			});
 		});

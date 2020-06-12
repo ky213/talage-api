@@ -1270,7 +1270,7 @@ module.exports = class MarkelWC extends Integration{
 												this.limits[3] = limit.FormatInteger[0];
 												break;
 											default:
-												log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response`);
+												log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response`+ __location);
 												break;
 										}
 									});
@@ -1290,7 +1290,7 @@ module.exports = class MarkelWC extends Integration{
 
 				}
 			}).catch(() => {
-				log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.`);
+				log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.`+ __location);
 				fulfill(this.return_result('error'));
 			});
 		});
