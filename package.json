@@ -25,6 +25,7 @@
 		"atob": "^2.1.2",
 		"aws-sdk": "^2.656.0",
 		"axios": "^0.19.2",
+		"color-converter": "^1.4.1",
 		"colors": "^1.4.0",
 		"docusign-esign": "^5.3.0",
 		"dotenv": "^8.2.0",
