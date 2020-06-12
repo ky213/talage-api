@@ -203,14 +203,7 @@ async function createToken(req, res, next) {
 	payload.termsOfServiceVersion = result[0].termsOfServiceVersion;
 
 	// This is a valid user, generate and return a token
-	console.log('##########################################');
-	console.log('##########################################');
-	console.log('put back original jwt expiration time');
-	console.log('##########################################');
-	console.log('##########################################');
-	// const token = `Bearer ${jwt.sign(payload, global.settings.AUTH_SECRET_KEY, { expiresIn: global.settings.JWT_TOKEN_EXPIRATION })}`;
-	const token = `Bearer ${jwt.sign(payload, global.settings.AUTH_SECRET_KEY, { expiresIn: '5s' })}`;
-	// log.info('Token Created');
+	const token = `Bearer ${jwt.sign(payload, global.settings.AUTH_SECRET_KEY, { expiresIn: global.settings.JWT_TOKEN_EXPIRATION })}`;
 	res.send(201, {
 		status: 'Created',
 		token: token
