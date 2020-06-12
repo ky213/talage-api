@@ -1,7 +1,6 @@
 'use strict';
 
 const serverHelper = require('../../../server.js');
-const auth = require('./helpers/auth.js');
 
 /**
  * Returns data necessary for creating an agency
@@ -12,21 +11,21 @@ const auth = require('./helpers/auth.js');
  *
  * @returns {void}
  */
-async function createAgency(req, res, next) {
+async function createAgency(req, res, next){
 	// Make sure this is an agency network
-	if (req.authentication.agencyNetwork === false) {
+	if (req.authentication.agencyNetwork === false){
 		log.info('Forbidden: User is not authorized to create agecies');
 		return next(serverHelper.forbiddenError('You are not authorized to access this resource'));
 	}
 
 	// Begin building the response
 	const response = {
-		insurers: [],
-		territories: {}
+		"insurers": [],
+		"territories": {}
 	};
 
 	// Get all insurers for this agency network
-	if (req.authentication.insurers.length) {
+	if (req.authentication.insurers.length){
 		// Begin compiling a list of territories
 		let territoryAbbreviations = [];
 
@@ -41,13 +40,13 @@ async function createAgency(req, res, next) {
 			`;
 
 		// Run the query
-		const insurers = await db.query(insurersSQL).catch(function (err) {
+		const insurers = await db.query(insurersSQL).catch(function(err){
 			log.error(err.message);
 			return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 		});
 
 		// Convert the territories list into an array
-		insurers.forEach(function (insurer) {
+		insurers.forEach(function(insurer){
 			insurer.territories = insurer.territories.split(',');
 			territoryAbbreviations = territoryAbbreviations.concat(insurer.territories);
 		});
@@ -59,22 +58,22 @@ async function createAgency(req, res, next) {
 		const territoriesSQL = `
 				SELECT \`abbr\`, \`name\`
 				FROM \`#__territories\`
-				WHERE \`abbr\` IN (${territoryAbbreviations
-					.map(function (abbr) {
+				WHERE \`abbr\` IN (${territoryAbbreviations.
+					map(function(abbr){
 						return db.escape(abbr);
-					})
-					.join(',')})
+					}).
+					join(',')})
 				ORDER BY \`name\`;
 			`;
 
 		// Run the query
-		const territories = await db.query(territoriesSQL).catch(function (err) {
+		const territories = await db.query(territoriesSQL).catch(function(err){
 			log.error(err.message);
 			return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 		});
 
 		// Add each of these territories to the response
-		territories.forEach(function (territory) {
+		territories.forEach(function(territory){
 			response.territories[territory.abbr] = territory.name;
 		});
 	}

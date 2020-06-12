@@ -50,7 +50,7 @@ exports.store = async function(path, data){
 		// If there was an error, return false
 		if(e){
 			rtn = false;
-			log.error('Failed to connect to file service.' );
+			log.error('Failed to connect to file service.');
 			return;
 		}
 

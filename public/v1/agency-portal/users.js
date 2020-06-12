@@ -12,18 +12,19 @@ const serverHelper = require('../../../server.js');
  *
  * @returns {void}
  */
-async function getUsers(req, res, next) {
+async function getUsers(req, res, next){
 	let error = false;
 
 	let where = ``;
-	if (req.authentication.agencyNetwork) {
+	if (req.authentication.agencyNetwork){
 		where = `AND \`apu\`.\`agency_network\`= ${parseInt(req.authentication.agencyNetwork, 10)}`;
-	} else {
+	}
+ else {
 		// Get the agents that we are permitted to view
-		const agents = await auth.getAgents(req).catch(function (e) {
+		const agents = await auth.getAgents(req).catch(function(e){
 			error = e;
 		});
-		if (error) {
+		if (error){
 			return next(error);
 		}
 
@@ -45,7 +46,7 @@ async function getUsers(req, res, next) {
 		`;
 
 	// Get the users from the database
-	const users = await db.query(usersSQL).catch(function () {
+	const users = await db.query(usersSQL).catch(function(){
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});
 
@@ -53,7 +54,7 @@ async function getUsers(req, res, next) {
 	await crypt.batchProcessObjectArray(users, 'decrypt', ['email']);
 
 	// Sort the list by email address
-	users.sort(function (a, b) {
+	users.sort(function(a, b){
 		return a.email > b.email ? 1 : -1;
 	});
 
@@ -67,14 +68,14 @@ async function getUsers(req, res, next) {
 			WHERE \`id\` != 3;
 		`;
 
-	const userGroups = await db.query(userGroupsSQL).catch(function () {
+	const userGroups = await db.query(userGroupsSQL).catch(function(){
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Return the response
 	res.send(200, {
-		userGroups: userGroups,
-		users: users
+		"userGroups": userGroups,
+		"users": users
 	});
 	return next();
 }

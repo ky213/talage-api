@@ -12,8 +12,8 @@ module.exports = async function(name){
 	let valid = false;
 
 	// Get the banner images from the file service
-	await axios.get(`http://localhost:${global.settings.PRIVATE_API_PORT}/v1/file/list?prefix=public/agency-banners`)
-	.then(function(response){
+	await axios.get(`http://localhost:${global.settings.PRIVATE_API_PORT}/v1/file/list?prefix=public/agency-banners`).
+	then(function(response){
 
 		// Remove the first element as it is just the folder
 		response.data.shift();

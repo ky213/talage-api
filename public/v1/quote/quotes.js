@@ -28,7 +28,8 @@ function SocketQuotes(socket){
 		socket.emit('status', 'processing');
 		try{
 			data = JSON.parse(data);
-		}catch(error){
+		}
+catch(error){
 			log.warn('Invalid JSON');
 			socket.emit('status', 'error');
 			socket.emit('message', 'Invalid JSON');

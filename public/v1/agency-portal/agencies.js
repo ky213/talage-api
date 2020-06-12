@@ -12,19 +12,19 @@ const serverHelper = require('../../../server.js');
  *
  * @returns {void}
  */
-async function getAgencies(req, res, next) {
+async function getAgencies(req, res, next){
 	let error = false;
 
 	// Get the agents that we are permitted to view
-	const agents = await auth.getAgents(req).catch(function (e) {
+	const agents = await auth.getAgents(req).catch(function(e){
 		error = e;
 	});
-	if (error) {
+	if (error){
 		return next(error);
 	}
 
 	// Make sure we got agents
-	if (!agents.length) {
+	if (!agents.length){
 		log.info('Bad Request: No agencies permitted');
 		return next(serverHelper.requestError('Bad Request: No agencies permitted'));
 	}
@@ -45,7 +45,7 @@ async function getAgencies(req, res, next) {
 		`;
 
 	// Get the agencies from the database
-	const retAgencies = await db.query(agenciesSQL).catch(function (err) {
+	const retAgencies = await db.query(agenciesSQL).catch(function(err){
 		log.error(err.message);
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});

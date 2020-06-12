@@ -19,7 +19,8 @@ exports.connect = async() => {
 			'Bucket': global.settings.S3_BUCKET,
 			'MaxKeys': 1
 		}).promise();
-	}catch(error){
+	}
+catch(error){
 		// eslint-disable-next-line no-console
 		console.log(colors.red(`\tError connecting to S3: ${error}`));
 		return false;

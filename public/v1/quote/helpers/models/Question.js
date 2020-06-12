@@ -140,7 +140,8 @@ module.exports = class Question{
 				// Set the answer ID and determine and set the answer text
 				this.answer_id = answer_id;
 				this.answer = this.possible_answers[answer_id].answer;
-			}else{
+			}
+else{
 				// For text answer questions
 				this.answer_id = 0;
 				this.answer = answer_id;

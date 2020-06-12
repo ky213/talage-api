@@ -259,7 +259,8 @@ module.exports = class Integration{
 			}
 
 			answer = question.possible_answers[question.answer_id].answer;
-		}else{
+		}
+else{
 			// This is a fill-in-the-blank style question, simply send what the user gave us
 			answer = question.answer;
 		}
@@ -431,7 +432,8 @@ module.exports = class Integration{
 
 				// Return the mapping
 				fulfill(question_details);
-			}else{
+			}
+else{
 				fulfill({});
 			}
 		});
@@ -483,7 +485,8 @@ module.exports = class Integration{
 
 				// Return the mapping
 				fulfill(identifiers);
-			}else{
+			}
+else{
 				fulfill({});
 			}
 		});
@@ -843,7 +846,8 @@ module.exports = class Integration{
 		columns.push('api_result');
 		if(error){
 			values.push(error);
-		}else{
+		}
+else{
 			values.push('quoted');
 		}
 
@@ -1031,7 +1035,8 @@ module.exports = class Integration{
 			// If result is a possible API result from an integration, convert it to the Talage equivalent
 			if(Object.keys(this.possible_api_responses).includes(result)){
 				result = this.possible_api_responses[result];
-			}else{
+			}
+else{
 				const error_message = `${this.insurer.name} ${this.policy.type} Integration Error: Invalid value of '${result}' for result passed to return_result(). Result not specified in the insurer integration.`;
 				log.error(error_message);
 				this.reasons.push(error_message);
@@ -1058,7 +1063,8 @@ module.exports = class Integration{
 			this.reasons.push(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote amount. Response structure may have changed.`);
 			if(result === 'quoted'){
 				result = 'error';
-			}else{
+			}
+else{
 				result = 'referred';
 			}
 		}
@@ -1299,7 +1305,8 @@ module.exports = class Integration{
 
 						this.log += `--------======= Response =======--------<br><br><pre>${filteredData}</pre><br><br>`;
 						fulfill(rawData);
-					}else{
+					}
+else{
 						const error = new Error(`Insurer request encountered a ${res.statusCode} error`);
 						log.error(error.message);
 						log.verbose(rawData);
@@ -1514,7 +1521,8 @@ module.exports = class Integration{
 			// If there are attributes, parse them for later use
 			if(this.industry_code.attributes && Object.keys(this.industry_code.attributes).length > 0){
 				this.industry_code.attributes = JSON.parse(this.industry_code.attributes);
-			}else{
+			}
+else{
 				this.industry_code.attributes = '';
 			}
 

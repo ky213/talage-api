@@ -55,7 +55,8 @@ module.exports = class PieWC extends Integration{
 			let host = '';
 			if(this.insurer.test_mode){
 				host = 'quote-stg.pieinsurance.com';
-			}else{
+			}
+else{
 				host = 'quote.pieinsurance.com';
 			}
 
@@ -190,7 +191,8 @@ module.exports = class PieWC extends Integration{
 											if(loc.address === this.app.business.mailing_address){
 												location_object.mailingAddress = true;
 												mailing_address_found = true;
-											}else{
+											}
+else{
 												location_object.mailingAddress = false;
 											}
 
@@ -300,14 +302,16 @@ module.exports = class PieWC extends Integration{
 				// Attempt to get the quote number
 				try{
 					this.request_id = res.id;
-				}catch(e){
+				}
+catch(e){
 					log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.`);
 				}
 
 				// Attempt to get the amount of the quote
 				try{
 					this.amount = parseInt(res.premiumDetails.totalEstimatedPremium, 10);
-				}catch(e){
+				}
+catch(e){
 					// This is handled in return_result()
 				}
 
@@ -333,14 +337,16 @@ module.exports = class PieWC extends Integration{
 							}
 						}
 					}
-				}catch(e){
+				}
+catch(e){
 					// This is handled in return_result()
 				}
 
 				// Grab the writing company
 				try{
 					this.policy_info.writer = res.insuranceCompany;
-				}catch(e){
+				}
+catch(e){
 					log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.`);
 				}
 

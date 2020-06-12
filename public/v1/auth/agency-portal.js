@@ -17,7 +17,7 @@ const serverHelper = require('../../../server.js');
  *
  * @returns {object} res - Returns an authorization token
  */
-async function postToken(req, res, next) {
+async function createToken(req, res, next) {
 	let error = false;
 
 	// Check for data
@@ -42,13 +42,6 @@ async function postToken(req, res, next) {
 
 	// This is a complete hack. Plus signs in email addresses are valid, but the Restify queryParser removes plus signs. Add them back in
 	req.body.email = req.body.email.replace(' ', '+');
-
-	// Begin constructing the payload
-	const payload = {
-		agencyNetwork: false,
-		agents: [],
-		signatureRequired: false
-	};
 
 	// Authenticate the information provided by the user
 	const emailHash = await crypt.hash(req.body.email);
@@ -92,6 +85,13 @@ async function postToken(req, res, next) {
 		res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
 		return next();
 	}
+
+	// Begin constructing the payload
+	const payload = {
+		agencyNetwork: false,
+		agents: [],
+		signatureRequired: false
+	};
 
 	// Record the time this user logged in
 	const lastLoginSQL = `
@@ -208,9 +208,9 @@ async function postToken(req, res, next) {
 	console.log('put back original jwt expiration time');
 	console.log('##########################################');
 	console.log('##########################################');
-	const token = `Bearer ${jwt.sign(payload, global.settings.AUTH_SECRET_KEY, { expiresIn: global.settings.JWT_TOKEN_EXPIRATION })}`;
-	// const token = `Bearer ${jwt.sign(payload, global.settings.AUTH_SECRET_KEY, { expiresIn: '3s' })}`;
-	log.info('Token Created');
+	// const token = `Bearer ${jwt.sign(payload, global.settings.AUTH_SECRET_KEY, { expiresIn: global.settings.JWT_TOKEN_EXPIRATION })}`;
+	const token = `Bearer ${jwt.sign(payload, global.settings.AUTH_SECRET_KEY, { expiresIn: '5s' })}`;
+	// log.info('Token Created');
 	res.send(201, {
 		status: 'Created',
 		token: token
@@ -218,7 +218,54 @@ async function postToken(req, res, next) {
 	return next();
 }
 
+/**
+ * Updates (refreshes) an existing token
+ *
+ * @param {object} req - Request object
+ * @param {object} res - Response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {object} Returns an updated authorization token
+ */
+async function updateToken(req, res, next) {
+	// Ensure we have the proper parameters
+	if (!req.body || !req.body.token) {
+		log.info('Bad Request: Missing "token" parameter when trying to refresh the token ' + __location);
+		return next(serverHelper.requestError('A parameter is missing when trying to refresh the token.'));
+	}
+
+	// Ensure it is a valid JWT and that it hasn't expired.
+	let token;
+	try {
+		token = jwt.verify(req.body.token, global.settings.AUTH_SECRET_KEY);
+	} catch (error) {
+		console.log(error);
+		return next(serverHelper.forbiddenError('Invalid token'));
+	}
+
+	// Valid JWT. Preserve the content except for the issued at and expiration timestamps
+	delete token.iat;
+	delete token.exp;
+
+	// Sign the JWT with new timestamps
+	console.log('##########################################');
+	console.log('##########################################');
+	console.log('put back original jwt expiration time');
+	console.log('##########################################');
+	console.log('##########################################');
+	// const token = `Bearer ${jwt.sign(payload, global.settings.AUTH_SECRET_KEY, { expiresIn: global.settings.JWT_TOKEN_EXPIRATION })}`;
+	token = `Bearer ${jwt.sign(token, global.settings.AUTH_SECRET_KEY, { expiresIn: '5s' })}`;
+
+	// Send it back
+	res.send(201, {
+		status: 'Created',
+		token
+	});
+	return next();
+}
+
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-	server.addPost('Get Token', `${basePath}/agency-portal`, postToken);
+	server.addPost('Create Token', `${basePath}/agency-portal`, createToken);
+	server.addPut('Refresh Token', `${basePath}/agency-portal`, updateToken);
 };

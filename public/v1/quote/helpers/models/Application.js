@@ -74,7 +74,8 @@ module.exports = class Application{
 
 							if(match_found){
 								desired_insurers.push(insurer);
-							}else{
+							}
+else{
 								log.info(`Agent does not support ${policy.type} policies through insurer ${insurer}`);
 								reject(serverHelper.requestError('Agent does not support this request'));
 								stop = true;
@@ -103,7 +104,8 @@ module.exports = class Application{
 					reject(serverHelper.requestError('Agent does not support this request'));
 					return;
 				}
-			}else{
+			}
+else{
 				// Only use the insurers supported by this agent
 				desired_insurers = Object.keys(this.agencyLocation.insurers);
 			}
@@ -184,7 +186,8 @@ module.exports = class Application{
 			// Note: The front-end is sending in 'agent' but this is really a reference to the 'agency location'
 			if(data.agent){
 				await this.agencyLocation.load({'id': data.agent});
-			}else{
+			}
+else{
 				await this.agencyLocation.load({'id': 1}); // This is Talage's agency location record
 			}
 
@@ -239,7 +242,8 @@ module.exports = class Application{
 							limits['Employers Liability Disease Per Employee'] = 1000000;
 							limits['Employers Liability Disease Policy Limit'] = 1000000;
 							limits['Employers Liability Per Occurrence'] = 1000000;
-						}else{
+						}
+else{
 							limits['Damage to Rented Premises'] = '1000000';
 							limits['Each Occurrence'] = '1000000';
 							limits['General Aggregate'] = '1000000';
@@ -340,7 +344,8 @@ module.exports = class Application{
 									if(Object.prototype.hasOwnProperty.call(quote, 'amount') && quote.amount){
 										// Quote
 										policyTypeQuoted[quote.policy_type] = true;
-									}else if(Object.prototype.hasOwnProperty.call(quote, 'status') && quote.status === 'referred'){
+									}
+else if(Object.prototype.hasOwnProperty.call(quote, 'status') && quote.status === 'referred'){
 										// Referred
 										policyTypeReferred[quote.policy_type] = true;
 									}
@@ -366,10 +371,12 @@ module.exports = class Application{
 									}
 									log.verbose(util.inspect(quote, false, null));
 								});
-							}else{
+							}
+else{
 								quote_promises.push(integration.quote());
 							}
-						}else{
+						}
+else{
 							log.warn(`Insurer integration file does not exist: ${insurer.name} ${policy.type}`);
 						}
 					}
@@ -386,7 +393,8 @@ module.exports = class Application{
 					if(Object.prototype.hasOwnProperty.call(quote, 'amount') && quote.amount){
 						// Quote
 						policyTypeQuoted[quote.policy_type] = true;
-					}else if(Object.prototype.hasOwnProperty.call(quote, 'status') && quote.status === 'referred'){
+					}
+else if(Object.prototype.hasOwnProperty.call(quote, 'status') && quote.status === 'referred'){
 						// Referred
 						policyTypeReferred[quote.policy_type] = true;
 					}
@@ -572,9 +580,11 @@ module.exports = class Application{
 			// Send a message to Slack
 			if(all_had_quotes){
 				slack.send('customer_success', 'ok', 'Application completed and the user received ALL quotes', attachment);
-			}else if(some_quotes){
+			}
+else if(some_quotes){
 				slack.send('customer_success', 'ok', 'Application completed and only SOME quotes returned', attachment);
-			}else{
+			}
+else{
 				slack.send('customer_success', 'warning', 'Application completed, but the user received NO quotes', attachment);
 			}
 		}
@@ -596,7 +606,8 @@ module.exports = class Application{
 		let state = 1; // New
 		if(numPolicyTypesRequested === numPolicyTypesQuoted){
 			state = 13; // Quoted
-		}else if(numPolicyTypesRequested === numPolicyTypesReferred){
+		}
+else if(numPolicyTypesRequested === numPolicyTypesReferred){
 			state = 12; // Referred
 		}
 
@@ -608,7 +619,7 @@ module.exports = class Application{
 				WHERE id = ${this.id}
 				LIMIT 1;
 			`;
-			db.query(sql).catch( function(error){
+			db.query(sql).catch(function(error){
 				log.error('Unable to update application status. ' + error);
 			});
 		}
@@ -669,7 +680,8 @@ module.exports = class Application{
 
 					reject(serverHelper.requestError('The Agent specified cannot support this policy.'));
 					stop = true;
-				}else{
+				}
+else{
 					log.error("get insurers error " + error);
 					reject(error);
 					stop = true;
@@ -775,7 +787,8 @@ module.exports = class Application{
 							if(parent_question.answer_id === question.parent_answer){
 								question.required = true;
 							}
-						}else{
+						}
+else{
 							question.required = true;
 						}
 

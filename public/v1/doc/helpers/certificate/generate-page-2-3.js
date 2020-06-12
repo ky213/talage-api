@@ -14,7 +14,8 @@ exports.page_2_3 = async function(data){
 	}
 	if(data[0].has_ein){
 		ein = `${ein.substr(0, 2)} - ${ein.substr(2, 7)}`;
-	}else{
+	}
+else{
 		ein = `${ein.substr(0, 3)} - ${ein.substr(3, 2)} - ${ein.substr(5, 4)}`;
 	}
 

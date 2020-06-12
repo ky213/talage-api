@@ -79,7 +79,8 @@ module.exports = class ChubbBOP extends Integration{
 			let host = '';
 			if(this.insurer.test_mode){
 				host = 'nauat.chubbdigital.com';
-			}else{
+			}
+else{
 				host = 'na.chubbdigital.com';
 			}
 
@@ -676,7 +677,8 @@ module.exports = class ChubbBOP extends Integration{
 								const error_message = res.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0];
 								log.warn(`Error Returned by Carrier: ${error_message}`);
 								this.log += `Error Returned by Carrier: ${error_message}`;
-							}catch(e){
+							}
+catch(e){
 								log.warn(`${this.insurer.name} ${this.policy.type} Error Returned by Carrier: Quote structure changed. Unable to find error message.`);
 							}
 						}
@@ -684,21 +686,24 @@ module.exports = class ChubbBOP extends Integration{
 						// Attempt to get the quote number
 						try{
 							this.request_id = res.CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0];
-						}catch(e){
+						}
+catch(e){
 							log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.`);
 						}
 
 						// Get the amount of the quote (from the Silver package only, per Adam)
 						try{
 							this.amount = parseInt(res.CommlPolicy[0].SilverTotalPremium[0], 10);
-						}catch(e){
+						}
+catch(e){
 							// This is handled in return_result()
 						}
 
 						// Grab the writing company
 						try{
 							this.writer = res.CommlPolicy[0].WritingCompany[0];
-						}catch(e){
+						}
+catch(e){
 							log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.`);
 						}
 
@@ -723,7 +728,8 @@ module.exports = class ChubbBOP extends Integration{
 								this.limits[7] = 1000000;
 								this.limits[9] = 2000000;
 							});
-						}catch(e){
+						}
+catch(e){
 							// This is handled in return_result()
 						}
 

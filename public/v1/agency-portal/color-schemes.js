@@ -1,7 +1,6 @@
 'use strict';
 
 const serverHelper = require('../../../server.js');
-const auth = require('./helpers/auth.js');
 
 /**
  * Retrieves available color schemes
@@ -12,7 +11,7 @@ const auth = require('./helpers/auth.js');
  *
  * @returns {void}
  */
-async function getColorSchemes(req, res, next) {
+async function getColorSchemes(req, res, next){
 	// Build a query that will return all of the landing pages
 	const colorSchemesSQL = `
 			SELECT
@@ -26,7 +25,7 @@ async function getColorSchemes(req, res, next) {
 		`;
 
 	// Run the query
-	const colorSchemes = await db.query(colorSchemesSQL).catch(function (err) {
+	const colorSchemes = await db.query(colorSchemesSQL).catch(function(err){
 		log.error(err.message);
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});

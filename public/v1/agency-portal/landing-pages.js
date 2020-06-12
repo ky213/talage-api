@@ -1,7 +1,6 @@
 'use strict';
 
 const serverHelper = require('../../../server.js');
-const auth = require('./helpers/auth.js');
 
 /**
  * Retrieves the landing-pages for the logged in user
@@ -12,7 +11,7 @@ const auth = require('./helpers/auth.js');
  *
  * @returns {void}
  */
-async function getLandingPages(req, res, next) {
+async function getLandingPages(req, res, next){
 	// TO DO: Add support for Agency Networks (take in an angency as a parameter)
 	const agency = req.authentication.agents[0];
 
@@ -29,7 +28,7 @@ async function getLandingPages(req, res, next) {
 		`;
 
 	// Run the query
-	const landingPages = await db.query(landingPageSQL).catch(function (err) {
+	const landingPages = await db.query(landingPageSQL).catch(function(err){
 		log.error(err.message);
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});

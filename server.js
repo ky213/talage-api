@@ -32,13 +32,15 @@ function processJWT() {
 /**
  * Middlware for authenticated endpoints which validates the JWT
  *
- * @param {function} nextCall - The next function call in the handling chain
+ * @param {Object} options - Contains properties handler (next function call), and options permission and permissionType.
  * @returns {void}
  */
 function validateJWT(options) {
 	return async (req, res, next) => {
+		// Validate the JWT
 		const errorMessage = await auth.validateJWT(req, options.permission, options.permissionType);
 		if (errorMessage) {
+			// There was an error. Return a Forbidden error (403)
 			return next(new RestifyError.ForbiddenError(errorMessage));
 		}
 		return options.handler(req, res, next);
@@ -69,7 +71,11 @@ class AbstractedHTTPServer {
 				path: path
 			},
 			processJWT(),
-			validateJWT({ handler, permission, permissionType })
+			validateJWT({
+				handler: handler,
+				permission: permission,
+				permissionType: permissionType
+			})
 		);
 	}
 
@@ -91,7 +97,11 @@ class AbstractedHTTPServer {
 				path: path
 			},
 			processJWT(),
-			validateJWT({ handler, permission, permissionType })
+			validateJWT({
+				handler: handler,
+				permission: permission,
+				permissionType: permissionType
+			})
 		);
 	}
 
@@ -114,7 +124,11 @@ class AbstractedHTTPServer {
 				path: path
 			},
 			processJWT(),
-			validateJWT({ handler, permission, permissionType })
+			validateJWT({
+				handler: handler,
+				permission: permission,
+				permissionType: permissionType
+			})
 		);
 	}
 
@@ -136,7 +150,11 @@ class AbstractedHTTPServer {
 				path: path
 			},
 			processJWT(),
-			validateJWT({ handler, permission, permissionType })
+			validateJWT({
+				handler: handler,
+				permission: permission,
+				permissionType: permissionType
+			})
 		);
 	}
 
@@ -234,9 +252,9 @@ module.exports = {
 		console.log(colors.cyan(`Registered ${endpointPath} endpoints`)); // eslint-disable-line no-console
 		console.log(colors.cyan('-'.padEnd(80, '-'))); // eslint-disable-line no-console
 		const routes = server.router.getRoutes();
-		for (const routeName in routes) {
-			// eslint-disable-line guard-for-in
-			const route = routes[routeName];
+		const routeKeys = Object.keys(routes);
+		for (let i = 0; i < routeKeys.length; i++) {
+			const route = routes[routeKeys[i]];
 			// Color code the route name
 			let name = route.spec.name;
 			name = name.replace('(depr)', colors.red('(depr)'));
