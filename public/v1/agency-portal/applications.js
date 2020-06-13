@@ -225,6 +225,7 @@ async function getApplications(req, res, next){
 
 	// ================================================================================
 	// Build the common SQL between the total count and paginated results
+
 	const commonSQL = `
 			FROM ${db.quoteName('#__applications', 'a')}
 			LEFT JOIN ${db.quoteName('#__businesses', 'b')} ON ${db.quoteName('b.id')} = ${db.quoteName('a.business')}
@@ -233,7 +234,7 @@ async function getApplications(req, res, next){
 			LEFT JOIN ${db.quoteName('#__agencies', 'ag')} ON ${db.quoteName('a.agency')} = ${db.quoteName('ag.id')}
 			${join}
 			WHERE ${db.quoteName('a.state')} >= 1
-				AND ${db.quoteName('a.created')} BETWEEN CAST(${db.escape(startDateSQL)} AS DATE) AND CAST(${db.escape(endDateSQL)} AS DATE)
+				AND ${db.quoteName('a.created')} BETWEEN CAST(${db.escape(startDateSQL)} AS DATETIME) AND CAST(${db.escape(endDateSQL)} AS DATETIME)
 				${where}
 		`;
 
@@ -273,6 +274,7 @@ async function getApplications(req, res, next){
 			LIMIT ${req.params.limit}
 			OFFSET ${req.params.page * req.params.limit}
 		`;
+
 	let applications = null;
 	try {
 		applications = await db.query(applicationsSQL);
