@@ -37,9 +37,11 @@ module.exports = async function(agencyNetwork, userID, firstName, lastName, agen
 	let emailMessage = '';
 	if(emailContentResult[0].emailData && emailContentResult[0].emailData.message){
 		emailMessage = emailContentResult[0].emailData.message;
-	}else if(emailContentResult[1] && emailContentResult[1].emailData && emailContentResult[1].emailData.message){
+	}
+else if(emailContentResult[1] && emailContentResult[1].emailData && emailContentResult[1].emailData.message){
 		emailMessage = emailContentResult[1].emailData.message;
-	}else{
+	}
+else{
 		log.error('send-onboarding-email: Could not find email message');
 		return 'Could not find email message';
 	}
@@ -48,9 +50,11 @@ module.exports = async function(agencyNetwork, userID, firstName, lastName, agen
 	let emailSubject = '';
 	if(emailContentResult[0].emailData && emailContentResult[0].emailData.subject){
 		emailSubject = emailContentResult[0].emailData.subject;
-	}else if(emailContentResult[1] && emailContentResult[1].emailData && emailContentResult[1].emailData.subject){
+	}
+else if(emailContentResult[1] && emailContentResult[1].emailData && emailContentResult[1].emailData.subject){
 		emailSubject = emailContentResult[1].emailData.subject;
-	}else{
+	}
+else{
 		log.error('send-onboarding-email: Could not find email subject');
 		return 'Could not find email subject';
 	}
@@ -68,10 +72,12 @@ module.exports = async function(agencyNetwork, userID, firstName, lastName, agen
 		if(global.settings.ENV === 'production'){
 			portalurl = 'https://agents.digalent.com';
 			appurl = 'https://insure.digalent.com';
-		}else if(global.settings.ENV === 'staging'){
+		}
+else if(global.settings.ENV === 'staging'){
 			portalurl = 'https://agents.sta.digalent.com';
 			appurl = 'https://sta.digalent.com';
-		}else if(global.settings.ENV === 'demo'){
+		}
+else if(global.settings.ENV === 'demo'){
 			portalurl = 'https://demo.agents.digalent.com';
 			appurl = 'https://demo.insure.digalent.com';
 		}

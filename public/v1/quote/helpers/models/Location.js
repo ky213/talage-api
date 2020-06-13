@@ -101,7 +101,8 @@ module.exports = class Location{
 					reject(serverHelper.requestError('Address exceeds maximum of 100 characters'));
 					return;
 				}
-			}else{
+			}
+else{
 				reject(serverHelper.requestError('Missing required field: address'));
 				return;
 			}
@@ -125,7 +126,8 @@ module.exports = class Location{
 					await Promise.all(activity_code_promises).catch(function(error){
 						reject(error);
 					});
-				}else{
+				}
+else{
 					reject(serverHelper.requestError('At least 1 class code must be provided per location'));
 					return;
 				}
@@ -135,16 +137,19 @@ module.exports = class Location{
 			if(this.identification_number){
 				if(validator.ein(this.identification_number)){
 					this.identification_number_type = 'EIN';
-				}else if(this.app.business.entity_type === 'Sole Proprietorship' && validator.ssn(this.identification_number)){
+				}
+else if(this.app.business.entity_type === 'Sole Proprietorship' && validator.ssn(this.identification_number)){
 					this.identification_number_type = 'SSN';
-				}else{
+				}
+else{
 					reject(serverHelper.requestError('Invalid formatting for property: identification number.'));
 					return;
 				}
 
 				// Strip out the slashes, insurers don't like slashes
 				this.identification_number = this.identification_number.replace(/-/g, '');
-			}else{
+			}
+else{
 				reject(serverHelper.requestError('Identification Number is required'));
 				return;
 			}
@@ -194,14 +199,16 @@ module.exports = class Location{
 					if(row){
 						this.city = row[0].city;
 						this.territory = row[0].territory;
-					}else{
+					}
+else{
 						reject(serverHelper.requestError('The zip code you entered is not valid'));
 					}
 				}).catch(function(error){
 					log.warn(error + __location);
 					reject(serverHelper.requestError('The zip code you entered is not valid'));
 				});
-			}else{
+			}
+else{
 				reject(serverHelper.requestError('Missing required field: zip'));
 				return;
 			}
@@ -229,14 +236,16 @@ module.exports = class Location{
 						reject(serverHelper.requestError('Unemployment Number must be an integer'));
 						return;
 					}
-				}else{
+				}
+else{
 					if(this.territory === 'MI' && this.unemployment_number && !Number.isInteger(this.unemployment_number)){
 						reject(serverHelper.requestError('Unemployment Number must be an integer'));
 						return;
 					}
 					this.unemployment_number = 0;
 				}
-			}else{
+			}
+else{
 				this.unemployment_number = 0;
 			}
 

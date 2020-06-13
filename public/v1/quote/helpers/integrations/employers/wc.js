@@ -108,7 +108,8 @@ module.exports = class EmployersWC extends Integration{
 					let answer = '';
 					try{
 						answer = this.determine_question_answer(question, required_questions.includes(question.id));
-					}catch(error){
+					}
+catch(error){
 						this.reasons.push(`Unable to determine answer for question ${question.id}`);
 						fulfill(this.return_result('error'));
 						return;
@@ -143,7 +144,8 @@ module.exports = class EmployersWC extends Integration{
 			let host = '';
 			if(this.insurer.test_mode || global.settings.ENV === 'development'){
 				host = 'api-qa.employers.com';
-			}else{
+			}
+else{
 				host = 'api.employers.com';
 			}
 			const path = '/DigitalAgencyServices/ws/AcordServices';
@@ -207,7 +209,7 @@ module.exports = class EmployersWC extends Integration{
 				// Attempt to get the amount of the quote
 				try{
 					this.amount = parseInt(res.Policy[0].CurrentTermAmt[0].Amt[0], 10);
-				}catch(e){
+				} catch(e){
 					// This is handled in return_result()
 				}
 
@@ -233,14 +235,16 @@ module.exports = class EmployersWC extends Integration{
 							});
 						}
 					});
-				}catch(e){
+				}
+catch(e){
 					// This is handled in return_result()
 				}
 
 				// Grab the writing company
 				try{
 					this.writer = res.Policy[0].CompanyProductCd[0].split('-')[1].trim();
-				}catch(e){
+				}
+catch(e){
 					if(status === 'QUOTE' || status === 'PENDING_REFER'){
 						log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.`+ __location);
 					}
@@ -255,12 +259,14 @@ module.exports = class EmployersWC extends Integration{
 							'file_name': `${this.insurer.name}_ ${this.policy.type}_quote_letter.pdf`,
 							'length': res.FileAttachmentInfo[0].AttachmentData[0].BinLength[0]
 						};
-					}catch(err){
+					}
+catch(err){
 						if(status === 'QUOTE'){
 							log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Changed how it returns the quote letter.`+__location);
 						}
 					}
-				}catch(e){
+				}
+catch(e){
 					if(status === 'QUOTE'){
 						log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find files.`+__location);
 					}
@@ -271,7 +277,8 @@ module.exports = class EmployersWC extends Integration{
 					res.MsgStatus[0].ExtendedStatus.forEach((error_obj) => {
 						this.reasons.push(`${error_obj.ExtendedStatusCd} - ${error_obj.ExtendedStatusDesc[0]}`);
 					});
-				}catch(e){
+				}
+catch(e){
 					if(status === 'INPROGRESS'){
 						log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to reasons.`+__location);
 					}

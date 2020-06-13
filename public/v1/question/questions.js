@@ -224,7 +224,8 @@ async function GetQuestions(req, res, next){
 		zip_result.forEach(function(result){
 			territories.push(result.territory);
 		});
-	}else{
+	}
+else{
 		log.warn('Bad Request: Zip Code');
 		return next(serverHelper.badRequestError('The zip code(s) supplied is/are invalid'));
 	}
@@ -402,7 +403,8 @@ async function GetQuestions(req, res, next){
 		// Groom the hidden field
 		if(question.hidden){
 			question.hidden = true;
-		}else{
+		}
+else{
 			delete question.hidden;
 		}
 	});
@@ -439,7 +441,8 @@ async function GetQuestions(req, res, next){
 						// Remove the default if it is not applicable
 						if(answer_obj.default === 1){
 							answer_obj.default = true;
-						}else{
+						}
+else{
 							delete answer_obj.default;
 						}
 

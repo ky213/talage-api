@@ -303,7 +303,7 @@ module.exports = class AcuityWC extends Integration{
 							let QuestionAnswer = null;
 
 							const question_identifiers = await this.get_question_identifiers().catch((error) => {
-								log.error(`${this.insurer.name} WC is unable to get question identifiers.${error}`+ __location);
+								log.error(`${this.insurer.name} WC is unable to get question identifiers.${error}` + __location);
 								fulfill(this.return_error('error', 'We have no idea what went wrong, but we\'re on it'));
 							});
 
@@ -322,7 +322,8 @@ module.exports = class AcuityWC extends Integration{
 									let answer = '';
 									try{
 										answer = this.determine_question_answer(question);
-									}catch(error){
+									}
+catch(error){
 										fulfill(this.return_error('error', 'Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 										return;
 									}
@@ -339,9 +340,11 @@ module.exports = class AcuityWC extends Integration{
 									// Determine how to send the answer
 									if(question.type === 'Yes/No'){
 										QuestionAnswer.ele('YesNoCd', question.get_answer_as_boolean() ? 'YES' : 'NO');
-									}else if(/^\d+$/.test(answer)){
+									}
+else if(/^\d+$/.test(answer)){
 										QuestionAnswer.ele('Num', answer);
-									}else{
+									}
+else{
 										QuestionAnswer.ele('Explanation', answer);
 									}
 								}
@@ -616,7 +619,8 @@ module.exports = class AcuityWC extends Integration{
 			let host = '';
 			if(this.insurer.test_mode){
 				host = 'tptest.acuity.com';
-			}else{
+			}
+else{
 				host = 'www.acuity.com';
 			}
 			const path = '/ws/partner/public/irate/rating/RatingService/Talage';
@@ -736,8 +740,9 @@ module.exports = class AcuityWC extends Integration{
 								// Get the amount of the quote
 								try{
 									amount = parseInt(res.PolicySummaryInfo[0].FullTermAmt[0].Amt[0], 10);
-								}catch(e){
-									log.error(`${this.insurer.name} Integration Error: Quote structure changed. Unable to quote amount.`+ __location);
+								}
+catch(e){
+									log.error(`${this.insurer.name} Integration Error: Quote structure changed. Unable to quote amount.` + __location);
 									this.reasons.push('A quote was generated, but our API was unable to isolate it.');
 									fulfill(this.return_error('error', 'Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 									return;
@@ -761,7 +766,8 @@ module.exports = class AcuityWC extends Integration{
 												break;
 										}
 									});
-								}catch(e){
+								}
+catch(e){
 									log.warn(`${this.insurer.name} Integration Error: Quote structure changed. Unable to find limits. ` + __location);
 								}
 
@@ -777,7 +783,8 @@ it will remain available? The data and file information needs to be stored in th
 									policy_info.files[0].url = res.FileAttachmentInfo[0].WebsiteURL[0];
 
 */
-								}catch(e){
+								}
+catch(e){
 									log.warn(`${this.insurer.name} Integration Error: Quote structure changed. Unable to quote letter.` + __location);
 								}
 
