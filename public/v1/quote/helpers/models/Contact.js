@@ -66,7 +66,8 @@ module.exports = class Contact{
 					reject(serverHelper.requestError('First name exceeds maximum length of 30 characters'));
 					return;
 				}
-			}else{
+			}
+else{
 				reject(serverHelper.requestError('Missing required field in contact: first_name'));
 				return;
 			}
@@ -82,7 +83,8 @@ module.exports = class Contact{
 					reject(serverHelper.requestError('Last name exceeds maximum length of 30 characters'));
 					return;
 				}
-			}else{
+			}
+else{
 				reject(serverHelper.requestError('Missing required field in contact: last_name'));
 				return;
 			}
@@ -108,7 +110,8 @@ module.exports = class Contact{
 				}
 				this.phone = this.phone.replace(/[^0-9]/ig, '');
 				this.phone = parseInt(this.phone, 10);
-			}else{
+			}
+else{
 				reject(serverHelper.requestError('Phone number is required'));
 				return;
 			}

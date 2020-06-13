@@ -17,44 +17,35 @@ async function getApplication(req, res, next){
 	let error = false;
 
 	// Check for data
-	if(!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
+	if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
 		log.error('Bad Request: No data received ' + __location);
 		return next(serverHelper.requestError('Bad Request: No data received'));
-	}
-
-	// Make sure the authentication payload has everything we are expecting
-	await auth.validateJWT(req, 'applications', 'view').catch(function(e){
-		error = e;
-	});
-	if(error){
-		log.error('Error get application validateJWT ' + error + __location);
-		return next(error);
 	}
 
 	// Get the agents that we are permitted to view
 	const agents = await auth.getAgents(req).catch(function(e){
 		error = e;
 	});
-	if(error){
+	if (error){
 		log.error('Error get application getAgents ' + error + __location);
 		return next(error);
 	}
 
 	// Make sure basic elements are present
-	if(!req.query.id){
+	if (!req.query.id){
 		log.error('Bad Request: Missing ID ' + __location);
 		return next(serverHelper.requestError('Bad Request: You must supply an ID'));
 	}
 
 	// Validate the application ID
-	if(!await validator.is_valid_id(req.query.id)){
+	if (!await validator.is_valid_id(req.query.id)){
 		log.error('Bad Request: Invalid id ' + __location);
 		return next(serverHelper.requestError('Invalid id'));
 	}
 
 	// Check if this is Solepro and grant them special access
 	let where = `${db.quoteName('a.agency')} IN (${agents.join(',')})`;
-	if(agents.length === 1 && agents[0] === 12){
+	if (agents.length === 1 && agents[0] === 12){
 		// This is Solepro (no restriction on agency ID, just applications tagged to them)
 		where = `${db.quoteName('a.solepro')} = 1`;
 	}
@@ -71,12 +62,12 @@ async function getApplication(req, res, next){
 				${db.quoteName('a.years_of_exp', 'yearsOfExp')},
 				${db.quoteName('b.website')},
 				${db.quoteName('a.wholesale')},
-				${db.quoteName('a.bop_effective_date', 'businessOwner\'sPolicyEffectiveDate')},
-				${db.quoteName('a.bop_expiration_date', 'businessOwner\'sPolicyExpirationDate')},
+				${db.quoteName('a.bop_effective_date', "businessOwner'sPolicyEffectiveDate")},
+				${db.quoteName('a.bop_expiration_date', "businessOwner'sPolicyExpirationDate")},
 				${db.quoteName('a.gl_effective_date', 'generalLiabilityEffectiveDate')},
 				${db.quoteName('a.gl_expiration_date', 'generalLiabilityExpirationDate')},
-				${db.quoteName('a.wc_effective_date', 'workers\'CompensationEffectiveDate')},
-				${db.quoteName('a.wc_expiration_date', 'workers\'CompensationExpirationDate')},
+				${db.quoteName('a.wc_effective_date', "workers'CompensationEffectiveDate")},
+				${db.quoteName('a.wc_expiration_date', "workers'CompensationExpirationDate")},
 				${db.quoteName('a.limits')},
 				${db.quoteName('a.wc_limits', 'wcLimits')},
 				${db.quoteName('a.deductible')},
@@ -114,11 +105,11 @@ async function getApplication(req, res, next){
 	// Query the database
 	const applicationData = await db.query(sql).catch(function(err){
 		log.error('Error get application database query ' + err.message + __location);
-		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Make sure an application was found
-	if(applicationData.length !== 1){
+	if (applicationData.length !== 1){
 		log.error('Error get application, application not found ' + __location);
 		return next(serverHelper.notFoundError('The application could not be found.'));
 	}
@@ -127,19 +118,17 @@ async function getApplication(req, res, next){
 	const application = applicationData[0];
 
 	// Decrypt any necessary fields
-	await crypt.batchProcessObject(application, 'decrypt', [
-		'address',
-		'address2',
-		'businessName',
-		'dba',
-		'ein',
-		'email',
-		'fname',
-		'lname',
-		'owners',
-		'phone',
-		'website'
-	])
+	await crypt.batchProcessObject(application, 'decrypt', ['address',
+'address2',
+'businessName',
+'dba',
+'ein',
+'email',
+'fname',
+'lname',
+'owners',
+'phone',
+'website']);
 
 	// Decode the owners
 	application.owners = JSON.parse(application.owners);
@@ -167,20 +156,17 @@ async function getApplication(req, res, next){
 	// Query the database
 	const addressData = await db.query(addressSQL).catch(function(err){
 		log.error(err.message);
-		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Decrypt the encrypted fields
-	await crypt.batchProcessObjectArray(addressData, 'decrypt', [
-		'address',
-		'address2',
-		'ein'
-	]);
+	await crypt.batchProcessObjectArray(addressData, 'decrypt', ['address',
+'address2',
+'ein']);
 
 	// Only process addresses if some were returned
 	application.locations = [];
-	if(addressData.length > 0){
-
+	if (addressData.length > 0){
 		// Get the activity codes for all addresses
 		const codesSQL = `
 				SELECT
@@ -190,24 +176,23 @@ async function getApplication(req, res, next){
 				FROM ${db.quoteName('#__address_activity_codes', 'aac')}
 				LEFT JOIN ${db.quoteName('#__activity_codes', 'ac')} ON ${db.quoteName('ac.id')} = ${db.quoteName('aac.ncci_code')}
 				WHERE ${db.quoteName('aac.address')} IN (${addressData.map(function(address){
-	return address.id;
-})});
+			return address.id;
+		})});
 			`;
 
 		// Query the database
 		const codesData = await db.query(codesSQL).catch(function(err){
 			log.error(err.message);
-			return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 		});
 
 		// Loop over each address and do a bit more work
 		addressData.forEach(function(address){
-
 			// Get all codes that are associated with this address and add them
 			address.activityCodes = [];
-			if(codesData.length > 0){
+			if (codesData.length > 0){
 				codesData.forEach(function(code){
-					if(code.address === address.id){
+					if (code.address === address.id){
 						address.activityCodes.push(code);
 					}
 				});
@@ -244,19 +229,17 @@ async function getApplication(req, res, next){
 
 	const quotes = await db.query(quotesSQL).catch(function(err){
 		log.error(err.message);
-		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});
 
 	// Add the quotes to the return object and determine the application status
 	application.quotes = [];
-	if(quotes.length > 0){
+	if (quotes.length > 0){
 		// Add the quotes to the response
 		application.quotes = quotes;
 	}
 
-
 	// TO DO: Should questions be moved to this same endpoint? Probably.
-
 
 	// Return the response
 	res.send(200, application);
@@ -264,5 +247,5 @@ async function getApplication(req, res, next){
 }
 
 exports.registerEndpoint = (server, basePath) => {
-	server.addGetAuth('Get application', `${basePath}/application`, getApplication);
+	server.addGetAuth('Get application', `${basePath}/application`, getApplication, 'applications', 'view');
 };

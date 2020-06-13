@@ -12,7 +12,8 @@ module.exports = async function(val, agency, agencyNetwork){
 	if(agency){
 		if(agencyNetwork){
 			where = ` AND \`agency_network\` = ${parseInt(agency, 10)}`;
-		}else{
+		}
+else{
 			where = ` AND \`agency\` = ${parseInt(agency, 10)}`;
 		}
 	}

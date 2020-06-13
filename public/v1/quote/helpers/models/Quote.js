@@ -71,7 +71,8 @@ module.exports = class Quote{
 					this.send_slack_notification('requested');
 					reject(error);
 				});
-			}else{
+			}
+else{
 				// The insurer does not support bind, just send a requested Slack message
 				log.error(`bind request: Invalid path to integration ${path}` + __location);
 				this.send_slack_notification('requested');

@@ -140,7 +140,6 @@ exports.send = async function(recipients, subject, content, keys = {}, brand = '
 	};
 
 
-
 	// If there were keys supplied, write the appropriate records to the database
 	if(keys && typeof keys === 'object' && Object.keys(keys).length){
 		// Handle the Application key
