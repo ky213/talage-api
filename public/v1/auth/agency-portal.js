@@ -7,6 +7,8 @@
 const crypt = global.requireShared('services/crypt.js');
 const jwt = require('jsonwebtoken');
 const serverHelper = require('../../../server.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 /**
  * Responds to get requests for an authorization token
@@ -17,7 +19,7 @@ const serverHelper = require('../../../server.js');
  *
  * @returns {object} res - Returns an authorization token
  */
-async function createToken(req, res, next) {
+async function createToken(req, res, next){
 	let error = false;
 
 	// Check for data
@@ -28,14 +30,14 @@ async function createToken(req, res, next) {
 
 	// Make sure an email was provided
 	if (!req.body.email) {
-		log.info('Missing email');
+		log.info('Missing email' + __location);
 		res.send(400, serverHelper.requestError('Email address is required'));
 		return next();
 	}
 
 	// Makes sure a password was provided
 	if (!req.body.password) {
-		log.info('Missing password');
+		log.info('Missing password' + __location);
 		res.send(400, serverHelper.requestError('Password is required'));
 		return next();
 	}
@@ -63,7 +65,7 @@ async function createToken(req, res, next) {
 		LIMIT 1;
 	`;
 	const result = await db.query(agencySQL).catch(function (e) {
-		log.error(e.message);
+		log.error(e.message + __location);
 		res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
 		error = true;
 	});
@@ -118,8 +120,8 @@ async function createToken(req, res, next) {
 			FROM \`#__agencies\`
 			WHERE \`agency_network\` = ${db.escape(payload.agencyNetwork)} AND \`state\` > 0;
 		`;
-		const agencies = await db.query(agenciesSQL).catch(function (e) {
-			log.error(e.message);
+		const agencies = await db.query(agenciesSQL).catch(function(e) {
+			log.error(e.message + __location);
 			res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
 			error = true;
 		});
@@ -143,7 +145,7 @@ async function createToken(req, res, next) {
 
 		// Query the database
 		const insurersData = await db.query(insurersSQL).catch(function (e) {
-			log.error(e.message);
+			log.error(e.message + __location);
 			res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
 			error = true;
 		});
@@ -173,7 +175,7 @@ async function createToken(req, res, next) {
 			LIMIT 1;
 		`;
 		const wholesaleInfo = await db.query(wholesaleSQL).catch(function (e) {
-			log.error(e.message);
+			log.error(e.message + __location);
 			res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
 			error = true;
 		});
@@ -232,7 +234,7 @@ async function updateToken(req, res, next) {
 	try {
 		token = jwt.verify(req.body.token, global.settings.AUTH_SECRET_KEY);
 	} catch (error) {
-		console.log(error);
+		log.error("JWT: " + error + __location);
 		return next(serverHelper.forbiddenError('Invalid token'));
 	}
 
