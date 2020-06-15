@@ -13,6 +13,8 @@ const util = require('util');
 const{'v4': uuidv4} = require('uuid');
 const xmlToObj = require('xml2js').parseString;
 const serverHelper = require('../../../../../server.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 module.exports = class Integration{
 
@@ -864,12 +866,14 @@ else{
 			const fileName = `${this.generate_uuid()}.pdf`;
 
 			// Store the quote letter in our cloud storage
-			await fileSvc.store(`secure/quote-letters/${fileName}`, this.quote_letter.data).then(function(result){
+			fileSvc.PutFile(`secure/quote-letters/${fileName}`, this.quote_letter.data).then(function(result){
 				if(result){
 					// The file was successfully saved, store the file name in the database
 					columns.push('quote_letter');
 					values.push(fileName);
 				}
+			}).catch(function(err){
+				log.error(`S3 error Storing Quote letter : ${fileName} error: ` + err + __location);
 			});
 		}
 
