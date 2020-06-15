@@ -103,7 +103,7 @@ async function getReports(req, res, next) {
 					COUNT(\`a\`.\`id\`)  AS \`started\`,
 					SUM(IF(\`a\`.\`last_step\` >= 8, 1, 0)) AS \`completed\`,
 					SUM((SELECT 1 FROM \`clw_talage_quotes\` AS \`q\` WHERE \`q\`.\`application\` = \`a\`.\`id\` AND (\`q\`.\`bound\` = 1 OR \`q\`.\`status\` = 'bind_requested' OR \`q\`.\`api_result\` = 'quoted' OR \`q\`.\`api_result\` = 'referred_with_price') LIMIT 1)) AS \`quoted\`,
-					SUM((SELECT 1 FROM \`clw_talage_quotes\` AS \`q\` WHERE \`q\`.\`application\` = \`a\`.\`id\` AND (\`q\`.\`bound\` = 1 OR \`q\`.\`status\` = 'bind_requested'))) AS \`bound\`
+					SUM((SELECT 1 FROM \`clw_talage_quotes\` AS \`q\` WHERE \`q\`.\`application\` = \`a\`.\`id\` AND (\`q\`.\`bound\` = 1 OR \`q\`.\`status\` = 'bind_requested') LIMIT 1)) AS \`bound\`
 				FROM \`#__applications\` AS \`a\`
 				WHERE
 					${where} AND
