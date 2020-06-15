@@ -12,6 +12,7 @@ const moment = require('moment');
 const Integration = require('../Integration.js');
 
 module.exports = class ChubbBOP extends Integration {
+
 	/**
 	 * Requests a quote from Chubb and returns. This request is not intended to be called directly.
 	 *
@@ -39,7 +40,7 @@ module.exports = class ChubbBOP extends Integration {
 			'Trust - Non-Profit': 'TE'
 		};
 
-		return new Promise(async (fulfill) => {
+		return new Promise(async(fulfill) => {
 			// Check Industry Code Support
 			if (!this.industry_code.cgl) {
 				this.reasons.push(`CGL not set for Industry Code ${this.industry_code.id}`);
@@ -76,22 +77,21 @@ module.exports = class ChubbBOP extends Integration {
 			let host = '';
 			if (this.insurer.test_mode) {
 				host = 'nauat.chubbdigital.com';
-			} else {
+			}
+ else {
 				host = 'na.chubbdigital.com';
 			}
 
 			// Get a token from their auth server
 			let hadError = false;
-			const tokenResponse = await this.send_json_request(
-				host,
+			const tokenResponse = await this.send_json_request(host,
 				'/api/v1/tokens',
 				null,
 				{
 					App_ID: '84b45546-f66d-4da7-abbc-e54a100caabf',
 					App_Key: `|M*O49d\\7)H0o8X.]HZ89eS&`
 				},
-				'POST'
-			).catch((error) => {
+				'POST').catch((error) => {
 				log.error(error.message + __location);
 				hadError = true;
 				fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
@@ -103,7 +103,7 @@ module.exports = class ChubbBOP extends Integration {
 			// Build the XML Request
 
 			// <ACORD>
-			const ACORD = builder.create('ACORD', { headless: true }).att('xmlns', 'http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/');
+			const ACORD = builder.create('ACORD', {headless: true}).att('xmlns', 'http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/');
 
 			// <InsuranceSvcRq>
 			const InsuranceSvcRq = ACORD.ele('InsuranceSvcRq');
@@ -644,14 +644,14 @@ module.exports = class ChubbBOP extends Integration {
 			// </ACORD>
 
 			// Get the XML structure as a string
-			const xml = ACORD.end({ pretty: true });
+			const xml = ACORD.end({pretty: true});
 
 			// Build the authorization header
-			const headers = { Authorization: `${tokenResponse.token_type} ${tokenResponse.access_token}` };
+			const headers = {Authorization: `${tokenResponse.token_type} ${tokenResponse.access_token}`};
 
 			// Send the XML to the insurer
-			await this.send_xml_request(host, '/api/v1/quotes', xml, headers)
-				.then((result) => {
+			await this.send_xml_request(host, '/api/v1/quotes', xml, headers).
+				then((result) => {
 					// Parse the various status codes and take the appropriate action
 					let res = result.ACORD.InsuranceSvcRs[0];
 
@@ -680,7 +680,8 @@ module.exports = class ChubbBOP extends Integration {
 									const error_message = res.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0];
 									log.warn(`Error Returned by Carrier: ${error_message}` + __location);
 									this.log += `Error Returned by Carrier: ${error_message}`;
-								} catch (e) {
+								}
+ catch (e) {
 									log.warn(`${this.insurer.name} ${this.policy.type} Error Returned by Carrier: Quote structure changed. Unable to find error message.` + __location);
 								}
 							}
@@ -688,21 +689,24 @@ module.exports = class ChubbBOP extends Integration {
 							// Attempt to get the quote number
 							try {
 								this.request_id = res.CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0];
-							} catch (e) {
+							}
+ catch (e) {
 								log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.` + __location);
 							}
 
 							// Get the amount of the quote (from the Silver package only, per Adam)
 							try {
 								this.amount = parseInt(res.CommlPolicy[0].SilverTotalPremium[0], 10);
-							} catch (e) {
+							}
+ catch (e) {
 								// This is handled in return_result()
 							}
 
 							// Grab the writing company
 							try {
 								this.writer = res.CommlPolicy[0].WritingCompany[0];
-							} catch (e) {
+							}
+ catch (e) {
 								log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.` + __location);
 							}
 
@@ -727,7 +731,8 @@ module.exports = class ChubbBOP extends Integration {
 									this.limits[7] = 1000000;
 									this.limits[9] = 2000000;
 								});
-							} catch (e) {
+							}
+ catch (e) {
 								// This is handled in return_result()
 							}
 
@@ -739,8 +744,8 @@ module.exports = class ChubbBOP extends Integration {
 							this.reasons.push(`API returned unknown status code of ${res.Status[0].StatusCd[0]}`);
 							fulfill(this.return_result('error'));
 					}
-				})
-				.catch(() => {
+				}).
+				catch(() => {
 					log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer` + __location);
 					fulfill(this.return_result('error'));
 				});

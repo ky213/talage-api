@@ -36,7 +36,7 @@ function processJWT() {
  * @returns {void}
  */
 function validateJWT(options) {
-	return async (req, res, next) => {
+	return async(req, res, next) => {
 		// Validate the JWT
 		const errorMessage = await auth.validateJWT(req, options.permission, options.permissionType);
 		if (errorMessage) {
@@ -48,11 +48,12 @@ function validateJWT(options) {
 }
 
 function handlerWrapper(path, handler) {
-	return async (req, res, next) => {
+	return async(req, res, next) => {
 		let result;
 		try {
 			result = await handler(req, res, next);
-		} catch (error) {
+		}
+ catch (error) {
 			log.error(`Unhandled exception in endpoint ${path}: ${error}`);
 			return next(new RestifyError.InternalServerError("Internal Server Error"));
 		}
@@ -67,19 +68,16 @@ class AbstractedHTTPServer {
 	}
 
 	addPost(name, path, handler) {
-		this.server.post(
-			{
+		this.server.post({
 				name: name,
 				path: path
 			},
-			handlerWrapper(path, handler)
-		);
+			handlerWrapper(path, handler));
 	}
 
 	addPostAuth(name, path, handler, permission = null, permissionType = null) {
 		name += ' (auth)';
-		this.server.post(
-			{
+		this.server.post({
 				name: name,
 				path: path
 			},
@@ -88,24 +86,20 @@ class AbstractedHTTPServer {
 				handler: handlerWrapper(path, handler),
 				permission: permission,
 				permissionType: permissionType
-			})
-		);
+			}));
 	}
 
 	addGet(name, path, handler) {
-		this.server.get(
-			{
+		this.server.get({
 				name: name,
 				path: path
 			},
-			handlerWrapper(path, handler)
-		);
+			handlerWrapper(path, handler));
 	}
 
 	addGetAuth(name, path, handler, permission = null, permissionType = null) {
 		name += ' (auth)';
-		this.server.get(
-			{
+		this.server.get({
 				name: name,
 				path: path
 			},
@@ -114,25 +108,21 @@ class AbstractedHTTPServer {
 				handler: handlerWrapper(path, handler),
 				permission: permission,
 				permissionType: permissionType
-			})
-		);
+			}));
 	}
 
 	addPut(name, path, handler) {
-		this.server.put(
-			{
+		this.server.put({
 				name: name,
 				path: path
 			},
 			processJWT(),
-			handlerWrapper(path, handler)
-		);
+			handlerWrapper(path, handler));
 	}
 
 	addPutAuth(name, path, handler, permission = null, permissionType = null) {
 		name += ' (auth)';
-		this.server.put(
-			{
+		this.server.put({
 				name: name,
 				path: path
 			},
@@ -141,24 +131,20 @@ class AbstractedHTTPServer {
 				handler: handlerWrapper(path, handler),
 				permission: permission,
 				permissionType: permissionType
-			})
-		);
+			}));
 	}
 
 	addDelete(name, path, handler) {
-		this.server.del(
-			{
+		this.server.del({
 				name: name,
 				path: path
 			},
-			handlerWrapper(path, handler)
-		);
+			handlerWrapper(path, handler));
 	}
 
 	addDeleteAuth(name, path, handler, permission = null, permissionType = null) {
 		name += ' (auth)';
-		this.server.del(
-			{
+		this.server.del({
 				name: name,
 				path: path
 			},
@@ -167,8 +153,7 @@ class AbstractedHTTPServer {
 				handler: handlerWrapper(path, handler),
 				permission: permission,
 				permissionType: permissionType
-			})
-		);
+			}));
 	}
 
 	addSocket(name, path, connectHandler) {
@@ -176,19 +161,20 @@ class AbstractedHTTPServer {
 			name: name,
 			path: path
 		});
-		const io = socketIO(this.server.server, { path: path });
+		const io = socketIO(this.server.server, {path: path});
 
 		// Force authentication on Socket.io connections
-		io.use(function (socket, next) {
+		io.use(function(socket, next) {
 			if (socket.handshake.query && socket.handshake.query.token) {
-				jwt.verify(socket.handshake.query.token, global.settings.AUTH_SECRET_KEY, function (err) {
+				jwt.verify(socket.handshake.query.token, global.settings.AUTH_SECRET_KEY, function(err) {
 					if (err) {
 						log.info(`Socket ${path}: Invalid JWT`);
 						return next(new Error('Invalid authentication token'));
 					}
 					next();
 				});
-			} else {
+			}
+ else {
 				log.info(`Socket ${path}: Could not find JWT in handshake`);
 				return next(new Error('An authentication token must be provided'));
 			}
@@ -200,7 +186,7 @@ class AbstractedHTTPServer {
 }
 
 module.exports = {
-	create: async (listenAddress, listenPort, endpointPath, useCORS, isDevelopment, logInfoHandler, logErrorHandler) => {
+	create: async(listenAddress, listenPort, endpointPath, useCORS, isDevelopment, logInfoHandler, logErrorHandler) => {
 		const server = restify.createServer({
 			dtrace: true,
 			name: `Talage API: ${endpointPath}`,
@@ -215,7 +201,7 @@ module.exports = {
 				logInfoHandler(`${moment().format()} ${req.connection.remoteAddress} ${req.method} ${req.url} => ${res.statusCode} '${res.statusMessage}'`);
 			}
 		});
-		server.on('error', function (err) {
+		server.on('error', function(err) {
 			logErrorHandler(`${moment().format()} ${err.toString()}'`);
 		});
 		// CORS
@@ -231,12 +217,10 @@ module.exports = {
 
 		// Query string and body parsing
 		server.use(restify.plugins.queryParser());
-		server.use(
-			restify.plugins.bodyParser({
+		server.use(restify.plugins.bodyParser({
 				mapFiles: false,
 				mapParams: true
-			})
-		);
+			}));
 
 		// Sanitize paths
 		server.pre(restify.plugins.pre.dedupeSlashes());
@@ -285,7 +269,8 @@ module.exports = {
 		const serverListen = util.promisify(server.listen.bind(server));
 		try {
 			await serverListen(listenPort, listenAddress);
-		} catch (error) {
+		}
+ catch (error) {
 			logErrorHandler(`Error running ${endpointPath} server: ${error}`);
 			return false;
 		}

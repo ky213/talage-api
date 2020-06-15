@@ -37,7 +37,7 @@ module.exports = class Application {
 	 * @returns {array} - An array of integers that are insurer IDs
 	 */
 	get_insurer_ids() {
-		return this.insurers.map(function (insurer) {
+		return this.insurers.map(function(insurer) {
 			return insurer.id;
 		});
 	}
@@ -145,8 +145,8 @@ module.exports = class Application {
 	 */
 	get_wc_codes() {
 		const ids = [];
-		this.business.locations.forEach(function (location) {
-			location.activity_codes.forEach(function (activity_code) {
+		this.business.locations.forEach(function(location) {
+			location.activity_codes.forEach(function(activity_code) {
 				ids.push(activity_code.id);
 			});
 		});
@@ -180,20 +180,20 @@ module.exports = class Application {
 	 */
 	load(data) {
 		log.verbose('Loading data into Application');
-		return new Promise(async (fulfill, reject) => {
+		return new Promise(async(fulfill, reject) => {
 			// Agent
 			this.agencyLocation = new AgencyLocation(this);
 			// Note: The front-end is sending in 'agent' but this is really a reference to the 'agency location'
 			if (data.agent) {
-				await this.agencyLocation.load({ 'id': data.agent });
+				await this.agencyLocation.load({'id': data.agent});
 			}
 			else {
-				await this.agencyLocation.load({ 'id': 1 }); // This is Talage's agency location record
+				await this.agencyLocation.load({'id': 1}); // This is Talage's agency location record
 			}
 
 			// Load the business information
 			this.business = new Business(this);
-			await this.business.load(data.business).catch(function (error) {
+			await this.business.load(data.business).catch(function(error) {
 				reject(error);
 			});
 
@@ -230,7 +230,7 @@ module.exports = class Application {
 			this.policies.forEach((policy) => {
 
 				// Generate example quotes for each insurer for the given policy type
-				this.insurers.forEach(function (insurer) {
+				this.insurers.forEach(function(insurer) {
 
 					// Check that the insurer supports this policy type
 					if (insurer.policy_types.indexOf(policy.type) >= 0) {
@@ -255,7 +255,7 @@ module.exports = class Application {
 						// Prepare a list of payment options
 						const payment_options = [];
 						if (insurer.payment_options.length) {
-							insurer.payment_options.forEach(function (payment_option) {
+							insurer.payment_options.forEach(function(payment_option) {
 								if (amount > payment_option.threshold) {
 									payment_options.push({
 										'description': payment_option.description,
@@ -309,7 +309,7 @@ module.exports = class Application {
 	run_quotes(socket = false) {
 		log.verbose('Running quotes');
 
-		return new Promise(async (fulfill, reject) => {
+		return new Promise(async(fulfill, reject) => {
 			// Generate quotes for each policy type
 			const fs = require('fs');
 			const quote_promises = [];
@@ -385,8 +385,8 @@ module.exports = class Application {
 
 			// Wait for all quotes to finish
 			const quotes = [];
-			await Promise.all(quote_promises).then(function (all_quotes) {
-				all_quotes.forEach(function (quote) {
+			await Promise.all(quote_promises).then(function(all_quotes) {
+				all_quotes.forEach(function(quote) {
 					quotes.push(quote);
 
 					// Determine the result of this quote
@@ -399,7 +399,7 @@ module.exports = class Application {
 						policyTypeReferred[quote.policy_type] = true;
 					}
 				});
-			}).catch(function (error) {
+			}).catch(function(error) {
 				reject(error);
 			});
 
@@ -441,7 +441,7 @@ module.exports = class Application {
 		// Determine which message will be sent
 		let all_had_quotes = true;
 		let some_quotes = false;
-		await quotes.forEach(function (quote) {
+		await quotes.forEach(function(quote) {
 			if (quote.amount) {
 				some_quotes = true;
 				return;
@@ -463,7 +463,7 @@ module.exports = class Application {
 			WHERE \`id\` = ${db.escape(this.agencyLocation.agencyNetwork)}
 			LIMIT 1;`;
 
-			let emailData = await db.query(sql).catch(function () {
+			let emailData = await db.query(sql).catch(function() {
 				log.error('Unable to get No Quote email content from the database' + __location);
 			});
 
@@ -572,7 +572,7 @@ module.exports = class Application {
 						'value': this.business.industry_code_description
 					}
 				],
-				'text': `${this.business.name} from ${this.business.primary_territory} completed an application for ${this.policies.map(function (policy) {
+				'text': `${this.business.name} from ${this.business.primary_territory} completed an application for ${this.policies.map(function(policy) {
 					return policy.type;
 				}).join(' and ')}`
 			};
@@ -619,7 +619,7 @@ module.exports = class Application {
 				WHERE id = ${this.id}
 				LIMIT 1;
 			`;
-			db.query(sql).catch(function (error) {
+			db.query(sql).catch(function(error) {
 				log.error('Unable to update application status. ' + error + __location);
 			});
 		}
@@ -632,11 +632,11 @@ module.exports = class Application {
 	 * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
 	 */
 	validate(requestedInsurers) {
-		return new Promise(async (fulfill, reject) => {
+		return new Promise(async(fulfill, reject) => {
 			let stop = false;
 
 			// Agent
-			await this.agencyLocation.validate().catch(function (error) {
+			await this.agencyLocation.validate().catch(function(error) {
 				log.error("Location.validate() error " + error + __location);
 				reject(error);
 				stop = true;
@@ -646,7 +646,7 @@ module.exports = class Application {
 			}
 
 			// Initialize the agent so it is ready for later
-			await this.agencyLocation.init().catch(function (error) {
+			await this.agencyLocation.init().catch(function(error) {
 				log.error("Location.init() error " + error);
 				reject(error);
 				stop = true;
@@ -661,15 +661,15 @@ module.exports = class Application {
 			}
 
 			// Get a list of insurers and wait for it to return
-			const insurers = await this.get_insurers(requestedInsurers).catch(async (error) => {
+			const insurers = await this.get_insurers(requestedInsurers).catch(async(error) => {
 				if (error === 'Agent does not support this request') {
 					if (this.agencyLocation.wholesale) {
 						// Switching to the Talage agent
 						this.agencyLocation = new AgencyLocation(this);
-						await this.agencyLocation.load({ 'id': 1 }); // This is Talage's agency location record
+						await this.agencyLocation.load({'id': 1}); // This is Talage's agency location record
 
 						// Initialize the agent so we can use it
-						await this.agencyLocation.init().catch(function (init_error) {
+						await this.agencyLocation.init().catch(function(init_error) {
 							reject(init_error);
 							stop = true;
 						});
@@ -696,7 +696,7 @@ module.exports = class Application {
 			}
 
 			// Validate the business
-			await this.business.validate().catch(function (error) {
+			await this.business.validate().catch(function(error) {
 				log.error("business.validate() error " + error + __location);
 				reject(error);
 				stop = true;
@@ -708,11 +708,11 @@ module.exports = class Application {
 			// Validate all policies
 			const policy_types = [];
 			const policy_promises = [];
-			this.policies.forEach(function (policy) {
+			this.policies.forEach(function(policy) {
 				policy_promises.push(policy.validate());
 				policy_types.push(policy.type);
 			});
-			await Promise.all(policy_promises).catch(function (error) {
+			await Promise.all(policy_promises).catch(function(error) {
 				reject(error);
 				stop = true;
 			});
@@ -723,7 +723,7 @@ module.exports = class Application {
 			// Get a list of all questions the user may need to answer
 			const insurer_ids = this.get_insurer_ids();
 			const wc_codes = this.get_wc_codes();
-			const questions = await get_questions(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids).catch(function (error) {
+			const questions = await get_questions(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids).catch(function(error) {
 				log.error("get_questions error " + error + __location);
 				reject(error);
 			});
@@ -745,7 +745,7 @@ module.exports = class Application {
 						if (Object.prototype.hasOwnProperty.call(user_questions, q.id)) {
 							const user_answer = user_questions[q.id];
 
-							q.set_answer(user_answer).catch(function (error) {
+							q.set_answer(user_answer).catch(function(error) {
 								log.error("set answers error " + error + __location);
 								reject(error);
 								has_error = true;
@@ -809,7 +809,7 @@ module.exports = class Application {
 						question_promises.push(this.questions[question_id].validate());
 					}
 				}
-				await Promise.all(question_promises).catch(function (error) {
+				await Promise.all(question_promises).catch(function(error) {
 					reject(error);
 					stop = true;
 				});
@@ -822,7 +822,7 @@ module.exports = class Application {
 			// Note: we cannot hurt questions where a child must be sent
 
 			// Check agent support
-			await this.agencyLocation.supports_application().catch(function (error) {
+			await this.agencyLocation.supports_application().catch(function(error) {
 				log.error("agencyLocation.supports_application() error " + error + __location);
 				reject(error);
 				stop = true;
