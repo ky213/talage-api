@@ -239,6 +239,32 @@ async function getApplication(req, res, next){
 		application.quotes = quotes;
 	}
 
+	// Get any existing claims for the application from the data base
+	const claimsSQL = `
+			SELECT
+				${db.quoteName('c.amount_paid', 'amountPaid')},
+				${db.quoteName('c.amount_reserved', 'amountReserved')},
+				${db.quoteName('c.date')},
+				${db.quoteName('c.missed_work', 'missedWork')},
+				${db.quoteName('c.open')},
+				${db.quoteName('c.policy_type', 'policyType')}
+			FROM ${db.quoteName('#__claims', 'c')}
+			
+			WHERE ${db.quoteName('c.application')} = ${req.query.id};
+		`;
+
+	// Run query for claims
+	const claims = await db.query(claimsSQL).catch(function(err){
+		log.error('Error get application database query (claims) ' + err.message + __location);
+		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+	});
+
+	application.claims = [];
+	if (claims.length > 0){
+		// Add the claims to the response if they exist
+		application.claims = claims;
+	}
+
 	// TO DO: Should questions be moved to this same endpoint? Probably.
 
 	// Return the response
