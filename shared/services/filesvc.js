@@ -9,40 +9,7 @@
 const tracker = global.requireShared('/helpers/tracker.js');
 
 //So we can reference exports. functions.
-var _this = this;
 
-/**
- * Stores a file in cloud storage
- *
- * @param {string} path - The path at which this file will be stored
- * @param {string} data - The PDF data, base64 encoded
- * @return {boolean} - True if successful; false otherwise
- */
-exports.store = async function(path, data) {
-
-	// If we are in the test environment, don't store anything and just return true
-	if (global.settings.ENV === 'test') {
-		return true;
-	}
-
-	// Make sure we have a path
-	if (!path || !path.length) {
-		log.warn('File helper: You must supply a path when using store()');
-		return false;
-	}
-
-	// Make sure we have data
-	if (!data || !data.length) {
-		log.warn('File helper: You must supply file data when using store()');
-		return false;
-	}
-
-	_this.PutFile(path, data).then(function(res) {
-		return res;
-	}).catch(function(err) {
-		throw err;
-	});
-};
 
 /**
  * Responds to PUT requests to add a single file to our cloud storage
