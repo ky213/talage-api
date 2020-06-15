@@ -49,12 +49,14 @@ function validateJWT(options) {
 
 function handlerWrapper(path, handler) {
 	return async (req, res, next) => {
+		let result;
 		try {
-			return await handler(req, res, next);
+			result = await handler(req, res, next);
 		} catch (error) {
 			log.error(`Unhandled exception in endpoint ${path}: ${error}`);
 			return next(new RestifyError.InternalServerError("Internal Server Error"));
 		}
+		return result;
 	};
 }
 
