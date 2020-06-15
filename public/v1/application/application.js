@@ -9,7 +9,7 @@ const serverHelper = require('../../../server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 //Models
-const applicationModel = global.requireShared('./helpers/models/application-model.js');
+const applicationModel = global.requireShared('/models/application-model.js');
 
 
 /**
@@ -37,12 +37,11 @@ async function Add(req, res, next){
     //Validation passed, give requst application to model to process and save.
 	const applicationRequestJson = req.body;
     applicationModel.newApplication(applicationRequestJson, true).then(function(modelResponse){
-        res.send(200, response);
+        res.send(200, modelResponse);
 		return next();
     }).catch(function(err){
         res.send(500, err.message);
-		ext(serverHelper.requestError('Unable to save. ' err.message));
-    
+		return next(serverHelper.requestError('Unable to save. ' + err.message));
     });
 }
 
