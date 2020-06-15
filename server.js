@@ -47,15 +47,23 @@ function validateJWT(options) {
 	};
 }
 
+/**
+ * Wrapper to catch unhandled exceptions in endpoint handlers
+ *
+ * @param {String} path - Path to the endpoint
+ * @param {Function} handler - Handler function
+ *
+ * @returns {Object} next() returned object
+ */
 function handlerWrapper(path, handler) {
 	return async(req, res, next) => {
-		let result;
+		let result = null;
 		try {
 			result = await handler(req, res, next);
 		}
  catch (error) {
 			log.error(`Unhandled exception in endpoint ${path}: ${error}`);
-			return next(new RestifyError.InternalServerError("Internal Server Error"));
+			return next(new RestifyError.InternalServerError('Internal Server Error'));
 		}
 		return result;
 	};

@@ -9,7 +9,7 @@ const Application = require('./helpers/models/Application.js');
  * @param {object} socket - The socket object
  * @returns {void}
  */
-function SocketQuotes(socket) {
+function socketQuotes(socket) {
 	// Log that a user connected
 	log.info(`${socket.id} - Socket.io connection created`);
 	socket.emit('status', 'waiting');
@@ -126,6 +126,6 @@ function SocketQuotes(socket) {
 }
 
 exports.registerEndpoint = (server, basePath) => {
-	server.addSocket('Quotes socket', `${basePath}/quotes`, SocketQuotes);
-	server.addSocket('Quotes socket (depr)', `/async`, SocketQuotes);
+	server.addSocket('Quotes socket', `${basePath}/quotes`, socketQuotes);
+	server.addSocket('Quotes socket (depr)', `/async`, socketQuotes);
 };
