@@ -22,6 +22,7 @@ var taskFileSvc = require('../shared/services/filesvc.js');
 const fileContent = "datafileconnent";
 const buff = Buffer.from(fileContent);
 const fileContent64 = buff.toString('base64');
+const successJSON = {'code': 'Success'};
 
         // const fileBuffer = Buffer.from(fileContent64, 'base64');
 
@@ -201,7 +202,7 @@ describe("Filesvc - GetFileList ", function (){
 
 describe("Filesvc - Putfile ", function (){
     //let sandbox = null;
-    const successJSON = {'code': 'Success'};
+
 
 
     beforeEach(function(done) {
@@ -313,6 +314,94 @@ describe("Filesvc - Putfile ", function (){
             should.exist(error);
             should.not.exist(resp);
             assert.deepEqual(resp, successJSON);
+            done();
+        }).catch(function(err){
+            error = err;
+            should.exist(error);
+            should.not.exist(resp);
+            done();
+        });
+
+    });
+
+
+});
+
+
+describe("Filesvc - DELETE ", function (){
+    //let sandbox = null;
+
+    beforeEach(function(done) {
+        simple.mock(log, 'error').callFn(function () {});
+        simple.mock(log, 'warn').callFn(function () {});
+        simple.mock(log, 'info').callFn(function () {});
+        simple.mock(log, 'debug').callFn(function () {});
+        simple.mock(log, 'silly').callFn(function () {});
+        simple.mock(log, 'verbose').callFn(function () {});
+        //sinon.stub(s3, "getObject");
+
+        global.settings.SLACK_DO_NOT_SEND = "YES";
+
+        done();
+    });
+
+    afterEach(function(done) {
+        //simple.restore();
+      simple.restore()
+       done();
+    });
+
+    it('Filesvc.deleteFile - good', function(done){
+        var respObj = {};
+        respObj.Body = fileContent64;
+        simple.mock(global.s3, 'deleteObject').callbackWith(null);
+        let error = null;
+        let resp = null;
+        taskFileSvc.deleteFile("test/test.txt").then(function(data){
+            resp = data;
+            should.not.exist(error);
+            should.exist(resp);
+            assert.deepEqual(resp, successJSON);
+            done();
+        }).catch(function(err){
+            error = err;
+            should.not.exist(error);
+            should.exist(resp);
+            assert.deepEqual(resp, successJSON);
+            done();
+        });
+
+    });
+
+    it('Filesvc.deleteFile - S3 error', function(done){
+        var respObj = {};
+        respObj.Body = fileContent64;
+        simple.mock(global.s3, 'deleteObject').callbackWith(new Error("test Error"));
+        let error = null;
+        let resp = null;
+        taskFileSvc.deleteFile("test/test.txt").then(function(data){
+            resp = data;
+            should.exist(error);
+            should.not.exist(resp);
+            done();
+        }).catch(function(err){
+            error = err;
+            should.exist(error);
+            should.not.exist(resp);
+            done();
+        });
+
+    });
+    it('Filesvc.deleteFile - No Path error', function(done){
+        var respObj = {};
+        respObj.Body = fileContent64;
+        simple.mock(global.s3, 'deleteObject').callbackWith(null);
+        let error = null;
+        let resp = null;
+        taskFileSvc.deleteFile().then(function(data){
+            resp = data;
+            should.exist(error);
+            should.not.exist(resp);
             done();
         }).catch(function(err){
             error = err;
