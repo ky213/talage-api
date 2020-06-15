@@ -71,7 +71,8 @@ var dailyDigestTask = async function(){
     SELECT
         al.id alid,
         al.agency,
-        al.email AS agencyEmail,
+        al.email AS agencyLocationEmail,
+        ag.email AS agencyEmail,
         an.name AS agencyNetorkName,
         an.id as agency_network,
         an.email_brand AS emailBrand
@@ -94,7 +95,7 @@ var dailyDigestTask = async function(){
         for(let i = 0; i < alDBJSON.length; i++){
             const agencyLocationDB = alDBJSON[i];
             // process each agency location. make sure we have a good record
-            if(agencyLocationDB && agencyLocationDB.alid && agencyLocationDB.agency_network && agencyLocationDB.agencyEmail){
+            if(agencyLocationDB && agencyLocationDB.alid && agencyLocationDB.agency_network && (agencyLocationDB.agencyLocationEmail || agencyLocationDB.agencyEmail)){
                 await processAgencyLocation(agencyLocationDB, yesterdayBegin, yesterdayEnd).catch(function(err){
                     log.error("Error Agency Location Daily Digest error. AL: " + JSON.stringify(agencyLocationDB) + " error: " + err + __location);
                 })
@@ -202,9 +203,9 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
                 const appDB = appDBJSON[i];
                 // eslint-disable-next-line prefer-const
                 let app = {};
-                app.name = stringFunctions.ucwords(appDB.businessName);
-                app.fname = stringFunctions.ucwords(appDB.fname);
-                app.lname = stringFunctions.ucwords(appDB.lname);
+                app.name = stringFunctions.ucwords(await crypt.decrypt(appDB.businessName));
+                app.fname = stringFunctions.ucwords(await crypt.decrypt(appDB.fname));
+                app.lname = stringFunctions.ucwords(await crypt.decrypt(appDB.lname));
                 app.email = await crypt.decrypt(appDB.email);
                 app.phone = await crypt.decrypt(appDB.phone);
                 app.phone = formatPhone(app.phone);
@@ -231,13 +232,26 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
                 return false;
             }
 
-            const agencyLocationEmail = await crypt.decrypt(agencyLocationDB.agencyEmail);
+            let agencyLocationEmail = null;
 
-            const keyData = {'agency_location': agencyLocationDB.alid};
-            // send email
-            const emailResp = await email.send(agencyLocationEmail, subject, message, keyData, agencyLocationDB.emailBrand);
-            if(emailResp === false){
-                slack.send('#alerts', 'warning',`The system failed to send daily digest email for Agency Location  #${agencyLocationDB.alid}.`);
+            if(agencyLocationDB.agencyLocationEmail){
+                agencyLocationEmail = await crypt.decrypt(agencyLocationDB.agencyLocationEmail);
+            }
+            else if(agencyLocationDB.agencyEmail){
+                agencyLocationEmail = await crypt.decrypt(agencyLocationDB.agencyEmail);
+            }
+
+
+            if(agencyLocationEmail){
+                const keyData = {'agency_location': agencyLocationDB.alid};
+                // send email
+                const emailResp = await email.send(agencyLocationEmail, subject, message, keyData, agencyLocationDB.emailBrand);
+                if(emailResp === false){
+                    slack.send('#alerts', 'warning',`The system failed to send daily digest email for Agency Location  #${agencyLocationDB.alid}.`);
+                }
+            }
+            else {
+                log.error("Dailydigest no email address for AgencyLocation: " + JSON.stringify(agencyLocationDB) + __location);
             }
 
         }

@@ -31,7 +31,7 @@ function DeleteFile(req, res, next){
 	// Make sure a file path was provided
 	if(!path){
 		const errorMsg = 'You must specify a file path';
-		log.warn("File Service DEL: " +  errorMsg + __location);
+		log.warn("File Service DEL: " + errorMsg + __location);
 		return next(serverHelper.requestError(errorMsg));
 	}
 

@@ -1,0 +1,104 @@
+{
+	"business": {
+		"association": null,
+		"association_id": null,
+		"entity_type": "Limited Liability Company",
+		"experience_modifier": "1.00",
+		"founded": "05-2015",
+		"identification_number": "45-6789456",
+		"industry_code": "2743",
+		"name": "Coffeebar Reno",
+		"phone": "(775) 800-1090",
+		"website": "http://coffeebar.com/",
+		"years_of_exp": null,
+		"zip": "89509",
+		"num_owners": 1,
+		"owners_included": false,
+		"owners": [
+			{
+				"birthdate": "07/20/1976",
+				"fname": "scott",
+				"lname": "fritzinger",
+				"ownership": "100"
+			}
+		],
+		"contacts": [
+			{
+				"email": "scott@talageins.com",
+				"first_name": "Scott",
+				"last_name": "Fritzinger",
+				"phone": "(775) 800-1090"
+			}
+		],
+		"locations": [
+			{
+				"activity_codes": [
+					{
+						"id": 6190,
+						"payroll": 100000
+					}
+				],
+				"address": "682 Mt Rose St",
+				"address2": "",
+				"billing": true,
+				"identification_number": "45-6789456",
+				"full_time_employees": 1,
+				"part_time_employees": 0,
+				"square_footage": "",
+				"zip": "89509"
+			}
+		],
+		"mailing_address": "682 Mt Rose St",
+		"mailing_address2": "",
+		"mailing_zip": "89509"
+	},
+	"id": 8493,
+	"policies": [
+		{
+			"effective_date": "06-01-2020",
+			"type": "WC",
+			"coverage_lapse": false,
+			"days_without_coverage": 0,
+			"limits": "1000000/1000000/1000000"
+		}
+	],
+	"questions": {
+		"100": 196,
+		"317": 624,
+		"564": 1092,
+		"617": 1194,
+		"967": 2507,
+		"969": 2511,
+		"972": 2515,
+		"975": 2520,
+		"984": 2534,
+		"989": 2540,
+		"991": 2542,
+		"992": 2544,
+		"994": 2547,
+		"995": 2549,
+		"997": 2551,
+		"1002": 2559,
+		"1006": 2568,
+		"1054": 2633,
+		"1056": 2637,
+		"1057": 2639,
+		"1064": 2653,
+		"1085": 2693,
+		"1145": 2802,
+		"1273": 2998,
+		"1310": 3046,
+		"1312": 3050,
+		"1313": 3052,
+		"1314": 3054,
+		"1315": 3056,
+		"1316": 3058,
+		"1317": 3060,
+		"1325": 3076,
+		"1334": 3094,
+		"1335": 3096,
+		"1398": 3211,
+		"1430": 3275,
+		"1659": 3713
+	}
+}

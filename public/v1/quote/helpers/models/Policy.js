@@ -70,7 +70,8 @@ module.exports = class Policy{
 						this[property] = data[property].map(function(id){
 							return parseInt(id, 10);
 						});
-					}else{
+					}
+else{
 						// Pass through for validation
 						this[property] = data[property];
 					}
@@ -109,7 +110,8 @@ module.exports = class Policy{
 					reject(serverHelper.requestError('Invalid property: effective_date. The effective date cannot be more than 90 days in the future'));
 					return;
 				}
-			}else{
+			}
+else{
 				reject(serverHelper.requestError('Missing property: effective_date'));
 				return;
 			}
@@ -128,7 +130,8 @@ module.exports = class Policy{
 						return;
 					}
 				}
-			}else{
+			}
+else{
 				reject(serverHelper.requestError(`Insurers must be specified as an array of IDs.`));
 				return;
 			}
@@ -154,7 +157,8 @@ module.exports = class Policy{
 					}
 
 					// In OR force limits to be at least 500,000/500,000/500,000
-				}else if(territories.includes('OR')){
+				}
+else if(territories.includes('OR')){
 					if(this.limits === '100000/500000/100000'){
 						this.limits = '500000/500000/500000';
 					}
@@ -170,7 +174,8 @@ module.exports = class Policy{
 					reject(serverHelper.requestError('Invalid policy type'));
 					return;
 				}
-			}else{
+			}
+else{
 				reject(serverHelper.requestError('You must provide a policy type'));
 				return;
 			}
@@ -190,10 +195,12 @@ module.exports = class Policy{
 					// Cleanup this input
 					if(typeof this.gross_sales === 'number'){
 						this.gross_sales = Math.round(this.gross_sales);
-					}else{
+					}
+else{
 						this.gross_sales = Math.round(parseFloat(this.gross_sales.toString().replace('$', '').replace(/,/g, '')));
 					}
-				}else{
+				}
+else{
 					reject(serverHelper.requestError('Gross sales amount must be provided'));
 					return;
 				}
@@ -210,7 +217,8 @@ module.exports = class Policy{
 					reject(serverHelper.requestError('coverage_lapse_non_payment is required, and must be a true or false value'));
 					return;
 				}
-			}else if(this.type === 'GL'){
+			}
+else if(this.type === 'GL'){
 				// GL Specific Properties
 
 				/**
@@ -243,11 +251,13 @@ module.exports = class Policy{
 						return;
 					}
 					this.deductible = parseInt(this.deductible, 10);
-				}else{
+				}
+else{
 					// Default the deductible
 					this.deductible = 500;
 				}
-			}else if(this.type === 'WC'){
+			}
+else if(this.type === 'WC'){
 				// WC Specific Properties
 
 				/**
