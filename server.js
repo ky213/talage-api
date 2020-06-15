@@ -47,6 +47,17 @@ function validateJWT(options) {
 	};
 }
 
+function handlerWrapper(path, handler) {
+	return async (req, res, next) => {
+		try {
+			return await handler(req, res, next);
+		} catch (error) {
+			log.error(`Unhandled exception in endpoint ${path}: ${error}`);
+			return next(new RestifyError.InternalServerError("Internal Server Error"));
+		}
+	};
+}
+
 class AbstractedHTTPServer {
 	constructor(server) {
 		this.server = server;
@@ -59,7 +70,7 @@ class AbstractedHTTPServer {
 				name: name,
 				path: path
 			},
-			handler
+			handlerWrapper(path, handler)
 		);
 	}
 
@@ -72,7 +83,7 @@ class AbstractedHTTPServer {
 			},
 			processJWT(),
 			validateJWT({
-				handler: handler,
+				handler: handlerWrapper(path, handler),
 				permission: permission,
 				permissionType: permissionType
 			})
@@ -85,7 +96,7 @@ class AbstractedHTTPServer {
 				name: name,
 				path: path
 			},
-			handler
+			handlerWrapper(path, handler)
 		);
 	}
 
@@ -98,7 +109,7 @@ class AbstractedHTTPServer {
 			},
 			processJWT(),
 			validateJWT({
-				handler: handler,
+				handler: handlerWrapper(path, handler),
 				permission: permission,
 				permissionType: permissionType
 			})
@@ -112,7 +123,7 @@ class AbstractedHTTPServer {
 				path: path
 			},
 			processJWT(),
-			handler
+			handlerWrapper(path, handler)
 		);
 	}
 
@@ -125,7 +136,7 @@ class AbstractedHTTPServer {
 			},
 			processJWT(),
 			validateJWT({
-				handler: handler,
+				handler: handlerWrapper(path, handler),
 				permission: permission,
 				permissionType: permissionType
 			})
@@ -138,7 +149,7 @@ class AbstractedHTTPServer {
 				name: name,
 				path: path
 			},
-			handler
+			handlerWrapper(path, handler)
 		);
 	}
 
@@ -151,7 +162,7 @@ class AbstractedHTTPServer {
 			},
 			processJWT(),
 			validateJWT({
-				handler: handler,
+				handler: handlerWrapper(path, handler),
 				permission: permission,
 				permissionType: permissionType
 			})
