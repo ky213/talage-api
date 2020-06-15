@@ -132,8 +132,9 @@ var processAbandonQuote = async function(applicationId){
             ag.agency_network,
             ag.name AS agencyName,
             ag.website AS agencyWebsite,
+            ag.email AS agencyEmail,
             al.agency,
-            al.email AS agencyEmail,
+            al.email AS agencyLocationEmail,
             al.phone AS agencyPhone,
             b.name AS businessName,
             c.email,
@@ -201,9 +202,18 @@ var processAbandonQuote = async function(applicationId){
         }
 
         if(emailContentResultArray && emailContentResultArray.length > 0){
+
+            let agencyLocationEmail = null;
+
             //decrypt info...
+            if(quotes[0].agencyLocationEmail){
+                agencyLocationEmail = await crypt.decrypt(quotes[0].agencyLocationEmail);
+            }
+            else if(quotes[0].agencyEmail){
+                agencyLocationEmail = await crypt.decrypt(quotes[0].agencyEmail);
+            }
+
             quotes[0].email = await crypt.decrypt(quotes[0].email);
-            quotes[0].agencyEmail = await crypt.decrypt(quotes[0].agencyEmail);
             quotes[0].agencyPhone = await crypt.decrypt(quotes[0].agencyPhone);
             quotes[0].agencyWebsite = await crypt.decrypt(quotes[0].agencyWebsite);
 
@@ -220,7 +230,7 @@ var processAbandonQuote = async function(applicationId){
                 agencyName = 'Talage';
                 agencyPhone = '833-4-TALAGE';
                // brand = 'talage';
-                quotes[0].agencyEmail = 'info@talageins.com';
+                agencyLocationEmail = 'info@talageins.com';
                 quotes[0].agencyWebsite = 'https://talageins.com';
             }
             else if(quotes[0].agencyPhone){
@@ -253,7 +263,7 @@ var processAbandonQuote = async function(applicationId){
 
             // Perform content replacements
             message = message.replace(/{{Agency}}/g, agencyName);
-            message = message.replace(/{{Agency Email}}/g, quotes[0].agencyEmail);
+            message = message.replace(/{{Agency Email}}/g, agencyLocationEmail);
             message = message.replace(/{{Agency Phone}}/g, agencyPhone);
             message = message.replace(/{{Agency Website}}/g, `<a href="${quotes[0].agencyWebsite}">${quotes[0].agencyWebsite}</a>`);
             message = message.replace(/{{Brand}}/g, stringFunctions.ucwords(quotes[0].emailBrand));
@@ -324,14 +334,15 @@ var processAbandonQuote = async function(applicationId){
                     'application': applicationId,
                     'agency_location': quotes[0].agencyLocation
                 };
-
-                emailResp = await email.send(quotes[0].agencyEmail, subject, message, keyData2, quotes[0].emailBrand);
-                if(emailResp === false){
-                    slack.send('#alerts', 'warning','The system failed to inform an agency of the abandoned quote' + (quotes.length === 1 ? '' : 's') + ` for application ${applicationId}. Please follow-up manually.`);
+                if(agencyLocationEmail){
+                    emailResp = await email.send(agencyLocationEmail, subject, message, keyData2, quotes[0].emailBrand);
+                    if(emailResp === false){
+                        slack.send('#alerts', 'warning','The system failed to inform an agency of the abandoned quote' + (quotes.length === 1 ? '' : 's') + ` for application ${applicationId}. Please follow-up manually.`);
+                    }
                 }
-
-                // log.debug('Agency subject: ' + subject)
-                // log.debug('Agency message: ' + message)
+                else {
+                    log.error("Abandon Quote no email address for data: " + JSON.stringify(keyData2) + __location);
+                }
             }
 
             return true;
