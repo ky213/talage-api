@@ -96,66 +96,13 @@ exports.PutFile = function(s3Key, fileContent){
 				reject(err.message);
 			}
 
-			log.info('File saved at ' + s3Path + __location );
+			log.info('File saved at ' + s3Path + __location);
 
 			// Send the data back to the user
 			resolve({'code': 'Success'});
 		});
 	});
 }
-
-// exports.storeOld = async function(path, data){
-
-// 	// If we are in the test environment, don't store anything and just return true
-// 	if(global.settings.ENV === 'test'){
-// 		return true;
-// 	}
-
-// 	// Make sure we have a path
-// 	if(!path || !path.length){
-// 		log.warn('File helper: You must supply a path when using store()');
-// 		return false;
-// 	}
-
-// 	// Make sure we have data
-// 	if(!data || !data.length){
-// 		log.warn('File helper: You must supply file data when using store()');
-// 		return false;
-// 	}
-
-// 	// Compose the options for the request to the file service
-// 	const options = {
-// 		'headers': {'content-type': 'application/json'},
-// 		'json': {
-// 			'data': data,
-// 			'path': path
-// 		},
-// 		'method': 'PUT',
-// 		'url': `http://localhost:${global.settings.PRIVATE_API_PORT}/v1/file/file`
-// 	};
-
-// 	// Send the request
-// 	let rtn = true;
-// 	await request(options, function(e, response, body){
-
-// 		// If there was an error, return false
-// 		if(e){
-// 			rtn = false;
-// 			log.error('Failed to connect to file service.');
-// 			return;
-// 		}
-
-// 		// If the response was anything but a success, return false
-// 		if(response.statusCode !== 200){
-// 			// The response is JSON, parse out the error
-// 			const message = `${response.statusCode} - ${body.message}`;
-// 			log.warn(message);
-// 			rtn = false;
-// 		}
-// 	});
-
-// 	return rtn;
-// };
 
 
 /**
@@ -238,3 +185,36 @@ exports.GetFileList = async function(s3Prefix){
 		});
 	});
 }
+
+/**
+ * Deletes a file from cloud storage
+ *
+ * @param {string} path - The S3 key for file to be deleted
+ * @return {boolean} - True if successful; false otherwise
+ */
+exports.deleteFile = function(path){
+	return new Promise(async function(resolve,reject){
+		// Make sure we have a path
+		if(!path || !path.length){
+			log.error('File helper: You must supply a path when using get()' + __location);
+			reject(new Error("No path supplied"));
+			return false;
+		}
+		// Call out to S3
+		global.s3.deleteObject({
+			'Bucket': global.settings.S3_BUCKET,
+			'Key': path
+		}, function(err){
+			if(err){
+				log.error("File Service DELETE: " + err.message + 'Bucket: ' + global.settings.S3_BUCKET + " path: " + path + __location);
+				reject(err);
+				return false;
+			}
+
+			log.info('Deleted: ' + path + __location);
+			const response = {'code': 'Success'}
+			resolve(response);
+
+		});
+	});
+};
