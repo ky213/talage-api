@@ -213,14 +213,6 @@ module.exports = class Agency extends DatabaseObject{
 					// Isolate the file data from the type prefix
 					const logoData = this.logo.substring(this.logo.indexOf(',') + 1);
 
-					// Check the minimum image size
-					const logoBuffer = Buffer.from(logoData, 'base64');
-					const logoDimensions = imgSize(logoBuffer);
-					if(logoDimensions.height < 200 || logoDimensions.width < 655){
-						reject(serverHelper.requestError('The logo you supplied is too small. We want it to look great, and that requires that it be at least 655 pixels wide by 200 pixels tall.'));
-						return;
-					}
-
 					// Check the file size (max 150KB)
 					if(logoData.length * 0.75 > 150000){
 						reject(serverHelper.requestError('Logo too large. The maximum file size is 150KB.'));
