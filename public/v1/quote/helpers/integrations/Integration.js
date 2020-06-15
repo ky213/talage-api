@@ -88,14 +88,14 @@ module.exports = class Integration{
 
 			// Make sure the _bind() function exists
 			if(typeof this._bind === 'undefined'){
-				log.warn(`${this.insurer} ${this.policy.type} integration does not support binding quotes`+ __location);
+				log.warn(`${this.insurer} ${this.policy.type} integration does not support binding quotes` + __location);
 				reject(serverHelper.notFoundError('Insurer integration does not support binding quotes at this time'));
 				return;
 			}
 
 			// Check for an outage
 			if(this.insurer.outage){
-				log.warn(`${this.insurer} is currently unavailable due to scheduled maintenance`+ __location);
+				log.warn(`${this.insurer} is currently unavailable due to scheduled maintenance` + __location);
 				reject(serverHelper.serviceUnavailableError('Insurer is currently unavailable due to scheduled maintance'));
 				return;
 			}
@@ -244,7 +244,7 @@ module.exports = class Integration{
 
 		// If this question has a parent that belongs to a different insurer it should have a default
 		if(question.parent && !Object.prototype.hasOwnProperty.call(this.questions, question.parent) && question.answer_id === 0 && question.answer === null){
-			log.error(`Question ${question.id} is missing a default answer. Defaulted to 'No' for this application. May cause quoting inaccuracies!`+ __location);
+			log.error(`Question ${question.id} is missing a default answer. Defaulted to 'No' for this application. May cause quoting inaccuracies!` + __location);
 			return 'No';
 		}
 
@@ -254,7 +254,7 @@ module.exports = class Integration{
 			// Determine the answer based on the Answer ID stored in our database
 			if(!Object.prototype.hasOwnProperty.call(question.possible_answers, question.answer_id)){
 				// This shouldn't have happened, throw an error
-				log.error(`${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible. This should have been caught in the validation stage.`+ __location);
+				log.error(`${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible. This should have been caught in the validation stage.` + __location);
 				log.verbose('The question is as follows:');
 				log.verbose(util.inspect(question, false, null));
 				throw new Error(`${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible`);
@@ -697,7 +697,7 @@ else{
 			// Make sure the insurer_quote() function exists
 			if(typeof this._insurer_quote === 'undefined'){
 				const error_message = 'Integration file must include the insurer_quote() function';
-				log.error(error_message+ __location);
+				log.error(error_message + __location);
 				this.reasons.push(error_message);
 				fulfill(this.return_error('error', 'Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 				return;
@@ -735,7 +735,7 @@ else{
 					}
 					break;
 				default:
-					log.error(`Unexpected policy type of ${this.policy.type} in Integration`+ __location);
+					log.error(`Unexpected policy type of ${this.policy.type} in Integration` + __location);
 					fulfill(this.return_error('error', 'Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 					return;
 			}

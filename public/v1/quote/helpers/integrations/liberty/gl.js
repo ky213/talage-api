@@ -276,7 +276,7 @@ module.exports = class LibertyGL extends Integration{
 								let had_error = false;
 								const sql = `SELECT question, attributes FROM #__insurer_questions WHERE insurer = ${db.escape(this.insurer.id)} AND policy_type = ${db.escape(this.policy.type)} AND question IN (${Object.keys(this.questions)});`;
 								const raw_question_attributes = await db.query(sql).catch((error) => {
-									log.error(`${this.insurer.name} ${this.policy.type} is unable to get question attributes. ${error}`+ __location);
+									log.error(`${this.insurer.name} ${this.policy.type} is unable to get question attributes. ${error}` + __location);
 									this.reasons.push('System error - Unable to get question attributes');
 									had_error = true;
 								});
@@ -292,8 +292,9 @@ module.exports = class LibertyGL extends Integration{
 									if(data.attributes){
 										try{
 											question_attributes[data.question] = JSON.parse(data.attributes);
-										}catch(error){
-											log.warn(`Liberty GL encountered a question with invalid JSON in the attributes column (Question ID ${data.question}).`+ __location);
+										}
+catch(error){
+											log.warn(`Liberty GL encountered a question with invalid JSON in the attributes column (Question ID ${data.question}).` + __location);
 										}
 									}
 								});
@@ -312,16 +313,18 @@ module.exports = class LibertyGL extends Integration{
 													if(Object.prototype.hasOwnProperty.call(attributes, 'XML Path')){
 														question['XML Path'] = attributes['XML Path'];
 														policySupplementQuestions.push(question);
-													}else{
-														log.error(`${this.insurer.name} ${this.policy.type} encountered an error. Insurer question missing required XML Path attribute.`+ __location);
+													}
+else{
+														log.error(`${this.insurer.name} ${this.policy.type} encountered an error. Insurer question missing required XML Path attribute.` + __location);
 														this.reasons.push('Insurer question missing required XML Path');
 														fulfill(this.return_result('error'));
 														return;
 													}
 												}
 											}
-										}else{
-											log.error(`${this.insurer.name} ${this.policy.type} encountered an error. Insurer question missing attributes (Question ID ${question_id}).`+ __location);
+										}
+else{
+											log.error(`${this.insurer.name} ${this.policy.type} encountered an error. Insurer question missing attributes (Question ID ${question_id}).` + __location);
 											this.reasons.push('Insurer question missing required XML Path');
 											fulfill(this.return_result('error'));
 											return;
@@ -607,14 +610,16 @@ else{
 				// Attempt to get the quote number
 				try{
 					this.request_id = res.Policy[0].QuoteInfo[0].CompanysQuoteNumber[0];
-				}catch(e){
-					log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.`+ __location);
+				}
+catch(e){
+					log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.` + __location);
 				}
 
 				// Attempt to get the amount of the quote
 				try{
 					this.amount = parseInt(res.Policy[0].QuoteInfo[0].InsuredFullToBePaidAmt[0].Amt[0], 10);
-				} catch(e){
+				}
+ catch(e){
 					// This is handled in return_result()
 				}
 
@@ -649,7 +654,7 @@ else{
 								this.limits[9] = limit;
 								break;
 							default:
-								log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response`+ __location);
+								log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response` + __location);
 								break;
 						}
 					});
@@ -667,14 +672,14 @@ catch(e){
 				}
 catch(e){
 					if(status === 'Reject'){
-						log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find reasons.`+ __location);
+						log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find reasons.` + __location);
 					}
 				}
 
 				// Send the result of the request
 				fulfill(this.return_result(status));
 			}).catch(() => {
-				log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.`+ __location);
+				log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.` + __location);
 				fulfill(this.return_result('error'));
 			});
 		});

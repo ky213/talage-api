@@ -9,25 +9,26 @@ const Application = require('./helpers/models/Application.js');
  * @param {object} socket - The socket object
  * @returns {void}
  */
-function SocketQuotes(socket) {
+function socketQuotes(socket) {
 	// Log that a user connected
 	log.info(`${socket.id} - Socket.io connection created`);
 	socket.emit('status', 'waiting');
 
 	// Log that a user disconnected
-	socket.on('disconnect', function (reason) {
+	socket.on('disconnect', function(reason) {
 		log.info(`${socket.id} - Socket.io disconnected (${reason})`);
 	});
 
 	// Listen for application data to be received
-	socket.on('application', async function (data) {
+	socket.on('application', async function(data) {
 		log.info('Application Received');
 
 		// Attempt to parse the data
 		socket.emit('status', 'processing');
 		try {
 			data = JSON.parse(data);
-		} catch (error) {
+		}
+ catch (error) {
 			log.warn('Invalid JSON' + __location);
 			socket.emit('status', 'error');
 			socket.emit('message', 'Invalid JSON');
@@ -47,7 +48,7 @@ function SocketQuotes(socket) {
 		// Load the application
 		const application = new Application();
 		let had_error = false;
-		await application.load(data).catch(function (error) {
+		await application.load(data).catch(function(error) {
 			had_error = true;
 			socket.emit('status', 'error');
 			socket.emit('message', error.message);
@@ -59,7 +60,7 @@ function SocketQuotes(socket) {
 		}
 
 		// Validate
-		await application.validate().catch(function (error) {
+		await application.validate().catch(function(error) {
 			had_error = true;
 			socket.emit('status', 'error');
 			socket.emit('message', error.message);
@@ -73,9 +74,9 @@ function SocketQuotes(socket) {
 		// Check if Testing and Send Test Response
 		if (application.test) {
 			// Test Response
-			await application
-				.run_test()
-				.then(function (response) {
+			await application.
+				run_test().
+				then(function(response) {
 					// Determine how many quotes are being returned
 					const num_quotes = response.quotes.length;
 
@@ -92,7 +93,7 @@ function SocketQuotes(socket) {
 					// Loop through all of the remaining quotes, sending them in random intervals between 1-3 seconds apart
 					let quotes_sent = 1;
 					for (let i = 1; i < num_quotes; i++) {
-						setTimeout(function () {
+						setTimeout(function() {
 							// eslint-disable-line no-loop-func
 							socket.emit('quote', response.quotes[i]);
 							quotes_sent++;
@@ -104,8 +105,8 @@ function SocketQuotes(socket) {
 							}
 						}, Math.floor(Math.random() * (3000 - 1000 + 1) + 1000) * i);
 					}
-				})
-				.catch(function (error) {
+				}).
+				catch(function(error) {
 					socket.emit('status', 'error');
 					socket.emit('message', error.message);
 					log.warn(error.message + __location);
@@ -115,7 +116,7 @@ function SocketQuotes(socket) {
 		}
 
 		// Send Non-Test Response
-		await application.run_quotes(socket).catch(function (error) {
+		await application.run_quotes(socket).catch(function(error) {
 			socket.emit('status', 'error');
 			socket.emit('message', error.message);
 			log.warn(error.message + __location);
@@ -125,6 +126,6 @@ function SocketQuotes(socket) {
 }
 
 exports.registerEndpoint = (server, basePath) => {
-	server.addSocket('Quotes socket', `${basePath}/quotes`, SocketQuotes);
-	server.addSocket('Quotes socket (depr)', `/async`, SocketQuotes);
+	server.addSocket('Quotes socket', `${basePath}/quotes`, socketQuotes);
+	server.addSocket('Quotes socket (depr)', `/async`, socketQuotes);
 };
