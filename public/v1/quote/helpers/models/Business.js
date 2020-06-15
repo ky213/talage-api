@@ -175,7 +175,7 @@ module.exports = class Business{
 			// Execute that query
 			let had_error = false;
 			const business_info = await db.query(sql).catch(function(error){
-				log.error("Loading business error: " + error);
+				log.error("Loading business error: " + error + __location);
 				had_error = true;
 			});
 			if(had_error || !business_info || business_info.length !== 1){
@@ -221,7 +221,7 @@ module.exports = class Business{
 			 * - Must exist in our database
 			 */
 
-			// TODO Consistent return ERROR type - currently mixed 
+			// TODO Consistent return ERROR type - currently mixed
 			if(this.zip){
 				// Check formatting
 				if(!validator.isZip(this.zip)){
@@ -231,10 +231,10 @@ module.exports = class Business{
 
 				// Make sure we have a primary state
 				const rows = await db.query(`SELECT \`territory\` FROM \`#__zip_codes\` WHERE \`zip\` = ${this.zip} LIMIT 1;`).catch(function(db_error){
-					log.error(db_error);
+					log.error(db_error + __location);
 					const error = new Error(db_error);
 					error.code = 500;
-					// TODO Consistent return ERROR type - currently mixed 
+					// TODO Consistent return ERROR type - currently mixed
 					reject(error);
 
 				});
@@ -512,12 +512,11 @@ module.exports = class Business{
 						this.mailing_city = row[0].city;
 						this.mailing_territory = row[0].territory;
 					}
-					else
-					{
+					else {
 						reject(serverHelper.requestError('The mailing_zip code you entered is not valid'));
 					}
 				}).catch(function(error){
-					log.warn("DB mailing_zip code error: " + error);
+					log.warn("DB mailing_zip code error: " + error + __location);
 					reject(serverHelper.requestError('The mailing_zip code you entered is not valid'));
 				});
 			}
@@ -577,7 +576,8 @@ module.exports = class Business{
 						reject(serverHelper.requestError('Invalid corporation type. Must be "c" (c-corp), "n" (non-profit), or "s" (s-corp).'));
 						return;
 					}
-				}else{
+				}
+else{
 					reject(serverHelper.requestError('Missing required field: corporation_type'));
 					return;
 				}
@@ -591,7 +591,8 @@ module.exports = class Business{
 			if(this.app.has_policy_type('WC') && !this.owners_included){
 				if(this.owners.length){
 					// TO DO: Owner validation is needed here
-				}else{
+				}
+else{
 					reject(serverHelper.requestError('The names of owners must be supplied if they are not included in this policy.'));
 					return;
 				}
@@ -620,7 +621,8 @@ module.exports = class Business{
 				}
 				this.phone = this.phone.replace(/[^0-9]/ig, '');
 				this.phone = parseInt(this.phone, 10);
-			}else{
+			}
+else{
 				reject(serverHelper.requestError('Missing required field: phone'));
 				return;
 			}

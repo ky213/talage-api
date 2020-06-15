@@ -159,8 +159,8 @@ module.exports = class Agency extends DatabaseObject{
 			}
 
 			// Remove the defunct logo from cloud storage
-			await axios.delete(`http://localhost:${global.settings.PRIVATE_API_PORT}/v1/file/file?path=public/agency-logos/${path}`)
-			.catch(function(){
+			await axios.delete(`http://localhost:${global.settings.PRIVATE_API_PORT}/v1/file/file?path=public/agency-logos/${path}`).
+			catch(function(){
 				rejected = true;
 				reject(serverHelper.internalError('Well, that wasn\’t supposed to happen. Please try again and if this continues please contact us. (Failed to delete old logo)'));
 				log.error('Failed to connect to file service.');
@@ -226,8 +226,8 @@ module.exports = class Agency extends DatabaseObject{
 					await axios.put(`http://localhost:${global.settings.PRIVATE_API_PORT}/v1/file/file`, {
 						'data': logoData,
 						'path': `public/agency-logos/${fileName}`
-					})
-					.catch(function(){
+					}).
+					catch(function(){
 						rejected = true;
 						reject(serverHelper.internalError('Well, that wasn\’t supposed to happen. Please try again and if this continues please contact us. (Failed to upload new logo)'));
 						log.error('Failed to connect to file service.');
@@ -239,7 +239,8 @@ module.exports = class Agency extends DatabaseObject{
 					// Save the file name locally
 					this.logo = fileName;
 				}
-			}else if(this.id){
+			}
+else if(this.id){
 				// The logo was unset, remove it
 				await this.removeLogo().catch(function(error){
 					rejected = true;

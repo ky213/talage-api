@@ -76,6 +76,7 @@ var abandonquotetask = async function(){
                 AND a.created BETWEEN  '${twoHourAgo.utc().format()}' AND '${oneHourAgo.utc().format()}'
                 AND a.abandoned_email  = 0
                 AND a.state  = 13
+                AND q.api_result in ("quoted", "referred_with_price")
             ORDER BY q.policy_type DESC
     `;
 
@@ -161,6 +162,7 @@ var processAbandonQuote = async function(applicationId){
             LEFT JOIN clw_talage_agency_networks AS an ON ag.agency_network = an.id
         WHERE 
         a.id =  ${applicationId}
+        AND q.api_result in ("quoted", "referred_with_price")
     `;
 
     let quotes = null;
@@ -240,8 +242,9 @@ var processAbandonQuote = async function(applicationId){
                 }
                 // Determine the Quote Result
                 const quoteResult = quote.api_result.indexOf('_') ? quote.api_result.substr(stringFunctions.ucwords(quote.api_result), 0, quote.api_result.indexOf('_')) : stringFunctions.ucwords(quote.api_result);
+                const quoteNumber = quote.number ? quote.number : "No Quote Number";
                 // Write a row of the table
-                quotesHTML = quotesHTML + `<tr><td width=\"180\"><img alt=\"${quote.insurer}\" src=\"https://talageins.com/${quote.logo}\" width=\"100%\"></td><td width=\"20\"></td><td align=\"center\">` + quoteResult + `</td><td width=\"20\"></td><td style=\"padding-left:20px;font-size:30px;\">` + stringFunctions.number_format(quote.amount) + `</td></tr>`;
+                quotesHTML = quotesHTML + `<tr><td width=\"180\"><img alt=\"${quote.insurer}\" src=\"https://talageins.com/${quote.logo}\" width=\"100%\"></td><td width=\"20\"></td><td align=\"center\">` + quoteResult + `</td><td width=\"20\"></td><td align=\"center\">${quoteNumber}</td><td width=\"20\"></td><td style=\"padding-left:20px;font-size:30px;\">` + stringFunctions.number_format(quote.amount) + `</td></tr>`;
             }
             quotesHTML += '</table></div><br>';
 
@@ -270,7 +273,7 @@ var processAbandonQuote = async function(applicationId){
                 'agency_location': quotes[0].agencyLocation
                 }
             let emailResp = await email.send(quotes[0].email, subject, message, keyData, quotes[0].emailBrand);
-            log.debug("emailResp = " + emailResp);
+           // log.debug("emailResp = " + emailResp);
             if(emailResp === false){
                slack.send('#alerts', 'warning',`The system failed to remind the insured to revisit their quotes for application #${applicationId}. Please follow-up manually.`);
             }
@@ -278,8 +281,8 @@ var processAbandonQuote = async function(applicationId){
             /* ---=== Email to Agency (not sent to Talage) ===--- */
 
             // Only send for non-Talage accounts that are not wholesale
-            if(quotes[0].wholesale === false && quotes[0].agency !== 1){
-
+            //if(quotes[0].wholesale === false && quotes[0].agency !== 1){
+            if(quotes[0].wholesale === 0){
                 quotes[0].businessName = await crypt.decrypt(quotes[0].businessName);
                 quotes[0].fname = await crypt.decrypt(quotes[0].fname);
                 quotes[0].lname = await crypt.decrypt(quotes[0].lname);

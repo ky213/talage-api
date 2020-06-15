@@ -82,7 +82,7 @@ module.exports = class Insurer{
 			// Run that query
 			let had_error = false;
 			const rows = await db.query(sql).catch(function(error){
-				log.error(error);
+				log.error(error + __location);
 				had_error = true;
 			});
 

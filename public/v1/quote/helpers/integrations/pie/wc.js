@@ -190,7 +190,8 @@ module.exports = class PieWC extends Integration{
 											if(loc.address === this.app.business.mailing_address){
 												location_object.mailingAddress = true;
 												mailing_address_found = true;
-											}else{
+											}
+else{
 												location_object.mailingAddress = false;
 											}
 
@@ -301,13 +302,14 @@ module.exports = class PieWC extends Integration{
 				try{
 					this.request_id = res.id;
 				}catch(e){
-					log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.`);
+					log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.`+ __location);
 				}
 
 				// Attempt to get the amount of the quote
 				try{
 					this.amount = parseInt(res.premiumDetails.totalEstimatedPremium, 10);
-				}catch(e){
+				}
+catch(e){
 					// This is handled in return_result()
 				}
 
@@ -328,12 +330,13 @@ module.exports = class PieWC extends Integration{
 									this.limits[3] = limit;
 									break;
 								default:
-									log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response`);
+									log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response`+ __location);
 									break;
 							}
 						}
 					}
-				}catch(e){
+				}
+catch(e){
 					// This is handled in return_result()
 				}
 
@@ -341,7 +344,7 @@ module.exports = class PieWC extends Integration{
 				try{
 					this.policy_info.writer = res.insuranceCompany;
 				}catch(e){
-					log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.`);
+					log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.`+ __location);
 				}
 
 				// Dirty? (Indicates a Valen outage)

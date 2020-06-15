@@ -276,7 +276,8 @@ module.exports = class LibertyWC extends Integration{
 									let answer = '';
 									try{
 										answer = this.determine_question_answer(question);
-									}catch(error){
+									}
+catch(error){
 										this.reasons.push('Talage was unable to determine the answer to a question');
 										fulfill(this.return_result('error'));
 										return;
@@ -300,14 +301,16 @@ module.exports = class LibertyWC extends Integration{
 										}
 
 										QuestionAnswer.ele('YesNoCd', boolean_answer);
-									}else{
+									}
+else{
 										// Other Question Type
 										QuestionAnswer.ele('YesNoCd', 'NA');
 
 										// Check if the answer is a number
 										if(/^\d+$/.test(answer)){
 											QuestionAnswer.ele('Num', answer);
-										}else{
+										}
+else{
 											QuestionAnswer.ele('Explanation', answer);
 										}
 									}
@@ -461,7 +464,7 @@ module.exports = class LibertyWC extends Integration{
 				try{
 					this.request_id = res.Policy[0].QuoteInfo[0].CompanysQuoteNumber[0];
 				}catch(e){
-					log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.`);
+					log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.`+ __location);
 				}
 
 				// Attempt to get the amount of the quote
@@ -477,9 +480,9 @@ module.exports = class LibertyWC extends Integration{
 					res.Policy[0].QuoteInfo[0].UnderwritingDecisionInfo[0].UnderwritingRuleInfo[0].UnderwritingRuleInfoExt.forEach((rule) => {
 						this.reasons.push(`${rule['com.libertymutual.ci_UnderwritingDecisionName']}: ${rule['com.libertymutual.ci_UnderwritingMessage']}`);
 					});
-				}catch(e){
+				} catch(e){
 					if(status === 'Reject'){
-						log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find reasons.`);
+						log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find reasons.`+ __location);
 					}
 				}
 
@@ -499,13 +502,14 @@ module.exports = class LibertyWC extends Integration{
 										this.limits[3] = limit.FormatCurrencyAmt[0].Amt[0];
 										break;
 									default:
-										log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response`);
+										log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response`+ __location);
 										break;
 								}
 							});
 						}
 					});
-				}catch(e){
+				}
+catch(e){
 					// This is handled in return_result()
 				}
 

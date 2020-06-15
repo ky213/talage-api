@@ -319,7 +319,8 @@ module.exports = class MarkelWC extends Integration{
 									let answer = '';
 									try{
 										answer = this.determine_question_answer(question);
-									}catch(error){
+									}
+catch(error){
 										this.reasons.push(`Unable to determine answer for question ${question.id}`);
 										fulfill(this.return_result('error'));
 										return;
@@ -344,12 +345,15 @@ module.exports = class MarkelWC extends Integration{
 
 											if(answerInt < 15){
 												answer = 'Less than 15';
-											}else if(answerInt < 25){
+											}
+else if(answerInt < 25){
 												answer = 'Greater than 15 but less than 25';
-											}else{
+											}
+else{
 												answer = 'Greater than 25';
 											}
-										}else{
+										}
+else{
 											this.reasons.push('User provided an invalid percentage for the subcontractors question (not numeric)');
 											fulfill(this.return_result('error'));
 											return;
@@ -363,14 +367,16 @@ module.exports = class MarkelWC extends Integration{
 									// Determine how to send the answer
 									if(question.type === 'Yes/No'){
 										QuestionAnswer.ele('YesNoCd', question.get_answer_as_boolean() ? 'YES' : 'NO');
-									}else{
+									}
+else{
 										// Other Question Type
 										QuestionAnswer.ele('YesNoCd', 'NA');
 
 										// Check if the answer is a number
 										if(/^\d+$/.test(answer)){
 											QuestionAnswer.ele('Num', answer);
-										}else{
+										}
+else{
 											QuestionAnswer.ele('Explanation', answer);
 										}
 									}
@@ -455,7 +461,8 @@ module.exports = class MarkelWC extends Integration{
 									Question1551.ele('YesNoCd', 'NA');
 									Question1551.ele('Explanation', unique_territories.join(','));
 								// </QuestionAnswer>
-							}else{
+							}
+else{
 								// <QuestionAnswer> Does insured have any locations outside of this state?
 								const Question30 = WorkCompLineBusiness.ele('QuestionAnswer');
 									Question30.ele('QuestionCd', 'com.markel.uw.questions.Question30');
@@ -584,7 +591,8 @@ module.exports = class MarkelWC extends Integration{
 										QuestionAnswerDE1.ele('QuestionCd', 'com.markel.uw.questions.Question1206');
 										QuestionAnswerDE1.ele('YesNoCd', 'NO');
 									// </QuestionAnswer>
-								}else{
+								}
+else{
 
 									// Do you know the DCRB file number?
 									// <QuestionAnswer>
@@ -654,7 +662,8 @@ module.exports = class MarkelWC extends Integration{
 										QuestionAnswerPA2.ele('Explanation', this.app.bureau_number);
 									// </QuestionAnswer>
 
-								}else{
+								}
+else{
 									// Do you know the PCRB file number?
 									// <QuestionAnswer>
 									const QuestionAnswerPA1 = WorkCompLineBusiness.ele('QuestionAnswer');
@@ -1209,7 +1218,8 @@ module.exports = class MarkelWC extends Integration{
 			let host = '';
 			if(this.insurer.test_mode){
 				host = 'portal-beta.markelinsurance.com';
-			}else{
+			}
+else{
 				host = 'portal.markelinsurance.com';
 			}
 			const path = '/api/v1/submission/acord';
@@ -1250,7 +1260,8 @@ module.exports = class MarkelWC extends Integration{
 						// Attempt to get the amount of the quote
 						try{
 							this.amount = parseInt(res.PolicySummaryInfo[0].FullTermAmt[0].Amt[0], 10);
-						}catch(e){
+						}
+catch(e){
 							// This is handled in return_result()
 						}
 
@@ -1270,13 +1281,14 @@ module.exports = class MarkelWC extends Integration{
 												this.limits[3] = limit.FormatInteger[0];
 												break;
 											default:
-												log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response`);
+												log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response`+ __location);
 												break;
 										}
 									});
 								}
 							});
-						}catch(e){
+						}
+catch(e){
 							// This is handled in return_result()
 						}
 
@@ -1290,7 +1302,7 @@ module.exports = class MarkelWC extends Integration{
 
 				}
 			}).catch(() => {
-				log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.`);
+				log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.`+ __location);
 				fulfill(this.return_result('error'));
 			});
 		});
