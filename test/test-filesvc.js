@@ -20,7 +20,9 @@ var taskFileSvc = require('../shared/services/filesvc.js');
 
 //test data
 const fileContent = "datafileconnent";
-const fileContent64 = fileContent.toString('base64')
+const buff = Buffer.from(fileContent);
+const fileContent64 = buff.toString('base64');
+
         // const fileBuffer = Buffer.from(fileContent64, 'base64');
 
 describe("Filesvc - Get ", function (){
@@ -188,6 +190,134 @@ describe("Filesvc - GetFileList ", function (){
             error = err;
             should.exist(error, "Error should be returned");
             should.not.exist(resp, "resp should not exits");
+            done();
+        });
+
+    });
+
+
+});
+
+
+describe("Filesvc - Putfile ", function (){
+    //let sandbox = null;
+    const successJSON = {'code': 'Success'};
+
+
+    beforeEach(function(done) {
+        simple.mock(log, 'error').callFn(function () {});
+        simple.mock(log, 'warn').callFn(function () {});
+        simple.mock(log, 'info').callFn(function () {});
+        simple.mock(log, 'debug').callFn(function () {});
+        simple.mock(log, 'silly').callFn(function () {});
+        simple.mock(log, 'verbose').callFn(function () {});
+        //sinon.stub(s3, "getObject");
+
+        global.settings.SLACK_DO_NOT_SEND = "YES";
+
+        done();
+    });
+
+    afterEach(function(done) {
+       simple.restore()
+       done();
+    });
+
+    it('Filesvc.PutFile - good', function(done){
+
+        simple.mock(global.s3, 'putObject').callbackWith(null);
+        let error = null;
+        let resp = null;
+        taskFileSvc.PutFile("test/test.txt", fileContent64).then(function(data){
+            resp = data;
+            should.not.exist(error);
+            should.exist(resp);
+            assert.deepEqual(resp, successJSON);
+            done();
+        }).catch(function(err){
+            error = err;
+            should.not.exist(error);
+            should.exist(resp);
+            done();
+        });
+
+    });
+
+    it('Filesvc.PutFile - No S3 Key', function(done){
+
+        simple.mock(global.s3, 'putObject').callbackWith(null);
+        let error = null;
+        let resp = null;
+        taskFileSvc.PutFile("", fileContent64).then(function(data){
+            resp = data;
+            should.exist(error);
+            should.not.exist(resp);
+            assert.deepEqual(resp, successJSON);
+            done();
+        }).catch(function(err){
+            error = err;
+            should.exist(error);
+            should.not.exist(resp);
+            done();
+        });
+
+    });
+
+    it('Filesvc.PutFile - No File content', function(done){
+
+        simple.mock(global.s3, 'putObject').callbackWith(null);
+        let error = null;
+        let resp = null;
+        taskFileSvc.PutFile("test/test.txt", null).then(function(data){
+            resp = data;
+            should.exist(error);
+            should.not.exist(resp);
+            assert.deepEqual(resp, successJSON);
+            done();
+        }).catch(function(err){
+            error = err;
+            should.exist(error);
+            should.not.exist(resp);
+            done();
+        });
+
+    });
+
+    it('Filesvc.PutFile - File content not base64', function(done){
+
+        simple.mock(global.s3, 'putObject').callbackWith(null);
+        let error = null;
+        let resp = null;
+        taskFileSvc.PutFile("test/test.txt", fileContent).then(function(data){
+            resp = data;
+            should.exist(error);
+            should.not.exist(resp);
+            assert.deepEqual(resp, successJSON);
+            done();
+        }).catch(function(err){
+            error = err;
+            should.exist(error);
+            should.not.exist(resp);
+            done();
+        });
+
+    });
+
+    it('Filesvc.PutFile - s3 error', function(done){
+
+        simple.mock(global.s3, 'putObject').callbackWith(new Error("S3 Error"));
+        let error = null;
+        let resp = null;
+        taskFileSvc.PutFile("test/test.txt", fileContent).then(function(data){
+            resp = data;
+            should.exist(error);
+            should.not.exist(resp);
+            assert.deepEqual(resp, successJSON);
+            done();
+        }).catch(function(err){
+            error = err;
+            should.exist(error);
+            should.not.exist(resp);
             done();
         });
 
