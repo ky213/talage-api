@@ -110,7 +110,7 @@ async function getApplication(req, res, next){
 
 	// Make sure an application was found
 	if (applicationData.length !== 1){
-		log.error('Error get application, application not found ' + __location);
+		log.error('Error get application, application not found sql: ' + sql + __location);
 		return next(serverHelper.notFoundError('The application could not be found.'));
 	}
 
