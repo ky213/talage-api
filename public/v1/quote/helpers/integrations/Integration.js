@@ -866,7 +866,7 @@ else{
 			const fileName = `${this.generate_uuid()}.pdf`;
 
 			// Store the quote letter in our cloud storage
-			await fileSvc.store(`secure/quote-letters/${fileName}`, this.quote_letter.data).then(function(result){
+			fileSvc.PutFile(`secure/quote-letters/${fileName}`, this.quote_letter.data).then(function(result){
 				if(result){
 					// The file was successfully saved, store the file name in the database
 					columns.push('quote_letter');
