@@ -71,6 +71,8 @@ async function getApplication(req, res, next){
 				${db.quoteName('a.limits')},
 				${db.quoteName('a.wc_limits', 'wcLimits')},
 				${db.quoteName('a.deductible')},
+				${db.quoteName('a.coverage_lapse', 'coverageLapse')},
+				${db.quoteName('a.created')},
 				${db.quoteName('ad.unemployment_num', 'unemploymentNum')},
 				${db.quoteName('ag.name', 'agencyName')},
 				${db.quoteName('b.id', 'businessID')},
