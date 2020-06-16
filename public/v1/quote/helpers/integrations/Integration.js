@@ -864,13 +864,17 @@ else{
 			const fileName = `${this.generate_uuid()}.pdf`;
 
 			// Store the quote letter in our cloud storage
-			await fileSvc.store(`secure/quote-letters/${fileName}`, this.quote_letter.data).then(function(result){
-				if(result){
-					// The file was successfully saved, store the file name in the database
+			try{
+				// Store the quote letter in our cloud storage
+				const result = await fileSvc.PutFile(`secure/quote-letters/${fileName}`, this.quote_letter.data);
+				// The file was successfully saved, store the file name in the database
+				if(result && Object.prototype.hasOwnProperty.call(result, 'code') && result.code === 'Success'){
 					columns.push('quote_letter');
 					values.push(fileName);
 				}
-			});
+			}catch(err){
+				log.error(`S3 error Storing Quote letter : ${fileName} error: ` + err + __location);
+			}
 		}
 
 		// Insert the quote record
