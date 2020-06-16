@@ -83,7 +83,8 @@ const GetActivityCodes = wrap(async(req, res, next) => {
 		codes.forEach(function(code){
 			if(code.alternate_names){
 				code.alternate_names = code.alternate_names.split(',');
-			}else{
+			}
+else{
 				delete code.alternate_names;
 			}
 		});

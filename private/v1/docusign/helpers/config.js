@@ -2,16 +2,16 @@
 
 module.exports = {
 	// This is the base path needed to access authentication services at DocuSign
-	authBasePath: 'account.docusign.com',
+	"authBasePath": 'account.docusign.com',
 
 	// This is the 'User ID' of the user to be impersonated. Before you can change this value, the user must allow this app.
-	impersonatedUser: '4290a4ec-b2f5-4d90-a6ce-86e532b8156d',
+	"impersonatedUser": '4290a4ec-b2f5-4d90-a6ce-86e532b8156d',
 
 	// This is obtained from the DocuSign admin area under 'API and Keys'. An integration must be created in Sandbox first and then promoted to production.
-	integrationKey: 'f5f51cb9-af53-4906-b970-2de1b0a17270',
+	"integrationKey": 'f5f51cb9-af53-4906-b970-2de1b0a17270',
 
 	// This is obtained from the DocuSign admin area under 'API and Keys' and is only shown once when the key is created. A backup of this key is in LastPass.
-	privateKey: `-----BEGIN RSA PRIVATE KEY-----
+	"privateKey": `-----BEGIN RSA PRIVATE KEY-----
 MIIEowIBAAKCAQEApcD5zBxOPg3B8QmD30ko/PMHWDdVvTf8YqHdRlAGfJQ7olPx
 dmLP4P5z3kWVElBgAUuAu2v8S8aYRrZa4WMmnWDyp59As+2P0HBFSyLp3RSjPVrD
 pUjJoUbmR4C+D1PtKhp2msFykJoyWo0iB0OSIuMYHcDayb9z06pu2vvuyJ1Qez4W

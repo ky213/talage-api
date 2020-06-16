@@ -4,7 +4,7 @@
 
 'use strict';
 
-const crypt = require('./helpers/crypt.js');
+const crypt = global.requireShared('./services/crypt.js');
 const serverHelper = require('../../../server.js').serverHelper;
 
 /* -----==== Version 1 Functions ====-----*/
@@ -21,13 +21,13 @@ const serverHelper = require('../../../server.js').serverHelper;
 async function PostEncrypt(req, res, next){
 	// Check for data
 	if(!req.body){
-		log.warn('No data was received');
+		log.warn('No data was received' + __location);
 		return next(serverHelper.requestError('No data was received'));
 	}
 
 	// Make sure this is a string
 	if(typeof req.body !== 'string'){
-		log.warn('Value must be a string');
+		log.warn('Value must be a string' + __location);
 		return next(serverHelper.requestError('Value must be a string'));
 	}
 

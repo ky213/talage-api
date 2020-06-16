@@ -12,7 +12,7 @@ const DocuSign = require('docusign-esign');
  *
  * @returns {object} - A reference to the DocuSign API class
  */
-module.exports = async function () {
+module.exports = async function(){
 
 	// Initialize the API
 	const docusignApiClient = new DocuSign.ApiClient();
@@ -31,14 +31,14 @@ module.exports = async function () {
 	let accountId = null;
 	// Get our user info
 	await docusignApiClient.getUserInfo(token).
-		then(function (userInfo) {
+		then(function(userInfo){
 			// Grab the account ID and store it globally
 			accountId = userInfo.accounts[0].accountId;
 
 			// Set the path used for API requests
 			docusignApiClient.setBasePath(`${userInfo.accounts[0].baseUri}/restapi`);
-		}).catch(function (error) {
-			log.error('Unable to get User Info from DocuSign.');
+		}).catch(function(error){
+			log.error('Unable to get User Info from DocuSign.' + error + __location);
 			log.verbose(error);
 
 		});

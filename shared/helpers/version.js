@@ -12,7 +12,8 @@ module.exports = function(){
 
 		// Extract the version number from CHANGELOG.md
 		return contents.substring(contents.indexOf('"') + 1, contents.indexOf('"', contents.indexOf('"') + 1));
-	}catch(e){
+	}
+catch(e){
 		log.warn('Unable to find CHANGELOG.md. Version number will default to 0.0.0.');
 		log.verbose(e);
 		return '0.0.0';

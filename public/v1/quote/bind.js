@@ -21,18 +21,18 @@ async function PutBind(req, res, next){
 
 	// Check for data
 	if(!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0){
-		log.warn('No data was received');
+		log.warn('No data was received' + __location);
 		return next(serverHelper.requestError('No data was received'));
 	}
 	log.verbose(util.inspect(req.body, false, null));
 
 	// Make sure basic elements are present
 	if(!Object.prototype.hasOwnProperty.call(req.body, 'quote') || !req.body.quote){
-		log.warn('Quote must be specified to bind');
+		log.warn('Quote must be specified to bind' + __location);
 		return next(serverHelper.requestError('A quote must be specified. Please check the documentation'));
 	}
 	if(!Object.prototype.hasOwnProperty.call(req.body, 'payment_plan') || !req.body.payment_plan){
-		log.warn('Payment Plan must be specified to bind');
+		log.warn('Payment Plan must be specified to bind' + __location);
 		return next(serverHelper.requestError('A payment plan must be specified. Please check the documentation'));
 	}
 
@@ -42,23 +42,24 @@ async function PutBind(req, res, next){
 	// Load
 	await quote.load(req.body.quote, req.body.payment_plan).catch(function(err){
 		error = err;
-		log.warn(`Cannot Load Quote: ${err.message}`);
+		log.warn(`Cannot Load Quote: ${err.message}` + __location);
 	});
 	if(error){
+		// TODO Consistent next ERROR type - currently mixed downstream
 		return next(error);
 	}
 
 	// Bind
 	await quote.bind().catch(function(err){
 		error = err;
-		log.warn(`Cannot Bind: ${err.message}`);
+		log.warn(`Cannot Bind: ${err.message}` + __location);
 		// Send an error
 		res.send(500, {
 			'error': true,
 			'message': 'Unable to bind the policy. Please contact Talage at customersuccess@talageins.com'
 		});
 	}).then(function(result){
-		if (!error) {
+		if(!error){
 			// Everything looks good, send a positive response
 			res.send(200, {
 				'code': result,

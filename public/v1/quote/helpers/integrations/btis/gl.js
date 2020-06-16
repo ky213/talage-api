@@ -11,53 +11,57 @@ const Integration = require('../Integration.js');
 const moment = require('moment');
 const util = require('util');
 
-module.exports = class BtisGL extends Integration{
-
+module.exports = class BtisGL extends Integration {
 	/**
 	 * Requests a quote from BTIS and returns. This request is not intended to be called directly.
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
-	_insurer_quote(){
+	_insurer_quote() {
 		// Define how legal entities are mapped for BTIS (/GL/v1/gateway/lookup/businesstypes)
 		const entity_matrix = {
-			'Association': 4,
-			'Corporation': 2,
+			Association: 4,
+			Corporation: 2,
 			'Limited Liability Company': 5,
 			'Limited Partnership': 3,
-			'Partnership': 6,
+			Partnership: 6,
 			'Sole Proprietorship': 1
 		};
 
 		// Build the Promise
-		return new Promise(async(fulfill) => {
+		return new Promise(async (fulfill) => {
 			// Determine which URL to use
 			let host = '';
-			if(this.insurer.test_mode){
+			if (this.insurer.test_mode) {
 				host = 'api-sandbox.btisinc.com';
-			}else{
+			} else {
 				host = 'api.btisinc.com';
 			}
 
 			// Get a token from their auth server
 			let had_error = false;
 			const token_request_data = JSON.stringify({
-				'client_id': this.username,
-				'client_secret': this.password,
-				'grant_type': 'client_credentials'
+				client_id: this.username,
+				client_secret: this.password,
+				grant_type: 'client_credentials'
 			});
 			const token_response = await this.send_json_request(host, '/v1/authentication/connect/token', token_request_data).catch((error) => {
-				log.error(error.message);
+				log.error(error.message + __location);
 				had_error = true;
-				fulfill(this.return_error('error', 'Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 			});
-			if(had_error){
+			if (had_error) {
 				return;
 			}
 
 			// Verify that we got back what we expected
-			if(!Object.prototype.hasOwnProperty.call(token_response, 'success') || token_response.success !== true || !Object.prototype.hasOwnProperty.call(token_response, 'token') || !token_response.token){
-				fulfill(this.return_error('error', 'Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			if (
+				!Object.prototype.hasOwnProperty.call(token_response, 'success') ||
+				token_response.success !== true ||
+				!Object.prototype.hasOwnProperty.call(token_response, 'token') ||
+				!token_response.token
+			) {
+				fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 				return;
 			}
 			const token = token_response.token;
@@ -70,19 +74,8 @@ module.exports = class BtisGL extends Integration{
 			let deductible_id = 2000500;
 
 			// If allowed, check the deductible and return the appropriate ID
-			if(['AR',
-				'AZ',
-				'CA',
-				'CO',
-				'ID',
-				'NM',
-				'NV',
-				'OK',
-				'OR',
-				'TX',
-				'UT',
-				'WA'].includes(this.app.business.primary_territory)){
-				switch(this.policy.deductble){
+			if (['AR', 'AZ', 'CA', 'CO', 'ID', 'NM', 'NV', 'OK', 'OR', 'TX', 'UT', 'WA'].includes(this.app.business.primary_territory)) {
+				switch (this.policy.deductble) {
 					case 500:
 						deductible_id = 2000500;
 						break;
@@ -103,16 +96,23 @@ module.exports = class BtisGL extends Integration{
 			data.ProvideSpanishInspection = false;
 
 			// Determine the limits ID
-			const carrierLimits = await this.send_json_request(host, `/GL/v1/gateway/lookup/limits/?stateName=${this.app.business.primary_territory}&effectiveDate=${this.policy.effective_date.format('YYYY-MM-DD')}`, null, {'x-access-token': token}).catch((error) => {
-				log.error(error.message);
-				fulfill(this.return_error('error', 'Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+			const carrierLimits = await this.send_json_request(
+				host,
+				`/GL/v1/gateway/lookup/limits/?stateName=${this.app.business.primary_territory}&effectiveDate=${this.policy.effective_date.format('YYYY-MM-DD')}`,
+				null,
+				{ 'x-access-token': token }
+			).catch((error) => {
+				log.error(error.message + __location);
+				fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 			});
 
 			// Get the best limits
-			const limits = this.getBestLimits(carrierLimits.map(function(carrierLimit){
-				return carrierLimit.text.replace(/,/g, '');
-			}));
-			if(!limits){
+			const limits = this.getBestLimits(
+				carrierLimits.map(function (carrierLimit) {
+					return carrierLimit.text.replace(/,/g, '');
+				})
+			);
+			if (!limits) {
 				this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
 				fulfill(this.return_result('autodeclined'));
 				return;
@@ -121,7 +121,11 @@ module.exports = class BtisGL extends Integration{
 			// Determine the limits ID
 			let limitsId = 0;
 			carrierLimits.forEach((limit) => {
-				if(parseInt(limit.limits.occurrence.replace(/,/g, ''), 10) === limits[0] && parseInt(limit.limits.aggregate.replace(/,/g, ''), 10) === limits[1] && parseInt(limit.limits.perproject.replace(/,/g, ''), 10) === limits[2]){
+				if (
+					parseInt(limit.limits.occurrence.replace(/,/g, ''), 10) === limits[0] &&
+					parseInt(limit.limits.aggregate.replace(/,/g, ''), 10) === limits[1] &&
+					parseInt(limit.limits.perproject.replace(/,/g, ''), 10) === limits[2]
+				) {
 					limitsId = limit.limitId;
 				}
 			});
@@ -139,9 +143,9 @@ module.exports = class BtisGL extends Integration{
 			// Business Information
 			data.BusinessInformation = {};
 			data.BusinessInformation.DBA = this.app.business.dba ? this.app.business.dba : this.app.business.name;
-			if(!(this.app.business.entity_type in entity_matrix)){
-				log.error('BTIS GL Integration File: Invalid Entity Type');
-				fulfill(this.return_error('error', 'We have no idea what went wrong, but we\'re on it'));
+			if (!(this.app.business.entity_type in entity_matrix)) {
+				log.error('BTIS GL Integration File: Invalid Entity Type' + __location);
+				fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));
 				return;
 			}
 			data.BusinessInformation.BusinessEntityTypeId = entity_matrix[this.app.business.entity_type];
@@ -158,7 +162,7 @@ module.exports = class BtisGL extends Integration{
 			// 6 - 3+ years of coverage, no lapses and no losses
 			// 9 - No prior coverage
 			let BusinessExperienceId = 6;
-			if(this.app.business.founded.isAfter(moment().subtract(6, 'months'))){
+			if (this.app.business.founded.isAfter(moment().subtract(6, 'months'))) {
 				BusinessExperienceId = 1;
 			}
 			// TO DO: Finish this logic
@@ -169,19 +173,19 @@ module.exports = class BtisGL extends Integration{
 			data.BusinessInformation.EmployeePayroll = this.get_total_payroll();
 			data.BusinessInformation.LaborerPayroll = 0;
 
-			if(Object.prototype.hasOwnProperty.call(this.questions, '970')){
+			if (Object.prototype.hasOwnProperty.call(this.questions, '970')) {
 				let subcontractor_costs = this.questions['970'].answer;
-				if(subcontractor_costs / this.policy.gross_sales > 0.5){
+				if (subcontractor_costs / this.policy.gross_sales > 0.5) {
 					log.info('BTIS declined due to subcontractor costs being too high.');
 					fulfill(this.return_error('declined', `${this.insurer.name} has declined to offer you coverage at this time`));
 					return;
 				}
-				if(typeof subcontractor_costs !== 'string'){
+				if (typeof subcontractor_costs !== 'string') {
 					subcontractor_costs = String(subcontractor_costs);
 				}
 				subcontractor_costs = parseInt(subcontractor_costs.replace('$', '').replace(/,/g, ''), 10);
 				data.BusinessInformation.SubcontractorCosts = subcontractor_costs ? subcontractor_costs : 0;
-			}else{
+			} else {
 				data.BusinessInformation.SubcontractorCosts = 0;
 			}
 
@@ -220,24 +224,23 @@ module.exports = class BtisGL extends Integration{
 			data.Classifications[0].Name = this.industry_code.description;
 			data.Classifications[0].Percentage = 100;
 
-
 			// Questions (in BTIS speak, "qualifying statements")
 
 			// Get the identifiers for each question
 			const question_identifiers = await this.get_question_identifiers().catch((error) => {
-				log.error(`BTIS GL is unable to get question identifiers. ${error}`);
-				fulfill(this.return_error('error', 'Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				log.error(`BTIS GL is unable to get question identifiers. ${error}` + __location);
+				fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 			});
 
 			// Loop through and send each
 			data.QualifyingStatements = [];
-			for(const question_id in this.questions){
-				if(Object.prototype.hasOwnProperty.call(this.questions, question_id)){
+			for (const question_id in this.questions) {
+				if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
 					const question = this.questions[question_id];
 					const QuestionCd = question_identifiers[question.id];
 
 					// Don't process questions without a code (not for this insurer)
-					if(!QuestionCd){
+					if (!QuestionCd) {
 						continue;
 					}
 
@@ -267,72 +270,72 @@ module.exports = class BtisGL extends Integration{
 			const path = '/GL/v1/gateway/submit';
 
 			// Send JSON to the insurer
-			await this.send_json_request(host, path, JSON.stringify(data), {'x-access-token': token}).then((result) => {
+			await this.send_json_request(host, path, JSON.stringify(data), { 'x-access-token': token })
+				.then((result) => {
+					if (result.success) {
+						// Get the quote ID
+						this.request_id = result.submissionid;
 
-				if(result.success){
-					// Get the quote ID
-					this.request_id = result.submissionid;
+						if (Object.prototype.hasOwnProperty.call(result, 'submission')) {
+							// Make an additional 'Quote' call to take this app out of submitted status, don't wait b/c we really don't care
+							this.send_json_request(host, `/GL/v1/gateway/quote?submissionId=${this.request_id}`, JSON.stringify(data), { 'x-access-token': token }, 'PUT').catch((error) => {
+								log.error(`BTIS Quote Endpoint Returned Error ${util.inspect(error, false, null)}` + __location);
+							});
 
-					if(Object.prototype.hasOwnProperty.call(result, 'submission')){
+							// Get the amount of the quote (from the Silver package only, per Adam)
+							let amount = 0;
+							try {
+								amount = result.submission.results.total_premium;
+							} catch (e) {
+								log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to quote amount.` + __location);
+								this.reasons.push('A quote was generated, but our API was unable to isolate it.');
+								fulfill(this.return_error('error', "Our bad. Something went wrong, but we're on it. Expect to hear from us"));
+								return;
+							}
 
-						// Make an additional 'Quote' call to take this app out of submitted status, don't wait b/c we really don't care
-						this.send_json_request(host, `/GL/v1/gateway/quote?submissionId=${this.request_id}`, JSON.stringify(data), {'x-access-token': token}, 'PUT').catch((error) => {
-							log.error(`BTIS Quote Endpoint Returned Error ${util.inspect(error, false, null)}`);
-						});
+							// Grab the limits info
+							try {
+								let limits_string = result.submission.criteria.limits;
 
-						// Get the amount of the quote (from the Silver package only, per Adam)
-						let amount = 0;
-						try{
-							amount = result.submission.results.total_premium;
-						}catch(e){
-							log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to quote amount.`);
-							this.reasons.push('A quote was generated, but our API was unable to isolate it.');
-							fulfill(this.return_error('error', 'Our bad. Something went wrong, but we\'re on it. Expect to hear from us'));
-							return;
+								// Remove the commas
+								limits_string = limits_string.replace(/,/g, '');
+
+								// Break the limits into an array
+								const policy_limits = limits_string.split('/');
+
+								// Build out the limits how our system expects to see them
+								this.limits = {
+									'4': policy_limits[0],
+									'8': policy_limits[1],
+									'9': policy_limits[2]
+								};
+							} catch (e) {
+								log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find limits.` + __location);
+							}
+
+							// Return the quote
+							this.log += `--------======= Success! =======--------<br><br>Quote: ${amount}<br>Application ID: ${this.request_id}`;
+							fulfill(this.return_quote(amount));
+						} else {
+							this.log += `--------======= Application Referred =======--------<br><br>`;
+							result.referralReasons.forEach((reason) => {
+								this.log += `- ${reason}<br>`;
+								this.reasons.push(reason);
+								log.warn(`Referred by Insurer With Message: ${reason}` + __location);
+							});
+							fulfill(this.return_error('referred', `${this.insurer.name} needs a little more time to make a decision`));
 						}
-
-						// Grab the limits info
-						try{
-							let limits_string = result.submission.criteria.limits;
-
-							// Remove the commas
-							limits_string = limits_string.replace(/,/g, '');
-
-							// Break the limits into an array
-							const policy_limits = limits_string.split('/');
-
-							// Build out the limits how our system expects to see them
-							this.limits = {
-								'4': policy_limits[0],
-								'8': policy_limits[1],
-								'9': policy_limits[2]
-							};
-						}catch(e){
-							log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find limits.`);
-						}
-
-						// Return the quote
-						this.log += `--------======= Success! =======--------<br><br>Quote: ${amount}<br>Application ID: ${this.request_id}`;
-						fulfill(this.return_quote(amount));
-					}else{
-						this.log += `--------======= Application Referred =======--------<br><br>`;
-						result.referralReasons.forEach((reason) => {
-							this.log += `- ${reason}<br>`;
-							this.reasons.push(reason);
-							log.warn(`Referred by Insurer With Message: ${reason}`);
-						});
-						fulfill(this.return_error('referred', `${this.insurer.name} needs a little more time to make a decision`));
+					} else {
+						log.error(`BTIS Submit Endpoint Returned Error ${result.message}` + __location);
+						this.reasons.push(result.message);
+						fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));
 					}
-				}else{
-					log.error(`BTIS Submit Endpoint Returned Error ${result.message}`);
-					this.reasons.push(result.message);
-					fulfill(this.return_error('error', 'We have no idea what went wrong, but we\'re on it'));
-				}
-			}).catch((error) => {
-				log.error(`BTIS Submit Endpoint Returned Error ${util.inspect(error, false, null)}`);
-				this.reasons.push('Problem connecting to insurer');
-				fulfill(this.return_error('error', 'We have no idea what went wrong, but we\'re on it'));
-			});
+				})
+				.catch((error) => {
+					log.error(`BTIS Submit Endpoint Returned Error ${util.inspect(error, false, null)}` + __location);
+					this.reasons.push('Problem connecting to insurer');
+					fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));
+				});
 		});
 	}
 };

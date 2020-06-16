@@ -20,7 +20,8 @@ module.exports = function(val){
 			// Return 'Email exceeds maximum length of 100 characters';
 
 		}
-	}else{
+	}
+else{
 		return false;
 
 		// Quote-api

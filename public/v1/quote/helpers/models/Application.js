@@ -5,8 +5,8 @@
 'use strict';
 
 const util = require('util');
-const email = global.requireShared('./services/email.js');
-const slack = global.requireShared('./services/slack.js');
+const email = global.requireShared('./services/emailsvc.js');
+const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const get_questions = global.requireShared('./helpers/getQuestions.js');
 
@@ -74,7 +74,8 @@ module.exports = class Application{
 
 							if(match_found){
 								desired_insurers.push(insurer);
-							}else{
+							}
+else{
 								log.info(`Agent does not support ${policy.type} policies through insurer ${insurer}`);
 								reject(serverHelper.requestError('Agent does not support this request'));
 								stop = true;
@@ -103,7 +104,8 @@ module.exports = class Application{
 					reject(serverHelper.requestError('Agent does not support this request'));
 					return;
 				}
-			}else{
+			}
+else{
 				// Only use the insurers supported by this agent
 				desired_insurers = Object.keys(this.agencyLocation.insurers);
 			}
@@ -184,7 +186,8 @@ module.exports = class Application{
 			// Note: The front-end is sending in 'agent' but this is really a reference to the 'agency location'
 			if(data.agent){
 				await this.agencyLocation.load({'id': data.agent});
-			}else{
+			}
+else{
 				await this.agencyLocation.load({'id': 1}); // This is Talage's agency location record
 			}
 
@@ -239,7 +242,8 @@ module.exports = class Application{
 							limits['Employers Liability Disease Per Employee'] = 1000000;
 							limits['Employers Liability Disease Policy Limit'] = 1000000;
 							limits['Employers Liability Per Occurrence'] = 1000000;
-						}else{
+						}
+else{
 							limits['Damage to Rented Premises'] = '1000000';
 							limits['Each Occurrence'] = '1000000';
 							limits['General Aggregate'] = '1000000';
@@ -340,7 +344,8 @@ module.exports = class Application{
 									if(Object.prototype.hasOwnProperty.call(quote, 'amount') && quote.amount){
 										// Quote
 										policyTypeQuoted[quote.policy_type] = true;
-									}else if(Object.prototype.hasOwnProperty.call(quote, 'status') && quote.status === 'referred'){
+									}
+else if(Object.prototype.hasOwnProperty.call(quote, 'status') && quote.status === 'referred'){
 										// Referred
 										policyTypeReferred[quote.policy_type] = true;
 									}
@@ -366,11 +371,12 @@ module.exports = class Application{
 									}
 									log.verbose(util.inspect(quote, false, null));
 								});
-							}else{
+							}
+else{
 								quote_promises.push(integration.quote());
 							}
 						}else{
-							log.warn(`Insurer integration file does not exist: ${insurer.name} ${policy.type}`);
+							log.warn(`Insurer integration file does not exist: ${insurer.name} ${policy.type}` + __location);
 						}
 					}
 				});
@@ -386,7 +392,8 @@ module.exports = class Application{
 					if(Object.prototype.hasOwnProperty.call(quote, 'amount') && quote.amount){
 						// Quote
 						policyTypeQuoted[quote.policy_type] = true;
-					}else if(Object.prototype.hasOwnProperty.call(quote, 'status') && quote.status === 'referred'){
+					}
+else if(Object.prototype.hasOwnProperty.call(quote, 'status') && quote.status === 'referred'){
 						// Referred
 						policyTypeReferred[quote.policy_type] = true;
 					}
@@ -456,7 +463,7 @@ module.exports = class Application{
 			LIMIT 1;`;
 
 			let emailData = await db.query(sql).catch(function(){
-				log.error('Unable to get No Quote email content from the database');
+				log.error('Unable to get No Quote email content from the database' + __location);
 			});
 
 			if(emailData && emailData[0]){
@@ -571,11 +578,13 @@ module.exports = class Application{
 
 			// Send a message to Slack
 			if(all_had_quotes){
-				slack('customer_success', 'ok', 'Application completed and the user received ALL quotes', attachment);
-			}else if(some_quotes){
-				slack('customer_success', 'ok', 'Application completed and only SOME quotes returned', attachment);
-			}else{
-				slack('customer_success', 'warning', 'Application completed, but the user received NO quotes', attachment);
+				slack.send('customer_success', 'ok', 'Application completed and the user received ALL quotes', attachment);
+			}
+else if(some_quotes){
+				slack.send('customer_success', 'ok', 'Application completed and only SOME quotes returned', attachment);
+			}
+else{
+				slack.send('customer_success', 'warning', 'Application completed, but the user received NO quotes', attachment);
 			}
 		}
 	}
@@ -596,7 +605,8 @@ module.exports = class Application{
 		let state = 1; // New
 		if(numPolicyTypesRequested === numPolicyTypesQuoted){
 			state = 13; // Quoted
-		}else if(numPolicyTypesRequested === numPolicyTypesReferred){
+		}
+else if(numPolicyTypesRequested === numPolicyTypesReferred){
 			state = 12; // Referred
 		}
 
@@ -608,8 +618,8 @@ module.exports = class Application{
 				WHERE id = ${this.id}
 				LIMIT 1;
 			`;
-			db.query(sql).catch(() => {
-				log.error('Unable to update application status.');
+			db.query(sql).catch( function(error){
+				log.error('Unable to update application status. ' + error + __location);
 			});
 		}
 	}
@@ -626,6 +636,7 @@ module.exports = class Application{
 
 			// Agent
 			await this.agencyLocation.validate().catch(function(error){
+				log.error("Location.validate() error " + error + __location);
 				reject(error);
 				stop = true;
 			});
@@ -635,6 +646,7 @@ module.exports = class Application{
 
 			// Initialize the agent so it is ready for later
 			await this.agencyLocation.init().catch(function(error){
+				log.error("Location.init() error " + error);
 				reject(error);
 				stop = true;
 			});
@@ -668,6 +680,7 @@ module.exports = class Application{
 					reject(serverHelper.requestError('The Agent specified cannot support this policy.'));
 					stop = true;
 				}else{
+					log.error("get insurers error " + error + __location);
 					reject(error);
 					stop = true;
 				}
@@ -682,6 +695,7 @@ module.exports = class Application{
 
 			// Validate the business
 			await this.business.validate().catch(function(error){
+				log.error("business.validate() error " + error + __location);
 				reject(error);
 				stop = true;
 			});
@@ -708,6 +722,7 @@ module.exports = class Application{
 			const insurer_ids = this.get_insurer_ids();
 			const wc_codes = this.get_wc_codes();
 			const questions = await get_questions(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids).catch(function(error){
+				log.error("get_questions error " + error + __location);
 				reject(error);
 			});
 
@@ -729,6 +744,7 @@ module.exports = class Application{
 							const user_answer = user_questions[q.id];
 
 							q.set_answer(user_answer).catch(function(error){
+								log.error("set answers error " + error + __location);
 								reject(error);
 								has_error = true;
 							});
@@ -760,7 +776,7 @@ module.exports = class Application{
 
 							// If no parent was found, throw an error
 							if(!parent_question){
-								log.error(`Question ${question.id} has invalid parent setting. (${htmlentities.decode(question.text).replace('%', '%%')})`);
+								log.error(`Question ${question.id} has invalid parent setting. (${htmlentities.decode(question.text).replace('%', '%%')})` + __location);
 								reject(serverHelper.requestError('An unexpected error has occurred. Our team has been alerted and will contact you.'));
 								return;
 							}
@@ -769,7 +785,8 @@ module.exports = class Application{
 							if(parent_question.answer_id === question.parent_answer){
 								question.required = true;
 							}
-						}else{
+						}
+else{
 							question.required = true;
 						}
 
@@ -804,6 +821,7 @@ module.exports = class Application{
 
 			// Check agent support
 			await this.agencyLocation.supports_application().catch(function(error){
+				log.error("agencyLocation.supports_application() error " + error + __location);
 				reject(error);
 				stop = true;
 			});

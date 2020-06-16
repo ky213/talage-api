@@ -27,7 +27,8 @@ exports.connect = async() => {
 	try{
 		const connection = await util.promisify(conn.getConnection).call(conn);
 		connection.release();
-	}catch(error){
+	}
+catch(error){
 		console.log(colors.red(`\tERROR: ${error.toString()}`)); // eslint-disable-line no-console
 		return false;
 	}
@@ -130,7 +131,7 @@ exports.query = function(sql){
 		conn.query(sql, function(err, rows){
 			if(err){
 				log.error('db query error: ' + err);
-				log.info('sql: ' + sql);
+				log.error('sql: ' + sql);
 				// Docs-api had 'reject(new Error(err));'
 				reject(err);
 				return;
@@ -160,7 +161,8 @@ exports.quoteName = function(name, alias = null){
 
 		// Return alias and name quoted separately
 		quotedName = `\`${parts[0]}\`.\`${parts[1]}\``;
-	}else{
+	}
+else{
 		// Otherwise quote the name directly
 		quotedName = `\`${name}\``;
 	}

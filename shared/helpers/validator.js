@@ -4,7 +4,7 @@
 
 'use strict';
 
-// Regular expresions for validating certain things
+// Regular expressions for validating certain things
 const positive_integer = /^[1-9]\d*$/;
 const zip = /^("|')?[0-9]{5}("|')?$/;
 const bureau_number_CA = /[0-9]{2}-[0-9]{2}-[0-9]{2}/;
@@ -34,7 +34,8 @@ require('fs').readdirSync(normalizedPath).forEach(function(file){
 exports.is_valid_id = function(id){
 	if(typeof id === 'string'){
 		return Number.isInteger(parseInt(id, 10));
-	}else if(typeof id === 'number'){
+	}
+else if(typeof id === 'number'){
 		return Number.isInteger(id);
 	}
 	return false;
