@@ -295,7 +295,7 @@ async function createUser(req, res, next){
 	if (error){
 		return next(error);
 	}
-	const userId = result.insertId;
+	const userID = result.insertId;
 
 	// Make sure the query was successful
 	if (!result || result.affectedRows !== 1){
@@ -308,7 +308,13 @@ async function createUser(req, res, next){
 
 	// Commit the transaction
 	db.commit(connection);
-	res.send(200, 'Created');
+
+	// Return the response
+	res.send(200, {
+		"userID": userID,
+		"code": 'Success',
+		"message": 'User Created'
+	});
 
 	// Check if this is an agency network
 	let agencyNetwork = req.authentication.agencyNetwork;
@@ -370,7 +376,7 @@ async function createUser(req, res, next){
 	}
 
 	// Create a limited life JWT
-	const token = jwt.sign({"userID": userId}, global.settings.AUTH_SECRET_KEY, {"expiresIn": '7d'});
+	const token = jwt.sign({"userID": userID}, global.settings.AUTH_SECRET_KEY, {"expiresIn": '7d'});
 
 	// Format the brand
 	let brandraw = global.settings.BRAND.toLowerCase();
