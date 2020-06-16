@@ -866,9 +866,9 @@ else{
 			// Store the quote letter in our cloud storage
 			try{
 				// Store the quote letter in our cloud storage
-				const result = await fileSvc.PutFile(`secure/quote-letters/${fileName}`, this.quote_letter.data);
+				const result = await fileSvc.store(`secure/quote-letters/${fileName}`, this.quote_letter.data);
 				// The file was successfully saved, store the file name in the database
-				if(result && Object.prototype.hasOwnProperty.call(result, 'code') && result.code === 'Success'){
+				if(result){
 					columns.push('quote_letter');
 					values.push(fileName);
 				}
