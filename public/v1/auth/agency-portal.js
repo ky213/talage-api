@@ -7,6 +7,8 @@
 const crypt = global.requireShared('services/crypt.js');
 const jwt = require('jsonwebtoken');
 const serverHelper = require('../../../server.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 /**
  * Responds to get requests for an authorization token
@@ -17,7 +19,7 @@ const serverHelper = require('../../../server.js');
  *
  * @returns {object} res - Returns an authorization token
  */
-async function createToken(req, res, next) {
+async function createToken(req, res, next){
 	let error = false;
 
 	// Check for data
@@ -28,14 +30,14 @@ async function createToken(req, res, next) {
 
 	// Make sure an email was provided
 	if (!req.body.email) {
-		log.info('Missing email');
+		log.info('Missing email' + __location);
 		res.send(400, serverHelper.requestError('Email address is required'));
 		return next();
 	}
 
 	// Makes sure a password was provided
 	if (!req.body.password) {
-		log.info('Missing password');
+		log.info('Missing password' + __location);
 		res.send(400, serverHelper.requestError('Password is required'));
 		return next();
 	}
@@ -62,8 +64,8 @@ async function createToken(req, res, next) {
 		WHERE \`apu\`.\`email_hash\` = ${db.escape(emailHash)} AND \`apu\`.\`state\` > 0
 		LIMIT 1;
 	`;
-	const result = await db.query(agencySQL).catch(function (e) {
-		log.error(e.message);
+	const result = await db.query(agencySQL).catch(function(e) {
+		log.error(e.message + __location);
 		res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
 		error = true;
 	});
@@ -80,7 +82,7 @@ async function createToken(req, res, next) {
 	}
 
 	// Check the password
-	if (!(await crypt.verifyPassword(result[0].password, req.body.password))) {
+	if (!await crypt.verifyPassword(result[0].password, req.body.password)) {
 		log.info('Authentication failed - Bad password');
 		res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
 		return next();
@@ -100,7 +102,7 @@ async function createToken(req, res, next) {
 		WHERE \`id\` = ${result[0].id}
 		LIMIT 1;
 	`;
-	db.query(lastLoginSQL).catch(function (e) {
+	db.query(lastLoginSQL).catch(function(e) {
 		// If this fails, log the failure but do nothing else
 		log.error(e.message);
 	});
@@ -118,8 +120,8 @@ async function createToken(req, res, next) {
 			FROM \`#__agencies\`
 			WHERE \`agency_network\` = ${db.escape(payload.agencyNetwork)} AND \`state\` > 0;
 		`;
-		const agencies = await db.query(agenciesSQL).catch(function (e) {
-			log.error(e.message);
+		const agencies = await db.query(agenciesSQL).catch(function(e) {
+			log.error(e.message + __location);
 			res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
 			error = true;
 		});
@@ -142,8 +144,8 @@ async function createToken(req, res, next) {
 		`;
 
 		// Query the database
-		const insurersData = await db.query(insurersSQL).catch(function (e) {
-			log.error(e.message);
+		const insurersData = await db.query(insurersSQL).catch(function(e) {
+			log.error(e.message + __location);
 			res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
 			error = true;
 		});
@@ -156,7 +158,8 @@ async function createToken(req, res, next) {
 		insurersData.forEach((insurer) => {
 			payload.insurers.push(insurer.id);
 		});
-	} else {
+	}
+ else {
 		// Just allow access to the current agency
 		payload.agents.push(result[0].agency);
 
@@ -172,8 +175,8 @@ async function createToken(req, res, next) {
 			WHERE \`id\` = ${db.escape(result[0].agency)} AND \`state\` > 0
 			LIMIT 1;
 		`;
-		const wholesaleInfo = await db.query(wholesaleSQL).catch(function (e) {
-			log.error(e.message);
+		const wholesaleInfo = await db.query(wholesaleSQL).catch(function(e) {
+			log.error(e.message + __location);
 			res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
 			error = true;
 		});
@@ -203,7 +206,7 @@ async function createToken(req, res, next) {
 	payload.termsOfServiceVersion = result[0].termsOfServiceVersion;
 
 	// This is a valid user, generate and return a token
-	const token = `Bearer ${jwt.sign(payload, global.settings.AUTH_SECRET_KEY, { expiresIn: global.settings.JWT_TOKEN_EXPIRATION })}`;
+	const token = `Bearer ${jwt.sign(payload, global.settings.AUTH_SECRET_KEY, {expiresIn: global.settings.JWT_TOKEN_EXPIRATION})}`;
 	res.send(201, {
 		status: 'Created',
 		token: token
@@ -228,11 +231,12 @@ async function updateToken(req, res, next) {
 	}
 
 	// Ensure it is a valid JWT and that it hasn't expired.
-	let token;
+	let token = null;
 	try {
 		token = jwt.verify(req.body.token, global.settings.AUTH_SECRET_KEY);
-	} catch (error) {
-		console.log(error);
+	}
+	catch (error) {
+		log.error("JWT: " + error + __location);
 		return next(serverHelper.forbiddenError('Invalid token'));
 	}
 
@@ -241,18 +245,12 @@ async function updateToken(req, res, next) {
 	delete token.exp;
 
 	// Sign the JWT with new timestamps
-	console.log('##########################################');
-	console.log('##########################################');
-	console.log('put back original jwt expiration time');
-	console.log('##########################################');
-	console.log('##########################################');
-	// const token = `Bearer ${jwt.sign(payload, global.settings.AUTH_SECRET_KEY, { expiresIn: global.settings.JWT_TOKEN_EXPIRATION })}`;
-	token = `Bearer ${jwt.sign(token, global.settings.AUTH_SECRET_KEY, { expiresIn: '5s' })}`;
+	token = `Bearer ${jwt.sign(token, global.settings.AUTH_SECRET_KEY, {expiresIn: global.settings.JWT_TOKEN_EXPIRATION})}`;
 
 	// Send it back
 	res.send(201, {
 		status: 'Created',
-		token
+		token: token
 	});
 	return next();
 }
