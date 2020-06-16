@@ -88,6 +88,8 @@ async function getApplication(req, res, next){
 				${db.quoteName('c.phone')},
 				${db.quoteName('z.city')},
 				${db.quoteName('z.territory')},
+				${db.quoteName('a.opted_out_online')},
+				${db.quoteName('a.opted_out_online_emailsent')},
 				LPAD(CONVERT(${db.quoteName('z.zip')},char), 5, '0') AS zip,
 				GROUP_CONCAT(${db.quoteName('apt.policy_type')}) AS policy_types
 			FROM ${db.quoteName('#__applications', 'a')}
