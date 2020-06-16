@@ -1,16 +1,18 @@
+'use strict';
+
 exports.success = {
-	success: true,
-	message: 'request succeeded'
+	"success": true,
+	"message": 'request succeeded'
 }
 
 exports.errorQueueWaitTimeout = {
-	success: false,
-	message: 'timeout waiting for new message'
+	"success": false,
+	"message": 'timeout waiting for new message'
 }
 
-exports.error = function(message) {
+exports.error = function(message){
 	return {
-		success: false,
-		message: message
+		"success": false,
+		"message": message
 	}
 }

@@ -83,7 +83,8 @@ module.exports = class ActivityCode{
 				}
 				this.description = rows[0].description;
 			}).catch(function(error){
-				log.error(error);
+				log.error("DB SELECT activity codes error: " + error + __location);
+				//TODO Consistent error types
 				reject(error);
 			});
 

@@ -77,7 +77,7 @@ module.exports = class AgencyLocation{
 
 			// Wait for all queries to return
 			const results = await Promise.all(queries.map((sql) => db.query(sql))).catch(function(error){
-				log.error(error);
+				log.error("DB queries error: " + error + __location);
 				reject(error);
 				hadError = true;
 			});
@@ -110,12 +110,12 @@ module.exports = class AgencyLocation{
 
 					// Decrypt the agent's information
 					if(!insurer.agency_id){
-						log.warn('Agency missing Agency ID in configuration.');
+						log.warn('Agency missing Agency ID in configuration.' + __location);
 						return;
 					}
 					insurer.agency_id = await crypt.decrypt(insurer.agency_id); // eslint-disable-line no-await-in-loop
 					if(!insurer.agent_id){
-						log.warn('Agency missing Agent ID in configuration.');
+						log.warn('Agency missing Agent ID in configuration.' + __location);
 						return;
 					}
 					insurer.agent_id = await crypt.decrypt(insurer.agent_id.toString()); // eslint-disable-line no-await-in-loop
@@ -151,7 +151,7 @@ module.exports = class AgencyLocation{
 				for(const insurer in this.insurers){
 					if(Object.prototype.hasOwnProperty.call(this.insurers, insurer)){
 						if(!this.insurers[insurer].agency_id || !this.insurers[insurer].agent_id){
-							log.warn(`Agency insurer ID ${insurer} disabled because it was missing the agency_id, agent_id, or both.`);
+							log.warn(`Agency insurer ID ${insurer} disabled because it was missing the agency_id, agent_id, or both.` + __location);
 							delete this.insurers[insurer];
 						}
 					}
@@ -160,12 +160,13 @@ module.exports = class AgencyLocation{
 				if(!Object.keys(this.insurers).length){
 					missing.push('Insurers');
 				}
-			}else{
+			}
+			else {
 				missing.push('Insurers');
 			}
 
 			if(missing.length){
-				log.error(`Agency application failed because the Agent was not fully configured. Missing: ${missing.join(', ')}`);
+				log.error(`Agency application failed because the Agent was not fully configured. Missing: ${missing.join(', ')}` + __location);
 				reject(new Error('Agent not fully configured. Please contact us.'));
 				return;
 			}

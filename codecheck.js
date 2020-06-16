@@ -26,7 +26,8 @@ var options = {
 	"server": true,
      "validator": true,
      "settings": true,
-     "requireShared": true
+     "requireShared": true,
+     "__location": true
      
   }
 };

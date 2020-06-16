@@ -163,7 +163,8 @@ async function GetACORDFormWC(req, res, next){
 	if(application_data[0].name && application_data[0].name.byteLength){
 		const name = await crypt.decrypt(application_data[0].name);
 		applicant_name += `${name}\n`;
-	}else{
+	}
+else{
 		log.error(`Business name missing for application ${req.query.application_id}`);
 		res.send(400, {
 			'message': `Business name missing for application ${req.query.application_id}`,
@@ -180,7 +181,8 @@ async function GetACORDFormWC(req, res, next){
 	if(application_data[0].mailing_address && application_data[0].mailing_address.byteLength){
 		const mailingAddress = await crypt.decrypt(application_data[0].mailing_address);
 		agency += `\n${mailingAddress}`;
-	}else{
+	}
+else{
 		missing_data.push('Agency address');
 	}
 	agency += `\n${application_data[0].agencyCity.split(' ').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}, ${application_data[0].agencyTerritory} ${application_data[0].mailing_zip}`;
@@ -192,7 +194,8 @@ async function GetACORDFormWC(req, res, next){
 		const fName = await crypt.decrypt(application_data[0].producerFName);
 		const lName = await crypt.decrypt(application_data[0].producerLName);
 		producer_name = `${fName} ${lName}`;
-	}else{
+	}
+else{
 		missing_data.push('Producer contact name');
 	}
 
@@ -201,7 +204,8 @@ async function GetACORDFormWC(req, res, next){
 	if(application_data[0].agencyPhone && application_data[0].agencyPhone.byteLength){
 		producer_phone = await crypt.decrypt(application_data[0].agencyPhone);
 		producer_phone = `(${producer_phone.substr(0, 3)}) ${producer_phone.substr(3, 3)} - ${producer_phone.substr(6, 4)}`;
-	}else{
+	}
+else{
 		missing_data.push('Producer phone number');
 	}
 
@@ -209,7 +213,8 @@ async function GetACORDFormWC(req, res, next){
 	let producer_email = '';
 	if(application_data[0].agencyEmail && application_data[0].agencyEmail.byteLength){
 		producer_email = await crypt.decrypt(application_data[0].agencyEmail);
-	}else{
+	}
+else{
 		missing_data.push('Producer contact email');
 	}
 
@@ -219,7 +224,8 @@ async function GetACORDFormWC(req, res, next){
 		const fName = await crypt.decrypt(application_data[0].contactFName);
 		const lName = await crypt.decrypt(application_data[0].contactLName);
 		contactName = `${fName} ${lName}`;
-	}else{
+	}
+else{
 		missing_data.push('Contact name');
 	}
 
@@ -228,7 +234,8 @@ async function GetACORDFormWC(req, res, next){
 	if(application_data[0].contactPhone && application_data[0].contactPhone.byteLength){
 		contactPhone = await crypt.decrypt(application_data[0].contactPhone);
 		contactPhone = `(${contactPhone.substr(0, 3)}) ${contactPhone.substr(3, 3)} - ${contactPhone.substr(6, 4)}`;
-	}else{
+	}
+else{
 		missing_data.push('Contact phone number');
 	}
 
@@ -236,7 +243,8 @@ async function GetACORDFormWC(req, res, next){
 	let contactEmail = '';
 	if(application_data[0].contactEmail && application_data[0].contactEmail.byteLength){
 		contactEmail = await crypt.decrypt(application_data[0].contactEmail);
-	}else{
+	}
+else{
 		missing_data.push('Contact email');
 	}
 
@@ -257,7 +265,8 @@ async function GetACORDFormWC(req, res, next){
 	}
 	if(application_data[0].has_ein){
 		ein = `${ein.substr(0, 2)} - ${ein.substr(2, 7)}`;
-	}else{
+	}
+else{
 		ein = `${ein.substr(0, 3)} - ${ein.substr(3, 2)} - ${ein.substr(5, 4)}`;
 	}
 
@@ -453,7 +462,8 @@ async function GetACORDFormWC(req, res, next){
 			if(!territories.includes(data.territory) && !territories.includes(`\n${data.territory}`)){
 				if(territories.length % 5 === 0){
 					territories.push(`\n${data.territory}`);
-				}else{
+				}
+else{
 					territories.push(data.territory);
 				}
 
@@ -476,7 +486,8 @@ async function GetACORDFormWC(req, res, next){
 				if(data.address && data.address.byteLength){
 					const address = await crypt.decrypt(data.address); // eslint-disable-line no-await-in-loop
 					street_address += `${address}`;
-				}else{
+				}
+else{
 					missing_data.push('Business location address');
 				}
 
@@ -511,7 +522,8 @@ async function GetACORDFormWC(req, res, next){
 						'text': `${street_address}\n${city}, ${data.territory} ${data.zip}`
 					});
 
-				}else{
+				}
+else{
 					// Add as next location
 					location_num = addresses.length + (found_mailing_address ? 0 : 1);
 
@@ -535,7 +547,8 @@ async function GetACORDFormWC(req, res, next){
 					// Only 3 locations on the first page
 					if(location_num < 4){
 						docDefinition.content = docDefinition.content.concat(new_location);
-					}else{
+					}
+else{
 						// Add the location to the overflow page
 					}
 
@@ -603,7 +616,8 @@ async function GetACORDFormWC(req, res, next){
 	territories.forEach((terr) => {
 		if(terr.trim() === 'CA'){
 			hasCA = true;
-		}else if(terr.trim() === 'OR'){
+		}
+else if(terr.trim() === 'OR'){
 			hasOR = true;
 		}
 	});
@@ -632,7 +646,8 @@ async function GetACORDFormWC(req, res, next){
 				limit1 = '1,000,000';
 				limit2 = '1,000,000';
 				limit3 = '1,000,000';
-			}else{
+			}
+else{
 				limit1 = '500,000';
 				limit2 = '1,000,000';
 				limit3 = '500,000';
@@ -644,7 +659,8 @@ async function GetACORDFormWC(req, res, next){
 				limit1 = '1,000,000';
 				limit2 = '1,000,000';
 				limit3 = '1,000,000';
-			}else{
+			}
+else{
 				limit1 = '500,000';
 				limit2 = '500,000';
 				limit3 = '500,000';
@@ -656,11 +672,13 @@ async function GetACORDFormWC(req, res, next){
 				limit1 = '1,000,000';
 				limit2 = '1,000,000';
 				limit3 = '1,000,000';
-			}else if(hasOR){
+			}
+else if(hasOR){
 				limit1 = '500,000';
 				limit2 = '500,000';
 				limit3 = '500,000';
-			}else{
+			}
+else{
 				limit1 = '100,000';
 				limit2 = '500,000';
 				limit3 = '100,000';
@@ -817,7 +835,8 @@ async function GetACORDFormWC(req, res, next){
 								if(Object.keys(seenCodes).includes(ncci)){
 									// Combine
 									activityCodes[seenCodes[ncci]] += payroll;
-								}else{
+								}
+else{
 									// Add this code as a separate code
 									activityCodes[activityCode] = payroll;
 
@@ -845,7 +864,8 @@ async function GetACORDFormWC(req, res, next){
 			'pageBreak': 'before',
 			'text': ''
 		});
-	}else{
+	}
+else{
 		docDefinition.content = docDefinition.content.concat(stateRatingResult);
 	}
 
@@ -935,10 +955,12 @@ async function GetACORDFormWC(req, res, next){
 			if(question.type === 1){
 				if(question.answer === 'Yes'){
 					question_answer = 'Y';
-				}else if(question.answer === 'No'){
+				}
+else if(question.answer === 'No'){
 					question_answer = 'N';
 				}
-			}else{
+			}
+else{
 				question_answer = question.text_answer;
 			}
 			const answer = {
@@ -949,7 +971,8 @@ async function GetACORDFormWC(req, res, next){
 			// If the question is on page 3, add it to page 3
 			if(general_information_questions[question.number] <= num_questions_page_3){
 				docDefinition.content.push(answer);
-			}else{
+			}
+else{
 				// The question is on page 4, add it to page 4 array to be added after document page break
 				page_4_questions.push(answer);
 			}
@@ -975,7 +998,8 @@ async function GetACORDFormWC(req, res, next){
 			// If the question is on page 3, add it to page 3
 			if(question <= num_questions_page_3){
 				docDefinition.content.push(answer);
-			}else{
+			}
+else{
 				// The question is on page 4, add it to page 4 array to be added after document page break
 				page_4_questions.push(answer);
 			}
@@ -1019,13 +1043,15 @@ async function GetACORDFormWC(req, res, next){
 			if(missing_data.length){
 				response.status = 'warning';
 				response.missing_data = missing_data;
-			}else{
+			}
+else{
 				response.status = 'ok';
 			}
 
 			res.send(200, response);
 		});
-	}else{
+	}
+else{
 		let ending = '';
 		doc.on('end', function(){
 			ending = Buffer.concat(chunks);

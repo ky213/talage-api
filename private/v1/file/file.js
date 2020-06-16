@@ -5,6 +5,9 @@
 'use strict';
 
 const serverHelper = require('../../../server.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
+const fileSvc = global.requireShared('services/filesvc.js');
 
 /* -----==== Version 1 Functions ====-----*/
 
@@ -28,27 +31,20 @@ function DeleteFile(req, res, next){
 	// Make sure a file path was provided
 	if(!path){
 		const errorMsg = 'You must specify a file path';
-		log.warn("File Service DEL: " +  errorMsg);
+		log.warn("File Service DEL: " + errorMsg + __location);
 		return next(serverHelper.requestError(errorMsg));
 	}
 
-	// Call out to S3
-	global.s3.deleteObject({
-		'Bucket': global.settings.S3_BUCKET,
-		'Key': path
-	}, function(err){
-		if(err){
-			log.warn("File Service DEL: " + err.message);
-			res.send(serverHelper.internalError(err.message));
-			return;
-		}
 
-		log.info('File Deleted, if it Existed');
+	fileSvc.deleteFile(path).then(function(data){
+		res.send(200, data);
+		next();
 
-		// Send the data back to the user
-		res.send(200, {'code': 'Success'});
+	}).catch(function(err){
+		log.error("File Service HTTP DELETE: " + err + __location);
+		res.send(500, "");
+		next(serverHelper.requestError("file delete error: " + err.message));
 	});
-	// FIXME: need to await completion and return next()
 }
 
 /**
@@ -71,25 +67,13 @@ function GetFile(req, res, next){
 	// Make sure a file path was provided
 	if(!path){
 		const errorMsg = 'You must specify a file path';
-		log.warn("File Service GET: " + errorMsg);
+		log.error("File Service GET: " + errorMsg + __location);
 		return next(serverHelper.requestError(errorMsg));
 	}
 
-	// Call out to S3
-	global.s3.getObject({
-		'Bucket': global.settings.S3_BUCKET,
-		'Key': path
-	}, function(err, data){
-		if(err){
-			log.error("File Service GET: " + err.message);
-			res.send(serverHelper.internalError(err.message));
-			return;
-		}
-
-		// Convert the Body to Base64
+	fileSvc.get(path).then(function(data){
 		data.Body = data.Body.toString('base64');
-
-		// Remove items we don't care about
+		//	Remove items we don't care about
 		delete data.AcceptRanges;
 		delete data.LastModified;
 		delete data.ETag;
@@ -100,8 +84,13 @@ function GetFile(req, res, next){
 
 		// Send the data back to the user
 		res.send(200, data);
+		next();
+
+	}).catch(function(err){
+		log.error("File Service HTTP GET: " + err + __location);
+		res.send(400, "");
+		next(serverHelper.requestError("file get error: " + err.message));
 	});
-	// FIXME: need to await completion and return next()
 }
 
 /**
@@ -124,16 +113,23 @@ function PutFile(req, res, next){
 	// Make sure a file path was provided
 	if(!path){
 		const errorMsg = 'You must specify a file path';
-		log.warn("File Service PUT: " + errorMsg);
+		log.warn("File Service PUT: " + errorMsg + __location);
 		return next(serverHelper.requestError(errorMsg));
 	}
 
 	// Make sure file data was provided
 	if(!Object.prototype.hasOwnProperty.call(req.body, 'data')){
 		const errorMsg = 'You must provide file data';
-		log.warn("File Service PUT: " + errorMsg);
+		log.warn("File Service PUT: " + errorMsg + __location);
 		return next(serverHelper.requestError(errorMsg));
 	}
+
+	if(Buffer.from(req.body.data, 'base64').toString('base64') !== req.body.data){
+		//convert to base64
+		const buff = Buffer.from(req.body.data);
+		req.body.data = buff.toString('base64');
+	}
+
 
 	// Conver to base64
 	const fileBuffer = Buffer.from(req.body.data, 'base64');
@@ -141,28 +137,19 @@ function PutFile(req, res, next){
 	// Make sure the data is valid
 	if(fileBuffer.toString('base64') !== req.body.data){
 		const errorMsg = 'The data you supplied is not valid. It must be base64 encoded';
-		log.warn("File Service PUT: " + errorMsg);
+		log.warn("File Service PUT: " + errorMsg + __location);
 		return next(serverHelper.requestError(errorMsg));
 	}
 
-	// Call out to S3
-	global.s3.putObject({
-		'Body': fileBuffer,
-		'Bucket': global.settings.S3_BUCKET,
-		'Key': path
-	}, function(err){
-		if(err){
-			log.error("File Service PUT: " + err.message);
-			res.send(serverHelper.internalError(err.message));
-			return;
-		}
+	fileSvc.PutFile(path, req.body.data).then(function(data){
+		res.send(200, data);
+		next();
 
-		log.info('File saved');
-
-		// Send the data back to the user
-		res.send(200, {'code': 'Success'});
+	}).catch(function(err){
+		log.error("File Service HTTP Put: " + err + __location);
+		res.send(400, "");
+		next(serverHelper.requestError("file get error: " + err.message));
 	});
-	// FIXME: need to await completion and return next()
 }
 
 /* -----==== Endpoints ====-----*/

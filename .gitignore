@@ -2,7 +2,8 @@ node_modules
 local.env
 *.env
 
-# Coverage Reports #
+# Coverage and Unit Test Reports #
 ####################
 coverage/
 .nyc_output/
+mochawesome-report/

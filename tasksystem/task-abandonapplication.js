@@ -2,8 +2,8 @@
 
 const moment = require('moment');
 const crypt = global.requireShared('./services/crypt.js');
-const email = global.requireShared('./services/email.js');
-const slack = global.requireShared('./services/slack.js');
+const email = global.requireShared('./services/emailsvc.js');
+const slack = global.requireShared('./services/slacksvc.js');
 // const outreachsvc = global.requireShared('./services/outreachsvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 
@@ -58,16 +58,16 @@ exports.taskProcessorExternal = async function(){
 
 var abandonAppTask = async function(){
 
-    await processTalageQuitters();
-
      const oneHourAgo = moment().subtract(1,'h');
      const twoHourAgo = moment().subtract(2,'h');
      //get list....
+     // We need an agency to look email templates in the database
+     // Agency cannot be NULL or zero.
     const appIdSQL = `
             SELECT DISTINCT
                 a.id as 'applicationId' 
             FROM clw_talage_applications a
-            WHERE  a.agency > 1 AND a.wholesale = 0 
+            WHERE  a.agency > 0 
                 AND a.created BETWEEN  '${twoHourAgo.utc().format()}' AND '${oneHourAgo.utc().format()}'
                 AND a.last_step BETWEEN 1 AND 7
                 AND a.solepro  = 0
@@ -78,8 +78,6 @@ var abandonAppTask = async function(){
 	let appIds = null;
 	try{
         appIds = await db.query(appIdSQL);
-        // log.debug('returned appIds');
-        // log.debug(JSON.stringify(appIds));
     }
     catch(err){
 		log.error("abandonAppTask getting appid list error " + err);
@@ -166,8 +164,6 @@ var processAbandonApp = async function(applicationId){
                 (SELECT JSON_EXTRACT(custom_emails, '$.abandoned_applications_customer')  FROM  clw_talage_agency_networks WHERE id = 1 ) AS defaultCustomerEmailData
             FROM clw_talage_agency_networks
             WHERE id = ${db.escape(agencyNetwork)}
-            ORDER BY id DESC
-            LIMIT 2; 
         `;
 
         let error = null;
@@ -225,7 +221,7 @@ var processAbandonApp = async function(applicationId){
             const emailResp = await email.send(appDBJSON[0].email, subject, message, keys , appDBJSON[0].emailBrand, appDBJSON[0].agency);
             //log.debug("emailResp = " + emailResp);
             if(emailResp === false){
-               slack('#alerts', 'warning',`The system failed to remind the insured to revisit their application ${applicationId}. Please follow-up manually.`, {'application_id': applicationId});
+               slack.send('#alerts', 'warning',`The system failed to remind the insured to revisit their application ${applicationId}. Please follow-up manually.`, {'application_id': applicationId});
             }
             return true;
         }
@@ -251,39 +247,4 @@ var markApplicationProcess = async function(applicationId){
 		log.error('Abandon Application flag update error: ' + e.message);
 		throw e;
 	});
-};
-
-
-/**
- * processTalageQuitters changes state for Talage apps.
- *
- * @param {void} - message from queue
- * @returns {void}
- */
-var processTalageQuitters = async function(){
-    const datetimeFormat = 'YYYY-MM-DD hh:mm';
-    const oneHourAgo = moment().subtract(1,'h');
-    const twoHourAgo = moment().subtract(2,'h');
-
-    const updateAppSQL = `
-    UPDATE clw_talage_applications 
-        SET state = 10
-    WHERE ( agency IS NULL AND agency = 1 OR wholesale = 1 )
-        AND created BETWEEN  '${twoHourAgo.utc().format(datetimeFormat)}' AND '${oneHourAgo.utc().format(datetimeFormat)}'
-        AND last_step BETWEEN 1 AND 7
-        AND solepro  = 0
-        and abandoned_app_email = 0
-        AND state  = 1
-    `;
-    //log.debug(updateAppSQL)
-
-
-    await db.query(updateAppSQL).catch(function(e){
-        log.error('Abandon Application Talage or wholesale state update error: ' + e.message);
-        //do not throw error.  wholesale needs to run.
-        // throw e;
-    });
-
-    return;
-
 };
