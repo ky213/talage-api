@@ -174,7 +174,7 @@ async function getAgency(req, res, next){
 				${db.quoteName('logo')},
 				${db.quoteName('website')},
 				${db.quoteName('slug')},
-				${db.quoteName('enable_optout')},
+				${db.quoteName('enable_optout')}
 			FROM ${db.quoteName('#__agencies')}
 			WHERE ${db.quoteName('id')} = ${agent}
 			LIMIT 1;
