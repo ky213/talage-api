@@ -84,9 +84,11 @@ async function PostEmail(req, res, next){
 
 	//call email service
 	const respSendEmail = await emailSvc.send(req.body.to, req.body.subject, req.body.html, req.body.keys, req.body.brand, req.body.agency, req.body.attachments).catch(function(err){
+		log.error("Send email error: " + err + __location);
 		return next(serverHelper.requestError(err));
 	});
 	if(respSendEmail === false){
+		log.error("Send email error response was false: " + __location);
 		return next(serverHelper.requestError("SendEmail Error"));
 	}
 	return next();
