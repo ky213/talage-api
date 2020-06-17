@@ -265,7 +265,7 @@ var sendUsingSendGrid = async function(emailJSON){
 
 	// Initialize the email object
 	await Sendgrid.send(emailJSON).then(function(){
-		log.info('Email successfully sent' + __location);
+		log.info('Email successfully sent.' + __location);
 		return true;
 	}).catch(function(error){
 
