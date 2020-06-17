@@ -197,7 +197,8 @@ async function updateSettings(req, res, next){
 	};
 
 	settings.slug = req.body.settings.slug ? req.body.settings.slug : '';
-
+	settings.enable_optout = req.body.settings.enable_optout ? req.body.settings.enable_optout : 0;
+	
 	let logo = null;
 	if (Object.prototype.hasOwnProperty.call(req.body.settings, 'logo') && req.body.settings.logo){
 		settings.logo = req.body.settings.logo;
