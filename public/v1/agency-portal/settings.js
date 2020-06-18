@@ -23,7 +23,7 @@ async function getSettings(req, res, next){
 	if (error){
 		return next(error);
 	}
-
+	// Todo replace to use Model
 	const sql = `
 			SELECT
 				\`name\`,

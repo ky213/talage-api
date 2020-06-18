@@ -100,7 +100,7 @@
 			"deprecate"
 		],
 		"ignorePatterns": [
-			"public/v1/agency-portal/helpers/models/DatabaseObject.js"
+			"shared/models/DatabaseObject.js"
 		],
 		"rules": {
 			"accessor-pairs": "error",

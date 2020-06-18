@@ -3,6 +3,8 @@
 // Add global helpers to load shared modules
 global.sharedPath = require('path').join(__dirname, 'shared');
 global.requireShared = (moduleName) => require(`${global.sharedPath}/${moduleName}`);
+global.rootPath = require('path').join(__dirname, '/');
+global.requireRootPath = (moduleName) => require(`${global.rootPath}/${moduleName}`);
 
 const colors = require('colors');
 const logger = require('./shared/services/logger.js');

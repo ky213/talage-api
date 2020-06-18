@@ -1,5 +1,5 @@
 'use strict';
-const Agency = require('./helpers/models/Agency.js');
+const AgencyModel = global.requireShared('models/Agency-model.js');
 const crypt = global.requireShared('./services/crypt.js');
 const util = require('util');
 const sendOnboardingEmail = require('./helpers/send-onboarding-email.js');
@@ -78,7 +78,7 @@ async function deleteAgency(req, res, next){
 		log.info('Forbidden: User is not authorized to delete this agency');
 		return next(serverHelper.forbiddenError('You are not authorized to delete this agency'));
 	}
-
+	// TODO Move to model
 	// Update the user (we set the state to -2 to signify that the user is deleted)
 	const updateSQL = `
 			UPDATE \`#__agencies\`
@@ -451,7 +451,7 @@ async function postAgency(req, res, next){
 	// Begin compiling a list of territories
 	const insurerIDs = [];
 	let territoryAbbreviations = [];
-
+	// TODO Move to Model
 	// Build a query for getting all insurers with their territories
 	const insurersSQL = `
 			SELECT
@@ -806,14 +806,14 @@ async function updateAgency(req, res, next){
 	});
 
 	// Initialize an agency object
-	const agency = new Agency();
+	const agency = new AgencyModel();
 
 	// Load the request data into it
 	await agency.load(req.body).catch(function(err){
 		error = err;
 	});
 	if (error){
-		return next(error);
+		return next(serverHelper.internalError(error));
 	}
 
 	// Save the agency
@@ -821,7 +821,7 @@ async function updateAgency(req, res, next){
 		error = err;
 	});
 	if (error){
-		return next(error);
+		return next(serverHelper.internalError(error));
 	}
 
 	// Send back a success response
