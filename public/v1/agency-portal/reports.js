@@ -93,7 +93,7 @@ async function getReports(req, res, next) {
 		where = `${db.quoteName('a.solepro')} = 1`;
 	}
  else if (agencyNetwork === 2) {
-		where += ' AND a.agency != 42';
+		where += ' AND a.agency != 42 ';
 	}
 
 	// List of accepted parameters to query from the database
@@ -171,7 +171,7 @@ async function getReports(req, res, next) {
 						0
 					)) AS ${db.quoteName('bound')}
 				FROM ${db.quoteName('#__quotes', 'q')}
-				LEFT JOIN ${db.quoteName('#__applications', 'a')} ON ${db.quoteName('a.id')} = ${db.quoteName('q.application')}
+				INNER JOIN ${db.quoteName('#__applications', 'a')} ON ${db.quoteName('a.id')} = ${db.quoteName('q.application')}
 				WHERE
 					${where} AND
 					${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate} AND
