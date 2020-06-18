@@ -60,7 +60,8 @@ dir.files(__dirname, function (err, files) {
                   && file.indexOf('test') === -1
                   && file.indexOf('coverage') === -1
                   && file.indexOf('.json') === -1
-                  && file.indexOf('.js') > -1) {
+                  && file.indexOf('.js') > -1
+                  && file.indexOf('mochawesome-report') === -1) {
                //console.log('processing  - ' + file);
                var src = fs.readFileSync(file, 'utf8');
                //console.log(src);

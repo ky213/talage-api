@@ -50,7 +50,7 @@ async function getReports(req, res, next) {
 	let error = false;
 
 	// Get the agents that we are permitted to view
-	const agents = await auth.getAgents(req).catch(function (e) {
+	const agents = await auth.getAgents(req).catch(function(e) {
 		error = e;
 	});
 	if (error) {
@@ -77,7 +77,8 @@ async function getReports(req, res, next) {
 		if (startDate && endDate) {
 			startDate = db.escape(`${startDate.substring(0, 10)} ${startDate.substring(11, 19)}`);
 			endDate = db.escape(`${endDate.substring(0, 10)} ${endDate.substring(11, 19)}`);
-		} else {
+		}
+ else {
 			log.info('Bad Request: Query parameters missing');
 			return next(serverHelper.requestError('Query parameters missing'));
 		}
@@ -90,8 +91,9 @@ async function getReports(req, res, next) {
 	let where = `${db.quoteName('a.agency')} IN(${agents.join(',')})`;
 	if (!agencyNetwork && agents[0] === 12) {
 		where = `${db.quoteName('a.solepro')} = 1`;
-	} else if (agencyNetwork === 2) {
-		where += ' AND a.agency != 42';
+	}
+ else if (agencyNetwork === 2) {
+		where += ' AND a.agency != 42 ';
 	}
 
 	// List of accepted parameters to query from the database
@@ -101,7 +103,7 @@ async function getReports(req, res, next) {
 					COUNT(\`a\`.\`id\`)  AS \`started\`,
 					SUM(IF(\`a\`.\`last_step\` >= 8, 1, 0)) AS \`completed\`,
 					SUM((SELECT 1 FROM \`clw_talage_quotes\` AS \`q\` WHERE \`q\`.\`application\` = \`a\`.\`id\` AND (\`q\`.\`bound\` = 1 OR \`q\`.\`status\` = 'bind_requested' OR \`q\`.\`api_result\` = 'quoted' OR \`q\`.\`api_result\` = 'referred_with_price') LIMIT 1)) AS \`quoted\`,
-					SUM((SELECT 1 FROM \`clw_talage_quotes\` AS \`q\` WHERE \`q\`.\`application\` = \`a\`.\`id\` AND (\`q\`.\`bound\` = 1 OR \`q\`.\`status\` = 'bind_requested'))) AS \`bound\`
+					SUM((SELECT 1 FROM \`clw_talage_quotes\` AS \`q\` WHERE \`q\`.\`application\` = \`a\`.\`id\` AND (\`q\`.\`bound\` = 1 OR \`q\`.\`status\` = 'bind_requested') LIMIT 1)) AS \`bound\`
 				FROM \`#__applications\` AS \`a\`
 				WHERE
 					${where} AND
@@ -156,12 +158,8 @@ async function getReports(req, res, next) {
 			WHERE
 				${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate} AND
 				${where}
-			GROUP BY YEAR(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')), MONTH(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')), MONTHNAME(CONVERT_TZ(${db.quoteName(
-			'a.created'
-		)}, '+00:00', '${utcOffset}'))
-			ORDER BY YEAR(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')), MONTH(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')), MONTHNAME(CONVERT_TZ(${db.quoteName(
-			'a.created'
-		)}, '+00:00', '${utcOffset}'));
+			GROUP BY YEAR(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')), MONTH(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')), MONTHNAME(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}'))
+			ORDER BY YEAR(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')), MONTH(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')), MONTHNAME(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}'));
 			`,
 
 		premium: `
@@ -173,7 +171,7 @@ async function getReports(req, res, next) {
 						0
 					)) AS ${db.quoteName('bound')}
 				FROM ${db.quoteName('#__quotes', 'q')}
-				LEFT JOIN ${db.quoteName('#__applications', 'a')} ON ${db.quoteName('a.id')} = ${db.quoteName('q.application')}
+				INNER JOIN ${db.quoteName('#__applications', 'a')} ON ${db.quoteName('a.id')} = ${db.quoteName('q.application')}
 				WHERE
 					${where} AND
 					${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate} AND
@@ -183,12 +181,15 @@ async function getReports(req, res, next) {
 	};
 	//log.debug(queries['monthlyTrends']);
 	// Define a list of queries to be executed based on the request type
-	const selectedQueries = initialRequest ? ['minDate', 'hasApplications'] : ['funnel', 'geography', 'industries', 'monthlyTrends', 'premium'];
+	const selectedQueries = initialRequest ? ['minDate', 'hasApplications'] : ['funnel',
+'geography',
+'industries',
+'monthlyTrends',
+'premium'];
 
 	// Query the database and build a response for the client
 	const response = {};
-	await Promise.all(
-		selectedQueries.map(async (queryName) => {
+	await Promise.all(selectedQueries.map(async(queryName) => {
 			// Query the database and wait for a result
 			const result = await db.query(queries[queryName]).catch((err) => {
 				log.error(err.message);
@@ -196,7 +197,10 @@ async function getReports(req, res, next) {
 			});
 
 			// Names of reports that should be handled by the singleRowResult helper method
-			const singleRowQueries = ['funnel', 'hasApplications', 'minDate', 'premium'];
+			const singleRowQueries = ['funnel',
+'hasApplications',
+'minDate',
+'premium'];
 
 			// Process the result
 			let processedResult = null;
@@ -204,7 +208,8 @@ async function getReports(req, res, next) {
 				if (singleRowQueries.includes(queryName)) {
 					// Extract single row result
 					processedResult = singleRowResult(result, queryName);
-				} else {
+				}
+ else {
 					// Parse multirow results - provide start and end dates as options
 					processedResult = multiRowResult(result);
 				}
@@ -223,7 +228,7 @@ async function getReports(req, res, next) {
 						processedResult = processedResult.slice(0, 8);
 
 						// Alphabetize what's left of the array
-						processedResult.sort(function (a, b) {
+						processedResult.sort(function(a, b) {
 							if (a[1] < b[1]) {
 								return -1;
 							}
@@ -235,9 +240,10 @@ async function getReports(req, res, next) {
 
 						// Append in an 'other' field
 						processedResult.push(['Other', other]);
-					} else {
+					}
+ else {
 						// Alphabetize the array
-						processedResult.sort(function (a, b) {
+						processedResult.sort(function(a, b) {
 							if (a[1] < b[1]) {
 								return -1;
 							}
@@ -252,8 +258,7 @@ async function getReports(req, res, next) {
 
 			// Add it to the response
 			response[queryName] = processedResult ? processedResult : null;
-		})
-	);
+		}));
 
 	// Send the response
 	res.send(200, response);

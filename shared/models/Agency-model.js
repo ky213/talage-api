@@ -113,6 +113,13 @@ const properties = {
 			validator.website
 		],
 		'type': 'string'
+	},
+	'enable_optout': {
+		'default': 0,
+		'encrypted': false,
+		'required': false,
+		'rules': [],
+		'type': 'number'
 	}
 };
 

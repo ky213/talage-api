@@ -3,6 +3,13 @@
 const serverHelper = require('../../../server.js');
 const colorConverter = require('color-converter').default;
 
+/**
+ * Calculates an accent color for a custom color scheme
+ *
+ * @param {object} rgbColorString - A color
+ *
+ * @returns {string} The color's accent color
+ */
 function calculateAccentColor(rgbColorString) {
 	// TODO: move this to retrieving the color scheme so that we can adjust this on-the-fly -SF
 	// We calculate the accents based on the HSV color space.
@@ -10,13 +17,21 @@ function calculateAccentColor(rgbColorString) {
 	// Keep the saturation in the range of 0.2 - 0.8
 	if (color.saturation > 0.5) {
 		color.saturation = Math.max(0.2, color.saturation - 0.5);
-	} else {
+	}
+ else {
 		color.saturation = Math.min(0.8, color.saturation + 0.5);
 	}
 	return color.toHex();
 }
 
-async function validate(request, next) {
+/**
+ * Validates the input to the endpoint
+ *
+ * @param {object} request - HTTP request object
+ *
+ * @returns {String} The validated request data
+ */
+async function validate(request) {
 	// Establish default values
 	const data = {
 		primary: '',
@@ -30,16 +45,19 @@ async function validate(request, next) {
 	// For now only validating the primary and secondary color schemes
 	if (!Object.prototype.hasOwnProperty.call(request.body, 'primary') || !request.body.primary) {
 		throw new Error('You must choose a primary color');
-	} else {
+	}
+ else {
 		data.primary = request.body.primary;
 	}
 	if (!Object.prototype.hasOwnProperty.call(request.body, 'secondary') || !request.body.secondary) {
 		throw new Error('You must choose a secondary color');
-	} else {
+	}
+ else {
 		data.secondary = request.body.secondary;
 	}
 	return data;
 }
+
 /**
  * Retrieves available color schemes
  *
@@ -68,7 +86,8 @@ async function getColorSchemes(req, res, next) {
 		const colorSchemes = await db.query(colorSchemesSQL);
 		// Send the data back
 		res.send(200, colorSchemes);
-	} catch (err) {
+	}
+ catch (err) {
 		log.error(err.message);
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	}
@@ -93,7 +112,7 @@ async function putColorScheme(req, res, next) {
 	}
 
 	// Validate the request and get back the data
-	const data = await validate(req, next).catch(function (err) {
+	const data = await validate(req).catch(function(err) {
 		error = err.message;
 	});
 	if (error) {
@@ -109,7 +128,7 @@ async function putColorScheme(req, res, next) {
 		WHERE \`primary\` = ${db.escape(data.primary)} && \`secondary\` = ${db.escape(data.secondary)}
 	`;
 	// variable to hold existing id
-	const exisitingColorId = await db.query(recordSearchQuery).catch(function (err) {
+	const exisitingColorId = await db.query(recordSearchQuery).catch(function(err) {
 		log.error(`Error when trying to check if custom color already exists. \n ${err.message}`);
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});
@@ -130,19 +149,18 @@ async function putColorScheme(req, res, next) {
 		const sql = `
 				INSERT INTO \`#__color_schemes\` 
 				(\`name\`, \`primary\`,\`primary_accent\`,\`secondary\`,\`secondary_accent\`,\`tertiary\`,\`tertiary_accent\`)
-				VALUES (${db.escape(`Custom`)}, ${db.escape(data.primary)}, ${db.escape(data.primary_accent)}, ${db.escape(data.secondary)}, ${db.escape(data.secondary_accent)}, ${db.escape(
-			data.tertiary
-		)}, ${db.escape(data.tertiary_accent)})
+				VALUES (${db.escape(`Custom`)}, ${db.escape(data.primary)}, ${db.escape(data.primary_accent)}, ${db.escape(data.secondary)}, ${db.escape(data.secondary_accent)}, ${db.escape(data.tertiary)}, ${db.escape(data.tertiary_accent)})
 		`;
 		// Run the query
-		const createCustomColorResult = await db.query(sql).catch(function (err) {
+		const createCustomColorResult = await db.query(sql).catch(function(err) {
 			log.error(err.message);
 			return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 		});
 		// Make sure the query was successful
 		if (createCustomColorResult.affectedRows === 1) {
 			newColorId = createCustomColorResult.insertId;
-		} else {
+		}
+ else {
 			log.error('Custom color scheme update failed. Query ran successfully; however, no records were affected.');
 			return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 		}
