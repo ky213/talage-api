@@ -197,6 +197,10 @@ exports.rollback = function(connection){
 	log.info('Database transaction rolledback');
 };
 
+exports.dbTimeFormat = function(){
+	return 'YYYY-MM-DD hh:mm:ss';
+};
+
 /**
  * Modifies the String prototype and adds a new capability, 'toSnakeCase' which will convert
  * the string to snake_case. Usage: string.toSnakeCase()

@@ -198,13 +198,14 @@ async function updateSettings(req, res, next){
 
 	settings.slug = req.body.settings.slug ? req.body.settings.slug : '';
 	settings.enable_optout = req.body.settings.enable_optout ? req.body.settings.enable_optout : 0;
-	
+
 	let logo = null;
 	if (Object.prototype.hasOwnProperty.call(req.body.settings, 'logo') && req.body.settings.logo){
 		settings.logo = req.body.settings.logo;
 
 		if (Object.prototype.hasOwnProperty.call(req.body, 'removeLogo') && req.body.removeLogo){
 			// Establish the options for the request
+			//TODO convert to Filesvc.
 			const options = {
 				"method": 'DELETE',
 				"url": `http://localhost:${global.settings.PRIVATE_API_PORT}/v1/file/file?path=public/agency-logos/${req.body.removeLogo}`
