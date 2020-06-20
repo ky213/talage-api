@@ -40,12 +40,11 @@ async function Save(req, res, next){
 
 	// TODO Prep request data for passing to App Model
 	const applicationRequestJson = req.body;
-	applicationRequestJson.referrer = req.headers;
 	switch (applicationRequestJson.step) {
 		case "contact":
-			const resp = contactStepParser.process(applicationRequestJson);
-			log.debug(resp);
-			log.debug(JSON.stringify(applicationRequestJson))
+			contactStepParser.process(applicationRequestJson);
+			// log.debug(resp);
+			// log.debug(JSON.stringify(applicationRequestJson))
 			break;
 		case 'locations':
 			// Get parser for locations page
@@ -86,20 +85,29 @@ async function Save(req, res, next){
 	}
 	const applicationModel = new ApplicationModel();
 
-
-    applicationModel.newApplication(applicationRequestJson, true).then(function(modelResponse){
+	let responseObj = {};
+    await applicationModel.newApplication(applicationRequestJson, true).then(function(modelResponse){
 		if(modelResponse === true){
+
+			responseObj.demo = applicationRequestJson.demo;
+			responseObj.id = applicationModel.id;
+			//associations
 			res.send(200, applicationModel);
 		}
 		else {
+			//modelReponse is list of validation errors.
+			//validationErrors
 			res.send(400, modelResponse);
 		}
 		return next();
     }).catch(function(err){
+		//serverError
         res.send(500, err.message);
-		next(serverHelper.requestError('Unable to save. ' + err.message));
+		return next(serverHelper.requestError('Unable to save. ' + err.message));
 
     });
+
+    log.debug('end of request processing');
 }
 
 /* -----==== Endpoints ====-----*/

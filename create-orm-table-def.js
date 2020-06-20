@@ -115,6 +115,7 @@ async function main(){
         if(fieldDef.Type === "blob"){
             ormFieldDef.encrypted = true;
         }
+
         if(fieldDef.Extra && fieldDef.Extra === 'auto_increment'){
             ormFieldDef.default = 0;
         }
@@ -126,11 +127,19 @@ async function main(){
                 ormFieldDef.default = fieldDef.Default;
             }
         }
-        else if (fieldDef.Null === "NO" && (ormFieldDef.type === 'string')){
+        else if (fieldDef.Null === "NO" && ormFieldDef.type === 'string'){
             ormFieldDef.default = "";
         }
-        else if (fieldDef.Null === "NO" && (ormFieldDef.type === 'number')){
+        else if (fieldDef.Null === "NO" && ormFieldDef.type === 'number'){
             ormFieldDef.default = 0;
+        }
+        if(fieldDef.Null === "NO"){
+            ormFieldDef.required = true;
+        }
+        if(fieldDef.Type === "timestamp" || fieldDef.Type === "date" || fieldDef.Type === "datetime"){
+            ormFieldDef.type = fieldDef.Type;
+            ormFieldDef.required = false;
+            ormFieldDef.default = null;
         }
 
         ormTableDef[fieldDef.Field] = ormFieldDef;

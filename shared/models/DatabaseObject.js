@@ -8,8 +8,10 @@
 'use strict';
 
 const crypt = global.requireShared('./services/crypt.js');
-//const serverHelper = require('../../../server.js');
 const serverHelper = global.requireRootPath('server.js');
+const moment = require('moment');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 const validator = global.requireShared('./helpers/validator.js');
 
 module.exports = class DatabaseObject {
@@ -45,28 +47,70 @@ module.exports = class DatabaseObject {
 				// Performs validation and sets the property into the local value
 				set: (value) => {
 					let expectedDataType = this.#properties[property].type;
+					if(value){
 
-					// Verify the data type
-					if (expectedDataType !== typeof value) {
-						throw serverHelper.internalError(`Unexpected data type for ${property}, expecting ${this.#properties[property].type}`);
-					}
+						// Verify the data type
+                        // Special timestamp and Date processing
+                        if(expectedDataType === "timestamp" 
+                            || expectedDataType === "date" 
+                            ||expectedDataType === "datetime"){
+                            let errorMessage = null;
+							try{
+                                if("object" === typeof value){
+                                    value = JSON.stringify(value)
+                                    value = value.replace(/"/g,'');
+                                } 
+                                else if("string" === typeof value){
+                                    value = value.replace(/"/g,'');
+                                }
+                                else {
+                                    errorMessage = `Unexpected data type for ${property}, expecting ${this.#properties[property].type}. supplied Type: ${badType} value: ` + JSON.stringify(value);
+                                    log.error(errorMessage + __location)
+                                }  
+							}
+							catch(e){
+                                errorMessage = `Datetime procesing error for ${property}, expecting ${this.#properties[property].type}. supplied Type: ${badType} value: ` + JSON.stringify(value) + " error: " + e;
+								log.error(errorMessage + __location)
+                            }
+                            if(errorMessage){
+                                throw serverHelper.internalError(errorMessage);
+                            }
+						}
+						else {
+                            if (expectedDataType !== typeof value) {
+                                const badType = typeof value;
+                                const errorMessage = `Unexpected data type for ${property}, expecting ${this.#properties[property].type}. supplied Type: ${badType} value: ` + JSON.stringify(value);
+                                log.error(errorMessage + __location)
+                                throw serverHelper.internalError(errorMessage);
+                            }
+                        }
 
-					// For strings, trim whitespace
-					if (typeof value === 'string') {
-						value = value.trim();
-					}
+						// For strings, trim whitespace
+						if (typeof value === 'string') {
+							value = value.trim();
+						}
 
-					// Validate the property value
-					if (this.#properties[property].rules) {
-						for (const func of this.#properties[property].rules) {
-							if (!func(value)) {
-								throw serverHelper.requestError(`The ${property} you provided is invalid`);
+						// Validate the property value
+						if (this.#properties[property].rules) {
+							for (const func of this.#properties[property].rules) {
+								if (!func(value)) {
+                                    log.error(`The ${property} you provided is invalid, expecting ${this.#properties[property].type}. value: ` + JSON.stringify(value) );
+									throw serverHelper.requestError(`The ${property} you provided is invalid`);
+								}
 							}
 						}
-					}
 
-					// Set the value locally
-					this[`#${property}`] = value;
+						// Set the value locally
+						this[`#${property}`] = value;
+					}
+					else {
+						//if null is provide, probably from database, leave at defualt
+						// unless string.
+						if (expectedDataType !== typeof value) {
+							this[`#${property}`] = "";
+						}
+					}
+					
 				}
 			});
 		}
@@ -78,19 +122,27 @@ module.exports = class DatabaseObject {
 	 * Populates this object with data
 	 *
 	 * @param {object} data - Data to be loaded
+	 * @param {boolean} isObjLoad - true = loading JSONobj, false = loading result from database query
 	 * @returns {Promise.<Boolean, Error>} A promise that returns true if resolved, or an Error if rejected
 	 */
-	load(data) {
+	load(data, isObjLoad = true) {
 		return new Promise((fulfill, reject) => {
 			let rejected = false;
+			let rejectError = null
 
 			// Loop through and load all data items into this object
 			for (const property in this.#properties) {
 				// Only set properties that were provided in the data
-				if (!Object.prototype.hasOwnProperty.call(data, property) || !data[property]) {
+				// if from database ignore required rules.
+				if (isObjLoad === true  && (!Object.prototype.hasOwnProperty.call(data, property) || !data[property])) {
 					// Enforce required fields
 					if (this.#properties[property].required) {
-						throw serverHelper.requestError(`${property} is required`);
+						log.error(`${this.#table}.${property} is required` + __location)
+						if(isObjLoad === true)
+							throw serverHelper.requestError(`${property} is required`);
+
+						rejectError = new Error(`${this.#table}.${property} is required`)
+						
 					}
 
 					continue;
@@ -106,8 +158,11 @@ module.exports = class DatabaseObject {
 						try {
 							obj.load(itemData);
 						} catch (e) {
+							log.error(`${this.#table}.${property} caused error: ` + e + __location)
 							rejected = true;
-							reject(e);
+							rejectError = e
+							if(isObjLoad === true)
+								reject(e);
 						}
 						if (rejected) {
 							return;
@@ -117,22 +172,31 @@ module.exports = class DatabaseObject {
 						data[property][index] = obj;
 					});
 				}
-				if (rejected) {
+				if (rejected && isObjLoad === true) {
 					break;
 				}
 
 				// Store the value of the property in this object
 				try {
-					this[property] = data[property];
+					//skip nulls
+					if(data[property]){
+						this[property] = data[property];
+					}
 				} catch (error) {
+					log.error(`${this.#table}.${property} caused error: ` + error + "value: " + data[property] + __location)
 					rejected = true;
-					reject(error);
+					rejectError = error
+					if(isObjLoad === true)
+						reject(error);
 				}
-			}
 
-			if (rejected) {
-				return;
 			}
+			if (rejected && isObjLoad === false){
+				reject(rejectError);
+			}
+			if (rejected && isObjLoad === true) {
+				return; 
+			} 
 
 			fulfill(true);
 		});
@@ -249,11 +313,17 @@ module.exports = class DatabaseObject {
 					// Check if we need to encrypt this value, and if so, encrypt
 					if (this.#properties[property].encrypted && value) {
 						value = await crypt.encrypt(value);
+                    }
+                    if(this.#properties[property].type === "timestamp" || this.#properties[property].type === "date" || this.#properties[property].type === "datetime"){
+						value = this.dbDateTimeString(value);
 					}
 
-					// Store the column and value
-					columns.push(`\`${property.toSnakeCase()}\``);
-					values.push(`${db.escape(value)}`);
+                    // Store the column and value
+                    if(value){
+                        columns.push(`\`${property.toSnakeCase()}\``);
+					    values.push(`${db.escape(value)}`);
+                    }
+					
 				}
 			}
 			log.debug('making sql')
@@ -296,10 +366,10 @@ module.exports = class DatabaseObject {
 			}
 
 			// Store the ID in this object
-			log.debug(`new record  in ${this.#table} `);
+			
 			this['id'] = result.insertId;
-			log.debug(`new record ${this.#table} id:  ` + result.insertId);
-			log.debug(`new record ${this.#table} id:  ` + this.id);
+			log.info(`new record ${this.#table} id:  ` + result.insertId);
+			// log.debug(`new record ${this.#table} id:  ` + this.id);
 
 			fulfill(true);
 		});
@@ -332,9 +402,14 @@ module.exports = class DatabaseObject {
 					if (this.#properties[property].encrypted && value) {
 						value = await crypt.encrypt(value);
 					}
-
-					// Write the set statement for this value
-					setStatements.push(`\`${property.toSnakeCase()}\` = ${db.escape(value)}`);
+					if(this.#properties[property].type === "timestamp" || this.#properties[property].type === "date" || this.#properties[property].type === "datetime"){
+						value = this.dbDateTimeString(value);
+					}
+                    if(value){
+                        // Write the set statement for this value
+					    setStatements.push(`\`${property.toSnakeCase()}\` = ${db.escape(value)}`);
+                    }
+					
 				}
 			}
 
@@ -374,11 +449,74 @@ module.exports = class DatabaseObject {
 			fulfill(true);
 		});
 	}
+
+	/**
+	 * Update an existing database object
+	 *
+	 * @returns {Promise.<Boolean, Error>} A promise that returns true if resolved, or an Error if rejected
+	 */
+	getById(id) {
+		return new Promise(async (fulfill, reject) => {
+			let rejected = false;
+   			// Create the update query
+			const sql = `
+				select * from ${this.#table} 
+				WHERE
+					\`id\` = ${db.escape(id)}
+				LIMIT 1;
+			`;
+
+			// Run the query
+			const result = await db.query(sql).catch(function (error) {
+				// Check if this was
+			
+				rejected = true;
+				log.error(`getById ${this.#table} id: ${db.escape(this.id)}  error ` + error + __location)
+				reject(error);
+			});
+			if (rejected) {
+				return;
+			}
+			// log.debug("getbyId results: " + JSON.stringify(result));
+			if(result && result.length === 1){
+				this.load(result[0], false).catch(function(err){
+					log.error("getById error loading object: " + err);
+					//not reject on issues from database object.
+					//reject(err);
+				})
+			}
+			else {
+				reject(new Error("not found"));
+				return
+			}
+			fulfill(true);
+		});
+	}
+
 	cleanJSON(){
 		let propertyNameJson = {};
 		for (const property in this.#properties) {
 			propertyNameJson[property] = this[`#${property}`]
 		}
 		return propertyNameJson;
+	}
+
+	dbDateTimeString(value){
+        const datetimeFormat = db.dbTimeFormat();
+        let returnValue= null;
+        try{
+            var properyDateTime = moment(value).utc();
+            
+            returnValue =  properyDateTime.utc().format(datetimeFormat)
+            if(returnValue === 'Invalid date'){
+                returnValue = null;
+            }
+        }
+        catch(e){
+            log.debug('dbDateTimeString error processing: ' + value);
+        }
+
+        return returnValue;
+	
 	}
 };
