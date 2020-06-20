@@ -18,6 +18,7 @@ const convertToIntFields = ["industry_code"]
 
 module.exports = class ApplicationModel{
 
+  #applicationORM = null;
 
 	constructor(){
 		this.agencyLocation = null;
@@ -26,8 +27,8 @@ module.exports = class ApplicationModel{
 		this.insurers = [];
 		this.policies = [];
 		this.questions = {};
-        this.test = false;
-        this.applicationORM = new ApplicationOrm();
+    this.test = false;
+    this.#applicationORM = new ApplicationOrm();
     }
 
 
@@ -80,18 +81,19 @@ module.exports = class ApplicationModel{
                    applicationJSON.uuid = uuidv4().toString();
                  }
                 //$app->created_by = $user->id;
-                this.applicationORM.load(applicationJSON).catch(function(err){
+                this.#applicationORM.load(applicationJSON).catch(function(err){
                   log.error("Error loading application orm " + err);
                 });
-                this.applicationORM.uuid = applicationJSON.uuid;
+                this.#applicationORM.uuid = applicationJSON.uuid;
                 //setup business
 
                 //save
-                await this.applicationORM.save().catch(function(err){
+                await this.#applicationORM.save().catch(function(err){
                     reject(err);
                 });
-                log.debug(JSON.stringify(this.applicationORM));
-                this.id = this.applicationORM.id;
+                this.updateProperty();
+                log.debug(JSON.stringify(this.#applicationORM));
+                this.id = this.#applicationORM.id;
 
                 resolve(true);
 
@@ -150,6 +152,13 @@ module.exports = class ApplicationModel{
         }
     }
 
+    updateProperty(){
+      const dbJSON = this.#applicationORM.cleanJSON()
+      // eslint-disable-next-line guard-for-in
+      for (const property in properties) {
+          this[property] = dbJSON[property];
+      }
+    }
 }
 
 const properties = {

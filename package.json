@@ -101,7 +101,8 @@
 			"deprecate"
 		],
 		"ignorePatterns": [
-			"shared/models/DatabaseObject.js"
+			"shared/models/DatabaseObject.js",
+			"shared/models/"
 		],
 		"rules": {
 			"accessor-pairs": "error",

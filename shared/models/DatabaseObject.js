@@ -374,4 +374,11 @@ module.exports = class DatabaseObject {
 			fulfill(true);
 		});
 	}
+	cleanJSON(){
+		let propertyNameJson = {};
+		for (const property in this.#properties) {
+			propertyNameJson[property] = this[`#${property}`]
+		}
+		return propertyNameJson;
+	}
 };

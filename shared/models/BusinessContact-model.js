@@ -18,10 +18,11 @@ const crypt = global.requireShared('./services/crypt.js');
 
 module.exports = class BusinessContactModel{
 
+    #businessContactORM = null;
 
 	constructor(){
         this.id = 0;
-        this.businessContactORM = new BusinessContactOrm();
+        this.#businessContactORM = new BusinessContactOrm();
     }
 
 
@@ -47,14 +48,15 @@ module.exports = class BusinessContactModel{
             }
             else {
                  //validate
-                 this.businessContactORM.load(businessContactJSON);
+                 this.#businessContactORM.load(businessContactJSON);
                 //setup businessContact
 
                 //save
-                await this.businessContactORM.save().catch(function(err){
+                await this.#businessContactORM.save().catch(function(err){
                     reject(err);
                 });
-                this.id = this.businessContactORM.id;
+                this.updateProperty();
+                this.id = this.#businessContactORM.id;
                 resolve(true);
             }
         });
@@ -67,13 +69,13 @@ module.exports = class BusinessContactModel{
                 //validate
                 this.cleanupInput(businessContactJSON);
                 //validate
-                this.businessContactORM.load(businessContactJSON);
+                this.#businessContactORM.load(businessContactJSON);
 
                 //save
-                await this.businessContactORM.save().catch(function(err){
+                await this.#businessContactORM.save().catch(function(err){
                     reject(err);
                 });
-                this.id = this.businessContactORM.id;
+                this.id = this.#businessContactORM.id;
                 resolve(true);
 
             }
@@ -124,6 +126,14 @@ module.exports = class BusinessContactModel{
         //     }
         // }
     }
+
+    updateProperty(){
+        const dbJSON = this.#businessContactORM.cleanJSON()
+        // eslint-disable-next-line guard-for-in
+        for (const property in properties) {
+            this[property] = dbJSON[property];
+        }
+      }
 
 }
 

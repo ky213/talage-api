@@ -16,10 +16,11 @@ const convertToIntFields = ["industry_code"]
 
 module.exports = class BusinessModel{
 
+  #businessORM = null;
 
 	constructor(){
 		this.id = 0;
-        this.businessORM = new BusinessOrm();
+        this.#businessORM = new BusinessOrm();
     }
 
 
@@ -47,14 +48,15 @@ module.exports = class BusinessModel{
                  //validate
 
                  //setup business
-                this.businessORM.load(businessJSON);
+                this.#businessORM.load(businessJSON);
                 //save
-                await this.businessORM.save().then(function(resp){
+                await this.#businessORM.save().then(function(resp){
                   log.debug("ORM response " + resp);
                 }).catch(function(err){
                     reject(err);
                 });
-                this.id = this.businessORM['id'];
+                this.updateProperty();
+                this.id = this.#businessORM['id'];
 
                 // //Create Contact records....
                 if(businessJSON.contacts && businessJSON.contacts[0]){
@@ -79,8 +81,8 @@ module.exports = class BusinessModel{
                  //validate
                  this.cleanupInput(businessJSON);
                 //setup business
-                this.businessORM.load(businessJSON);
-                this.businessORM.save().catch(function(err){
+                this.#businessORM.load(businessJSON);
+                this.#businessORM.save().catch(function(err){
                     reject(err);
                 });
                 // TODO check contacts
@@ -124,6 +126,13 @@ module.exports = class BusinessModel{
         }
     }
 
+    updateProperty(){
+      const dbJSON = this.#businessORM.cleanJSON()
+      // eslint-disable-next-line guard-for-in
+      for (const property in properties) {
+          this[property] = dbJSON[property];
+      }
+    }
 }
 
 const properties = {
