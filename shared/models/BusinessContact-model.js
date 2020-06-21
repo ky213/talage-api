@@ -1,6 +1,7 @@
 'use strict';
 
 const DatabaseObject = require('./DatabaseObject.js');
+const SearchStringModel = require('./SearchStrings-model.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const crypt = global.requireShared('./services/crypt.js');
@@ -15,6 +16,7 @@ const crypt = global.requireShared('./services/crypt.js');
 //const validator = global.requireShared('./helpers/validator.js');
 
 //const convertToIntFields = [];
+const hashFields = ["email"];
 
 module.exports = class BusinessContactModel{
 
@@ -57,6 +59,7 @@ module.exports = class BusinessContactModel{
                 });
                 this.updateProperty();
                 this.id = this.#businessContactORM.id;
+                await this.updateSearchStrings();
                 resolve(true);
             }
         });
@@ -76,6 +79,7 @@ module.exports = class BusinessContactModel{
                     reject(err);
                 });
                 this.id = this.#businessContactORM.id;
+                await this.updateSearchStrings();
                 resolve(true);
 
             }
@@ -100,6 +104,50 @@ module.exports = class BusinessContactModel{
         });
     }
 
+    loadFromId(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id && id >0 ){
+                await this.#businessContactORM.getById(applicationJSON.id).catch(function (err) {
+                    log.error("Error getting businessContact from Database " + err + __location);
+                    reject(err);
+                    return;
+                });
+                this.updateProperty();
+                resolve(true);
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
+    updateSearchStrings(){
+        return new Promise(async(resolve) => {
+            //validate
+            log.debug('setup search string ' + __location)
+            if(hashFields && hashFields.length > 0){
+                log.debug('setup search string hashfields' + __location)
+                let searchStringJson = {"table" : "contacts", "item_id": this.id};
+                searchStringJson.fields = [];
+                for(var i=0;i < hashFields.length; i++){
+                    if(this[hashFields[i]]){
+                        const fieldJson = {field: hashFields[i], value: this[hashFields[i]]}
+                        searchStringJson.fields.push(fieldJson)
+                    }
+                }
+                log.debug('setup search  ' + JSON.stringify(searchStringJson));
+                if(searchStringJson.fields.length > 0){
+                    const searchStringModel = new SearchStringModel();
+                    searchStringModel.AddStrings(searchStringJson).catch(function(err){
+                        log.error(`Error creating search for ${searchStringJson.table} id ${searchStringJson.item_id} error: ` + err + __location)
+                    })
+                }
+            }
+            resolve(true);
+        });
+    }
+
     async cleanupInput(inputJSON){
 
         // cleanup phone number and email
@@ -109,7 +157,6 @@ module.exports = class BusinessContactModel{
         // Hash email.
         if(inputJSON.email){
             inputJSON.email_hash = await crypt.hash(inputJSON.email);
-            log.debug('email hash: ' + inputJSON.email_hash);
         }
 
 

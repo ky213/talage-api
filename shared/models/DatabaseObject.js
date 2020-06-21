@@ -211,7 +211,7 @@ module.exports = class DatabaseObject {
 		return new Promise(async (fulfill, reject) => {
 			let rejected = false;
 
-			if (this.id) {
+			if (this.id && this.id > 0) {
 				// Update this record
 				try {
 					await this.update();
@@ -303,7 +303,6 @@ module.exports = class DatabaseObject {
 
 				// Skip the ID column
 				if (property === 'id') {
-					log.debug("Database Object have id field")
 					continue;
 				}
 				if(this[property] !== null){
@@ -319,14 +318,13 @@ module.exports = class DatabaseObject {
 					}
 
                     // Store the column and value
-                    if(value){
+                    if(value || value === '' || value === 0){
                         columns.push(`\`${property.toSnakeCase()}\``);
 					    values.push(`${db.escape(value)}`);
                     }
 					
 				}
 			}
-			log.debug('making sql')
 			// Create the insert query
 			let sql = "";
 			try{
@@ -340,7 +338,7 @@ module.exports = class DatabaseObject {
 				reject(err);
 				return;
 			}
-			log.debug('DB Object sql : ' + sql);
+			//log.debug('DB Object sql : ' + sql);
 
 			// Run the query
 			const result = await db.query(sql).catch(function (error) {
@@ -405,7 +403,7 @@ module.exports = class DatabaseObject {
 					if(this.#properties[property].type === "timestamp" || this.#properties[property].type === "date" || this.#properties[property].type === "datetime"){
 						value = this.dbDateTimeString(value);
 					}
-                    if(value){
+                    if(value || value === '' || value === 0){
                         // Write the set statement for this value
 					    setStatements.push(`\`${property.toSnakeCase()}\` = ${db.escape(value)}`);
                     }
@@ -445,7 +443,7 @@ module.exports = class DatabaseObject {
 				reject(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 				return;
 			}
-
+            log.info(`updated record ${this.#table} id:  ` + this.id);
 			fulfill(true);
 		});
 	}

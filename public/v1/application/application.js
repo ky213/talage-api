@@ -10,7 +10,8 @@ const serverHelper = require('../../../server.js');
 const tracker = global.requireShared('./helpers/tracker.js');
 //Models
 const ApplicationModel = global.requireShared('models/Application-model.js');
-const contactStepParser = require('./parsers/contact-step-parse.js')
+const contactStepParser = require('./parsers/contact-step-parser.js')
+const coverageStepParser = require('./parsers/coverage-step-parser.js');
 
 
 /**
@@ -34,27 +35,42 @@ async function Save(req, res, next){
 	// if(!req.body.business || !Object.prototype.hasOwnProperty.call(req.body, 'id') || !req.body.policies){
 	// 	log.warn('Some required data is missing' + __location);
 	// 	return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
-	// }
+    // }
+    const applicationRequestJson = req.body;
+
 	//Validation passed, give requst application to model to process and save.
-
-
-	// TODO Prep request data for passing to App Model
-	const applicationRequestJson = req.body;
+    if(!applicationRequestJson.id && applicationRequestJson.step !== "contact"){
+        res.send(400, "missing application id");
+        return next(serverHelper.requestError("missing application id"));
+    }
+    if(applicationRequestJson.id){
+        //convert to int
+        try{
+            applicationRequestJson.id = parseInt(applicationRequestJson.id,10)
+        }
+        catch(e){
+            res.send(400, "bad application id");
+            return next(serverHelper.requestError("missing application id"));
+        }
+    }
+    // Prep request data for passing to App Model
+    let knownWorkflowStep = true;
+    const worflowStep = applicationRequestJson.step
 	switch (applicationRequestJson.step) {
 		case "contact":
 			contactStepParser.process(applicationRequestJson);
-			// log.debug(resp);
-			// log.debug(JSON.stringify(applicationRequestJson))
 			break;
 		case 'locations':
-			// Get parser for locations page
-			// require_once JPATH_COMPONENT_ADMINISTRATOR . '/lib/QuoteEngine/parsers/LocationsParser.php';
-			// $parser = new LocationsParser();
+            // Get parser for locations page
 			break;
 		case 'coverage':
-			// Get parser for coverage page
-			// require_once JPATH_COMPONENT_ADMINISTRATOR . '/lib/QuoteEngine/parsers/CoverageParser.php';
-			// $parser = new CoverageParser();
+            //validate
+            if(!applicationRequestJson.policy_types || !applicationRequestJson.questions){
+                res.send(400, "missing application id");
+                return next(serverHelper.requestError("missing coverage information"));
+            }
+			// Get parser for coverage
+			coverageStepParser.process(applicationRequestJson);
 			break;
 		case 'owners':
 			// Get parser for owners page
@@ -80,34 +96,48 @@ async function Save(req, res, next){
 			// Do nothing - we only save here to update the last step
 			break;
 		default:
-			// not from old Web application application flow.
+            // not from old Web application application flow.
+            knownWorkflowStep = false;
 			break;
-	}
-	const applicationModel = new ApplicationModel();
+    }
+    // eslint-disable-next-line prefer-const
+    let responseObj = {};
+    if(applicationRequestJson.demo === true){
+        responseObj.demo = applicationRequestJson.demo;
+        responseObj.id = -999;
+        res.send(200, responseObj);
+        return next();
+    }
 
-	let responseObj = {};
-    await applicationModel.newApplication(applicationRequestJson, true).then(function(modelResponse){
-		if(modelResponse === true){
+    if(knownWorkflowStep === true){
+        const applicationModel = new ApplicationModel();
+        await applicationModel.newApplicationStep(applicationRequestJson, worflowStep).then(function(modelResponse){
+            if(modelResponse === true){
 
-			responseObj.demo = applicationRequestJson.demo;
-			responseObj.id = applicationModel.id;
-			//associations
-			res.send(200, applicationModel);
-		}
-		else {
-			//modelReponse is list of validation errors.
-			//validationErrors
-			res.send(400, modelResponse);
-		}
-		return next();
-    }).catch(function(err){
-		//serverError
-        res.send(500, err.message);
-		return next(serverHelper.requestError('Unable to save. ' + err.message));
+                responseObj.demo = applicationRequestJson.demo;
+                responseObj.id = applicationModel.id;
+                responseObj.message = "saved";
+                //TODO add business_id and contact_id
+                //associations
+                res.send(200, responseObj);
+            }
+            else {
+                //modelReponse is list of validation errors.
+                //validationErrors
+                res.send(400, modelResponse);
+            }
+            return next();
+        }).catch(function(err){
+            //serverError
+            res.send(500, err.message);
+            return next(serverHelper.requestError('Unable to save. ' + err.message));
+        });
+    }
+    else {
+        res.send(400, "Unknown workflow step");
+        return next(serverHelper.requestError("Unknown workflow step"));
 
-    });
-
-    log.debug('end of request processing');
+    }
 }
 
 /* -----==== Endpoints ====-----*/

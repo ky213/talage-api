@@ -103,6 +103,7 @@ async function main(){
         const ormFieldDef = {
             'default': null,
             'encrypted': false,
+            'hashed': false,
             'required': false,
             'rules': null,
             'type': 'string'
@@ -115,9 +116,13 @@ async function main(){
         if(fieldDef.Type === "blob"){
             ormFieldDef.encrypted = true;
         }
+        if(fieldDef.Null === "NO"){
+            ormFieldDef.required = true;
+        }
 
         if(fieldDef.Extra && fieldDef.Extra === 'auto_increment'){
             ormFieldDef.default = 0;
+            ormFieldDef.required = false;
         }
         if(fieldDef.Default && fieldDef.Default !== null){
             if(fieldDef.Default === "0"){
@@ -132,9 +137,6 @@ async function main(){
         }
         else if (fieldDef.Null === "NO" && ormFieldDef.type === 'number'){
             ormFieldDef.default = 0;
-        }
-        if(fieldDef.Null === "NO"){
-            ormFieldDef.required = true;
         }
         if(fieldDef.Type === "timestamp" || fieldDef.Type === "date" || fieldDef.Type === "datetime"){
             ormFieldDef.type = fieldDef.Type;

@@ -2,6 +2,8 @@
 
 const DatabaseObject = require('./DatabaseObject.js');
 const BusinessContactModel = require('./BusinessContact-model.js');
+const SearchStringModel = require('./SearchStrings-model.js');
+const crypt = global.requireShared('./services/crypt.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 // const util = require('util');
@@ -13,6 +15,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 const validator = global.requireShared('./helpers/validator.js');
 
 const convertToIntFields = ["industry_code"]
+const hashFields = ["name", "dba"]
 
 module.exports = class BusinessModel{
 
@@ -36,7 +39,7 @@ module.exports = class BusinessModel{
             if(!businessJSON){
                 reject(new Error("empty business object given"));
             }
-            this.cleanupInput(businessJSON);
+            await this.cleanupInput(businessJSON);
             //have id load business data.
             //let businessDBJSON = {};
             if(businessJSON.id){
@@ -50,13 +53,16 @@ module.exports = class BusinessModel{
                  //setup business
                 this.#businessORM.load(businessJSON);
                 //save
+                let reject = false;
                 await this.#businessORM.save().then(function(resp){
-                  log.debug("ORM response " + resp);
+                  
                 }).catch(function(err){
                     reject(err);
+                    return;
                 });
                 this.updateProperty();
                 this.id = this.#businessORM['id'];
+                await this.updateSearchStrings();
 
                 // //Create Contact records....
                 if(businessJSON.contacts && businessJSON.contacts[0]){
@@ -75,7 +81,7 @@ module.exports = class BusinessModel{
     }
 
 
-    updatetBusiness(businessJSON, save = false){
+    updateBusiness(businessJSON){
         return new Promise(async(resolve, reject) => {
             if(businessJSON.id){
                  //validate
@@ -87,7 +93,7 @@ module.exports = class BusinessModel{
                 });
                 // TODO check contacts
 
-
+                await this.updateSearchStrings();
                 resolve(true);
             }
             else {
@@ -111,7 +117,48 @@ module.exports = class BusinessModel{
         });
     }
 
-    cleanupInput(inputJSON){
+    loadFromId(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id && id >0 ){
+                await this.#businessORM.getById(applicationJSON.id).catch(function (err) {
+                    log.error("Error getting business from Database " + err + __location);
+                    reject(err);
+                    return;
+                });
+                this.updateProperty();
+                resolve(true);
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
+    updateSearchStrings(){
+        return new Promise(async(resolve, reject) => {
+            //validate
+            if(hashFields && hashFields.length > 0){
+                let searchStringJson = {"table" : "businesses", "item_id": this.id};
+                searchStringJson.fields = [];
+                for(var i=0;i < hashFields.length; i++){
+                    if(this[hashFields[i]]){
+                        const fieldJson = {field: hashFields[i], value: this[hashFields[i]]}
+                        searchStringJson.fields.push(fieldJson)
+                    }
+                }
+                log.debug('setup business search  ' + JSON.stringify(searchStringJson));
+                if(searchStringJson.fields.length > 0){
+                    const searchStringModel = new SearchStringModel();
+                    await searchStringModel.AddStrings(searchStringJson).catch(function(err){
+                        log.error(`Error creating search for ${searchStringJson.table} id ${searchStringJson.item_id} error: ` + err + __location)
+                    })
+                }
+            }
+            resolve(true);
+        });
+    }
+    async cleanupInput(inputJSON){
         //convert to ints
         for(var i = 0; i < convertToIntFields.length; i++){
             if(inputJSON[convertToIntFields[i]]){
@@ -123,6 +170,11 @@ module.exports = class BusinessModel{
                     delete inputJSON[convertToIntFields[i]]
                 }
             }
+        }
+
+        // Hash email.
+        if(inputJSON.ein){
+            inputJSON.ein_hash = await crypt.hash(inputJSON.ein);
         }
     }
 

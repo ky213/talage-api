@@ -14,7 +14,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 //const validator = global.requireShared('./helpers/validator.js');
 
-const convertToIntFields = ["industry_code"]
+const convertToIntFields = ["industry_code", "deductible", "coverage"]
 
 module.exports = class ApplicationModel {
 
@@ -39,69 +39,137 @@ module.exports = class ApplicationModel {
      * @param {boolean} save - Saves application if true
    * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved application , or an Error if rejected
    */
-    newApplication(applicationJSON, save = false) {
+    newApplicationStep(applicationJSON, worflowStep) {
         return new Promise(async (resolve, reject) => {
             if (!applicationJSON) {
                 reject(new Error("empty application object given"));
             }
-            this.cleanupInput(applicationJSON);
-            //have id load application data.
-            //let applicationDBJSON = {};
-            if (applicationJSON.id) {
-                await this.updateApplication(applicationJSON, save).catch(function (err) {
+            if(!applicationJSON.id && applicationJSON.step !== "contact"){
+                reject(new Error("missing application id"));
+            }
+            if(applicationJSON.id && applicationJSON.step !== "contact"){
+               //load application from database.
+               await this.#applicationORM.getById(applicationJSON.id).catch(function (err) {
+                    log.error("Error getting application from Database " + err + __location);
                     reject(err);
                     return;
-                })
-                log.debug('back from update');
-                resolve(true);
-                return;
+                });
+                this.updateProperty();
+
             }
-            else {
-                //validate
-
-
-                //setup business
-                if (!applicationJSON.business) {
-                    if (applicationJSON.businessInfo) {
-                        //load business
-                        const businessModel = new BusinessModel();
-                        await businessModel.newBusiness(applicationJSON.businessInfo).catch(function (err) {
-                            log.error("Creating new business error:" + err + __location);
-                            reject(err);
-                        })
-                        applicationJSON.business = businessModel.id;
-                        if (applicationJSON.business === 0) {
-                            reject(new Error('Error create Business record ' + __location))
+            log.debug("applicationJSON: " + JSON.stringify(applicationJSON));
+            let error = null;
+            switch (worflowStep) {
+                case "contact":
+                    // 1st step might have a business ID or appID
+                    //validate
+                    //setup business
+                    if (!applicationJSON.business) {
+                        if (applicationJSON.businessInfo) {
+                            //load business
+                            const businessModel = new BusinessModel();
+                            await businessModel.newBusiness(applicationJSON.businessInfo).catch(function (err) {
+                                log.error("Creating new business error:" + err + __location);
+                                reject(err);
+                            })
+                            applicationJSON.business = businessModel.id;
+                            if (applicationJSON.business === 0) {
+                                reject(new Error('Error create Business record ' + __location))
+                                return;
+                            }
+                        }
+                        else {
+                            log.info('No Business for Application ' + __location)
+                            reject(new Error("No Business Information supplied"));
                             return;
                         }
                     }
-                    else {
-                        log.info('No Business for Application ' + __location)
-                        reject(new Error("No Business Information supplied"));
-                        return;
+                    if (!applicationJSON.uuid) {
+                        applicationJSON.uuid = uuidv4().toString();
                     }
-                }
-                if (!applicationJSON.uuid) {
-                    applicationJSON.uuid = uuidv4().toString();
-                }
-                //$app->created_by = $user->id;
-                this.#applicationORM.load(applicationJSON).catch(function (err) {
-                    log.error("Error loading application orm " + err + __location);
-                });
-                this.#applicationORM.uuid = applicationJSON.uuid;
-                //setup business
+                    break;
+                case 'locations':
+                    // Get parser for locations page
+                    
 
-                //save
-                await this.#applicationORM.save().catch(function (err) {
-                    reject(err);
-                });
-                this.updateProperty();
-                log.debug(JSON.stringify(this.#applicationORM));
-                this.id = this.#applicationORM.id;
-
-                resolve(true);
-
+                    break;
+                case 'coverage':
+                    // Get parser for coverage page
+                    // update business data
+                    if(applicationJSON.businessInfo){
+                        const businessModel = new BusinessModel();
+                    
+                        await businessModel.loadFromId(this.business).catch(function(err){
+                            error = err;
+                        })
+                        if(error){
+                            const errMessage = `Application WF error loading Business ${this.business} error ` + error; 
+                            log.error(errMessage + __location)
+                            reject(errMessage);
+                            return;
+                        }
+                        applicationJSON.businessInfo.id = this.business;
+                        await businessModel.updateBusiness(applicationJSON.businessInfo).catch(function (err) {
+                            log.error("Creating new business error:" + err + __location);
+                            reject(err);
+                        })
+    
+    
+                        delete applicationJSON.businessInfo
+                    }
+                   
+                    
+                    break;
+                case 'owners':
+                    // Get parser for owners page
+                    // require_once JPATH_COMPONENT_ADMINISTRATOR . '/lib/QuoteEngine/parsers/OwnersParser.php';
+                    // $parser = new OwnersParser();
+                    break;
+                case 'details':
+                    // Get parser for details page
+                    // require_once JPATH_COMPONENT_ADMINISTRATOR . '/lib/QuoteEngine/parsers/DetailsParser.php';
+                    // $parser = new DetailsParser();
+                    break;
+                case 'claims':
+                    // Get parser for claims page
+                    // require_once JPATH_COMPONENT_ADMINISTRATOR . '/lib/QuoteEngine/parsers/ClaimsParser.php';
+                    // $parser = new ClaimsParser();
+                    break;
+                case 'questions':
+                    // Get parser for questions page
+                    // require_once JPATH_COMPONENT_ADMINISTRATOR . '/lib/QuoteEngine/parsers/QuestionsParser.php';
+                    // $parser = new QuestionsParser();
+                    break;
+                case 'quotes':
+                    // Do nothing - we only save here to update the last step
+                    break;
+                default:
+                    // not from old Web application application flow.
+                    reject(new Error("Unknown Application Workflow Step"))
+                    return;
+                    break;
             }
+
+            
+            await this.cleanupInput(applicationJSON);
+
+            //$app->created_by = $user->id;
+            this.#applicationORM.load(applicationJSON, false).catch(function (err) {
+                log.error("Error loading application orm " + err + __location);
+            });
+            if( this.#applicationORM.uuid){
+                this.#applicationORM.uuid = applicationJSON.uuid;
+            }
+            //save
+            await this.#applicationORM.save().catch(function (err) {
+                reject(err);
+            });
+            this.updateProperty();
+            this.id = this.#applicationORM.id;
+
+            resolve(true);
+
+            
         });
     }
 
@@ -113,7 +181,7 @@ module.exports = class ApplicationModel {
                 //setup business
                 //get application from database & load it
                 await this.#applicationORM.getById(applicationJSON.id).catch(function (err) {
-                    log.error("Error getting application from Data " + err);
+                    log.error("Error getting application from Database " + err + __location);
                     reject(err);
                 });
                 this.updateProperty();
@@ -146,12 +214,32 @@ module.exports = class ApplicationModel {
     save(asNew = false) {
         return new Promise(async (resolve, reject) => {
             //validate
-
+            
             resolve(true);
         });
     }
 
-    cleanupInput(inputJSON) {
+    loadFromId(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id && id >0 ){
+                await this.#applicationORM.getById(applicationJSON.id).catch(function (err) {
+                    log.error("Error getting application from Database " + err + __location);
+                    reject(err);
+                    return;
+                });
+                this.updateProperty();
+                resolve(true);
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
+
+
+    async cleanupInput(inputJSON) {
         //convert to ints
         for (var i = 0; i < convertToIntFields.length; i++) {
             if (inputJSON[convertToIntFields[i]]) {
@@ -336,6 +424,14 @@ const properties = {
         "required": false,
         "rules": null,
         "type": "date"
+    },
+    "experience_modifier": {
+        "default": 1.0,
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "number"
     },
     "family_covered": {
         "default": null,
