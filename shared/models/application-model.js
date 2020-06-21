@@ -57,6 +57,10 @@ module.exports = class ApplicationModel {
                 this.updateProperty();
 
             }
+
+            
+
+
             log.debug("applicationJSON: " + JSON.stringify(applicationJSON));
             let error = null;
             switch (worflowStep) {
@@ -151,6 +155,25 @@ module.exports = class ApplicationModel {
             }
 
             
+            stepMap = {
+                'contact' : 2,
+                'coverage' : 3,
+                'locations' : 4,
+                'owners' : 5,
+                'details' : 6,
+                'claims' : 7,
+                'questions' : 8,
+                'quotes' : 9,
+                'cart' : 10
+            };
+            const stepNumber = stepMap[worflowStep];
+            if(!this.#applicationORM.last_step){
+                this.#applicationORM.last_step = stepNumber;
+            }
+            else if(stepNumber > this.#applicationORM.last_step){
+                this.#applicationORM.last_step = stepNumber;
+            }
+
             await this.cleanupInput(applicationJSON);
 
             //$app->created_by = $user->id;

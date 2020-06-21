@@ -11,7 +11,6 @@ exports.process = function(requestJSON) {
     // to businessInfo
     //Clean inputs
 
-    requestJSON.last_step = 0;
     requestJSON.experience_modifier = 1.00;
 
     var fieldstoMoveToBusineess = ["industry_code", "dba", "name"]
