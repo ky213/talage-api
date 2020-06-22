@@ -14,7 +14,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 //const validator = global.requireShared('./helpers/validator.js');
 
-const convertToIntFields = ["industry_code", "deductible", "coverage"]
+//const convertToIntFields = ["industry_code", "deductible", "coverage"]
 
 module.exports = class ApplicationModel {
 
@@ -102,9 +102,7 @@ module.exports = class ApplicationModel {
                     updateBusiness = true;
                     break;
                 case 'details':
-                    // Get parser for details page
-                    // require_once JPATH_COMPONENT_ADMINISTRATOR . '/lib/QuoteEngine/parsers/DetailsParser.php';
-                    // $parser = new DetailsParser();
+                    updateBusiness = true;
                     break;
                 case 'claims':
                     // Get parser for claims page
@@ -270,14 +268,22 @@ module.exports = class ApplicationModel {
 
     async cleanupInput(inputJSON) {
         //convert to ints
-        for (var i = 0; i < convertToIntFields.length; i++) {
-            if (inputJSON[convertToIntFields[i]]) {
-                try {
-                    inputJSON[convertToIntFields[i]] = parseInt(inputJSON[convertToIntFields[i]], 10);
+        for (const property in properties) {
+            if(inputJSON[property]){
+                // Convert to number
+                try{
+                    if (properties[property].type === "number" && "string " === typeof inputJSON[property]){
+                        if (properties[property].dbType.indexOf("int")  > -1){
+                            inputJSON[property] = parseInt(inputJSON[property], 10);
+                        }
+                        else if (properties[property].dbType.indexOf("float")  > -1){
+                            inputJSON[property] = parseFloat(inputJSON[property]);
+                        }
+                    }
                 }
-                catch (e) {
-                    log.warn("BuinsessModel bad input JSON field: " + convertToIntFields[i] + " cannot convert to Int")
-                    delete inputJSON[convertToIntFields[i]]
+                catch(e){
+                    log.error(`Error converting property ${property} value: ` + inputJSON[property] + __location)
+                    inputJSON[convertToIntFields[i]]
                 }
             }
         }

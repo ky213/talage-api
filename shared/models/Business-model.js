@@ -182,6 +182,7 @@ module.exports = class BusinessModel{
                 // check for same activity_code
                 const addressActvityRow = result[i];
                 const newPayroll = addressActvityRow.payroll + owner_payrollJSON.payroll;
+                //FK issue ORM save causes problem.
                 const sqlUpdate = `
                 UPDATE 
                     clw_talage_address_activity_codes

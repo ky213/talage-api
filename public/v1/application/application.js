@@ -14,6 +14,7 @@ const contactStepParser = require('./parsers/contact-step-parser.js')
 const coverageStepParser = require('./parsers/coverage-step-parser.js');
 const locationStepParser = require('./parsers/location-step_parser.js')
 const ownerStepParser = require('./parsers/owner-step-parser.js')
+const detailStepParser = require('./parsers/detail-step-parser.js')
 
 /**
  * Responds to POST related ot new applications
@@ -86,9 +87,7 @@ async function Save(req, res, next){
             ownerStepParser.process(applicationRequestJson);
 			break;
 		case 'details':
-			// Get parser for details page
-			// require_once JPATH_COMPONENT_ADMINISTRATOR . '/lib/QuoteEngine/parsers/DetailsParser.php';
-			// $parser = new DetailsParser();
+			detailStepParser.process(applicationRequestJson);
 			break;
 		case 'claims':
 			// Get parser for claims page
