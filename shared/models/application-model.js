@@ -39,17 +39,17 @@ module.exports = class ApplicationModel {
      * @param {boolean} save - Saves application if true
    * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved application , or an Error if rejected
    */
-    newApplicationStep(applicationJSON, worflowStep) {
+    saveApplicationStep(applicationJSON, worflowStep) {
         return new Promise(async (resolve, reject) => {
             if (!applicationJSON) {
                 reject(new Error("empty application object given"));
             }
-            if(!applicationJSON.id && applicationJSON.step !== "contact"){
+            if (!applicationJSON.id && applicationJSON.step !== "contact") {
                 reject(new Error("missing application id"));
             }
-            if(applicationJSON.id && applicationJSON.step !== "contact"){
-               //load application from database.
-               await this.#applicationORM.getById(applicationJSON.id).catch(function (err) {
+            if (applicationJSON.id && applicationJSON.step !== "contact") {
+                //load application from database.
+                await this.#applicationORM.getById(applicationJSON.id).catch(function (err) {
                     log.error("Error getting application from Database " + err + __location);
                     reject(err);
                     return;
@@ -57,77 +57,49 @@ module.exports = class ApplicationModel {
                 this.updateProperty();
 
             }
-
-            
-
-
             log.debug("applicationJSON: " + JSON.stringify(applicationJSON));
             let error = null;
+            let updateBusiness = false;
             switch (worflowStep) {
                 case "contact":
-                    // 1st step might have a business ID or appID
-                    //validate
-                    //setup business
-                    if (!applicationJSON.business) {
-                        if (applicationJSON.businessInfo) {
-                            //load business
-                            const businessModel = new BusinessModel();
-                            await businessModel.newBusiness(applicationJSON.businessInfo).catch(function (err) {
-                                log.error("Creating new business error:" + err + __location);
-                                reject(err);
-                            })
-                            applicationJSON.business = businessModel.id;
-                            if (applicationJSON.business === 0) {
-                                reject(new Error('Error create Business record ' + __location))
-                                return;
-                            }
+                    //setup business special case need new business ID back.
+                    if (applicationJSON.businessInfo) {
+                        //load business
+                        const businessModel = new BusinessModel();
+                        // 1st step might have a business ID or appID if user looped back
+                        if (applicationJSON.business) {
+                            applicationJSON.businessInfo.id = this.business;
                         }
-                        else {
-                            log.info('No Business for Application ' + __location)
-                            reject(new Error("No Business Information supplied"));
+                        await businessModel.saveBusiness(applicationJSON.businessInfo).catch(function (err) {
+                            log.error("Creating new business error:" + err + __location);
+                            reject(err);
+                        })
+                        applicationJSON.business = businessModel.id;
+                        if (applicationJSON.business === 0) {
+                            reject(new Error('Error create Business record ' + __location))
                             return;
                         }
                     }
+                    else {
+                        log.info('No Business for Application ' + __location)
+                        reject(new Error("No Business Information supplied"));
+                        return;
+                    }
+
                     if (!applicationJSON.uuid) {
                         applicationJSON.uuid = uuidv4().toString();
                     }
                     break;
                 case 'locations':
-                    // Get parser for locations page
-                    
-
+                    // update business data
+                    updateBusiness = true;
                     break;
                 case 'coverage':
-                    // Get parser for coverage page
                     // update business data
-                    if(applicationJSON.businessInfo){
-                        const businessModel = new BusinessModel();
-                    
-                        await businessModel.loadFromId(this.business).catch(function(err){
-                            error = err;
-                        })
-                        if(error){
-                            const errMessage = `Application WF error loading Business ${this.business} error ` + error; 
-                            log.error(errMessage + __location)
-                            reject(errMessage);
-                            return;
-                        }
-                        applicationJSON.businessInfo.id = this.business;
-                        await businessModel.updateBusiness(applicationJSON.businessInfo).catch(function (err) {
-                            log.error("Creating new business error:" + err + __location);
-                            reject(err);
-                        })
-    
-    
-                        delete applicationJSON.businessInfo
-                    }
-                   
-                    
+                    updateBusiness = true;
                     break;
                 case 'owners':
-                    // Get parser for owners page
-                    // require_once JPATH_COMPONENT_ADMINISTRATOR . '/lib/QuoteEngine/parsers/OwnersParser.php';
-                    // $parser = new OwnersParser();
+                    updateBusiness = true;
                     break;
                 case 'details':
                     // Get parser for details page
@@ -153,24 +125,34 @@ module.exports = class ApplicationModel {
                     return;
                     break;
             }
+            if(updateBusiness === true){
+                if (applicationJSON.businessInfo) {
+                    applicationJSON.businessInfo.id = this.business;
+                    await this.processBusiness(applicationJSON.businessInfo).catch(function (err) {
+                        log.error("updating business error:" + err + __location);
+                        reject(err);
+                    });
+                    delete applicationJSON.businessInfo
+                }
+            }
 
-            
-            stepMap = {
-                'contact' : 2,
-                'coverage' : 3,
-                'locations' : 4,
-                'owners' : 5,
-                'details' : 6,
-                'claims' : 7,
-                'questions' : 8,
-                'quotes' : 9,
-                'cart' : 10
+
+            const stepMap = {
+                'contact': 2,
+                'coverage': 3,
+                'locations': 4,
+                'owners': 5,
+                'details': 6,
+                'claims': 7,
+                'questions': 8,
+                'quotes': 9,
+                'cart': 10
             };
             const stepNumber = stepMap[worflowStep];
-            if(!this.#applicationORM.last_step){
+            if (!this.#applicationORM.last_step) {
                 this.#applicationORM.last_step = stepNumber;
             }
-            else if(stepNumber > this.#applicationORM.last_step){
+            else if (stepNumber > this.#applicationORM.last_step) {
                 this.#applicationORM.last_step = stepNumber;
             }
 
@@ -180,7 +162,7 @@ module.exports = class ApplicationModel {
             this.#applicationORM.load(applicationJSON, false).catch(function (err) {
                 log.error("Error loading application orm " + err + __location);
             });
-            if( this.#applicationORM.uuid){
+            if (this.#applicationORM.uuid) {
                 this.#applicationORM.uuid = applicationJSON.uuid;
             }
             //save
@@ -192,41 +174,65 @@ module.exports = class ApplicationModel {
 
             resolve(true);
 
-            
+
         });
     }
 
-
-    updateApplication(applicationJSON) {
+    /**
+    * update business object
+    *
+    * @param {object} businessInfo - businessInfo JSON
+    * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessModel , or an Error if rejected
+    */
+    processBusiness(businessInfo) {
         return new Promise(async (resolve, reject) => {
-            if (applicationJSON.id) {
-                //validate
-                //setup business
-                //get application from database & load it
-                await this.#applicationORM.getById(applicationJSON.id).catch(function (err) {
-                    log.error("Error getting application from Database " + err + __location);
-                    reject(err);
-                });
-                this.updateProperty();
-                
-                // update with new data.
-                this.#applicationORM.load(applicationJSON).catch(function (err) {
-                    log.error("Error loading application orm " + err + __location);
-                });
-                //save
-                await this.#applicationORM.save().catch(function (err) {
-                    reject(err);
-                });
-                this.updateProperty();
-                resolve(true);
-
+            if (!businessInfo.id) {
+                reject(new Error("no business id"));
+                return;
             }
-            else {
-                reject(new Error("Missing Appiclcation Id"));
-            }
-
+            const businessModel = new BusinessModel();
+            await businessModel.saveBusiness(businessInfo).catch(function (err) {
+                log.error("Updating new business error:" + err + __location);
+                reject(err);
+                return;
+            });
+            resolve(businessModel);
         });
     }
+
+
+
+
+    // updateApplication(applicationJSON) {
+    //    
+    //         if (applicationJSON.id) {
+    //             //validate
+    //             //setup business
+    //             //get application from database & load it
+    //             await this.#applicationORM.getById(applicationJSON.id).catch(function (err) {
+    //                 log.error("Error getting application from Database " + err + __location);
+    //                 reject(err);
+    //             });
+    //             this.updateProperty();
+
+    //             // update with new data.
+    //             this.#applicationORM.load(applicationJSON).catch(function (err) {
+    //                 log.error("Error loading application orm " + err + __location);
+    //             });
+    //             //save
+    //             await this.#applicationORM.save().catch(function (err) {
+    //                 reject(err);
+    //             });
+    //             this.updateProperty();
+    //             resolve(true);
+
+    //         }
+    //         else {
+    //             reject(new Error("Missing Appiclcation Id"));
+    //         }
+
+    //     });
+    // }
 
     /**
    * saves application.
@@ -237,7 +243,7 @@ module.exports = class ApplicationModel {
     save(asNew = false) {
         return new Promise(async (resolve, reject) => {
             //validate
-            
+
             resolve(true);
         });
     }
@@ -245,7 +251,7 @@ module.exports = class ApplicationModel {
     loadFromId(id) {
         return new Promise(async (resolve, reject) => {
             //validate
-            if(id && id >0 ){
+            if (id && id > 0) {
                 await this.#applicationORM.getById(applicationJSON.id).catch(function (err) {
                     log.error("Error getting application from Database " + err + __location);
                     reject(err);
@@ -630,7 +636,8 @@ const properties = {
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "number"
+        "type": "number",
+        "dbType": "mediumint(5) unsigned"
     },
     "created": {
         "default": null,

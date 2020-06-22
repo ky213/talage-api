@@ -202,38 +202,39 @@ var decryptInternal = async function(val) {
  */
 exports.encrypt = function(val) {
 	return new Promise(async function(fulfill, reject) {
-		if (!val) {
-			fulfill(false);
+		if (val || val === '') {
+            // Serialize the value for easy storage
+            val = php_serialize.serialize(val);
+
+            // Get a nonce to use
+            let hadError = false;
+            const nonce = await getUniqueNonce().catch(function(error) {
+                reject(error);
+                hadError = true;
+            });
+            if (hadError) {
+                fulfill(false);
+                return;
+            }
+
+            // Encrypt
+            val = sodium.crypto_secretbox(Buffer.from(val), nonce, Buffer.from(global.settings.ENCRYPTION_KEY));
+
+            // Convert the value buffer to hex
+            val = Buffer.from(val).toString('hex');
+
+            // Remove 32 zeros
+            val = val.substring(32);
+
+            // Append the nonce to the value
+            val = `${val}|${Buffer.from(nonce).toString('hex')}`;
+
+            fulfill(val);
+        }
+        else {
+            fulfill(false);
 			return;
 		}
-
-		// Serialize the value for easy storage
-		val = php_serialize.serialize(val);
-
-		// Get a nonce to use
-		let hadError = false;
-		const nonce = await getUniqueNonce().catch(function(error) {
-			reject(error);
-			hadError = true;
-		});
-		if (hadError) {
-			fulfill(false);
-			return;
-		}
-
-		// Encrypt
-		val = sodium.crypto_secretbox(Buffer.from(val), nonce, Buffer.from(global.settings.ENCRYPTION_KEY));
-
-		// Convert the value buffer to hex
-		val = Buffer.from(val).toString('hex');
-
-		// Remove 32 zeros
-		val = val.substring(32);
-
-		// Append the nonce to the value
-		val = `${val}|${Buffer.from(nonce).toString('hex')}`;
-
-		fulfill(val);
 	});
 };
 

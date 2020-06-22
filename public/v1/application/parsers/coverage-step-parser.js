@@ -14,8 +14,6 @@ exports.process = async function(requestJSON) {
     // to businessInfo
     //Clean inputs
 
-    requestJSON.last_step = 1;
-
     const policy_typesJSON = JSON.parse(requestJSON.policy_types);
     const questionsJSON = JSON.parse(requestJSON.questions);
     requestJSON.policy_types = policy_typesJSON;

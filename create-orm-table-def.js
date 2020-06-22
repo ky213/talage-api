@@ -106,8 +106,12 @@ async function main(){
             'hashed': false,
             'required': false,
             'rules': null,
-            'type': 'string'
+            'type': 'string',
+            'dbType': 'string'
         }
+
+        ormFieldDef.dbType = fieldDef.Type;
+
         for(var j = 0; j < numberFieldTypeList.length; j++){
             if(fieldDef.Type.indexOf(numberFieldTypeList[j]) > -1){
                 ormFieldDef.type = "number";

@@ -4,6 +4,10 @@
 /* eslint-disable one-var */
 'use strict';
 
+const { raw } = require('mysql');
+
+var sanitizer = require('sanitize')();
+
 /**
  * Converts first letter of each word in a string to upper case
  *
@@ -270,4 +274,46 @@ exports.get_html_translation_table = function(table, quote_style) {
     }
 
     return histogram;
+}
+
+exports.santizeString = function(rawString){
+    if(rawString && "string" === typeof rawString){
+        let cleanString = "";
+        try{
+            cleanString = sanitizer.my.str(rawString);
+        }
+        catch(e){
+            log.error("Error sanitizing " + rawString + " error: " + e + __location);
+        }
+        return cleanString
+    }
+    else {
+        return null;
+    }
+}
+exports.santizeNumber = function(rawString,makeInt){
+    let returnInt = false;
+    if(makeInt){
+        returnInt = makeInt;
+    }
+
+    if(rawString && "string" === typeof rawString){
+        let cleanString = null;
+        try{
+            cleanString = rawString.replace(/[-[\]{}()*+?.,\\/^$|#\s]/g,"").replace("/[^0-9]/", '');
+            if(returnInt === true){
+                cleanString = parseInt(cleanString, 10);
+            }
+        }
+        catch(e){
+            log.error("Error sanitizing " + rawString + " error: " + e + __location);
+        }
+        return cleanString
+    }
+    else if(rawString && "number" === typeof rawString){
+            return rawString;
+    }
+    else {
+        return null;
+    }
 }

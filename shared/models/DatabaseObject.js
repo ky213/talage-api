@@ -8,7 +8,6 @@
 'use strict';
 
 const crypt = global.requireShared('./services/crypt.js');
-const serverHelper = global.requireRootPath('server.js');
 const moment = require('moment');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
@@ -43,7 +42,7 @@ module.exports = class DatabaseObject {
 				get: () => {
 					return this[`#${property}`];
 				},
-
+                
 				// Performs validation and sets the property into the local value
 				set: (value) => {
 					let expectedDataType = this.#properties[property].type;
@@ -64,24 +63,42 @@ module.exports = class DatabaseObject {
                                     value = value.replace(/"/g,'');
                                 }
                                 else {
-                                    errorMessage = `Unexpected data type for ${property}, expecting ${this.#properties[property].type}. supplied Type: ${badType} value: ` + JSON.stringify(value);
+                                    errorMessage = `${this.#table} Unexpected data type for ${property}, expecting ${this.#properties[property].type}. supplied Type: ${badType} value: ` + JSON.stringify(value);
                                     log.error(errorMessage + __location)
                                 }  
 							}
 							catch(e){
-                                errorMessage = `Datetime procesing error for ${property}, expecting ${this.#properties[property].type}. supplied Type: ${badType} value: ` + JSON.stringify(value) + " error: " + e;
+                                errorMessage = `${this.#table} Datetime procesing error for ${property}, expecting ${this.#properties[property].type}. supplied Type: ${badType} value: ` + JSON.stringify(value) + " error: " + e;
 								log.error(errorMessage + __location)
                             }
                             if(errorMessage){
-                                throw serverHelper.internalError(errorMessage);
+                                throw new Error(errorMessage);
                             }
-						}
+                        }
+                        else if (expectedDataType === "number"  && 'string' === typeof value && this.#properties[property].dbType){
+                            // correct input.
+                            try{
+            
+                                if (this.#properties[property].dbType.indexOf("int")  > -1){
+                                    value = parseInt(value, 10);
+                                }
+                                else if (this.#properties[property].dbType.indexOf("float")  > -1){
+                                    value = parseFloat(value);
+                                }
+                            }
+                            catch(e){
+                                const errorMessage = `${this.#table} Unable to convert data type for ${property}, expecting ${this.#properties[property].type}. supplied Type: ${badType} value: ` + JSON.stringify(value);
+                                log.error(errorMessage + __location)
+                                throw new Error(errorMessage);
+                            }
+
+                        }
 						else {
                             if (expectedDataType !== typeof value) {
                                 const badType = typeof value;
-                                const errorMessage = `Unexpected data type for ${property}, expecting ${this.#properties[property].type}. supplied Type: ${badType} value: ` + JSON.stringify(value);
+                                const errorMessage = `${this.#table} Unexpected data type for ${property}, expecting ${this.#properties[property].type}. supplied Type: ${badType} value: ` + JSON.stringify(value);
                                 log.error(errorMessage + __location)
-                                throw serverHelper.internalError(errorMessage);
+                                throw new Error(errorMessage);
                             }
                         }
 
@@ -94,8 +111,8 @@ module.exports = class DatabaseObject {
 						if (this.#properties[property].rules) {
 							for (const func of this.#properties[property].rules) {
 								if (!func(value)) {
-                                    log.error(`The ${property} you provided is invalid, expecting ${this.#properties[property].type}. value: ` + JSON.stringify(value) );
-									throw serverHelper.requestError(`The ${property} you provided is invalid`);
+                                    log.error(`${this.#table} The ${property} you provided is invalid, expecting ${this.#properties[property].type}. value: ` + JSON.stringify(value) );
+									throw new Error(`The ${property} you provided is invalid`);
 								}
 							}
 						}
@@ -139,7 +156,7 @@ module.exports = class DatabaseObject {
 					if (this.#properties[property].required) {
 						log.error(`${this.#table}.${property} is required` + __location)
 						if(isObjLoad === true)
-							throw serverHelper.requestError(`${property} is required`);
+							throw new Error(`${property} is required`);
 
 						rejectError = new Error(`${this.#table}.${property} is required`)
 						
@@ -284,8 +301,8 @@ module.exports = class DatabaseObject {
 			let rejected = false;
 
 			if (this.id) {
-				log.error('Attempt to insert record with ID. Would result in duplication. Stopping.');
-				reject(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+				log.error(`${this.#table} Attempt to insert record with ID. Would result in duplication. Stopping.`);
+				reject(new Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 				return;
 			}
 
@@ -310,7 +327,7 @@ module.exports = class DatabaseObject {
 					let value = this[property];
 
 					// Check if we need to encrypt this value, and if so, encrypt
-					if (this.#properties[property].encrypted && value) {
+					if (this.#properties[property].encrypted && (value  || val === "")) {
 						value = await crypt.encrypt(value);
                     }
                     if(this.#properties[property].type === "timestamp" || this.#properties[property].type === "date" || this.#properties[property].type === "datetime"){
@@ -345,11 +362,14 @@ module.exports = class DatabaseObject {
 				// Check if this was
 				log.error("Database Object Insert error :" + error);
 				if (error.errno === 1062) {
-					rejected = true;
-					reject(serverHelper.requestError('The link (slug) you selected is already taken. Please choose another one.'));
+                    rejected = true;
+                    log.error(`${this.#table} Duplicate index error on insert ` + error + __location);
+                    reject(new Error('Duplicate index error'));
+					//reject(new Error('The link (slug) you selected is already taken. Please choose another one.'));
 					return;
 				}
-				rejected = true;
+                rejected = true;
+                log.error(`${this.#table} error on insert ` + error + __location);
 				reject(error);
 			});
 			if (rejected) {
@@ -358,15 +378,18 @@ module.exports = class DatabaseObject {
 
 			// Make sure the query was successful
 			if (result.affectedRows !== 1) {
-				log.error(`Insert failed. Query ran successfully; however, an unexpected number of records were affected. (${result.affectedRows} records)`);
-				reject(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+				log.error(`${this.#table} Insert failed. Query ran successfully; however, an unexpected number of records were affected. (${result.affectedRows} records)`);
+				reject(new Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 				return;
 			}
 
 			// Store the ID in this object
 			
-			this['id'] = result.insertId;
-			log.info(`new record ${this.#table} id:  ` + result.insertId);
+            this['id'] = result.insertId;
+            if(this.#table !== 'clw_talage_search_strings'){
+                log.info(`new record ${this.#table} id:  ` + result.insertId);
+            }
+			
 			// log.debug(`new record ${this.#table} id:  ` + this.id);
 
 			fulfill(true);
@@ -426,12 +449,15 @@ module.exports = class DatabaseObject {
 			const result = await db.query(sql).catch(function (error) {
 				// Check if this was
 				if (error.errno === 1062) {
-					rejected = true;
-					reject(serverHelper.requestError('The link (slug) you selected is already taken. Please choose another one.'));
+                    rejected = true;
+                    log.error(`${this.#table} Duplicate index error on update ` + error + __location);
+                    reject(new Error('Duplicate index error'));
+					//reject(new Error('The link (slug) you selected is already taken. Please choose another one.'));
 					return;
 				}
-				rejected = true;
-				reject(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+                rejected = true;
+                log.error(`${this.#table} error on update ` + error + __location);
+				reject(new Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 			});
 			if (rejected) {
 				return;
@@ -440,7 +466,7 @@ module.exports = class DatabaseObject {
 			// Make sure the query was successful
 			if (result.affectedRows !== 1) {
 				log.error(`Update failed. Query ran successfully; however, an unexpected number of records were affected. (${result.affectedRows} records)`);
-				reject(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+				reject(new Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 				return;
 			}
             log.info(`updated record ${this.#table} id:  ` + this.id);
@@ -474,11 +500,14 @@ module.exports = class DatabaseObject {
 			});
 			if (rejected) {
 				return;
-			}
+            }
 			// log.debug("getbyId results: " + JSON.stringify(result));
 			if(result && result.length === 1){
+                //Decrypt encrypted fields.
+                await this.decryptFields(result[0]);
+
 				this.load(result[0], false).catch(function(err){
-					log.error("getById error loading object: " + err);
+					log.error(`getById error loading object: ` + err);
 					//not reject on issues from database object.
 					//reject(err);
 				})
@@ -488,8 +517,18 @@ module.exports = class DatabaseObject {
 				return
 			}
 			fulfill(true);
-		});
+        });
 	}
+    async decryptFields(data){
+        for (const property in this.#properties) {
+            // Only set properties that were provided in the data
+            // if from database ignore required rules.
+            if (this.#properties[property].encrypted === true && Object.prototype.hasOwnProperty.call(data, property) && data[property]) {
+                data[property] = await crypt.decrypt(data[property]);
+            }
+        }
+        return 
+    }
 
 	cleanJSON(){
 		let propertyNameJson = {};

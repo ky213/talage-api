@@ -29,13 +29,13 @@ module.exports = class BusinessContactModel{
 
 
     /**
-	 * Load new businessContact JSON with optional save.
+	 * Save businessContact JSON
      *
 	 * @param {object} businessContactJSON - businessContact JSON
      * @param {boolean} save - Saves businessContact if true
 	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
 	 */
-    newBusinessContact(businessContactJSON, save = false){
+    saveBusinessContact(businessContactJSON){
         return new Promise(async(resolve, reject) => {
             if(!businessContactJSON){
                 reject(new Error("empty businessContact object given"));
@@ -43,52 +43,32 @@ module.exports = class BusinessContactModel{
             await this.cleanupInput(businessContactJSON);
             //have id load businessContact data.
             //let businessContactDBJSON = {};
+            
             if(businessContactJSON.id){
-                await this.updateBusinessContact(businessContactJSON, save).then(resolve(true)).catch(function(err){
+                await this.#businessContactORM.getById(businessJSON.id).catch(function (err) {
+                    log.error("Error getting businessContact from Database " + err + __location);
                     reject(err);
-                })
-            }
-            else {
-                 //validate
-                 this.#businessContactORM.load(businessContactJSON);
-                //setup businessContact
-
-                //save
-                await this.#businessContactORM.save().catch(function(err){
-                    reject(err);
+                    return;
                 });
                 this.updateProperty();
-                this.id = this.#businessContactORM.id;
-                await this.updateSearchStrings();
-                resolve(true);
-            }
-        });
-    }
-
-
-    updateBusinessContact(businessContactJSON, save = false){
-        return new Promise(async(resolve, reject) => {
-            if(businessContactJSON.id){
-                //validate
-                this.cleanupInput(businessContactJSON);
-                //validate
-                this.#businessContactORM.load(businessContactJSON);
-
-                //save
-                await this.#businessContactORM.save().catch(function(err){
-                    reject(err);
-                });
-                this.id = this.#businessContactORM.id;
-                await this.updateSearchStrings();
-                resolve(true);
-
+                this.#businessContactORM.load(businessJSON, false);
             }
             else {
-                reject(new Error("Missing Contact Id"));
+                this.#businessContactORM.load(businessJSON);
             }
 
+            //save
+            await this.#businessContactORM.save().catch(function(err){
+                reject(err);
+            });
+            this.updateProperty();
+            this.id = this.#businessContactORM.id;
+            await this.updateSearchStrings();
+            resolve(true);
+            
         });
     }
+    
 
     /**
 	 * saves businessContact.
@@ -108,7 +88,7 @@ module.exports = class BusinessContactModel{
         return new Promise(async (resolve, reject) => {
             //validate
             if(id && id >0 ){
-                await this.#businessContactORM.getById(applicationJSON.id).catch(function (err) {
+                await this.#businessContactORM.getById(id).catch(function (err) {
                     log.error("Error getting businessContact from Database " + err + __location);
                     reject(err);
                     return;
@@ -120,6 +100,26 @@ module.exports = class BusinessContactModel{
                 reject(new Error('no id supplied'))
             }
         });
+    }
+
+    DeleteBusinessContacts(businessId) {
+        return new Promise(async(resolve, reject) => {
+            //Remove old records.
+            const sql =`DELETE FROM clw_talage_contacts
+                   WHERE business = ${businessId}
+            `;
+            let rejected = false;
+			const result = await db.query(sql).catch(function (error) {
+				// Check if this was
+				log.error("Database Object clw_talage_contacts DELETE error :" + error + __location);
+				rejected = true;
+				reject(error);
+			});
+			if (rejected) {
+				return false;
+			}
+            resolve(true);
+       })
     }
 
     updateSearchStrings(){

@@ -12,7 +12,8 @@ const tracker = global.requireShared('./helpers/tracker.js');
 const ApplicationModel = global.requireShared('models/Application-model.js');
 const contactStepParser = require('./parsers/contact-step-parser.js')
 const coverageStepParser = require('./parsers/coverage-step-parser.js');
-
+const locationStepParser = require('./parsers/location-step_parser.js')
+const ownerStepParser = require('./parsers/owner-step-parser.js')
 
 /**
  * Responds to POST related ot new applications
@@ -61,21 +62,28 @@ async function Save(req, res, next){
 			contactStepParser.process(applicationRequestJson);
 			break;
 		case 'locations':
+            if(!applicationRequestJson.locations || !applicationRequestJson.mailing){
+                res.send(400, "missing location information");
+                return next(serverHelper.requestError("missing location information"));
+            }
             // Get parser for locations page
+            locationStepParser.process(applicationRequestJson);
 			break;
 		case 'coverage':
             //validate
             if(!applicationRequestJson.policy_types || !applicationRequestJson.questions){
-                res.send(400, "missing application id");
+                res.send(400, "missing coverage information");
                 return next(serverHelper.requestError("missing coverage information"));
             }
 			// Get parser for coverage
 			coverageStepParser.process(applicationRequestJson);
 			break;
 		case 'owners':
-			// Get parser for owners page
-			// require_once JPATH_COMPONENT_ADMINISTRATOR . '/lib/QuoteEngine/parsers/OwnersParser.php';
-			// $parser = new OwnersParser();
+            if(!applicationRequestJson.owners && !applicationRequestJson.owners_covered){
+                res.send(400, "missing owners information");
+                return next(serverHelper.requestError("missing owners information"));
+            }
+            ownerStepParser.process(applicationRequestJson);
 			break;
 		case 'details':
 			// Get parser for details page
@@ -111,7 +119,7 @@ async function Save(req, res, next){
 
     if(knownWorkflowStep === true){
         const applicationModel = new ApplicationModel();
-        await applicationModel.newApplicationStep(applicationRequestJson, worflowStep).then(function(modelResponse){
+        await applicationModel.saveApplicationStep(applicationRequestJson, worflowStep).then(function(modelResponse){
             if(modelResponse === true){
 
                 responseObj.demo = applicationRequestJson.demo;
