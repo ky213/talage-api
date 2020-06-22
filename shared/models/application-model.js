@@ -2,6 +2,7 @@
 
 const DatabaseObject = require('./DatabaseObject.js');
 const BusinessModel = require('./Business-model.js');
+const ApplicationClaimModel = require('./ApplicationClaim-model.js');
 const moment = require('moment');
 const { 'v4': uuidv4 } = require('uuid');
 // eslint-disable-next-line no-unused-vars
@@ -105,9 +106,12 @@ module.exports = class ApplicationModel {
                     updateBusiness = true;
                     break;
                 case 'claims':
-                    // Get parser for claims page
-                    // require_once JPATH_COMPONENT_ADMINISTRATOR . '/lib/QuoteEngine/parsers/ClaimsParser.php';
-                    // $parser = new ClaimsParser();
+                    if(applicationJSON.claims){
+                        await this.processClaimsWF(applicationJSON.claims).catch(function(err){
+                            log.error('Adding claims error:' + err + __location);
+                            reject(err);
+                        });
+                    }
                     break;
                 case 'questions':
                     // Get parser for questions page
@@ -133,7 +137,6 @@ module.exports = class ApplicationModel {
                     delete applicationJSON.businessInfo
                 }
             }
-
 
             const stepMap = {
                 'contact': 2,
@@ -197,6 +200,36 @@ module.exports = class ApplicationModel {
             resolve(businessModel);
         });
     }
+
+
+    /**
+    * update business object
+    *
+    * @param {object} businessInfo - businessInfo JSON
+    * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessModel , or an Error if rejected
+    */
+   processClaimsWF(claims) {
+    return new Promise(async (resolve, reject) => {
+        //delete existing.
+        const applicationClaimModelDelete = new ApplicationClaimModel();
+        //remove existing addresss acivity codes. we do not get ids from UI.
+        await applicationClaimModelDelete.DeleteClaimsByApplicationId(this.id).catch(function(err){
+            
+        });
+        for(var i = 0; i < claims.length; i++){
+            let claim = claims[i];
+            claim.application = this.id;
+            const applicationClaimModel = new ApplicationClaimModel();
+            await applicationClaimModel.saveModel(claim).catch(function (err) {
+                log.error("Adding new claim error:" + err + __location);
+                reject(err);
+                return;
+            });
+        }
+        resolve(true);
+
+    });
+}
 
 
 

@@ -48,6 +48,6 @@ exports.process = async function(requestJSON) {
     requestJSON.businessInfo.ncci_number = stringFunctions.santizeString(requestJSON.ncci_number);
     requestJSON.businessInfo.website = stringFunctions.santizeString(requestJSON.website);
 
-    log.debug("Detail Parser requestJSON: " + JSON.stringify(requestJSON));
+   // log.debug("Detail Parser requestJSON: " + JSON.stringify(requestJSON));
     return true;
 }
