@@ -237,7 +237,7 @@ async function PostApplications(req, res, next){
 			LEFT JOIN ${db.quoteName('#__agencies', 'ag')} ON ${db.quoteName('a.agency')} = ${db.quoteName('ag.id')}
 			${join}
 			WHERE ${db.quoteName('a.state')} >= 1
-				AND ${db.quoteName('a.created')} BETWEEN CAST(${db.escape(startDateSQL)} AS DATE) AND CAST(${db.escape(endDateSQL)} AS DATE)
+				AND ${db.quoteName('a.created')} BETWEEN CAST(${db.escape(startDateSQL)} AS DATETIME) AND CAST(${db.escape(endDateSQL)} AS DATETIME)
 				${where}
 		`;
 

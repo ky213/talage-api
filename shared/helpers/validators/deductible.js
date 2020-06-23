@@ -16,7 +16,7 @@ module.exports = function(deductible){
 
 	// Check that we can use this type
 	if(typeof deductible !== 'string' && typeof deductible !== 'number'){
-		log.error('Deductible Validator encountered value it cannot check (must be number or string)');
+		log.error('Deductible Validator encountered value it cannot check (must be number or string)' + __location);
 		return false;
 	}
 

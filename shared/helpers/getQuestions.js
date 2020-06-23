@@ -69,7 +69,7 @@ module.exports = function(activity_codes, industry_code, zip_codes, policy_types
 		});
 
 		req.on('error', function(e){
-			log.error(e.message);
+			log.error(e.message + __location);
 			reject(serverHelper.internalError('Unable to connect to Question API'));
 		});
 
