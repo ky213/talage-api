@@ -27,7 +27,7 @@ module.exports = function(val){
 			break;
 
 		default:
-			log.error('Boolean Validator encountered value it cannot check (must be boolean, number, or string)');
+			log.error('Boolean Validator encountered value it cannot check (must be boolean, number, or string)' + __location);
 			break;
 	}
 
