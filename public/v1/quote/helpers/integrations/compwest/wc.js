@@ -401,7 +401,7 @@ log.info(`TO DO: As this business could not be written by ${this.insurer.name}, 
 
 							// <CommlPolicySupplement>
 							const CommlPolicySupplement = CommlPolicy.ele('CommlPolicySupplement');
-								CommlPolicySupplement.ele('OperationsDesc', this.app.business.locations[0].activity_codes[0].description);
+								CommlPolicySupplement.ele('OperationsDesc', this.get_operation_description());
 
 								// <LengthTimeInBusiness> They want this in years
 								const LengthTimeInBusiness = CommlPolicySupplement.ele('LengthTimeInBusiness');
