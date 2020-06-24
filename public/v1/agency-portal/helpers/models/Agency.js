@@ -25,6 +25,13 @@ const properties = {
 		],
 		'type': 'string' // The data type
 	},
+	'enableOptout': {
+		'default': 0,
+		'encrypted': false,
+		'required': false,
+		'rules': [],
+		'type': 'number'
+	},
 	'email': {
 		'default': null,
 		'encrypted': true,
@@ -103,13 +110,6 @@ const properties = {
 			validator.website
 		],
 		'type': 'string'
-	},
-	'enable_optout': {
-		'default': 0,
-		'encrypted': false,
-		'required': false,
-		'rules': [],
-		'type': 'number'
 	}
 };
 
