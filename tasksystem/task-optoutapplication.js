@@ -176,7 +176,7 @@ var processOptOutEmail = async function(applicationId) {
 
         let message = `A potential policyholder has requested that you reach out to help them through the process.<br/>
         <br/>
-        We'll leave it too you from here!<br/>
+        We'll leave it to you from here!<br/>
         <br/>
         Contact Name: {{Contact Name}}<br/>
         Business Name: {{BusinessName}}<br/>
