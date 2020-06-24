@@ -63,15 +63,15 @@ exports.taskProcessorExternal = async function() {
  */
 var optoutapplicationtask = async function() {
 
+    const now = moment();
     const oneHourAgo = moment().subtract(1, 'h');
-    const twoHourAgo = moment().subtract(2, 'h');
     //get list....
     const appIdSQL = `
             SELECT DISTINCT
 				a.id as 'applicationId' 
             FROM clw_talage_applications a
             WHERE a.agency_location  IS NOT NULL
-                AND a.created BETWEEN  '${twoHourAgo.utc().format()}' AND '${oneHourAgo.utc().format()}'
+                AND a.created BETWEEN  '${oneHourAgo.utc().format()}' AND '${now.utc().format()}'
                 AND a.opted_out_online  = 1
                 AND a.opted_out_online_emailsent  = 0
                 AND a.state  < 13
