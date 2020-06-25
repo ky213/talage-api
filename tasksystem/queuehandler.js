@@ -63,7 +63,7 @@ exports.deleteTaskQueueItem = async function(messageReceiptHandle){
     let errorMessage = null;
 	await sqs.deleteMessage(params, function(err){
 		if (err){
-            log.error("delete queueitem error: " + err);
+            log.error("delete queueitem error: " + err+ __location);
 			errorMessage = err;
 		}
 	}).promise();

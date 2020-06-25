@@ -14,7 +14,7 @@ module.exports = async function(id){
 		let hadError = false;
 		const sql = `SELECT COUNT(${db.quoteName('id')}) FROM ${db.quoteName('#__agency_locations')} WHERE ${db.quoteName('id')} = ${db.escape(id)} AND ${db.quoteName('state')} = 1 LIMIT 1;`;
 		const rows = await db.query(sql).catch(function(error){
-			log.error(error);
+			log.error(error + __location);
 			hadError = true;
 		});
 		if(hadError){
