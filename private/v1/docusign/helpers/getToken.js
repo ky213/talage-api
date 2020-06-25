@@ -20,9 +20,11 @@ let tokenExpirationTime = null;
 /**
  * Obtains a new accessToken from DocuSign using the JWT flow.
  *
+ * @param {object} config - Docusign configuration
+ *
  * @returns {void}
  */
-async function getNewToken(config) {
+async function getNewToken(config){
 	// Initialize the DocuSign API
 	const docusignApiClient = new DocuSign.ApiClient();
 
@@ -30,19 +32,21 @@ async function getNewToken(config) {
 	docusignApiClient.setOAuthBasePath(config.authBasePath);
 
 	// Request the JWT Token
-	await docusignApiClient.requestJWTUserToken(config.integrationKey, config.impersonatedUser, scopes, config.privateKey, jwtLife).then(function (result) {
-		// Store the token and expiration time locally for later use
-		log.verbose('New token obtained.');
-		accessToken = result.body.access_token;
-		tokenExpirationTime = moment().add(result.body.expires_in, 's');
-	}, function (error) {
-		log.error(`Unable to authenicate to DocuSign. (${error.status} ${error.message})` + __location);
-		if (error.response.res.text === '{"error":"consent_required"}') {
-			log.verbose(`Consent needs to be provided. Try https://${config.authBasePath}/oauth/auth?response_type=code&scope=signature%20impersonation&client_id=${config.integrationKey}&redirect_uri=https://agents.insurancewheelhouse.com`);
-		} else {
-			log.verbose(error.response.res.text);
-		}
-	});
+	await docusignApiClient.requestJWTUserToken(config.integrationKey, config.impersonatedUser, scopes, config.privateKey, jwtLife).then(function(result){
+			// Store the token and expiration time locally for later use
+			log.verbose('New token obtained.');
+			accessToken = result.body.access_token;
+			tokenExpirationTime = moment().add(result.body.expires_in, 's');
+		},
+		function(error){
+			log.error(`Unable to authenicate to DocuSign. (${error.status} ${error.message})` + __location);
+			if (error.response.res.text === '{"error":"consent_required"}'){
+				log.verbose(`Consent needs to be provided. Try https://${config.authBasePath}/oauth/auth?response_type=code&scope=signature%20impersonation&client_id=${config.integrationKey}&redirect_uri=https://agents.insurancewheelhouse.com`);
+			}
+ else {
+				log.verbose(error.response.res.text);
+			}
+		});
 }
 
 /**
@@ -53,18 +57,20 @@ async function getNewToken(config) {
  * a new accessToken will be obtained from DocuSign by using
  * the JWT flow.
  *
+ * @param {object} config - Docusign configuration
+ *
  * @returns {void}
  */
-module.exports = async function (config) {
+module.exports = async function(config){
 	// Check if we have an existing token
-	if (!accessToken || !tokenExpirationTime) {
+	if (!accessToken || !tokenExpirationTime){
 		log.verbose('No DocuSign token exists. Getting a new one.');
 		await getNewToken(config);
 		return accessToken;
 	}
 
 	// Check if we need a new token
-	if (tokenExpirationTime.subtract(tokenReplaceMinutes, 'm').isBefore(moment())) {
+	if (tokenExpirationTime.subtract(tokenReplaceMinutes, 'm').isBefore(moment())){
 		log.verbose('Docusign token is expired or close to expiring. Getting a new one');
 		await getNewToken(config);
 		return accessToken;

@@ -31,7 +31,8 @@ async function GetUserInfo(req, res, next){
 				WHERE \`au\`.\`id\` = ${parseInt(req.authentication.userID, 10)}
 				LIMIT 1;
 			`;
-	}else{
+	}
+else{
 		userInfoSQL = `
 				SELECT
 					\`a\`.\`agency_network\` AS agencyNetwork,

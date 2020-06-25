@@ -1,6 +1,5 @@
 /* eslint indent: 0 */
 /* eslint multiline-comment-style: 0 */
-/* eslint talage/no-debug-statements: 0 */
 /* eslint no-unreachable: 0 */
 
 /**
@@ -118,7 +117,8 @@ module.exports = class CompwestWC extends Integration{
 			let host = '';
 			if(this.insurer.test_mode){
 				host = 'npsv.afgroup.com';
-			}else{
+			}
+else{
 				fulfill(this.return_error('error', 'Under Development', 'Binding from this insurer in production is currently under development, as such you will not receive a quote back at this time.'));
 
 			}
@@ -144,14 +144,14 @@ module.exports = class CompwestWC extends Integration{
 					case 'ERRORED':
 					case 'SMARTEDITS':
 						this.log += `--------======= Bind Error =======--------<br><br>${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`;
-						log.error(`${this.insurer.name} ${this.policy.type} Bind Integration Error(s):\n--- ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`+ __location);
+						log.error(`${this.insurer.name} ${this.policy.type} Bind Integration Error(s):\n--- ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}` + __location);
 						reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 						return;
 					case 'UNAUTHENTICATED':
 					case 'UNAUTHORIZED':
 						message_type = status === 'UNAUTHENTICATED' ? 'Incorrect' : 'Locked';
 						this.log += `--------======= ${message_type} Agency ID =======--------<br><br>We attempted to process a bind request, but the Agency ID set for the agent was ${message_type.toLowerCase()} and no quote could be processed.`;
-						log.error(`${this.insurer.name} ${this.policy.type} Bind ${message_type} Agency ID`+ __location);
+						log.error(`${this.insurer.name} ${this.policy.type} Bind ${message_type} Agency ID` + __location);
 						reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 						return;
 					default:
@@ -162,7 +162,7 @@ module.exports = class CompwestWC extends Integration{
 				}
 			}).catch((error) => {
 				log.error(util.inspect(error) + __location);
-				log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.`+__location);
+				log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.` + __location);
 				fulfill(this.return_result('error'));
 			});
 		});
@@ -509,7 +509,8 @@ log.info('TO DO: Determine what we are doing on <com.afg_WorkSafeCredit> - Michi
 															// Determine how to send the answer
 															if(question.type === 'Yes/No'){
 																ClassCodeQuestion.ele('ResponseInd', question.get_answer_as_boolean() ? 'Y' : 'N');
-															}else{
+															}
+else{
 																ClassCodeQuestion.ele('ResponseInd', question.answer);
 															}
 														// </ClassCodeQuestion>
@@ -565,8 +566,9 @@ log.info('TO DO: Determine what we are doing on <com.afg_WorkSafeCredit> - Michi
 										// Make sure we have the attributes we are expecting
 										if(Object.prototype.hasOwnProperty.call(questionAttributes, 'xml_section') && Object.prototype.hasOwnProperty.call(questionAttributes, 'code')){
 											embeddedQuestions[`${questionAttributes.xml_section}-${questionAttributes.code}`] = this.questions[questionId];
-										}else{
-											log.error(`The AF Group embedded question "${this.question_details[questionId].identifier}" has invalid attributes.`+ __location);
+										}
+else{
+											log.error(`The AF Group embedded question "${this.question_details[questionId].identifier}" has invalid attributes.` + __location);
 										}
 									}
 								}
@@ -638,7 +640,8 @@ log.info('TO DO: Determine what we are doing on <com.afg_WorkSafeCredit> - Michi
 			if(this.insurer.test_mode){
 				host = 'npsv.afgroup.com';
 				path = '/TEST_DigitalAq/rest/getworkcompquote';
-			}else{
+			}
+else{
 				host = 'psv.afgroup.com';
 				path = '/DigitalAq/rest/getworkcompquote';
 			}
@@ -664,7 +667,7 @@ log.info('TO DO: Determine what we are doing on <com.afg_WorkSafeCredit> - Michi
 					case 'UNAUTHORIZED':
 						message_type = status === 'UNAUTHENTICATED' ? 'Incorrect' : 'Locked';
 						this.log += `--------======= ${message_type} Agency ID =======--------<br><br>We attempted to process a quote, but the Agency ID set for the agent was ${message_type.toLowerCase()} and no quote could be processed.`;
-						log.error(`${this.insurer.name} ${this.policy.type} ${message_type} Agency ID`+ __location);
+						log.error(`${this.insurer.name} ${this.policy.type} ${message_type} Agency ID` + __location);
 // This was a misconfiguration on the Agent's part, pick it up under the Talage agency for a better user experience
 						this.reasons.push(`${status} - ${message_type} Agency ID`);
 						fulfill(this.return_result('error'));
@@ -672,7 +675,7 @@ log.info('TO DO: Determine what we are doing on <com.afg_WorkSafeCredit> - Michi
 					case 'ERRORED':
 					case 'SMARTEDITS':
 						this.log += `--------======= Application Error =======--------<br><br>${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`;
-						log.error(`${this.insurer.name} ${this.policy.type} Integration Error(s):\n--- ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`+__location);
+						log.error(`${this.insurer.name} ${this.policy.type} Integration Error(s):\n--- ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}` + __location);
 						this.reasons.push(`${status} - ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`);
 						fulfill(this.return_result('error'));
 						return;
@@ -707,8 +710,9 @@ log.info('TO DO: Determine what we are doing on <com.afg_WorkSafeCredit> - Michi
 							'file_name': `${this.insurer.name}_ ${this.policy.type}_quote_letter.pdf`,
 							'length': res['com.afg_Base64PDF'][0].length
 						};
-					}catch(err){
-						log.error(`It looks like ${this.insurer.name} changed how they return the quote letter attachments.`+ __location);
+					}
+catch(err){
+						log.error(`It looks like ${this.insurer.name} changed how they return the quote letter attachments.` + __location);
 					}
 				}
 
@@ -718,7 +722,8 @@ log.info('TO DO: Determine what we are doing on <com.afg_WorkSafeCredit> - Michi
 				// Attempt to get the policy number
 				try{
 					this.number = res.PolicyNumber[0];
-				}catch(e){
+				}
+catch(e){
 					log.error(`It looks like ${this.insurer.name} changed how they return policy numbers.`);
 				}
 
@@ -726,7 +731,8 @@ log.info('TO DO: Determine what we are doing on <com.afg_WorkSafeCredit> - Michi
 				if(status === 'QUOTED' || status === 'REFERRALNEEDED'){
 					try{
 						this.amount = parseInt(res.CurrentTermAmt[0].Amt[0], 10);
-					}catch(e){
+					}
+catch(e){
 						log.error(`${this.insurer.name} Integration Error: Quote structure changed. Unable to quote amount. `);
 						this.reasons.push('A quote was generated, but our API was unable to isolate it.');
 						fulfill(this.return_result('error'));

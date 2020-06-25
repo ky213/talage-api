@@ -13,6 +13,8 @@ const util = require('util');
 const{'v4': uuidv4} = require('uuid');
 const xmlToObj = require('xml2js').parseString;
 const serverHelper = require('../../../../../server.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 module.exports = class Integration{
 
@@ -86,14 +88,14 @@ module.exports = class Integration{
 
 			// Make sure the _bind() function exists
 			if(typeof this._bind === 'undefined'){
-				log.warn(`${this.insurer} ${this.policy.type} integration does not support binding quotes`+ __location);
+				log.warn(`${this.insurer} ${this.policy.type} integration does not support binding quotes` + __location);
 				reject(serverHelper.notFoundError('Insurer integration does not support binding quotes at this time'));
 				return;
 			}
 
 			// Check for an outage
 			if(this.insurer.outage){
-				log.warn(`${this.insurer} is currently unavailable due to scheduled maintenance`+ __location);
+				log.warn(`${this.insurer} is currently unavailable due to scheduled maintenance` + __location);
 				reject(serverHelper.serviceUnavailableError('Insurer is currently unavailable due to scheduled maintance'));
 				return;
 			}
@@ -242,7 +244,7 @@ module.exports = class Integration{
 
 		// If this question has a parent that belongs to a different insurer it should have a default
 		if(question.parent && !Object.prototype.hasOwnProperty.call(this.questions, question.parent) && question.answer_id === 0 && question.answer === null){
-			log.error(`Question ${question.id} is missing a default answer. Defaulted to 'No' for this application. May cause quoting inaccuracies!`+ __location);
+			log.error(`Question ${question.id} is missing a default answer. Defaulted to 'No' for this application. May cause quoting inaccuracies!` + __location);
 			return 'No';
 		}
 
@@ -252,14 +254,15 @@ module.exports = class Integration{
 			// Determine the answer based on the Answer ID stored in our database
 			if(!Object.prototype.hasOwnProperty.call(question.possible_answers, question.answer_id)){
 				// This shouldn't have happened, throw an error
-				log.error(`${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible. This should have been caught in the validation stage.`+ __location);
+				log.error(`${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible. This should have been caught in the validation stage.` + __location);
 				log.verbose('The question is as follows:');
 				log.verbose(util.inspect(question, false, null));
 				throw new Error(`${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible`);
 			}
 
 			answer = question.possible_answers[question.answer_id].answer;
-		}else{
+		}
+else{
 			// This is a fill-in-the-blank style question, simply send what the user gave us
 			answer = question.answer;
 		}
@@ -431,7 +434,8 @@ module.exports = class Integration{
 
 				// Return the mapping
 				fulfill(question_details);
-			}else{
+			}
+else{
 				fulfill({});
 			}
 		});
@@ -483,7 +487,8 @@ module.exports = class Integration{
 
 				// Return the mapping
 				fulfill(identifiers);
-			}else{
+			}
+else{
 				fulfill({});
 			}
 		});
@@ -692,7 +697,7 @@ module.exports = class Integration{
 			// Make sure the insurer_quote() function exists
 			if(typeof this._insurer_quote === 'undefined'){
 				const error_message = 'Integration file must include the insurer_quote() function';
-				log.error(error_message+ __location);
+				log.error(error_message + __location);
 				this.reasons.push(error_message);
 				fulfill(this.return_error('error', 'Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 				return;
@@ -730,7 +735,7 @@ module.exports = class Integration{
 					}
 					break;
 				default:
-					log.error(`Unexpected policy type of ${this.policy.type} in Integration`+ __location);
+					log.error(`Unexpected policy type of ${this.policy.type} in Integration` + __location);
 					fulfill(this.return_error('error', 'Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 					return;
 			}
@@ -843,7 +848,8 @@ module.exports = class Integration{
 		columns.push('api_result');
 		if(error){
 			values.push(error);
-		}else{
+		}
+else{
 			values.push('quoted');
 		}
 
@@ -860,13 +866,17 @@ module.exports = class Integration{
 			const fileName = `${this.generate_uuid()}.pdf`;
 
 			// Store the quote letter in our cloud storage
-			await fileSvc.store(`secure/quote-letters/${fileName}`, this.quote_letter.data).then(function(result){
-				if(result){
-					// The file was successfully saved, store the file name in the database
+			try{
+				// Store the quote letter in our cloud storage
+				const result = await fileSvc.PutFile(`secure/quote-letters/${fileName}`, this.quote_letter.data);
+				// The file was successfully saved, store the file name in the database
+				if(result && Object.prototype.hasOwnProperty.call(result, 'code') && result.code === 'Success'){
 					columns.push('quote_letter');
 					values.push(fileName);
 				}
-			});
+			}catch(err){
+				log.error(`S3 error Storing Quote letter : ${fileName} error: ` + err + __location);
+			}
 		}
 
 		// Insert the quote record
@@ -1031,7 +1041,8 @@ module.exports = class Integration{
 			// If result is a possible API result from an integration, convert it to the Talage equivalent
 			if(Object.keys(this.possible_api_responses).includes(result)){
 				result = this.possible_api_responses[result];
-			}else{
+			}
+else{
 				const error_message = `${this.insurer.name} ${this.policy.type} Integration Error: Invalid value of '${result}' for result passed to return_result(). Result not specified in the insurer integration.`;
 				log.error(error_message + __location);
 				this.reasons.push(error_message);
@@ -1058,7 +1069,8 @@ module.exports = class Integration{
 			this.reasons.push(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote amount. Response structure may have changed.`);
 			if(result === 'quoted'){
 				result = 'error';
-			}else{
+			}
+else{
 				result = 'referred';
 			}
 		}
@@ -1299,7 +1311,8 @@ module.exports = class Integration{
 
 						this.log += `--------======= Response =======--------<br><br><pre>${filteredData}</pre><br><br>`;
 						fulfill(rawData);
-					}else{
+					}
+else{
 						const error = new Error(`Insurer request encountered a ${res.statusCode} error`);
 						log.error(error.message + __location);
 						log.verbose(rawData);
@@ -1514,7 +1527,8 @@ module.exports = class Integration{
 			// If there are attributes, parse them for later use
 			if(this.industry_code.attributes && Object.keys(this.industry_code.attributes).length > 0){
 				this.industry_code.attributes = JSON.parse(this.industry_code.attributes);
-			}else{
+			}
+else{
 				this.industry_code.attributes = '';
 			}
 

@@ -83,12 +83,18 @@ async function PostEmail(req, res, next){
 
 
 	//call email service
-	const respSendEmail = await emailSvc.send(req.body.to, req.body.subject, req.body.html, req.body.keys, req.body.brand, req.body.agency, req.body.attachments).catch(function(err){
-		return next(serverHelper.requestError(err));
+	const respSendEmail = await emailSvc.send(req.body.to, req.body.subject, req.body.html, req.body.keys, req.body.from, req.body.agency, req.body.attachments).catch(function(err){
+		log.error("Send email error: " + err + __location);
+		return res.send(serverHelper.internalError("SendEmail Error"));
 	});
 	if(respSendEmail === false){
-		return next(serverHelper.requestError("SendEmail Error"));
+		log.error("Send email error response was false: " + __location);
+		return res.send(serverHelper.internalError("SendEmail Error"));
 	}
+	res.send(200, {
+		'message': 'Email sent',
+		'status': 'success'
+	});
 	return next();
 }
 

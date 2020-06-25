@@ -34,7 +34,8 @@ require('fs').readdirSync(normalizedPath).forEach(function(file){
 exports.is_valid_id = function(id){
 	if(typeof id === 'string'){
 		return Number.isInteger(parseInt(id, 10));
-	}else if(typeof id === 'number'){
+	}
+else if(typeof id === 'number'){
 		return Number.isInteger(id);
 	}
 	return false;

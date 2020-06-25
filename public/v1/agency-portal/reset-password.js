@@ -4,6 +4,8 @@ const crypt = global.requireShared('./services/crypt.js');
 const jwt = require('jsonwebtoken');
 const request = require('request');
 const serverHelper = require('../../../server.js');
+const emailsvc = global.requireShared('./services/emailsvc.js');
+const slack = global.requireShared('./services/slacksvc.js');
 
 /**
  * Returns a limited life JWT for restting a user's password
@@ -61,13 +63,7 @@ async function PostResetPassword(req, res, next){
 		let portalurl = global.settings.PORTAL_URL;
 		if(result[0].agency_network === 2){
 			brandRaw = 'Digalent';
-			if(global.settings.ENV === 'production'){
-				portalurl = 'https://agents.digalent.com';
-			}else if(global.settings.ENV === 'staging'){
-				portalurl = 'https://agents.sta.digalent.com';
-			}else if(global.settings.ENV === 'demo'){
-				portalurl = 'https://demo.agents.digalent.com';
-			}
+			portalurl = global.settings.DIGALENT_AGENTS_URL;
 		}
 
 		const emailData = {
@@ -77,21 +73,16 @@ async function PostResetPassword(req, res, next){
 			'to': req.body.email
 		};
 
-		// Send an email to the user
-		request({
-			'json': emailData,
-			'method': 'POST',
-			'url': `http://localhost:${global.settings.PRIVATE_API_PORT}/v1/email/email`
-		}, function(err){
-			if(err){
-				log.error(`Failed to send the password reset email to ${req.body.email}. Please contact the user.`);
-				log.verbose(err);
-			}
-		});
+		const emailResp = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, brandRaw, 0);
+		if(emailResp === false){
+			log.error(`Failed to send the password reset email to ${req.body.email}. Please contact the user.`);
+			slack.send('#alerts', 'warning',`Failed to send the password reset email to ${req.body.email}. Please contact the user.`);
+		}
+		else {
+			log.info('Reset Password Request Complete');
+		}
 	}
-
 	// Always send a success response. This prevents leaking information about valid email addresses in our database.
-	log.info('Reset Password Request Complete');
 	res.send(200, {
 		'code': 'Success',
 		'message': 'Password Reset Started'

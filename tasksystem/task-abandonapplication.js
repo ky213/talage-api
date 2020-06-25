@@ -71,7 +71,8 @@ var abandonAppTask = async function(){
                 AND a.created BETWEEN  '${twoHourAgo.utc().format()}' AND '${oneHourAgo.utc().format()}'
                 AND a.last_step BETWEEN 1 AND 7
                 AND a.solepro  = 0
-                and a.abandoned_app_email = 0
+                AND a.abandoned_app_email = 0
+                AND a.opted_out_online = 0
                 AND a.state  = 1
     `;
    // log.debug(appIdSQL)

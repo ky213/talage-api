@@ -61,7 +61,8 @@ module.exports = function(activity_codes, industry_code, zip_codes, policy_types
 					}
 
 					fullfil(raw_data);
-				}else{
+				}
+else{
 					log.warn(`Unable to connect to Question API (${res.statusCode}${raw_data.message ? `: ${raw_data.message}` : ''})`);
 					reject(serverHelper.internalError('Unable to connect to Question API.'));
 				}

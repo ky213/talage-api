@@ -20,11 +20,11 @@ const socketIO = require('socket.io');
  *
  * @returns {void}
  */
-function processJWT(){
+function processJWT() {
 	return jwtRestify({
-		'algorithms': ['HS256', 'RS256'],
-		'requestProperty': 'authentication',
-		'secret': global.settings.AUTH_SECRET_KEY,
+		algorithms: ['HS256', 'RS256'],
+		requestProperty: 'authentication',
+		secret: global.settings.AUTH_SECRET_KEY,
 		credentialsRequired: false
 	});
 }
@@ -32,104 +32,157 @@ function processJWT(){
 /**
  * Middlware for authenticated endpoints which validates the JWT
  *
- * @param {function} nextCall - The next function call in the handling chain
+ * @param {Object} options - Contains properties handler (next function call), and options permission and permissionType.
  * @returns {void}
  */
-function validateJWT(nextCall){
+function validateJWT(options) {
 	return async(req, res, next) => {
-		try{
-			await auth.validateJWT(req);
-		}catch(error){
-			return next(error);
+		// Validate the JWT
+		const errorMessage = await auth.validateJWT(req, options.permission, options.permissionType);
+		if (errorMessage) {
+			// There was an error. Return a Forbidden error (403)
+			return next(new RestifyError.ForbiddenError(errorMessage));
 		}
-		return nextCall(req, res, next);
+		return options.handler(req, res, next);
 	};
 }
 
-class AbstractedHTTPServer{
-	constructor(server){
+/**
+ * Wrapper to catch unhandled exceptions in endpoint handlers
+ *
+ * @param {String} path - Path to the endpoint
+ * @param {Function} handler - Handler function
+ *
+ * @returns {Object} next() returned object
+ */
+function handlerWrapper(path, handler) {
+	return async(req, res, next) => {
+		let result = null;
+		try {
+			result = await handler(req, res, next);
+		}
+ catch (error) {
+			log.error(`Unhandled exception in endpoint ${path}: ${error}`);
+			return next(new RestifyError.InternalServerError('Internal Server Error'));
+		}
+		return result;
+	};
+}
+
+class AbstractedHTTPServer {
+	constructor(server) {
 		this.server = server;
 		this.socketPaths = [];
 	}
 
-	addPost(name, path, handler){
+	addPost(name, path, handler) {
 		this.server.post({
-			'name': name,
-			'path': path
-		}, handler);
+				name: name,
+				path: path
+			},
+			handlerWrapper(path, handler));
 	}
 
-	addPostAuth(name, path, handler){
+	addPostAuth(name, path, handler, permission = null, permissionType = null) {
 		name += ' (auth)';
 		this.server.post({
-			'name': name,
-			'path': path
-		}, processJWT(), validateJWT(handler));
+				name: name,
+				path: path
+			},
+			processJWT(),
+			validateJWT({
+				handler: handlerWrapper(path, handler),
+				permission: permission,
+				permissionType: permissionType
+			}));
 	}
 
-	addGet(name, path, handler){
+	addGet(name, path, handler) {
 		this.server.get({
-			'name': name,
-			'path': path
-		}, handler);
+				name: name,
+				path: path
+			},
+			handlerWrapper(path, handler));
 	}
 
-	addGetAuth(name, path, handler){
+	addGetAuth(name, path, handler, permission = null, permissionType = null) {
 		name += ' (auth)';
 		this.server.get({
-			'name': name,
-			'path': path
-		}, processJWT(), validateJWT(handler));
+				name: name,
+				path: path
+			},
+			processJWT(),
+			validateJWT({
+				handler: handlerWrapper(path, handler),
+				permission: permission,
+				permissionType: permissionType
+			}));
 	}
 
-	addPut(name, path, handler){
+	addPut(name, path, handler) {
 		this.server.put({
-			'name': name,
-			'path': path
-		}, processJWT(), handler);
+				name: name,
+				path: path
+			},
+			processJWT(),
+			handlerWrapper(path, handler));
 	}
 
-	addPutAuth(name, path, handler){
+	addPutAuth(name, path, handler, permission = null, permissionType = null) {
 		name += ' (auth)';
 		this.server.put({
-			'name': name,
-			'path': path
-		}, processJWT(), validateJWT(handler));
+				name: name,
+				path: path
+			},
+			processJWT(),
+			validateJWT({
+				handler: handlerWrapper(path, handler),
+				permission: permission,
+				permissionType: permissionType
+			}));
 	}
 
-	addDelete(name, path, handler){
+	addDelete(name, path, handler) {
 		this.server.del({
-			'name': name,
-			'path': path
-		}, handler);
+				name: name,
+				path: path
+			},
+			handlerWrapper(path, handler));
 	}
 
-	addDeleteAuth(name, path, handler){
+	addDeleteAuth(name, path, handler, permission = null, permissionType = null) {
 		name += ' (auth)';
 		this.server.del({
-			'name': name,
-			'path': path
-		}, processJWT(), validateJWT(handler));
+				name: name,
+				path: path
+			},
+			processJWT(),
+			validateJWT({
+				handler: handlerWrapper(path, handler),
+				permission: permission,
+				permissionType: permissionType
+			}));
 	}
 
-	addSocket(name, path, connectHandler){
+	addSocket(name, path, connectHandler) {
 		this.socketPaths.push({
-			'name': name,
-			'path': path
+			name: name,
+			path: path
 		});
-		const io = socketIO(this.server.server, {'path': path});
+		const io = socketIO(this.server.server, {path: path});
 
 		// Force authentication on Socket.io connections
-		io.use(function(socket, next){
-			if(socket.handshake.query && socket.handshake.query.token){
-				jwt.verify(socket.handshake.query.token, global.settings.AUTH_SECRET_KEY, function(err){
-					if(err){
+		io.use(function(socket, next) {
+			if (socket.handshake.query && socket.handshake.query.token) {
+				jwt.verify(socket.handshake.query.token, global.settings.AUTH_SECRET_KEY, function(err) {
+					if (err) {
 						log.info(`Socket ${path}: Invalid JWT`);
 						return next(new Error('Invalid authentication token'));
 					}
 					next();
 				});
-			}else{
+			}
+ else {
 				log.info(`Socket ${path}: Could not find JWT in handshake`);
 				return next(new Error('An authentication token must be provided'));
 			}
@@ -141,31 +194,30 @@ class AbstractedHTTPServer{
 }
 
 module.exports = {
-	'create': async(listenAddress, listenPort, endpointPath, useCORS, isDevelopment, logInfoHandler, logErrorHandler) => {
+	create: async(listenAddress, listenPort, endpointPath, useCORS, isDevelopment, logInfoHandler, logErrorHandler) => {
 		const server = restify.createServer({
-			'dtrace': true,
-			'name': `Talage API: ${endpointPath}`,
-			'version': global.version
+			dtrace: true,
+			name: `Talage API: ${endpointPath}`,
+			version: global.version
 		});
 
 		// Log Every Request. If they don't reach the endpoints, then CORS returned a preflight error.
 		// eslint-disable-next-line no-unused-vars
 		server.on('after', (req, res, route, error) => {
 			// Skip if uptime
-			if((req.url.includes('uptime') === true || listenPort === 3008) === false){
+			if ((req.url.includes('uptime') === true || listenPort === 3008) === false) {
 				logInfoHandler(`${moment().format()} ${req.connection.remoteAddress} ${req.method} ${req.url} => ${res.statusCode} '${res.statusMessage}'`);
 			}
-
 		});
-		server.on('error', function(err){
+		server.on('error', function(err) {
 			logErrorHandler(`${moment().format()} ${err.toString()}'`);
 		});
 		// CORS
-		if(useCORS){
+		if (useCORS) {
 			// Note: This should be set to something other than '*' -SF
 			const cors = restifyCORS({
-				'allowHeaders': ['Authorization'],
-				'origins': ['*']
+				allowHeaders: ['Authorization'],
+				origins: ['*']
 			});
 			server.pre(cors.preflight);
 			server.use(cors.actual);
@@ -174,9 +226,9 @@ module.exports = {
 		// Query string and body parsing
 		server.use(restify.plugins.queryParser());
 		server.use(restify.plugins.bodyParser({
-			'mapFiles': false,
-			'mapParams': true
-		}));
+				mapFiles: false,
+				mapParams: true
+			}));
 
 		// Sanitize paths
 		server.pre(restify.plugins.pre.dedupeSlashes());
@@ -185,7 +237,7 @@ module.exports = {
 		// Set some default headers for security
 		server.use((req, res, next) => {
 			// Strict-Transport-Security (note: do not send this in development as we don't use SSL in development)
-			if(!isDevelopment){
+			if (!isDevelopment) {
 				res.header('Strict-Transport-Security', 'max-age=63072000; includeSubDomains');
 			}
 			// Esnables the Cross-site scripting (XSS) filter built into most recent web browsers
@@ -205,8 +257,9 @@ module.exports = {
 		console.log(colors.cyan(`Registered ${endpointPath} endpoints`)); // eslint-disable-line no-console
 		console.log(colors.cyan('-'.padEnd(80, '-'))); // eslint-disable-line no-console
 		const routes = server.router.getRoutes();
-		for(const routeName in routes){ // eslint-disable-line guard-for-in
-			const route = routes[routeName];
+		const routeKeys = Object.keys(routes);
+		for (let i = 0; i < routeKeys.length; i++) {
+			const route = routes[routeKeys[i]];
 			// Color code the route name
 			let name = route.spec.name;
 			name = name.replace('(depr)', colors.red('(depr)'));
@@ -222,9 +275,10 @@ module.exports = {
 
 		// Start the server
 		const serverListen = util.promisify(server.listen.bind(server));
-		try{
+		try {
 			await serverListen(listenPort, listenAddress);
-		}catch(error){
+		}
+ catch (error) {
 			logErrorHandler(`Error running ${endpointPath} server: ${error}`);
 			return false;
 		}
@@ -234,17 +288,17 @@ module.exports = {
 		return true;
 	},
 
-	'forbiddenError': (message) => new RestifyError.ForbiddenError(message),
+	forbiddenError: (message) => new RestifyError.ForbiddenError(message),
 
-	'internalError': (message) => new RestifyError.InternalServerError(message),
+	internalError: (message) => new RestifyError.InternalServerError(message),
 
-	'invalidCredentialsError': (message) => new RestifyError.InvalidCredentialsError(message),
+	invalidCredentialsError: (message) => new RestifyError.InvalidCredentialsError(message),
 
-	'notAuthorizedError': (message) => new RestifyError.NotAuthorizedError(message),
+	notAuthorizedError: (message) => new RestifyError.NotAuthorizedError(message),
 
-	'notFoundError': (message) => new RestifyError.NotFoundError(message),
+	notFoundError: (message) => new RestifyError.NotFoundError(message),
 
-	'requestError': (message) => new RestifyError.BadRequestError(message),
+	requestError: (message) => new RestifyError.BadRequestError(message),
 
-	'serviceUnavailableError': (message) => new RestifyError.ServiceUnavailableError(message)
+	serviceUnavailableError: (message) => new RestifyError.ServiceUnavailableError(message)
 };

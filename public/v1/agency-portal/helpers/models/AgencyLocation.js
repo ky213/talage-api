@@ -16,7 +16,7 @@ const properties = {
 	'address': { // The name of the property
 		'default': null, // Default value
 		'encrypted': true, // Whether or not it is encrypted before storing in the database
-		'required': true, // Whether or not it is required
+		'required': false, // Whether or not it is required
 		'rules': [
 			validator.address
 		],
@@ -34,7 +34,7 @@ const properties = {
 	'agency': {
 		'default': null,
 		'encrypted': false,
-		'required': false,
+		'required': true,
 		'rules': [
 			validator.id
 		],
@@ -122,7 +122,7 @@ const properties = {
 	'zip': {
 		'default': null,
 		'encrypted': false,
-		'required': true,
+		'required': false,
 		'rules': [
 			validator.zip
 		],
@@ -192,6 +192,56 @@ module.exports = class AgencyLocation extends DatabaseObject{
 			}
 
 			fulfill(true);
+		});
+	}
+
+	/**
+	 * Save this agency location in the database
+	 *
+	 * @returns {Promise.<Boolean, Error>} A promise that returns true if resolved, or an Error if rejected
+	 */
+	save(){
+		return new Promise(async (fulfill, reject) => {
+			let rejected = false;
+
+			// If this location is primary, set all other locations to not primary
+			if(this.primary){
+				let where = '';
+
+				// If we are editing and this location is primary, don't change it
+				if(this.id){
+					where = `AND \`id\` != ${db.escape(this.id)}`
+				}
+
+				// Build the SQL query to update other locations
+				const sql = `
+					UPDATE
+						\`#__agency_locations\`
+					SET
+						\`primary\` = NULL
+					WHERE
+						\`agency\` = ${this.agency}
+						${where};
+				`;
+
+				// Run the query
+				const result = await db.query(sql).catch(function(error){
+					rejected = true;
+					reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				});
+				if(rejected){
+					return;
+				}
+			}
+
+			// Attempt to save
+			try{
+				// Call the parent class save() function
+				await super.save();
+				fulfill(true);
+			}catch(error){
+				reject(error);
+			}
 		});
 	}
 };

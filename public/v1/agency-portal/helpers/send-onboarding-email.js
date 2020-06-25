@@ -2,8 +2,10 @@
 
 const jwt = require('jsonwebtoken');
 const request = require('request');
+const emailsvc = global.requireShared('./services/emailsvc.js');
+const slack = global.requireShared('./services/slacksvc.js');
 
-module.exports = async function(agencyNetwork, userID, firstName, lastName, agencyName, slug, userEmail){
+module.exports = async function(agencyNetwork, userID, firstName, lastName, agencyName, slug, userEmail) {
 	// Get the content of the email
 	const emailContentSQL = `
 			SELECT
@@ -13,7 +15,7 @@ module.exports = async function(agencyNetwork, userID, firstName, lastName, agen
 			ORDER BY \`id\` DESC
 			LIMIT 2;
 		`;
-	const emailContentResult = await db.query(emailContentSQL).catch(function(e){
+	const emailContentResult = await db.query(emailContentSQL).catch(function(e) {
 		log.error(e.message);
 		return 'Error querying database. Check logs.';
 	});
@@ -22,35 +24,39 @@ module.exports = async function(agencyNetwork, userID, firstName, lastName, agen
 	// Note: Shouldn't we be guaranteed to have both a message and subject in the first result? Why are multiple results returned?
 
 	// Ensure we have at least one valid result
-	if(!emailContentResult || !emailContentResult[0]){
+	if (!emailContentResult || !emailContentResult[0]) {
 		log.error('send-onboarding-email.js: Error querying database. Missing first result.');
 		return 'Error querying database. Missing first result.';
 	}
 
 	// Decode the JSON
 	emailContentResult[0].emailData = JSON.parse(emailContentResult[0].emailData);
-	if(emailContentResult[1]){
+	if (emailContentResult[1]) {
 		emailContentResult[1].emailData = JSON.parse(emailContentResult[1].emailData);
 	}
 
 	// Populate the email message
 	let emailMessage = '';
-	if(emailContentResult[0].emailData && emailContentResult[0].emailData.message){
+	if (emailContentResult[0].emailData && emailContentResult[0].emailData.message) {
 		emailMessage = emailContentResult[0].emailData.message;
-	}else if(emailContentResult[1] && emailContentResult[1].emailData && emailContentResult[1].emailData.message){
+	}
+	else if (emailContentResult[1] && emailContentResult[1].emailData && emailContentResult[1].emailData.message) {
 		emailMessage = emailContentResult[1].emailData.message;
-	}else{
+	}
+	else {
 		log.error('send-onboarding-email: Could not find email message');
 		return 'Could not find email message';
 	}
 
 	// Populate the email subject
 	let emailSubject = '';
-	if(emailContentResult[0].emailData && emailContentResult[0].emailData.subject){
+	if (emailContentResult[0].emailData && emailContentResult[0].emailData.subject) {
 		emailSubject = emailContentResult[0].emailData.subject;
-	}else if(emailContentResult[1] && emailContentResult[1].emailData && emailContentResult[1].emailData.subject){
+	}
+	else if (emailContentResult[1] && emailContentResult[1].emailData && emailContentResult[1].emailData.subject) {
 		emailSubject = emailContentResult[1].emailData.subject;
-	}else{
+	}
+	else {
 		log.error('send-onboarding-email: Could not find email subject');
 		return 'Could not find email subject';
 	}
@@ -63,19 +69,10 @@ module.exports = async function(agencyNetwork, userID, firstName, lastName, agen
 	let brandraw = global.settings.BRAND.toLowerCase();
 	let portalurl = global.settings.PORTAL_URL;
 	let appurl = global.settings.APPLICATION_URL;
-	if(agencyNetwork === 2){
+	if (agencyNetwork === 2) {
 		brandraw = 'Digalent';
-		if(global.settings.ENV === 'production'){
-			portalurl = 'https://agents.digalent.com';
-			appurl = 'https://insure.digalent.com';
-		}else if(global.settings.ENV === 'staging'){
-			portalurl = 'https://agents.sta.digalent.com';
-			appurl = 'https://sta.digalent.com';
-		}else if(global.settings.ENV === 'demo'){
-			portalurl = 'https://demo.agents.digalent.com';
-			appurl = 'https://demo.insure.digalent.com';
-		}
-
+		portalurl = global.settings.DIGALENT_AGENTS_URL;
+		appurl = global.settings.DIGALENT_SITE_URL;
 	}
 	let brand = brandraw.toLowerCase();
 	brand = `${brand.charAt(0).toUpperCase() + brand.slice(1)}`;
@@ -98,20 +95,13 @@ module.exports = async function(agencyNetwork, userID, firstName, lastName, agen
 	// Format the brand
 	// Let brand = global.settings.BRAND.toLowerCase();
 	// Brand = `${brand.charAt(0).toUpperCase() + brand.slice(1)}`;
-
-	// Send an email to the user
-	request({
-		'json': emailData,
-		'method': 'POST',
-		'url': `http://localhost:${global.settings.PRIVATE_API_PORT}/v1/email/email`
-	}, function(err){
-		if(err){
-			const errorStr = `Failed to send the onboarding email to ${userEmail} during the creation of the agency ${agencyName}. Please send manually.`;
-			log.error(errorStr);
-			log.verbose(err);
-			return errorStr;
-		}
-	});
+	const emailResp = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, emailData.from, 0);
+	if (emailResp === false) {
+		const errorStr = `Failed to send the onboarding email to ${userEmail} during the creation of the agency ${agencyName}. Please send manually.`;
+		log.error(errorStr);
+		slack.send('#alerts', 'warning', errorStr );
+		return errorStr;
+	}
 
 	// If nothing goes wrong
 	return false;

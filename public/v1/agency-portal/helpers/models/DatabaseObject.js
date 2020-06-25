@@ -1,3 +1,6 @@
+// This file is eslint-ignored in the package.json file due to use of '#' as properties in the DatabaseObject.
+// We will need to update in order for it to recognize the ECMAscript extension for private properties. -SF
+
 /**
  * Defines a single Agency
  */
@@ -8,8 +11,7 @@ const crypt = global.requireShared('./services/crypt.js');
 const serverHelper = require('../../../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
 
-module.exports = class DatabaseObject{
-
+module.exports = class DatabaseObject {
 	#constructors = {};
 	#table = '';
 	#properties = {};
@@ -21,21 +23,19 @@ module.exports = class DatabaseObject{
 	 * @params {object} p - The properties of this object
 	 * @params {object} c - The constructors needed by the object
 	 */
-	constructor(t,p,c){
+	constructor(t, p, c) {
 		// Localize the properties
 		this.#constructors = c;
 		this.#table = t;
 		this.#properties = p;
 
 		// Loop over each property
-		for(const property in this.#properties){
-
+		for (const property in this.#properties) {
 			// Create local property with default value (local properties are denoted with an underscore)
 			this[`#${property}`] = this.#properties[property].default;
 
 			// Create getters and setters
 			Object.defineProperty(this, property, {
-
 				// Returns the local value of the property
 				get: () => {
 					return this[`#${property}`];
@@ -43,23 +43,22 @@ module.exports = class DatabaseObject{
 
 				// Performs validation and sets the property into the local value
 				set: (value) => {
-
 					let expectedDataType = this.#properties[property].type;
 
 					// Verify the data type
-					if(expectedDataType !== typeof value){
+					if (expectedDataType !== typeof value) {
 						throw serverHelper.internalError(`Unexpected data type for ${property}, expecting ${this.#properties[property].type}`);
 					}
 
 					// For strings, trim whitespace
-					if(typeof value === 'string'){
+					if (typeof value === 'string') {
 						value = value.trim();
 					}
 
 					// Validate the property value
-					if(this.#properties[property].rules){
-						for(const func of this.#properties[property].rules){
-							if(!func(value)){
+					if (this.#properties[property].rules) {
+						for (const func of this.#properties[property].rules) {
+							if (!func(value)) {
 								throw serverHelper.requestError(`The ${property} you provided is invalid`);
 							}
 						}
@@ -75,28 +74,30 @@ module.exports = class DatabaseObject{
 	/**
 	 * Adds a new object into the database
 	 */
-	insert(){
+	insert() {
 		return new Promise(async (fulfill, reject) => {
 			let rejected = false;
 
-			if(this.id){
+			if (this.id) {
 				log.error('Attempt to insert record with ID. Would result in duplication. Stopping.');
-				reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				reject(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 				return;
 			}
 
 			// Build the columns and values lists by looping over properties
 			const columns = [];
 			const values = [];
-			for(const property in this.#properties){
-
+			for (const property in this.#properties) {
 				// If this property has a Class, skip it as it will be handled later
-				if((Object.prototype.hasOwnProperty.call(this.#properties[property], 'class') && this.#properties[property].class) || (Object.prototype.hasOwnProperty.call(this.#properties[property], 'saveHandler') && this.#properties[property].saveHandler)){
+				if (
+					(Object.prototype.hasOwnProperty.call(this.#properties[property], 'class') && this.#properties[property].class) ||
+					(Object.prototype.hasOwnProperty.call(this.#properties[property], 'saveHandler') && this.#properties[property].saveHandler)
+				) {
 					continue;
 				}
 
 				// Skip the ID column
-				if(property === 'id'){
+				if (property === 'id') {
 					continue;
 				}
 
@@ -104,7 +105,7 @@ module.exports = class DatabaseObject{
 				let value = this[property];
 
 				// Check if we need to encrypt this value, and if so, encrypt
-				if(this.#properties[property].encrypted && value){
+				if (this.#properties[property].encrypted && value) {
 					value = await crypt.encrypt(value);
 				}
 
@@ -120,24 +121,24 @@ module.exports = class DatabaseObject{
 			`;
 
 			// Run the query
-			const result = await db.query(sql).catch(function(error){
+			const result = await db.query(sql).catch(function (error) {
 				// Check if this was
-				if(error.errno === 1062){
+				if (error.errno === 1062) {
 					rejected = true;
 					reject(serverHelper.requestError('The link (slug) you selected is already taken. Please choose another one.'));
 					return;
 				}
 				rejected = true;
-				reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				reject(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 			});
-			if(rejected){
+			if (rejected) {
 				return;
 			}
 
 			// Make sure the query was successful
-			if(result.affectedRows !== 1){
+			if (result.affectedRows !== 1) {
 				log.error(`Insert failed. Query ran successfully; however, an unexpected number of records were affected. (${result.affectedRows} records)`);
-				reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				reject(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 				return;
 			}
 
@@ -154,18 +155,16 @@ module.exports = class DatabaseObject{
 	 * @param {object} data - Data to be loaded
 	 * @returns {Promise.<Boolean, Error>} A promise that returns true if resolved, or an Error if rejected
 	 */
-	load(data){
+	load(data) {
 		return new Promise((fulfill, reject) => {
 			let rejected = false;
 
 			// Loop through and load all data items into this object
-			for(const property in this.#properties){
-
+			for (const property in this.#properties) {
 				// Only set properties that were provided in the data
-				if(!Object.prototype.hasOwnProperty.call(data, property) || !data[property]){
-
+				if (!Object.prototype.hasOwnProperty.call(data, property) || !data[property]) {
 					// Enforce required fields
-					if(this.#properties[property].required){
+					if (this.#properties[property].required) {
 						throw serverHelper.requestError(`${property} is required`);
 					}
 
@@ -173,20 +172,19 @@ module.exports = class DatabaseObject{
 				}
 
 				// If this property belongs to another class, create an instance of that class and load the data into it
-				if(Object.prototype.hasOwnProperty.call(this.#properties[property], 'class') && this.#properties[property].class){
+				if (Object.prototype.hasOwnProperty.call(this.#properties[property], 'class') && this.#properties[property].class) {
 					data[property].forEach((itemData, index) => {
-
 						// Initialize the class
 						const obj = new this.#constructors[this.#properties[property].class]();
 
 						// Load the data of this item into the object
-						try{
+						try {
 							obj.load(itemData);
-						}catch(e){
+						} catch (e) {
 							rejected = true;
 							reject(e);
 						}
-						if(rejected){
+						if (rejected) {
 							return;
 						}
 
@@ -194,20 +192,20 @@ module.exports = class DatabaseObject{
 						data[property][index] = obj;
 					});
 				}
-				if(rejected){
+				if (rejected) {
 					break;
 				}
 
 				// Store the value of the property in this object
-				try{
+				try {
 					this[property] = data[property];
-				}catch(error){
+				} catch (error) {
 					rejected = true;
 					reject(error);
 				}
 			}
 
-			if(rejected){
+			if (rejected) {
 				return;
 			}
 
@@ -220,37 +218,36 @@ module.exports = class DatabaseObject{
 	 *
 	 * @returns {Promise.<Boolean, Error>} A promise that returns true if resolved, or an Error if rejected
 	 */
-	save(){
+	save() {
 		return new Promise(async (fulfill, reject) => {
 			let rejected = false;
 
-			if(this.id){
+			if (this.id) {
 				// Update this record
-				try{
+				try {
 					await this.update();
-				}catch(error){
+				} catch (error) {
 					reject(error);
 					return;
 				}
-			}else{
+			} else {
 				// Insert a new record
-				try{
+				try {
 					await this.insert();
-				}catch(error){
+				} catch (error) {
 					reject(error);
 					return;
 				}
 			}
 
 			// For child objects, save each
-			for(const property in this.#properties){
-
+			for (const property in this.#properties) {
 				// Process save handlers
-				if(Object.prototype.hasOwnProperty.call(this.#properties[property], 'saveHandler') && this.#properties[property].saveHandler){
+				if (Object.prototype.hasOwnProperty.call(this.#properties[property], 'saveHandler') && this.#properties[property].saveHandler) {
 					// There is a save handler, run it
-					try{
+					try {
 						await this[this.#properties[property].saveHandler]();
-					}catch(error){
+					} catch (error) {
 						rejected = true;
 						reject(error);
 						break;
@@ -259,7 +256,7 @@ module.exports = class DatabaseObject{
 				}
 
 				// Skip non-class based properties
-				if(!Object.prototype.hasOwnProperty.call(this.#properties[property], 'class') || !this.#properties[property].class){
+				if (!Object.prototype.hasOwnProperty.call(this.#properties[property], 'class') || !this.#properties[property].class) {
 					continue;
 				}
 
@@ -267,22 +264,22 @@ module.exports = class DatabaseObject{
 				const value = this[property];
 
 				// Loop over each value and save them
-				for(const val of value){
+				for (const val of value) {
 					// If there is an associatedField, add the ID of this object into it
-					if(Object.prototype.hasOwnProperty.call(this.#properties[property], 'associatedField') && this.#properties[property].associatedField){
+					if (Object.prototype.hasOwnProperty.call(this.#properties[property], 'associatedField') && this.#properties[property].associatedField) {
 						val[this.#properties[property].associatedField] = this.id;
 					}
 
 					// Save the value
-					try{
+					try {
 						await val.save();
-					}catch(error){
+					} catch (error) {
 						rejected = true;
 						reject(error);
 					}
 				}
 			}
-			if(rejected){
+			if (rejected) {
 				return;
 			}
 
@@ -295,16 +292,18 @@ module.exports = class DatabaseObject{
 	 *
 	 * @returns {Promise.<Boolean, Error>} A promise that returns true if resolved, or an Error if rejected
 	 */
-	update(){
+	update() {
 		return new Promise(async (fulfill, reject) => {
 			let rejected = false;
 
 			// Build the update statements by looping over properties
 			const setStatements = [];
-			for(const property in this.#properties){
-
+			for (const property in this.#properties) {
 				// If this property has a Class, skip it as it will be handled later
-				if((Object.prototype.hasOwnProperty.call(this.#properties[property], 'class') && this.#properties[property].class) || (Object.prototype.hasOwnProperty.call(this.#properties[property], 'saveHandler') && this.#properties[property].saveHandler)){
+				if (
+					(Object.prototype.hasOwnProperty.call(this.#properties[property], 'class') && this.#properties[property].class) ||
+					(Object.prototype.hasOwnProperty.call(this.#properties[property], 'saveHandler') && this.#properties[property].saveHandler)
+				) {
 					continue;
 				}
 
@@ -312,7 +311,7 @@ module.exports = class DatabaseObject{
 				let value = this[property];
 
 				// Check if we need to encrypt this value, and if so, encrypt
-				if(this.#properties[property].encrypted && value){
+				if (this.#properties[property].encrypted && value) {
 					value = await crypt.encrypt(value);
 				}
 
@@ -332,24 +331,24 @@ module.exports = class DatabaseObject{
 			`;
 
 			// Run the query
-			const result = await db.query(sql).catch(function(error){
+			const result = await db.query(sql).catch(function (error) {
 				// Check if this was
-				if(error.errno === 1062){
+				if (error.errno === 1062) {
 					rejected = true;
 					reject(serverHelper.requestError('The link (slug) you selected is already taken. Please choose another one.'));
 					return;
 				}
 				rejected = true;
-				reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				reject(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 			});
-			if(rejected){
+			if (rejected) {
 				return;
 			}
 
 			// Make sure the query was successful
-			if(result.affectedRows !== 1){
+			if (result.affectedRows !== 1) {
 				log.error(`Update failed. Query ran successfully; however, an unexpected number of records were affected. (${result.affectedRows} records)`);
-				reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				reject(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 				return;
 			}
 
