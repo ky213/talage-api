@@ -335,6 +335,7 @@ var processAbandonQuote = async function(applicationId){
                     'agency_location': quotes[0].agencyLocation
                 };
                 if(agencyLocationEmail){
+                    log.info(`Send agency location abandonquote email from ${quotes[0].emailBrand} to ${agencyLocationEmail} for application ${applicationId} `)
                     emailResp = await email.send(agencyLocationEmail, subject, message, keyData2, quotes[0].emailBrand);
                     if(emailResp === false){
                         slack.send('#alerts', 'warning','The system failed to inform an agency of the abandoned quote' + (quotes.length === 1 ? '' : 's') + ` for application ${applicationId}. Please follow-up manually.`);
