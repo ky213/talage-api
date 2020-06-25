@@ -377,7 +377,7 @@
 			"prefer-promise-reject-errors": "error",
 			"prefer-rest-params": "error",
 			"prefer-template": "off",
-			"quote-props": "error",
+			"quote-props": "off",
 			"quotes": [
 				"off",
 				"single",
@@ -395,7 +395,7 @@
 			"sort-keys": "off",
 			"sort-vars": "off",
 			"space-before-blocks": [
-				"error",
+				"off",
 				"never"
 			],
 			"space-before-function-paren": [

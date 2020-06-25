@@ -1281,7 +1281,7 @@ catch(e){
 												this.limits[3] = limit.FormatInteger[0];
 												break;
 											default:
-												log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response`+ __location);
+												log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response` + __location);
 												break;
 										}
 									});
@@ -1302,7 +1302,7 @@ catch(e){
 
 				}
 			}).catch(() => {
-				log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.`+ __location);
+				log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.` + __location);
 				fulfill(this.return_result('error'));
 			});
 		});

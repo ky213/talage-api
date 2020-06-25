@@ -15,7 +15,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
  * @return {boolean} - True if the agency has a primary page; false otherwise
  */
 function hasOtherPrimary(agency, page) {
-	return new Promise(async function (fulfill) {
+	return new Promise(async function(fulfill) {
 		let error = false;
 
 		const sql = `
@@ -30,7 +30,7 @@ function hasOtherPrimary(agency, page) {
 			`;
 
 		// Run the query
-		const result = await db.query(sql).catch(function () {
+		const result = await db.query(sql).catch(function() {
 			error = true;
 			fulfill(false);
 		});
@@ -91,7 +91,7 @@ async function validate(request, next) {
 
 	// Banner (optional)
 	if (Object.prototype.hasOwnProperty.call(request.body, 'banner') && request.body.banner) {
-		if (!(await validator.banner(request.body.banner))) {
+		if (!await validator.banner(request.body.banner)) {
 			throw new Error('Banner is invalid');
 		}
 		data.banner = request.body.banner;
@@ -116,14 +116,14 @@ async function validate(request, next) {
 
 	// Industry Code Category (optional)
 	if (Object.prototype.hasOwnProperty.call(request.body, 'industryCodeCategory') && request.body.industryCodeCategory) {
-		if (!(await validator.industryCodeCategory(request.body.industryCodeCategory))) {
+		if (!await validator.industryCodeCategory(request.body.industryCodeCategory)) {
 			throw new Error('Industry Code Category is invalid');
 		}
 		data.industryCodeCategory = request.body.industryCodeCategory;
 
 		// Industry Code (optional) - only applicable if an Industry Code Category is set
 		if (Object.prototype.hasOwnProperty.call(request.body, 'industryCode') && request.body.industryCode) {
-			if (!(await validator.industry_code(request.body.industryCode))) {
+			if (!await validator.industry_code(request.body.industryCode)) {
 				throw new Error('Industry Code is invalid');
 			}
 			data.industryCode = request.body.industryCode;
@@ -189,7 +189,7 @@ async function validate(request, next) {
 				${request.body.id ? `AND \`id\` != ${db.escape(request.body.id)}` : ''}
 			;
 		`;
-	const nameResult = await db.query(nameSQL).catch(function (error) {
+	const nameResult = await db.query(nameSQL).catch(function(error) {
 		log.error(error.message + __location);
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});
@@ -207,7 +207,7 @@ async function validate(request, next) {
 				${request.body.id ? `AND \`id\` != ${db.escape(request.body.id)}` : ''}
 			;
 		`;
-	const slugResult = await db.query(slugSQL).catch(function (error) {
+	const slugResult = await db.query(slugSQL).catch(function(error) {
 		log.error(error.message);
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});
@@ -240,7 +240,7 @@ async function createLandingPage(req, res, next) {
 	}
 
 	// Validate the request and get back the data
-	const data = await validate(req, next).catch(function (err) {
+	const data = await validate(req, next).catch(function(err) {
 		error = err.message;
 	});
 	if (error) {
@@ -266,16 +266,16 @@ async function createLandingPage(req, res, next) {
 
 	// Create the SQL to insert this item into the database
 	const sql = `
-			INSERT INTO \`#__agency_landing_pages\` (${Object.keys(insertData)
-				.map((key) => `\`${key}\``)
-				.join(',')})
-			VALUES (${Object.values(insertData)
-				.map((key) => db.escape(key))
-				.join(',')});
+			INSERT INTO \`#__agency_landing_pages\` (${Object.keys(insertData).
+				map((key) => `\`${key}\``).
+				join(',')})
+			VALUES (${Object.values(insertData).
+				map((key) => db.escape(key)).
+				join(',')});
 		`;
 
 	// Commit this update to the database
-	const result = await db.query(sql).catch(function (err) {
+	const result = await db.query(sql).catch(function(err) {
 		log.error(err.message);
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});
@@ -321,7 +321,7 @@ async function deleteLandingPage(req, res, next) {
 		// This is an agency network user, they can only modify agencies in their network
 
 		// Get the agencies that we are permitted to manage
-		const agencies = await auth.getAgents(req).catch(function (e) {
+		const agencies = await auth.getAgents(req).catch(function(e) {
 			error = e;
 		});
 		if (error) {
@@ -332,7 +332,7 @@ async function deleteLandingPage(req, res, next) {
 		if (!Object.prototype.hasOwnProperty.call(req.query, 'agency')) {
 			return next(serverHelper.requestError('Agency missing'));
 		}
-		if (!(await validator.agent(req.query.agency))) {
+		if (!await validator.agent(req.query.agency)) {
 			return next(serverHelper.requestError('Agency is invalid'));
 		}
 		if (!agencies.includes(parseInt(req.query.agency, 10))) {
@@ -340,7 +340,8 @@ async function deleteLandingPage(req, res, next) {
 		}
 
 		agency = req.query.agency;
-	} else {
+	}
+ else {
 		// This is an agency user, they can only handle their own agency
 		agency = req.authentication.agents[0];
 	}
@@ -349,13 +350,13 @@ async function deleteLandingPage(req, res, next) {
 	if (!Object.prototype.hasOwnProperty.call(req.query, 'id')) {
 		return next(serverHelper.requestError('ID missing'));
 	}
-	if (!(await validator.landingPageId(req.query.id, agency))) {
+	if (!await validator.landingPageId(req.query.id, agency)) {
 		return next(serverHelper.requestError('ID is invalid'));
 	}
 	const id = req.query.id;
 
 	// Make sure there is a primary page for this agency (we are not removing the primary page)
-	if (!(await hasOtherPrimary(agency, id))) {
+	if (!await hasOtherPrimary(agency, id)) {
 		// Log a warning and return an error
 		log.warn('This landing page is the primary page. You must make another page primary before deleting this one.');
 		return next(serverHelper.requestError('This landing page is the primary page. You must make another page primary before deleting this one.'));
@@ -373,7 +374,7 @@ async function deleteLandingPage(req, res, next) {
 		`;
 
 	// Run the query
-	const result = await db.query(updateSQL).catch(function () {
+	const result = await db.query(updateSQL).catch(function() {
 		error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 	});
 	if (error) {
@@ -436,7 +437,7 @@ async function getLandingPage(req, res, next) {
 		`;
 
 	// Run the query
-	const landingPage = await db.query(landingPageSQL).catch(function (err) {
+	const landingPage = await db.query(landingPageSQL).catch(function(err) {
 		log.error(err.message + __location);
 		res.send(500, {});
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
@@ -458,10 +459,11 @@ async function getLandingPage(req, res, next) {
 				FROM  \`#__color_schemes\`
 				WHERE \`id\` = ${landingPage[0].colorScheme}
 			`;
-	let colorSchemeInfo;
+	let colorSchemeInfo = null;
 	try {
 		colorSchemeInfo = await db.query(colorInformationSQL);
-	} catch (err) {
+	}
+ catch (err) {
 		log.error(err.message + __location);
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	}
@@ -470,9 +472,10 @@ async function getLandingPage(req, res, next) {
 	if (landingPage.length !== 1) {
 		log.warn('Page not found');
 		return next(serverHelper.requestError('Page not found'));
-	} else {
+	}
+ else {
 		// if found go ahead and add and then set the customColorInfo field to either the scheme info or null which indicates it is not a custom color info
-		landingPage[0].customColorInfo = colorSchemeInfo[0].name == 'Custom' ? colorSchemeInfo[0] : null;
+		landingPage[0].customColorInfo = colorSchemeInfo[0].name === 'Custom' ? colorSchemeInfo[0] : null;
 	}
 
 	// Send the user's data back
@@ -501,7 +504,7 @@ async function updateLandingPage(req, res, next) {
 	}
 
 	// Validate the request and get back the data
-	const data = await validate(req, next).catch(function (err) {
+	const data = await validate(req, next).catch(function(err) {
 		error = err.message;
 	});
 	if (error) {
@@ -513,7 +516,7 @@ async function updateLandingPage(req, res, next) {
 	if (!Object.prototype.hasOwnProperty.call(req.body, 'id')) {
 		throw new Error('ID missing');
 	}
-	if (!(await validator.landingPageId(req.body.id))) {
+	if (!await validator.landingPageId(req.body.id)) {
 		throw new Error('ID is invalid');
 	}
 	data.id = req.body.id;
@@ -537,10 +540,11 @@ async function updateLandingPage(req, res, next) {
 		`;
 
 	// Run the query
-	let result;
+	let result = null;
 	try {
 		result = await db.query(sql);
-	} catch (err) {
+	}
+ catch (err) {
 		log.error(err.message + __location);
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	}

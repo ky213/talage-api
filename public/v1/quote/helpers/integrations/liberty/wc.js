@@ -463,14 +463,16 @@ else{
 				// Attempt to get the quote number
 				try{
 					this.request_id = res.Policy[0].QuoteInfo[0].CompanysQuoteNumber[0];
-				}catch(e){
-					log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.`+ __location);
+				}
+catch(e){
+					log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.` + __location);
 				}
 
 				// Attempt to get the amount of the quote
 				try{
 					this.amount = parseInt(res.Policy[0].QuoteInfo[0].InsuredFullToBePaidAmt[0].Amt[0], 10);
-				}catch(e){
+				}
+catch(e){
 					// This is handled in return_result()
 				}
 
@@ -480,9 +482,10 @@ else{
 					res.Policy[0].QuoteInfo[0].UnderwritingDecisionInfo[0].UnderwritingRuleInfo[0].UnderwritingRuleInfoExt.forEach((rule) => {
 						this.reasons.push(`${rule['com.libertymutual.ci_UnderwritingDecisionName']}: ${rule['com.libertymutual.ci_UnderwritingMessage']}`);
 					});
-				} catch(e){
+				}
+ catch(e){
 					if(status === 'Reject'){
-						log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find reasons.`+ __location);
+						log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find reasons.` + __location);
 					}
 				}
 
@@ -502,7 +505,7 @@ else{
 										this.limits[3] = limit.FormatCurrencyAmt[0].Amt[0];
 										break;
 									default:
-										log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response`+ __location);
+										log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response` + __location);
 										break;
 								}
 							});

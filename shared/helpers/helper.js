@@ -24,7 +24,7 @@ exports.convert_to_boolean = function(val){
 			return val === 'true';
 
 		default:
-			log.error('convert_to_boolean() encountered value it cannot convert accurately');
+			log.error('convert_to_boolean() encountered value it cannot convert accurately' + __location);
 			break;
 	}
 
