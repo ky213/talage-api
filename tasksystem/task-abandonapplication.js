@@ -28,7 +28,7 @@ exports.processtask = async function(queueMessage){
                 error = err;
             });
             if(error){
-                log.error("Error abandonAppTask deleteTaskQueueItem " + error);
+                log.error("Error abandonAppTask deleteTaskQueueItem " + error + __location);
             }
         return;
     }
@@ -36,7 +36,7 @@ exports.processtask = async function(queueMessage){
         log.debug('removing old Abandon Application Message from queue');
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(err => error = err)
         if(error){
-            log.error("Error abandonAppTask deleteTaskQueueItem old " + error);
+            log.error("Error abandonAppTask deleteTaskQueueItem old " + error + __location);
         }
         return;
     }
@@ -51,7 +51,7 @@ exports.taskProcessorExternal = async function(){
     let error = null;
     await abandonAppTask().catch(err => error = err);
     if(error){
-        log.error('abandonAppTask external: ' + error);
+        log.error('abandonAppTask external: ' + error +  __location);
     }
     return;
 };
@@ -81,7 +81,7 @@ var abandonAppTask = async function(){
         appIds = await db.query(appIdSQL);
     }
     catch(err){
-		log.error("abandonAppTask getting appid list error " + err);
+		log.error("abandonAppTask getting appid list error " + err +  __location);
 		throw err;
 	}
     //process list.....
@@ -102,7 +102,7 @@ var abandonAppTask = async function(){
 
             if(error === null && succesfulProcess === true){
                 await markApplicationProcess(appIdDbRec.applicationId).catch(function(err){
-                    log.error(`Error marking abandon app in DB for ${appIdDbRec.applicationId} error:  ${err}`);
+                    log.error(`Error marking abandon app in DB for ${appIdDbRec.applicationId} error:  ${err}` +  __location);
                     error = err;
                 });
             }
@@ -148,7 +148,7 @@ var processAbandonApp = async function(applicationId){
     let appDBJSON = null;
 
     appDBJSON = await db.query(appSQL).catch(function(err){
-        log.error(`Error get abandon applications from DB for ${applicationId} error:  ${err}`);
+        log.error(`Error get abandon applications from DB for ${applicationId} error:  ${err}` +  __location);
         // Do not throw error other abandon applications may need to be processed.
         return false;
     });
@@ -169,7 +169,7 @@ var processAbandonApp = async function(applicationId){
 
         let error = null;
         const emailContentResultArray = await db.query(emailContentSQL).catch(function(err){
-            log.error(`DB Error Unable to get email content for abandon application. appid: ${applicationId}.  error: ${err}`);
+            log.error(`DB Error Unable to get email content for abandon application. appid: ${applicationId}.  error: ${err}` +  __location);
             error = true;
         });
         if(error){
@@ -227,7 +227,7 @@ var processAbandonApp = async function(applicationId){
             return true;
         }
         else {
-            log.error('AbandonApp missing emailcontent for agencynetwork: ' + agencyNetwork);
+            log.error('AbandonApp missing emailcontent for agencynetwork: ' + agencyNetwork +  __location);
             return false;
         }
     }
@@ -245,7 +245,7 @@ var markApplicationProcess = async function(applicationId){
 
     // Update application record
 	await db.query(updateSQL).catch(function(e){
-		log.error('Abandon Application flag update error: ' + e.message);
+		log.error('Abandon Application flag update error: ' + e.message +  __location);
 		throw e;
 	});
 };
