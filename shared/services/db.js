@@ -45,7 +45,7 @@ exports.beginTransaction = function(){
 		// Get a single database connection from the pool. All queries in this same transaction will use this same connection.
 		conn.getConnection(function(err, connection){
 			if(err){
-				log.error('Unable to establish single connection to database');
+				log.error('Unable to establish single connection to database' +  __location);
 				reject(new Error('Database connection failed'));
 				return;
 			}
@@ -69,7 +69,7 @@ exports.beginTransaction = function(){
  */
 exports.commit = function(connection){
 	if(!connection){
-		log.error('Parameter missing. db.commit() requires a database connection as a parameter');
+		log.error('Parameter missing. db.commit() requires a database connection as a parameter' +  __location);
 		return;
 	}
 
@@ -129,7 +129,7 @@ exports.query = function(sql){
 		// Run the query on the database
 		conn.query(sql, function(err, rows){
 			if(err){
-				log.error('db query error: ' + err);
+				log.error('db query error: ' + err +  __location);
 				log.info('sql: ' + sql);
 				// Docs-api had 'reject(new Error(err));'
 				reject(err);
@@ -183,7 +183,7 @@ exports.quoteName = function(name, alias = null){
  */
 exports.rollback = function(connection){
 	if(!connection){
-		log.error('Parameter missing. db.rollback() requires a database connection as a parameter');
+		log.error('Parameter missing. db.rollback() requires a database connection as a parameter' +  __location);
 		return;
 	}
 

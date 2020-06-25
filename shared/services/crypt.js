@@ -55,7 +55,7 @@ function sendRequest(endpoint, data){
 		request(options, function(error, response, body){
 			// If there was an error, reject
 			if(error){
-				log.error('Failed to connect to encryption service.');
+				log.error('Failed to connect to encryption service.' +  __location);
 				reject(new Error('Failed to connect to encryption service.'));
 				return;
 			}
@@ -166,7 +166,7 @@ var decryptInternal = async function(val){
 			val = val.toString();
 		}
 		catch(error){
-			log.error(error);
+			log.error(error +  __location);
 			return false;
 		}
 	}

@@ -32,7 +32,7 @@ function logInfoMessage(message){
  * @returns {void}
  */
 function logErrorMessage(message){
-	log.error(message);
+	log.error(message +  __location);
 }
 
 /**
@@ -43,7 +43,7 @@ function logErrorMessage(message){
  */
 function logLocalErrorMessage(message){
 	if(global.log){
-		log.error(message);
+		log.error(message +  __location);
 	}
 	// eslint-disable-next-line no-console
 	console.log(colors.red(message));
