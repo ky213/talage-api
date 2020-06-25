@@ -22,7 +22,7 @@ exports.processtask = async function(queueMessage){
             error = err;
         });
         if(error){
-            log.error("Error App Agency Null fix deleteTaskQueueItem " + error);
+            log.error("Error App Agency Null fix deleteTaskQueueItem " + error +  __location);
         }
         return;
     }
@@ -30,7 +30,7 @@ exports.processtask = async function(queueMessage){
         log.debug('removing old expirePoliciesTask Message from queue');
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(err => error = err)
         if(error){
-            log.error("Error App Agency Null fix deleteTaskQueueItem old " + error);
+            log.error("Error App Agency Null fix deleteTaskQueueItem old " + error +  __location);
         }
         return;
     }
@@ -45,7 +45,7 @@ exports.taskProcessorExternal = async function(){
     let error = null;
     await appDataFixTask().catch(err => error = err);
     if(error){
-        log.error('App Agency Null fix external: ' + error);
+        log.error('App Agency Null fix external: ' + error +  __location);
     }
     return;
 }
@@ -63,7 +63,7 @@ var appDataFixTask = async function(){
         WHERE agency is NULL
     `;
     await db.query(updateSQL).catch(function(e){
-        log.error(`App Agency Null fix caused an error: ` + e.message);
+        log.error(`App Agency Null fix caused an error: ` + e.message +  __location);
     });
     return;
 }
