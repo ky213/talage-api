@@ -40,6 +40,15 @@ const properties = {
 		],
 		'type': 'number'
 	},
+	'closeTime': {
+		'default': 5,
+		'encrypted': false,
+		'required': true,
+		'rules': [
+			validator.closeTime
+		],
+		'type': 'number'
+	},
 	'email': {
 		'default': null,
 		'encrypted': true,
@@ -93,6 +102,15 @@ const properties = {
 			validator.phone
 		],
 		'type': 'string'
+	},
+	'openTime': {
+		'default': 8,
+		'encrypted': false,
+		'required': true,
+		'rules': [
+			validator.openTime
+		],
+		'type': 'number'
 	},
 	'primary': {
 		'default': null,
