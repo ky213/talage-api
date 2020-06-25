@@ -107,12 +107,12 @@ var optoutapplicationtask = async function() {
 
             if (error === null && succesfulProcess === true) {
                 await markApplicationProcess(appIdJson.applicationId).catch(function(err) {
-                    log.error(`Error marking abandon quotes in DB for ${appIdJson.applicationId} error:  ${err}`);
+                    log.error(`Error marking opt out in DB for ${appIdJson.applicationId} error:  ${err}`);
                     error = err;
                 })
             }
             if (error === null) {
-                log.info(`Processed abandon quotes for appId: ${appIdJson.applicationId}`);
+                log.info(`Processed Opt Out email for appId: ${appIdJson.applicationId}`);
             }
         }
     }
