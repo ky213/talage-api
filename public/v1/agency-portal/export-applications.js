@@ -43,13 +43,30 @@ async function getExport(req, res, next) {
 		'website'
 	];
 
+	// Define the different statuses and their user-friendly values
+	const statusMap = {
+		'acord_sent': 'ACORD form sent',
+		'bound': 'Bound',
+		'declined': 'Declined',
+		'error': 'Error',
+		'incomplete': 'Incomplete',
+		'quoted': 'Quoted',
+		'quoted_referred': 'Quoted (referred)',
+		'referred': 'Referred',
+		'request_to_bind': 'Request to bind',
+		'request_to_bind_referred': 'Request to bind (referred)',
+		'wholesale': 'Wholesale'
+	};
+
 	// Prepare to get all application data
 	const sql = `
 		SELECT
 			\`a\`.\`id\`,
+			\`a\`.\`status\`,
 			\`ad\`.\`address\`,
 			\`ad\`.\`address2\`,
 			\`ad\`.\`zip\`,
+			\`ag\`.\`name\` AS \`agency\`,
 			\`b\`.\`dba\`,
 			\`b\`.\`ein\`,
 			\`b\`.\`entity_type\`,
@@ -67,6 +84,7 @@ async function getExport(req, res, next) {
 			\`z2\`.\`city\` AS \`primaryCity\`,
 			\`z2\`.\`territory\` AS \`primaryTerritory\`
 		FROM \`#__applications\` AS \`a\`
+		LEFT JOIN \`#__agencies\` AS \`ag\` ON \`a\`.\`agency\` = \`ag\`.\`id\`
 		LEFT JOIN \`#__addresses\` AS \`ad\` ON \`a\`.\`business\` = \`ad\`.\`business\` AND \`ad\`.\`billing\` = 1
 		LEFT JOIN (SELECT * FROM \`#__addresses\` AS \`ad2\` GROUP BY \`ad2\`.\`business\`) AS \`pa\` ON \`a\`.\`business\` = \`pa\`.\`business\`
 		LEFT JOIN \`#__businesses\` AS \`b\` ON \`a\`.\`business\` = \`b\`.\`id\`
@@ -104,14 +122,24 @@ async function getExport(req, res, next) {
 			}
 		}
 
-		// Clean the name and DBA (grave marks in the name cause the CSV not to render)
+		/* --- Make the data pretty --- */
+
+		// Address and Primary Address - Combine the two address lines (if there is an address and an address line 2)
+		if(record.address && record.address2){
+			record.address += `, ${record.address2}`;
+		}
+		if(record.primaryAddress && record.primaryAddress2){
+			record.primaryAddress += `, ${record.primaryAddress2}`;
+		}
+
+		// Contact Name - Combine first and last
+		record.contactName = `${record.fname} ${record.lname}`;
+
+		// Business Name and DBA - Clean the name and DBA (grave marks in the name cause the CSV not to render)
 		record.dba = record.dba ? record.dba.replace(/’/g, '\'') : null;
 		record.name = record.name.replace(/’/g, '\'');
 
-		// Combine the contact name for this record
-		record.contactName = `${record.fname} ${record.lname}`;
-
-		// Format the City
+		// City and Primary City - Proper capitalization
 		if(record.city){
 			record.city = stringFunctions.ucwords(record.city.toLowerCase());
 		}
@@ -119,15 +147,14 @@ async function getExport(req, res, next) {
 			record.primaryCity = stringFunctions.ucwords(record.primaryCity.toLowerCase());
 		}
 
-		// Format the phone number
+		// Phone Number - Formatted
 		record.phone = formatPhone(record.phone);
 
-		// Combine the two address lines (if there is an address and an address line 2)
-		if(record.address && record.address2){
-			record.address += `, ${record.address2}`;
-		}
-		if(record.primaryAddress && record.primaryAddress2){
-			record.primaryAddress += `, ${record.primaryAddress2}`;
+		// Status
+		if(Object.prototype.hasOwnProperty.call(statusMap, record.status)){
+			record.status = statusMap[record.status];
+		}else{
+			record.status = 'Unknown';
 		}
 	}
 
@@ -135,6 +162,8 @@ async function getExport(req, res, next) {
 	const columns = {
 		'name': 'Business Name',
 		'dba': 'DBA',
+		'status': 'Application Status',
+		'agency': 'Agency',
 		'address': 'Mailing Address',
 		'city': 'Mailing City',
 		'territory': 'Mailing State',
