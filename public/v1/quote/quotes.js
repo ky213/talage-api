@@ -1,131 +1,117 @@
 'use strict';
 
-const util = require('util');
-const Application = require('./helpers/models/Application.js');
+// const util = require('util');
+// const Application = require('./helpers/models/Application.js');
+const jwt = require('jsonwebtoken');
+const serverHelper = require('../../../server.js');
+
+async function queryDB(sql, queryDescription) {
+	let result = null;
+	try {
+		result = await db.query(sql);
+	} catch (error) {
+		log.error(`ERROR: ${queryDescription}: ${error} ${location}`);
+		return null;
+	}
+	return result;
+}
 
 /**
- * Quote socket handler
+ * Get quotes for a given application quote token
  *
- * @param {object} socket - The socket object
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
  * @returns {void}
  */
-function socketQuotes(socket) {
-	// Log that a user connected
-	log.info(`${socket.id} - Socket.io connection created`);
-	socket.emit('status', 'waiting');
+async function getQuotes(req, res, next) {
+	// Validate JWT
+	if (!req.query.token) {
+		console.log('missing token');
+		return next(serverHelper.requestError('Missing parameters.'));
+	}
+	let tokenPayload = null;
+	try {
+		tokenPayload = jwt.verify(req.query.token, global.settings.AUTH_SECRET_KEY);
+	} catch (error) {
+		console.log('expired token');
+		return next(serverHelper.invalidCredentialsError('Expired token.'));
+	}
 
-	// Log that a user disconnected
-	socket.on('disconnect', function(reason) {
-		log.info(`${socket.id} - Socket.io disconnected (${reason})`);
+	// Set the last quote ID retrieved
+	let lastQuoteID = 0;
+	if (req.query.after) {
+		lastQuoteID = req.query.after;
+	}
+	console.log('lastQuoteID', lastQuoteID);
+
+	// Retrieve quotes newer than the last quote ID
+	let sql = `
+		SELECT id, amount, policy_type
+		FROM clw_talage_quotes
+		WHERE
+			application = ${tokenPayload.applicationID}
+			AND id > ${lastQuoteID}
+	`;
+	let result = await queryDB(sql, `retrieving quotes for application ${tokenPayload.applicationID}`);
+	if (result === null) {
+		return next(serverHelper.internalError('Error retrieving quotes'));
+	}
+
+	// If there are not any newer quotes, check if we are complete
+	if (result.length === 0) {
+		sql = `
+			SELECT progress
+			FROM clw_talage_application_quote_progress
+			WHERE id = ${tokenPayload.applicationQuoteProgressID}
+		`;
+		result = await queryDB(sql, `retrieving quote progress for application quote progress ${tokenPayload.applicationQuoteProgressID}`);
+		if (result === null) {
+			return next(serverHelper.internalError('Error retrieving quote progress'));
+		}
+		if (result[0].progress === 'complete') {
+			res.send(200, { complete: true });
+			return next();
+		}
+	}
+
+	// Get the insurer for this quote
+
+	const quotes = [];
+	// Build the quote result for the frontend
+	result.forEach((q) => {
+		const newQuote = {
+			id: q.id,
+			policy_type: q.policy_type
+		};
+		if (q.amount !== null) {
+			newQuote['amount'] = q.amount;
+		} else {
+			newQuote['message'] = `Declined to quote`;
+		}
+		quotes.push(newQuote);
 	});
 
-	// Listen for application data to be received
-	socket.on('application', async function(data) {
-		log.info('Application Received');
+	// quote: {
+	// 	amount: amount,
+	// 	id: quotes.length + 1,
+	// 	instant_buy: Math.random() >= 0.5,
+	// 	insurer: {
+	// 		id: insurer.id,
+	// 		logo: `${global.settings.SITE_URL}/${insurer.logo}`,
+	// 		name: insurer.name,
+	// 		rating: insurer.rating
+	// 	},
+	// 	limits: limits,
+	// 	payment_options: payment_options,
+	// 	policy_type: policy.type
+	// }
 
-		// Attempt to parse the data
-		socket.emit('status', 'processing');
-		try {
-			data = JSON.parse(data);
-		}
- catch (error) {
-			log.warn('Invalid JSON' + __location);
-			socket.emit('status', 'error');
-			socket.emit('message', 'Invalid JSON');
-			return;
-		}
-
-		log.verbose(util.inspect(data, false, null));
-
-		// Very basic validation
-		if (!data.business || !Object.prototype.hasOwnProperty.call(data, 'id') || !data.policies) {
-			log.warn('Some required data is missing' + __location);
-			socket.emit('status', 'error');
-			socket.emit('message', 'Invalid Application - Some required data is missing. Please check the documentation.');
-			return;
-		}
-
-		// Load the application
-		const application = new Application();
-		let had_error = false;
-		await application.load(data).catch(function(error) {
-			had_error = true;
-			socket.emit('status', 'error');
-			socket.emit('message', error.message);
-			log.warn(`Cannot Load Application: ${error.message}` + __location);
-			socket.disconnect();
-		});
-		if (had_error) {
-			return;
-		}
-
-		// Validate
-		await application.validate().catch(function(error) {
-			had_error = true;
-			socket.emit('status', 'error');
-			socket.emit('message', error.message);
-			log.warn(`Invalid Application: ${error.message}` + __location);
-			socket.disconnect();
-		});
-		if (had_error) {
-			return;
-		}
-
-		// Check if Testing and Send Test Response
-		if (application.test) {
-			// Test Response
-			await application.
-				run_test().
-				then(function(response) {
-					// Determine how many quotes are being returned
-					const num_quotes = response.quotes.length;
-
-					// Emit the first quote right away
-					socket.emit('quote', response.quotes[0]);
-
-					// If there was only one quote, just stop
-					if (num_quotes === 1) {
-						socket.emit('status', 'done');
-						socket.disconnect();
-						return;
-					}
-
-					// Loop through all of the remaining quotes, sending them in random intervals between 1-3 seconds apart
-					let quotes_sent = 1;
-					for (let i = 1; i < num_quotes; i++) {
-						setTimeout(function() {
-							// eslint-disable-line no-loop-func
-							socket.emit('quote', response.quotes[i]);
-							quotes_sent++;
-
-							// Check if all quotes have been sent, and if so, send done and disconnect
-							if (quotes_sent === num_quotes) {
-								socket.emit('status', 'done');
-								socket.disconnect();
-							}
-						}, Math.floor(Math.random() * (3000 - 1000 + 1) + 1000) * i);
-					}
-				}).
-				catch(function(error) {
-					socket.emit('status', 'error');
-					socket.emit('message', error.message);
-					log.warn(error.message + __location);
-					socket.disconnect();
-				});
-			return;
-		}
-
-		// Send Non-Test Response
-		await application.run_quotes(socket).catch(function(error) {
-			socket.emit('status', 'error');
-			socket.emit('message', error.message);
-			log.warn(error.message + __location);
-			socket.disconnect();
-		});
-	});
+	res.send(200, quotes);
+	return next();
 }
 
 exports.registerEndpoint = (server, basePath) => {
-	server.addSocket('Quotes socket', `${basePath}/quotes`, socketQuotes);
-	server.addSocket('Quotes socket (depr)', `/async`, socketQuotes);
+	server.addGet('Get quotes ', `${basePath}/quotes`, getQuotes);
 };
