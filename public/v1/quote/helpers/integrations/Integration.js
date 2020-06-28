@@ -771,11 +771,10 @@ module.exports = class Integration {
 	 * Records this quote in the database so we know it happened
 	 *
 	 * @param {int} amount - The amount of the quote
-	 * @param {string} pkg - The package selected by the user
 	 * @param {string} error - An error code
 	 * @returns {mixed} - ID on success, error on error
 	 */
-	async record_quote(amount, pkg, error) {
+	async record_quote(amount, api_result) {
 		const encrypted_log = await crypt.encrypt(this.log).catch(function () {
 			log.error('Unable to encrypt log. Proceeding anyway.' + __location);
 		});
@@ -795,17 +794,6 @@ module.exports = class Integration {
 			values.push(this.number);
 		}
 
-		// Package
-		if (pkg) {
-			for (let i = 0; i < this.insurer.packages.length; i++) {
-				if (this.insurer.packages[i].id === pkg) {
-					columns.push('package_type');
-					values.push(this.insurer.packages[i].id);
-					break;
-				}
-			}
-		}
-
 		// Request ID
 		if (this.request_id) {
 			columns.push('request_id');
@@ -820,11 +808,7 @@ module.exports = class Integration {
 
 		// Error
 		columns.push('api_result');
-		if (error) {
-			values.push(error);
-		} else {
-			values.push('quoted');
-		}
+		values.push(api_result);
 
 		// Reasons
 		if (this.reasons.length > 0) {
@@ -853,7 +837,7 @@ module.exports = class Integration {
 
 		// Aggregated Status.
 		columns.push('aggregated_status');
-		values.push(getQuoteAggregatedStatus(false, '', error ? error : 'quoted'));
+		values.push(getQuoteAggregatedStatus(false, '', api_result));
 
 		// Insert the quote record
 		const quoteResult = await db.query(`INSERT INTO \`#__quotes\` (\`${columns.join('`,`')}\`) VALUES (${values.map(db.escape).join(',')});`).catch(function (err) {
@@ -880,26 +864,10 @@ module.exports = class Integration {
 	 * Generates and returns the proper structure for returning a quote from an integration
 	 *
 	 * @param {int} amount - The amount of the quote as a whole number
-	 * @param {string} pkg (optional) - The name of the applicable package, must match what is in our database
 	 * @returns {object} - An object containing the quote information
 	 */
-	async return_quote(amount, pkg) {
-		// Package
-		let package_id = null;
-		if (typeof pkg !== 'undefined' && pkg) {
-			let package_found = false;
-			for (let i = 0; i < this.insurer.packages.length; i++) {
-				if (this.insurer.packages[i].name === pkg) {
-					package_id = this.insurer.packages[i].id;
-					package_found = true;
-					break;
-				}
-			}
-			if (!package_found) {
-				log.warn(`Undefined package referenced for ${this.insurer.name} ${this.policy.type}` + __location);
-			}
-		}
-		return await this.record_quote(amount, package_id);
+	async return_quote(amount) {
+		return await this.record_quote(amount, 'quoted');
 	}
 
 	/**
@@ -909,7 +877,7 @@ module.exports = class Integration {
 	 * @returns {object} - An object containing the indication information
 	 */
 	async return_indication(amount) {
-		return await this.record_quote(amount, null, 'referred_with_price');
+		return await this.record_quote(amount, 'referred_with_price');
 	}
 
 	/**
@@ -930,7 +898,7 @@ module.exports = class Integration {
 		}
 
 		// Record this quote
-		return await this.record_quote(null, null, type);
+		return await this.record_quote(null, type);
 	}
 
 	/**
