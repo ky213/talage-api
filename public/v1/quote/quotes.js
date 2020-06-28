@@ -41,7 +41,7 @@ async function createQuoteSummary(quoteID) {
 				message: `${insurer.name} has declined to offer you coverage at this time`,
 				insurer: {
 					id: insurer.id,
-					logo: process.env.SITE_URL + '/' + insurer.logo,
+					logo: global.settings.SITE_URL + '/' + insurer.logo,
 					name: insurer.name,
 					rating: insurer.rating
 				}
@@ -150,8 +150,20 @@ async function getQuotes(req, res, next) {
 		lastQuoteID = req.query.after;
 	}
 
-	// Retrieve quotes newer than the last quote ID
+	// Retrieve if we are complete. Must be done first or we may miss quotes.
 	let sql = `
+			SELECT quote_progress
+			FROM clw_talage_applications
+			WHERE id = ${tokenPayload.applicationID}
+		`;
+	let result = await queryDB(sql, `retrieving quote progress for application ${tokenPayload.applicationID}`);
+	if (result === null || result.length === 0) {
+		return next(serverHelper.internalError('Error retrieving quote progress'));
+	}
+	const complete = result[0].quote_progress === 'complete';
+
+	// Retrieve quotes newer than the last quote ID
+	sql = `
 		SELECT id
 		FROM clw_talage_quotes
 		WHERE
@@ -159,7 +171,7 @@ async function getQuotes(req, res, next) {
 			AND id > ${lastQuoteID}
 		ORDER BY id ASC
 	`;
-	let result = await queryDB(sql, `retrieving quotes for application ${tokenPayload.applicationID}`);
+	result = await queryDB(sql, `retrieving quotes for application ${tokenPayload.applicationID}`);
 	if (result === null) {
 		return next(serverHelper.internalError('Error retrieving quotes'));
 	}
@@ -168,39 +180,13 @@ async function getQuotes(req, res, next) {
 		// Build the quote result for the frontend
 		for (let i = 0; i < result.length; i++) {
 			const quoteSummary = await createQuoteSummary(result[i].id);
-			console.log(quoteSummary);
 			if (quoteSummary !== null) {
+				console.log(quoteSummary);
 				quotes.push(quoteSummary);
 			}
 			// return next(serverHelper.internalError('Error creating quote summary'));
 		}
 	}
-	// Retrieve if we are complete
-	sql = `
-			SELECT quote_progress
-			FROM clw_talage_applications
-			WHERE id = ${tokenPayload.applicationID}
-		`;
-	result = await queryDB(sql, `retrieving quote progress for application ${tokenPayload.applicationID}`);
-	if (result === null || result.length === 0) {
-		return next(serverHelper.internalError('Error retrieving quote progress'));
-	}
-	const complete = result[0].quote_progress === 'complete';
-
-	// quote: {
-	// 	amount: amount,
-	// 	id: quotes.length + 1,
-	// 	instant_buy: Math.random() >= 0.5,
-	// 	insurer: {
-	// 		id: insurer.id,
-	// 		logo: `${global.settings.SITE_URL}/${insurer.logo}`,
-	// 		name: insurer.name,
-	// 		rating: insurer.rating
-	// 	},
-	// 	limits: limits,
-	// 	payment_options: payment_options,
-	// 	policy_type: policy.type
-	// }
 
 	res.send(200, { complete, quotes });
 	return next();

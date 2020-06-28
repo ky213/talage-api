@@ -1,5 +1,13 @@
 'use strict';
 
+/**
+ * Retrieves an aggregated quote status
+ *
+ * @param {Boolean} bound - whether or not the quote is bound
+ * @param {String} status - quote status
+ * @param {String} api_result - result from the api call
+ * @return {void}
+ */
 function getQuoteAggregatedStatus(bound, status, api_result) {
 	if (bound) {
 		return 'bound';
@@ -19,183 +27,143 @@ function getQuoteAggregatedStatus(bound, status, api_result) {
 	return 'error';
 }
 
-// } else if (quotes.some((quote) => quote.bound)) {
-// 	return 'bound';
-// } else if (quotes.some((quote) => quote.status === 'bind_requested' && quote.api_result === 'referred_with_price')) {
-// 	return 'request_to_bind_referred';
-// } else if (quotes.some((quote) => quote.status === 'bind_requested')) {
-// 	return 'request_to_bind';
-// } else if (quotes.some((quote) => quote.api_result === 'quoted')) {
-// 	return 'quoted';
-// } else if (quotes.some((quote) => quote.api_result === 'referred_with_price')) {
-// 	return 'quoted_referred';
-// } else if (quotes.some((quote) => quote.api_result === 'referred')) {
-// 	return 'referred';
-// } else if (quotes.some((quote) => quote.api_result === 'declined' || quote.api_result === 'autodeclined')) {
-// 	return 'declined';
-// } else if (quotes.some((quote) => quote.api_result === 'error' || quote.api_result === 'outage')) {
-// 	return 'error';
-// }
-
-function getApplicationStatus(agencyNetwork, application, quotes, statusList, currentStatusSlug) {
-	switch (agencyNetwork) {
-		case 1:
-		default:
-			quotes.forEach((quote) => {
-				currentStatusSlug = getApplicationGenericStatus(application, quote, statusList, currentStatusSlug);
-			});
-		case 2:
-			quotes.forEach((quote) => {
-				currentStatusSlug = getApplicationAccidentFundStatus(application, quote, statusList, currentStatusSlug);
-			});
-	}
-	return currentStatusSlug;
-}
-
-function getApplicationIncrementalStatus(agencyNetwork, application, quote, statusList, currentStatusSlug) {
-	switch (agencyNetwork) {
-		case 1:
-		default:
-			return getApplicationGenericStatus(application, quote, statusList, currentStatusSlug);
-		case 2:
-			return getApplicationAccidentFundStatus(application, quote, statusList, currentStatusSlug);
-	}
-	// We will never get here due to default: handling
-	return null;
-}
-
-/** Compares two statuses
+/**
+ * Ensures that a quote has a value for aggregated_status
  *
- * @param {String} statusSlug1 - application status slug 1
- * @param {String} statusSlug2 - application status slug 2
- * @return {Number} - -1 if statusSlug1 rank < statusSlug2 rank, 0 if equal, 1 if statusSlug1 rank > statusSlug2 rank
+ * @return {void}
  */
-function compareStatuses(statusList, statusSlug1, statusSlug2) {
-	if (statusSlug1 === statusSlug2) {
-		return 0;
-	}
-	try {
-		const rank1 = statusList.find((status) => status.slug === statusSlug1).rank;
-		const rank2 = statusList.find((status) => status.slug === statusSlug2).rank;
-	} catch (error) {
-		// We can't continue
-		log.error(`Error comparing application statuses: ${error}`);
-		throw `Error comparing application statuses: ${error}`;
+async function checkQuoteAggregatedStatus(quote) {
+	if (!quote.aggregated_status || quote.aggregated_status.length === 0) {
+		quote.aggregated_status = getQuoteAggregatedStatus(quote.bound, quote.status, quote.api_result);
 	}
 }
 
-function getApplicationGenericStatus(application, quote, statusList, currentStatusSlug) {
-	// If the application was never completed, we always return "incomplete".
+/**
+ * Ensures that a quote has a value for aggregated_status
+ *
+ * @param {Number} applicationID - ID of the application to update
+ * @return {void}
+ */
+async function updateApplicationStatus(applicationID) {
+	// Get the application
+	let sql = `
+		SELECT 
+			application.last_step,
+			application.solepro,
+			application.wholesale,
+			agency.agency_network
+		FROM clw_talage_applications AS application
+		LEFT JOIN clw_talage_agencies AS agency ON agency.id = application.agency
+		WHERE application.id = ${applicationID};
+	`;
+	let result = null;
+	try {
+		result = await db.query(sql);
+	} catch (error) {
+		log.error(`Could not retrieve application ${applicationID} ${__location}`);
+		return;
+	}
+	const application = result[0];
+
+	// Get the quotes
+	sql = `
+		SELECT id, aggregated_status, status, api_result
+		FROM clw_talage_quotes
+		WHERE application = ${applicationID};
+	`;
+	try {
+		result = await db.query(sql);
+	} catch (error) {
+		log.error(`Could not retrieve quotes for application ${applicationID} ${location}`);
+		return;
+	}
+	const quotes = result;
+
+	// Get the new application status
+	let applicationStatus = '';
+	switch (application.agency_network) {
+		default:
+			applicationStatus = getGenericApplicationStatus(application, quotes);
+			break;
+		// Accident Fund
+		case 2:
+			applicationStatus = getAccidentFundApplicationStatus(application, quotes);
+			break;
+	}
+	// console.log('application', application);
+	// console.log('quotes', quotes);
+	// console.log('status', applicationStatus);
+
+	// Set the new application status
+	sql = `
+		UPDATE clw_talage_applications
+		SET status = ${db.escape(applicationStatus)}
+		WHERE id = ${applicationID};
+	`;
+	try {
+		result = await db.query(sql);
+	} catch (error) {
+		log.error(`Could not retrieve quotes for application ${applicationID} ${location}`);
+	}
+}
+
+/**
+ * Returns the status of a generic application based on it's associated quotes. The status is a user-friendly string.
+ *
+ * @param {Object} application - An application record
+ * @param {array} quotes - An array of quote objects
+ * @return {string} - The status of the application
+ */
+function getGenericApplicationStatus(application, quotes) {
+	// Ensure that each quote has an aggregated status (backwards compatibility)
+	quotes.forEach((quote) => checkQuoteAggregatedStatus(quote));
+
 	if (application.last_step < 8) {
 		return 'incomplete';
-	}
-	// If the application is wholesale, that's it.
-	if (application.solepro || application.wholesale) {
+	} else if (application.solepro || application.wholesale) {
 		return 'wholesale';
+	} else if (quotes.some((quote) => quote.aggregated_status === 'bound')) {
+		return 'bound';
+	} else if (quotes.some((quote) => quote.aggregated_status === 'request_to_bind_referred')) {
+		return 'request_to_bind_referred';
+	} else if (quotes.some((quote) => quote.aggregated_status === 'request_to_bind')) {
+		return 'request_to_bind';
+	} else if (quotes.some((quote) => quote.aggregated_status === 'quoted')) {
+		return 'quoted';
+	} else if (quotes.some((quote) => quote.aggregated_status === 'quoted_referred')) {
+		return 'quoted_referred';
+	} else if (quotes.some((quote) => quote.aggregated_status === 'referred')) {
+		return 'referred';
+	} else if (quotes.some((quote) => quote.aggregated_status === 'declined')) {
+		return 'declined';
+	} else if (quotes.some((quote) => quote.aggregated_status === 'error')) {
+		return 'error';
 	}
-
-	// Get the rank of the existing status
-	const currentStatusEntry = statusList.find((status) => status.slug === currentStatusSlug);
-	if (!currentStatusEntry) {
-		log.error(`getGenericStatusSlug encountered an unknown status slug '${currentStatusSlug}'`);
-		throw `getGenericStatusSlug encountered an unknown status slug '${currentStatusSlug}'`;
-	}
-	const applicationStatusRank = currentStatusEntry.rank;
-	console.log('applicationStatusRank', applicationStatusRank);
-
-	// Get the quote status
-	let quoteStatus = '';
-
-	// } else if (application.solepro || application.wholesale) {
-	// 	return 'wholesale';
 	return 'incomplete';
 }
 
-function getApplicationAccidentFundStatus(application, quote, statusList, currentStatus) {
-	// if the application was never completed, we always return "incomplete".
-	if (application.last_step < 8) {
-		return 'incomplete';
+/**
+ * Returns the status of an agency network 2 application based on it's associated quotes. The status is a user-friendly string.
+ *
+ * @param {Object} application - An application record
+ * @param {array} quotes - An array of quote objects
+ * @return {string} - The status of the application
+ */
+function getAccidentFundApplicationStatus(application, quotes) {
+	let status = getGenericApplicationStatus(applicatin, quotes);
+	if (status === 'declined') {
+		// Ensure there aren't any errors and autodeclines. If yes, it should be 'error'.
+		const errorCount = quotes.filter((quote) => quote.aggregated_status === 'error').length;
+		const autodeclinedCount = quotes.filter((quote) => quote.api_result === 'autodeclined').length;
+		// If 1 error and the rest are auto-declined, it should just be 'error'.
+		if (errorCount === 1 && errorCount + autodeclinedCount === quotes.length) {
+			return 'error';
+		}
 	}
+	return status;
 }
 
-// /**
-//  * Returns the status of a generic application based on it's associated quotes. The status is a user-friendly string.
-//  *
-//  * @param {Object} application - An application record
-//  * @param {array} quotes - An array of quote objects
-//  * @return {string} - The status of the application
-//  */
-// function getGenericApplicationStatus(application, quotes){
-// 	if(application.last_step < 8){
-// 		return 'incomplete';
-// 	}else if(application.solepro || application.wholesale){
-// 		return 'wholesale';
-// 	}else if(quotes.some((quote) => quote.bound)){
-// 		return 'bound';
-// 	}else if(quotes.some((quote) => quote.status === 'bind_requested' && quote.api_result === 'referred_with_price')){
-// 		return 'request_to_bind_referred';
-// 	}else if(quotes.some((quote) => quote.status === 'bind_requested')){
-// 		return 'request_to_bind';
-// 	}else if(quotes.some((quote) => quote.api_result === 'quoted')){
-// 		return 'quoted';
-// 	}else if(quotes.some((quote) => quote.api_result === 'referred_with_price')){
-// 		return 'quoted_referred';
-// 	}else if(quotes.some((quote) => quote.api_result === 'referred')){
-// 		return 'referred';
-// 	}else if(quotes.some((quote) => quote.api_result === 'declined' || quote.api_result === 'autodeclined')){
-// 		return 'declined';
-// 	}else if(quotes.some((quote) => quote.api_result === 'error' || quote.api_result === 'outage')){
-// 		return 'error';
-// 	}
-// 	return 'incomplete';
-// }
-
-// /**
-//  * Returns the status of an agency network 2 application based on it's associated quotes. The status is a user-friendly string.
-//  *
-//  * @param {Object} application - An application record
-//  * @param {array} quotes - An array of quote objects
-//  * @return {string} - The status of the application
-//  */
-// function getAccidentFundApplicationStatue(application, quotes){
-// 	if(application.last_step < 8){
-// 		return 'incomplete';
-// 	}else if(application.solepro || application.wholesale){
-// 		return 'wholesale';
-// 	}else if(quotes.some((quote) => quote.bound)){
-// 		return 'bound';
-// 	}else if(quotes.some((quote) => quote.status === 'bind_requested' && quote.api_result === 'referred_with_price')){
-// 		return 'request_to_bind_referred';
-// 	}else if(quotes.some((quote) => quote.status === 'bind_requested')){
-// 		return 'request_to_bind';
-// 	}else if(quotes.some((quote) => quote.api_result === 'quoted')){
-// 		return 'quoted';
-// 	}else if(quotes.some((quote) => quote.api_result === 'referred_with_price')){
-// 		return 'quoted_referred';
-// 	}else if(quotes.some((quote) => quote.api_result === 'referred')){
-// 		return 'referred';
-// 	}else if(quotes.every((quote) => quote.api_result === 'error' || quote.api_result === 'outage')){
-// 		// If all are ERROR, then status is ERROR
-// 		return 'error';
-// 	}else if(quotes.every((quote) => quote.api_result === 'autodeclined')){
-// 		// If all are AUTODECLINED, then status is AUTODECLINED
-// 		return 'declined';
-// 	}else if(quotes.some((quote) => quote.api_result === 'declined')){
-// 		// If at least one is DECLINED, then status is DECLINED
-// 		return 'declined';
-// 	}
-// 	// If one is ERROR and all the others are AUTODECLINED, then status is ERROR
-// 	const errorCount = quotes.filter((quote) => quote.api_result === 'error' || quote.api_result === 'outage').length;
-// 	const autodeclinedCount = quotes.filter((quote) => quote.api_result === 'autodeclined').length;
-// 	if(errorCount === 1 && errorCount + autodeclinedCount === quotes.length){
-// 		return 'error';
-// 	}
-
-// 	return 'incomplete';
-// }
-
 module.exports = {
-	getApplicationStatus,
-	getApplicationIncrementalStatus,
+	updateApplicationStatus,
 	getQuoteAggregatedStatus
 };

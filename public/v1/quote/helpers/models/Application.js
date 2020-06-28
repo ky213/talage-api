@@ -296,120 +296,65 @@ module.exports = class Application {
 	/**
 	 * Begins the process of getting and returning quotes from insurers
 	 *
-	 * @returns {Promise.<object, Error>} A promise that returns an object containing an example API response if resolved, or an Error if rejected
+	 * @returns {void}
 	 */
-	run_quotes() {
-		log.verbose('Running quotes');
+	async run_quotes() {
+		// Generate quotes for each policy type
+		const fs = require('fs');
+		const quote_promises = [];
+		const policyTypeReferred = {};
+		const policyTypeQuoted = {};
 
-		return new Promise(async (fulfill, reject) => {
-			// Generate quotes for each policy type
-			const fs = require('fs');
-			const quote_promises = [];
-			// const socket_quotes = [];
-			const policyTypeReferred = {};
-			const policyTypeQuoted = {};
-			let quotes_done = 0;
-			let total_quotes_requested = 0;
-
-			this.policies.forEach((policy) => {
-				// Generate quotes for each insurer for the given policy type
-				this.insurers.forEach((insurer) => {
-					// Check that the given policy type is enabled for this insurer
-					if (insurer.policy_types.indexOf(policy.type) >= 0) {
-						// Check if the integration file for this insurer exists
-						const normalizedPath = `${__dirname}/../integrations/${insurer.slug}/${policy.type.toLowerCase()}.js`;
-						if (fs.existsSync(normalizedPath)) {
-							// Require the integration file and add the response to our promises
-							const IntegrationClass = require(normalizedPath);
-							const integration = new IntegrationClass(this, insurer, policy);
-							total_quotes_requested++;
-							// if (socket) {
-							// 	integration.quote().then((quote) => {
-							// 		// Record the quote and send it to the user
-							// 		socket_quotes.push(quote);
-							// 		log.verbose('Quote Received');
-							// 		socket.emit('quote', quote);
-
-							// 		// Determine the result of this quote
-							// 		if (Object.prototype.hasOwnProperty.call(quote, 'amount') && quote.amount) {
-							// 			// Quote
-							// 			policyTypeQuoted[quote.policy_type] = true;
-							// 		} else if (Object.prototype.hasOwnProperty.call(quote, 'status') && quote.status === 'referred') {
-							// 			// Referred
-							// 			policyTypeReferred[quote.policy_type] = true;
-							// 		}
-
-							// 		// Increment the counter
-							// 		quotes_done++;
-
-							// 		// If this was the last quote we are expecting, close the socket
-							// 		if (quotes_done === total_quotes_requested) {
-							// 			this.send_notifications(socket_quotes);
-
-							// 			// Update the application state
-							// 			this.updateApplicationState(this.policies.length, Object.keys(policyTypeQuoted).length, Object.keys(policyTypeReferred).length);
-
-							// 			// Indicate we are done processing and disconnect
-							// 			socket.emit('status', 'done');
-							// 			socket.disconnect();
-							// 		}
-
-							// 		// Strip out file data and log
-							// 		if (Object.prototype.hasOwnProperty.call(quote, 'letter') && Object.prototype.hasOwnProperty.call(quote.letter, 'data')) {
-							// 			quote.letter.data = '...';
-							// 		}
-							// 		log.verbose(util.inspect(quote, false, null));
-							// 	});
-							// } else {
-							quote_promises.push(integration.quote());
-							// }
-						} else {
-							log.warn(`Insurer integration file does not exist: ${insurer.name} ${policy.type}` + __location);
-						}
+		this.policies.forEach((policy) => {
+			// Generate quotes for each insurer for the given policy type
+			this.insurers.forEach((insurer) => {
+				// Check that the given policy type is enabled for this insurer
+				if (insurer.policy_types.indexOf(policy.type) >= 0) {
+					// Check if the integration file for this insurer exists
+					const normalizedPath = `${__dirname}/../integrations/${insurer.slug}/${policy.type.toLowerCase()}.js`;
+					if (fs.existsSync(normalizedPath)) {
+						// Require the integration file and add the response to our promises
+						const IntegrationClass = require(normalizedPath);
+						const integration = new IntegrationClass(this, insurer, policy);
+						quote_promises.push(integration.quote());
+					} else {
+						log.warn(`Insurer integration file does not exist: ${insurer.name} ${policy.type}` + __location);
 					}
-				});
+				}
 			});
-
-			// Wait for all quotes to finish
-			const quotes = [];
-			await Promise.all(quote_promises)
-				.then(function (all_quotes) {
-					all_quotes.forEach(function (quote) {
-						quotes.push(quote);
-
-						// Determine the result of this quote
-						if (Object.prototype.hasOwnProperty.call(quote, 'amount') && quote.amount) {
-							// Quote
-							policyTypeQuoted[quote.policy_type] = true;
-						} else if (Object.prototype.hasOwnProperty.call(quote, 'status') && quote.status === 'referred') {
-							// Referred
-							policyTypeReferred[quote.policy_type] = true;
-						}
-					});
-				})
-				.catch(function (error) {
-					reject(error);
-				});
-			// Check for no quotes
-			if (quotes.length < 1) {
-				fulfill(serverHelper.requestError('The request submitted will not result in quotes. Please check the insurers specified and ensure they support the policy types selected.'));
-				return;
-			}
-
-			// Update the application state
-			this.updateApplicationState(this.policies.length, Object.keys(policyTypeQuoted).length, Object.keys(policyTypeReferred).length);
-
-			// Send a notification to Slack about this application
-			this.send_notifications(quotes);
-
-			// Build the final JSON
-			const json = {
-				done: true,
-				quotes: quotes
-			};
-
-			fulfill(json);
 		});
+
+		// Wait for all quotes to finish
+		let quotes = null;
+		try {
+			quotes = await Promise.all(quote_promises);
+		} catch (error) {
+			log.error(`Could not get quotes for application ${this.id}: ${error} ${__location}`);
+			return;
+		}
+
+		// Check for no quotes
+		if (quotes.length < 1) {
+			log.error(`No quotes returned for application ${this.id}`);
+			return;
+		}
+
+		// Determine the type of policy quoted for the application state
+		quotes.forEach((quote) => {
+			// Determine the result of this quote
+			if (Object.prototype.hasOwnProperty.call(quote, 'amount') && quote.amount) {
+				// Quote
+				policyTypeQuoted[quote.policy_type] = true;
+			} else if (Object.prototype.hasOwnProperty.call(quote, 'status') && quote.status === 'referred') {
+				// Referred
+				policyTypeReferred[quote.policy_type] = true;
+			}
+		});
+		// Update the application state
+		this.updateApplicationState(this.policies.length, Object.keys(policyTypeQuoted).length, Object.keys(policyTypeReferred).length);
+
+		// Send a notification to Slack about this application
+		this.send_notifications(quotes);
 	}
 
 	/**

@@ -8,6 +8,7 @@ const util = require('util');
 const Application = require('./helpers/models/Application.js');
 const serverHelper = require('../../../server.js');
 const jwt = require('jsonwebtoken');
+const status = requireShared('./helpers/status.js');
 
 /**
  * Responds to POST requests and returns policy quotes
@@ -77,22 +78,6 @@ async function postApplication(req, res, next) {
 	// Begin running the quotes
 	runQuotes(application);
 
-	// Check if Testing and Send Test Response - Needs rework in the quotes backend
-	// if (application.test) {
-	// 	// Test Response
-	// 	await application
-	// 		.run_test()
-	// 		.then(function (response) {
-	// 			log.verbose(util.inspect(response, false, null));
-	// 			res.send(200, response);
-	// 		})
-	// 		.catch(function (error) {
-	// 			log.error(`Error ${error.message}` + __location);
-	// 			res.send(error);
-	// 		});
-	// 	return next();
-	// }
-
 	return next();
 }
 
@@ -103,25 +88,11 @@ async function postApplication(req, res, next) {
  * @returns {void}
  */
 async function runQuotes(application) {
-	// Start quoting (no await)
-	let result = null;
 	try {
-		result = await application.run_quotes();
+		await application.run_quotes();
 	} catch (error) {
-		// Update the progress table with an error
+		log.error(`Getting quotes on application ${application.id} failed: ${error} ${__location}`);
 	}
-	// Strip out file data and log
-	const logResponse = { ...result };
-	logResponse.quotes.forEach(function (quote) {
-		if (Object.prototype.hasOwnProperty.call(quote, 'letter')) {
-			quote.letter = '...';
-		}
-	});
-	// log.verbose(util.inspect(logResponse, false, null));
-	console.log('DONE RUNNING QUOTES');
-	logResponse.quotes.forEach((quote) => {
-		console.log(JSON.stringify(quote));
-	});
 
 	// Update the application quote progress to "complete"
 	const sql = `
@@ -134,6 +105,9 @@ async function runQuotes(application) {
 	} catch (error) {
 		log.error(`Could not update the quote progress to 'complete' for application ${application.id}: ${error} ${__location}`);
 	}
+
+	// Update the application status
+	await status.updateApplicationStatus(application.id);
 }
 
 /* -----==== Endpoints ====-----*/

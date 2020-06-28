@@ -851,7 +851,7 @@ module.exports = class Integration {
 			}
 		}
 
-		// Aggregated Status
+		// Aggregated Status.
 		columns.push('aggregated_status');
 		values.push(getQuoteAggregatedStatus(false, '', error ? error : 'quoted'));
 
@@ -873,8 +873,43 @@ module.exports = class Integration {
 				log.error(err + __location);
 			});
 		}
-
 		return quoteID;
+	}
+
+	/**
+	 * Generates and returns the proper structure for returning a quote from an integration
+	 *
+	 * @param {int} amount - The amount of the quote as a whole number
+	 * @param {string} pkg (optional) - The name of the applicable package, must match what is in our database
+	 * @returns {object} - An object containing the quote information
+	 */
+	async return_quote(amount, pkg) {
+		// Package
+		let package_id = null;
+		if (typeof pkg !== 'undefined' && pkg) {
+			let package_found = false;
+			for (let i = 0; i < this.insurer.packages.length; i++) {
+				if (this.insurer.packages[i].name === pkg) {
+					package_id = this.insurer.packages[i].id;
+					package_found = true;
+					break;
+				}
+			}
+			if (!package_found) {
+				log.warn(`Undefined package referenced for ${this.insurer.name} ${this.policy.type}` + __location);
+			}
+		}
+		return await this.record_quote(amount, package_id);
+	}
+
+	/**
+	 * Generates and returns the proper structure for returning an indication from an integration
+	 *
+	 * @param {int} amount - The amount of the indication as a whole number
+	 * @returns {object} - An object containing the indication information
+	 */
+	async return_indication(amount) {
+		return await this.record_quote(amount, null, 'referred_with_price');
 	}
 
 	/**
@@ -885,7 +920,7 @@ module.exports = class Integration {
 	 * @returns {object} - An error object
 	 */
 	async return_error(type, message) {
-		log.info(`${this.insurer.name} ${this.policy.type} ${type}`);
+		log.info(`${this.insurer.name} returned an error of type ${type} for a ${this.policy.type} policy: ${message}`);
 
 		// If there were reasons, make sure we write them to the log
 		if (this.reasons.length > 0) {
@@ -895,68 +930,7 @@ module.exports = class Integration {
 		}
 
 		// Record this quote
-		const id = await this.record_quote(null, null, type);
-
-		// Build and return a response
-		return {
-			id: id,
-			insurer: {
-				id: this.insurer.id,
-				logo: `${process.env.SITE_URL}/${this.insurer.logo}`,
-				name: this.insurer.name,
-				rating: this.insurer.rating
-			},
-			message: message,
-			policy_type: this.policy.type,
-			status: type.indexOf('autodeclined') === -1 ? type : 'declined'
-		};
-	}
-
-	/**
-	 * Generates and returns the proper structure for returning an indication from an integration
-	 *
-	 * @param {int} amount - The amount of the indication as a whole number
-	 * @returns {object} - An object containing the indication information
-	 */
-	async return_indication(amount) {
-		// Start building the quote
-		const quote = {};
-		quote.amount = amount;
-		quote.id = 0;
-		quote.instant_buy = false;
-		quote.policy_type = this.policy.type;
-		if (this.quote_letter && Object.prototype.hasOwnProperty.call(this.quote_letter, 'data') && this.quote_letter.data) {
-			quote.letter = this.quote_letter.data;
-		}
-
-		// Insurer info
-		quote.insurer = {};
-		quote.insurer.id = this.insurer.id;
-		quote.insurer.logo = `${process.env.SITE_URL}/${this.insurer.logo}`;
-		quote.insurer.name = this.insurer.name;
-		quote.insurer.rating = this.insurer.rating;
-
-		// Limits
-		quote.limits = await this.returnLimits();
-
-		// Record the quote
-		quote.id = await this.record_quote(amount, null, 'referred_with_price');
-
-		// Payment options
-		if (this.insurer.payment_options.length) {
-			quote.payment_options = [];
-			this.insurer.payment_options.forEach((payment_option) => {
-				if (amount > payment_option.threshold) {
-					quote.payment_options.push({
-						description: payment_option.description,
-						id: payment_option.id,
-						name: payment_option.name
-					});
-				}
-			});
-		}
-
-		return quote;
+		return await this.record_quote(null, null, type);
 	}
 
 	/**
@@ -1116,77 +1090,6 @@ module.exports = class Integration {
 
 			default:
 		}
-	}
-
-	/**
-	 * Generates and returns the proper structure for returning a quote from an integration
-	 *
-	 * @param {int} amount - The amount of the quote as a whole number
-	 * @param {string} pkg (optional) - The name of the applicable package, must match what is in our database
-	 * @returns {object} - An object containing the quote information
-	 */
-	async return_quote(amount, pkg) {
-		// Start building the quote
-		const quote = {};
-		quote.amount = amount;
-		quote.id = 0;
-		quote.instant_buy = true;
-		if (this.quote_letter && Object.prototype.hasOwnProperty.call(this.quote_letter, 'data') && this.quote_letter.data) {
-			quote.letter = this.quote_letter.data;
-		}
-
-		// Insurer info
-		quote.insurer = {};
-		quote.insurer.id = this.insurer.id;
-		quote.insurer.logo = `${process.env.SITE_URL}/${this.insurer.logo}`;
-		quote.insurer.name = this.insurer.name;
-		quote.insurer.rating = this.insurer.rating;
-
-		// Limits
-		quote.limits = await this.returnLimits();
-
-		// Package
-		let package_id = null;
-		if (typeof pkg !== 'undefined' && pkg) {
-			let package_found = false;
-			for (let i = 0; i < this.insurer.packages.length; i++) {
-				if (this.insurer.packages[i].name === pkg) {
-					quote.package = {};
-					package_id = this.insurer.packages[i].id;
-					quote.package.description = this.insurer.packages[i].description;
-					quote.package.name = this.insurer.packages[i].name;
-					package_found = true;
-					break;
-				}
-			}
-			if (!package_found) {
-				log.warn(`Undefined package referenced for ${this.insurer.name} ${this.policy.type}` + __location);
-			}
-		}
-
-		// Record this Quote
-		await this.record_quote(amount, package_id).then((id) => {
-			quote.id = id;
-
-			// Payment options
-			if (this.insurer.payment_options.length) {
-				quote.payment_options = [];
-				this.insurer.payment_options.forEach((payment_option) => {
-					if (amount > payment_option.threshold) {
-						quote.payment_options.push({
-							description: payment_option.description,
-							id: payment_option.id,
-							name: payment_option.name
-						});
-					}
-				});
-			}
-
-			// Policy type
-			quote.policy_type = this.policy.type;
-		});
-
-		return quote;
 	}
 
 	/**
