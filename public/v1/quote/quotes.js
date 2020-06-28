@@ -16,6 +16,111 @@ async function queryDB(sql, queryDescription) {
 	return result;
 }
 
+async function createQuoteSummary(quoteID) {
+	// Get the quote
+	let sql = `SELECT id, amount, policy_type, insurer, aggregated_status, quote_letter FROM clw_talage_quotes WHERE id = ${quoteID}`;
+	let result = await queryDB(sql, `retrieving quote ${quoteID}`);
+	if (result === null || result.length === 0) {
+		return null;
+	}
+	const quote = result[0];
+	// Get the insurer
+	sql = `SELECT id, logo, name, rating FROM clw_talage_insurers WHERE id = ${quote.insurer}`;
+	result = await queryDB(sql, `retrieving insurer ${quote.insurer}`);
+	if (result === null || result.length === 0) {
+		return null;
+	}
+	const insurer = result[0];
+
+	switch (quote.aggregated_status) {
+		case 'declined':
+			return {
+				id: quote.id,
+				policy_type: quote.policy_type,
+				status: 'declined',
+				message: `${insurer.name} has declined to offer you coverage at this time`,
+				insurer: {
+					id: insurer.id,
+					logo: process.env.SITE_URL + '/' + insurer.logo,
+					name: insurer.name,
+					rating: insurer.rating
+				}
+			};
+		case 'quoted_referred':
+		case 'quoted':
+			const returnedQuoteID = quote.aggregated_status === 'quoted' ? quoteID : 0;
+			const instantBuy = quote.aggregated_status === 'quoted';
+
+			// Get the limits for the quote
+			sql = `
+				SELECT quoteLimits.id, quoteLimits.amount, limits.description
+				FROM clw_talage_quote_limits AS quoteLimits
+				LEFT JOIN clw_talage_limits AS limits ON limits.id = quoteLimits.limit
+				WHERE quote = ${quote.id} ORDER BY quoteLimits.limit ASC;
+			`;
+			result = await queryDB(sql, `retrieving limits for quote ${quote.id}`);
+			if (result === null || result.length === 0) {
+				return null;
+			}
+			const quoteLimits = result;
+			// Create the limits object
+			const limits = {};
+			quoteLimits.forEach((quoteLimit) => {
+				// NOTE: frontend expects a string. -SF
+				limits[quoteLimit.description] = `${quoteLimit.amount}`;
+			});
+
+			// Get the payment options for this insurer
+			sql = `
+				SELECT 
+					insurerPaymentPlans.premium_threshold, 
+					paymentPlans.id, 
+					paymentPlans.name, 
+					paymentPlans.description
+				FROM clw_talage_insurer_payment_plans AS insurerPaymentPlans
+				LEFT JOIN clw_talage_payment_plans AS paymentPlans ON paymentPlans.id = insurerPaymentPlans.payment_plan
+				WHERE insurer = ${quote.insurer};
+			`;
+			result = await queryDB(sql, `retrieving payment plans for insurer ${quote.insurer}`);
+			if (result === null || result.length === 0) {
+				return null;
+			}
+			const paymentPlans = result;
+
+			// Create the payment options object
+			const paymentOptions = [];
+			paymentPlans.forEach((pp) => {
+				if (quote.amount > pp.premium_threshold) {
+					paymentOptions.push({
+						id: pp.id,
+						name: pp.name,
+						description: pp.description
+					});
+				}
+			});
+			// Return the quote summary
+			return {
+				id: returnedQuoteID,
+				policy_type: quote.policy_type,
+				amount: quote.amount,
+				instant_buy: instantBuy,
+				letter: quote.quote_letter ? quote.quote_letter : '',
+				insurer: {
+					id: insurer.id,
+					logo: global.settings.SITE_URL + '/' + insurer.logo,
+					name: insurer.name,
+					rating: insurer.rating
+				},
+				limits,
+				payment_options: paymentOptions
+			};
+		default:
+			// We don't return a quote for any other aggregated status
+			// log.error(`Quote ${quote.id} has a unknow aggregated status of ${quote.aggregated_status} when creating quote summary ${__location}`);
+			return null;
+	}
+}
+
 /**
  * Get quotes for a given application quote token
  *
@@ -44,54 +149,43 @@ async function getQuotes(req, res, next) {
 	if (req.query.after) {
 		lastQuoteID = req.query.after;
 	}
-	console.log('lastQuoteID', lastQuoteID);
 
 	// Retrieve quotes newer than the last quote ID
 	let sql = `
-		SELECT id, amount, policy_type
+		SELECT id
 		FROM clw_talage_quotes
 		WHERE
 			application = ${tokenPayload.applicationID}
 			AND id > ${lastQuoteID}
+		ORDER BY id ASC
 	`;
 	let result = await queryDB(sql, `retrieving quotes for application ${tokenPayload.applicationID}`);
 	if (result === null) {
 		return next(serverHelper.internalError('Error retrieving quotes'));
 	}
-
-	// If there are not any newer quotes, check if we are complete
-	if (result.length === 0) {
-		sql = `
-			SELECT progress
-			FROM clw_talage_application_quote_progress
-			WHERE id = ${tokenPayload.applicationQuoteProgressID}
-		`;
-		result = await queryDB(sql, `retrieving quote progress for application quote progress ${tokenPayload.applicationQuoteProgressID}`);
-		if (result === null) {
-			return next(serverHelper.internalError('Error retrieving quote progress'));
-		}
-		if (result[0].progress === 'complete') {
-			res.send(200, { complete: true });
-			return next();
+	const quotes = [];
+	if (result.length > 0) {
+		// Build the quote result for the frontend
+		for (let i = 0; i < result.length; i++) {
+			const quoteSummary = await createQuoteSummary(result[i].id);
+			console.log(quoteSummary);
+			if (quoteSummary !== null) {
+				quotes.push(quoteSummary);
+			}
+			// return next(serverHelper.internalError('Error creating quote summary'));
 		}
 	}
-
-	// Get the insurer for this quote
-
-	const quotes = [];
-	// Build the quote result for the frontend
-	result.forEach((q) => {
-		const newQuote = {
-			id: q.id,
-			policy_type: q.policy_type
-		};
-		if (q.amount !== null) {
-			newQuote['amount'] = q.amount;
-		} else {
-			newQuote['message'] = `Declined to quote`;
-		}
-		quotes.push(newQuote);
-	});
+	// Retrieve if we are complete
+	sql = `
+			SELECT quote_progress
+			FROM clw_talage_applications
+			WHERE id = ${tokenPayload.applicationID}
+		`;
+	result = await queryDB(sql, `retrieving quote progress for application ${tokenPayload.applicationID}`);
+	if (result === null || result.length === 0) {
+		return next(serverHelper.internalError('Error retrieving quote progress'));
+	}
+	const complete = result[0].quote_progress === 'complete';
 
 	// quote: {
 	// 	amount: amount,
@@ -108,7 +202,7 @@ async function getQuotes(req, res, next) {
 	// 	policy_type: policy.type
 	// }
 
-	res.send(200, quotes);
+	res.send(200, { complete, quotes });
 	return next();
 }
 

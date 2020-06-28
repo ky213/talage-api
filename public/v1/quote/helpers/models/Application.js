@@ -296,17 +296,16 @@ module.exports = class Application {
 	/**
 	 * Begins the process of getting and returning quotes from insurers
 	 *
-	 * @param {object} socket - The socket.io socket to use for asynchronous quote returns (optional - when ommitted will compile all quotes before returning)
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing an example API response if resolved, or an Error if rejected
 	 */
-	run_quotes(socket = false) {
+	run_quotes() {
 		log.verbose('Running quotes');
 
 		return new Promise(async (fulfill, reject) => {
 			// Generate quotes for each policy type
 			const fs = require('fs');
 			const quote_promises = [];
-			const socket_quotes = [];
+			// const socket_quotes = [];
 			const policyTypeReferred = {};
 			const policyTypeQuoted = {};
 			let quotes_done = 0;
@@ -324,46 +323,46 @@ module.exports = class Application {
 							const IntegrationClass = require(normalizedPath);
 							const integration = new IntegrationClass(this, insurer, policy);
 							total_quotes_requested++;
-							if (socket) {
-								integration.quote().then((quote) => {
-									// Record the quote and send it to the user
-									socket_quotes.push(quote);
-									log.verbose('Quote Received');
-									socket.emit('quote', quote);
+							// if (socket) {
+							// 	integration.quote().then((quote) => {
+							// 		// Record the quote and send it to the user
+							// 		socket_quotes.push(quote);
+							// 		log.verbose('Quote Received');
+							// 		socket.emit('quote', quote);
 
-									// Determine the result of this quote
-									if (Object.prototype.hasOwnProperty.call(quote, 'amount') && quote.amount) {
-										// Quote
-										policyTypeQuoted[quote.policy_type] = true;
-									} else if (Object.prototype.hasOwnProperty.call(quote, 'status') && quote.status === 'referred') {
-										// Referred
-										policyTypeReferred[quote.policy_type] = true;
-									}
+							// 		// Determine the result of this quote
+							// 		if (Object.prototype.hasOwnProperty.call(quote, 'amount') && quote.amount) {
+							// 			// Quote
+							// 			policyTypeQuoted[quote.policy_type] = true;
+							// 		} else if (Object.prototype.hasOwnProperty.call(quote, 'status') && quote.status === 'referred') {
+							// 			// Referred
+							// 			policyTypeReferred[quote.policy_type] = true;
+							// 		}
 
-									// Increment the counter
-									quotes_done++;
+							// 		// Increment the counter
+							// 		quotes_done++;
 
-									// If this was the last quote we are expecting, close the socket
-									if (quotes_done === total_quotes_requested) {
-										this.send_notifications(socket_quotes);
+							// 		// If this was the last quote we are expecting, close the socket
+							// 		if (quotes_done === total_quotes_requested) {
+							// 			this.send_notifications(socket_quotes);
 
-										// Update the application state
-										this.updateApplicationState(this.policies.length, Object.keys(policyTypeQuoted).length, Object.keys(policyTypeReferred).length);
+							// 			// Update the application state
+							// 			this.updateApplicationState(this.policies.length, Object.keys(policyTypeQuoted).length, Object.keys(policyTypeReferred).length);
 
-										// Indicate we are done processing and disconnect
-										socket.emit('status', 'done');
-										socket.disconnect();
-									}
+							// 			// Indicate we are done processing and disconnect
+							// 			socket.emit('status', 'done');
+							// 			socket.disconnect();
+							// 		}
 
-									// Strip out file data and log
-									if (Object.prototype.hasOwnProperty.call(quote, 'letter') && Object.prototype.hasOwnProperty.call(quote.letter, 'data')) {
-										quote.letter.data = '...';
-									}
-									log.verbose(util.inspect(quote, false, null));
-								});
-							} else {
-								quote_promises.push(integration.quote());
-							}
+							// 		// Strip out file data and log
+							// 		if (Object.prototype.hasOwnProperty.call(quote, 'letter') && Object.prototype.hasOwnProperty.call(quote.letter, 'data')) {
+							// 			quote.letter.data = '...';
+							// 		}
+							// 		log.verbose(util.inspect(quote, false, null));
+							// 	});
+							// } else {
+							quote_promises.push(integration.quote());
+							// }
 						} else {
 							log.warn(`Insurer integration file does not exist: ${insurer.name} ${policy.type}` + __location);
 						}

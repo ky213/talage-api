@@ -54,10 +54,9 @@ async function postApplication(req, res, next) {
 	// Create an application progress entry. Do not reuse an existing row since hung processes could
 	// still update it.
 	const sql = `
-		INSERT INTO clw_talage_application_quote_progress
-		SET
-			application = ${application.id},
-			progress = ${db.escape('working')}
+		UPDATE clw_talage_applications
+		SET quote_progress = ${db.escape('working')}
+		WHERE id = ${application.id}
 	`;
 	let result = null;
 	try {
@@ -66,21 +65,17 @@ async function postApplication(req, res, next) {
 		log.error(`Could not update the quote progress to 'working' for application ${application.id}: ${error} ${__location}`);
 		return next(serverHelper.internalError('An unexpected error occurred.'));
 	}
-	const applicationQuoteProgressID = result.insertId;
 
-	// Build a JWT that contains the application ID and application quote progress ID that expires
-	// in 5 minutes.
+	// Build a JWT that contains the application ID that expires in 5 minutes.
 	const tokenPayload = {
-		applicationID: application.id,
-		applicationQuoteProgressID: applicationQuoteProgressID
+		applicationID: application.id
 	};
-	console.log(tokenPayload);
 	const token = jwt.sign(tokenPayload, global.settings.AUTH_SECRET_KEY, { expiresIn: '5m' });
 	// Send back the token
 	res.send(200, token);
 
 	// Begin running the quotes
-	runQuotes(application, applicationQuoteProgressID);
+	runQuotes(application);
 
 	// Check if Testing and Send Test Response - Needs rework in the quotes backend
 	// if (application.test) {
@@ -107,7 +102,7 @@ async function postApplication(req, res, next) {
  * @param {object} application - Application object
  * @returns {void}
  */
-async function runQuotes(application, applicationQuoteProgressID) {
+async function runQuotes(application) {
 	// Start quoting (no await)
 	let result = null;
 	try {
@@ -130,9 +125,9 @@ async function runQuotes(application, applicationQuoteProgressID) {
 
 	// Update the application quote progress to "complete"
 	const sql = `
-		UPDATE clw_talage_application_quote_progress
-		SET progress = ${db.escape('complete')}
-		WHERE id = ${applicationQuoteProgressID}
+		UPDATE clw_talage_applications
+		SET quote_progress = ${db.escape('complete')}
+		WHERE id = ${application.id}
 	`;
 	try {
 		await db.query(sql);
