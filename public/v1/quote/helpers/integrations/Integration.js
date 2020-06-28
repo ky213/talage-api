@@ -926,7 +926,7 @@ else{
 			'id': id,
 			'insurer': {
 				'id': this.insurer.id,
-				'logo': `${process.env.SITE_URL}/${this.insurer.logo}`,
+				'logo': `${global.settings.SITE_URL}/${this.insurer.logo}`,
 				'name': this.insurer.name,
 				'rating': this.insurer.rating
 			},
@@ -956,7 +956,7 @@ else{
 		// Insurer info
 		quote.insurer = {};
 		quote.insurer.id = this.insurer.id;
-		quote.insurer.logo = `${process.env.SITE_URL}/${this.insurer.logo}`;
+		quote.insurer.logo = `${global.settings.SITE_URL}/${this.insurer.logo}`;
 		quote.insurer.name = this.insurer.name;
 		quote.insurer.rating = this.insurer.rating;
 
@@ -1166,7 +1166,7 @@ else{
 		// Insurer info
 		quote.insurer = {};
 		quote.insurer.id = this.insurer.id;
-		quote.insurer.logo = `${process.env.SITE_URL}/${this.insurer.logo}`;
+		quote.insurer.logo = `${global.settings.SITE_URL}/${this.insurer.logo}`;
 		quote.insurer.name = this.insurer.name;
 		quote.insurer.rating = this.insurer.rating;
 

@@ -13,7 +13,7 @@ var options = {
   laxbreak: true,
   strict: false,
   sub: true,       //Allow non . notation for JSON.
-  esversion: 9,
+  esversion: 10,
   asi : true,
   node: true,
   globals: {
@@ -27,7 +27,9 @@ var options = {
      "validator": true,
      "settings": true,
      "requireShared": true,
-     "__location": true
+     "__location": true,
+     "#dbTableORM": true,
+     "dbTableORM": true
      
   }
 };
@@ -61,6 +63,7 @@ dir.files(__dirname, function (err, files) {
                   && file.indexOf('coverage') === -1
                   && file.indexOf('.json') === -1
                   && file.indexOf('.js') > -1
+                  && file.indexOf('DatabaseObject.js') === -1
                   && file.indexOf('mochawesome-report') === -1) {
                //console.log('processing  - ' + file);
                var src = fs.readFileSync(file, 'utf8');
