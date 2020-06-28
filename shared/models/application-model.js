@@ -4,8 +4,10 @@ const DatabaseObject = require('./DatabaseObject.js');
 const BusinessModel = require('./Business-model.js');
 const ApplicationClaimModel = require('./ApplicationClaim-model.js');
 const LegalAcceptanceModel = require('./LegalAcceptance-model.js');
+const QuoteModel = require('./Quote-model.js');
 const taskWholesaleAppEmail = global.requireRootPath('tasksystem/task-wholesaleapplicationemail.js');
 const taskSoleProAppEmail = global.requireRootPath('tasksystem/task-soleproapplicationemail.js');
+const taskEmailBindAgency = global.requireRootPath('tasksystem/task-emailbindagency.js');
 
 //const moment = require('moment');
 const { 'v4': uuidv4 } = require('uuid');
@@ -44,13 +46,16 @@ module.exports = class ApplicationModel {
      * @param {boolean} save - Saves application if true
    * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved application , or an Error if rejected
    */
-    saveApplicationStep(applicationJSON, worflowStep) {
+    saveApplicationStep(applicationJSON, workflowStep) {
         return new Promise(async (resolve, reject) => {
             if (!applicationJSON) {
                 reject(new Error("empty application object given"));
+                return;
             }
             if (!applicationJSON.id && applicationJSON.step !== "contact") {
+                log.error('saveApplicationStep missing application id ' + __location)
                 reject(new Error("missing application id"));
+                return;
             }
             if (applicationJSON.id && applicationJSON.step !== "contact") {
                 //load application from database.
@@ -65,7 +70,7 @@ module.exports = class ApplicationModel {
             //log.debug("applicationJSON: " + JSON.stringify(applicationJSON));
             let error = null;
             let updateBusiness = false;
-            switch (worflowStep) {
+            switch (workflowStep) {
                 case "contact":
                     //setup business special case need new business ID back.
                     if (applicationJSON.businessInfo) {
@@ -118,8 +123,6 @@ module.exports = class ApplicationModel {
                     }
                     break;
                 case 'questions':
-                    // Get parser for questions page
-                    // require_once JPATH_COMPONENT_ADMINISTRATOR . '/lib/QuoteEngine/parsers/QuestionsParser.php';
                     if(applicationJSON.questions){
                         await this.processQuestions(applicationJSON.questions).catch(function(err){
                             log.error('Adding Questions error:' + err + __location);
@@ -156,10 +159,17 @@ module.exports = class ApplicationModel {
                     break;
                 case 'quotes':
                     // Do nothing - we only save here to update the last step
-                    break;
-                case 'emailbind':
-                    // TODO add /remove from php
+                    workflowStep = "quotes";
+                    
 
+                    break;
+                case 'bindRequest':
+                    if(applicationJSON.quotes){
+                        await this.processQuotes(applicationJSON).catch(function(err){
+                            log.error('Processing Quotes error:' + err + __location);
+                            reject(err);
+                        });
+                    }
                     break;
                 default:
                     // not from old Web application application flow.
@@ -187,9 +197,11 @@ module.exports = class ApplicationModel {
                 'claims': 7,
                 'questions': 8,
                 'quotes': 9,
-                'cart': 10
+                'cart': 10,
+                'bindRequest': 10,
             };
-            const stepNumber = stepMap[worflowStep];
+            const stepNumber = stepMap[workflowStep];
+            log.debug('workflowStep: ' + workflowStep + ' stepNumber: ' +  stepNumber);
             if (!this.#dbTableORM.last_step) {
                 this.#dbTableORM.last_step = stepNumber;
             }
@@ -336,6 +348,49 @@ processLegalAcceptance(applicationJSON){
             reject(err);
             return;
         });
+        resolve(true);
+
+    });
+
+}
+
+processQuotes(applicationJSON){
+
+    return new Promise(async (resolve, reject) => {
+        if(applicationJSON.quotes){
+            for(var i=0;i<applicationJSON.quotes.length; i++){
+                const quote = applicationJSON.quotes[i];
+                log.debug("quote: " + JSON.stringify(quote))
+                log.debug("Sending Bind Agency email for AppId " + this.id + " quote " + quote.quote);
+                //no need to await.
+                taskEmailBindAgency.emailbindagency(this.id, quote.quote);
+
+                //load quote from database.
+                let quoteModel = new QuoteModel();
+                //update quote record.
+                await quoteModel.loadFromId(quote.quote).catch(function (err) {
+                    log.error(`Loading quote for status and payment plan update quote ${quote.quote} error:` + err + __location);
+                    //reject(err);
+                    //return;
+                    
+                });
+                const quoteUpdate = { "status": "bind_requested",
+                                    "payment_plan": quote.payment
+                                    }
+                await quoteModel.saveModel(quoteUpdate).catch(function (err) {
+                    log.error(`Updating  quote with status and payment plan quote ${quote.quote} error:` + err + __location);
+                    // reject(err);
+                    //return;
+                    
+                });                  
+
+                // TODO order of quotes may reduce the state
+                applicationJSON.state = quote['api_result'] === 'referred_with_price' ? 12 : 16;
+                // will get saved later afte this returns.
+                
+               
+            }
+        }
         resolve(true);
 
     });

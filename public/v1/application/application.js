@@ -17,6 +17,7 @@ const ownerStepParser = require('./parsers/owner-step-parser.js')
 const detailStepParser = require('./parsers/detail-step-parser.js')
 const claimStepParser = require('./parsers/claim-step-parser.js')
 const questionStepParser = require('./parsers/question-step-parser.js')
+const bindStepParser = require('./parsers/bindrequest-step-parse.js')
 
 /**
  * Responds to POST related ot new applications
@@ -43,12 +44,12 @@ async function Save(req, res, next){
     const applicationRequestJson = req.body;
 
 	//Validation passed, give requst application to model to process and save.
-    if(!applicationRequestJson.id && applicationRequestJson.step !== "contact"){
+    if(!applicationRequestJson.id && applicationRequestJson.step !== "contact" && applicationRequestJson.step !== "bindRequest"){
         res.send(400, "missing application id");
         return next(serverHelper.requestError("missing application id"));
     }
     if(applicationRequestJson.id){
-        //convert to int
+        //convert to int and therefore santize
         try{
             applicationRequestJson.id = parseInt(applicationRequestJson.id,10)
         }
@@ -62,7 +63,7 @@ async function Save(req, res, next){
     const worflowStep = applicationRequestJson.step
 	switch (applicationRequestJson.step) {
 		case "contact":
-			contactStepParser.process(applicationRequestJson);
+            await contactStepParser.process(applicationRequestJson);
 			break;
 		case 'locations':
             if(!applicationRequestJson.locations || !applicationRequestJson.mailing){
@@ -70,7 +71,7 @@ async function Save(req, res, next){
                 return next(serverHelper.requestError("missing location information"));
             }
             // Get parser for locations page
-            locationStepParser.process(applicationRequestJson);
+            await locationStepParser.process(applicationRequestJson);
 			break;
 		case 'coverage':
             //validate
@@ -79,24 +80,24 @@ async function Save(req, res, next){
                 return next(serverHelper.requestError("missing coverage information"));
             }
 			// Get parser for coverage
-			coverageStepParser.process(applicationRequestJson);
+            await coverageStepParser.process(applicationRequestJson);
 			break;
 		case 'owners':
             if(!applicationRequestJson.owners && !applicationRequestJson.owners_covered){
                 res.send(400, "missing owners information");
                 return next(serverHelper.requestError("missing owners information"));
             }
-            ownerStepParser.process(applicationRequestJson);
+            await ownerStepParser.process(applicationRequestJson);
 			break;
 		case 'details':
-			detailStepParser.process(applicationRequestJson);
+            await detailStepParser.process(applicationRequestJson);
 			break;
 		case 'claims':
 			if(!applicationRequestJson.claims){
                 res.send(400, "missing claim information");
                 return next(serverHelper.requestError("missing claim information"));
             }
-            claimStepParser.process(applicationRequestJson);
+            await claimStepParser.process(applicationRequestJson);
 			break;
 		case 'questions':
             if(!applicationRequestJson.question_answers && !applicationRequestJson.question_defaults){
@@ -104,10 +105,20 @@ async function Save(req, res, next){
                 return next(serverHelper.requestError("missing question information"));
             }
             applicationRequestJson.remoteAddress = req.connection.remoteAddress;
-            questionStepParser.process(applicationRequestJson);
+            await questionStepParser.process(applicationRequestJson);
 			break;
 		case 'quotes':
-			// Do nothing - we only save here to update the last step
+            // Do nothing - we only save here to update the last step
+            break;
+        case 'bindRequest':
+            if(!applicationRequestJson.quotes){
+                res.send(400, "missing bindRequest information");
+                return next(serverHelper.requestError("missing bindRequest information"));
+            }
+            const resp = await bindStepParser.process(applicationRequestJson);
+            if(resp === false){
+                log.error("problems in bindStepParser " + __location)
+            }
 			break;
 		default:
             // not from old Web application application flow.
@@ -119,6 +130,7 @@ async function Save(req, res, next){
     if(applicationRequestJson.demo === true){
         responseObj.demo = applicationRequestJson.demo;
         responseObj.id = -999;
+        responseObj.message = "saved";
         res.send(200, responseObj);
         return next();
     }
@@ -127,7 +139,6 @@ async function Save(req, res, next){
         const applicationModel = new ApplicationModel();
         await applicationModel.saveApplicationStep(applicationRequestJson, worflowStep).then(function(modelResponse){
             if(modelResponse === true){
-
                 responseObj.demo = applicationRequestJson.demo;
                 responseObj.id = applicationModel.id;
                 responseObj.message = "saved";

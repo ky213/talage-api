@@ -12,7 +12,8 @@ const moment = require('moment');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const validator = global.requireShared('./helpers/validator.js');
-
+//usable in catches from promises.  (this not available)
+let tableName = '';
 module.exports = class DatabaseObject {
 	#constructors = {};
 	#table = '';
@@ -30,7 +31,7 @@ module.exports = class DatabaseObject {
 		this.#constructors = c;
 		this.#table = t;
 		this.#properties = p;
-
+        tableName = t;
 		// Loop over each property
 		for (const property in this.#properties) {
 			// Create local property with default value (local properties are denoted with an underscore)
@@ -65,11 +66,13 @@ module.exports = class DatabaseObject {
                                     value = value.replace(/"/g,'');
                                 }
                                 else {
+                                    const badType = typeof value;
                                     errorMessage = `${this.#table} Unexpected data type for ${property}, expecting ${this.#properties[property].type}. supplied Type: ${badType} value: ` + JSON.stringify(value);
                                     log.error(errorMessage + __location)
                                 }  
 							}
 							catch(e){
+                                const badType = typeof value;
                                 errorMessage = `${this.#table} Datetime procesing error for ${property}, expecting ${this.#properties[property].type}. supplied Type: ${badType} value: ` + JSON.stringify(value) + " error: " + e;
 								log.error(errorMessage + __location)
                             }
@@ -96,6 +99,7 @@ module.exports = class DatabaseObject {
                                 }
                             }
                             catch(e){
+                                const badType = typeof value;
                                 const errorMessage = `${this.#table} Unable to convert data type for ${property}, expecting ${this.#properties[property].type}. supplied Type: ${badType} value: ` + JSON.stringify(value);
                                 log.error(errorMessage + __location)
                                 throw new Error(errorMessage);
@@ -109,10 +113,28 @@ module.exports = class DatabaseObject {
                                 value = value === true ? 1 : 0;
                             }
                             catch(e){
+                                const badType = typeof value;
                                 const errorMessage = `${this.#table} Unable to convert data type for ${property}, expecting ${this.#properties[property].type}. supplied Type: ${badType} value: ` + JSON.stringify(value);
                                 log.error(errorMessage + __location)
                                 throw new Error(errorMessage);
                             }
+                        }
+                        else if (expectedDataType === "string"  && typeof value === 'object' ){
+                            const badType = typeof value;
+                            if(badType.type === 'buffer'){
+                                try{
+                                    value = value.toSting();
+                                }
+                                catch(e){
+                                    const badType = typeof value;
+                                    const errorMessage = `${this.#table} Unable to convert data type for ${property}, expecting ${this.#properties[property].type}. supplied Type: ${badType} value: ` + JSON.stringify(value);
+                                    log.error(errorMessage + __location)
+                                    throw new Error(errorMessage);
+                                }
+
+                            }
+                            // correct input.
+                            
                         }
 						else {
                             if (expectedDataType !== typeof value) {
@@ -388,13 +410,13 @@ module.exports = class DatabaseObject {
 				log.error("Database Object Insert error :" + error);
 				if (error.errno === 1062) {
                     rejected = true;
-                    log.error(`${this.#table} Duplicate index error on insert ` + error + __location);
+                    log.error(`${tableName} Duplicate index error on insert ` + error + __location);
                     reject(new Error('Duplicate index error'));
 					//reject(new Error('The link (slug) you selected is already taken. Please choose another one.'));
 					return;
 				}
                 rejected = true;
-                log.error(`${this.#table} error on insert ` + error + __location);
+                log.error(`${tableName} error on insert ` + error + __location);
 				reject(error);
 			});
 			if (rejected) {
@@ -470,18 +492,19 @@ module.exports = class DatabaseObject {
 				LIMIT 1;
 			`;
 
-			// Run the query
+            // Run the query
+            // usable in catch
 			const result = await db.query(sql).catch(function (error) {
 				// Check if this was
 				if (error.errno === 1062) {
                     rejected = true;
-                    log.error(`${this.#table} Duplicate index error on update ` + error + __location);
+                    log.error(`${tableName} Duplicate index error on update ` + error + __location);
                     reject(new Error('Duplicate index error'));
 					//reject(new Error('The link (slug) you selected is already taken. Please choose another one.'));
 					return;
 				}
                 rejected = true;
-                log.error(`${this.#table} error on update ` + error + __location);
+                log.error(`${tableName} error on update ` + error + __location);
 				reject(new Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 			});
 			if (rejected) {
@@ -520,7 +543,7 @@ module.exports = class DatabaseObject {
 				// Check if this was
 			
 				rejected = true;
-				log.error(`getById ${this.#table} id: ${db.escape(this.id)}  error ` + error + __location)
+				log.error(`getById ${tableName} id: ${db.escape(this.id)}  error ` + error + __location)
 				reject(error);
 			});
 			if (rejected) {
