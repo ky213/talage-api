@@ -6,9 +6,9 @@ const SearchStringModel = require('./SearchStrings-model.js');
 const tracker = global.requireShared('./helpers/tracker.js');
 
 
-const tableName = 'clw_talage_address_activity_codes'
+const tableName = 'clw_talage_legal_acceptances'
 const skipCheckRequired = false;
-module.exports = class BusinessAddressModel{
+module.exports = class ApplicationClaimModel{
 
     #dbTableORM = null;
 
@@ -88,16 +88,16 @@ module.exports = class BusinessAddressModel{
         });
     }
 
-    DeleteBusinessAddressesCodes(addressId) {
+    DeleteByApplicationId(applicationId) {
         return new Promise(async(resolve, reject) => {
             //Remove old records.
-            const sql =`DELETE FROM clw_talage_address_activity_codes
-                   WHERE address = ${addressId}
+            const sql =`DELETE FROM ${tableName} 
+                   WHERE application = ${applicationId}
             `;
             let rejected = false;
 			const result = await db.query(sql).catch(function (error) {
 				// Check if this was
-				log.error("Database Object clw_talage_address_activity_codes DELETE error :" + error + __location);
+				log.error("Database Object ${tableName} DELETE error :" + error + __location);
 				rejected = true;
 				reject(error);
 			});
@@ -150,32 +150,50 @@ const properties = {
       "type": "number",
       "dbType": "int(11) unsigned"
     },
-    "address": {
-      "default": 0,
+    "agency_portal_user": {
+      "default": null,
       "encrypted": false,
       "hashed": false,
-      "required": true,
+      "required": false,
       "rules": null,
       "type": "number",
       "dbType": "int(11) unsigned"
     },
-    "ncci_code": {
-      "default": 0,
+    "application": {
+      "default": null,
       "encrypted": false,
       "hashed": false,
-      "required": true,
+      "required": false,
       "rules": null,
       "type": "number",
       "dbType": "int(11) unsigned"
     },
-    "payroll": {
+    "ip": {
+      "default": "",
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "varchar(46)"
+    },
+    "timestamp": {
+      "default": null,
+      "encrypted": false,
+      "hashed": false,
+      "required": false,
+      "rules": null,
+      "type": "timestamp",
+      "dbType": "timestamp"
+    },
+    "version": {
       "default": 0,
       "encrypted": false,
       "hashed": false,
       "required": true,
       "rules": null,
       "type": "number",
-      "dbType": "int(11) unsigned"
+      "dbType": "tinyint(1) unsigned"
     }
   }
 

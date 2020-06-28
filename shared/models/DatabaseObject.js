@@ -45,8 +45,10 @@ module.exports = class DatabaseObject {
                 
 				// Performs validation and sets the property into the local value
 				set: (value) => {
-					let expectedDataType = this.#properties[property].type;
-					if(value){
+
+                    let expectedDataType = this.#properties[property].type;
+                   
+					if(value || value === '' || value === 0){
 
 						// Verify the data type
                         // Special timestamp and Date processing
@@ -75,23 +77,42 @@ module.exports = class DatabaseObject {
                                 throw new Error(errorMessage);
                             }
                         }
-                        else if (expectedDataType === "number"  && 'string' === typeof value && this.#properties[property].dbType){
+                        else if (expectedDataType === "number"  && 'string' === typeof value && this.#properties[property].dbType ){
                             // correct input.
                             try{
-            
-                                if (this.#properties[property].dbType.indexOf("int")  > -1){
-                                    value = parseInt(value, 10);
+                                if(value.length > 0 ){
+                                    if (this.#properties[property].dbType.indexOf("int")  > -1){
+                                        value = parseInt(value, 10);
+                                    }
+                                    else if (this.#properties[property].dbType.indexOf("float")  > -1){
+                                        value = parseFloat(value);
+                                    }
                                 }
-                                else if (this.#properties[property].dbType.indexOf("float")  > -1){
-                                    value = parseFloat(value);
+                                else if(this.#properties[property].default){
+                                        value = this.#properties[property].default;
+                                }
+                                else {
+                                    value = null;
                                 }
                             }
                             catch(e){
                                 const errorMessage = `${this.#table} Unable to convert data type for ${property}, expecting ${this.#properties[property].type}. supplied Type: ${badType} value: ` + JSON.stringify(value);
                                 log.error(errorMessage + __location)
                                 throw new Error(errorMessage);
-                            }
+                            } 
+                           
 
+                        }
+                        else if (expectedDataType === "number"  && 'boolean' === typeof value ){
+                            // correct input.
+                            try{
+                                value = value === true ? 1 : 0;
+                            }
+                            catch(e){
+                                const errorMessage = `${this.#table} Unable to convert data type for ${property}, expecting ${this.#properties[property].type}. supplied Type: ${badType} value: ` + JSON.stringify(value);
+                                log.error(errorMessage + __location)
+                                throw new Error(errorMessage);
+                            }
                         }
 						else {
                             if (expectedDataType !== typeof value) {
@@ -117,17 +138,23 @@ module.exports = class DatabaseObject {
 							}
 						}
 
-						// Set the value locally
-						this[`#${property}`] = value;
+                        // Set the private value 
+                        this[`#${property}`] = value;
+                        
 					}
 					else {
-						//if null is provide, probably from database, leave at defualt
+						//if null is provide, probably from database, leave at default
 						// unless string.
-						if (expectedDataType !== typeof value) {
+						if (expectedDataType === "string") {
 							this[`#${property}`] = "";
-						}
+                        }
+                        else if (expectedDataType === "number" && this.#properties[property].default){
+                            value =this.#properties[property].default;
+                        }
+                        else {
+                            log.debug(`No value for ${this.#table}.${property} value:  ` + value + __location)
+                        }
 					}
-					
 				}
 			});
 		}
@@ -159,9 +186,7 @@ module.exports = class DatabaseObject {
 							throw new Error(`${property} is required`);
 
 						rejectError = new Error(`${this.#table}.${property} is required`)
-						
 					}
-
 					continue;
 				}
 
@@ -195,10 +220,10 @@ module.exports = class DatabaseObject {
 
 				// Store the value of the property in this object
 				try {
-					//skip nulls
-					if(data[property]){
+                    //skip nulls
+					if(data[property] || data[property] == '' || data[property] === 0 ){
 						this[property] = data[property];
-					}
+                    }
 				} catch (error) {
 					log.error(`${this.#table}.${property} caused error: ` + error + "value: " + data[property] + __location)
 					rejected = true;
@@ -322,12 +347,12 @@ module.exports = class DatabaseObject {
 				if (property === 'id') {
 					continue;
 				}
-				if(this[property] !== null){
+				if(this[property] || this[property] == '' || this[property] === 0 ){
 					// Localize the data value
 					let value = this[property];
 
 					// Check if we need to encrypt this value, and if so, encrypt
-					if (this.#properties[property].encrypted && (value  || val === "")) {
+					if (this.#properties[property].encrypted && (value  || value === "")) {
 						value = await crypt.encrypt(value);
                     }
                     if(this.#properties[property].type === "timestamp" || this.#properties[property].type === "date" || this.#properties[property].type === "datetime"){
@@ -418,7 +443,7 @@ module.exports = class DatabaseObject {
 
 				// Localize the data value
 				let value = this[property];
-				if(this[property]){
+				if(this[property] || this[property] == '' || this[property] === 0 ){
 					// Check if we need to encrypt this value, and if so, encrypt
 					if (this.#properties[property].encrypted && value) {
 						value = await crypt.encrypt(value);

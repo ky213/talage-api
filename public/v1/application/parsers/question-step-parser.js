@@ -1,43 +1,78 @@
+/* eslint-disable prefer-const */
+/* eslint-disable guard-for-in */
 /* eslint-disable dot-notation */
 /* eslint-disable array-element-newline */
 'use strict';
 //const moment = require('moment');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
-
+const jsonFunctions = global.requireShared('./helpers/jsonFunctions.js');
 
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const makeInt = true;
+
+//const makeInt = true;
 
 exports.process = async function(requestJSON) {
 
     // move to business and contact info
     // to businessInfo
     //Clean inputs
-    requestJSON.businessInfo = {};
+    // Should be in request
+    requestJSON.solepro = stringFunctions.parseBool(requestJSON.solepro, false);
+    requestJSON.solepro = requestJSON.solepro === true ? 1 : 0;
+    requestJSON.wholesale = stringFunctions.parseBool(requestJSON.wholesale, false);
+    requestJSON.wholesale = requestJSON.wholesale === true ? 1 : 0
 
-    requestJSON.businessInfo.num_owners = stringFunctions.santizeNumber(requestJSON.num_owners, makeInt);
-    delete requestJSON.num_owners;
-    requestJSON.owners_covered = stringFunctions.santizeNumber(requestJSON.owners_covered, makeInt);
+    requestJSON.questions = {};
+    //let agencyLocation = 1;
+    // if(requestJSON.agencyLocation){
+    //     agencyLocation = stringFunctions.santizeNumber(requestJSON.agencyLocation, makeInt);
+    // }
+    let question_answersJSON = null;
+    if(requestJSON.question_answers){
+        question_answersJSON = jsonFunctions.jsonParse(requestJSON.question_answers)
+    }
 
-    if(requestJSON.owners_covered > 0){
-        if(requestJSON.activity_code && requestJSON.payroll){
-            requestJSON.owner_payroll = {}
-            requestJSON.owner_payroll.activity_code = stringFunctions.santizeNumber(requestJSON.activity_code, makeInt);
-            requestJSON.owner_payroll.payroll = stringFunctions.santizeNumber(requestJSON.payroll, makeInt);
-            requestJSON.businessInfo.owner_payroll = JSON.parse(JSON.stringify(requestJSON.owner_payroll));
-            delete requestJSON.activity_code
-            delete requestJSON.payroll
+    let question_defaultsJSON = null;
+    if(requestJSON.question_defaults){
+        question_defaultsJSON = jsonFunctions.jsonParse(requestJSON.question_defaults)
+    }
+
+    if(question_answersJSON && question_defaultsJSON){
+        let questionList = [];
+        for (const prop in question_defaultsJSON) {
+            if(!question_answersJSON[prop]){
+                question_answersJSON[prop] = question_defaultsJSON[prop];
+            }
         }
+
+        for (const questionId in question_answersJSON) {
+            let question = {"id" :questionId};
+            question.answer = question_answersJSON[questionId];
+            if(Array.isArray(question.answer)){
+                question.type = "array";
+            }
+            else if(typeof question.answer === "string"){
+                question.type = "text";
+            }
+            else {
+                question.type = "numeric";
+            }
+            questionList.push(question);
+        }
+        requestJSON.questions = questionList;
+
+        // Email decision in Model.
+
     }
     else {
-        const ownersJSON = JSON.parse(requestJSON.owners);
-        requestJSON.businessInfo.ownersJSON = ownersJSON;
-
+        log.error("QuestionParser: question set was missing questions. id " + requestJSON.id)
     }
 
-    delete requestJSON.owners;
+    delete requestJSON.question_answers;
+    delete requestJSON.question_defaults
+    delete requestJSON.agency_location
 
-    log.debug("Owners Question requestJSON: " + JSON.stringify(requestJSON));
+    //log.debug("Owners Question requestJSON: " + JSON.stringify(requestJSON));
     return true;
 }

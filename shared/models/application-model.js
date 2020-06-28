@@ -3,7 +3,11 @@
 const DatabaseObject = require('./DatabaseObject.js');
 const BusinessModel = require('./Business-model.js');
 const ApplicationClaimModel = require('./ApplicationClaim-model.js');
-const moment = require('moment');
+const LegalAcceptanceModel = require('./LegalAcceptance-model.js');
+const taskWholesaleAppEmail = global.requireRootPath('tasksystem/task-wholesaleapplicationemail.js');
+const taskSoleProAppEmail = global.requireRootPath('tasksystem/task-soleproapplicationemail.js');
+
+//const moment = require('moment');
 const { 'v4': uuidv4 } = require('uuid');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
@@ -15,11 +19,11 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 //const validator = global.requireShared('./helpers/validator.js');
 
-//const convertToIntFields = ["industry_code", "deductible", "coverage"]
+const convertToIntFields = [];
 
 module.exports = class ApplicationModel {
 
-    #applicationORM = null;
+    #dbTableORM = null;
 
     constructor() {
         this.agencyLocation = null;
@@ -29,7 +33,7 @@ module.exports = class ApplicationModel {
         this.policies = [];
         this.questions = {};
         this.test = false;
-        this.#applicationORM = new ApplicationOrm();
+        this.#dbTableORM = new ApplicationOrm();
     }
 
 
@@ -50,7 +54,7 @@ module.exports = class ApplicationModel {
             }
             if (applicationJSON.id && applicationJSON.step !== "contact") {
                 //load application from database.
-                await this.#applicationORM.getById(applicationJSON.id).catch(function (err) {
+                await this.#dbTableORM.getById(applicationJSON.id).catch(function (err) {
                     log.error("Error getting application from Database " + err + __location);
                     reject(err);
                     return;
@@ -58,7 +62,7 @@ module.exports = class ApplicationModel {
                 this.updateProperty();
 
             }
-            log.debug("applicationJSON: " + JSON.stringify(applicationJSON));
+            //log.debug("applicationJSON: " + JSON.stringify(applicationJSON));
             let error = null;
             let updateBusiness = false;
             switch (worflowStep) {
@@ -116,10 +120,46 @@ module.exports = class ApplicationModel {
                 case 'questions':
                     // Get parser for questions page
                     // require_once JPATH_COMPONENT_ADMINISTRATOR . '/lib/QuoteEngine/parsers/QuestionsParser.php';
-                    // $parser = new QuestionsParser();
+                    if(applicationJSON.questions){
+                        await this.processQuestions(applicationJSON.questions).catch(function(err){
+                            log.error('Adding Questions error:' + err + __location);
+                            reject(err);
+                        });
+                    }
+                    await this.processLegalAcceptance(applicationJSON).catch(function(err){
+                        log.error('Adding Legal Acceptance error:' + err + __location);
+                        reject(err);
+                    });
+                    if(applicationJSON.wholesale === 1 || applicationJSON.solepro === 1 ){
+                        //save the app for the email.
+                        this.#dbTableORM.load(applicationJSON, false).catch(function (err) {
+                            log.error("Error loading application orm " + err + __location);
+                        });
+                        //save
+                        await this.#dbTableORM.save().catch(function (err) {
+                            reject(err);
+                        });
+
+                        // Email decision.  Where is wholesale or solepro decision made and saved //if wholesale or solepro - launch email tasks
+                        if(applicationJSON.wholesale === 1){
+                            log.debug("sending wholesale email for AppId " + this.id);
+                            //no need to await app save should
+                            taskWholesaleAppEmail.wholesaleApplicationEmailTask(this.id);
+                        }
+                        //if solepro - launch email tasks
+                        if(applicationJSON.solepro === 1){
+                            //no need to await
+                            log.debug("sending solepro email for AppId " + this.id);
+                            taskSoleProAppEmail.soleproApplicationEmailTask(this.id);
+                        }
+                    }
                     break;
                 case 'quotes':
                     // Do nothing - we only save here to update the last step
+                    break;
+                case 'emailbind':
+                    // TODO add /remove from php
+
                     break;
                 default:
                     // not from old Web application application flow.
@@ -150,28 +190,28 @@ module.exports = class ApplicationModel {
                 'cart': 10
             };
             const stepNumber = stepMap[worflowStep];
-            if (!this.#applicationORM.last_step) {
-                this.#applicationORM.last_step = stepNumber;
+            if (!this.#dbTableORM.last_step) {
+                this.#dbTableORM.last_step = stepNumber;
             }
-            else if (stepNumber > this.#applicationORM.last_step) {
-                this.#applicationORM.last_step = stepNumber;
+            else if (stepNumber > this.#dbTableORM.last_step) {
+                this.#dbTableORM.last_step = stepNumber;
             }
 
             await this.cleanupInput(applicationJSON);
 
             //$app->created_by = $user->id;
-            this.#applicationORM.load(applicationJSON, false).catch(function (err) {
+            this.#dbTableORM.load(applicationJSON, false).catch(function (err) {
                 log.error("Error loading application orm " + err + __location);
             });
-            if (this.#applicationORM.uuid) {
-                this.#applicationORM.uuid = applicationJSON.uuid;
+            if (this.#dbTableORM.uuid) {
+                this.#dbTableORM.uuid = applicationJSON.uuid;
             }
             //save
-            await this.#applicationORM.save().catch(function (err) {
+            await this.#dbTableORM.save().catch(function (err) {
                 reject(err);
             });
             this.updateProperty();
-            this.id = this.#applicationORM.id;
+            this.id = this.#dbTableORM.id;
 
             resolve(true);
 
@@ -231,6 +271,77 @@ module.exports = class ApplicationModel {
     });
 }
 
+processQuestions(questions){
+
+    return new Promise(async (resolve, reject) => {
+        ///delete existing ?? old system did not.
+        let valueList = []
+        for(var i = 0; i < questions.length; i++){
+            let question = questions[i];
+            questions.application = this.id;
+            let valueLine = '';
+            if(question.type === 'text'){
+                const cleanString = question.answer.replace(/\|/g,',')
+                valueLine = `(${this.id}, ${question.id}, NULL, '${cleanString}')`
+
+            } else if (question.type === 'array'){
+                const arrayString = "|" + question.answer.join('|');
+                valueLine = `(${this.id}, ${question.id},NULL, '${arrayString}', NULL)`
+            }
+            else {
+                valueLine = `(${this.id}, ${question.id}, ${question.answer}, NULL)`
+            }
+            valueList.push(valueLine);
+        }
+        const valueListString =  valueList.join(",\n");
+        //Set process the insert, Do not
+        const insertSQL = `INSERT INTO clw_talage_application_questions 
+                            (application, question, answer, text_answer)
+                        Values  ${valueListString} 
+                        ON DUPLICATE KEY UPDATE answer = VALUES (answer), text_answer = VALUES( text_answer );
+                        `;
+        //log.debug("question InsertSQL:\n" + insertSQL);
+        let rejected = false;
+        const result = await db.query(insertSQL).catch(function (error) {
+            // Check if this was
+            log.error("Database Object clw_talage_application_questions INSERT error :" + error + __location);
+            rejected = true;
+            reject(error);
+        });
+        if (rejected) {
+            return false;
+        }
+        resolve(true);
+
+    });
+
+}
+
+processLegalAcceptance(applicationJSON){
+
+    return new Promise(async (resolve, reject) => {
+        //delete existing ?? old system did not.
+
+        //agreement version
+        const version = 3;
+        const legalAcceptanceJSON = {
+                'application': this.id,
+				'ip': applicationJSON.remoteAddress,
+				'version': version
+        }
+
+        const legalAcceptanceModel = new LegalAcceptanceModel();
+        await legalAcceptanceModel.saveModel(legalAcceptanceJSON).catch(function (err) {
+            log.error(`Adding new Legal Acceptance for Appid ${this.id} error:` + err + __location);
+            reject(err);
+            return;
+        });
+        resolve(true);
+
+    });
+
+}
+
 
 
 
@@ -283,7 +394,7 @@ module.exports = class ApplicationModel {
         return new Promise(async (resolve, reject) => {
             //validate
             if (id && id > 0) {
-                await this.#applicationORM.getById(applicationJSON.id).catch(function (err) {
+                await this.#dbTableORM.getById(applicationJSON.id).catch(function (err) {
                     log.error("Error getting application from Database " + err + __location);
                     reject(err);
                     return;
@@ -305,7 +416,7 @@ module.exports = class ApplicationModel {
             if(inputJSON[property]){
                 // Convert to number
                 try{
-                    if (properties[property].type === "number" && "string " === typeof inputJSON[property]){
+                    if (properties[property].type === "number" && "string" === typeof inputJSON[property]){
                         if (properties[property].dbType.indexOf("int")  > -1){
                             inputJSON[property] = parseInt(inputJSON[property], 10);
                         }
@@ -315,15 +426,14 @@ module.exports = class ApplicationModel {
                     }
                 }
                 catch(e){
-                    log.error(`Error converting property ${property} value: ` + inputJSON[property] + __location)
-                    inputJSON[convertToIntFields[i]]
+                    log.error(`Error converting property ${property} value: ` + inputJSON[property] + __location);
                 }
             }
         }
     }
 
     updateProperty() {
-        const dbJSON = this.#applicationORM.cleanJSON()
+        const dbJSON = this.#dbTableORM.cleanJSON()
         // eslint-disable-next-line guard-for-in
         for (const property in properties) {
             this[property] = dbJSON[property];
@@ -337,98 +447,113 @@ const properties = {
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "number"
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "state": {
         "default": "1",
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "number"
+        "type": "number",
+        "dbType": "tinyint(1)"
     },
     "status": {
         "default": null,
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "string"
+        "type": "string",
+        "dbType": "varchar(32)"
     },
     "abandoned_email": {
         "default": 0,
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "number"
+        "type": "number",
+        "dbType": "tinyint(1)"
     },
     "abandoned_app_email": {
         "default": 0,
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "number"
+        "type": "number",
+        "dbType": "tinyint(1)"
     },
     "opted_out_online_emailsent": {
         "default": 0,
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "number"
+        "type": "number",
+        "dbType": "tinyint(1)"
     },
     "opted_out_online": {
         "default": 0,
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "number"
+        "type": "number",
+        "dbType": "tinyint(1)",
+        "dbType": "tinyint(1)"
     },
     "additional_insured": {
         "default": null,
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "number"
+        "type": "number",
+        "dbType": "tinyint(1)"
     },
     "agency": {
         "default": 1,
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "number"
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "agency_location": {
         "default": 1,
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "number"
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "bop_effective_date": {
         "default": null,
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "date"
+        "type": "date",
+        "dbType": "date"
     },
     "bop_expiration_date": {
         "default": null,
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "date"
+        "type": "date",
+        "dbType": "date"
     },
     "business": {
         "default": null,
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "number"
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "completion_time": {
         "default": 0,
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "number"
+        "type": "number",
+        "dbType": "bigint(14) unsigned"
     },
     "corporation_type": {
         "default": null,
@@ -449,49 +574,56 @@ const properties = {
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "number"
+        "type": "number",
+        "dbType": "int(11)"
     },
     "coverage_lapse_non_payment": {
         "default": 0,
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "number"
+        "type": "number",
+        "dbType": "tinyint(1) unsigned"
     },
     "deductible": {
         "default": 0,
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "number"
+        "type": "number",
+        "dbType": "int(11)"
     },
     "dq1": {
         "default": 0,
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "number"
+        "type": "number",
+        "dbType": "tinyint(1) unsigned"
     },
     "eo_effective_date": {
         "default": "0000-00-00",
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "string"
+        "type": "string",
+        "dbType": "date"
     },
     "eo_effective_date": {
         "default": null,
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "date"
+        "type": "date",
+        "dbType": "date"
     },
     "eo_expiration_date": {
         "default": null,
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "date"
+        "type": "date",
+        "dbType": "date"
     },
     "experience_modifier": {
         "default": 1.0,
@@ -499,28 +631,32 @@ const properties = {
         "hashed": false,
         "required": true,
         "rules": null,
-        "type": "number"
+        "type": "number",
+        "dbType": "float(5,3)"
     },
     "family_covered": {
         "default": null,
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "number"
+        "type": "number",
+        "dbType": "tinyint(1) unsigned"    
     },
     "gl_effective_date": {
         "default": null,
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "date"
+        "type": "date",
+        "dbType": "date"
     },
     "gl_expiration_date": {
         "default": null,
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "date"
+        "type": "date",
+        "dbType": "date"
     },
     "gross_sales_amt": {
         "default": 0,
@@ -534,14 +670,16 @@ const properties = {
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "number"
+        "type": "number",
+        "dbType": "tinyint(1) unsigned"
     },
     "industry_code": {
         "default": null,
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "number"
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "landing_page": {
         "default": null,

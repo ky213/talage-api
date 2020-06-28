@@ -15,16 +15,15 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 const validator = global.requireShared('./helpers/validator.js');
 
-const convertToIntFields = ["industry_code"]
 const hashFields = ["name", "dba"]
 const skipCheckRequired = false;
 module.exports = class BusinessModel{
 
-  #businessORM = null;
+   #dbTableORM = null;
 
 	constructor(){
 		this.id = 0;
-        this.#businessORM = new BusinessOrm();
+        this.#dbTableORM = new BusinessOrm();
     }
 
 
@@ -45,28 +44,28 @@ module.exports = class BusinessModel{
 
             //have id load business data.
             if(businessJSON.id){
-                await this.#businessORM.getById(businessJSON.id).catch(function (err) {
+                await this.#dbTableORM.getById(businessJSON.id).catch(function (err) {
                     log.error("Error getting business from Database " + err + __location);
                     reject(err);
                     return;
                 });
                 this.updateProperty();
-                this.#businessORM.load(businessJSON, skipCheckRequired);
+                this.#dbTableORM.load(businessJSON, skipCheckRequired);
             }
             else {
-                this.#businessORM.load(businessJSON, skipCheckRequired);
+                this.#dbTableORM.load(businessJSON, skipCheckRequired);
             }
            
            
             //save
-            await this.#businessORM.save().then(function(resp){
+            await this.#dbTableORM.save().then(function(resp){
                 
             }).catch(function(err){
                 reject(err);
                 return;
             });
             this.updateProperty();
-            this.id = this.#businessORM['id'];
+            this.id = this.#dbTableORM['id'];
             await this.updateSearchStrings();
 
             // //Create Contact records....
@@ -172,7 +171,7 @@ module.exports = class BusinessModel{
 				// Check if this was
 				log.error("Database Object clw_talage_address_activity_codes select error :" + error + __location);
 				rejected = true;
-				reject(error);
+				//reject(error);
 			});
 			if (rejected) {
 				return false;
@@ -196,7 +195,7 @@ module.exports = class BusinessModel{
                     // Check if this was
                     log.error("Database Object clw_talage_address_activity_codes update error :" + error + __location);
                     rejected = true;
-                    reject(error);
+                   // reject(error);
                 });
             }
         }
@@ -220,7 +219,7 @@ module.exports = class BusinessModel{
         return new Promise(async (resolve, reject) => {
             //validate
             if(id && id >0 ){
-                await this.#businessORM.getById(id).catch(function (err) {
+                await this.#dbTableORM.getById(id).catch(function (err) {
                     log.error("Error getting business from Database " + err + __location);
                     reject(err);
                     return;
@@ -267,7 +266,7 @@ module.exports = class BusinessModel{
             if(inputJSON[property]){
                 // Convert to number
                 try{
-                    if (properties[property].type === "number" && "string " === typeof inputJSON[property]){
+                    if (properties[property].type === "number" && "string" === typeof inputJSON[property]){
                         if (properties[property].dbType.indexOf("int")  > -1){
                             inputJSON[property] = parseInt(inputJSON[property], 10);
                         }
@@ -278,7 +277,6 @@ module.exports = class BusinessModel{
                 }
                 catch(e){
                     log.error(`Error converting property ${property} value: ` + inputJSON[property] + __location)
-                    inputJSON[convertToIntFields[i]]
                 }
             }
         }
@@ -290,7 +288,7 @@ module.exports = class BusinessModel{
     }
 
     updateProperty(){
-      const dbJSON = this.#businessORM.cleanJSON()
+      const dbJSON = this.#dbTableORM.cleanJSON()
       // eslint-disable-next-line guard-for-in
       for (const property in properties) {
           this[property] = dbJSON[property];

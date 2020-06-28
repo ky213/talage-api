@@ -6,9 +6,10 @@ const SearchStringModel = require('./SearchStrings-model.js');
 const tracker = global.requireShared('./helpers/tracker.js');
 
 
-const tableName = 'clw_talage_address_activity_codes'
+
+const tableName = 'clw_talage_application_questions'
 const skipCheckRequired = false;
-module.exports = class BusinessAddressModel{
+module.exports = class ApplicationClaimModel{
 
     #dbTableORM = null;
 
@@ -88,16 +89,16 @@ module.exports = class BusinessAddressModel{
         });
     }
 
-    DeleteBusinessAddressesCodes(addressId) {
+    DeleteQuestionsByApplicationId(applicationId) {
         return new Promise(async(resolve, reject) => {
             //Remove old records.
-            const sql =`DELETE FROM clw_talage_address_activity_codes
-                   WHERE address = ${addressId}
+            const sql =`DELETE FROM ${tableName} 
+                   WHERE application = ${applicationId}
             `;
             let rejected = false;
 			const result = await db.query(sql).catch(function (error) {
 				// Check if this was
-				log.error("Database Object clw_talage_address_activity_codes DELETE error :" + error + __location);
+				log.error("Database Object ${tableName} DELETE error :" + error + __location);
 				rejected = true;
 				reject(error);
 			});
@@ -150,7 +151,7 @@ const properties = {
       "type": "number",
       "dbType": "int(11) unsigned"
     },
-    "address": {
+    "application": {
       "default": 0,
       "encrypted": false,
       "hashed": false,
@@ -159,7 +160,7 @@ const properties = {
       "type": "number",
       "dbType": "int(11) unsigned"
     },
-    "ncci_code": {
+    "question": {
       "default": 0,
       "encrypted": false,
       "hashed": false,
@@ -168,14 +169,23 @@ const properties = {
       "type": "number",
       "dbType": "int(11) unsigned"
     },
-    "payroll": {
-      "default": 0,
+    "answer": {
+      "default": null,
       "encrypted": false,
       "hashed": false,
-      "required": true,
+      "required": false,
       "rules": null,
       "type": "number",
       "dbType": "int(11) unsigned"
+    },
+    "text_answer": {
+      "default": null,
+      "encrypted": false,
+      "hashed": false,
+      "required": false,
+      "rules": null,
+      "type": "string",
+      "dbType": "varchar(355)"
     }
   }
 

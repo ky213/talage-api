@@ -15,7 +15,6 @@ const crypt = global.requireShared('./services/crypt.js');
 
 //const validator = global.requireShared('./helpers/validator.js');
 
-//const convertToIntFields = [];
 const hashFields = ["email"];
 const tableName = 'clw_talage_addresses'
 const skipCheckRequired = false;
@@ -153,7 +152,7 @@ module.exports = class BusinessAddressModel{
             if(inputJSON[property]){
                 // Convert to number
                 try{
-                    if (properties[property].type === "number" && "string " === typeof inputJSON[property]){
+                    if (properties[property].type === "number" && "string" === typeof inputJSON[property]){
                         if (properties[property].dbType.indexOf("int")  > -1){
                             inputJSON[property] = parseInt(inputJSON[property], 10);
                         }
@@ -164,7 +163,6 @@ module.exports = class BusinessAddressModel{
                 }
                 catch(e){
                     log.error(`Error converting property ${property} value: ` + inputJSON[property] + __location)
-                    inputJSON[convertToIntFields[i]]
                 }
             }
         }

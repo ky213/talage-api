@@ -17,11 +17,11 @@ const validator = global.requireShared('./helpers/validator.js');
 
 module.exports = class SearchStringModel{
 
-  #searchStringORM = null;
+  #dbTableORM = null;
 
 	constructor(){
 		this.id = 0;
-        this.#searchStringORM = new SearchStringOrm();
+        this.#dbTableORM = new SearchStringOrm();
     }
 
 
@@ -78,7 +78,6 @@ module.exports = class SearchStringModel{
         return new Promise(async(resolve) => {
              //Remove old records.
 		        //clw_talage_search_strings'
-             
              resolve(true);
 
         });
@@ -149,7 +148,7 @@ module.exports = class SearchStringModel{
     
 
     updateProperty(){
-      const dbJSON = this.#searchStringORM.cleanJSON()
+      const dbJSON = this.#dbTableORM.cleanJSON()
       // eslint-disable-next-line guard-for-in
       for (const property in properties) {
           this[property] = dbJSON[property];

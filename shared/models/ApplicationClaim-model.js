@@ -5,7 +5,6 @@ const SearchStringModel = require('./SearchStrings-model.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-//const convertToIntFields = [];
 
 const tableName = 'clw_talage_claims'
 const skipCheckRequired = false;
@@ -115,7 +114,7 @@ module.exports = class ApplicationClaimModel{
             if(inputJSON[property]){
                 // Convert to number
                 try{
-                    if (properties[property].type === "number" && "string " === typeof inputJSON[property]){
+                    if (properties[property].type === "number" && "string" === typeof inputJSON[property]){
                         if (properties[property].dbType.indexOf("int")  > -1){
                             inputJSON[property] = parseInt(inputJSON[property], 10);
                         }
@@ -126,7 +125,6 @@ module.exports = class ApplicationClaimModel{
                 }
                 catch(e){
                     log.error(`Error converting property ${property} value: ` + inputJSON[property] + __location)
-                    inputJSON[convertToIntFields[i]]
                 }
             }
         }

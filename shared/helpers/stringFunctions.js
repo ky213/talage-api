@@ -1,8 +1,12 @@
+/* eslint-disable no-extra-parens */
 /* eslint-disable guard-for-in */
 /* eslint-disable space-unary-ops */
 /* eslint-disable yoda */
 /* eslint-disable one-var */
 'use strict';
+
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 const { raw } = require('mysql');
 
@@ -315,5 +319,28 @@ exports.santizeNumber = function(rawString,makeInt){
     }
     else {
         return null;
+    }
+}
+
+/**
+ * Converts a string to boolean
+ * @param {string} rawString - The string
+ * @param {string} defaultValue - boolean value used if error or null input
+ * @return {boolean} boolean, if error or null input defaultValue
+ */
+exports.parseBool = function(rawString, defaultValue){
+    if(rawString && "string" === typeof rawString){
+        let newBool = defaultValue;
+        try{
+            const lowerString = String(rawString).toLowerCase().trim();
+            newBool = (lowerString === "true");
+        }
+        catch(e){
+            log.error("Error converting to Boolean " + rawString + " error: " + e + __location);
+        }
+        return newBool
+    }
+    else {
+        return defaultValue;
     }
 }

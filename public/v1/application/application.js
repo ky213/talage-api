@@ -103,6 +103,7 @@ async function Save(req, res, next){
                 res.send(400, "missing question information");
                 return next(serverHelper.requestError("missing question information"));
             }
+            applicationRequestJson.remoteAddress = req.connection.remoteAddress;
             questionStepParser.process(applicationRequestJson);
 			break;
 		case 'quotes':

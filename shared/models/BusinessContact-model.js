@@ -15,16 +15,15 @@ const crypt = global.requireShared('./services/crypt.js');
 
 //const validator = global.requireShared('./helpers/validator.js');
 
-//const convertToIntFields = [];
 const hashFields = ["email"];
 
 module.exports = class BusinessContactModel{
 
-    #businessContactORM = null;
+    #dbTableORM = null;
 
 	constructor(){
         this.id = 0;
-        this.#businessContactORM = new BusinessContactOrm();
+        this.#dbTableORM = new BusinessContactOrm();
     }
 
 
@@ -45,24 +44,24 @@ module.exports = class BusinessContactModel{
             //let businessContactDBJSON = {};
             
             if(businessContactJSON.id){
-                await this.#businessContactORM.getById(businessJSON.id).catch(function (err) {
+                await this.#dbTableORM.getById(businessContactJSON.id).catch(function (err) {
                     log.error("Error getting businessContact from Database " + err + __location);
                     reject(err);
                     return;
                 });
                 this.updateProperty();
-                this.#businessContactORM.load(businessJSON, false);
+                this.#dbTableORM.load(businessContactJSON, false);
             }
             else {
-                this.#businessContactORM.load(businessJSON);
+                this.#dbTableORM.load(businessContactJSON);
             }
 
             //save
-            await this.#businessContactORM.save().catch(function(err){
+            await this.#dbTableORM.save().catch(function(err){
                 reject(err);
             });
             this.updateProperty();
-            this.id = this.#businessContactORM.id;
+            this.id = this.#dbTableORM.id;
             await this.updateSearchStrings();
             resolve(true);
             
@@ -88,7 +87,7 @@ module.exports = class BusinessContactModel{
         return new Promise(async (resolve, reject) => {
             //validate
             if(id && id >0 ){
-                await this.#businessContactORM.getById(id).catch(function (err) {
+                await this.#dbTableORM.getById(id).catch(function (err) {
                     log.error("Error getting businessContact from Database " + err + __location);
                     reject(err);
                     return;
@@ -158,24 +157,10 @@ module.exports = class BusinessContactModel{
         if(inputJSON.email){
             inputJSON.email_hash = await crypt.hash(inputJSON.email);
         }
-
-
-        // //convert to int
-        // for(var i = 0; i < convertToIntFields.length; i++){
-        //     if(inputJSON[convertToIntFields[i]]){
-        //         try{
-        //             inputJSON[convertToIntFields[i]] = parseInt(inputJSON[convertToIntFields[i]], 10);
-        //         }
-        //         catch(e){
-        //             log.warn("BuinsessModel bad input JSON field: " + convertToIntFields[i] + " cannot convert to Int")
-        //             delete inputJSON[convertToIntFields[i]]
-        //         }
-        //     }
-        // }
     }
 
     updateProperty(){
-        const dbJSON = this.#businessContactORM.cleanJSON()
+        const dbJSON = this.#dbTableORM.cleanJSON()
         // eslint-disable-next-line guard-for-in
         for (const property in properties) {
             this[property] = dbJSON[property];
