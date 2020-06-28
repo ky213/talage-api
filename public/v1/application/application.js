@@ -9,7 +9,7 @@ const serverHelper = require('../../../server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 //Models
-const ApplicationModel = global.requireShared('models/Application-model.js');
+const ApplicationModel = global.requireShared('models/Application-BO.js');
 const contactStepParser = require('./parsers/contact-step-parser.js')
 const coverageStepParser = require('./parsers/coverage-step-parser.js');
 const locationStepParser = require('./parsers/location-step_parser.js')
