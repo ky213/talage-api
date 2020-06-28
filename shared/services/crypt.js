@@ -165,8 +165,8 @@ var decryptInternal = async function(val) {
 		try {
 			val = val.toString();
 		}
- catch (error) {
-			log.error(error);
+		catch(error){
+			log.error(error +  __location);
 			return false;
 		}
 	}

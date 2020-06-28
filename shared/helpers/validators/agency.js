@@ -14,7 +14,7 @@ module.exports = async function(agent){
 		let had_error = false;
 		const sql = `SELECT COUNT(\`id\`) FROM \`#__agencies\` WHERE \`id\` = ${db.escape(agent)} AND \`state\` = 1 LIMIT 1;`;
 		const rows = await db.query(sql).catch(function(error){
-			log.error(error);
+			log.error(error + __location);
 			had_error = true;
 		});
 		if(had_error){

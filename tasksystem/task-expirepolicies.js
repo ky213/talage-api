@@ -22,7 +22,7 @@ exports.processtask = async function(queueMessage){
             error = err;
         });
         if(error){
-            log.error("Error expirePoliciesTask deleteTaskQueueItem " + error);
+            log.error("Error expirePoliciesTask deleteTaskQueueItem " + error +  __location);
         }
         return;
     }
@@ -30,7 +30,7 @@ exports.processtask = async function(queueMessage){
         log.debug('removing old expirePoliciesTask Message from queue');
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(err => error = err)
         if(error){
-            log.error("Error expirePoliciesTask deleteTaskQueueItem old " + error);
+            log.error("Error expirePoliciesTask deleteTaskQueueItem old " + error +  __location);
         }
         return;
     }
@@ -45,7 +45,7 @@ exports.taskProcessorExternal = async function(){
     let error = null;
     await expirePoliciesTask().catch(err => error = err);
     if(error){
-        log.error('abandonAppTask external: ' + error);
+        log.error('abandonAppTask external: ' + error +  __location);
     }
     return;
 }
@@ -66,7 +66,7 @@ var expirePoliciesTask = async function(){
             AND expiration_Date < '${now.utc().format(datetimeFormat)}'
     `;
     await db.query(updateSQL).catch(function(e){
-        log.error(`Expiring Policiies caused an error: ` + e.message);
+        log.error(`Expiring Policiies caused an error: ` + e.message +  __location);
     });
     return;
 }

@@ -24,7 +24,7 @@ function sanitize_string(dirty_string){
 
 	// Make sure this is a string
 	if(typeof dirty_string !== 'string'){
-		log.error('Attempted to sanitize non-string value. Returning no data for safety.');
+		log.error('Attempted to sanitize non-string value. Returning no data for safety.' + __location);
 		return;
 	}
 
@@ -80,7 +80,7 @@ function sanitize_value(dirty_data){
 			clean_data = sanitize_string(dirty_data);
 			break;
 		default:
-			log.error('Attempted to sanitize non-supported datatype. Returning no data for safety.');
+			log.error('Attempted to sanitize non-supported datatype. Returning no data for safety.' + __location);
 			break;
 	}
 
@@ -99,7 +99,7 @@ function sanitize_object(dirty_obj){
 
 	// Make sure this is an object
 	if(typeof dirty_obj !== 'object'){
-		log.error('Attempted to sanitize non-object. Returning no data for safety.');
+		log.error('Attempted to sanitize non-object. Returning no data for safety.' + __location);
 		return;
 	}
 

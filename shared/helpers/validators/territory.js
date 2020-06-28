@@ -10,7 +10,7 @@ module.exports = async function(abbr){
 	let had_error = false;
 	const sql = `SELECT COUNT(\`abbr\`) FROM \`#__territories\` WHERE \`abbr\` = ${db.escape(abbr)};`;
 	const rows = await db.query(sql).catch(function(error){
-		log.error(error);
+		log.error(error + __location);
 		had_error = true;
 	});
 

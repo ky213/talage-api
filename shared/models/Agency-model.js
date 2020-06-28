@@ -26,6 +26,13 @@ const properties = {
 		],
 		'type': 'string' // The data type
 	},
+	'enableOptout': {
+		'default': 0,
+		'encrypted': false,
+		'required': false,
+		'rules': [],
+		'type': 'number'
+	},
 	'email': {
 		'default': null,
 		'encrypted': true,
@@ -61,15 +68,6 @@ const properties = {
 			validator.name
 		],
 		'type': 'string'
-	},
-	'locations': {
-		'associatedField': 'agency', // The ID of this object will be placed into this property
-		'class': 'AgencyLocation',
-		'default': [],
-		'encrypted': false,
-		'required': false,
-		'rules': [],
-		'type': 'object'
 	},
 	'logo': {
 		'default': null,
@@ -113,13 +111,6 @@ const properties = {
 			validator.website
 		],
 		'type': 'string'
-	},
-	'enable_optout': {
-		'default': 0,
-		'encrypted': false,
-		'required': false,
-		'rules': [],
-		'type': 'number'
 	}
 };
 
@@ -230,14 +221,6 @@ module.exports = class Agency extends DatabaseObject{
 
 					// Isolate the file data from the type prefix
 					const logoData = this.logo.substring(this.logo.indexOf(',') + 1);
-
-					// Check the minimum image size
-					const logoBuffer = Buffer.from(logoData, 'base64');
-					const logoDimensions = imgSize(logoBuffer);
-					if(logoDimensions.height < 200 || logoDimensions.width < 655){
-						reject(serverHelper.requestError('The logo you supplied is too small. We want it to look great, and that requires that it be at least 655 pixels wide by 200 pixels tall.'));
-						return;
-					}
 
 					// Check the file size (max 150KB)
 					if(logoData.length * 0.75 > 150000){

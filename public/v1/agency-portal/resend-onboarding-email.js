@@ -14,12 +14,6 @@ const serverHelper = require('../../../server.js');
  * @returns {void}
  */
 async function postResendOnboardingEmail(req, res, next){
-	// Make sure this is an agency network
-	if (req.authentication.agencyNetwork === false){
-		log.info('Forbidden: User is not authorized to create agencies');
-		return next(serverHelper.forbiddenError('You are not authorized to create agencies'));
-	}
-
 	// Check for data
 	if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0){
 		log.warn('No data was received');
