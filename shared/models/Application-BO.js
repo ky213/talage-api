@@ -622,7 +622,8 @@ const properties = {
         "encrypted": false,
         "required": false,
         "rules": null,
-        "type": "number"
+        "type": "number",
+        "dbType": "int(11)"
     },
     "coverage_lapse": {
         "default": 0,
