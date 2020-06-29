@@ -4,11 +4,12 @@
 
 'use strict';
 
-const AgencyLocation = require('./AgencyLocation.js');
+const AgencyLocation = require('./AgencyLocation-model.js');
 const DatabaseObject = require('./DatabaseObject.js');
 const axios = require('axios');
 const imgSize = require('image-size');
-const serverHelper = require('../../../../../server.js');
+//const serverHelper = require('../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
 const{'v4': uuidv4} = require('uuid');
 const validator = global.requireShared('./helpers/validator.js');
 
@@ -116,7 +117,7 @@ const properties = {
 module.exports = class Agency extends DatabaseObject{
 
 	constructor(){
-		super('#__agencies', properties, constructors);
+		super('clw_talage_agencies', properties, constructors);
 	}
 
 	/**
@@ -137,11 +138,11 @@ module.exports = class Agency extends DatabaseObject{
 			// Get the existing file path of the logo
 			const pathSQL = `
 				SELECT
-					\`logo\`
+					logo
 				FROM
-					\`#__agencies\`
+					clw_talage_agencies
 				WHERE
-					\`id\` = ${db.escape(this.id)}
+					id = ${db.escape(this.id)}
 				LIMIT 1;
 			`;
 
@@ -166,6 +167,7 @@ module.exports = class Agency extends DatabaseObject{
 			}
 
 			// Remove the defunct logo from cloud storage
+			//TODO use filesvc directly
 			await axios.delete(`http://localhost:${global.settings.PRIVATE_API_PORT}/v1/file/file?path=public/agency-logos/${path}`).
 			catch(function(){
 				rejected = true;
@@ -230,6 +232,7 @@ module.exports = class Agency extends DatabaseObject{
 					const fileName = `${this.id}-${uuidv4().substring(24)}.${extension}`;
 
 					// Store on S3
+					// TODO use file svc directly
 					await axios.put(`http://localhost:${global.settings.PRIVATE_API_PORT}/v1/file/file`, {
 						'data': logoData,
 						'path': `public/agency-logos/${fileName}`
