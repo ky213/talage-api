@@ -167,7 +167,7 @@ async function getQuotes(req, res, next) {
 
 	// Retrieve if we are complete. Must be done first or we may miss quotes.
 	let sql = `
-			SELECT quote_progress
+			SELECT progress
 			FROM clw_talage_applications
 			WHERE id = ${tokenPayload.applicationID}
 		`;
@@ -175,7 +175,7 @@ async function getQuotes(req, res, next) {
 	if (result === null || result.length === 0) {
 		return next(serverHelper.internalError('Error retrieving quote progress'));
 	}
-	const complete = result[0].quote_progress === 'complete';
+	const complete = result[0].progress !== 'quoting';
 
 	// Retrieve quotes newer than the last quote ID
 	sql = `

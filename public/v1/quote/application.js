@@ -34,7 +34,6 @@ async function postApplication(req, res, next) {
 	const requestedInsurers = Object.prototype.hasOwnProperty.call(req.query, 'insurers') ? req.query.insurers.split(',') : [];
 
 	const application = new Application();
-
 	// Populate the Application object
 	try {
 		// Load
@@ -43,7 +42,7 @@ async function postApplication(req, res, next) {
 		await application.validate(requestedInsurers);
 	}
  catch (error) {
-		log.warn(`Error with application: ${error.message}` + __location);
+		log.warn(`Error loading/validating application ${req.params.id ? req.params.id : ''}: ${error.message}` + __location);
 		res.send(error);
 		return next();
 	}
@@ -52,7 +51,7 @@ async function postApplication(req, res, next) {
 	// still update it.
 	const sql = `
 		UPDATE clw_talage_applications
-		SET quote_progress = ${db.escape('working')}
+		SET progress = ${db.escape('quoting')}
 		WHERE id = ${application.id}
 	`;
 	let result = null;
@@ -60,11 +59,11 @@ async function postApplication(req, res, next) {
 		result = await db.query(sql);
 	}
  catch (error) {
-		log.error(`Could not update the quote progress to 'working' for application ${application.id}: ${error} ${__location}`);
+		log.error(`Could not update the quote progress to 'quoting' for application ${application.id}: ${error} ${__location}`);
 		return next(serverHelper.internalError('An unexpected error occurred.'));
 	}
 	if (result === null || result.affectedRows !== 1) {
-		log.error(`Could not update the quote progress to 'working' for application ${application.id}: ${sql} ${__location}`);
+		log.error(`Could not update the quote progress to 'quoting' for application ${application.id}: ${sql} ${__location}`);
 		return next(serverHelper.internalError('An unexpected error occurred.'));
 	}
 
@@ -97,7 +96,7 @@ async function runQuotes(application) {
 	// Update the application quote progress to "complete"
 	const sql = `
 		UPDATE clw_talage_applications
-		SET quote_progress = ${db.escape('complete')}
+		SET progress = ${db.escape('complete')}
 		WHERE id = ${application.id}
 	`;
 	try {

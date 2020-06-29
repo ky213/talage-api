@@ -3,20 +3,22 @@
 /**
  * Ensures that a quote has a value for aggregated_status
  *
+ * @param {Object} quote - the quote to update
  * @return {void}
  */
 async function updateQuoteAggregatedStatus(quote) {
 	const aggregatedStatus = getQuoteAggregatedStatus(quote.bound, quote.status, quote.api_result);
 	if (aggregatedStatus !== quote.aggregated_status) {
 		quote.aggregated_status = aggregatedStatus;
-		let sql = `
+		const sql = `
 			UPDATE clw_talage_quotes
 			SET aggregated_status = ${db.escape(aggregatedStatus)}
 			WHERE id = ${quote.id}
 		`;
 		try {
 			await db.query(sql);
-		} catch (error) {
+		}
+ catch (error) {
 			log.error(`Could not update quote ${quote.id} aggregated status: ${error} ${__location}`);
 			return false;
 		}
@@ -45,7 +47,8 @@ async function updateApplicationStatus(applicationID) {
 	let result = null;
 	try {
 		result = await db.query(sql);
-	} catch (error) {
+	}
+ catch (error) {
 		log.error(`Could not retrieve application ${applicationID} ${__location}`);
 		return;
 	}
@@ -59,8 +62,9 @@ async function updateApplicationStatus(applicationID) {
 	`;
 	try {
 		result = await db.query(sql);
-	} catch (error) {
-		log.error(`Could not retrieve quotes for application ${applicationID} ${location}`);
+	}
+ catch (error) {
+		log.error(`Could not retrieve quotes for application ${applicationID} ${__location}`);
 		return;
 	}
 	const quotes = result;
@@ -88,8 +92,9 @@ async function updateApplicationStatus(applicationID) {
 	`;
 	try {
 		result = await db.query(sql);
-	} catch (error) {
-		log.error(`Could not retrieve quotes for application ${applicationID} ${location}`);
+	}
+ catch (error) {
+		log.error(`Could not retrieve quotes for application ${applicationID} ${__location}`);
 	}
 }
 
@@ -104,17 +109,23 @@ async function updateApplicationStatus(applicationID) {
 function getQuoteAggregatedStatus(bound, status, api_result) {
 	if (bound) {
 		return 'bound';
-	} else if (status === 'bind_requested' && api_result === 'referred_with_price') {
+	}
+ else if (status === 'bind_requested' && api_result === 'referred_with_price') {
 		return 'request_to_bind_referred';
-	} else if (status === 'bind_requested') {
+	}
+ else if (status === 'bind_requested') {
 		return 'request_to_bind';
-	} else if (api_result === 'quoted') {
+	}
+ else if (api_result === 'quoted') {
 		return 'quoted';
-	} else if (api_result === 'referred_with_price') {
+	}
+ else if (api_result === 'referred_with_price') {
 		return 'quoted_referred';
-	} else if (api_result === 'referred') {
+	}
+ else if (api_result === 'referred') {
 		return 'referred';
-	} else if (api_result === 'declined' || api_result === 'autodeclined') {
+	}
+ else if (api_result === 'declined' || api_result === 'autodeclined') {
 		return 'declined';
 	}
 	return 'error';
@@ -133,23 +144,32 @@ function getGenericApplicationStatus(application, quotes) {
 
 	if (application.last_step < 8) {
 		return 'incomplete';
-	} else if (application.solepro || application.wholesale) {
+	}
+ else if (application.solepro || application.wholesale) {
 		return 'wholesale';
-	} else if (quotes.some((quote) => quote.aggregated_status === 'bound')) {
+	}
+ else if (quotes.some((quote) => quote.aggregated_status === 'bound')) {
 		return 'bound';
-	} else if (quotes.some((quote) => quote.aggregated_status === 'request_to_bind_referred')) {
+	}
+ else if (quotes.some((quote) => quote.aggregated_status === 'request_to_bind_referred')) {
 		return 'request_to_bind_referred';
-	} else if (quotes.some((quote) => quote.aggregated_status === 'request_to_bind')) {
+	}
+ else if (quotes.some((quote) => quote.aggregated_status === 'request_to_bind')) {
 		return 'request_to_bind';
-	} else if (quotes.some((quote) => quote.aggregated_status === 'quoted')) {
+	}
+ else if (quotes.some((quote) => quote.aggregated_status === 'quoted')) {
 		return 'quoted';
-	} else if (quotes.some((quote) => quote.aggregated_status === 'quoted_referred')) {
+	}
+ else if (quotes.some((quote) => quote.aggregated_status === 'quoted_referred')) {
 		return 'quoted_referred';
-	} else if (quotes.some((quote) => quote.aggregated_status === 'referred')) {
+	}
+ else if (quotes.some((quote) => quote.aggregated_status === 'referred')) {
 		return 'referred';
-	} else if (quotes.some((quote) => quote.aggregated_status === 'declined')) {
+	}
+ else if (quotes.some((quote) => quote.aggregated_status === 'declined')) {
 		return 'declined';
-	} else if (quotes.some((quote) => quote.aggregated_status === 'error')) {
+	}
+ else if (quotes.some((quote) => quote.aggregated_status === 'error')) {
 		return 'error';
 	}
 	return 'incomplete';
@@ -163,13 +183,10 @@ function getGenericApplicationStatus(application, quotes) {
  * @return {string} - The status of the application
  */
 function getAccidentFundApplicationStatus(application, quotes) {
-	let status = getGenericApplicationStatus(applicatin, quotes);
+	const status = getGenericApplicationStatus(application, quotes);
+	// For accident fund, we only need to 'downgrade' the status if it is declined and there exists a quote with an 'error' status.
 	if (status === 'declined') {
-		// Ensure there aren't any errors and autodeclines. If yes, it should be 'error'.
-		const errorCount = quotes.filter((quote) => quote.aggregated_status === 'error').length;
-		const autodeclinedCount = quotes.filter((quote) => quote.api_result === 'autodeclined').length;
-		// If 1 error and the rest are auto-declined, it should just be 'error'.
-		if (errorCount === 1 && errorCount + autodeclinedCount === quotes.length) {
+		if (quotes.filter((quote) => quote.aggregated_status === 'error').length > 0) {
 			return 'error';
 		}
 	}
@@ -177,6 +194,6 @@ function getAccidentFundApplicationStatus(application, quotes) {
 }
 
 module.exports = {
-	updateApplicationStatus,
-	getQuoteAggregatedStatus
+	updateApplicationStatus: updateApplicationStatus,
+	getQuoteAggregatedStatus: getQuoteAggregatedStatus
 };
