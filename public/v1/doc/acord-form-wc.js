@@ -463,7 +463,7 @@ else{
 				if(territories.length % 5 === 0){
 					territories.push(`\n${data.territory}`);
 				}
-else{
+				else{
 					territories.push(data.territory);
 				}
 
@@ -487,7 +487,7 @@ else{
 					const address = await crypt.decrypt(data.address); // eslint-disable-line no-await-in-loop
 					street_address += `${address}`;
 				}
-else{
+				else{
 					missing_data.push('Business location address');
 				}
 
@@ -523,7 +523,7 @@ else{
 					});
 
 				}
-else{
+				else{
 					// Add as next location
 					location_num = addresses.length + (found_mailing_address ? 0 : 1);
 
@@ -548,7 +548,7 @@ else{
 					if(location_num < 4){
 						docDefinition.content = docDefinition.content.concat(new_location);
 					}
-else{
+					else{
 						// Add the location to the overflow page
 					}
 
@@ -836,7 +836,7 @@ else{
 									// Combine
 									activityCodes[seenCodes[ncci]] += payroll;
 								}
-else{
+								else{
 									// Add this code as a separate code
 									activityCodes[activityCode] = payroll;
 
@@ -854,8 +854,12 @@ else{
 			}
 		}
 
+		// Add NAICS and SIC to ncci code data
+		ncci_data.naics = application_data[0].naics;
+		ncci_data.sic = application_data[0].sic;
+
 		// Generate all the state rating sheets and add them to the document
-		stateRatingResult = generate.state_rating_sheets(activity_code_data, ncci_data);
+		stateRatingResult = await generate.state_rating_sheets(activity_code_data, ncci_data);
 	}
 
 	if(!ncci_data.length || stateRatingResult === -1){
@@ -865,7 +869,7 @@ else{
 			'text': ''
 		});
 	}
-else{
+	else{
 		docDefinition.content = docDefinition.content.concat(stateRatingResult);
 	}
 

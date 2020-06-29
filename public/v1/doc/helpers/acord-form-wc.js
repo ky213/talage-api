@@ -97,6 +97,22 @@ exports.state_rating_sheets = function(data, ncci_codes){
 					},
 					{
 						'absolutePosition': {
+							'x': positions.rating_sheet_sic.x,
+							'y': positions.rating_sheet_sic.y + num_activity_code_entry * activity_code_offset
+						},
+						'style': styles.sic,
+						'text': ncci_codes.sic
+					},
+					{
+						'absolutePosition': {
+							'x': positions.rating_sheet_naics.x,
+							'y': positions.rating_sheet_naics.y + num_activity_code_entry * activity_code_offset
+						},
+						'style': styles.naics,
+						'text': ncci_codes.naics
+					},
+					{
+						'absolutePosition': {
 							'x': positions.rating_sheet_payroll.x,
 							'y': positions.rating_sheet_payroll.y + num_activity_code_entry * activity_code_offset
 						},

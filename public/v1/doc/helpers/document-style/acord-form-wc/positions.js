@@ -302,6 +302,10 @@ module.exports = {
 		'x': 28,
 		'y': activity_code_y
 	},
+	'rating_sheet_naics': {
+		'x': 385,
+		'y': activity_code_y
+	},
 	'rating_sheet_page': {
 		'x': 136,
 		'y': 26
@@ -312,6 +316,10 @@ module.exports = {
 	},
 	'rating_sheet_payroll': {
 		'x': 420,
+		'y': activity_code_y
+	},
+	'rating_sheet_sic': {
+		'x': 355,
 		'y': activity_code_y
 	},
 	'rating_sheet_sub_code': {
