@@ -4,9 +4,7 @@
 
 'use strict';
 
-const util = require('util');
-const serverHelper = require('../../../server.js');
-const status = requireShared('./helpers/status.js');
+const status = global.requireShared('./helpers/status.js');
 
 /**
  * Updates an application status
