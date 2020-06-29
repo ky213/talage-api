@@ -26,10 +26,6 @@ async function postApplication(req, res, next) {
 		return next(serverHelper.requestError('No data was received'));
 	}
 
-	console.log('==========================================================================================');
-	console.log('==========================================================================================');
-	console.log('==========================================================================================');
-
 	// Make sure basic elements are present
 	if (!req.body.business || !Object.prototype.hasOwnProperty.call(req.body, 'id') || !req.body.policies) {
 		log.warn('Some required data is missing' + __location);

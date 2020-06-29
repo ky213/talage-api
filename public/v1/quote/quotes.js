@@ -181,10 +181,8 @@ async function getQuotes(req, res, next) {
 		for (let i = 0; i < result.length; i++) {
 			const quoteSummary = await createQuoteSummary(result[i].id);
 			if (quoteSummary !== null) {
-				console.log(quoteSummary);
 				quotes.push(quoteSummary);
 			}
-			// return next(serverHelper.internalError('Error creating quote summary'));
 		}
 	}
 
