@@ -1,41 +1,27 @@
 'use strict';
 
 /**
- * Retrieves an aggregated quote status
- *
- * @param {Boolean} bound - whether or not the quote is bound
- * @param {String} status - quote status
- * @param {String} api_result - result from the api call
- * @return {void}
- */
-function getQuoteAggregatedStatus(bound, status, api_result) {
-	if (bound) {
-		return 'bound';
-	} else if (status === 'bind_requested' && api_result === 'referred_with_price') {
-		return 'request_to_bind_referred';
-	} else if (status === 'bind_requested') {
-		return 'request_to_bind';
-	} else if (api_result === 'quoted') {
-		return 'quoted';
-	} else if (api_result === 'referred_with_price') {
-		return 'quoted_referred';
-	} else if (api_result === 'referred') {
-		return 'referred';
-	} else if (api_result === 'declined' || api_result === 'autodeclined') {
-		return 'declined';
-	}
-	return 'error';
-}
-
-/**
  * Ensures that a quote has a value for aggregated_status
  *
  * @return {void}
  */
-async function checkQuoteAggregatedStatus(quote) {
-	if (!quote.aggregated_status || quote.aggregated_status.length === 0) {
-		quote.aggregated_status = getQuoteAggregatedStatus(quote.bound, quote.status, quote.api_result);
+async function updateQuoteAggregatedStatus(quote) {
+	const aggregatedStatus = getQuoteAggregatedStatus(quote.bound, quote.status, quote.api_result);
+	if (aggregatedStatus !== quote.aggregated_status) {
+		quote.aggregated_status = aggregatedStatus;
+		let sql = `
+			UPDATE clw_talage_quotes
+			SET aggregated_status = ${db.escape(aggregatedStatus)}
+			WHERE id = ${quote.id}
+		`;
+		try {
+			await db.query(sql);
+		} catch (error) {
+			log.error(`Could not update quote ${quote.id} aggregated status: ${error} ${__location}`);
+			return false;
+		}
 	}
+	return true;
 }
 
 /**
@@ -108,6 +94,33 @@ async function updateApplicationStatus(applicationID) {
 }
 
 /**
+ * Retrieves an aggregated quote status
+ *
+ * @param {Boolean} bound - whether or not the quote is bound
+ * @param {String} status - quote status
+ * @param {String} api_result - result from the api call
+ * @return {void}
+ */
+function getQuoteAggregatedStatus(bound, status, api_result) {
+	if (bound) {
+		return 'bound';
+	} else if (status === 'bind_requested' && api_result === 'referred_with_price') {
+		return 'request_to_bind_referred';
+	} else if (status === 'bind_requested') {
+		return 'request_to_bind';
+	} else if (api_result === 'quoted') {
+		return 'quoted';
+	} else if (api_result === 'referred_with_price') {
+		return 'quoted_referred';
+	} else if (api_result === 'referred') {
+		return 'referred';
+	} else if (api_result === 'declined' || api_result === 'autodeclined') {
+		return 'declined';
+	}
+	return 'error';
+}
+
+/**
  * Returns the status of a generic application based on it's associated quotes. The status is a user-friendly string.
  *
  * @param {Object} application - An application record
@@ -116,7 +129,7 @@ async function updateApplicationStatus(applicationID) {
  */
 function getGenericApplicationStatus(application, quotes) {
 	// Ensure that each quote has an aggregated status (backwards compatibility)
-	quotes.forEach((quote) => checkQuoteAggregatedStatus(quote));
+	quotes.forEach((quote) => updateQuoteAggregatedStatus(quote));
 
 	if (application.last_step < 8) {
 		return 'incomplete';
