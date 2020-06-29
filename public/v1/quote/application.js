@@ -4,11 +4,10 @@
 
 'use strict';
 
-const util = require('util');
 const Application = require('./helpers/models/Application.js');
 const serverHelper = require('../../../server.js');
 const jwt = require('jsonwebtoken');
-const status = requireShared('./helpers/status.js');
+const status = global.requireShared('./helpers/status.js');
 
 /**
  * Responds to POST requests and returns policy quotes
@@ -21,7 +20,7 @@ const status = requireShared('./helpers/status.js');
  */
 async function postApplication(req, res, next) {
 	// Check for data
-	if (!req.body || (typeof req.body === 'object' && Object.keys(req.body).length === 0)) {
+	if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
 		log.warn('No data was received' + __location);
 		return next(serverHelper.requestError('No data was received'));
 	}
@@ -42,7 +41,8 @@ async function postApplication(req, res, next) {
 		await application.load(req.params);
 		// Validate
 		await application.validate(requestedInsurers);
-	} catch (error) {
+	}
+ catch (error) {
 		log.warn(`Error with application: ${error.message}` + __location);
 		res.send(error);
 		return next();
@@ -58,16 +58,19 @@ async function postApplication(req, res, next) {
 	let result = null;
 	try {
 		result = await db.query(sql);
-	} catch (error) {
+	}
+ catch (error) {
 		log.error(`Could not update the quote progress to 'working' for application ${application.id}: ${error} ${__location}`);
+		return next(serverHelper.internalError('An unexpected error occurred.'));
+	}
+	if (result === null || result.affectedRows !== 1) {
+		log.error(`Could not update the quote progress to 'working' for application ${application.id}: ${sql} ${__location}`);
 		return next(serverHelper.internalError('An unexpected error occurred.'));
 	}
 
 	// Build a JWT that contains the application ID that expires in 5 minutes.
-	const tokenPayload = {
-		applicationID: application.id
-	};
-	const token = jwt.sign(tokenPayload, global.settings.AUTH_SECRET_KEY, { expiresIn: '5m' });
+	const tokenPayload = {applicationID: application.id};
+	const token = jwt.sign(tokenPayload, global.settings.AUTH_SECRET_KEY, {expiresIn: '5m'});
 	// Send back the token
 	res.send(200, token);
 
@@ -86,7 +89,8 @@ async function postApplication(req, res, next) {
 async function runQuotes(application) {
 	try {
 		await application.run_quotes();
-	} catch (error) {
+	}
+ catch (error) {
 		log.error(`Getting quotes on application ${application.id} failed: ${error} ${__location}`);
 	}
 
@@ -98,7 +102,8 @@ async function runQuotes(application) {
 	`;
 	try {
 		await db.query(sql);
-	} catch (error) {
+	}
+ catch (error) {
 		log.error(`Could not update the quote progress to 'complete' for application ${application.id}: ${error} ${__location}`);
 	}
 

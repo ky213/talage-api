@@ -1,21 +1,35 @@
 'use strict';
 
-// const util = require('util');
-// const Application = require('./helpers/models/Application.js');
 const jwt = require('jsonwebtoken');
 const serverHelper = require('../../../server.js');
 
+/**
+ * Execute a query and log an error if it fails (testing a pattern)
+ *
+ * @param {object} sql - SQL query to run
+ * @param {object} queryDescription - Description of the query
+ *
+ * @returns {Object} query result
+ */
 async function queryDB(sql, queryDescription) {
 	let result = null;
 	try {
 		result = await db.query(sql);
-	} catch (error) {
-		log.error(`ERROR: ${queryDescription}: ${error} ${location}`);
+	}
+ catch (error) {
+		log.error(`ERROR: ${queryDescription}: ${error} ${__location}`);
 		return null;
 	}
 	return result;
 }
 
+/**
+ * Create a quote summary to return to the frontend
+ *
+ * @param {Number} quoteID - Quote ID for the summary
+ *
+ * @returns {Object} quote summary
+ */
 async function createQuoteSummary(quoteID) {
 	// Get the quote
 	let sql = `SELECT id, amount, policy_type, insurer, aggregated_status, quote_letter FROM clw_talage_quotes WHERE id = ${quoteID}`;
@@ -111,7 +125,7 @@ async function createQuoteSummary(quoteID) {
 					name: insurer.name,
 					rating: insurer.rating
 				},
-				limits,
+				limits: limits,
 				payment_options: paymentOptions
 			};
 		default:
@@ -133,14 +147,15 @@ async function createQuoteSummary(quoteID) {
 async function getQuotes(req, res, next) {
 	// Validate JWT
 	if (!req.query.token) {
-		console.log('missing token');
+		// Missing token
 		return next(serverHelper.requestError('Missing parameters.'));
 	}
 	let tokenPayload = null;
 	try {
 		tokenPayload = jwt.verify(req.query.token, global.settings.AUTH_SECRET_KEY);
-	} catch (error) {
-		console.log('expired token');
+	}
+ catch (error) {
+		// Expired token
 		return next(serverHelper.invalidCredentialsError('Expired token.'));
 	}
 
@@ -186,7 +201,10 @@ async function getQuotes(req, res, next) {
 		}
 	}
 
-	res.send(200, { complete, quotes });
+	res.send(200, {
+		complete: complete,
+		quotes: quotes
+	});
 	return next();
 }
 
