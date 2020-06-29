@@ -11,16 +11,16 @@ const apiVersion = 'v1';
  *
  * @returns {void}
  */
-function registerEndpoint(server, namespace, endpointName){
-	if(namespace === null){
+function registerEndpoint(server, namespace, endpointName) {
+	if (namespace === null) {
 		require(`./${endpointName}.js`).registerEndpoint(server, `/${apiVersion}`);
-	}
-	else{
+	} else {
 		require(`./${namespace}/${endpointName}.js`).registerEndpoint(server, `/${apiVersion}/${namespace}`);
 	}
 }
 
 exports.registerEndpoints = (server) => {
+	registerEndpoint(server, 'application', 'application');
 	registerEndpoint(server, 'docusign', 'embedded');
 	registerEndpoint(server, 'email', 'email');
 	registerEndpoint(server, 'encryption', 'decrypt');
