@@ -18,7 +18,7 @@ module.exports = async function(val){
 	// Run the query
 	let error = false;
 	const result = await db.query(sql).catch(function(err){
-		log.error(err.message);
+		log.error(err.message + __location);
 		error = true;
 	});
 	if(error){

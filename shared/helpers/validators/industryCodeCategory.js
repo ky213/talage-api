@@ -13,7 +13,7 @@ module.exports = async function(id){
 		let had_error = false;
 		const sql = `SELECT name FROM \`#__industry_code_categories\` WHERE \`id\` = ${db.escape(parseInt(id, 10))};`;
 		const rows = await db.query(sql).catch(function(error){
-			log.error(error);
+			log.error(error + __location);
 			had_error = true;
 		});
 		if(had_error){

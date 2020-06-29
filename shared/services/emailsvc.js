@@ -237,7 +237,9 @@ var saveEmailToDb = async function(columns, recipients){
 		throw err;
 	});
 	if (messagesId){
-		log.debug('recipients:' + recipients)
+        if (global.settings.ENV === 'development' || global.settings.ENV === 'awsdev'){
+            log.debug('recipients:' + recipients + __location)
+        }
 		//write to message_recipents table  clw_talage_message_recipients
 		const recipientsList = recipients.split(',');
 		let error = null;

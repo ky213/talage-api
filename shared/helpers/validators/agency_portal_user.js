@@ -14,7 +14,7 @@ module.exports = async function(agency_portal_user){
 		let had_error = false;
 		const sql = `SELECT COUNT(\`id\`) FROM \`#__agency_portal_users\` WHERE \`id\` = ${db.escape(parseInt(agency_portal_user, 10))} AND \`state\` > 0 LIMIT 1;`;
 		const rows = await db.query(sql).catch(function(error){
-			log.error(error);
+			log.error(error + __location);
 			had_error = true;
 		});
 		if(had_error){

@@ -13,7 +13,7 @@ const queueHandler = require('../tasksystem/queuehandler.js');
 // eslint-disable-next-line require-jsdoc
 function logLocalErrorMessage(message){
 	if(global.log){
-		log.error(message);
+		log.error(message +  __location);
 	}
 	// eslint-disable-next-line no-console
 	console.log(message);
