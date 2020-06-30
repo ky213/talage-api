@@ -326,7 +326,16 @@ else{
 	// Define base document
 	const docDefinition = {
 		'background': function(currentPage){
-			return img[currentPage - 1];
+			// If we're on the first page return the background for the first page
+			if(currentPage === 1){
+				return img[0];
+			}
+			// If we're on a page 2 state rating sheet
+			if(currentPage >= 2 && currentPage <= territories.length + 1){
+				return img[1];
+			}
+			// The current page is after the state rating sheets
+			return img[currentPage - territories.length];
 		},
 		'content': [
 			// Date
@@ -549,7 +558,7 @@ else{
 						docDefinition.content = docDefinition.content.concat(new_location);
 					}
 					else{
-						// Add the location to the overflow page
+						// Add the location to the overflow page - need to find pdf for location overflow page
 					}
 
 				}
@@ -577,22 +586,6 @@ else{
 
 	// Finish the sql query for ncci codes
 	sql_ncci = sql_ncci.concat(')');
-
-	// If there is more than one territory where the business operates adjust the background function
-	if(territories.length > 1){
-		docDefinition.background = function(currentPage){
-			// If we're on the first page return the background for the first page
-			if(currentPage === 1){
-				return img[0];
-			}
-			// If we're on a page 2 state rating sheet
-			if(currentPage >= 2 && currentPage <= territories.length + 1){
-				return img[1];
-			}
-			// The current page is after the state rating sheets
-			return img[currentPage - territories.length];
-		};
-	}
 
 	// Make sure the mailing address was found at some point
 	if(!found_mailing_address){
