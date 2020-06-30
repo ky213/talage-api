@@ -828,8 +828,7 @@ else{
 								if(Object.keys(seenCodes).includes(ncci)){
 									// Combine
 									activityCodes[seenCodes[ncci]] += payroll;
-								}
-								else{
+								}else{
 									// Add this code as a separate code
 									activityCodes[activityCode] = payroll;
 
@@ -846,14 +845,14 @@ else{
 				}
 			}
 		}
-
-		// Add NAICS and SIC to ncci code data
-		ncci_data.naics = application_data[0].naics;
-		ncci_data.sic = application_data[0].sic;
-
-		// Generate all the state rating sheets and add them to the document
-		stateRatingResult = await generate.state_rating_sheets(activity_code_data, ncci_data);
 	}
+
+	// Add NAICS and SIC to ncci code data
+	ncci_data.naics = application_data[0].naics;
+	ncci_data.sic = application_data[0].sic;
+
+	// Generate all the state rating sheets and add them to the document
+	stateRatingResult = await generate.state_rating_sheets(activity_code_data, ncci_data);
 
 	if(!ncci_data.length || stateRatingResult === -1){
 		missing_data.push('One or more activity codes are not supported by this insurer');
@@ -953,11 +952,11 @@ else{
 				if(question.answer === 'Yes'){
 					question_answer = 'Y';
 				}
-else if(question.answer === 'No'){
+				else if(question.answer === 'No'){
 					question_answer = 'N';
 				}
 			}
-else{
+			else{
 				question_answer = question.text_answer;
 			}
 			const answer = {
@@ -969,7 +968,7 @@ else{
 			if(general_information_questions[question.number] <= num_questions_page_3){
 				docDefinition.content.push(answer);
 			}
-else{
+			else{
 				// The question is on page 4, add it to page 4 array to be added after document page break
 				page_4_questions.push(answer);
 			}
@@ -978,30 +977,29 @@ else{
 			delete general_information_questions[question.number];
 
 		});
-
-		// Write in default answer to remaining questions
-		Object.values(general_information_questions).forEach(function(question){
-			let answer_text = '';
-			// Default answers to not include text explanations, all text questions are left blank
-			if(question % 1 === 0){
-				// Default answer for all non-text questions
-				answer_text = 'N';
-			}
-			const answer = {
-				'absolutePosition': positions[`general_info_${question}`],
-				'style': styles.Y_N,
-				'text': answer_text
-			};
-			// If the question is on page 3, add it to page 3
-			if(question <= num_questions_page_3){
-				docDefinition.content.push(answer);
-			}
-else{
-				// The question is on page 4, add it to page 4 array to be added after document page break
-				page_4_questions.push(answer);
-			}
-		});
 	}
+	// Write in default answer to remaining questions
+	Object.values(general_information_questions).forEach(function(question){
+		let answer_text = '';
+		// Default answers to not include text explanations, all text questions are left blank
+		if(question % 1 === 0){
+			// Default answer for all non-text questions
+			answer_text = 'N';
+		}
+		const answer = {
+			'absolutePosition': positions[`general_info_${question}`],
+			'style': styles.Y_N,
+			'text': answer_text
+		};
+		// If the question is on page 3, add it to page 3
+		if(question <= num_questions_page_3){
+			docDefinition.content.push(answer);
+		}
+		else{
+			// The question is on page 4, add it to page 4 array to be added after document page break
+			page_4_questions.push(answer);
+		}
+	});
 
 	// Beginning of page 4
 	docDefinition.content.push({
