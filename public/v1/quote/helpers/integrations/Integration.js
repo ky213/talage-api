@@ -10,14 +10,14 @@ const htmlentities = require('html-entities').Html5Entities;
 const https = require('https');
 const moment = require('moment');
 const util = require('util');
-const{'v4': uuidv4} = require('uuid');
+const { v4: uuidv4 } = require('uuid');
 const xmlToObj = require('xml2js').parseString;
 const serverHelper = require('../../../../../server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+const { getQuoteAggregatedStatus } = global.requireShared('./helpers/status.js');
 
-module.exports = class Integration{
-
+module.exports = class Integration {
 	/**
 	 * Constructor for each integration
 	 *
@@ -26,8 +26,7 @@ module.exports = class Integration{
 	 * @param {object} policy - The data related to the current policy
 	 * @returns {void}
 	 */
-	constructor(app, insurer, policy){
-
+	constructor(app, insurer, policy) {
 		this.app = app;
 		this.industry_code = {};
 		this.insurer = insurer;
@@ -55,20 +54,17 @@ module.exports = class Integration{
 
 		// Process payroll caps for Nevada
 		const nv_payroll_cap = 36000;
-		if(this.app.business){
-			if(app.business.primary_territory === 'NV'){
-
+		if (this.app.business) {
+			if (app.business.primary_territory === 'NV') {
 				// Loop through each location
-				app.business.locations.forEach(function(location, location_index){
-
+				app.business.locations.forEach(function (location, location_index) {
 					// Total the employees
 					const total_employees = location.full_time_employees + location.part_time_employees;
 
 					// Loop through each class code
-					location.activity_codes.forEach(function(code, code_index){
-
+					location.activity_codes.forEach(function (code, code_index) {
 						// If the payroll is over the cap, set it to the cap
-						if(code.payroll / total_employees > nv_payroll_cap){
+						if (code.payroll / total_employees > nv_payroll_cap) {
 							app.business.locations[location_index].activity_codes[code_index].payroll = nv_payroll_cap * total_employees;
 						}
 					});
@@ -82,30 +78,31 @@ module.exports = class Integration{
 	 *
 	 * @returns {Promise.<string, ServerError>} A promise that returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a ServerError if rejected
 	 */
-	bind(){
+	bind() {
 		log.info(`${this.insurer.name} ${this.policy.type} Bind Started (mode: ${this.insurer.test_mode ? 'test' : 'live'})`);
-		return new Promise(async(fulfill, reject) => {
-
+		return new Promise(async (fulfill, reject) => {
 			// Make sure the _bind() function exists
-			if(typeof this._bind === 'undefined'){
+			if (typeof this._bind === 'undefined') {
 				log.warn(`${this.insurer} ${this.policy.type} integration does not support binding quotes` + __location);
 				reject(serverHelper.notFoundError('Insurer integration does not support binding quotes at this time'));
 				return;
 			}
 
 			// Check for an outage
-			if(this.insurer.outage){
+			if (this.insurer.outage) {
 				log.warn(`${this.insurer} is currently unavailable due to scheduled maintenance` + __location);
 				reject(serverHelper.serviceUnavailableError('Insurer is currently unavailable due to scheduled maintance'));
 				return;
 			}
 
 			// Run the insurer's bind function
-			await this._bind().then(function(result){
-				fulfill(result);
-			}).catch(function(error){
-				reject(error);
-			});
+			await this._bind()
+				.then(function (result) {
+					fulfill(result);
+				})
+				.catch(function (error) {
+					reject(error);
+				});
 		});
 	}
 
@@ -114,14 +111,14 @@ module.exports = class Integration{
 	 *
 	 * @returns {object} - Claims information lumped together by policy year
 	 */
-	claims_to_policy_years(){
+	claims_to_policy_years() {
 		const claims = {};
 
 		// Get the effective date of the policy
 		const effective_date = this.policy.effective_date.clone();
 
 		// Fill the claims object with some default data (for the policy year, year 1 is within effective date - 1 year, year 2 within 2 years, etc.)
-		for(let i = 1; i <= 5; i++){
+		for (let i = 1; i <= 5; i++) {
 			const c = {};
 			c.amountPaid = 0;
 			c.amountReserved = 0;
@@ -134,18 +131,17 @@ module.exports = class Integration{
 
 		// Loop through each claim and add them to the claims object
 		this.policy.claims.forEach((claim) => {
-
 			// Determine the policy year
 			let year = 0;
-			for(let i = 1; i <= 5; i++){
-				if(claim.date.isAfter(this.policy.effective_date.clone().subtract(i, 'years'))){
+			for (let i = 1; i <= 5; i++) {
+				if (claim.date.isAfter(this.policy.effective_date.clone().subtract(i, 'years'))) {
 					year = i;
 					break;
 				}
 			}
 
 			// Make sure the claim was within the last 5 years
-			if(!year){
+			if (!year) {
 				return;
 			}
 
@@ -153,7 +149,7 @@ module.exports = class Integration{
 			claims[year].amountReserved += claim.amountReserved;
 			claims[year].amountPaid += claim.amountPaid;
 			claims[year].count++;
-			if(claim.missedWork){
+			if (claim.missedWork) {
 				claims[year].missedWork++;
 			}
 		});
@@ -167,15 +163,14 @@ module.exports = class Integration{
 	 * @param {object} location - A single Location object
 	 * @returns {object} - The activity codes from within the location with any duplicates combined as code -> payroll pairs
 	 */
-	combineLocationActivityCodes(location){
+	combineLocationActivityCodes(location) {
 		const returnCodes = {};
 		location.activity_codes.forEach((activityCode) => {
-
 			// Get the insurer's code for this activity
 			const insurerCode = this.insurer_wc_codes[location.territory + activityCode.id];
 
 			// Check if this code was already found
-			if(Object.prototype.hasOwnProperty.call(returnCodes, insurerCode)){
+			if (Object.prototype.hasOwnProperty.call(returnCodes, insurerCode)) {
 				// Combine the payroll
 				returnCodes[insurerCode] += activityCode.payroll;
 				return;
@@ -195,28 +190,28 @@ module.exports = class Integration{
 	 *
 	 * @returns {object} - An ActivityCode object
 	 */
-	determine_governing_activity_code(){
+	determine_governing_activity_code() {
 		// Group the activity codes
 		this.group_activity_codes();
 
 		// If there are not at least 2 activity codes, just return what we have
-		if(this.grouped_activity_codes.length < 2){
+		if (this.grouped_activity_codes.length < 2) {
 			return this.grouped_activity_codes[0];
 		}
 
 		// Sort the activity codes based on payroll
-		this.grouped_activity_codes.sort(function compare(a, b){
-			if(a.payroll > b.payroll){
+		this.grouped_activity_codes.sort(function compare(a, b) {
+			if (a.payroll > b.payroll) {
 				return -1;
 			}
-			if(a.payroll < b.payroll){
+			if (a.payroll < b.payroll) {
 				return 1;
 			}
 			return 0;
 		});
 
 		// Check if the highest payroll is our clerical code
-		if(this.grouped_activity_codes[0].id === 2869){
+		if (this.grouped_activity_codes[0].id === 2869) {
 			// The highest payroll was clerical, reutrn the next highest instead
 			return this.grouped_activity_codes[1];
 		}
@@ -231,28 +226,27 @@ module.exports = class Integration{
 	 * @param {boolean} required - Whether or not this question is required by the insurer
 	 * @returns {mixed} - The answer to send to the insurer, or false if the question should be omitted
 	 */
-	determine_question_answer(question, required){
+	determine_question_answer(question, required) {
 		let answer = false;
 
 		// Default required
 		required = required ? required : false;
 
 		// If this question has a parent that belongs to the same insurer, this question is not required, and the parent question was answered 'NO', skip this question
-		if(question.parent && Object.prototype.hasOwnProperty.call(this.questions, question.parent) && !required && !this.questions[question.parent].get_answer_as_boolean()){
+		if (question.parent && Object.prototype.hasOwnProperty.call(this.questions, question.parent) && !required && !this.questions[question.parent].get_answer_as_boolean()) {
 			return false;
 		}
 
 		// If this question has a parent that belongs to a different insurer it should have a default
-		if(question.parent && !Object.prototype.hasOwnProperty.call(this.questions, question.parent) && question.answer_id === 0 && question.answer === null){
+		if (question.parent && !Object.prototype.hasOwnProperty.call(this.questions, question.parent) && question.answer_id === 0 && question.answer === null) {
 			log.error(`Question ${question.id} is missing a default answer. Defaulted to 'No' for this application. May cause quoting inaccuracies!` + __location);
 			return 'No';
 		}
 
 		// If the answer is based on a database entry, process it differently than text based answers
-		if(question.type === 'Yes/No' || question.type === 'Checkbox' || question.type === 'Select List'){
-
+		if (question.type === 'Yes/No' || question.type === 'Checkbox' || question.type === 'Select List') {
 			// Determine the answer based on the Answer ID stored in our database
-			if(!Object.prototype.hasOwnProperty.call(question.possible_answers, question.answer_id)){
+			if (!Object.prototype.hasOwnProperty.call(question.possible_answers, question.answer_id)) {
 				// This shouldn't have happened, throw an error
 				log.error(`${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible. This should have been caught in the validation stage.` + __location);
 				log.verbose('The question is as follows:');
@@ -261,8 +255,7 @@ module.exports = class Integration{
 			}
 
 			answer = question.possible_answers[question.answer_id].answer;
-		}
-else{
+		} else {
 			// This is a fill-in-the-blank style question, simply send what the user gave us
 			answer = question.answer;
 		}
@@ -275,11 +268,10 @@ else{
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an object indexed on territory + activity code (e.g. AZ908252) each with an array of corresponding question ideas if resolved, or an Error if rejected
 	 */
-	get_activity_codes_to_questions_relationships(){
-		return new Promise(async(fulfill, reject) => {
-
+	get_activity_codes_to_questions_relationships() {
+		return new Promise(async (fulfill, reject) => {
 			// Only proceed if we have activity codes
-			if(!this.insurer_wc_codes){
+			if (!this.insurer_wc_codes) {
 				reject(new Error('No activity codes'));
 				return;
 			}
@@ -301,13 +293,13 @@ else{
 				LEFT JOIN clw_talage_questions AS q ON incq.question = q.id
 				WHERE q.state = 1 AND (${where_chunks.join(' OR ')}) GROUP BY inc.territory, class_code;
 			`;
-			const results = await db.query(sql).catch(function(error){
+			const results = await db.query(sql).catch(function (error) {
 				reject(error);
 			});
 
 			// Convert this into an object for easy reference
 			const relationships = {};
-			if(results){
+			if (results) {
 				results.forEach((result) => {
 					relationships[result.territory + result.class_code] = result.questions.split(',');
 				});
@@ -324,7 +316,7 @@ else{
 	 * @param {array} carrierLimits - A list of limits supported by the carrier
 	 * @returns {array|boolean} - An array containing limit values as integers, or false if none apply
 	 */
-	getBestLimits(carrierLimits){
+	getBestLimits(carrierLimits) {
 		let higherLimit = false;
 
 		// Take the requested limits and prepare them for processing
@@ -332,12 +324,11 @@ else{
 
 		// Loop through all supported limits
 		carrierLimits.forEach((limitSet) => {
-
 			// Split the limits up and prepare them for processing
 			const limitSetParts = this.getSplitLimits(limitSet);
 
 			// Check if the supported limits are higher than or equal to the requested limits
-			if(limitSetParts[0] >= requestedLimits[0] && limitSetParts[1] >= requestedLimits[1] && limitSetParts[2] >= requestedLimits[2]){
+			if (limitSetParts[0] >= requestedLimits[0] && limitSetParts[1] >= requestedLimits[1] && limitSetParts[2] >= requestedLimits[2]) {
 				// Return the first result found
 				higherLimit = higherLimit ? higherLimit : limitSetParts;
 			}
@@ -352,7 +343,7 @@ else{
 	 * @param {mixed} val - The value to find
 	 * @returns {string} - The key that matches
 	 */
-	get_key_by_value(obj, val){
+	get_key_by_value(obj, val) {
 		return Object.keys(obj).find((key) => obj[key] === val);
 	}
 
@@ -361,7 +352,7 @@ else{
 	 *
 	 * @returns {string} - The description of the business
 	 */
-	get_operation_description(){
+	get_operation_description() {
 		return `${this.app.business.name} is a(n) ${this.app.business.industry_code_description.replace('&', 'and')} company with operations primarily located in ${this.app.business.locations[0].city}, ${this.app.business.locations[0].territory}.`;
 	}
 
@@ -370,7 +361,7 @@ else{
 	 *
 	 * @returns {int} - The number of activity codes
 	 */
-	get_num_activity_codes(){
+	get_num_activity_codes() {
 		// Group the activity codes
 		this.group_activity_codes();
 
@@ -384,16 +375,15 @@ else{
 	 * @param {int} number_of_years - The number of years of claims to total
 	 * @returns {int} - the number of claims
 	 */
-	get_num_claims(number_of_years){
-
+	get_num_claims(number_of_years) {
 		// Get the claims data organized by year
 		const claims_by_year = this.claims_to_policy_years();
 
 		// Loop through each year of claims
 		let num_claims = 0;
-		for(const claim_year in claims_by_year){
-			if(Object.prototype.hasOwnProperty.call(claims_by_year, claim_year)){
-				if(claim_year <= number_of_years){
+		for (const claim_year in claims_by_year) {
+			if (Object.prototype.hasOwnProperty.call(claims_by_year, claim_year)) {
+				if (claim_year <= number_of_years) {
 					num_claims += claims_by_year[claim_year].count;
 				}
 			}
@@ -408,14 +398,14 @@ else{
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing objects indexed on the Talage Question ID with question information specific to this insurer if resolved, or an Error if rejected
 	 */
-	get_question_details(){
-		return new Promise(async(fulfill, reject) => {
+	get_question_details() {
+		return new Promise(async (fulfill, reject) => {
 			// Build an array of question IDs to retrieve
 			const question_ids = Object.keys(this.questions);
 
-			if(question_ids.length > 0){
+			if (question_ids.length > 0) {
 				const sql = `SELECT question, universal, identifier, attributes FROM #__insurer_questions WHERE insurer = ${this.insurer.id} AND question IN (${question_ids.join(',')});`;
-				const results = await db.query(sql).catch(function(error){
+				const results = await db.query(sql).catch(function (error) {
 					reject(error);
 				});
 
@@ -423,19 +413,18 @@ else{
 				const question_details = {};
 				results.forEach((result) => {
 					question_details[result.question] = {
-						'attributes': result.attributes ? JSON.parse(result.attributes) : '',
-						'identifier': result.identifier,
-						'universal': result.universal
+						attributes: result.attributes ? JSON.parse(result.attributes) : '',
+						identifier: result.identifier,
+						universal: result.universal
 					};
-					if(result.universal){
+					if (result.universal) {
 						this.universal_questions.push(result.question);
 					}
 				});
 
 				// Return the mapping
 				fulfill(question_details);
-			}
-else{
+			} else {
 				fulfill({});
 			}
 		});
@@ -447,11 +436,11 @@ else{
 	 * @param {string} identifier - The insurer identifier for the question
 	 * @returns {mixed} - question object on success, false otherwise
 	 */
-	get_question_by_identifier(identifier){
+	get_question_by_identifier(identifier) {
 		// Loop through each question and check the identifier
-		for(const question_id in this.questions){
-			if(Object.prototype.hasOwnProperty.call(this.questions, question_id)){
-				if(this.question_identifiers[question_id] === identifier){
+		for (const question_id in this.questions) {
+			if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
+				if (this.question_identifiers[question_id] === identifier) {
 					return this.questions[question_id];
 				}
 			}
@@ -464,15 +453,15 @@ else{
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing question information if resolved, or an Error if rejected
 	 */
-	get_question_identifiers(){
+	get_question_identifiers() {
 		log.info('get_question_identifiers FUNCTION IS DEPRECATED AND WILL BE REMOVED. USE get_question_details() INSTEAD WHICH RETURNS MORE DATA IN ONE QUERY');
-		return new Promise(async(fulfill, reject) => {
+		return new Promise(async (fulfill, reject) => {
 			// Build an array of question IDs to retrieve
 			const question_ids = Object.keys(this.questions);
 
-			if(question_ids.length > 0){
+			if (question_ids.length > 0) {
 				const sql = `SELECT question, universal, identifier FROM #__insurer_questions WHERE insurer = ${this.insurer.id} AND question IN (${question_ids.join(',')});`;
-				const results = await db.query(sql).catch(function(error){
+				const results = await db.query(sql).catch(function (error) {
 					reject(error);
 				});
 
@@ -480,15 +469,14 @@ else{
 				const identifiers = {};
 				results.forEach((result) => {
 					identifiers[result.question] = result.identifier;
-					if(result.universal){
+					if (result.universal) {
 						this.universal_questions.push(result.question);
 					}
 				});
 
 				// Return the mapping
 				fulfill(identifiers);
-			}
-else{
+			} else {
 				fulfill({});
 			}
 		});
@@ -500,8 +488,8 @@ else{
 	 * @param {string} limits - A limits string
 	 * @returns {array} - An array of integers
 	 */
-	getSplitLimits(limits){
-		return limits.split('/').map(function(val){
+	getSplitLimits(limits) {
+		return limits.split('/').map(function (val) {
 			return parseInt(val, 10);
 		});
 	}
@@ -512,16 +500,15 @@ else{
 	 * @param {int} number_of_years - The number of years of claims to total
 	 * @returns {int} - the number of claims
 	 */
-	get_total_amount_incurred_on_claims(number_of_years){
-
+	get_total_amount_incurred_on_claims(number_of_years) {
 		// Get the claims data organized by year
 		const claimsByYear = this.claims_to_policy_years();
 
 		// Loop through each year of claims
 		let total = 0;
-		for(const year in claimsByYear){
-			if(Object.prototype.hasOwnProperty.call(claimsByYear, year)){
-				if(year <= number_of_years){
+		for (const year in claimsByYear) {
+			if (Object.prototype.hasOwnProperty.call(claimsByYear, year)) {
+				if (year <= number_of_years) {
 					total += claimsByYear[year].amountPaid;
 					total += claimsByYear[year].amountReserved;
 				}
@@ -537,9 +524,9 @@ else{
 	 *
 	 * @returns {int} - The total number of employees as an integer
 	 */
-	get_total_employees(){
+	get_total_employees() {
 		let total = 0;
-		this.app.business.locations.forEach(function(loc){
+		this.app.business.locations.forEach(function (loc) {
 			total += loc.full_time_employees;
 			total += loc.part_time_employees;
 		});
@@ -551,9 +538,9 @@ else{
 	 *
 	 * @returns {int} - The total number of full-time employees as an integer
 	 */
-	get_total_full_time_employees(){
+	get_total_full_time_employees() {
 		let total = 0;
-		this.app.business.locations.forEach(function(loc){
+		this.app.business.locations.forEach(function (loc) {
 			total += loc.full_time_employees;
 		});
 		return total;
@@ -564,9 +551,9 @@ else{
 	 *
 	 * @returns {int} - The total number of part-time employees as an integer
 	 */
-	get_total_part_time_employees(){
+	get_total_part_time_employees() {
 		let total = 0;
-		this.app.business.locations.forEach(function(loc){
+		this.app.business.locations.forEach(function (loc) {
 			total += loc.part_time_employees;
 		});
 		return total;
@@ -577,10 +564,10 @@ else{
 	 *
 	 * @returns {int} - The total payroll as an integer
 	 */
-	get_total_payroll(){
+	get_total_payroll() {
 		let total = 0;
-		this.app.business.locations.forEach(function(loc){
-			loc.activity_codes.forEach(function(wc_code){
+		this.app.business.locations.forEach(function (loc) {
+			loc.activity_codes.forEach(function (wc_code) {
 				total += wc_code.payroll;
 			});
 		});
@@ -592,9 +579,9 @@ else{
 	 *
 	 * @returns {int} - The total square footage as an integer
 	 */
-	get_total_square_footage(){
+	get_total_square_footage() {
 		let total = 0;
-		this.app.business.locations.forEach(function(loc){
+		this.app.business.locations.forEach(function (loc) {
 			total += loc.square_footage;
 		});
 		return total;
@@ -605,7 +592,7 @@ else{
 	 *
 	 * @returns {int} - The total number of years in business
 	 */
-	get_years_in_business(){
+	get_years_in_business() {
 		return moment().diff(this.app.business.founded, 'years');
 	}
 
@@ -614,15 +601,15 @@ else{
 	 *
 	 * @returns {int} - The total number of years
 	 */
-	get_years_since_claim(){
-		if(!this.policy.claims.length){
+	get_years_since_claim() {
+		if (!this.policy.claims.length) {
 			return 999;
 		}
 
 		let years_ago = 999;
 		this.policy.claims.forEach((claim) => {
 			const num_years = moment().diff(claim.date, 'years');
-			if(num_years < years_ago){
+			if (num_years < years_ago) {
 				years_ago = num_years;
 			}
 		});
@@ -635,7 +622,7 @@ else{
 	 *
 	 * @returns {string} - A random 36 character UUID formatted as follows 1f16f5d4-629b-11e7-b786-54616c616765
 	 */
-	generate_uuid(){
+	generate_uuid() {
 		return uuidv4();
 	}
 
@@ -644,9 +631,9 @@ else{
 	 *
 	 * @returns {object} - An object with keys that are activity code ids, and values that are combined payrolls.
 	 */
-	group_activity_codes(){
+	group_activity_codes() {
 		// If this function has already run, simply return what we already determined
-		if(this.grouped_activity_codes.length){
+		if (this.grouped_activity_codes.length) {
 			return this.grouped_activity_codes;
 		}
 
@@ -660,7 +647,7 @@ else{
 				// Check if we have aleady seen this code on another location
 				let seen = false;
 				activity_codes.forEach((code, index) => {
-					if(activity_code.id === code.id){
+					if (activity_code.id === code.id) {
 						seen = true;
 
 						// Comine the payrolls for this code
@@ -668,7 +655,7 @@ else{
 					}
 				});
 
-				if(!seen){
+				if (!seen) {
 					// This is a new code, add it to our list
 					activity_codes.push(activity_code);
 				}
@@ -686,25 +673,24 @@ else{
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
-	quote(){
+	quote() {
 		log.info(`${this.insurer.name} ${this.policy.type} Quote Started (mode: ${this.insurer.test_mode ? 'test' : 'live'})`);
-		return new Promise(async(fulfill, reject) => {
-
+		return new Promise(async (fulfill, reject) => {
 			// Get the credentials ready for use
 			this.password = await this.insurer.get_password();
 			this.username = await this.insurer.get_username();
 
 			// Make sure the insurer_quote() function exists
-			if(typeof this._insurer_quote === 'undefined'){
+			if (typeof this._insurer_quote === 'undefined') {
 				const error_message = 'Integration file must include the insurer_quote() function';
 				log.error(error_message + __location);
 				this.reasons.push(error_message);
-				fulfill(this.return_error('error', 'Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 				return;
 			}
 
 			// Check for outage
-			if(this.insurer.outage){
+			if (this.insurer.outage) {
 				const error_message = `${this.insurer.name} is currently unavailable`;
 				this.reasons.push(error_message);
 				fulfill(this.return_error('outage'));
@@ -713,11 +699,11 @@ else{
 
 			// Check that all of the selected codes are supported by the insurer
 			let are_codes_supported = null;
-			switch(this.policy.type){
+			switch (this.policy.type) {
 				case 'BOP':
 				case 'GL':
 					are_codes_supported = await this._insurer_supports_industry_codes();
-					if(are_codes_supported !== true){
+					if (are_codes_supported !== true) {
 						fulfill(are_codes_supported);
 						return;
 					}
@@ -725,26 +711,26 @@ else{
 				case 'WC':
 					// Check code support
 					are_codes_supported = await this._insurer_supports_activity_codes();
-					if(this.insurer.id === 10){
+					if (this.insurer.id === 10) {
 						// Acuity requires CGL for WC also
 						are_codes_supported = are_codes_supported === true ? await this._insurer_supports_industry_codes() : are_codes_supported;
 					}
-					if(are_codes_supported !== true){
+					if (are_codes_supported !== true) {
 						fulfill(are_codes_supported);
 						return;
 					}
 					break;
 				default:
 					log.error(`Unexpected policy type of ${this.policy.type} in Integration` + __location);
-					fulfill(this.return_error('error', 'Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+					fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 					return;
 			}
 
 			// Localize the questions and restrict them to only ones that are applicable to this insurer and policy type
-			for(const question_id in this.app.questions){
-				if(Object.prototype.hasOwnProperty.call(this.app.questions, question_id)){
+			for (const question_id in this.app.questions) {
+				if (Object.prototype.hasOwnProperty.call(this.app.questions, question_id)) {
 					const question = this.app.questions[question_id];
-					if(question.insurers.includes(`${this.insurer.id}-${this.policy.type}`)){
+					if (question.insurers.includes(`${this.insurer.id}-${this.policy.type}`)) {
 						this.questions[question_id] = question;
 					}
 				}
@@ -756,26 +742,28 @@ else{
 				const error_message = `${this.insurer.name} ${this.policy.type} is unable to get question details. ${error}`;
 				log.error(error_message + __location);
 				this.reasons.push(error_message);
-				reject(this.return_error('error', 'We have no idea what went wrong, but we\'re on it'));
+				reject(this.return_error('error', "We have no idea what went wrong, but we're on it"));
 				stop = true;
 			});
 			this.question_identifiers = await this.get_question_identifiers().catch((error) => {
 				const error_message = `${this.insurer.name} ${this.policy.type} is unable to get question identifiers. ${error}`;
 				log.error(error_message + __location);
 				this.reasons.push(error_message);
-				reject(this.return_error('error', 'We have no idea what went wrong, but we\'re on it'));
+				reject(this.return_error('error', "We have no idea what went wrong, but we're on it"));
 				stop = true;
 			});
-			if(stop){
+			if (stop) {
 				return;
 			}
 
 			// Run the quote
-			await this._insurer_quote().then(function(result){
-				fulfill(result);
-			}).catch(function(error){
-				reject(error);
-			});
+			await this._insurer_quote()
+				.then(function (result) {
+					fulfill(result);
+				})
+				.catch(function (error) {
+					reject(error);
+				});
 		});
 	}
 
@@ -783,122 +771,115 @@ else{
 	 * Records this quote in the database so we know it happened
 	 *
 	 * @param {int} amount - The amount of the quote
-	 * @param {string} pkg - The package selected by the user
-	 * @param {string} error - An error code
+	 * @param {string} api_result - The integration's api result
 	 * @returns {mixed} - ID on success, error on error
 	 */
-	async record_quote(amount, pkg, error){
-		const encrypted_log = await crypt.encrypt(this.log).catch(function(){
+	async record_quote(amount, api_result) {
+		const encrypted_log = await crypt.encrypt(this.log).catch(function () {
 			log.error('Unable to encrypt log. Proceeding anyway.' + __location);
 		});
 
-		const columns = [
-			'application',
-			'insurer',
-			'log',
-			'policy_type',
-			'seconds',
-			'created'
-		];
-		const values = [
-			this.app.id,
-			this.insurer.id,
-			encrypted_log ? encrypted_log : '',
-			this.policy.type,
-			this.seconds,
-			moment().format('YYYY-MM-DD HH:mm:ss')
-		];
+		const columns = ['application', 'insurer', 'log', 'policy_type', 'seconds', 'created'];
+		const values = [this.app.id, this.insurer.id, encrypted_log ? encrypted_log : '', this.policy.type, this.seconds, moment().format('YYYY-MM-DD HH:mm:ss')];
 
 		// Amount
-		if(amount){
+		if (amount) {
 			columns.push('amount');
 			values.push(amount);
 		}
 
 		// Number
-		if(this.number){
+		if (this.number) {
 			columns.push('number');
 			values.push(this.number);
 		}
 
-		// Package
-		if(pkg){
-			for(let i = 0; i < this.insurer.packages.length; i++){
-				if(this.insurer.packages[i].id === pkg){
-					columns.push('package_type');
-					values.push(this.insurer.packages[i].id);
-					break;
-				}
-			}
-		}
-
 		// Request ID
-		if(this.request_id){
+		if (this.request_id) {
 			columns.push('request_id');
 			values.push(this.request_id);
 		}
 
 		// Writer
-		if(this.writer){
+		if (this.writer) {
 			columns.push('writer');
 			values.push(this.writer);
 		}
 
 		// Error
 		columns.push('api_result');
-		if(error){
-			values.push(error);
-		}
-else{
-			values.push('quoted');
-		}
+		values.push(api_result);
 
 		// Reasons
-		if(this.reasons.length > 0){
+		if (this.reasons.length > 0) {
 			columns.push('reasons');
-			values.push(this.reasons.join(',').replace(/'/g, '\\\'').substring(0, 500));
+			values.push(this.reasons.join(',').replace(/'/g, "\\'").substring(0, 500));
 		}
 
 		// Quote Letter
-		if(this.quote_letter && Object.prototype.hasOwnProperty.call(this.quote_letter, 'data') && this.quote_letter.data){
-
+		if (this.quote_letter && Object.prototype.hasOwnProperty.call(this.quote_letter, 'data') && this.quote_letter.data) {
 			// Generate a UUID to use as the file name
 			const fileName = `${this.generate_uuid()}.pdf`;
 
 			// Store the quote letter in our cloud storage
-			try{
+			try {
 				// Store the quote letter in our cloud storage
 				const result = await fileSvc.PutFile(`secure/quote-letters/${fileName}`, this.quote_letter.data);
 				// The file was successfully saved, store the file name in the database
-				if(result && Object.prototype.hasOwnProperty.call(result, 'code') && result.code === 'Success'){
+				if (result && Object.prototype.hasOwnProperty.call(result, 'code') && result.code === 'Success') {
 					columns.push('quote_letter');
 					values.push(fileName);
 				}
-			}catch(err){
+			} catch (err) {
 				log.error(`S3 error Storing Quote letter : ${fileName} error: ` + err + __location);
 			}
 		}
 
+		// Aggregated Status.
+		columns.push('aggregated_status');
+		values.push(getQuoteAggregatedStatus(false, '', api_result));
+
 		// Insert the quote record
-		const quoteResult = await db.query(`INSERT INTO \`#__quotes\` (\`${columns.join('`,`')}\`) VALUES (${values.map(db.escape).join(',')});`).catch(function(err){
+		const quoteResult = await db.query(`INSERT INTO \`#__quotes\` (\`${columns.join('`,`')}\`) VALUES (${values.map(db.escape).join(',')});`).catch(function (err) {
 			return err;
 		});
 		const quoteID = quoteResult.insertId;
 
 		// Insert the limit records
-		if(Object.keys(this.limits).length){
+		if (Object.keys(this.limits).length) {
 			const limitValues = [];
-			for(const limitId in this.limits){
-				if(Object.prototype.hasOwnProperty.call(this.limits, limitId)){
+			for (const limitId in this.limits) {
+				if (Object.prototype.hasOwnProperty.call(this.limits, limitId)) {
 					limitValues.push(`(${quoteID}, ${limitId}, ${this.limits[limitId]})`);
 				}
 			}
-			db.query(`INSERT INTO \`#__quote_limits\` (\`quote\`, \`limit\`, \`amount\`) VALUES ${limitValues.join(',')};`).catch(function(err){
+			db.query(`INSERT INTO \`#__quote_limits\` (\`quote\`, \`limit\`, \`amount\`) VALUES ${limitValues.join(',')};`).catch(function (err) {
 				log.error(err + __location);
 			});
 		}
-
 		return quoteID;
+	}
+
+	/**
+	 * Generates and returns the proper structure for returning a quote from an integration
+	 *
+	 * @param {int} amount - The amount of the quote as a whole number
+	 * @returns {object} - An object containing the quote information
+	 */
+	async return_quote(amount) {
+		const result = await this.record_quote(amount, 'quoted');
+		return result;
+	}
+
+	/**
+	 * Generates and returns the proper structure for returning an indication from an integration
+	 *
+	 * @param {int} amount - The amount of the indication as a whole number
+	 * @returns {object} - An object containing the indication information
+	 */
+	async return_indication(amount) {
+		const result = await this.record_quote(amount, 'referred_with_price');
+		return result;
 	}
 
 	/**
@@ -908,79 +889,19 @@ else{
 	 * @param {string} message - A user friendly description of the error
 	 * @returns {object} - An error object
 	 */
-	async return_error(type, message){
-		log.info(`${this.insurer.name} ${this.policy.type} ${type}`);
+	async return_error(type, message) {
+		log.info(`${this.insurer.name} returned an error of type ${type} for a ${this.policy.type} policy: ${message}`);
 
 		// If there were reasons, make sure we write them to the log
-		if(this.reasons.length > 0){
+		if (this.reasons.length > 0) {
 			this.reasons.forEach((reason) => {
 				log.verbose(reason);
 			});
 		}
 
 		// Record this quote
-		const id = await this.record_quote(null, null, type);
-
-		// Build and return a response
-		return {
-			'id': id,
-			'insurer': {
-				'id': this.insurer.id,
-				'logo': `${process.env.SITE_URL}/${this.insurer.logo}`,
-				'name': this.insurer.name,
-				'rating': this.insurer.rating
-			},
-			'message': message,
-			'policy_type': this.policy.type,
-			'status': type.indexOf('autodeclined') === -1 ? type : 'declined'
-		};
-	}
-
-	/**
-	 * Generates and returns the proper structure for returning an indication from an integration
-	 *
-	 * @param {int} amount - The amount of the indication as a whole number
-	 * @returns {object} - An object containing the indication information
-	 */
-	async return_indication(amount){
-		// Start building the quote
-		const quote = {};
-		quote.amount = amount;
-		quote.id = 0;
-		quote.instant_buy = false;
-		quote.policy_type = this.policy.type;
-		if(this.quote_letter && Object.prototype.hasOwnProperty.call(this.quote_letter, 'data') && this.quote_letter.data){
-			quote.letter = this.quote_letter.data;
-		}
-
-		// Insurer info
-		quote.insurer = {};
-		quote.insurer.id = this.insurer.id;
-		quote.insurer.logo = `${process.env.SITE_URL}/${this.insurer.logo}`;
-		quote.insurer.name = this.insurer.name;
-		quote.insurer.rating = this.insurer.rating;
-
-		// Limits
-		quote.limits = await this.returnLimits();
-
-		// Record the quote
-		quote.id = await this.record_quote(amount, null, 'referred_with_price');
-
-		// Payment options
-		if(this.insurer.payment_options.length){
-			quote.payment_options = [];
-			this.insurer.payment_options.forEach((payment_option) => {
-				if(amount > payment_option.threshold){
-					quote.payment_options.push({
-						'description': payment_option.description,
-						'id': payment_option.id,
-						'name': payment_option.name
-					});
-				}
-			});
-		}
-
-		return quote;
+		const result = await this.record_quote(null, type);
+		return result;
 	}
 
 	/**
@@ -988,16 +909,16 @@ else{
 	 *
 	 * @returns {object} - The limit information
 	 */
-	async returnLimits(){
+	async returnLimits() {
 		const rtn = {};
 
 		// If there is no limits data, just return an empty object
-		if(!Object.keys(this.limits).length){
+		if (!Object.keys(this.limits).length) {
 			return rtn;
 		}
 
 		// Get the limit descriptions from the database
-		const result = await db.query(`SELECT * FROM \`#__limits\` WHERE \`id\` IN (${Object.keys(this.limits).join(',')}) ORDER BY description ASC;`).catch(function(err){
+		const result = await db.query(`SELECT * FROM \`#__limits\` WHERE \`id\` IN (${Object.keys(this.limits).join(',')}) ORDER BY description ASC;`).catch(function (err) {
 			return err;
 		});
 
@@ -1015,68 +936,65 @@ else{
 	 * @param {string} result - The result of the integration. Must be 'declined', 'quoted', 'referred', or 'referred_with_price'
 	 * @returns {mixed} - An object containing the response to be sent to the user on success, false on failure
 	 */
-	return_result(result){
+	return_result(result) {
 		// Determine the log messages to show
 		const log_messages = {
-			'autodeclined': 'System Autodeclined',
-			'declined': 'Application Declined',
-			'error': 'Integration Error',
-			'outage': 'Insurer System Outage',
-			'quoted': 'Quote Recieved',
-			'referred': 'Application Referred',
-			'referred_with_price': 'Application Referred With Price'
+			autodeclined: 'System Autodeclined',
+			declined: 'Application Declined',
+			error: 'Integration Error',
+			outage: 'Insurer System Outage',
+			quoted: 'Quote Recieved',
+			referred: 'Application Referred',
+			referred_with_price: 'Application Referred With Price'
 		};
 
 		// Make sure we have a result
-		if(!result){
+		if (!result) {
 			const error_message = `${this.insurer.name} ${this.policy.type} Integration Error: Missing argument for return_result(). Must pass in a valid value for result.`;
 			log.error(error_message + __location);
 			this.reasons.push(error_message);
-			return this.return_error('error', 'Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+			return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 		}
 
 		// Make sure the result is one of the ones we are expecting
-		if(!Object.keys(log_messages).includes(result)){
-
+		if (!Object.keys(log_messages).includes(result)) {
 			// If result is a possible API result from an integration, convert it to the Talage equivalent
-			if(Object.keys(this.possible_api_responses).includes(result)){
+			if (Object.keys(this.possible_api_responses).includes(result)) {
 				result = this.possible_api_responses[result];
-			}
-else{
+			} else {
 				const error_message = `${this.insurer.name} ${this.policy.type} Integration Error: Invalid value of '${result}' for result passed to return_result(). Result not specified in the insurer integration.`;
 				log.error(error_message + __location);
 				this.reasons.push(error_message);
-				return this.return_error('error', 'Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+				return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 			}
 
 			// Double check: Is the result now what we are expecting
-			if(!Object.keys(log_messages).includes(result)){
+			if (!Object.keys(log_messages).includes(result)) {
 				const error_message = `${this.insurer.name} ${this.policy.type} Integration Error: Invalid value of '${result}' for result passed to return_result(). Must be a valid value as defined in return_result().`;
 				log.error(error_message + __location);
 				this.reasons.push(error_message);
-				return this.return_error('error', 'Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+				return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 			}
 		}
 
 		// Check if this was referred, but a price was still provided, and if so, update the status
-		if((result === 'referred' || this.indication) && this.amount){
+		if ((result === 'referred' || this.indication) && this.amount) {
 			result = 'referred_with_price';
 		}
 
 		// If this was quoted, make sure we have an amount
-		if((result === 'quoted' || result === 'referred_with_price') && !this.amount){
+		if ((result === 'quoted' || result === 'referred_with_price') && !this.amount) {
 			log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote amount. Response structure may have changed.`);
 			this.reasons.push(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote amount. Response structure may have changed.`);
-			if(result === 'quoted'){
+			if (result === 'quoted') {
 				result = 'error';
-			}
-else{
+			} else {
 				result = 'referred';
 			}
 		}
 
 		// If this was quoted, make sure we have limits
-		if((result === 'quoted' || result === 'referred_with_price') && !Object.keys(this.limits).length){
+		if ((result === 'quoted' || result === 'referred_with_price') && !Object.keys(this.limits).length) {
 			log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to find limits. Response structure may have changed.` + __location);
 		}
 
@@ -1084,23 +1002,23 @@ else{
 		this.log += `--------======= ${log_messages[result]} =======--------<br><br>`;
 
 		// Log the amount
-		if(this.amount){
+		if (this.amount) {
 			this.log += `Quote: ${this.amount}<br>`;
 		}
 
 		// Log the reasons
-		if(this.reasons.length > 0){
+		if (this.reasons.length > 0) {
 			this.log += `The insurer returned the following reasons for why they made this decision:<ul><li>${this.reasons.join('</li><li>')}</li></ul>`;
 		}
 
 		// Take the appropriate action
-		switch(result){
+		switch (result) {
 			case 'autodeclined':
 				return this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time');
 
 			case 'declined':
-				if(this.reasons){
-					this.reasons.forEach(function(reason){
+				if (this.reasons) {
+					this.reasons.forEach(function (reason) {
 						log.verbose(reason);
 					});
 				}
@@ -1109,29 +1027,29 @@ else{
 
 			case 'error':
 				log.error(`${this.insurer.name} ${this.policy.type} Integration Encountered An Error` + __location);
-				if(this.reasons){
-					this.reasons.forEach(function(reason){
+				if (this.reasons) {
+					this.reasons.forEach(function (reason) {
 						log.info(reason);
 					});
 				}
-				return this.return_error('error', 'Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+				return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 
 			case 'outage':
 				log.warn(`${this.insurer.name} ${this.policy.type} Experienced A System Outage At The Time of Quote` + __location);
-				if(this.reasons){
-					this.reasons.forEach(function(reason){
+				if (this.reasons) {
+					this.reasons.forEach(function (reason) {
 						log.verbose(reason);
 					});
 				}
-				return this.return_error('error', 'Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+				return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 
 			case 'quoted':
 				log.info(`${this.insurer.name} ${this.policy.type} Returned Quote(s)`);
 				return this.return_quote(this.amount);
 
 			case 'referred':
-				if(this.reasons){
-					this.reasons.forEach(function(reason){
+				if (this.reasons) {
+					this.reasons.forEach(function (reason) {
 						log.verbose(reason);
 					});
 				}
@@ -1142,79 +1060,7 @@ else{
 				return this.return_indication(this.amount);
 
 			default:
-
 		}
-	}
-
-	/**
-	 * Generates and returns the proper structure for returning a quote from an integration
-	 *
-	 * @param {int} amount - The amount of the quote as a whole number
-	 * @param {string} pkg (optional) - The name of the applicable package, must match what is in our database
-	 * @returns {object} - An object containing the quote information
-	 */
-	async return_quote(amount, pkg){
-		// Start building the quote
-		const quote = {};
-		quote.amount = amount;
-		quote.id = 0;
-		quote.instant_buy = true;
-		if(this.quote_letter && Object.prototype.hasOwnProperty.call(this.quote_letter, 'data') && this.quote_letter.data){
-			quote.letter = this.quote_letter.data;
-		}
-
-		// Insurer info
-		quote.insurer = {};
-		quote.insurer.id = this.insurer.id;
-		quote.insurer.logo = `${process.env.SITE_URL}/${this.insurer.logo}`;
-		quote.insurer.name = this.insurer.name;
-		quote.insurer.rating = this.insurer.rating;
-
-		// Limits
-		quote.limits = await this.returnLimits();
-
-		// Package
-		let package_id = null;
-		if(typeof pkg !== 'undefined' && pkg){
-			let package_found = false;
-			for(let i = 0; i < this.insurer.packages.length; i++){
-				if(this.insurer.packages[i].name === pkg){
-					quote.package = {};
-					package_id = this.insurer.packages[i].id;
-					quote.package.description = this.insurer.packages[i].description;
-					quote.package.name = this.insurer.packages[i].name;
-					package_found = true;
-					break;
-				}
-			}
-			if(!package_found){
-				log.warn(`Undefined package referenced for ${this.insurer.name} ${this.policy.type}` + __location);
-			}
-		}
-
-		// Record this Quote
-		await this.record_quote(amount, package_id).then((id) => {
-			quote.id = id;
-
-			// Payment options
-			if(this.insurer.payment_options.length){
-				quote.payment_options = [];
-				this.insurer.payment_options.forEach((payment_option) => {
-					if(amount > payment_option.threshold){
-						quote.payment_options.push({
-							'description': payment_option.description,
-							'id': payment_option.id,
-							'name': payment_option.name
-						});
-					}
-				});
-			}
-
-			// Policy type
-			quote.policy_type = this.policy.type;
-		});
-
-		return quote;
 	}
 
 	/**
@@ -1227,21 +1073,18 @@ else{
 	 * @param {string} method (optional) - The HTTP method to be used (e.g. POST or GET)
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
 	 */
-	send_request(host, path, data, additional_headers, method){
+	send_request(host, path, data, additional_headers, method) {
 		log.info(`${this.insurer.name} ${this.policy.type} Sending To ${path}`);
 		const start_time = process.hrtime();
 
 		return new Promise((fulfill, reject) => {
-
 			// Determine which method to use
-			if(!method){
+			if (!method) {
 				method = data ? 'POST' : 'GET';
 			}
 
 			// Check that we have a valid method
-			if(!['GET',
-				'POST',
-				'PUT'].includes(method)){
+			if (!['GET', 'POST', 'PUT'].includes(method)) {
 				const error = new Error('Invalid method provided to send_request()');
 				log.error(error.message + __location);
 				reject(error);
@@ -1251,12 +1094,12 @@ else{
 			// Build the headers
 			const headers = {};
 			let content_type_found = false;
-			if(additional_headers){
-				for(const key in additional_headers){
-					if(Object.prototype.hasOwnProperty.call(additional_headers, key)){
-						if(key === 'Content-Type'){
+			if (additional_headers) {
+				for (const key in additional_headers) {
+					if (Object.prototype.hasOwnProperty.call(additional_headers, key)) {
+						if (key === 'Content-Type') {
 							content_type_found = true;
-							if(additional_headers[key] === 'application/x-www-form-urlencoded'){
+							if (additional_headers[key] === 'application/x-www-form-urlencoded') {
 								// Encode the data
 								const querystring = require('querystring');
 								data = querystring.stringify(data);
@@ -1267,7 +1110,7 @@ else{
 					}
 				}
 			}
-			if(!content_type_found){
+			if (!content_type_found) {
 				const error = new Error('No Content-Type header found. The Content-Type header is required for calls to send_request()');
 				log.error(error.message + __location);
 				reject(error);
@@ -1279,14 +1122,14 @@ else{
 
 			// Set the request options
 			const options = {
-				'agent': false,
-				'headers': headers,
-				'hostname': host,
-				'method': method,
-				'path': path,
-				'rejectUnauthorized': false,
-				'requestCert': true,
-				'timeout': 180000
+				agent: false,
+				headers: headers,
+				hostname: host,
+				method: method,
+				path: path,
+				rejectUnauthorized: false,
+				requestCert: true,
+				timeout: 180000
 			};
 
 			const req = https.request(options, (res) => {
@@ -1301,8 +1144,7 @@ else{
 					// Calculate how long this took
 					this.seconds = process.hrtime(start_time)[0];
 
-					if(res.statusCode >= 200 && res.statusCode <= 299){
-
+					if (res.statusCode >= 200 && res.statusCode <= 299) {
 						// Strip AF Group's Quote Letter out of the log
 						let filteredData = rawData.replace(/<com\.afg_Base64PDF>(.*)<\/com\.afg_Base64PDF>/, '<com.afg_Base64PDF>...</com.afg_Base64PDF>');
 
@@ -1311,8 +1153,7 @@ else{
 
 						this.log += `--------======= Response =======--------<br><br><pre>${filteredData}</pre><br><br>`;
 						fulfill(rawData);
-					}
-else{
+					} else {
 						const error = new Error(`Insurer request encountered a ${res.statusCode} error`);
 						log.error(error.message + __location);
 						log.verbose(rawData);
@@ -1329,7 +1170,7 @@ else{
 				reject(new Error(`Connection to ${this.insurer.name} timedout.`));
 			});
 
-			if(data){
+			if (data) {
 				req.write(data);
 			}
 			req.end();
@@ -1347,28 +1188,29 @@ else{
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
 	 */
 
-	send_json_request(host, path, json, additional_headers, method){
-		return new Promise(async(fulfill, reject) => {
+	send_json_request(host, path, json, additional_headers, method) {
+		return new Promise(async (fulfill, reject) => {
 			// If we don't have additional headers, start an object to append
-			if(!additional_headers){
+			if (!additional_headers) {
 				additional_headers = {};
 			}
 
 			// Add in the JSON specific headers
-			if(!Object.prototype.hasOwnProperty.call(additional_headers, 'Content-Type')){
+			if (!Object.prototype.hasOwnProperty.call(additional_headers, 'Content-Type')) {
 				additional_headers['Content-Type'] = 'application/json';
 			}
 			additional_headers.accept = 'application/json';
 
 			// Send the request
-			await this.send_request(host, path, json, additional_headers, method).then((result) => {
-				fulfill(JSON.parse(result));
-			}).catch((error) => {
-				reject(error);
-			});
+			await this.send_request(host, path, json, additional_headers, method)
+				.then((result) => {
+					fulfill(JSON.parse(result));
+				})
+				.catch((error) => {
+					reject(error);
+				});
 		});
 	}
-
 
 	/**
 	 * Sends an XML request to this insurer
@@ -1379,11 +1221,10 @@ else{
 	 * @param {object} additional_headers (optional) - Additional headers to be sent with the request
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
 	 */
-	send_xml_request(host, path, xml, additional_headers){
-		return new Promise(async(fulfill, reject) => {
-
+	send_xml_request(host, path, xml, additional_headers) {
+		return new Promise(async (fulfill, reject) => {
 			// If we don't have additional headers, start an object to append
-			if(!additional_headers){
+			if (!additional_headers) {
 				additional_headers = {};
 			}
 
@@ -1391,31 +1232,33 @@ else{
 			additional_headers['Content-Length'] = Buffer.byteLength(xml);
 
 			// Add in the XML specific headers
-			if(!Object.prototype.hasOwnProperty.call(additional_headers, 'Content-Type')){
+			if (!Object.prototype.hasOwnProperty.call(additional_headers, 'Content-Type')) {
 				additional_headers['Content-Type'] = 'text/xml';
 			}
 
 			// Send the request
-			await this.send_request(host, path, xml, additional_headers, 'POST').then((raw_data) => {
+			await this.send_request(host, path, xml, additional_headers, 'POST')
+				.then((raw_data) => {
+					// Convert the data to a string
+					const str_data = raw_data.toString();
 
-				// Convert the data to a string
-				const str_data = raw_data.toString();
+					// Convert the response to XML
+					xmlToObj(str_data, (err, result) => {
+						if (err) {
+							reject({
+								// eslint-disable-line prefer-promise-reject-errors
+								message: 'Response from API was not XML',
+								raw: str_data
+							});
+							return;
+						}
 
-				// Convert the response to XML
-				xmlToObj(str_data, (err, result) => {
-					if(err){
-						reject({// eslint-disable-line prefer-promise-reject-errors
-							'message': 'Response from API was not XML',
-							'raw': str_data
-						});
-						return;
-					}
-
-					fulfill(result);
+						fulfill(result);
+					});
+				})
+				.catch((error) => {
+					reject(error);
 				});
-			}).catch((error) => {
-				reject(error);
-			});
 		});
 	}
 
@@ -1424,24 +1267,24 @@ else{
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an true or an object containing error information on success
 	 */
-	_insurer_supports_activity_codes(){
-		return new Promise(async(fulfill) => {
+	_insurer_supports_activity_codes() {
+		return new Promise(async (fulfill) => {
 			// Get all of the WC Codes with their ID and territory, removing duplicates
 			const wcCodes = {};
-			this.app.business.locations.forEach(function(location){
-				location.activity_codes.forEach(function(activity_code){
+			this.app.business.locations.forEach(function (location) {
+				location.activity_codes.forEach(function (activity_code) {
 					// Check if this code already existed
-					if(!Object.prototype.hasOwnProperty.call(wcCodes, `${location.territory}${activity_code.id}`)){
+					if (!Object.prototype.hasOwnProperty.call(wcCodes, `${location.territory}${activity_code.id}`)) {
 						wcCodes[`${location.territory}${activity_code.id}`] = {
-							'id': activity_code.id,
-							'territory': location.territory
+							id: activity_code.id,
+							territory: location.territory
 						};
 					}
 				});
 			});
 
 			// Build some WHERE statements from those codes
-			const whereCombinations = Object.values(wcCodes).map(function(codeObj){
+			const whereCombinations = Object.values(wcCodes).map(function (codeObj) {
 				return `(\`ac\`.\`id\` = ${db.escape(codeObj.id)} AND \`inc\`.\`territory\` = ${db.escape(codeObj.territory)})`;
 			});
 
@@ -1463,17 +1306,17 @@ else{
 			const codes = await db.query(sql).catch((error) => {
 				log.error(error + __location);
 				this.reasons.push('System Error: insurer_supports_activity_codes() failed to get codes.');
-				fulfill(this.return_error('error', 'Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 			});
 
-			if(!codes.length){
+			if (!codes.length) {
 				this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code');
 				fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
 				return;
 			}
 
 			// Make sure the number of codes matched (otherwise there were codes unsupported by this insurer)
-			if(Object.keys(wcCodes).length !== codes.length){
+			if (Object.keys(wcCodes).length !== codes.length) {
 				this.reasons.push('Out of Appetite: The insurer does not support one or more of the selected activity codes');
 				fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
 				return;
@@ -1481,13 +1324,13 @@ else{
 
 			// Load the codes locally
 			codes.forEach((code) => {
-				if(code.result === 0){
+				if (code.result === 0) {
 					this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code');
 					fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
 					hadError = true;
 					return;
 				}
-				if(code.state){
+				if (code.state) {
 					this.insurer_wc_codes[code.territory + code.id] = code.code + (code.sub ? code.sub : '');
 					return;
 				}
@@ -1496,7 +1339,7 @@ else{
 				hadError = true;
 			});
 
-			if(hadError){
+			if (hadError) {
 				return;
 			}
 
@@ -1509,14 +1352,14 @@ else{
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an true or an object containing error information on success
 	 */
-	_insurer_supports_industry_codes(){
-		return new Promise(async(fulfill) => {
+	_insurer_supports_industry_codes() {
+		return new Promise(async (fulfill) => {
 			// Query the database to see if this insurer supports this industry code
 			const sql = `SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.naics, ic.iso, iic.attributes FROM #__industry_codes AS ic LEFT JOIN #__insurer_industry_codes AS iic ON (iic.type = 'i' AND iic.code = ic.iso) OR (iic.type = 'c' AND iic.code = ic.cgl) OR (iic.type = 'n' AND iic.code = ic.naics) OR (iic.type = 's' AND iic.code = ic.sic) WHERE iic.insurer = ${this.insurer.id} AND ic.id = ${this.app.business.industry_code} AND iic.territory = '${this.app.business.primary_territory}' LIMIT 1;`;
 			const result = await db.query(sql).catch(() => {
-				fulfill(this.return_error('error', 'Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+				fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 			});
-			if(!result || !result.length){
+			if (!result || !result.length) {
 				this.reasons.push('Out of Appetite: The insurer does not support the industry code selected');
 				fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
 				return;
@@ -1525,10 +1368,9 @@ else{
 			this.industry_code = result[0];
 
 			// If there are attributes, parse them for later use
-			if(this.industry_code.attributes && Object.keys(this.industry_code.attributes).length > 0){
+			if (this.industry_code.attributes && Object.keys(this.industry_code.attributes).length > 0) {
 				this.industry_code.attributes = JSON.parse(this.industry_code.attributes);
-			}
-else{
+			} else {
 				this.industry_code.attributes = '';
 			}
 
