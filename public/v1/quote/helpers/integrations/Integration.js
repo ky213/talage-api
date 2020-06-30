@@ -243,8 +243,30 @@ module.exports = class Integration {
 			return 'No';
 		}
 
-		// If the answer is based on a database entry, process it differently than text based answers
-		if (question.type === 'Yes/No' || question.type === 'Checkbox' || question.type === 'Select List') {
+		// If this is a checkbox, process each possible answer
+		if(question.type === 'Checkboxes'){
+			let answers = [];
+
+			// Loop over each possible answer
+			for(const answer_id of question.answer){
+				// Make sure the answer is permitted
+				if (!Object.prototype.hasOwnProperty.call(question.possible_answers, answer_id)) {
+					// This shouldn't have happened, throw an error
+					log.error(`${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible. This should have been caught in the validation stage.` + __location);
+					log.verbose('The question is as follows:');
+					log.verbose(util.inspect(question, false, null));
+					throw new Error(`${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible`);
+				}
+
+				// Add the answer to the answers array
+				answers.push(question.possible_answers[answer_id].answer);
+			}
+
+			// Return the answers as a comma separated string
+			answer = answers.join(', ');
+
+		// If this is a Boolean or Select List question, get the answer expected by the carrier
+		}else if (question.type === 'Yes/No' || question.type === 'Select List') {
 			// Determine the answer based on the Answer ID stored in our database
 			if (!Object.prototype.hasOwnProperty.call(question.possible_answers, question.answer_id)) {
 				// This shouldn't have happened, throw an error
