@@ -4,9 +4,10 @@
 
 'use strict';
 
-const AgencyLocationInsurers = require('./AgencyLocationInsurers');
+const AgencyLocationInsurers = require('./AgencyLocationInsurers-model');
 const DatabaseObject = require('./DatabaseObject.js');
-const serverHelper = require('../../../../../server.js');
+//const serverHelper = require('../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
 const validator = global.requireShared('./helpers/validator.js');
 
 const constructors = {'AgencyLocationInsurers': AgencyLocationInsurers};
