@@ -10,6 +10,10 @@ const general_info_x = 580;
 const activity_code_y = 130;
 
 module.exports = {
+	'additional_insured':{
+		'x': 70,
+		'y': 675
+	},
 	'agency': {
 		'x': 47,
 		'y': 70
@@ -353,6 +357,10 @@ module.exports = {
 	'territory_list': {
 		'x': 23,
 		'y': 420
+	},
+	'waiver_subrogation':{
+		'x': 70,
+		'y': 660
 	},
 	'yrs_in_bus': {
 		'x': 485,

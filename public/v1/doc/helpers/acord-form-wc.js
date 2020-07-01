@@ -125,6 +125,30 @@ exports.state_rating_sheets = function(data, ncci_codes){
 
 		}
 
+		// Add remarks at the bottom of the first state rating sheet only
+		if(current_rating_sheet === 1){
+			// Add remark if waiver of subrogation is requested
+			if(ncci_codes.waiver_subrogation){
+				rating_sheets = rating_sheets.concat([
+					{
+						'absolutePosition': positions.waiver_subrogation,
+						'text': 'Waiver of Subrogation Requested',
+						'style': styles.remarks
+					}
+				])
+			}
+			// Add remark if additional insured is requested
+			if(ncci_codes.additional_insured){
+				rating_sheets = rating_sheets.concat([
+					{
+						'absolutePosition': positions.additional_insured,
+						'text': 'Additional Insured Requested',
+						'style': styles.remarks
+					}
+				])
+			}
+		}
+
 		// Increase the rating sheet page number
 		current_rating_sheet++;
 	}

@@ -19,6 +19,7 @@ module.exports = {
 	'owner': {'fontSize': 9},
 	'rating_sheet_page': {'fontSize': 12},
 	'rating_sheet_territory': {'fontSize': 11},
+	'remarks': {'fontSize': 10},
 	'sic': {'fontSize': 7},
 	'website': {'fontSize': 6}
 };

@@ -89,6 +89,8 @@ async function GetACORDFormWC(req, res, next){
 					\`insured_zip\`.\`territory\`,
 					\`app\`.\`owners_covered\`,
 					\`app\`.\`has_ein\`,
+					\`app\`.\`waiver_subrogation\`,
+					\`app\`.\`additional_insured\`,
 					IFNULL(\`app\`.\`agency\`, 1) AS \`agent\`,
 					\`app\`.\`wc_limits\` AS \`limits\`,
 					\`agency\`.\`name\` AS \`agencyName\`,
@@ -850,6 +852,8 @@ else{
 	// Add NAICS and SIC to ncci code data
 	ncci_data.naics = application_data[0].naics;
 	ncci_data.sic = application_data[0].sic;
+	ncci_data.waiver_subrogation = application_data[0].waiver_subrogation;
+	ncci_data.additional_insured = application_data[0].additional_insured;
 
 	// Generate all the state rating sheets and add them to the document
 	stateRatingResult = await generate.state_rating_sheets(activity_code_data, ncci_data);
