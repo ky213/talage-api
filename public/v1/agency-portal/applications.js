@@ -43,10 +43,11 @@ function validateParameters(parent, expectedParameters){
 /**
  * Generate a CSV file of exported application data
  *
- * @params {array} agents - The list of agents this user is permitted to access
+ * @param {array} agents - The list of agents this user is permitted to access
+ * @param {mixed} agencyNetwork - The ID of the agency network if the user is an agency network user, false otherwise
  * @returns {Promise.<String, Error>} A promise that returns a string of CSV data on success, or an Error object if rejected
  */
-function generateCSV(agents){
+function generateCSV(agents, agencyNetwork){
 	return new Promise(async(fulfill, reject) => {
 		let error = false;
 
@@ -82,7 +83,7 @@ function generateCSV(agents){
 		};
 
 		// Prepare to get all application data
-		const sql = `
+		let sql = `
 			SELECT
 				\`a\`.\`id\`,
 				\`a\`.\`status\`,
@@ -115,9 +116,20 @@ function generateCSV(agents){
 			LEFT JOIN \`#__zip_codes\` AS \`z\` ON \`ad\`.\`zip\` = \`z\`.\`zip\`
 			LEFT JOIN \`#__zip_codes\` AS \`z2\` ON \`pa\`.\`zip\` = \`z2\`.\`zip\`
 			WHERE
-				\`a\`.\`agency\` IN (${agents.join()})
-				AND \`a\`.\`state\` > 0;
+				\`a\`.\`state\` > 0
 		`;
+
+		// If this is an AF Group Agency Network user, exclude Agency 42 from the output
+		if(agencyNetwork === 2){
+			sql += ' AND a.agency != 42';
+		}
+
+		// This is a very special case. If this is the agency 'Solepro' (ID 12) is asking for applications, query differently
+		if(!agencyNetwork && agents[0] === 12){
+			sql += ` AND \`a\`.\`solepro\` = 1`;
+		}else{
+			sql += ` AND \`a\`.\`agency\` IN(${agents.join()})`;
+		}
 
 		// Run the query
 		const data = await db.query(sql).catch(function(err){
@@ -279,9 +291,12 @@ async function getApplications(req, res, next){
 		return next(error);
 	}
 
+	// Localize data variables that the user is permitted to access
+	const agencyNetwork = parseInt(req.authentication.agencyNetwork, 10);
+
 	// Check if we are exporting a CSV instead of the JSON list
 	if(req.params && Object.prototype.hasOwnProperty.call(req.params, 'format') && req.params.format === 'csv'){
-		const csvData = await generateCSV(agents,res).catch(function(e){
+		const csvData = await generateCSV(agents,agencyNetwork).catch(function(e){
 			error = e;
 		});
 		if(error){
@@ -367,9 +382,6 @@ async function getApplications(req, res, next){
 		log.info('Bad Request: No agencies permitted');
 		return next(serverHelper.requestError('Bad Request: No agencies permitted'));
 	}
-
-	// Localize data variables that the user is permitted to access
-	const agencyNetwork = parseInt(req.authentication.agencyNetwork, 10);
 
 	// This is a very special case. If this is the agent 'Solepro' (ID 12) asking for applications, query differently
 	let where = agencyNetwork === 2 ? ' AND a.agency != 42' : '';

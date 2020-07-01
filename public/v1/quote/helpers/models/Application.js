@@ -4,7 +4,6 @@
 
 'use strict';
 
-const util = require('util');
 const email = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
@@ -20,7 +19,6 @@ const serverHelper = require('../../../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
 
 module.exports = class Application {
-
 	constructor() {
 		this.agencyLocation = null;
 		this.business = null;
@@ -75,7 +73,7 @@ module.exports = class Application {
 							if (match_found) {
 								desired_insurers.push(insurer);
 							}
-							else {
+ else {
 								log.info(`Agent does not support ${policy.type} policies through insurer ${insurer}`);
 								reject(serverHelper.requestError('Agent does not support this request'));
 								stop = true;
@@ -105,7 +103,7 @@ module.exports = class Application {
 					return;
 				}
 			}
-			else {
+ else {
 				// Only use the insurers supported by this agent
 				desired_insurers = Object.keys(this.agencyLocation.insurers);
 			}
@@ -185,10 +183,10 @@ module.exports = class Application {
 			this.agencyLocation = new AgencyLocation(this);
 			// Note: The front-end is sending in 'agent' but this is really a reference to the 'agency location'
 			if (data.agent) {
-				await this.agencyLocation.load({'id': data.agent});
+				await this.agencyLocation.load({id: data.agent});
 			}
-			else {
-				await this.agencyLocation.load({'id': 1}); // This is Talage's agency location record
+ else {
+				await this.agencyLocation.load({id: 1}); // This is Talage's agency location record
 			}
 
 			// Load the business information
@@ -228,10 +226,8 @@ module.exports = class Application {
 			// Generate example quotes for each policy type
 			const quotes = [];
 			this.policies.forEach((policy) => {
-
 				// Generate example quotes for each insurer for the given policy type
 				this.insurers.forEach(function(insurer) {
-
 					// Check that the insurer supports this policy type
 					if (insurer.policy_types.indexOf(policy.type) >= 0) {
 						// Determine the amount
@@ -243,7 +239,7 @@ module.exports = class Application {
 							limits['Employers Liability Disease Policy Limit'] = 1000000;
 							limits['Employers Liability Per Occurrence'] = 1000000;
 						}
-						else {
+ else {
 							limits['Damage to Rented Premises'] = '1000000';
 							limits['Each Occurrence'] = '1000000';
 							limits['General Aggregate'] = '1000000';
@@ -258,9 +254,9 @@ module.exports = class Application {
 							insurer.payment_options.forEach(function(payment_option) {
 								if (amount > payment_option.threshold) {
 									payment_options.push({
-										'description': payment_option.description,
-										'id': payment_option.id,
-										'name': payment_option.name
+										description: payment_option.description,
+										id: payment_option.id,
+										name: payment_option.name
 									});
 								}
 							});
@@ -268,18 +264,18 @@ module.exports = class Application {
 
 						// Build the quote
 						quotes.push({
-							'amount': amount,
-							'id': quotes.length + 1,
-							'instant_buy': Math.random() >= 0.5,
-							'insurer': {
-								'id': insurer.id,
-								'logo': `${global.settings.SITE_URL}/${insurer.logo}`,
-								'name': insurer.name,
-								'rating': insurer.rating
+							amount: amount,
+							id: quotes.length + 1,
+							instant_buy: Math.random() >= 0.5,
+							insurer: {
+								id: insurer.id,
+								logo: `${global.settings.SITE_URL}/${insurer.logo}`,
+								name: insurer.name,
+								rating: insurer.rating
 							},
-							'limits': limits,
-							'payment_options': payment_options,
-							'policy_type': policy.type
+							limits: limits,
+							payment_options: payment_options,
+							policy_type: policy.type
 						});
 					}
 				});
@@ -292,8 +288,8 @@ module.exports = class Application {
 			}
 
 			const json = {
-				'done': true,
-				'quotes': quotes
+				done: true,
+				quotes: quotes
 			};
 
 			fulfill(json);
@@ -303,126 +299,68 @@ module.exports = class Application {
 	/**
 	 * Begins the process of getting and returning quotes from insurers
 	 *
-	 * @param {object} socket - The socket.io socket to use for asynchronous quote returns (optional - when ommitted will compile all quotes before returning)
-	 * @returns {Promise.<object, Error>} A promise that returns an object containing an example API response if resolved, or an Error if rejected
+	 * @returns {void}
 	 */
-	run_quotes(socket = false) {
-		log.verbose('Running quotes');
+	async run_quotes() {
+		// Generate quotes for each policy type
+		const fs = require('fs');
+		const quote_promises = [];
+		const policyTypeReferred = {};
+		const policyTypeQuoted = {};
 
-		return new Promise(async(fulfill, reject) => {
-			// Generate quotes for each policy type
-			const fs = require('fs');
-			const quote_promises = [];
-			const socket_quotes = [];
-			const policyTypeReferred = {};
-			const policyTypeQuoted = {};
-			let quotes_done = 0;
-			let total_quotes_requested = 0;
-
-			this.policies.forEach((policy) => {
-
-				// Generate quotes for each insurer for the given policy type
-				this.insurers.forEach((insurer) => {
-
-					// Check that the given policy type is enabled for this insurer
-					if (insurer.policy_types.indexOf(policy.type) >= 0) {
-						// Check if the integration file for this insurer exists
-						const normalizedPath = `${__dirname}/../integrations/${insurer.slug}/${policy.type.toLowerCase()}.js`;
-						if (fs.existsSync(normalizedPath)) {
-							// Require the integration file and add the response to our promises
-							const IntegrationClass = require(normalizedPath);
-							const integration = new IntegrationClass(this, insurer, policy);
-							total_quotes_requested++;
-							if (socket) {
-								integration.quote().then((quote) => {
-									// Record the quote and send it to the user
-									socket_quotes.push(quote);
-									log.verbose('Quote Received');
-									socket.emit('quote', quote);
-
-									// Determine the result of this quote
-									if (Object.prototype.hasOwnProperty.call(quote, 'amount') && quote.amount) {
-										// Quote
-										policyTypeQuoted[quote.policy_type] = true;
-									}
-									else if (Object.prototype.hasOwnProperty.call(quote, 'status') && quote.status === 'referred') {
-										// Referred
-										policyTypeReferred[quote.policy_type] = true;
-									}
-
-									// Increment the counter
-									quotes_done++;
-
-									// If this was the last quote we are expecting, close the socket
-									if (quotes_done === total_quotes_requested) {
-										this.send_notifications(socket_quotes);
-
-										// Update the application state
-										this.updateApplicationState(this.policies.length, Object.keys(policyTypeQuoted).length, Object.keys(policyTypeReferred).length);
-
-										// Indicate we are done processing and disconnect
-										socket.emit('status', 'done');
-										socket.disconnect();
-									}
-
-									// Strip out file data and log
-									if (Object.prototype.hasOwnProperty.call(quote, 'letter') && Object.prototype.hasOwnProperty.call(quote.letter, 'data')) {
-										quote.letter.data = '...';
-									}
-									log.verbose(util.inspect(quote, false, null));
-								});
-							}
-							else {
-								quote_promises.push(integration.quote());
-							}
-						}
-						else {
-							log.warn(`Insurer integration file does not exist: ${insurer.name} ${policy.type}` + __location);
-						}
+		this.policies.forEach((policy) => {
+			// Generate quotes for each insurer for the given policy type
+			this.insurers.forEach((insurer) => {
+				// Check that the given policy type is enabled for this insurer
+				if (insurer.policy_types.indexOf(policy.type) >= 0) {
+					// Check if the integration file for this insurer exists
+					const normalizedPath = `${__dirname}/../integrations/${insurer.slug}/${policy.type.toLowerCase()}.js`;
+					if (fs.existsSync(normalizedPath)) {
+						// Require the integration file and add the response to our promises
+						const IntegrationClass = require(normalizedPath);
+						const integration = new IntegrationClass(this, insurer, policy);
+						quote_promises.push(integration.quote());
 					}
-				});
+ else {
+						log.warn(`Insurer integration file does not exist: ${insurer.name} ${policy.type}` + __location);
+					}
+				}
 			});
-
-			// Wait for all quotes to finish
-			const quotes = [];
-			await Promise.all(quote_promises).then(function(all_quotes) {
-				all_quotes.forEach(function(quote) {
-					quotes.push(quote);
-
-					// Determine the result of this quote
-					if (Object.prototype.hasOwnProperty.call(quote, 'amount') && quote.amount) {
-						// Quote
-						policyTypeQuoted[quote.policy_type] = true;
-					}
-					else if (Object.prototype.hasOwnProperty.call(quote, 'status') && quote.status === 'referred') {
-						// Referred
-						policyTypeReferred[quote.policy_type] = true;
-					}
-				});
-			}).catch(function(error) {
-				reject(error);
-			});
-
-			// Check for no quotes
-			if (quotes.length < 1) {
-				fulfill(serverHelper.requestError('The request submitted will not result in quotes. Please check the insurers specified and ensure they support the policy types selected.'));
-				return;
-			}
-
-			// Update the application state
-			this.updateApplicationState(this.policies.length, Object.keys(policyTypeQuoted).length, Object.keys(policyTypeReferred).length);
-
-			// Send a notification to Slack about this application
-			this.send_notifications(quotes);
-
-			// Build the final JSON
-			const json = {
-				'done': true,
-				'quotes': quotes
-			};
-
-			fulfill(json);
 		});
+
+		// Wait for all quotes to finish
+		let quotes = null;
+		try {
+			quotes = await Promise.all(quote_promises);
+		}
+ catch (error) {
+			log.error(`Could not get quotes for application ${this.id}: ${error} ${__location}`);
+			return;
+		}
+
+		// Check for no quotes
+		if (quotes.length < 1) {
+			log.error(`No quotes returned for application ${this.id}`);
+			return;
+		}
+
+		// Determine the type of policy quoted for the application state
+		quotes.forEach((quote) => {
+			// Determine the result of this quote
+			if (Object.prototype.hasOwnProperty.call(quote, 'amount') && quote.amount) {
+				// Quote
+				policyTypeQuoted[quote.policy_type] = true;
+			}
+ else if (Object.prototype.hasOwnProperty.call(quote, 'status') && quote.status === 'referred') {
+				// Referred
+				policyTypeReferred[quote.policy_type] = true;
+			}
+		});
+		// Update the application state
+		this.updateApplicationState(this.policies.length, Object.keys(policyTypeQuoted).length, Object.keys(policyTypeReferred).length);
+
+		// Send a notification to Slack about this application
+		this.send_notifications(quotes);
 	}
 
 	/**
@@ -432,7 +370,6 @@ module.exports = class Application {
 	 * @returns {void}
 	 */
 	async send_notifications(quotes) {
-
 		if (global.settings.ENV === 'development') {
 			log.info('!!! Skipping sending notification (slack and email) due to development environment. !!!');
 			return;
@@ -451,7 +388,6 @@ module.exports = class Application {
 
 		// Send an emails if there were no quotes generated
 		if (!all_had_quotes && !some_quotes) {
-
 			// Get the email information from the database
 			const sql = `SELECT
 				\`email_brand\` AS emailBrand,
@@ -468,10 +404,8 @@ module.exports = class Application {
 			});
 
 			if (emailData && emailData[0]) {
-
 				// Reduce the result for easier reference
 				emailData = emailData[0];
-
 
 				/* ---=== Email to Insured === --- */
 
@@ -499,17 +433,20 @@ module.exports = class Application {
 				subject = subject.replace(/{{Agency}}/g, this.agencyLocation.agency);
 
 				// Send the email message
-				email.send(this.business.contacts[0].email, subject, message, {
-					'agencyLocation': this.agencyLocation.id,
-					'application': this.id
-				}, brand, this.agencyLocation.agencyId);
-
+				email.send(this.business.contacts[0].email,
+					subject,
+					message,
+					{
+						agencyLocation: this.agencyLocation.id,
+						application: this.id
+					},
+					brand,
+					this.agencyLocation.agencyId);
 
 				/* ---=== Email to Agency === --- */
 
 				// Do not send if this is Talage
 				if (this.agencyLocation.agencyId > 2) {
-
 					// Determine the portal login link
 					let portalLink = '';
 					switch (global.settings.ENV) {
@@ -547,44 +484,50 @@ module.exports = class Application {
 					message = message.replace(/{{Quote Result}}/g, quotes[0].status.charAt(0).toUpperCase() + quotes[0].status.substring(1));
 
 					// Send the email message
-					email.send(this.agencyLocation.agencyEmail, subject, message, {
-						'agencyLocation': this.agencyLocation.id,
-						'application': this.id
-					}, emailData.emailBrand, this.agencyLocation.agencyId);
+					email.send(this.agencyLocation.agencyEmail,
+						subject,
+						message,
+						{
+							agencyLocation: this.agencyLocation.id,
+							application: this.id
+						},
+						emailData.emailBrand,
+						this.agencyLocation.agencyId);
 				}
 			}
 		}
 
 		// Only send Slack messages on Talage applications
 		if (this.agencyLocation.agencyId <= 2) {
-
 			// Build out the 'attachment' for the Slack message
 			const attachment = {
-				'application_id': this.id,
-				'fields': [
+				application_id: this.id,
+				fields: [
 					{
-						'short': false,
-						'title': 'Business Name',
-						'value': this.business.name + (this.business.dba ? ` (dba. ${this.business.dba})` : '')
+						short: false,
+						title: 'Business Name',
+						value: this.business.name + (this.business.dba ? ` (dba. ${this.business.dba})` : '')
 					}, {
-						'short': false,
-						'title': 'Industry',
-						'value': this.business.industry_code_description
+						short: false,
+						title: 'Industry',
+						value: this.business.industry_code_description
 					}
 				],
-				'text': `${this.business.name} from ${this.business.primary_territory} completed an application for ${this.policies.map(function(policy) {
-					return policy.type;
-				}).join(' and ')}`
+				text: `${this.business.name} from ${this.business.primary_territory} completed an application for ${this.policies.
+					map(function(policy) {
+						return policy.type;
+					}).
+					join(' and ')}`
 			};
 
 			// Send a message to Slack
 			if (all_had_quotes) {
 				slack.send('customer_success', 'ok', 'Application completed and the user received ALL quotes', attachment);
 			}
-			else if (some_quotes) {
+ else if (some_quotes) {
 				slack.send('customer_success', 'ok', 'Application completed and only SOME quotes returned', attachment);
 			}
-			else {
+ else {
 				slack.send('customer_success', 'warning', 'Application completed, but the user received NO quotes', attachment);
 			}
 		}
@@ -607,7 +550,7 @@ module.exports = class Application {
 		if (numPolicyTypesRequested === numPolicyTypesQuoted) {
 			state = 13; // Quoted
 		}
-		else if (numPolicyTypesRequested === numPolicyTypesReferred) {
+ else if (numPolicyTypesRequested === numPolicyTypesReferred) {
 			state = 12; // Referred
 		}
 
@@ -637,7 +580,7 @@ module.exports = class Application {
 
 			// Agent
 			await this.agencyLocation.validate().catch(function(error) {
-				log.error("Location.validate() error " + error + __location);
+				log.error('Location.validate() error ' + error + __location);
 				reject(error);
 				stop = true;
 			});
@@ -647,7 +590,7 @@ module.exports = class Application {
 
 			// Initialize the agent so it is ready for later
 			await this.agencyLocation.init().catch(function(error) {
-				log.error("Location.init() error " + error);
+				log.error('Location.init() error ' + error);
 				reject(error);
 				stop = true;
 			});
@@ -666,7 +609,7 @@ module.exports = class Application {
 					if (this.agencyLocation.wholesale) {
 						// Switching to the Talage agent
 						this.agencyLocation = new AgencyLocation(this);
-						await this.agencyLocation.load({'id': 1}); // This is Talage's agency location record
+						await this.agencyLocation.load({id: 1}); // This is Talage's agency location record
 
 						// Initialize the agent so we can use it
 						await this.agencyLocation.init().catch(function(init_error) {
@@ -681,8 +624,8 @@ module.exports = class Application {
 					reject(serverHelper.requestError('The Agent specified cannot support this policy.'));
 					stop = true;
 				}
-				else {
-					log.error("get insurers error " + error + __location);
+ else {
+					log.error('get insurers error ' + error + __location);
 					reject(error);
 					stop = true;
 				}
@@ -697,7 +640,7 @@ module.exports = class Application {
 
 			// Validate the business
 			await this.business.validate().catch(function(error) {
-				log.error("business.validate() error " + error + __location);
+				log.error('business.validate() error ' + error + __location);
 				reject(error);
 				stop = true;
 			});
@@ -724,7 +667,7 @@ module.exports = class Application {
 			const insurer_ids = this.get_insurer_ids();
 			const wc_codes = this.get_wc_codes();
 			const questions = await get_questions(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids).catch(function(error) {
-				log.error("get_questions error " + error + __location);
+				log.error('get_questions error ' + error + __location);
 				reject(error);
 			});
 
@@ -746,7 +689,7 @@ module.exports = class Application {
 							const user_answer = user_questions[q.id];
 
 							q.set_answer(user_answer).catch(function(error) {
-								log.error("set answers error " + error + __location);
+								log.error('set answers error ' + error + __location);
 								reject(error);
 								has_error = true;
 							});
@@ -788,7 +731,7 @@ module.exports = class Application {
 								question.required = true;
 							}
 						}
-						else {
+ else {
 							question.required = true;
 						}
 
@@ -823,7 +766,7 @@ module.exports = class Application {
 
 			// Check agent support
 			await this.agencyLocation.supports_application().catch(function(error) {
-				log.error("agencyLocation.supports_application() error " + error + __location);
+				log.error('agencyLocation.supports_application() error ' + error + __location);
 				reject(error);
 				stop = true;
 			});
