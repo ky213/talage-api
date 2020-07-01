@@ -85,7 +85,6 @@ function generateCSV(agents, agencyNetwork){
 		// Prepare to get all application data
 		let sql = `
 			SELECT
-				\`a\`.\`id\`,
 				\`a\`.\`status\`,
 				\`ad\`.\`address\`,
 				\`ad\`.\`address2\`,
@@ -214,8 +213,7 @@ function generateCSV(agents, agencyNetwork){
 			'phone': 'Contact Phone',
 			'entity_type': 'Entity Type',
 			'ein': 'EIN',
-			'website': 'Website',
-			'id': 'ID'
+			'website': 'Website'
 		};
 
 		// Establish the headers for the CSV file
