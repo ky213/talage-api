@@ -5,6 +5,8 @@ const validator = global.requireShared('./helpers/validator.js');
 const auth = require('./helpers/auth.js');
 const request = require('request');
 const serverHelper = require('../../../server.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('/helpers/tracker.js');
 
 /**
  * Responds to get requests for the certificate endpoint
@@ -23,7 +25,7 @@ async function getSettings(req, res, next){
 	if (error){
 		return next(error);
 	}
-
+	// Todo replace to use Model
 	const sql = `
 			SELECT
 				\`name\`,
@@ -34,13 +36,14 @@ async function getSettings(req, res, next){
 				\`phone\`,
 				\`slug\`,
 				\`website\`,
-				\`ca_license_number\`
+				\`ca_license_number\`,
+				\`enable_optout\`
 			FROM \`#__agencies\`
 			WHERE \`id\` = ${db.escape(agents[0])}
 			LIMIT 1;
 		`;
 	const result = await db.query(sql).catch(function(err){
-		log.error(err.message);
+		log.error(err.message + __location);
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});
 
@@ -77,7 +80,7 @@ async function getSettings(req, res, next){
 			GROUP BY \`al\`.\`id\`;
 		`;
 	const locations = await db.query(locationSQL).catch(function(err){
-		log.error(err.message);
+		log.error(err.message + __location);
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});
 
@@ -112,7 +115,7 @@ async function getSettings(req, res, next){
 				WHERE \`ali\`.\`agency_location\` IN (${Object.keys(settings.locations)});
 			`;
 		const insurers = await db.query(insurerSQL).catch(function(err){
-			log.error(err.message);
+			log.error(err.message + __location);
 			return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 		});
 
@@ -171,7 +174,7 @@ async function updateSettings(req, res, next){
 
 	// Check for data
 	if (!req.body){
-		log.warn('No data was received');
+		log.warn('No data was received' + __location);
 		return next(serverHelper.requestError('No data was received'));
 	}
 
@@ -189,10 +192,12 @@ async function updateSettings(req, res, next){
 		"name": '',
 		"phone": '',
 		"slug": '',
-		"website": ''
+		"website": '',
+		"enable_optout": 0
 	};
 
 	settings.slug = req.body.settings.slug ? req.body.settings.slug : '';
+	settings.enable_optout = req.body.settings.enable_optout ? req.body.settings.enable_optout : 0;
 
 	let logo = null;
 	if (Object.prototype.hasOwnProperty.call(req.body.settings, 'logo') && req.body.settings.logo){
@@ -200,6 +205,7 @@ async function updateSettings(req, res, next){
 
 		if (Object.prototype.hasOwnProperty.call(req.body, 'removeLogo') && req.body.removeLogo){
 			// Establish the options for the request
+			//TODO convert to Filesvc.
 			const options = {
 				"method": 'DELETE',
 				"url": `http://localhost:${global.settings.PRIVATE_API_PORT}/v1/file/file?path=public/agency-logos/${req.body.removeLogo}`
@@ -217,14 +223,14 @@ async function updateSettings(req, res, next){
 				if (response.statusCode !== 200){
 					// The response is JSON, parse out the error
 					const message = `${response.statusCode} - ${body.message}`;
-					log.warn(message);
+					log.warn(message + __location);
 				}
 			});
 			if (error){
 				return next(error);
 			}
 		}
-
+		// TODO rewrite to not make http call
 		if (Object.prototype.hasOwnProperty.call(req.body, 'logo') && req.body.logo){
 			// Establish the options for the request
 			logo = `${agents[0]}-${req.body.settings.logo.replace(/[^a-zA-Z0-9-_]/g, '')}`;
@@ -244,7 +250,7 @@ async function updateSettings(req, res, next){
 				// If there was an error, reject
 				if (e){
 					error = serverHelper.internalError('Well, that wasn’t supposed to happen. Please try again and if this continues please contact us. (Failed to upload new logo)');
-					log.error('Failed to connect to file service.');
+					log.error('Failed to connect to file service.' + __location);
 					return;
 				}
 
@@ -555,7 +561,7 @@ async function updateSettings(req, res, next){
 	Object.entries(settings).forEach(([key, value]) => {
 		setStatements.push(`\`${key}\`=${db.escape(value)}`);
 	});
-
+	// TODO user Agency Model
 	// Create and run the UPDATE query for the agency
 	const agencySQL = `UPDATE \`#__agencies\` SET ${setStatements.join(', ')} WHERE id = ${db.escape(agents[0])} LIMIT 1;`;
 	await db.query(agencySQL).catch(function(err){

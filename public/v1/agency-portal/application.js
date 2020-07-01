@@ -71,6 +71,8 @@ async function getApplication(req, res, next){
 				${db.quoteName('a.limits')},
 				${db.quoteName('a.wc_limits', 'wcLimits')},
 				${db.quoteName('a.deductible')},
+				${db.quoteName('a.coverage_lapse', 'coverageLapse')},
+				${db.quoteName('a.created')},
 				${db.quoteName('ad.unemployment_num', 'unemploymentNum')},
 				${db.quoteName('ag.name', 'agencyName')},
 				${db.quoteName('b.id', 'businessID')},
@@ -88,6 +90,8 @@ async function getApplication(req, res, next){
 				${db.quoteName('c.phone')},
 				${db.quoteName('z.city')},
 				${db.quoteName('z.territory')},
+				${db.quoteName('a.opted_out_online')},
+				${db.quoteName('a.opted_out_online_emailsent')},
 				LPAD(CONVERT(${db.quoteName('z.zip')},char), 5, '0') AS zip,
 				GROUP_CONCAT(${db.quoteName('apt.policy_type')}) AS policy_types
 			FROM ${db.quoteName('#__applications', 'a')}
@@ -110,7 +114,7 @@ async function getApplication(req, res, next){
 
 	// Make sure an application was found
 	if (applicationData.length !== 1){
-		log.error('Error get application, application not found ' + __location);
+		log.error('Error get application, application not found sql: ' + sql + __location);
 		return next(serverHelper.notFoundError('The application could not be found.'));
 	}
 
@@ -237,6 +241,32 @@ async function getApplication(req, res, next){
 	if (quotes.length > 0){
 		// Add the quotes to the response
 		application.quotes = quotes;
+	}
+
+	// Get any existing claims for the application from the data base
+	const claimsSQL = `
+			SELECT
+				${db.quoteName('c.amount_paid', 'amountPaid')},
+				${db.quoteName('c.amount_reserved', 'amountReserved')},
+				${db.quoteName('c.date')},
+				${db.quoteName('c.missed_work', 'missedWork')},
+				${db.quoteName('c.open')},
+				${db.quoteName('c.policy_type', 'policyType')}
+			FROM ${db.quoteName('#__claims', 'c')}
+			
+			WHERE ${db.quoteName('c.application')} = ${req.query.id};
+		`;
+
+	// Run query for claims
+	const claims = await db.query(claimsSQL).catch(function(err){
+		log.error('Error get application database query (claims) ' + err.message + __location);
+		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+	});
+
+	application.claims = [];
+	if (claims.length > 0){
+		// Add the claims to the response if they exist
+		application.claims = claims;
 	}
 
 	// TO DO: Should questions be moved to this same endpoint? Probably.

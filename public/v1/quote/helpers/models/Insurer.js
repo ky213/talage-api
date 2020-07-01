@@ -71,12 +71,14 @@ module.exports = class Insurer{
 
 			// Build a query to get some basic information about this insurer from the database
 			const sql = `
-				SELECT \`i\`.\`id\`, \`i\`.\`state\`, \`i\`.\`logo\`, \`i\`.\`name\`, \`i\`.\`slug\`, \`i\`.\`rating\`, \`i\`.\`test_username\`, \`i\`.\`test_password\`, \`i\`.\`username\`, \`i\`.\`password\`, GROUP_CONCAT(DISTINCT \`ipt\`.\`policy_type\`) AS\'policy_types\', GROUP_CONCAT(DISTINCT \`io\`.\`id\`) AS \'outages\'
-				FROM \`#__insurers\` AS \`i\`
-				LEFT JOIN \`#__insurer_policy_types\` AS \`ipt\` ON \`ipt\`.\`insurer\` = \`i\`.\`id\`
-				LEFT JOIN \`#__outages\` AS \`io\` ON \`i\`.\`id\` = \`io\`.\`insurer\` AND ('${moment_timezone.tz('America/Los_Angeles').format('YYYY/MM/DD HH:mm:ss')}' BETWEEN \`io\`.\`start\` AND \`io\`.\`end\`)
-				WHERE \`i\`.\`id\` = ${db.escape(parseInt(id, 10))}
-				GROUP BY \`i\`.\`id\`;
+				SELECT i.id, i.state, i.logo, i.name, i.slug, i.rating, i.test_username, i.test_password, i.username
+					,i.password, GROUP_CONCAT(DISTINCT ipt.policy_type) AS 'policy_types', GROUP_CONCAT(DISTINCT io.id) AS outages
+					,ipt.slug as policyslug
+				FROM clw_talage_insurers AS i
+					 LEFT JOIN clw_talage_insurer_policy_types AS ipt ON ipt.insurer = i.id
+					 LEFT JOIN clw_talage_outages AS io ON i.id = io.insurer AND ('${moment_timezone.tz('America/Los_Angeles').format('YYYY/MM/DD HH:mm:ss')}' BETWEEN io.start AND io.end)
+				WHERE i.id = ${db.escape(parseInt(id, 10))}
+				GROUP BY i.id;
 			`;
 
 			// Run that query
@@ -91,7 +93,10 @@ module.exports = class Insurer{
 				reject(serverHelper.requestError('Invalid insurer'));
 				return;
 			}
-
+			//override slug with policyslug if policyslug exists.
+			if(rows[0] && rows[0].policyslug && rows[0].policyslug.length > 0){
+				rows[0].slug = rows[0].policyslug;
+			}
 			// Load the results of the query into this object
 			for(const property in rows[0]){
 				// Make sure this property is part of the rows[0] object and that it is alsoa. property of this object

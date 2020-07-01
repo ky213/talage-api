@@ -110,10 +110,14 @@ module.exports = class Question{
 	/**
 	 * Set the answer to this question
 	 *
-	 * @param {int} answer_id - The ID of the answer the user selected
+	 * @param {mixed} answer - The answer to the given question. The different data types are as follows:
+	 *							Boolean: The ID of the chosen answer
+	 *							Checkboxes: An array containing IDs of all chosen answers
+	 *							Text: The answer provided by the user as a string
+	 * 							Select: The ID of the chosen answer
 	 * @returns {Promise.<array, Error>} A promise that returns a boolean indicating whether or not this record is valid, or an Error if rejected
 	 */
-	set_answer(answer_id){
+	set_answer(answer){
 		return new Promise((fulfill, reject) => {
 			// Make sure the question is loaded before continuing
 			if(!this.id){
@@ -122,29 +126,50 @@ module.exports = class Question{
 				return;
 			}
 
-			// For boolean, checkbox, and select questions, set the answer ID or find the equivalent
-			if(this.type === 'Yes/No' || this.type === 'Checkboxes' || this.type === 'Select List'){
+			// For Checkbox questions, there may be more than one possible answer, process each
+			if(this.type === 'Checkboxes'){
+
+				// Every answer must be numeric, if they are not, they are wrong
+				if(typeof answer !== 'object' || !answer.length){
+					reject(serverHelper.requestError(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)}) (For Checkbox questions, expecting an array of answer IDs)`));
+					return;
+				}
+
+				// Loop through each answer and make sure they are what we are expecting
+				for(const answer_id of answer){
+					// If the answer wasn't numeric, it is wrong
+					if(typeof answer_id !== 'number'){
+						reject(serverHelper.requestError(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)})`));
+						return;
+					}
+				}
+
+				// For text answer questions
+				this.answer = 0;
+				this.answer = answer;
+
+			// For boolean and select questions, set the answer ID or find the equivalent
+			}else if(this.type === 'Yes/No' || this.type === 'Select List'){
 
 				// If the answer wasn't numeric, it is wrong
-				if(typeof answer_id !== 'number'){
+				if(typeof answer !== 'number'){
 					reject(serverHelper.requestError(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)})`));
 					return;
 				}
 
 				// If the answer isn't one of those that are possible
-				if(!Object.prototype.hasOwnProperty.call(this.possible_answers, answer_id)){
+				if(!Object.prototype.hasOwnProperty.call(this.possible_answers, answer)){
 					reject(serverHelper.requestError(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)})`));
 					return;
 				}
 
 				// Set the answer ID and determine and set the answer text
-				this.answer_id = answer_id;
-				this.answer = this.possible_answers[answer_id].answer;
-			}
-else{
+				this.answer_id = answer;
+				this.answer = this.possible_answers[answer].answer;
+			}else{
 				// For text answer questions
 				this.answer_id = 0;
-				this.answer = answer_id;
+				this.answer = answer;
 			}
 
 			fulfill(true);
@@ -160,18 +185,6 @@ else{
 		return new Promise((fulfill, reject) => {
 			// If this question is not required, just return true
 			if(!this.required){
-				fulfill(true);
-				return;
-			}
-
-			// If the question is single line text, make sure we got an answer (zero is allowed, blank is not)
-			if(this.type === 'Text - Single Line' && (this.answer || this.answer === 0)){
-				fulfill(true);
-				return;
-			}
-
-			// If the question is multi-line text, make sure we got something for an answer (blank is not allowed)
-			if(this.type === 'Text - Multiple Lines' && this.answer){
 				fulfill(true);
 				return;
 			}
@@ -196,6 +209,35 @@ else{
 					break;
 				default:
 					break;
+			}
+
+			// If the question is single line text, make sure we got an answer (zero is allowed, blank is not)
+			if(this.type === 'Text - Single Line' && (this.answer || this.answer === 0)){
+				fulfill(true);
+				return;
+			}
+
+			// If the question is multi-line text, make sure we got something for an answer (blank is not allowed)
+			if(this.type === 'Text - Multiple Lines' && this.answer){
+				fulfill(true);
+				return;
+			}
+
+			// If the question is a checkbox, make sure we have an answer (this.answer must have an array value with one or more integer )
+			if(this.type === 'Checkboxes' && this.answer && typeof this.answer === 'object' && this.answer.length > 0){
+
+				// Check each answer within the array to make sure they are all valid possible answers
+				for(const answer of this.answer){
+					// Check that the answer ID is one of those available for this question
+					if(Object.keys(this.possible_answers).indexOf(answer.toString()) < 0){
+						// Answer is invalid, return an error and stop
+						reject(serverHelper.requestError(`Answer to question ${this.id} is invalid. (${type_help})`));
+						return;
+					}
+				}
+
+				fulfill(true);
+				return;
 			}
 
 			// If no answer ID is set, reject

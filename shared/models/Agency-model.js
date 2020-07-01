@@ -4,11 +4,12 @@
 
 'use strict';
 
-const AgencyLocation = require('./AgencyLocation.js');
+const AgencyLocation = require('./AgencyLocation-model.js');
 const DatabaseObject = require('./DatabaseObject.js');
 const axios = require('axios');
 const imgSize = require('image-size');
-const serverHelper = require('../../../../../server.js');
+//const serverHelper = require('../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
 const{'v4': uuidv4} = require('uuid');
 const validator = global.requireShared('./helpers/validator.js');
 
@@ -24,6 +25,13 @@ const properties = {
 			validator.CALicense
 		],
 		'type': 'string' // The data type
+	},
+	'enableOptout': {
+		'default': 0,
+		'encrypted': false,
+		'required': false,
+		'rules': [],
+		'type': 'number'
 	},
 	'email': {
 		'default': null,
@@ -60,15 +68,6 @@ const properties = {
 			validator.name
 		],
 		'type': 'string'
-	},
-	'locations': {
-		'associatedField': 'agency', // The ID of this object will be placed into this property
-		'class': 'AgencyLocation',
-		'default': [],
-		'encrypted': false,
-		'required': false,
-		'rules': [],
-		'type': 'object'
 	},
 	'logo': {
 		'default': null,
@@ -118,7 +117,7 @@ const properties = {
 module.exports = class Agency extends DatabaseObject{
 
 	constructor(){
-		super('#__agencies', properties, constructors);
+		super('clw_talage_agencies', properties, constructors);
 	}
 
 	/**
@@ -139,11 +138,11 @@ module.exports = class Agency extends DatabaseObject{
 			// Get the existing file path of the logo
 			const pathSQL = `
 				SELECT
-					\`logo\`
+					logo
 				FROM
-					\`#__agencies\`
+					clw_talage_agencies
 				WHERE
-					\`id\` = ${db.escape(this.id)}
+					id = ${db.escape(this.id)}
 				LIMIT 1;
 			`;
 
@@ -168,6 +167,7 @@ module.exports = class Agency extends DatabaseObject{
 			}
 
 			// Remove the defunct logo from cloud storage
+			//TODO use filesvc directly
 			await axios.delete(`http://localhost:${global.settings.PRIVATE_API_PORT}/v1/file/file?path=public/agency-logos/${path}`).
 			catch(function(){
 				rejected = true;
@@ -222,14 +222,6 @@ module.exports = class Agency extends DatabaseObject{
 					// Isolate the file data from the type prefix
 					const logoData = this.logo.substring(this.logo.indexOf(',') + 1);
 
-					// Check the minimum image size
-					const logoBuffer = Buffer.from(logoData, 'base64');
-					const logoDimensions = imgSize(logoBuffer);
-					if(logoDimensions.height < 200 || logoDimensions.width < 655){
-						reject(serverHelper.requestError('The logo you supplied is too small. We want it to look great, and that requires that it be at least 655 pixels wide by 200 pixels tall.'));
-						return;
-					}
-
 					// Check the file size (max 150KB)
 					if(logoData.length * 0.75 > 150000){
 						reject(serverHelper.requestError('Logo too large. The maximum file size is 150KB.'));
@@ -240,6 +232,7 @@ module.exports = class Agency extends DatabaseObject{
 					const fileName = `${this.id}-${uuidv4().substring(24)}.${extension}`;
 
 					// Store on S3
+					// TODO use file svc directly
 					await axios.put(`http://localhost:${global.settings.PRIVATE_API_PORT}/v1/file/file`, {
 						'data': logoData,
 						'path': `public/agency-logos/${fileName}`

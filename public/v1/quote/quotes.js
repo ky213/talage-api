@@ -1,130 +1,213 @@
 'use strict';
 
-const util = require('util');
-const Application = require('./helpers/models/Application.js');
+const jwt = require('jsonwebtoken');
+const serverHelper = require('../../../server.js');
 
 /**
- * Quote socket handler
+ * Execute a query and log an error if it fails (testing a pattern)
  *
- * @param {object} socket - The socket object
+ * @param {object} sql - SQL query to run
+ * @param {object} queryDescription - Description of the query
+ *
+ * @returns {Object} query result
+ */
+async function queryDB(sql, queryDescription) {
+	let result = null;
+	try {
+		result = await db.query(sql);
+	}
+ catch (error) {
+		log.error(`ERROR: ${queryDescription}: ${error} ${__location}`);
+		return null;
+	}
+	return result;
+}
+
+/**
+ * Create a quote summary to return to the frontend
+ *
+ * @param {Number} quoteID - Quote ID for the summary
+ *
+ * @returns {Object} quote summary
+ */
+async function createQuoteSummary(quoteID) {
+	// Get the quote
+	let sql = `SELECT id, amount, policy_type, insurer, aggregated_status, quote_letter FROM clw_talage_quotes WHERE id = ${quoteID}`;
+	let result = await queryDB(sql, `retrieving quote ${quoteID}`);
+	if (result === null || result.length === 0) {
+		return null;
+	}
+	const quote = result[0];
+	// Get the insurer
+	sql = `SELECT id, logo, name, rating FROM clw_talage_insurers WHERE id = ${quote.insurer}`;
+	result = await queryDB(sql, `retrieving insurer ${quote.insurer}`);
+	if (result === null || result.length === 0) {
+		return null;
+	}
+	const insurer = result[0];
+
+	switch (quote.aggregated_status) {
+		case 'declined':
+			return {
+				id: quote.id,
+				policy_type: quote.policy_type,
+				status: 'declined',
+				message: `${insurer.name} has declined to offer you coverage at this time`,
+				insurer: {
+					id: insurer.id,
+					logo: global.settings.SITE_URL + '/' + insurer.logo,
+					name: insurer.name,
+					rating: insurer.rating
+				}
+			};
+		case 'quoted_referred':
+		case 'quoted':
+			const returnedQuoteID = quote.aggregated_status === 'quoted' ? quoteID : 0;
+			const instantBuy = quote.aggregated_status === 'quoted';
+
+			// Get the limits for the quote
+			sql = `
+				SELECT quoteLimits.id, quoteLimits.amount, limits.description
+				FROM clw_talage_quote_limits AS quoteLimits
+				LEFT JOIN clw_talage_limits AS limits ON limits.id = quoteLimits.limit
+				WHERE quote = ${quote.id} ORDER BY quoteLimits.limit ASC;
+			`;
+			result = await queryDB(sql, `retrieving limits for quote ${quote.id}`);
+			if (result === null || result.length === 0) {
+				return null;
+			}
+			const quoteLimits = result;
+			// Create the limits object
+			const limits = {};
+			quoteLimits.forEach((quoteLimit) => {
+				// NOTE: frontend expects a string. -SF
+				limits[quoteLimit.description] = `${quoteLimit.amount}`;
+			});
+
+			// Get the payment options for this insurer
+			sql = `
+				SELECT 
+					insurerPaymentPlans.premium_threshold, 
+					paymentPlans.id, 
+					paymentPlans.name, 
+					paymentPlans.description
+				FROM clw_talage_insurer_payment_plans AS insurerPaymentPlans
+				LEFT JOIN clw_talage_payment_plans AS paymentPlans ON paymentPlans.id = insurerPaymentPlans.payment_plan
+				WHERE insurer = ${quote.insurer};
+			`;
+			result = await queryDB(sql, `retrieving payment plans for insurer ${quote.insurer}`);
+			if (result === null || result.length === 0) {
+				return null;
+			}
+			const paymentPlans = result;
+
+			// Create the payment options object
+			const paymentOptions = [];
+			paymentPlans.forEach((pp) => {
+				if (quote.amount > pp.premium_threshold) {
+					paymentOptions.push({
+						id: pp.id,
+						name: pp.name,
+						description: pp.description
+					});
+				}
+			});
+			// Return the quote summary
+			return {
+				id: returnedQuoteID,
+				policy_type: quote.policy_type,
+				amount: quote.amount,
+				instant_buy: instantBuy,
+				letter: quote.quote_letter ? quote.quote_letter : '',
+				insurer: {
+					id: insurer.id,
+					logo: global.settings.SITE_URL + '/' + insurer.logo,
+					name: insurer.name,
+					rating: insurer.rating
+				},
+				limits: limits,
+				payment_options: paymentOptions
+			};
+		default:
+			// We don't return a quote for any other aggregated status
+			// log.error(`Quote ${quote.id} has a unknow aggregated status of ${quote.aggregated_status} when creating quote summary ${__location}`);
+			return null;
+	}
+}
+
+/**
+ * Get quotes for a given application quote token
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
  * @returns {void}
  */
-function SocketQuotes(socket) {
-	// Log that a user connected
-	log.info(`${socket.id} - Socket.io connection created`);
-	socket.emit('status', 'waiting');
+async function getQuotes(req, res, next) {
+	// Validate JWT
+	if (!req.query.token) {
+		// Missing token
+		return next(serverHelper.requestError('Missing parameters.'));
+	}
+	let tokenPayload = null;
+	try {
+		tokenPayload = jwt.verify(req.query.token, global.settings.AUTH_SECRET_KEY);
+	}
+ catch (error) {
+		// Expired token
+		return next(serverHelper.invalidCredentialsError('Expired token.'));
+	}
 
-	// Log that a user disconnected
-	socket.on('disconnect', function (reason) {
-		log.info(`${socket.id} - Socket.io disconnected (${reason})`);
+	// Set the last quote ID retrieved
+	let lastQuoteID = 0;
+	if (req.query.after) {
+		lastQuoteID = req.query.after;
+	}
+
+	// Retrieve if we are complete. Must be done first or we may miss quotes.
+	let sql = `
+			SELECT progress
+			FROM clw_talage_applications
+			WHERE id = ${tokenPayload.applicationID}
+		`;
+	let result = await queryDB(sql, `retrieving quote progress for application ${tokenPayload.applicationID}`);
+	if (result === null || result.length === 0) {
+		return next(serverHelper.internalError('Error retrieving quote progress'));
+	}
+	const complete = result[0].progress !== 'quoting';
+
+	// Retrieve quotes newer than the last quote ID
+	sql = `
+		SELECT id
+		FROM clw_talage_quotes
+		WHERE
+			application = ${tokenPayload.applicationID}
+			AND id > ${lastQuoteID}
+		ORDER BY id ASC
+	`;
+	result = await queryDB(sql, `retrieving quotes for application ${tokenPayload.applicationID}`);
+	if (result === null) {
+		return next(serverHelper.internalError('Error retrieving quotes'));
+	}
+	const quotes = [];
+	if (result.length > 0) {
+		// Build the quote result for the frontend
+		for (let i = 0; i < result.length; i++) {
+			const quoteSummary = await createQuoteSummary(result[i].id);
+			if (quoteSummary !== null) {
+				quotes.push(quoteSummary);
+			}
+		}
+	}
+
+	res.send(200, {
+		complete: complete,
+		quotes: quotes
 	});
-
-	// Listen for application data to be received
-	socket.on('application', async function (data) {
-		log.info('Application Received');
-
-		// Attempt to parse the data
-		socket.emit('status', 'processing');
-		try {
-			data = JSON.parse(data);
-		} catch (error) {
-			log.warn('Invalid JSON' + __location);
-			socket.emit('status', 'error');
-			socket.emit('message', 'Invalid JSON');
-			return;
-		}
-
-		log.verbose(util.inspect(data, false, null));
-
-		// Very basic validation
-		if (!data.business || !Object.prototype.hasOwnProperty.call(data, 'id') || !data.policies) {
-			log.warn('Some required data is missing' + __location);
-			socket.emit('status', 'error');
-			socket.emit('message', 'Invalid Application - Some required data is missing. Please check the documentation.');
-			return;
-		}
-
-		// Load the application
-		const application = new Application();
-		let had_error = false;
-		await application.load(data).catch(function (error) {
-			had_error = true;
-			socket.emit('status', 'error');
-			socket.emit('message', error.message);
-			log.warn(`Cannot Load Application: ${error.message}` + __location);
-			socket.disconnect();
-		});
-		if (had_error) {
-			return;
-		}
-
-		// Validate
-		await application.validate().catch(function (error) {
-			had_error = true;
-			socket.emit('status', 'error');
-			socket.emit('message', error.message);
-			log.warn(`Invalid Application: ${error.message}` + __location);
-			socket.disconnect();
-		});
-		if (had_error) {
-			return;
-		}
-
-		// Check if Testing and Send Test Response
-		if (application.test) {
-			// Test Response
-			await application
-				.run_test()
-				.then(function (response) {
-					// Determine how many quotes are being returned
-					const num_quotes = response.quotes.length;
-
-					// Emit the first quote right away
-					socket.emit('quote', response.quotes[0]);
-
-					// If there was only one quote, just stop
-					if (num_quotes === 1) {
-						socket.emit('status', 'done');
-						socket.disconnect();
-						return;
-					}
-
-					// Loop through all of the remaining quotes, sending them in random intervals between 1-3 seconds apart
-					let quotes_sent = 1;
-					for (let i = 1; i < num_quotes; i++) {
-						setTimeout(function () {
-							// eslint-disable-line no-loop-func
-							socket.emit('quote', response.quotes[i]);
-							quotes_sent++;
-
-							// Check if all quotes have been sent, and if so, send done and disconnect
-							if (quotes_sent === num_quotes) {
-								socket.emit('status', 'done');
-								socket.disconnect();
-							}
-						}, Math.floor(Math.random() * (3000 - 1000 + 1) + 1000) * i);
-					}
-				})
-				.catch(function (error) {
-					socket.emit('status', 'error');
-					socket.emit('message', error.message);
-					log.warn(error.message + __location);
-					socket.disconnect();
-				});
-			return;
-		}
-
-		// Send Non-Test Response
-		await application.run_quotes(socket).catch(function (error) {
-			socket.emit('status', 'error');
-			socket.emit('message', error.message);
-			log.warn(error.message + __location);
-			socket.disconnect();
-		});
-	});
+	return next();
 }
 
 exports.registerEndpoint = (server, basePath) => {
-	server.addSocket('Quotes socket', `${basePath}/quotes`, SocketQuotes);
-	server.addSocket('Quotes socket (depr)', `/async`, SocketQuotes);
+	server.addGet('Get quotes ', `${basePath}/quotes`, getQuotes);
 };

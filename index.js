@@ -3,6 +3,8 @@
 // Add global helpers to load shared modules
 global.sharedPath = require('path').join(__dirname, 'shared');
 global.requireShared = (moduleName) => require(`${global.sharedPath}/${moduleName}`);
+global.rootPath = require('path').join(__dirname, '/');
+global.requireRootPath = (moduleName) => require(`${global.rootPath}/${moduleName}`);
 
 const colors = require('colors');
 const logger = require('./shared/services/logger.js');
@@ -32,7 +34,7 @@ function logInfoMessage(message){
  * @returns {void}
  */
 function logErrorMessage(message){
-	log.error(message);
+	log.error(message +  __location);
 }
 
 /**
@@ -43,7 +45,7 @@ function logErrorMessage(message){
  */
 function logLocalErrorMessage(message){
 	if(global.log){
-		log.error(message);
+		log.error(message +  __location);
 	}
 	// eslint-disable-next-line no-console
 	console.log(colors.red(message));
