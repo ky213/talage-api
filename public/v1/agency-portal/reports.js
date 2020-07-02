@@ -87,13 +87,19 @@ async function getReports(req, res, next) {
 	// Localize data variables that the user is permitted to access
 	const agencyNetwork = parseInt(req.authentication.agencyNetwork, 10);
 
-	// This is a very special case. If this is the agent 'Solepro' (ID 12) asking for applications, query differently
-	let where = `${db.quoteName('a.agency')} IN(${agents.join(',')})`;
-	if (!agencyNetwork && agents[0] === 12) {
-		where = `${db.quoteName('a.solepro')} = 1`;
+	// Begin by only allowing applications that are not deleted from agencies that are also not deleted
+	let where = `${db.quoteName('a.state')} > 0 AND ${db.quoteName('ag.state')} > 0`;
+
+	// If this is AF Group, filter out agency 42
+	if(agencyNetwork === 2){
+		where += ` AND ${db.quoteName('a.agency')} != 42`;
 	}
- else if (agencyNetwork === 2) {
-		where += ' AND a.agency != 42 ';
+
+	// This is a very special case. If this is the agent 'Solepro' (ID 12) asking for applications, query differently
+	if(!agencyNetwork && agents[0] === 12){
+		where += ` AND ${db.quoteName('a.solepro')} = 1`;
+	}else{
+		where += ` AND ${db.quoteName('a.agency')} IN(${agents.join(',')})`;
 	}
 
 	// List of accepted parameters to query from the database
@@ -105,6 +111,7 @@ async function getReports(req, res, next) {
 					SUM((SELECT 1 FROM \`clw_talage_quotes\` AS \`q\` WHERE \`q\`.\`application\` = \`a\`.\`id\` AND (\`q\`.\`bound\` = 1 OR \`q\`.\`status\` = 'bind_requested' OR \`q\`.\`api_result\` = 'quoted' OR \`q\`.\`api_result\` = 'referred_with_price') LIMIT 1)) AS \`quoted\`,
 					SUM((SELECT 1 FROM \`clw_talage_quotes\` AS \`q\` WHERE \`q\`.\`application\` = \`a\`.\`id\` AND (\`q\`.\`bound\` = 1 OR \`q\`.\`status\` = 'bind_requested') LIMIT 1)) AS \`bound\`
 				FROM \`#__applications\` AS \`a\`
+				INNER JOIN \`#__agencies\` AS \`ag\` ON \`a\`.\`agency\` = \`ag\`.\`id\`
 				WHERE
 					${where} AND
 					${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate}
@@ -117,6 +124,7 @@ async function getReports(req, res, next) {
 				FROM ${db.quoteName('#__zip_codes', 'z')}
 				LEFT JOIN ${db.quoteName('#__territories', 't')} ON ${db.quoteName('z.territory')} = ${db.quoteName('t.abbr')}
 				LEFT JOIN ${db.quoteName('#__applications', 'a')} ON ${db.quoteName('a.zip')} = ${db.quoteName('z.zip')}
+				INNER JOIN \`#__agencies\` AS \`ag\` ON \`a\`.\`agency\` = \`ag\`.\`id\`
 				WHERE
 					${where} AND
 					${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate}
@@ -126,6 +134,7 @@ async function getReports(req, res, next) {
 		hasApplications: `
 				SELECT IF(COUNT(${db.quoteName('a.id')}), 1, 0) AS ${db.quoteName('hasApplications')}
 				FROM ${db.quoteName('#__applications', 'a')}
+				INNER JOIN \`#__agencies\` AS \`ag\` ON \`a\`.\`agency\` = \`ag\`.\`id\`
 				WHERE ${where}
 				LIMIT 1;
 			`,
@@ -136,6 +145,7 @@ async function getReports(req, res, next) {
 				FROM ${db.quoteName('#__industry_code_categories', 'icc')}
 				LEFT JOIN ${db.quoteName('#__industry_codes', 'ic')} ON ${db.quoteName('ic.category')} = ${db.quoteName('icc.id')}
 				LEFT JOIN ${db.quoteName('#__applications', 'a')} ON ${db.quoteName('a.industry_code')} = ${db.quoteName('ic.id')}
+				INNER JOIN \`#__agencies\` AS \`ag\` ON \`a\`.\`agency\` = \`ag\`.\`id\`
 				WHERE
 					${where} AND
 					${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate}
@@ -146,6 +156,7 @@ async function getReports(req, res, next) {
 		minDate: `
 				SELECT ${db.quoteName('a.created')} AS ${db.quoteName('minDate')}
 				FROM ${db.quoteName('#__applications', 'a')}
+				INNER JOIN \`#__agencies\` AS \`ag\` ON \`a\`.\`agency\` = \`ag\`.\`id\`
 				WHERE ${where}
 				ORDER BY ${db.quoteName('a.created')} ASC
 				LIMIT 1;
@@ -155,6 +166,7 @@ async function getReports(req, res, next) {
 				MONTHNAME(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')) AS ${db.quoteName('name')},
 				COUNT(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')) AS ${db.quoteName('count')}
 			FROM ${db.quoteName('#__applications', 'a')}
+			INNER JOIN \`#__agencies\` AS \`ag\` ON \`a\`.\`agency\` = \`ag\`.\`id\`
 			WHERE
 				${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate} AND
 				${where}
@@ -172,6 +184,7 @@ async function getReports(req, res, next) {
 					)) AS ${db.quoteName('bound')}
 				FROM ${db.quoteName('#__quotes', 'q')}
 				INNER JOIN ${db.quoteName('#__applications', 'a')} ON ${db.quoteName('a.id')} = ${db.quoteName('q.application')}
+				INNER JOIN \`#__agencies\` AS \`ag\` ON \`a\`.\`agency\` = \`ag\`.\`id\`
 				WHERE
 					${where} AND
 					${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate} AND

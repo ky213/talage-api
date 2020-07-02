@@ -116,6 +116,7 @@ function generateCSV(agents, agencyNetwork){
 			LEFT JOIN \`#__zip_codes\` AS \`z2\` ON \`pa\`.\`zip\` = \`z2\`.\`zip\`
 			WHERE
 				\`a\`.\`state\` > 0
+				AND \`ag\`.\`state\` > 0
 		`;
 
 		// If this is an AF Group Agency Network user, exclude Agency 42 from the output
@@ -381,12 +382,18 @@ async function getApplications(req, res, next){
 		return next(serverHelper.requestError('Bad Request: No agencies permitted'));
 	}
 
-	// This is a very special case. If this is the agent 'Solepro' (ID 12) asking for applications, query differently
-	let where = agencyNetwork === 2 ? ' AND a.agency != 42' : '';
-	if (!agencyNetwork && agents[0] === 12){
-		where += ` AND ${db.quoteName('a.solepro')} = 1`;
+	// Begin by only allowing applications that are not deleted from agencies that are also not deleted
+	let where = `${db.quoteName('a.state')} > 0 AND ${db.quoteName('ag.state')} > 0`;
+
+	// If this is AF Group, filter out agency 42	// If this is AF Group, filter out agency 42
+	if(agencyNetwork === 2){
+		where += ` AND ${db.quoteName('a.agency')} != 42`;
 	}
- else {
+
+	// This is a very special case. If this is the agent 'Solepro' (ID 12) asking for applications, query differently
+	if(!agencyNetwork && agents[0] === 12){
+		where += ` AND ${db.quoteName('a.solepro')} = 1`;
+	}else{
 		where += ` AND ${db.quoteName('a.agency')} IN(${agents.join(',')})`;
 	}
 
@@ -395,8 +402,8 @@ async function getApplications(req, res, next){
 	const applicationsTotalCountSQL = `
 			SELECT COUNT(DISTINCT ${db.quoteName('a.id')}) as count
 			FROM ${db.quoteName('#__applications', 'a')}
-			WHERE ${db.quoteName('a.state')} >= 1
-			${where}
+			LEFT JOIN ${db.quoteName('#__agencies', 'ag')} ON ${db.quoteName('a.agency')} = ${db.quoteName('ag.id')}
+			WHERE ${where}
 		`;
 	let applicationsTotalCount = 0;
 	try {
@@ -455,9 +462,8 @@ async function getApplications(req, res, next){
 			LEFT JOIN ${db.quoteName('#__zip_codes', 'zc')} ON ${db.quoteName('zc.zip')} = ${db.quoteName('a.zip')}
 			LEFT JOIN ${db.quoteName('#__agencies', 'ag')} ON ${db.quoteName('a.agency')} = ${db.quoteName('ag.id')}
 			${join}
-			WHERE ${db.quoteName('a.state')} >= 1
-				AND ${db.quoteName('a.created')} BETWEEN CAST(${db.escape(startDateSQL)} AS DATETIME) AND CAST(${db.escape(endDateSQL)} AS DATETIME)
-				${where}
+			WHERE ${db.quoteName('a.created')} BETWEEN CAST(${db.escape(startDateSQL)} AS DATETIME) AND CAST(${db.escape(endDateSQL)} AS DATETIME)
+				AND ${where}
 		`;
 
 	// ================================================================================
