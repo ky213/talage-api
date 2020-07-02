@@ -450,9 +450,12 @@ async function getLandingPage(req, res, next) {
 		return next(serverHelper.requestError('Page not found'));
 	}
 
+	// Convert the showIndustrySection value to a boolean
+	landingPage[0].showIndustrySection = Boolean(landingPage[0].showIndustrySection);
+
 	// if the page was found continue and query for the page color scheme
 	const colorInformationSQL = `
-				SELECT 
+				SELECT
 				\`name\`,
 				\`primary\`,
 				\`secondary\`
