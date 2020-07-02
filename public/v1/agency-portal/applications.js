@@ -174,7 +174,7 @@ function generateCSV(agents, agencyNetwork){
 
 			// Business Name and DBA - Clean the name and DBA (grave marks in the name cause the CSV not to render)
 			record.dba = record.dba ? record.dba.replace(/’/g, '\'') : null;
-			record.name = record.name.replace(/’/g, '\'');
+			record.name = record.name ? record.name.replace(/’/g, '\'') : null;
 
 			// City and Primary City - Proper capitalization
 			if(record.city){
@@ -185,7 +185,7 @@ function generateCSV(agents, agencyNetwork){
 			}
 
 			// Phone Number - Formatted
-			record.phone = formatPhone(record.phone);
+			record.phone = record.phone ? formatPhone(record.phone) : null;
 
 			// Status
 			if(Object.prototype.hasOwnProperty.call(statusMap, record.status)){
