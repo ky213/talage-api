@@ -9,6 +9,7 @@ const DatabaseObject = require('./DatabaseObject.js');
 //const serverHelper = require('../../../server.js');
 const serverHelper = global.requireRootPath('server.js');
 const validator = global.requireShared('./helpers/validator.js');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 const constructors = {'AgencyLocationInsurers': AgencyLocationInsurers};
 
@@ -241,7 +242,10 @@ module.exports = class AgencyLocation extends DatabaseObject{
 					WHERE
 						\`agency\` = ${this.agency}
 						${where};
-				`;
+                `;
+                //Sanitize phone
+                this.phone = stringFunctions.santizeNumber(this.phone);
+
 
 				// Run the query
 				const result = await db.query(sql).catch(function(error){
