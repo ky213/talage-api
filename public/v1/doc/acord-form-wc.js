@@ -26,40 +26,24 @@ async function GetACORDFormWC(req, res, next){
 
 	// Check for data
 	if(!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
-		log.info('Bad Request: No data received');
-		res.send(400, {
-			'message': 'No data received',
-			'status': 'error'
-		});
+		log.info('ACORD form generation failed. Bad Request: No data received' + __location);
 		return next(serverHelper.requestError('Bad Request: No data received'));
 	}
 
 	// Make sure basic elements are present
 	if(!req.query.application_id){
-		log.info('Bad Request: Missing Application ID');
-		res.send(400, {
-			'message': 'Missing Application ID',
-			'status': 'error'
-		});
+		log.info('ACORD form generation failed. Bad Request: Missing Application ID' + __location);
 		return next(serverHelper.requestError('Bad Request: You must supply an application ID'));
 	}
 
 	// Validate the application ID
 	if(!await validator.is_valid_application(req.query.application_id)){
-		log.info('Bad Request: Invalid application id');
-		res.send(400, {
-			'message': 'Invalid application id',
-			'status': 'error'
-		});
+		log.info('ACORD form generation failed. Bad Request: Invalid application id' + __location);
 		return next(serverHelper.requestError('Invalid application id'));
 	}
 
 	if(req.query.insurer_id && !await validator.isValidInsurer(req.query.insurer_id)){
-		log.info('Bad Request: Invalid insurer id');
-		res.send(400, {
-			'message': 'Invalid insurer id',
-			'status': 'error'
-		});
+		log.info('ACORD form generation failed. Bad Request: Invalid insurer id' + __location);
 		return next(serverHelper.requestError('Invalid insurer id'));
 	}
 
@@ -73,6 +57,7 @@ async function GetACORDFormWC(req, res, next){
 					\`b\`.\`entity_type\`,
 					\`b\`.\`ncci_number\`,
 					\`b\`.\`owners\`,
+					\`b\`.\`num_owners\`,
 					\`i_code\`.\`sic\`,
 					\`i_code\`.\`naics\`,
 					\`i_code\`.\`description\` AS \`industry_description\`,
@@ -88,6 +73,8 @@ async function GetACORDFormWC(req, res, next){
 					\`insured_zip\`.\`territory\`,
 					\`app\`.\`owners_covered\`,
 					\`app\`.\`has_ein\`,
+					\`app\`.\`waiver_subrogation\`,
+					\`app\`.\`additional_insured\`,
 					IFNULL(\`app\`.\`agency\`, 1) AS \`agent\`,
 					\`app\`.\`wc_limits\` AS \`limits\`,
 					\`agency\`.\`name\` AS \`agencyName\`,
@@ -108,6 +95,7 @@ async function GetACORDFormWC(req, res, next){
 					\`a_c\`.\`payroll\`,
 					\`a\`.\`full_time_employees\`,
 					\`a\`.\`part_time_employees\`,
+					\`payment\`.\`name\` AS \`payment\`,
 					${req.query.insurer_id ? `\`insurers\`.\`name\` AS \`insurer\`,` : ''}
 					\`claims\`.\`id\`
 					FROM \`#__applications\` AS \`app\`
@@ -122,35 +110,25 @@ async function GetACORDFormWC(req, res, next){
 					LEFT JOIN \`#__industry_codes\` AS \`i_code\` ON \`b\`.\`industry_code\` = \`i_code\`.\`id\`
 					LEFT JOIN \`#__claims\` AS \`claims\` ON \`claims\`.\`application\` = \`app\`.\`id\`
 					LEFT JOIN \`#__address_activity_codes\` AS \`a_c\` ON \`a\`.\`id\` = \`a_c\`.\`address\`
+					LEFT JOIN \`#__policies\` AS \`policies\` ON \`policies\`.\`application\` =  \`app\`.\`id\`
+					LEFT JOIN \`#__payment_plans\` AS \`payment\` ON \`policies\`.\`payment_plan\` =  \`payment\`.\`id\`
 					${req.query.insurer_id ? `LEFT JOIN \`#__insurers\` AS \`insurers\` ON  \`insurers\`.\`id\` = ${req.query.insurer_id}` : ''}
 					WHERE  \`app\`.\`id\` = ${req.query.application_id}`;
 
 	// Run the query
 	const application_data = await db.query(sql).catch(function(error){
-		log.error(error);
-		res.send(400, {
-			'message': `Database Error: ${error}`,
-			'status': 'error'
-		});
+		log.error(`ACORD form generation failed. Database error: ${error} ${__location}`);
 		return next(serverHelper.requestError(`Database Error: ${error}`));
 	});
 
 	// Check the number of rows returned
 	if(application_data.length === 0){
-		log.error('Invalid Application ID');
-		res.send(400, {
-			'message': 'Invalid Application ID',
-			'status': 'error'
-		});
+		log.error('ACORD form generation failed. Invalid Application ID ' + __location);
 		return next(serverHelper.requestError('Bad Request: Invalid Application ID'));
 	}
 
 	if(!application_data[0].policy_type || application_data[0].policy_type !== 'WC'){
-		log.error(`Application ${req.query.application_id} is not WC`);
-		res.send(400, {
-			'message': `Application ${req.query.application_id} is not WC`,
-			'status': 'error'
-		});
+		log.error(`ACORD form generation failed. Application ${req.query.application_id} is not WC ` + __location);
 		return next(serverHelper.requestError(`Application ${req.query.application_id} is not WC`));
 	}
 
@@ -161,11 +139,7 @@ async function GetACORDFormWC(req, res, next){
 		applicant_name += `${name}\n`;
 	}
 else{
-		log.error(`Business name missing for application ${req.query.application_id}`);
-		res.send(400, {
-			'message': `Business name missing for application ${req.query.application_id}`,
-			'status': 'error'
-		});
+		log.error(`ACORD form generation failed. Business name missing for application ${req.query.application_id} ` + __location);
 		return next(serverHelper.requestError(`Business name missing for application ${req.query.application_id}`));
 	}
 
@@ -266,6 +240,14 @@ else{
 		ein = `${ein.substr(0, 3)} - ${ein.substr(3, 2)} - ${ein.substr(5, 4)}`;
 	}
 
+	//Determine the payment plan (if it exists) so the correct check box can be marked
+	let other_payment_plan = true;
+	if(application_data[0].payment){
+		if(application_data[0].payment === 'Semi-Annual' || application_data[0].payment === 'Annual' || application_data[0].payment === 'Quarterly'){
+			other_payment_plan = false;
+		}
+	}
+
 	// Define font files
 	const fonts = {
 		'Courier': {
@@ -314,7 +296,16 @@ else{
 	// Define base document
 	const docDefinition = {
 		'background': function(currentPage){
-			return img[currentPage - 1];
+			// If we're on the first page return the background for the first page
+			if(currentPage === 1){
+				return img[0];
+			}
+			// If we're on a page 2 state rating sheet
+			if(currentPage >= 2 && currentPage <= territories.length + 1){
+				return img[1];
+			}
+			// The current page is after the state rating sheets
+			return img[currentPage - territories.length];
 		},
 		'content': [
 			// Date
@@ -339,6 +330,10 @@ else{
 			{
 				'absolutePosition': positions.producer_email,
 				'text': producer_email
+			},
+			{
+				'absolutePosition': positions.insurer_id,
+				'text': req.query.insurer_id ? req.query.insurer_id : ''
 			},
 			{
 				'absolutePosition': positions.company,
@@ -387,6 +382,14 @@ else{
 			},
 			{
 				'absolutePosition': positions.billing_plan,
+				'text': 'X'
+			},
+			{
+				'absolutePosition': positions.payment_plan,
+				'text': other_payment_plan ? application_data[0].payment : ''
+			},
+			{
+				'absolutePosition': other_payment_plan ? positions.other_payment_plan_checkbox : positions[application_data[0].payment],
 				'text': 'X'
 			},
 			{
@@ -439,7 +442,7 @@ else{
 				if(territories.length % 5 === 0){
 					territories.push(`\n${data.territory}`);
 				}
-else{
+				else{
 					territories.push(data.territory);
 				}
 
@@ -447,8 +450,8 @@ else{
 				activity_code_data[data.territory] = {};
 			}
 
-			// If we haven't seen the address yet
-			if(!addresses.includes(data.address_id)){
+			// If we haven't seen the address yet and it exists
+			if(!addresses.includes(data.address_id) && data.address_id){
 
 				// Add address to list of addresses seen
 				addresses.push(data.address_id);
@@ -463,7 +466,7 @@ else{
 					const address = await crypt.decrypt(data.address); // eslint-disable-line no-await-in-loop
 					street_address += `${address}`;
 				}
-else{
+				else{
 					missing_data.push('Business location address');
 				}
 
@@ -499,7 +502,7 @@ else{
 					});
 
 				}
-else{
+				else{
 					// Add as next location
 					location_num = addresses.length + (found_mailing_address ? 0 : 1);
 
@@ -524,8 +527,8 @@ else{
 					if(location_num < 4){
 						docDefinition.content = docDefinition.content.concat(new_location);
 					}
-else{
-						// Add the location to the overflow page
+					else{
+						// Add the location to the overflow page - need to find pdf for location overflow page
 					}
 
 				}
@@ -554,30 +557,10 @@ else{
 	// Finish the sql query for ncci codes
 	sql_ncci = sql_ncci.concat(')');
 
-	// If there is more than one territory where the business operates adjust the background function
-	if(territories.length > 1){
-		docDefinition.background = function(currentPage){
-			// If we're on the first page return the background for the first page
-			if(currentPage === 1){
-				return img[0];
-			}
-			// If we're on a page 2 state rating sheet
-			if(currentPage >= 2 && currentPage <= territories.length + 1){
-				return img[1];
-			}
-			// The current page is after the state rating sheets
-			return img[currentPage - territories.length];
-		};
-	}
-
 	// Make sure the mailing address was found at some point
 	if(!found_mailing_address){
-		log.error(`Business address missing for application ${req.query.application_id}`);
-		res.send(400, {
-			'message': `Business address missing for application ${req.query.application_id}`,
-			'status': 'error'
-		});
-		return next(serverHelper.requestError(`Business address missing for application ${req.query.application_id}`));
+		log.error(`ACORD form generation failed. Mailing address missing for application ${req.query.application_id} ` + __location);
+		return next(serverHelper.requestError(`Mailing address missing for application ${req.query.application_id}`));
 	}
 
 	// Add list of territories
@@ -746,10 +729,16 @@ else{
 					}
 				]);
 			}
-		}
-else{
+		} else {
 			missing_data.push(`Owners excluded, but no names given`);
 		}
+	} else {
+		docDefinition.content = docDefinition.content.concat([
+			{
+				'absolutePosition': positions.owner,
+				'text': application_data[0].num_owners + ' OWNERS INCLUDED IN COVERAGE'
+			}
+			]);
 	}
 
 	// Group the NCCI codes
@@ -759,11 +748,7 @@ else{
 	let ncci_data = [];
 	if(application_data[0].insurer){
 		ncci_data = await db.query(sql_ncci).catch(function(error){
-			log.error(error);
-			res.send(400, {
-				'message': `Database Error: ${error}`,
-				'status': 'error'
-			});
+			log.error(`ACORD form generation failed. Database error: ${error} ${__location}`);
 			return next(serverHelper.requestError(`Database Error: ${error}`));
 		});
 	}
@@ -805,8 +790,7 @@ else{
 								if(Object.keys(seenCodes).includes(ncci)){
 									// Combine
 									activityCodes[seenCodes[ncci]] += payroll;
-								}
-else{
+								}else{
 									// Add this code as a separate code
 									activityCodes[activityCode] = payroll;
 
@@ -823,10 +807,16 @@ else{
 				}
 			}
 		}
-
-		// Generate all the state rating sheets and add them to the document
-		stateRatingResult = generate.state_rating_sheets(activity_code_data, ncci_data);
 	}
+
+	// Add NAICS and SIC to ncci code data
+	ncci_data.naics = application_data[0].naics;
+	ncci_data.sic = application_data[0].sic;
+	ncci_data.waiver_subrogation = application_data[0].waiver_subrogation;
+	ncci_data.additional_insured = application_data[0].additional_insured;
+
+	// Generate all the state rating sheets and add them to the document
+	stateRatingResult = await generate.state_rating_sheets(activity_code_data, ncci_data);
 
 	if(!ncci_data.length || stateRatingResult === -1){
 		missing_data.push('One or more activity codes are not supported by this insurer');
@@ -835,7 +825,7 @@ else{
 			'text': ''
 		});
 	}
-else{
+	else{
 		docDefinition.content = docDefinition.content.concat(stateRatingResult);
 	}
 
@@ -904,11 +894,7 @@ else{
 	const sql_questions = sql_base.concat(Object.keys(general_information_questions).join(' or \`app_q\`.\`question\` = ')).concat(')');
 
 	const question_data = await db.query(sql_questions).catch(function(error){
-		log.error(error);
-		res.send(400, {
-			'message': `Database Error: ${error}`,
-			'status': 'error'
-		});
+		log.error(`ACORD form generation failed. Database error: ${error} ${__location}`);
 		return next(serverHelper.requestError(`Database Error: ${error}`));
 	});
 
@@ -926,11 +912,11 @@ else{
 				if(question.answer === 'Yes'){
 					question_answer = 'Y';
 				}
-else if(question.answer === 'No'){
+				else if(question.answer === 'No'){
 					question_answer = 'N';
 				}
 			}
-else{
+			else{
 				question_answer = question.text_answer;
 			}
 			const answer = {
@@ -942,7 +928,7 @@ else{
 			if(general_information_questions[question.number] <= num_questions_page_3){
 				docDefinition.content.push(answer);
 			}
-else{
+			else{
 				// The question is on page 4, add it to page 4 array to be added after document page break
 				page_4_questions.push(answer);
 			}
@@ -951,30 +937,29 @@ else{
 			delete general_information_questions[question.number];
 
 		});
-
-		// Write in default answer to remaining questions
-		Object.values(general_information_questions).forEach(function(question){
-			let answer_text = '';
-			// Default answers to not include text explanations, all text questions are left blank
-			if(question % 1 === 0){
-				// Default answer for all non-text questions
-				answer_text = 'N';
-			}
-			const answer = {
-				'absolutePosition': positions[`general_info_${question}`],
-				'style': styles.Y_N,
-				'text': answer_text
-			};
-			// If the question is on page 3, add it to page 3
-			if(question <= num_questions_page_3){
-				docDefinition.content.push(answer);
-			}
-else{
-				// The question is on page 4, add it to page 4 array to be added after document page break
-				page_4_questions.push(answer);
-			}
-		});
 	}
+	// Write in default answer to remaining questions
+	Object.values(general_information_questions).forEach(function(question){
+		let answer_text = '';
+		// Default answers to not include text explanations, all text questions are left blank
+		if(question % 1 === 0){
+			// Default answer for all non-text questions
+			answer_text = 'N';
+		}
+		const answer = {
+			'absolutePosition': positions[`general_info_${question}`],
+			'style': styles.Y_N,
+			'text': answer_text
+		};
+		// If the question is on page 3, add it to page 3
+		if(question <= num_questions_page_3){
+			docDefinition.content.push(answer);
+		}
+		else{
+			// The question is on page 4, add it to page 4 array to be added after document page break
+			page_4_questions.push(answer);
+		}
+	});
 
 	// Beginning of page 4
 	docDefinition.content.push({
