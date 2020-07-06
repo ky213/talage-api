@@ -127,6 +127,9 @@ async function GetACORDFormWC(req, res, next){
 		return next(serverHelper.requestError('Bad Request: Invalid Application ID'));
 	}
 
+	// Replace any null values with an empty string
+	application_data.forEach(row => Object.values(row).map(element => element === null ? '' : element))
+
 	if(!application_data[0].policy_type || application_data[0].policy_type !== 'WC'){
 		log.error(`ACORD form generation failed. Application ${req.query.application_id} is not WC ` + __location);
 		return next(serverHelper.requestError(`Application ${req.query.application_id} is not WC`));
@@ -753,6 +756,9 @@ else{
 		});
 	}
 
+	// Replace any null values with an empty string
+	ncci_data.forEach(row => Object.values(row).map(element => element === null ? '' : element))
+
 	// The result of trying to add the activity codes to the pdf
 	let stateRatingResult = -1;
 
@@ -897,6 +903,9 @@ else{
 		log.error(`ACORD form generation failed. Database error: ${error} ${__location}`);
 		return next(serverHelper.requestError(`Database Error: ${error}`));
 	});
+
+	// Replace any null values with an empty string
+	question_data.forEach(row => Object.values(row).map(element => element === null ? '' : element))
 
 	const num_questions_page_3 = 16;
 	const page_4_questions = [];
