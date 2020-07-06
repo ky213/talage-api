@@ -28,8 +28,8 @@ const bindStepParser = require('./parsers/bindrequest-step-parse.js')
  *
  * @returns {void}
  */
-async function Save(req, res, next){
-	log.debug("Application Post: " + JSON.stringify(req.body));
+async function SaveWF(req, res, next){
+	log.debug("ApplicationWF Post: " + JSON.stringify(req.body));
 	// Check for data
 	if(!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0){
 		log.warn('No data was received' + __location);
@@ -167,6 +167,6 @@ async function Save(req, res, next){
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-	server.addPost('Post Application Workflow', `${basePath}/applicationwf`, Save);
-	server.addPost('Post Application Workflow(depr)', `${basePath}wf`, Save);
+	server.addPost('Post Application Workflow', `${basePath}/applicationwf`, SaveWF);
+    server.addPost('Post Application Workflow(depr)', `${basePath}wf`, SaveWF);
 };
