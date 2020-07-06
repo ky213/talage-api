@@ -578,10 +578,18 @@ module.exports = class DatabaseObject {
         return 
     }
 
-	cleanJSON(){
+	cleanJSON(noNulls = true){
 		let propertyNameJson = {};
 		for (const property in this.#properties) {
-			propertyNameJson[property] = this[`#${property}`]
+            if(noNulls === true){
+                if(this[`#${property}`]){
+                    propertyNameJson[property] = this[`#${property}`]   
+                }
+            }
+            else {
+                propertyNameJson[property] = this[`#${property}`]
+            }
+			
 		}
 		return propertyNameJson;
 	}

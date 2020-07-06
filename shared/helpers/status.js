@@ -1,5 +1,7 @@
 'use strict';
 
+// TODO This business logic shoud move to a service or the Application-BO.
+
 /**
  * Ensures that a quote has a value for aggregated_status
  *
