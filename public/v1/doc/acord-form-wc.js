@@ -450,8 +450,8 @@ else{
 				activity_code_data[data.territory] = {};
 			}
 
-			// If we haven't seen the address yet
-			if(!addresses.includes(data.address_id)){
+			// If we haven't seen the address yet and it exists
+			if(!addresses.includes(data.address_id) && data.address_id){
 
 				// Add address to list of addresses seen
 				addresses.push(data.address_id);
