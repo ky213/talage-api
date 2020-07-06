@@ -26,40 +26,24 @@ async function GetACORDFormWC(req, res, next){
 
 	// Check for data
 	if(!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
-		log.info('Bad Request: No data received');
-		res.send(400, {
-			'message': 'No data received',
-			'status': 'error'
-		});
+		log.info('ACORD form generation failed. Bad Request: No data received' + __location);
 		return next(serverHelper.requestError('Bad Request: No data received'));
 	}
 
 	// Make sure basic elements are present
 	if(!req.query.application_id){
-		log.info('Bad Request: Missing Application ID');
-		res.send(400, {
-			'message': 'Missing Application ID',
-			'status': 'error'
-		});
+		log.info('ACORD form generation failed. Bad Request: Missing Application ID' + __location);
 		return next(serverHelper.requestError('Bad Request: You must supply an application ID'));
 	}
 
 	// Validate the application ID
 	if(!await validator.is_valid_application(req.query.application_id)){
-		log.info('Bad Request: Invalid application id');
-		res.send(400, {
-			'message': 'Invalid application id',
-			'status': 'error'
-		});
+		log.info('ACORD form generation failed. Bad Request: Invalid application id' + __location);
 		return next(serverHelper.requestError('Invalid application id'));
 	}
 
 	if(req.query.insurer_id && !await validator.isValidInsurer(req.query.insurer_id)){
-		log.info('Bad Request: Invalid insurer id');
-		res.send(400, {
-			'message': 'Invalid insurer id',
-			'status': 'error'
-		});
+		log.info('ACORD form generation failed. Bad Request: Invalid insurer id' + __location);
 		return next(serverHelper.requestError('Invalid insurer id'));
 	}
 
@@ -133,30 +117,18 @@ async function GetACORDFormWC(req, res, next){
 
 	// Run the query
 	const application_data = await db.query(sql).catch(function(error){
-		log.error(error);
-		res.send(400, {
-			'message': `Database Error: ${error}`,
-			'status': 'error'
-		});
+		log.error(`ACORD form generation failed. Database error: ${error} ${__location}`);
 		return next(serverHelper.requestError(`Database Error: ${error}`));
 	});
 
 	// Check the number of rows returned
 	if(application_data.length === 0){
-		log.error('Invalid Application ID');
-		res.send(400, {
-			'message': 'Invalid Application ID',
-			'status': 'error'
-		});
+		log.error('ACORD form generation failed. Invalid Application ID ' + __location);
 		return next(serverHelper.requestError('Bad Request: Invalid Application ID'));
 	}
 
 	if(!application_data[0].policy_type || application_data[0].policy_type !== 'WC'){
-		log.error(`Application ${req.query.application_id} is not WC`);
-		res.send(400, {
-			'message': `Application ${req.query.application_id} is not WC`,
-			'status': 'error'
-		});
+		log.error(`ACORD form generation failed. Application ${req.query.application_id} is not WC ` + __location);
 		return next(serverHelper.requestError(`Application ${req.query.application_id} is not WC`));
 	}
 
@@ -167,11 +139,7 @@ async function GetACORDFormWC(req, res, next){
 		applicant_name += `${name}\n`;
 	}
 else{
-		log.error(`Business name missing for application ${req.query.application_id}`);
-		res.send(400, {
-			'message': `Business name missing for application ${req.query.application_id}`,
-			'status': 'error'
-		});
+		log.error(`ACORD form generation failed. Business name missing for application ${req.query.application_id} ` + __location);
 		return next(serverHelper.requestError(`Business name missing for application ${req.query.application_id}`));
 	}
 
@@ -591,12 +559,8 @@ else{
 
 	// Make sure the mailing address was found at some point
 	if(!found_mailing_address){
-		log.error(`Business address missing for application ${req.query.application_id}`);
-		res.send(400, {
-			'message': `Business address missing for application ${req.query.application_id}`,
-			'status': 'error'
-		});
-		return next(serverHelper.requestError(`Business address missing for application ${req.query.application_id}`));
+		log.error(`ACORD form generation failed. Mailing address missing for application ${req.query.application_id} ` + __location);
+		return next(serverHelper.requestError(`Mailing address missing for application ${req.query.application_id}`));
 	}
 
 	// Add list of territories
@@ -784,11 +748,7 @@ else{
 	let ncci_data = [];
 	if(application_data[0].insurer){
 		ncci_data = await db.query(sql_ncci).catch(function(error){
-			log.error(error);
-			res.send(400, {
-				'message': `Database Error: ${error}`,
-				'status': 'error'
-			});
+			log.error(`ACORD form generation failed. Database error: ${error} ${__location}`);
 			return next(serverHelper.requestError(`Database Error: ${error}`));
 		});
 	}
@@ -934,11 +894,7 @@ else{
 	const sql_questions = sql_base.concat(Object.keys(general_information_questions).join(' or \`app_q\`.\`question\` = ')).concat(')');
 
 	const question_data = await db.query(sql_questions).catch(function(error){
-		log.error(error);
-		res.send(400, {
-			'message': `Database Error: ${error}`,
-			'status': 'error'
-		});
+		log.error(`ACORD form generation failed. Database error: ${error} ${__location}`);
 		return next(serverHelper.requestError(`Database Error: ${error}`));
 	});
 
