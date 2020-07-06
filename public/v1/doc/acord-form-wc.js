@@ -145,6 +145,9 @@ async function GetACORDFormWC(req, res, next){
 		return next(serverHelper.requestError('Bad Request: Invalid Application ID'));
 	}
 
+	// Replace any null values with an empty string
+	application_data.forEach(row => Object.values(row).map(element => element === null ? '' : element))
+
 	if(!application_data[0].policy_type || application_data[0].policy_type !== 'WC'){
 		log.error(`Application ${req.query.application_id} is not WC`);
 		res.send(400, {
@@ -447,7 +450,7 @@ else{
 				activity_code_data[data.territory] = {};
 			}
 
-			// If we haven't seen the address yet
+			// If we haven't seen the address yet and it exists
 			if(!addresses.includes(data.address_id)){
 
 				// Add address to list of addresses seen
@@ -768,6 +771,9 @@ else{
 		});
 	}
 
+	// Replace any null values with an empty string
+	ncci_data.forEach(row => Object.values(row).map(element => element === null ? '' : element))
+
 	// The result of trying to add the activity codes to the pdf
 	let stateRatingResult = -1;
 
@@ -911,6 +917,9 @@ else{
 		});
 		return next(serverHelper.requestError(`Database Error: ${error}`));
 	});
+
+	// Replace any null values with an empty string
+	question_data.forEach(row => Object.values(row).map(element => element === null ? '' : element))
 
 	const num_questions_page_3 = 16;
 	const page_4_questions = [];
