@@ -329,18 +329,33 @@ module.exports = class Application {
 		});
 
 		// Wait for all quotes to finish
-		let quotes = null;
+		let quoteIDs = null;
 		try {
-			quotes = await Promise.all(quote_promises);
+			quoteIDs = await Promise.all(quote_promises);
 		}
  catch (error) {
-			log.error(`Could not get quotes for application ${this.id}: ${error} ${__location}`);
+			log.error(`Quoting did not complete successfully for application ${this.id}: ${error} ${__location}`);
 			return;
 		}
 
 		// Check for no quotes
-		if (quotes.length < 1) {
+		if (quoteIDs.length < 1) {
 			log.error(`No quotes returned for application ${this.id}`);
+			return;
+		}
+
+		// Get the quotes from the database
+		const sql = `
+			SELECT id, policy_type, insurer, amount, aggregated_status, status, api_result
+			FROM clw_talage_quotes
+			WHERE id IN (${quoteIDs.join(',')});
+		`;
+		let quotes = null;
+		try {
+			quotes = await db.query(sql);
+		}
+ catch (error) {
+			log.error(`Could not retrieve quotes from the database for application ${this.id} ${__location}`);
 			return;
 		}
 
@@ -357,10 +372,10 @@ module.exports = class Application {
 			}
 		});
 		// Update the application state
-		this.updateApplicationState(this.policies.length, Object.keys(policyTypeQuoted).length, Object.keys(policyTypeReferred).length);
+		await this.updateApplicationState(this.policies.length, Object.keys(policyTypeQuoted).length, Object.keys(policyTypeReferred).length);
 
 		// Send a notification to Slack about this application
-		this.send_notifications(quotes);
+		await this.send_notifications(quotes);
 	}
 
 	/**
@@ -378,16 +393,17 @@ module.exports = class Application {
 		// Determine which message will be sent
 		let all_had_quotes = true;
 		let some_quotes = false;
-		await quotes.forEach(function(quote) {
-			if (quote.amount) {
+		quotes.forEach((quote) => {
+			if (quote.aggregated_status === 'quoted' || quote.aggregated_status === 'quoted_referred') {
 				some_quotes = true;
-				return;
 			}
-			all_had_quotes = false;
+ else {
+				all_had_quotes = false;
+			}
 		});
 
 		// Send an emails if there were no quotes generated
-		if (!all_had_quotes && !some_quotes) {
+		if (!some_quotes) {
 			// Get the email information from the database
 			const sql = `SELECT
 				\`email_brand\` AS emailBrand,
@@ -398,10 +414,13 @@ module.exports = class Application {
 			FROM \`clw_talage_agency_networks\`
 			WHERE \`id\` = ${db.escape(this.agencyLocation.agencyNetwork)}
 			LIMIT 1;`;
-
-			let emailData = await db.query(sql).catch(function() {
-				log.error('Unable to get No Quote email content from the database' + __location);
-			});
+			let emailData = null;
+			try {
+				emailData = await db.query(sql);
+			}
+ catch (error) {
+				log.error(`Unable to get 'No Quote' email content from the database for agency network ${this.agencyLocation.agencyNetwork}: ${error} ${__location}`);
+			}
 
 			if (emailData && emailData[0]) {
 				// Reduce the result for easier reference
@@ -544,7 +563,7 @@ module.exports = class Application {
 	 * @param {int} numPolicyTypesReferred - THe number of policy types that referred
 	 * @return {void}
 	 */
-	updateApplicationState(numPolicyTypesRequested, numPolicyTypesQuoted, numPolicyTypesReferred) {
+	async updateApplicationState(numPolicyTypesRequested, numPolicyTypesQuoted, numPolicyTypesReferred) {
 		// Determine the application status
 		let state = 1; // New
 		if (numPolicyTypesRequested === numPolicyTypesQuoted) {
@@ -562,9 +581,12 @@ module.exports = class Application {
 				WHERE id = ${this.id}
 				LIMIT 1;
 			`;
-			db.query(sql).catch(function(error) {
-				log.error('Unable to update application status. ' + error + __location);
-			});
+			try {
+				await db.query(sql);
+			}
+ catch (error) {
+				log.error(`Unable to update application ${this.id} state: ${error} ${__location}`);
+			}
 		}
 	}
 
