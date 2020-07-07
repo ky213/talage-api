@@ -148,7 +148,10 @@ async function GetACORDFormWC(req, res, next){
 	// Replace any null values with an empty string
 	application_data.forEach(row => Object.values(row).map(element => element === null ? '' : element))
 
-	if(!application_data[0].policy_type || application_data[0].policy_type !== 'WC'){
+	// Check that the applicant applied for WC
+	const wc_check = application_data.find(entry => entry.policy_type === 'WC');
+
+	if(!wc_check){
 		log.error(`Application ${req.query.application_id} is not WC`);
 		res.send(400, {
 			'message': `Application ${req.query.application_id} is not WC`,
