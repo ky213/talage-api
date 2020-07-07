@@ -3,26 +3,7 @@
 const serverHelper = require('../../../server.js');
 const colorConverter = require('color-converter').default;
 
-/**
- * Calculates an accent color for a custom color scheme
- *
- * @param {object} rgbColorString - A color
- *
- * @returns {string} The color's accent color
- */
-function calculateAccentColor(rgbColorString) {
-	// TODO: move this to retrieving the color scheme so that we can adjust this on-the-fly -SF
-	// We calculate the accents based on the HSV color space.
-	const color = colorConverter.fromHex(rgbColorString);
-	// Keep the saturation in the range of 0.2 - 0.8
-	if (color.saturation > 0.5) {
-		color.saturation = Math.max(0.2, color.saturation - 0.5);
-	}
- else {
-		color.saturation = Math.min(0.8, color.saturation + 0.5);
-	}
-	return color.toHex();
-}
+
 
 /**
  * Validates the input to the endpoint
@@ -175,5 +156,4 @@ async function putColorScheme(req, res, next) {
 
 exports.registerEndpoint = (server, basePath) => {
 	server.addGetAuth('Get Color Schemes', `${basePath}/color-schemes`, getColorSchemes, 'pages', 'view');
-	server.addPutAuth('Update Color Scheme', `${basePath}/color-scheme`, putColorScheme, 'pages', 'manage');
 };
