@@ -338,6 +338,8 @@ module.exports = class Application {
 			return;
 		}
 
+		log.info(`${quoteIDs.length} quotes returned for application ${this.id}`);
+
 		// Check for no quotes
 		if (quoteIDs.length < 1) {
 			log.error(`No quotes returned for application ${this.id}`);
@@ -490,7 +492,14 @@ module.exports = class Application {
 					subject = agencyEmailData && Object.prototype.hasOwnProperty.call(agencyEmailData, 'subject') && agencyEmailData.subject ? agencyEmailData.subject : defaultAgencyEmailData.subject;
 
 					// Perform content replacements
-					const capitalizedBrand = emailData.emailBrand.charAt(0).toUpperCase() + emailData.emailBrand.substring(1);
+					let capitalizedBrand = null;
+					try {
+						capitalizedBrand = emailData.emailBrand.charAt(0).toUpperCase() + emailData.emailBrand.substring(1);
+					}
+ catch (error) {
+						log.error(`REFER TO SCOTT: possible charAt() issue: agencyNetwork=${this.agencyLocation.agencyNetwork} emailData=${JSON.stringify(emailData)} ${error} ${__location}`);
+						capitalizedBrand = emailData.emailBrand;
+					}
 					message = message.replace(/{{Agency Portal}}/g, `<a href="${portalLink}" target="_blank" rel="noopener noreferrer">${capitalizedBrand} Agency Portal</a>`);
 					message = message.replace(/{{Agency}}/g, this.agencyLocation.agency);
 					message = message.replace(/{{Agent Login URL}}/g, this.agencyLocation.insurers[quotes[0].insurer].agent_login);
@@ -500,7 +509,14 @@ module.exports = class Application {
 					message = message.replace(/{{Contact Name}}/g, `${this.business.contacts[0].first_name} ${this.business.contacts[0].last_name}`);
 					message = message.replace(/{{Contact Phone}}/g, formatPhone(this.business.contacts[0].phone));
 					message = message.replace(/{{Industry}}/g, this.business.industry_code_description);
-					message = message.replace(/{{Quote Result}}/g, quotes[0].status.charAt(0).toUpperCase() + quotes[0].status.substring(1));
+
+					try {
+						message = message.replace(/{{Quote Result}}/g, quotes[0].status.charAt(0).toUpperCase() + quotes[0].status.substring(1));
+					}
+ catch (error) {
+						log.error(`REFER TO SCOTT: possible charAt() issue: agencyNetwork=${this.agencyLocation.agencyNetwork} quote=${JSON.stringify(quotes[0])}: ${error} ${__location}`);
+						capitalizedBrand = emailData.emailBrand;
+					}
 
 					// Send the email message
 					email.send(this.agencyLocation.agencyEmail,

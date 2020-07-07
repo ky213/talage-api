@@ -25,7 +25,7 @@ const tracker = global.requireShared('/helpers/tracker.js');
  *		{string} title - (optional) The title of the attachment
  * @returns {boolean} for success state
  */
-exports.send = async function(channel, message_type, message, attachment){
+exports.send = async function(channel, message_type, message, attachment) {
 	// Return a promise
 	// moving to right be for POST to slack.
 	// If we are are running automated tests, do not send
@@ -35,34 +35,31 @@ exports.send = async function(channel, message_type, message, attachment){
 
 	// Build the data object to be sent
 	const slackData = {
-		'attachment': attachment,
-		'channel': channel,
-		'message': message,
-		'message_type': message_type
+		attachment: attachment,
+		channel: channel,
+		message: message,
+		message_type: message_type
 	};
 
 	// Send the request
 
-	const slackResp = await send2SlackInternal(slackData).catch(function(err){
-		log.error("Sending to Slack error: " + err + __location)
+	const slackResp = await send2SlackInternal(slackData).catch(function(err) {
+		log.error('Sending to Slack error: ' + err + __location);
 		return false;
 	});
 
 	return slackResp;
 };
 
-
-exports.send2SlackJSON = async function(slackReqJSON){
-
-	const resp = await send2SlackInternal(slackReqJSON).catch(function(err){
+exports.send2SlackJSON = async function(slackReqJSON) {
+	const resp = await send2SlackInternal(slackReqJSON).catch(function(err) {
 		throw err;
 	});
 
 	return resp;
-}
+};
 
-var send2SlackInternal = async function(slackReqJSON){
-
+var send2SlackInternal = async function(slackReqJSON) {
 	// Gifs for celebrations
 	const celebration_gifs = [
 		'https://media.giphy.com/media/87NS05bya11mg/giphy.gif',
@@ -120,7 +117,6 @@ var send2SlackInternal = async function(slackReqJSON){
 		'https://media1.giphy.com/media/3oEdv3F6gzBh8diueA/giphy-downsized.gif?cid=6104955e5d01aa146d38713551f4bf1d&rid=giphy-downsized.gif',
 		'https://media3.giphy.com/media/RgfGmnVvt8Pfy/giphy-tumblr.gif?cid=6104955e5d01ab00324f3272777c472e&rid=giphy-tumblr.gif',
 		'https://media0.giphy.com/media/6fScAIQR0P0xW/giphy-downsized.gif?cid=6104955e5d01ab394d30352e5983fd96&rid=giphy-downsized.gif'
-
 	];
 
 	// Default message data
@@ -134,28 +130,27 @@ var send2SlackInternal = async function(slackReqJSON){
 
 	// Type sanitization
 	const valid_message_types = ['celebrate',
-		'okay',
-		'ok',
-		'warning',
-		'attention',
-		'error'];
+'okay',
+'ok',
+'warning',
+'attention',
+'error'];
 
 	const valid_channels = ['#live_chat',
-		'#marketing',
-		'#alerts',
-		'#bugs',
-		'#customer_success',
-		'#debug',
-		'#development',
-		'#food-and-drink',
-		'#general',
-		'#git',
-		'#in-the-news',
-		'#suggestion_box',
-		'#where-am-i'];
+'#marketing',
+'#alerts',
+'#bugs',
+'#customer_success',
+'#debug',
+'#development',
+'#food-and-drink',
+'#general',
+'#git',
+'#in-the-news',
+'#suggestion_box',
+'#where-am-i'];
 
-
-	if(!slackReqJSON || typeof slackReqJSON !== 'object' || Object.keys(slackReqJSON).length === 0){
+	if (!slackReqJSON || typeof slackReqJSON !== 'object' || Object.keys(slackReqJSON).length === 0) {
 		log.error('send2SlackInternal No data was received' + __location);
 		throw new Error('No data was received');
 	}
@@ -163,58 +158,58 @@ var send2SlackInternal = async function(slackReqJSON){
 	log.verbose(util.inspect(slackReqJSON) + __location);
 
 	// Validate Channel
-	if(slackReqJSON.channel){
-
+	if (slackReqJSON.channel) {
 		slackReqJSON.channel = slackReqJSON.channel.toLowerCase();
 
-		if(slackReqJSON.channel.charAt(0) !== '#'){
-			slackReqJSON.channel = `#${slackReqJSON.channel}`; // Add # to beginning of channel
+		try {
+			if (slackReqJSON.channel.charAt(0) !== '#') {
+				slackReqJSON.channel = `#${slackReqJSON.channel}`; // Add # to beginning of channel
+			}
+		}
+ catch (error) {
+			log.error(`REFER TO SCOTT: possible charAt() issue: slackReqJSON=${JSON.stringify(slackReqJSON)} ${__location}`);
 		}
 
-		if(!/^#[a-z_-]{1,22}$/.test(slackReqJSON.channel)){
+		if (!/^#[a-z_-]{1,22}$/.test(slackReqJSON.channel)) {
 			log.error(`Channel ${slackReqJSON.channel} is not valid`);
 			throw new Error(`Channel ${slackReqJSON.channel} is not valid`);
 		}
 
-
-		if(!valid_channels.includes(slackReqJSON.channel)){
+		if (!valid_channels.includes(slackReqJSON.channel)) {
 			log.warn(`Invalid channel: ${slackReqJSON.channel}. Defaulted to #debug` + __location);
 			response_messages.invalid_channel = `Invalid channel: ${slackReqJSON.channel}. Defaulted to #debug`;
 			slackReqJSON.channel = '#debug';
 		}
-
-
 	}
-	else{
+ else {
 		log.warn('Missing property: channel. Defaulted to #debug.' + __location);
 		response_messages.missing_channel = 'Missing Property: channel. Defaulted to #debug.';
 		footer = '*A channel was not provided with this message*';
 		slackReqJSON.channel = '#debug';
 	}
 
-
-	if(slackReqJSON.message_type){
-
+	if (slackReqJSON.message_type) {
 		slackReqJSON.message_type = slackReqJSON.message_type.toLowerCase();
 
-		if(!/^[a-z]{1,10}$/.test(slackReqJSON.message_type)){
+		if (!/^[a-z]{1,10}$/.test(slackReqJSON.message_type)) {
 			log.error(`send2SlackInternal: Message type ${slackReqJSON.message_type} is not valid` + __location);
 			throw new Error(`Message type ${slackReqJSON.message_type} is not valid`);
 		}
 
-		if(!valid_message_types.includes(slackReqJSON.message_type)){
+		if (!valid_message_types.includes(slackReqJSON.message_type)) {
 			log.warn(`send2SlackInternal: Invalid message_type: ${slackReqJSON.message_type}. Message still sent to slack.` + __location);
 			response_messages.invalid_message_type = `Invalid message_type: ${slackReqJSON.message_type}. Message still sent to slack.`;
 		}
 
 		// Figure out colors and message type
-		switch(slackReqJSON.message_type){
+		switch (slackReqJSON.message_type) {
 			case 'celebrate':
 				button_style = 'primary';
 				color = '#0000FF';
 				icon_emoji = ':tada:';
 				break;
-			case 'ok': case 'okay':
+			case 'ok':
+			case 'okay':
 				button_style = 'primary';
 				color = '#00FF00';
 				icon_emoji = ':ok_hand:';
@@ -238,190 +233,182 @@ var send2SlackInternal = async function(slackReqJSON){
 				break; // Everything has a default value already. See variable declarations
 		}
 	}
-	else{
+ else {
 		log.warn('send2SlackInternal: Missing property: message_type' + __location);
 		response_messages.missing_message_type = 'Missing property: message_type';
 	}
 
-
 	// Message
-	if(slackReqJSON.message){
-
-		if(typeof slackReqJSON.message !== 'string'){
+	if (slackReqJSON.message) {
+		if (typeof slackReqJSON.message !== 'string') {
 			log.error('send2SlackInternal: Message must be given as a string' + __location);
 			throw new Error('Message must be a string');
 		}
-
 	}
-	else{
+ else {
 		log.error('send2SlackInternal: Missing property: message' + __location);
 		throw new Error('Missing property: message');
 	}
 
-	if(slackReqJSON.attachment){
-
-		if(slackReqJSON.attachment.title && typeof slackReqJSON.attachment.title !== 'string'){
+	if (slackReqJSON.attachment) {
+		if (slackReqJSON.attachment.title && typeof slackReqJSON.attachment.title !== 'string') {
 			log.error('send2SlackInternal: Attachment title must be given as a string' + __location);
 			throw new Error('Attachment title must be given as a string');
 		}
 
-		if(slackReqJSON.attachment.text && typeof slackReqJSON.attachment.text !== 'string'){
+		if (slackReqJSON.attachment.text && typeof slackReqJSON.attachment.text !== 'string') {
 			log.error('send2SlackInternal: Attachment text must be given as a string' + __location);
 
 			throw new Error('Attachment text must be given as a string');
 		}
 
-
 		// Attachment_fields sanitization
-		if(slackReqJSON.attachment.fields){
-			if(typeof slackReqJSON.attachment.fields instanceof Array){
+		if (slackReqJSON.attachment.fields) {
+			if (typeof slackReqJSON.attachment.fields instanceof Array) {
 				log.error('send2SlackInternal: Attachment Fields must be given as an array of JSON objects' + __location);
 
 				throw new Error('Attachment Fields must be given as an array of JSON objects');
 			}
 
-			if(!slackReqJSON.attachment.fields.length){
+			if (!slackReqJSON.attachment.fields.length) {
 				log.warn('send2SlackInternal: Attachment Fields must have at least one object' + __location);
 				response_messages.empty_fields = 'Attachment Fields must have at least one object';
 			}
 
 			// Indexes are used so they can be given back to the user if something goes wrong
-			for(let i = 0; i < slackReqJSON.attachment.fields.length; ++i){
-				if(!slackReqJSON.attachment.fields[i].title){
+			for (let i = 0; i < slackReqJSON.attachment.fields.length; ++i) {
+				if (!slackReqJSON.attachment.fields[i].title) {
 					log.error(`send2SlackInternal: The field at index ${i} is missing title` + __location);
 					throw new Error(`The field at index ${i} is missing title`);
 				}
 
-				if(!slackReqJSON.attachment.fields[i].value){
+				if (!slackReqJSON.attachment.fields[i].value) {
 					log.error(`send2SlackInternal: The attachment field at index ${i} is missing value` + __location);
 					throw new Error(`The attachment field at index ${i} is missing value`);
 				}
 
-				if(slackReqJSON.attachment.fields[i].short){
-					if(typeof slackReqJSON.attachment.fields[i].short === 'string'){
-						if(slackReqJSON.attachment.fields[i].short === 'true'){
+				if (slackReqJSON.attachment.fields[i].short) {
+					if (typeof slackReqJSON.attachment.fields[i].short === 'string') {
+						if (slackReqJSON.attachment.fields[i].short === 'true') {
 							slackReqJSON.attachment.fields[i].short = true;
 						}
-						else if(slackReqJSON.attachment.fields[i].short === 'false'){
+ else if (slackReqJSON.attachment.fields[i].short === 'false') {
 							slackReqJSON.attachment.fields[i].short = false;
 						}
-						else{
+ else {
 							log.error(`send2SlackInternal: he attachment field at index ${i} has short that is not true or false` + __location);
 							throw new Error(`The attachment field at index ${i} has short that is not true or false`);
 						}
 					}
-					else if(typeof slackReqJSON.attachment.fields[i].short !== 'boolean'){
+ else if (typeof slackReqJSON.attachment.fields[i].short !== 'boolean') {
 						log.error(`send2SlackInternal: The attachment field at index ${i} has short that is not a boolean` + __location);
 						throw new Error(`The attachment field at index ${i} has short that is not a boolean`);
 					}
 				}
 			}
-
 		}
 	}
 
 	// App ID sanitization
-	if(slackReqJSON.attachment && slackReqJSON.attachment.application_id && !/^\d{3,5}$/.test(slackReqJSON.attachment.application_id)){
+	if (slackReqJSON.attachment && slackReqJSON.attachment.application_id && !/^\d{3,5}$/.test(slackReqJSON.attachment.application_id)) {
 		log.error(`send2SlackInternal: Application id ${slackReqJSON.attachment.application_id} is not valid` + __location);
 		throw new Error(`Application id ${slackReqJSON.attachment.application_id} is not valid`);
-
 	}
 
 	// Add a message for testing
-	if(global.settings.ENV !== 'production' && slackReqJSON.channel !== '#debug'){
+	if (global.settings.ENV !== 'production' && slackReqJSON.channel !== '#debug') {
 		footer = `*In production this would be sent to the ${slackReqJSON.channel} channel*, From: ${global.settings.ENV} `;
 		slackReqJSON.channel = '#debug';
 	}
 
 	// Create fallback text
 	fallback_text = slackReqJSON.message;
-	if(fallback_text.indexOf('ALL quotes') !== -1){
+	if (fallback_text.indexOf('ALL quotes') !== -1) {
 		fallback_text = `${slackReqJSON.attachment.text} and received ALL quotes`;
 	}
-	else if(fallback_text.indexOf('SOME quotes') !== -1){
+ else if (fallback_text.indexOf('SOME quotes') !== -1) {
 		fallback_text = `${slackReqJSON.attachment.text} and received SOME quotes`;
 	}
-	else if(fallback_text.indexOf('NO quotes') !== -1){
+ else if (fallback_text.indexOf('NO quotes') !== -1) {
 		fallback_text = `${slackReqJSON.attachment.text} and received NO quotes`;
 	}
 
 	const post_data = {
-		'attachments': [{
-			'actions': [],
-			'color': color,
-			'fallback': fallback_text
-		}],
-		'channel': slackReqJSON.channel, // Defaults to debug in above check
-		'icon_emoji': icon_emoji,
-		'username': username
+		attachments: [
+			{
+				actions: [],
+				color: color,
+				fallback: fallback_text
+			}
+		],
+		channel: slackReqJSON.channel, // Defaults to debug in above check
+		icon_emoji: icon_emoji,
+		username: username
 	};
 
-	if(slackReqJSON.attachment && slackReqJSON.attachment.application_id){
+	if (slackReqJSON.attachment && slackReqJSON.attachment.application_id) {
 		const url = `https://${global.settings.SITE_URL}/administrator/index.php?option=com_talage&view=application&layout=edit&id=${slackReqJSON.attachment.application_id}`;
 
 		post_data.attachments[0].actions.push({
-			'style': button_style,
-			'text': 'View Application',
-			'type': 'button',
-			'url': url
+			style: button_style,
+			text: 'View Application',
+			type: 'button',
+			url: url
 		});
 	}
 
 	// For alerts and debug channels all instance info
 	log.info(`slackReqJSON.channel: ${slackReqJSON.channel}`);
-	if(slackReqJSON.channel === '#debug' || slackReqJSON.channel === '#alerts'){
-		if(process.env.HOSTNAME && process.env.INSTANCE_ID){
+	if (slackReqJSON.channel === '#debug' || slackReqJSON.channel === '#alerts') {
+		if (process.env.HOSTNAME && process.env.INSTANCE_ID) {
 			footer = `${footer} HOSTNAME: ${process.env.HOSTNAME} INSTANCE: ${process.env.INSTANCE_ID}`;
 		}
 	}
 
-	if(slackReqJSON.attachment && slackReqJSON.attachment.text){
+	if (slackReqJSON.attachment && slackReqJSON.attachment.text) {
 		post_data.attachments[0].pretext = slackReqJSON.message;
 		post_data.attachments[0].text = slackReqJSON.attachment.text;
 	}
-	else{
+ else {
 		post_data.attachments[0].text = slackReqJSON.message;
 	}
 
-
 	// Add the message to the 'title' of the message and add fields to the body of the message
-	if(slackReqJSON.attachment){
-
-		if(slackReqJSON.attachment.fields){
+	if (slackReqJSON.attachment) {
+		if (slackReqJSON.attachment.fields) {
 			post_data.attachments[0].fields = slackReqJSON.attachment.fields;
 		}
-		if(slackReqJSON.attachment.title){
+		if (slackReqJSON.attachment.title) {
 			post_data.attachments[0].title = slackReqJSON.attachment.title;
 		}
 	}
 
-	if(slackReqJSON.message_type === 'celebrate'){
+	if (slackReqJSON.message_type === 'celebrate') {
 		post_data.attachments[0].image_url = celebration_gifs[Math.floor(Math.random() * celebration_gifs.length)];
 	}
 
 	// Add footer if it exists
-	if(footer !== ''){
+	if (footer !== '') {
 		post_data.attachments[0].footer = footer;
 	}
 
 	log.info(`Post data: ${util.inspect(post_data)}`);
 
 	// eslint-disable-next-line no-extra-parens
-	if(global.settings.ENV === 'test' || (global.settings.SLACK_DO_NOT_SEND && global.settings.SLACK_DO_NOT_SEND === "YES")){
-		log.info("Not sending to Slack do to config")
+	if (global.settings.ENV === 'test' || (global.settings.SLACK_DO_NOT_SEND && global.settings.SLACK_DO_NOT_SEND === 'YES')) {
+		log.info('Not sending to Slack do to config');
 		return true;
 	}
 
-	await request.post('https://hooks.slack.com/services/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', {'json': post_data}, (error, slackRes, body) => {
-		if(error){
-			log.error("Slack API error: resp: " + slackRes + " error: " + error + " body " + body + __location);
+	await request.post('https://hooks.slack.com/services/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', {json: post_data}, (error, slackRes, body) => {
+		if (error) {
+			log.error('Slack API error: resp: ' + slackRes + ' error: ' + error + ' body ' + body + __location);
 			throw error;
 		}
-		else{
+ else {
 			log.info(`Slack API statusCode: ${slackRes.statusCode}` + __location);
 			log.info(`Slack API body: ${body}` + __location);
 			return body;
 		}
 	});
-
-}
+};
