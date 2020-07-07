@@ -135,7 +135,6 @@ async function retrieveCustomColorScheme(data, next){
  * @return {object} Object containing landing page information
  */
 async function validate(request, next) {
-	console.log("inside of validate")
 	// Establish default values
 	const data = {
 		about: '',
@@ -580,7 +579,6 @@ async function getLandingPage(req, res, next) {
  */
 async function updateLandingPage(req, res, next) {
 	let error = false;
-	console.log("inside of the updateLandingPage");
 	// Determine the agency ID
 	const agency = req.authentication.agents[0];
 
@@ -589,7 +587,7 @@ async function updateLandingPage(req, res, next) {
 		log.info('Bad Request: Parameters missing' + __location);
 		return next(serverHelper.requestError('Parameters missing'));
 	}
-	console.log()
+
 	// Validate the request and get back the data
 	const data = await validate(req, next).catch(function(err) {
 		error = err.message;
