@@ -493,7 +493,7 @@ module.exports = class Application {
 					const capitalizedBrand = emailData.emailBrand.charAt(0).toUpperCase() + emailData.emailBrand.substring(1);
 					message = message.replace(/{{Agency Portal}}/g, `<a href="${portalLink}" target="_blank" rel="noopener noreferrer">${capitalizedBrand} Agency Portal</a>`);
 					message = message.replace(/{{Agency}}/g, this.agencyLocation.agency);
-					message = message.replace(/{{Agent Login URL}}/g, this.agencyLocation.insurers[quotes[0].insurer.id].agent_login);
+					message = message.replace(/{{Agent Login URL}}/g, this.agencyLocation.insurers[quotes[0].insurer].agent_login);
 					message = message.replace(/{{Brand}}/g, capitalizedBrand);
 					message = message.replace(/{{Business Name}}/g, this.business.name);
 					message = message.replace(/{{Contact Email}}/g, this.business.contacts[0].email);
