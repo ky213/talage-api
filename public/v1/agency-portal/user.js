@@ -18,15 +18,14 @@ const slack = global.requireShared('./services/slacksvc.js');
  * @return {boolean} - True if the agency has an owner; false otherwise
  */
 function hasOtherOwner(agency, user, agencyNetwork = false) {
-	return new Promise(async function(fulfill) {
+	return new Promise(async function (fulfill) {
 		let error = false;
 
 		// Determine which where statement is needed
 		let where = '';
 		if (agencyNetwork) {
 			where = `\`agency_network\` = ${parseInt(agency, 10)}`;
-		}
-		else {
+		} else {
 			where = `\`agency\` = ${parseInt(agency, 10)}`;
 		}
 
@@ -42,7 +41,7 @@ function hasOtherOwner(agency, user, agencyNetwork = false) {
 			`;
 
 		// Run the query
-		const result = await db.query(sql).catch(function() {
+		const result = await db.query(sql).catch(function () {
 			error = true;
 			fulfill(false);
 		});
@@ -71,7 +70,7 @@ exports.hasOtherOwner = hasOtherOwner;
  * @return {boolean} - True if the agency has a signing authority; false otherwise
  */
 function hasOtherSigningAuthority(agency, user) {
-	return new Promise(async function(fulfill) {
+	return new Promise(async function (fulfill) {
 		let error = false;
 
 		const sql = `
@@ -86,7 +85,7 @@ function hasOtherSigningAuthority(agency, user) {
 			`;
 
 		// Run the query
-		const result = await db.query(sql).catch(function() {
+		const result = await db.query(sql).catch(function () {
 			error = true;
 			fulfill(false);
 		});
@@ -115,9 +114,9 @@ exports.hasOtherSigningAuthority = hasOtherSigningAuthority;
 async function validate(req) {
 	// Establish default values
 	const data = {
-		"canSign": 0,
-		"email": '',
-		"group": 5
+		canSign: 0,
+		email: '',
+		group: 5
 	};
 
 	// Validate each parameter
@@ -155,7 +154,7 @@ async function validate(req) {
 				${req.body.id ? `AND \`id\` != ${db.escape(req.body.id)}` : ''}
 			;
 		`;
-	const duplicateResult = await db.query(duplicateSQL).catch(function() {
+	const duplicateResult = await db.query(duplicateSQL).catch(function () {
 		throw new Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 	});
 	if (duplicateResult.length > 0) {
@@ -184,7 +183,7 @@ async function createUser(req, res, next) {
 	}
 
 	// Validate the request and get back the data
-	const data = await validate(req).catch(function(err) {
+	const data = await validate(req).catch(function (err) {
 		error = err.message;
 	});
 	if (error) {
@@ -196,10 +195,9 @@ async function createUser(req, res, next) {
 	let where = ``;
 	if (req.authentication.agencyNetwork) {
 		where = `\`agency_network\`= ${parseInt(req.authentication.agencyNetwork, 10)}`;
-	}
-	else {
+	} else {
 		// Get the agents that we are permitted to view
-		const agents = await auth.getAgents(req).catch(function(e) {
+		const agents = await auth.getAgents(req).catch(function (e) {
 			error = e;
 		});
 		if (error) {
@@ -209,7 +207,7 @@ async function createUser(req, res, next) {
 	}
 
 	// Begin a database transaction
-	const connection = await db.beginTransaction().catch(function() {
+	const connection = await db.beginTransaction().catch(function () {
 		error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 	});
 	if (error) {
@@ -230,7 +228,7 @@ async function createUser(req, res, next) {
 			`;
 
 		// Run the query
-		await db.query(removeOwnerSQL, connection).catch(function() {
+		await db.query(removeOwnerSQL, connection).catch(function () {
 			error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 		});
 		if (error) {
@@ -250,7 +248,7 @@ async function createUser(req, res, next) {
 			`;
 
 		// Run the query
-		await db.query(removeCanSignSQL, connection).catch(function() {
+		await db.query(removeCanSignSQL, connection).catch(function () {
 			error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 		});
 		if (error) {
@@ -271,10 +269,9 @@ async function createUser(req, res, next) {
 	if (req.authentication.agencyNetwork) {
 		controlColumn = 'agency_network';
 		controlValue = req.authentication.agencyNetwork;
-	}
-	else {
+	} else {
 		// Get the agents that we are permitted to view
-		const agents = await auth.getAgents(req).catch(function(e) {
+		const agents = await auth.getAgents(req).catch(function (e) {
 			error = e;
 		});
 		if (error) {
@@ -291,7 +288,7 @@ async function createUser(req, res, next) {
 		`;
 
 	// Run the query
-	const result = await db.query(insertSQL, connection).catch(function() {
+	const result = await db.query(insertSQL, connection).catch(function () {
 		error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 	});
 	if (error) {
@@ -313,9 +310,9 @@ async function createUser(req, res, next) {
 
 	// Return the response
 	res.send(200, {
-		"userID": userID,
-		"code": 'Success',
-		"message": 'User Created'
+		userID: userID,
+		code: 'Success',
+		message: 'User Created'
 	});
 
 	// Check if this is an agency network
@@ -332,7 +329,7 @@ async function createUser(req, res, next) {
 			`;
 
 		// Run the query
-		const agencyNetworkResult = await db.query(agencyNetworkSQL).catch(function() {
+		const agencyNetworkResult = await db.query(agencyNetworkSQL).catch(function () {
 			error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 		});
 		if (error) {
@@ -350,7 +347,7 @@ async function createUser(req, res, next) {
 				ORDER BY \`id\` DESC
 				LIMIT 2;
 			`;
-	const emailContentResult = await db.query(emailContentSQL).catch(function(err) {
+	const emailContentResult = await db.query(emailContentSQL).catch(function (err) {
 		log.error(`DB Error Unable to send new user email to ${data.email}. Please send manually.`);
 		log.error(err);
 		error = true;
@@ -378,7 +375,7 @@ async function createUser(req, res, next) {
 	}
 
 	// Create a limited life JWT
-	const token = jwt.sign({"userID": userID}, global.settings.AUTH_SECRET_KEY, {"expiresIn": '7d'});
+	const token = jwt.sign({ userID: userID }, global.settings.AUTH_SECRET_KEY, { expiresIn: '7d' });
 
 	// Format the brand
 	let brandraw = global.settings.BRAND.toLowerCase();
@@ -392,18 +389,20 @@ async function createUser(req, res, next) {
 
 	// Prepare the email to send to the user
 	const emailData = {
-		"from": brand,
-		"html": emailMessage.
-			replace(/{{Brand}}/g, brand).
-			replace(/{{Activation Link}}/g,
-				`<a href="${portalurl}/reset-password/${token}" style="background-color:#ED7D31;border-radius:0.25rem;color:#FFF;font-size:1.3rem;padding-bottom:0.75rem;padding-left:1.5rem;padding-top:0.75rem;padding-right:1.5rem;text-decoration:none;text-transform:uppercase;">Activate My Account</a>`),
-		"subject": emailSubject.replace('{{Brand}}', brand),
-		"to": data.email
+		from: brand,
+		html: emailMessage
+			.replace(/{{Brand}}/g, brand)
+			.replace(
+				/{{Activation Link}}/g,
+				`<a href="${portalurl}/reset-password/${token}" style="background-color:#ED7D31;border-radius:0.25rem;color:#FFF;font-size:1.3rem;padding-bottom:0.75rem;padding-left:1.5rem;padding-top:0.75rem;padding-right:1.5rem;text-decoration:none;text-transform:uppercase;">Activate My Account</a>`
+			),
+		subject: emailSubject.replace('{{Brand}}', brand),
+		to: data.email
 	};
 	const emailResp = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, emailData.from, 0);
 	if (emailResp === false) {
 		log.error(`Unable to send new user email to ${data.email}. Please send manually.`);
-		slack.send('#alerts', 'warning',`Unable to send new user email to ${data.email}. Please send manually.`);
+		slack.send('#alerts', 'warning', `Unable to send new user email to ${data.email}. Please send manually.`);
 	}
 }
 
@@ -424,10 +423,9 @@ async function deleteUser(req, res, next) {
 	if (req.authentication.agencyNetwork) {
 		agencyOrNetworkID = parseInt(req.authentication.agencyNetwork, 10);
 		where = `\`agency_network\`= ${agencyOrNetworkID}`;
-	}
-	else {
+	} else {
 		// Get the agents that we are permitted to view
-		const agents = await auth.getAgents(req).catch(function(e) {
+		const agents = await auth.getAgents(req).catch(function (e) {
 			error = e;
 		});
 		if (error) {
@@ -447,13 +445,13 @@ async function deleteUser(req, res, next) {
 	if (!Object.prototype.hasOwnProperty.call(req.query, 'id')) {
 		return next(serverHelper.requestError('ID missing'));
 	}
-	if (!await validator.userId(req.query.id, agencyOrNetworkID, req.authentication.agencyNetwork)) {
+	if (!(await validator.userId(req.query.id, agencyOrNetworkID, req.authentication.agencyNetwork))) {
 		return next(serverHelper.requestError('ID is invalid'));
 	}
 	const id = req.query.id;
 
 	// Make sure there is an owner for this agency (we are not removing the last owner)
-	if (!await hasOtherOwner(agencyOrNetworkID, id, req.authentication.agencyNetwork)) {
+	if (!(await hasOtherOwner(agencyOrNetworkID, id, req.authentication.agencyNetwork))) {
 		// Log a warning and return an error
 		log.warn('This user is the account owner. You must assign ownership to another user before deleting this account.');
 		return next(serverHelper.requestError('This user is the account owner. You must assign ownership to another user before deleting this account.'));
@@ -461,7 +459,7 @@ async function deleteUser(req, res, next) {
 
 	// Make sure there is another signing authority (we are not removing the last one) (this setting does not apply to agency networks)
 	if (!req.authentication.agencyNetwork) {
-		if (!await hasOtherSigningAuthority(agencyOrNetworkID, id)) {
+		if (!(await hasOtherSigningAuthority(agencyOrNetworkID, id))) {
 			// Log a warning and return an error
 			log.warn('This user is the account signing authority. You must assign signing authority to another user before deleting this account.');
 			return next(serverHelper.requestError('This user is the account signing authority. You must assign signing authority to another user before deleting this account.'));
@@ -480,7 +478,7 @@ async function deleteUser(req, res, next) {
 		`;
 
 	// Run the query
-	const result = await db.query(updateSQL).catch(function() {
+	const result = await db.query(updateSQL).catch(function () {
 		error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 	});
 	if (error) {
@@ -523,10 +521,9 @@ async function getUser(req, res, next) {
 	let where = ``;
 	if (req.authentication.agencyNetwork) {
 		where = `\`agency_network\`= ${parseInt(req.authentication.agencyNetwork, 10)}`;
-	}
-	else {
+	} else {
 		// Get the agents that we are permitted to view
-		const agents = await auth.getAgents(req).catch(function(e) {
+		const agents = await auth.getAgents(req).catch(function (e) {
 			error = e;
 		});
 		if (error) {
@@ -550,7 +547,7 @@ async function getUser(req, res, next) {
 				${where};
 		`;
 
-	const userInfo = await db.query(userSQL).catch(function() {
+	const userInfo = await db.query(userSQL).catch(function () {
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});
 
@@ -578,7 +575,7 @@ async function updateUser(req, res, next) {
 	}
 
 	// Validate the request and get back the data
-	const data = await validate(req).catch(function(err) {
+	const data = await validate(req).catch(function (err) {
 		log.warn(err.message);
 		error = serverHelper.requestError(err.message);
 	});
@@ -592,10 +589,9 @@ async function updateUser(req, res, next) {
 	if (req.authentication.agencyNetwork) {
 		agencyOrNetworkID = parseInt(req.authentication.agencyNetwork, 10);
 		where = `\`agency_network\`= ${agencyOrNetworkID}`;
-	}
-	else {
+	} else {
 		// Get the agents that we are permitted to view
-		const agents = await auth.getAgents(req).catch(function(e) {
+		const agents = await auth.getAgents(req).catch(function (e) {
 			error = e;
 		});
 		if (error) {
@@ -609,13 +605,13 @@ async function updateUser(req, res, next) {
 	if (!Object.prototype.hasOwnProperty.call(req.body, 'id')) {
 		return next(serverHelper.requestError('ID missing'));
 	}
-	if (!await validator.userId(req.body.id, agencyOrNetworkID, req.authentication.agencyNetwork)) {
+	if (!(await validator.userId(req.body.id, agencyOrNetworkID, req.authentication.agencyNetwork))) {
 		return next(serverHelper.requestError('ID is invalid'));
 	}
 	data.id = req.body.id;
 
 	// Begin a database transaction
-	const connection = await db.beginTransaction().catch(function() {
+	const connection = await db.beginTransaction().catch(function () {
 		error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 	});
 	if (error) {
@@ -636,7 +632,7 @@ async function updateUser(req, res, next) {
 			`;
 
 		// Run the query
-		await db.query(removeOwnerSQL, connection).catch(function() {
+		await db.query(removeOwnerSQL, connection).catch(function () {
 			error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 		});
 		if (error) {
@@ -644,8 +640,7 @@ async function updateUser(req, res, next) {
 		}
 
 		// Make sure there is an owner for this agency (we are not removing the last owner)
-	}
-	else if (!await hasOtherOwner(agencyOrNetworkID, data.id, req.authentication.agencyNetwork)) {
+	} else if (!(await hasOtherOwner(agencyOrNetworkID, data.id, req.authentication.agencyNetwork))) {
 		// Rollback the transaction
 		db.rollback(connection);
 
@@ -667,7 +662,7 @@ async function updateUser(req, res, next) {
 				`;
 
 			// Run the query
-			await db.query(removeCanSignSQL, connection).catch(function() {
+			await db.query(removeCanSignSQL, connection).catch(function () {
 				error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 			});
 			if (error) {
@@ -675,8 +670,7 @@ async function updateUser(req, res, next) {
 			}
 
 			// Make sure there is another signing authority (we are not removing the last one)
-		}
-		else if (!await hasOtherSigningAuthority(agencyOrNetworkID, data.id, req.authentication.agencyNetwork)) {
+		} else if (!(await hasOtherSigningAuthority(agencyOrNetworkID, data.id, req.authentication.agencyNetwork))) {
 			// Rollback the transaction
 			db.rollback(connection);
 
@@ -705,7 +699,7 @@ async function updateUser(req, res, next) {
 		`;
 
 	// Run the query
-	const result = await db.query(updateSQL, connection).catch(function() {
+	const result = await db.query(updateSQL, connection).catch(function () {
 		error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 	});
 	if (error) {
