@@ -12,8 +12,7 @@ const DocuSign = require('docusign-esign');
  *
  * @returns {object} - A reference to the DocuSign API class
  */
-module.exports = async function(){
-
+module.exports = async function () {
 	// Initialize the API
 	const docusignApiClient = new DocuSign.ApiClient();
 
@@ -29,23 +28,21 @@ module.exports = async function(){
 	// Set the token to be sent with each API request
 	docusignApiClient.addDefaultHeader('Authorization', `Bearer ${token}`);
 	let accountId = null;
-	// Get our user info
-	await docusignApiClient.getUserInfo(token).
-		then(function(userInfo){
-			// Grab the account ID and store it globally
-			accountId = userInfo.accounts[0].accountId;
-
-			// Set the path used for API requests
-			docusignApiClient.setBasePath(`${userInfo.accounts[0].baseUri}/restapi`);
-		}).catch(function(error){
-			log.error('Unable to get User Info from DocuSign.' + error + __location);
-			log.verbose(error);
-
-		});
+	try {
+		// Get our user info
+		const userInfo = await docusignApiClient.getUserInfo(token);
+		// Grab the account ID and store it globally
+		accountId = userInfo.accounts[0].accountId;
+		// Set the path used for API requests
+		docusignApiClient.setBasePath(`${userInfo.accounts[0].baseUri}/restapi`);
+	} catch (error) {
+		log.error('Unable to get User Info from DocuSign.' + error + __location);
+		log.verbose(error);
+	}
 
 	// Return a reference to the DocuSign API that can be used for further API calls
 	return {
-		'accountId': accountId,
-		'docusignApiClient': docusignApiClient
+		accountId: accountId,
+		docusignApiClient: docusignApiClient
 	};
 };
