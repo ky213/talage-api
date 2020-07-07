@@ -404,8 +404,6 @@ module.exports = class Application {
 			}
 		});
 
-		some_quotes = false;
-
 		// Send an emails if there were no quotes generated
 		if (!some_quotes) {
 			// Get the email information from the database
