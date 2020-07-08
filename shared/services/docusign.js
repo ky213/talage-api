@@ -7,7 +7,7 @@ const jwtLife = 24 * 60; // The number of seconds we are requesting the JWT stay
 const scopes = 'signature'; // The scopes of capabilities we will request from DocuSign
 const tokenReplaceMinutes = 5; // The accessToken must have at least this much time left or it will be replaced
 
-// Initialize variables
+// Cached token variables
 let accessToken = null;
 let tokenExpirationTime = null;
 
@@ -105,22 +105,19 @@ async function getNewToken(config) {
 	docusignApiClient.setOAuthBasePath(config.authBasePath);
 
 	// Request the JWT Token
-	await docusignApiClient.requestJWTUserToken(config.integrationKey, config.impersonatedUser, scopes, config.privateKey, jwtLife).then(
-		function (result) {
-			// Store the token and expiration time locally for later use
-			log.verbose('New token obtained.');
-			accessToken = result.body.access_token;
-			tokenExpirationTime = moment().add(result.body.expires_in, 's');
-		},
-		function (error) {
-			log.error(`Unable to authenicate to DocuSign. (${error.status} ${error.message})` + __location);
-			if (error.response.res.text === '{"error":"consent_required"}') {
-				log.verbose(`Consent needs to be provided. Try https://${config.authBasePath}/oauth/auth?response_type=code&scope=signature%20impersonation&client_id=${config.integrationKey}&redirect_uri=https://agents.insurancewheelhouse.com`);
-			} else {
-				log.verbose(error.response.res.text);
-			}
+	let result = null;
+	try {
+		result = await docusignApiClient.requestJWTUserToken(config.integrationKey, config.impersonatedUser, scopes, config.privateKey, jwtLife);
+	} catch (error) {
+		log.error(`Unable to authenicate to DocuSign: ${error} ${__location}`);
+		if (error.response.res.text === '{"error":"consent_required"}') {
+			log.error(`DocuSign consent needs to be provided. Try https://${config.authBasePath}/oauth/auth?response_type=code&scope=signature%20impersonation&client_id=${config.integrationKey}&redirect_uri=https://agents.insurancewheelhouse.com`);
 		}
-	);
+	}
+	// Store the token and expiration time locally for later use
+	log.verbose('New DocuSign token was generated');
+	accessToken = result.body.access_token;
+	tokenExpirationTime = moment().add(result.body.expires_in, 's');
 }
 
 /**
