@@ -75,19 +75,21 @@ module.exports = class ApplicationModel {
                     return;
                 }
                 // //Check that it is too old (1 hours) from creation
-                // if(this.created){
-                //     const dbCreated = moment(this.created);
-                //     const nowTime = moment();
-                //     const ageInMinutes = nowTime.diff(dbCreated, 'minutes');
-                //     if(ageInMinutes > 60){
-                //         log.warn(`Attempt to update an old application. appid ${applicationJSON.id}`  + __location);
-                //         reject(new Error("Data Error:Application may not be updated."));
-                //         return;
-                //     }
-                // }
-                // else {
-                //     log.warn(`Application missing created value. appid ${applicationJSON.id}`  + __location);
-                // }
+                if(this.created){
+                    const dbCreated = moment.utc(this.created);
+                    log.debug('app created at ' + dbCreated.toString())
+                    const nowTime = moment().utc();;
+                    const ageInMinutes = dbCreated.diff(nowTime, 'minutes');
+                    log.debug('Application age in minutes ' + ageInMinutes);
+                    // if(ageInMinutes > 60){
+                    //     log.warn(`Attempt to update an old application. appid ${applicationJSON.id}`  + __location);
+                    //     reject(new Error("Data Error:Application may not be updated."));
+                    //     return;
+                    // }
+                }
+                else {
+                    log.warn(`Application missing created value. appid ${applicationJSON.id}`  + __location);
+                }
 
 
             }
@@ -403,7 +405,7 @@ processQuestions(questions){
 
             } else if (question.type === 'array'){
                 const arrayString = "|" + question.answer.join('|');
-                valueLine = `(${this.id}, ${question.id},NULL, '${arrayString}', NULL)`
+                valueLine = `(${this.id}, ${question.id},NULL, '${arrayString}')`
             }
             else {
                 valueLine = `(${this.id}, ${question.id}, ${question.answer}, NULL)`
