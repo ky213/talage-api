@@ -43,6 +43,15 @@ async function Save(req, res, next){
     // }
     const applicationRequestJson = req.body;
 
+    if(applicationRequestJson.demo === "true" || applicationRequestJson.id === "-999"){
+        const responseDemo = {};
+        responseDemo.demo = applicationRequestJson.demo;
+        responseDemo.id = -999;
+        responseDemo.message = "saved";
+        res.send(200, responseDemo);
+        return next();
+    }
+
 	//Validation passed, give requst application to model to process and save.
     if(!applicationRequestJson.id && applicationRequestJson.step !== "contact" && applicationRequestJson.step !== "bindRequest"){
         res.send(400, "missing application id");
