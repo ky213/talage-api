@@ -5,6 +5,7 @@ const BusinessModel = require('./Business-model.js');
 const ApplicationActivityCodesModel = require('./ApplicationActivityCodes-model.js');
 const ApplicationPolicyTypeModel = require('./ApplicationPolicyType-model.js');
 const LegalAcceptanceModel = require('./LegalAcceptance-model.js');
+const ApplicationClaimModel =  require('./ApplicationClaim-model.js');
 
 const QuoteModel = require('./Quote-model.js');
 const taskWholesaleAppEmail = global.requireRootPath('tasksystem/task-wholesaleapplicationemail.js');
