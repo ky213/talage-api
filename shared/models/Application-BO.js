@@ -1,5 +1,5 @@
 'use strict';
-
+const moment = require('moment');
 const DatabaseObject = require('./DatabaseObject.js');
 const BusinessModel = require('./Business-model.js');
 const ApplicationActivityCodesModel = require('./ApplicationActivityCodes-model.js');
@@ -60,7 +60,7 @@ module.exports = class ApplicationModel {
                 reject(new Error("missing application id"));
                 return;
             }
-            if (applicationJSON.id && applicationJSON.step !== "contact") {
+            if (applicationJSON.id) {
                 //load application from database.
                 await this.#dbTableORM.getById(applicationJSON.id).catch(function (err) {
                     log.error("Error getting application from Database " + err + __location);
@@ -68,6 +68,27 @@ module.exports = class ApplicationModel {
                     return;
                 });
                 this.updateProperty();
+                //Check that is still updateable.
+                if(this.state > 15){
+                    log.warn(`Attempt to update a finished application. appid ${applicationJSON.id}`  + __location);
+                    reject(new Error("Data Error:Application may not be updated."));
+                    return;
+                }
+                //Check that it is too old (1 hours) from creation
+                if(this.created){
+                    const dbCreated = moment(this.created);
+                    const nowTime = moment();
+                    const ageInMinutes = nowTime.diff(dbCreated, 'minutes');
+                    if(ageInMinutes > 60){
+                        log.warn(`Attempt to update an old application. appid ${applicationJSON.id}`  + __location);
+                        reject(new Error("Data Error:Application may not be updated."));
+                        return;
+                    }
+                }
+                else {
+                    log.warn(`Application missing created value. appid ${applicationJSON.id}`  + __location);
+                }
+
 
             }
             log.debug("applicationJSON: " + JSON.stringify(applicationJSON));

@@ -163,7 +163,14 @@ async function Save(req, res, next){
             return next();
         }).catch(function(err){
             //serverError
-            res.send(500, err.message);
+            if(err.message.startsWith('Data Error:')){
+                const message = err.message.replace('Data Error:', '');
+                res.send(400, message);
+            }
+            else {
+                res.send(500, err.message);
+            }
+            
             return next(serverHelper.requestError('Unable to save. ' + err.message));
         });
     }
