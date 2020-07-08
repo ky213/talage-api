@@ -2,8 +2,10 @@
 
 const DatabaseObject = require('./DatabaseObject.js');
 const BusinessModel = require('./Business-model.js');
-const ApplicationClaimModel = require('./ApplicationClaim-model.js');
+const ApplicationActivityCodesModel = require('./ApplicationActivityCodes-model.js');
+const ApplicationPolicyTypeModel = require('./ApplicationPolicyType-model.js');
 const LegalAcceptanceModel = require('./LegalAcceptance-model.js');
+
 const QuoteModel = require('./Quote-model.js');
 const taskWholesaleAppEmail = global.requireRootPath('tasksystem/task-wholesaleapplicationemail.js');
 const taskSoleProAppEmail = global.requireRootPath('tasksystem/task-soleproapplicationemail.js');
@@ -67,7 +69,7 @@ module.exports = class ApplicationModel {
                 this.updateProperty();
 
             }
-            //log.debug("applicationJSON: " + JSON.stringify(applicationJSON));
+            log.debug("applicationJSON: " + JSON.stringify(applicationJSON));
             let error = null;
             let updateBusiness = false;
             switch (workflowStep) {
@@ -102,9 +104,25 @@ module.exports = class ApplicationModel {
                     break;
                 case 'locations':
                     // update business data
+                    if(applicationJSON.total_payroll){
+                        await this.processActivityCodes(applicationJSON.total_payroll).catch(function(err){
+                            log.error('Adding claims error:' + err + __location);
+                            reject(err);
+                        });
+                    }
+                    else {
+                        log.warn("Application missing total_payroll appID " + this.id + __location )
+                    }
                     updateBusiness = true;
                     break;
                 case 'coverage':
+                     //processPolicyTypes
+                     if(applicationJSON.policy_types){
+                        await this.processPolicyTypes(applicationJSON.policy_types).catch(function(err){
+                            log.error('Adding claims error:' + err + __location);
+                            reject(err);
+                        });
+                    }
                     // update business data
                     updateBusiness = true;
                     break;
@@ -266,7 +284,7 @@ module.exports = class ApplicationModel {
         const applicationClaimModelDelete = new ApplicationClaimModel();
         //remove existing addresss acivity codes. we do not get ids from UI.
         await applicationClaimModelDelete.DeleteClaimsByApplicationId(this.id).catch(function(err){
-            
+            log.error("Error deleting ApplicationClaimModel " + err +  __location);
         });
         for(var i = 0; i < claims.length; i++){
             let claim = claims[i];
@@ -282,6 +300,71 @@ module.exports = class ApplicationModel {
 
     });
 }
+
+processActivityCodes(activtyListJSON){
+
+    return new Promise(async (resolve, reject) => {
+        //delete existing.
+        const applicationActivityCodesModelDelete = new ApplicationActivityCodesModel();
+        //remove existing addresss acivity codes. we do not get ids from UI.
+        await applicationActivityCodesModelDelete.DeleteByApplicationId(this.id).catch(function(err){
+            log.error("Error deleting ApplicationActivityCodesModel " + err +  __location);
+        });
+
+        for (const activity in activtyListJSON) {
+        //for(var i=0; i < total_payrollJSON.length;i++){
+            //activityPayrollJSON = total_payrollJSON[i];
+            const activityCodeJSON = {
+                'application': this.id,
+				"ncci_code": activity,
+                "payroll": activtyListJSON[activity]
+            }
+            const applicationActivityCodesModel = new ApplicationActivityCodesModel();
+            await applicationActivityCodesModel.saveModel(activityCodeJSON).catch(function (err) {
+                log.error(`Adding new applicationActivityCodesModel for Appid ${this.id} error:` + err + __location);
+                reject(err);
+                return;
+            });
+        }
+        
+        resolve(true);
+
+    });
+
+}
+
+
+processPolicyTypes(policyTypeArray){
+
+    return new Promise(async (resolve, reject) => {
+        //delete existing.
+        const applicationPolicyTypeModelDelete = new ApplicationPolicyTypeModel();
+        //remove existing addresss acivity codes. we do not get ids from UI.
+        await applicationPolicyTypeModelDelete.DeleteByApplicationId(this.id).catch(function(err){
+            log.error("Error deleting ApplicationPolicyTypeModel " + err +  __location);
+        });
+       
+       
+        for(var i=0; i < policyTypeArray.length;i++){
+            const policyType = policyTypeArray[i];
+            const policyTypeJSON = {
+                'application': this.id,
+				"policy_type": policyType
+            }
+            const applicationPolicyTypeModel = new ApplicationPolicyTypeModel();
+            await applicationPolicyTypeModel.saveModel(policyTypeJSON).catch(function (err) {
+                log.error(`Adding new applicationPolicyTypeModel for Appid ${this.id} error:` + err + __location);
+                reject(err);
+                return;
+            });
+        }
+        
+        resolve(true);
+
+    });
+
+}
+
 
 processQuestions(questions){
 
