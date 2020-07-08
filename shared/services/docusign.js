@@ -193,13 +193,41 @@ async function createDocusignAPIClient() {
 	};
 }
 
-exports.createSigningRequestURL = async function (email, name, returnUrl, template, user) {
+async function createDocusignEnvelopesAPI() {
 	// Before we do anything, get a reference to the DocuSign API
 	const { accountId, docusignApiClient } = await createDocusignAPIClient();
 
-	/* ---=== Step 1: Create a complete envelope ===--- */
+	// Get a reference to the Envelopes API
+	const envelopesApi = new DocuSign.EnvelopesApi(docusignApiClient);
 
-	console.log('user', user);
+	return {
+		accountId,
+		envelopesApi
+	};
+}
+
+exports.userHasSigned = async function (user, envelopeID) {
+	// Before we do anything, get a reference to the DocuSign API
+	const { accountId, envelopesApi } = await createDocusignEnvelopesAPI();
+
+	let result = null;
+	let userSigned = false;
+	try {
+		result = await envelopesApi.listRecipients(accountId, envelopeID);
+		result.signers.forEach((signer) => {
+			if (signer.clientUserId === user.toString() && signer.status === 'completed') {
+				userSigned = true;
+			}
+		});
+	} catch (error) {
+		log.error(`Could not retrieve envelope ${envelopeID} recipients for user ${user}: ${error} ${__location}`);
+		return false;
+	}
+	return userSigned;
+};
+
+exports.createSigningRequestURL = async function (user, name, email, envelopeID, template, returnUrl) {
+	const { accountId, envelopesApi } = await createDocusignEnvelopesAPI(user, name, email, template);
 
 	// Create a Template Role that matches the one in our template
 	const role = new DocuSign.TemplateRole();
@@ -208,47 +236,22 @@ exports.createSigningRequestURL = async function (email, name, returnUrl, templa
 	role.name = name;
 	role.email = email;
 
-	console.log('role', role);
-
 	// Create an Envelope from the Template in our account
 	const envelope = new DocuSign.EnvelopeDefinition();
 	envelope.templateId = template;
 	envelope.templateRoles = [role];
 	envelope.status = 'sent';
-
-	/* ---=== Step 2: Send this envelope to our DocuSign account ===--- */
-
-	// Get a reference to the Envelopes API
-	const envelopesApi = new DocuSign.EnvelopesApi(docusignApiClient);
-
-	let envelopeId = null;
-	// Get the envelopeId from the database if it exists
-
-	// Get the envelope information to see if it has been signed
-	try {
-		// const envelopeInformation = await envelopesApi.getEnvelope(accountId, 'c6f0ee9b-11a6-4d78-9ba7-f0fc1a607666');
-		// console.log('envelopeInformation', envelopeInformation);
-
-		// console.log(await envelopesApi.listRecipients(accountId, 'c6f0ee9b-11a6-4d78-9ba7-f0fc1a607666'));
-		console.log('signature', await envelopesApi.getRecipientSignature(accountId, 'c6f0ee9b-11a6-4d78-9ba7-f0fc1a607666', user));
-	} catch (error) {
-		console.log('error', error);
-	}
-	console.log('createEnvelope');
-	console.log('accountId', accountId);
-	console.log('envelopeDefinition', envelope);
-
-	// Exceptions will be caught by the calling function
-	let envelopeSummary = null;
-	try {
-		envelopeSummary = await envelopesApi.createEnvelope(accountId, { envelopeDefinition: envelope });
-	} catch (error) {
-		log.error(`Unable to create DocuSign envelope for ${name} (${email}): ${error} ${__location}`);
-		return next(serverHelper.internalError('Unable to create DocuSign envelope'));
+	if (envelopeID === null) {
+		try {
+			const envelopeSummary = await envelopesApi.createEnvelope(accountId, { envelopeDefinition: envelope });
+			envelopeID = envelopeSummary.envelopeId;
+		} catch (error) {
+			log.error(`Unable to create DocuSign envelope for ${name} (${email}): ${error} ${__location}`);
+			return null;
+		}
 	}
 
-	/* ---=== Step 3: Create the Signing Ceremony that the user will see ===--- */
-
+	// Create the recipient view
 	const viewRequest = new DocuSign.RecipientViewRequest();
 
 	// Set the url where you want the recipient to go once they are done signing
@@ -262,21 +265,17 @@ exports.createSigningRequestURL = async function (email, name, returnUrl, templa
 	viewRequest.email = email;
 	viewRequest.userName = name;
 
-	console.log('createRecipientView');
-	console.log('accountId', accountId);
-	console.log('envelopeSummary', envelopeSummary);
-	console.log('viewRequest', viewRequest);
-
 	// Call the CreateRecipientView API
 	let viewResults = null;
 	try {
-		viewResults = await envelopesApi.createRecipientView(accountId, envelopeSummary.envelopeId, { recipientViewRequest: viewRequest });
+		viewResults = await envelopesApi.createRecipientView(accountId, envelopeID, { recipientViewRequest: viewRequest });
 	} catch (error) {
 		log.error(`Unable to create DocuSign view for ${name} (${email}): ${error} ${__location}`);
-		return next(serverHelper.internalError('Unable to create DocuSign view'));
+		return null;
 	}
 
-	console.log('viewResults', viewResults);
-
-	return viewResults.url;
+	return {
+		envelopeId: envelopeID,
+		signingUrl: viewResults.url
+	};
 };
