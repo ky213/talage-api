@@ -1,6 +1,5 @@
 'use strict';
 
-const axios = require('axios');
 const crypt = global.requireShared('./services/crypt.js');
 const serverHelper = require('../../../server.js');
 const docusign = global.requireShared('./services/docusign.js');
@@ -26,7 +25,8 @@ async function SetWholesaleAgreementAsSigned(agencyID) {
 	// Run the update query
 	try {
 		await db.query(updateSql);
-	} catch (error) {
+	}
+ catch (error) {
 		log.error(`Could not set the wholesale agreement as read for agent ${agencyID}: ${error} ${__location}`);
 		return false;
 	}
@@ -65,7 +65,8 @@ async function getWholesaleAgreementLink(req, res, next) {
 	let result = null;
 	try {
 		result = await db.query(sql);
-	} catch (error) {
+	}
+ catch (error) {
 		log.error(`Could not get agency information: ${error} ${__location}`);
 		return next(serverHelper.internalError('Could not get agency information'));
 	}
@@ -92,10 +93,10 @@ async function getWholesaleAgreementLink(req, res, next) {
 	const returnUrl = `${agentInfo.agency_network === 2 ? global.settings.DIGALENT_AGENTS_URL : global.settings.PORTAL_URL}/wholesale-agreement`;
 
 	// Check if the user has signed. If they have, then don't have them sign again.
-	if (agentInfo.docusign_envelope_id !== null && (await docusign.userHasSigned(user, agentInfo.docusign_envelope_id))) {
+	if (agentInfo.docusign_envelope_id !== null && await docusign.userHasSigned(user, agentInfo.docusign_envelope_id)) {
 		// If it isn't, mark it as signed. It is possible that they never called back into the updateWholesaleAgreementSigned endpoint.
 		if (agentInfo.wholesale_agreement_signed === null) {
-			if (!(await SetWholesaleAgreementAsSigned(agencyID))) {
+			if (!await SetWholesaleAgreementAsSigned(agencyID)) {
 				return next(serverHelper.internalError('Could not mark wholesale agreement as already read'));
 			}
 		}
@@ -121,7 +122,8 @@ async function getWholesaleAgreementLink(req, res, next) {
 	`;
 	try {
 		await db.query(sql);
-	} catch (error) {
+	}
+ catch (error) {
 		log.error(`Could not set the docusign envelope id ${result.envelopeId} for agent ${req.authentication.agents[0]}: ${error} ${__location}`);
 		return next(serverHelper.internalError('Could not save docusign envelope ID'));
 	}
@@ -145,8 +147,6 @@ async function getWholesaleAgreementLink(req, res, next) {
  * @returns {void}
  */
 async function updateWholesaleAgreementSigned(req, res, next) {
-	const error = false;
-
 	// Make sure this is not an agency network
 	if (req.authentication.agencyNetwork !== false) {
 		log.warn('Agency Networks cannot sign Wholesale Agreements');
@@ -154,7 +154,7 @@ async function updateWholesaleAgreementSigned(req, res, next) {
 	}
 
 	// Set the wholesale agreement as signed
-	if (!(await SetWholesaleAgreementAsSigned(req.authentication.agents[0]))) {
+	if (!await SetWholesaleAgreementAsSigned(req.authentication.agents[0])) {
 		return next(serverHelper.internalError('Could not mark wholesale agreement as read'));
 	}
 
