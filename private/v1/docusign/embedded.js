@@ -66,23 +66,24 @@ async function postEmbedded(req, res, next) {
 	log.verbose(util.inspect(req.body, false, null));
 
 	// Localize the parameters provided in the request
-	const email = req.body.email;
+	const user = req.body.user;
 	const name = req.body.name;
+	const email = req.body.email;
 	const returnUrl = req.body.returnUrl;
 	const template = req.body.template;
-	const user = req.body.user;
 
 	// Get the DocuSign signing URL
-	const viewUrl = await docusign.createSigningRequestURL(email, name, returnUrl, template, user);
+	const result = await docusign.createSigningRequestURL(user, name, email, null, template, returnUrl);
 	// Make sure we got a View URL
-	if (!viewUrl) {
+	if (result === null) {
 		log.error('Docusign Service PostEmbedded : Unable to create Docusign view. No URL returned. Check the API logs for more information.' + __location);
 		return next(serverHelper.internalError('We were unable to generate your document for signing at this time. Someone will contact you to complete these documents and open access to your account.'));
 	}
 
 	res.send(200, {
-		signingUrl: viewUrl,
-		status: 'success'
+		status: 'success',
+		envelopeId: result.envelopeId,
+		signingUrl: result.signingUrl
 	});
 
 	return next();
@@ -90,5 +91,5 @@ async function postEmbedded(req, res, next) {
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-	server.addPost('Create Embedded DocuSign Document', `${basePath}/embedded`, postEmbedded);
+	server.addPost('Create Embedded DocuSign Document (depr)', `${basePath}/embedded`, postEmbedded);
 };

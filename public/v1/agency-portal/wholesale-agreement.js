@@ -3,6 +3,35 @@
 const axios = require('axios');
 const crypt = global.requireShared('./services/crypt.js');
 const serverHelper = require('../../../server.js');
+const docusign = global.requireShared('./services/docusign.js');
+
+// DocuSign template IDs
+const productionDocusignWholesaleAgreementTemplate = '7143efde-6013-4f4a-b514-f43bc8e97a63';
+const stagingDocusignWholesaleAgreementTemplate = '5849d7ae-1ee1-4277-805a-248fd4bf71b7';
+
+/**
+ * Mark the wholesale agreement as 'read' for an agent
+ *
+ * @param {Number} agencyID - Agency ID
+ *
+ * @returns {Boolean} true = success, false = error. Errors have already been logged.
+ */
+async function SetWholesaleAgreementAsSigned(agencyID) {
+	// Construct the query
+	const updateSql = `
+			UPDATE \`clw_talage_agencies\`
+			SET \`wholesale_agreement_signed\` = CURRENT_TIMESTAMP()
+			WHERE \`id\` = ${db.escape(agencyID)};
+		`;
+	// Run the update query
+	try {
+		await db.query(updateSql);
+	} catch (error) {
+		log.error(`Could not set the wholesale agreement as read for agent ${agencyID}: ${error} ${__location}`);
+		return false;
+	}
+	return true;
+}
 
 /**
  * Retrieves the link that will allow a single user to sign the wholesaleAgreement
@@ -14,62 +43,94 @@ const serverHelper = require('../../../server.js');
  * @returns {void}
  */
 async function getWholesaleAgreementLink(req, res, next) {
-	let error = false;
-
 	// Make sure this is not an agency network
 	if (req.authentication.agencyNetwork !== false) {
 		log.warn('Agency Networks cannot sign Wholesale Agreements');
 		return next(serverHelper.forbiddenError('Agency Networks cannot sign Wholesale Agreements'));
 	}
 
+	const agencyID = req.authentication.agents[0];
 	// Get the information about this agent
-	const agentSql = `
+	let sql = `
 			SELECT
 				\`agency_network\`,
 				\`email\`,
 				\`fname\`,
-				\`lname\`
-			FROM \`#__agencies\`
-			WHERE \`id\` = ${req.authentication.agents[0]} LIMIT 1;
+				\`lname\`,
+				\`wholesale_agreement_signed\`,
+				\`docusign_envelope_id\`
+			FROM \`clw_talage_agencies\`
+			WHERE \`id\` = ${agencyID} LIMIT 1;
 		`;
-	const agentInfo = await db.query(agentSql).catch(function (e) {
-		log.error(e.message);
-		error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-	});
-	if (error) {
-		return next(error);
+	let result = null;
+	try {
+		result = await db.query(sql);
+	} catch (error) {
+		log.error(`Could not get agency information: ${error} ${__location}`);
+		return next(serverHelper.internalError('Could not get agency information'));
+	}
+	const agentInfo = result[0];
+
+	// Check if they have already signed
+	if (agentInfo.wholesale_agreement_signed !== null) {
+		res.send(200, {
+			status: 'success',
+			signed: true,
+			signingUrl: null
+		});
+		return next();
 	}
 
 	// Decrypt the agent's information
-	const email = await crypt.decrypt(agentInfo[0].email);
-	const firstName = await crypt.decrypt(agentInfo[0].fname);
-	const lastName = await crypt.decrypt(agentInfo[0].lname);
+	const firstName = await crypt.decrypt(agentInfo.fname);
+	const lastName = await crypt.decrypt(agentInfo.lname);
 
-	// Get the signing link from our DocuSign service
+	const user = req.authentication.userID;
+	const name = `${firstName} ${lastName}`;
+	const email = await crypt.decrypt(agentInfo.email);
+	const template = global.settings.ENV === 'production' ? productionDocusignWholesaleAgreementTemplate : stagingDocusignWholesaleAgreementTemplate;
+	const returnUrl = `${agentInfo.agency_network === 2 ? global.settings.DIGALENT_AGENTS_URL : global.settings.PORTAL_URL}/wholesale-agreement`;
 
-	// TO DO: Pass the auth token in here
-	const signingReq = await axios
-		.post(`http://localhost:${global.settings.PRIVATE_API_PORT}/v1/docusign/embedded`, {
-			email: email,
-			name: `${firstName} ${lastName}`,
-			returnUrl: `${agentInfo[0].agency_network === 2 ? global.settings.DIGALENT_AGENTS_URL : global.settings.PORTAL_URL}/wholesale-agreement`,
-			template: global.settings.ENV === 'production' ? '7143efde-6013-4f4a-b514-f43bc8e97a63' : '5849d7ae-1ee1-4277-805a-248fd4bf71b7', // This is the template ID defined in our DocuSign account. It corresponds to the Talage Wholesale Agreement
-			user: req.authentication.userID
-		})
-		.catch(function (e) {
-			if (e) {
-				log.error('Failed to get docusign document for signing. This user will need to be sent the document manually.');
-				log.verbose(e);
-				error = serverHelper.internalError(e);
+	// Check if the user has signed. If they have, then don't have them sign again.
+	if (agentInfo.docusign_envelope_id !== null && (await docusign.userHasSigned(user, agentInfo.docusign_envelope_id))) {
+		// If it isn't, mark it as signed. It is possible that they never called back into the updateWholesaleAgreementSigned endpoint.
+		if (agentInfo.wholesale_agreement_signed === null) {
+			if (!(await SetWholesaleAgreementAsSigned(agencyID))) {
+				return next(serverHelper.internalError('Could not mark wholesale agreement as already read'));
 			}
+		}
+		// Return that they have already signed
+		res.send(200, {
+			status: 'success',
+			signed: true,
+			signingUrl: null
 		});
-	if (error) {
-		return next(error);
+		return next();
 	}
 
+	// Get the signing link from our DocuSign service
+	result = await docusign.createSigningRequestURL(user, name, email, agentInfo.docusign_envelope_id, template, returnUrl);
+	if (result === null) {
+		return next(serverHelper.internalError('Invalid DocuSign URL'));
+	}
+	// Save the envelope ID to the agency record
+	sql = `
+		UPDATE clw_talage_agencies
+		SET docusign_envelope_id = ${db.escape(result.envelopeId)}
+		WHERE id = ${req.authentication.agents[0]}
+	`;
+	try {
+		await db.query(sql);
+	} catch (error) {
+		log.error(`Could not set the docusign envelope id ${result.envelopeId} for agent ${req.authentication.agents[0]}: ${error} ${__location}`);
+		return next(serverHelper.internalError('Could not save docusign envelope ID'));
+	}
+
+	// Successful response
 	res.send(200, {
-		signingUrl: signingReq.data.signingUrl,
-		status: 'success'
+		status: 'success',
+		signed: false,
+		signingUrl: result.signingUrl
 	});
 	return next();
 }
@@ -92,26 +153,9 @@ async function updateWholesaleAgreementSigned(req, res, next) {
 		return next(serverHelper.forbiddenError('Agency Networks cannot sign Wholesale Agreements'));
 	}
 
-	console.log('query', req.query);
-	console.log('params', req.params);
-	console.log('body', req.body);
-
-	console.log('updating wholesale agreement signed ################################');
-
-	// Construct the query
-	const updateSql = `
-			UPDATE \`#__agencies\`
-			SET \`wholesale_agreement_signed\` = CURRENT_TIMESTAMP()
-			WHERE \`id\` = ${db.escape(req.authentication.agents[0])};
-		`;
-
-	// Run the update query
-	await db.query(updateSql).catch(function (e) {
-		log.error(e.message);
-		e = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-	});
-	if (error) {
-		return next(error);
+	// Set the wholesale agreement as signed
+	if (!(await SetWholesaleAgreementAsSigned(req.authentication.agents[0]))) {
+		return next(serverHelper.internalError('Could not mark wholesale agreement as read'));
 	}
 
 	// Send a success response
