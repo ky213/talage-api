@@ -74,20 +74,20 @@ module.exports = class ApplicationModel {
                     reject(new Error("Data Error:Application may not be updated."));
                     return;
                 }
-                //Check that it is too old (1 hours) from creation
-                if(this.created){
-                    const dbCreated = moment(this.created);
-                    const nowTime = moment();
-                    const ageInMinutes = nowTime.diff(dbCreated, 'minutes');
-                    if(ageInMinutes > 60){
-                        log.warn(`Attempt to update an old application. appid ${applicationJSON.id}`  + __location);
-                        reject(new Error("Data Error:Application may not be updated."));
-                        return;
-                    }
-                }
-                else {
-                    log.warn(`Application missing created value. appid ${applicationJSON.id}`  + __location);
-                }
+                // //Check that it is too old (1 hours) from creation
+                // if(this.created){
+                //     const dbCreated = moment(this.created);
+                //     const nowTime = moment();
+                //     const ageInMinutes = nowTime.diff(dbCreated, 'minutes');
+                //     if(ageInMinutes > 60){
+                //         log.warn(`Attempt to update an old application. appid ${applicationJSON.id}`  + __location);
+                //         reject(new Error("Data Error:Application may not be updated."));
+                //         return;
+                //     }
+                // }
+                // else {
+                //     log.warn(`Application missing created value. appid ${applicationJSON.id}`  + __location);
+                // }
 
 
             }
