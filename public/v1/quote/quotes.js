@@ -32,14 +32,15 @@ async function queryDB(sql, queryDescription) {
  */
 async function createQuoteSummary(quoteID) {
 	// Get the quote
-	let sql = `SELECT id, amount, policy_type, insurer, aggregated_status, quote_letter FROM clw_talage_quotes WHERE id = ${quoteID}`;
+	let sql = `SELECT id, amount, policy_type, insurer, aggregated_status, quote_letter FROM #__quotes WHERE id = ${quoteID}`;
 	let result = await queryDB(sql, `retrieving quote ${quoteID}`);
 	if (result === null || result.length === 0) {
 		return null;
 	}
 	const quote = result[0];
+
 	// Get the insurer
-	sql = `SELECT id, logo, name, rating FROM clw_talage_insurers WHERE id = ${quote.insurer}`;
+	sql = `SELECT id, logo, name, rating FROM #__insurers WHERE id = ${quote.insurer}`;
 	result = await queryDB(sql, `retrieving insurer ${quote.insurer}`);
 	if (result === null || result.length === 0) {
 		return null;
@@ -62,14 +63,13 @@ async function createQuoteSummary(quoteID) {
 			};
 		case 'quoted_referred':
 		case 'quoted':
-			const returnedQuoteID = quote.aggregated_status === 'quoted' ? quoteID : 0;
 			const instantBuy = quote.aggregated_status === 'quoted';
 
 			// Get the limits for the quote
 			sql = `
 				SELECT quoteLimits.id, quoteLimits.amount, limits.description
-				FROM clw_talage_quote_limits AS quoteLimits
-				LEFT JOIN clw_talage_limits AS limits ON limits.id = quoteLimits.limit
+				FROM #__quote_limits AS quoteLimits
+				LEFT JOIN #__limits AS limits ON limits.id = quoteLimits.limit
 				WHERE quote = ${quote.id} ORDER BY quoteLimits.limit ASC;
 			`;
 			result = await queryDB(sql, `retrieving limits for quote ${quote.id}`);
@@ -86,13 +86,13 @@ async function createQuoteSummary(quoteID) {
 
 			// Get the payment options for this insurer
 			sql = `
-				SELECT 
-					insurerPaymentPlans.premium_threshold, 
-					paymentPlans.id, 
-					paymentPlans.name, 
+				SELECT
+					insurerPaymentPlans.premium_threshold,
+					paymentPlans.id,
+					paymentPlans.name,
 					paymentPlans.description
-				FROM clw_talage_insurer_payment_plans AS insurerPaymentPlans
-				LEFT JOIN clw_talage_payment_plans AS paymentPlans ON paymentPlans.id = insurerPaymentPlans.payment_plan
+				FROM #__insurer_payment_plans AS insurerPaymentPlans
+				LEFT JOIN #__payment_plans AS paymentPlans ON paymentPlans.id = insurerPaymentPlans.payment_plan
 				WHERE insurer = ${quote.insurer};
 			`;
 			result = await queryDB(sql, `retrieving payment plans for insurer ${quote.insurer}`);
@@ -114,7 +114,7 @@ async function createQuoteSummary(quoteID) {
 			});
 			// Return the quote summary
 			return {
-				id: returnedQuoteID,
+				id: quoteID,
 				policy_type: quote.policy_type,
 				amount: quote.amount,
 				instant_buy: instantBuy,
@@ -168,7 +168,7 @@ async function getQuotes(req, res, next) {
 	// Retrieve if we are complete. Must be done first or we may miss quotes.
 	let sql = `
 			SELECT progress
-			FROM clw_talage_applications
+			FROM #__applications
 			WHERE id = ${tokenPayload.applicationID}
 		`;
 	let result = await queryDB(sql, `retrieving quote progress for application ${tokenPayload.applicationID}`);
@@ -180,7 +180,7 @@ async function getQuotes(req, res, next) {
 	// Retrieve quotes newer than the last quote ID
 	sql = `
 		SELECT id
-		FROM clw_talage_quotes
+		FROM #__quotes
 		WHERE
 			application = ${tokenPayload.applicationID}
 			AND id > ${lastQuoteID}
