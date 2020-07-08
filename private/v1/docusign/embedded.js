@@ -22,7 +22,7 @@ const docusign = global.requireShared('./services/docusign.js');
  */
 async function postEmbedded(req, res, next) {
 	// Check for data
-	if (!req.body || (typeof req.body === 'object' && Object.keys(req.body).length === 0)) {
+	if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
 		log.warn('Docusign Service PostEmbedded : No data was received' + __location);
 		return next(serverHelper.requestError('No data was received'));
 	}

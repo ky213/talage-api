@@ -1,3 +1,5 @@
+'use strict';
+
 // Require packages
 const DocuSign = require('docusign-esign');
 const moment = require('moment-timezone');
@@ -108,7 +110,8 @@ async function getNewToken(config) {
 	let result = null;
 	try {
 		result = await docusignApiClient.requestJWTUserToken(config.integrationKey, config.impersonatedUser, scopes, config.privateKey, jwtLife);
-	} catch (error) {
+	}
+ catch (error) {
 		log.error(`Unable to authenicate to DocuSign: ${error} ${__location}`);
 		if (error.response.res.text === '{"error":"consent_required"}') {
 			log.error(`DocuSign consent needs to be provided. Try https://${config.authBasePath}/oauth/auth?response_type=code&scope=signature%20impersonation&client_id=${config.integrationKey}&redirect_uri=https://agents.insurancewheelhouse.com`);
@@ -178,7 +181,8 @@ async function createDocusignAPIClient() {
 		accountId = userInfo.accounts[0].accountId;
 		// Set the path used for API requests
 		docusignApiClient.setBasePath(`${userInfo.accounts[0].baseUri}/restapi`);
-	} catch (error) {
+	}
+ catch (error) {
 		log.error('Unable to get User Info from DocuSign.' + error + __location);
 		log.verbose(error);
 	}
@@ -190,22 +194,31 @@ async function createDocusignAPIClient() {
 	};
 }
 
+/**
+ * Create a DocuSign envelopes API object
+ *
+ * @returns {object} - A reference to the DocuSign Envelopes API class
+ */
 async function createDocusignEnvelopesAPI() {
 	// Before we do anything, get a reference to the DocuSign API
-	const { accountId, docusignApiClient } = await createDocusignAPIClient();
+	const {
+ accountId, docusignApiClient
+} = await createDocusignAPIClient();
 
 	// Get a reference to the Envelopes API
 	const envelopesApi = new DocuSign.EnvelopesApi(docusignApiClient);
 
 	return {
-		accountId,
-		envelopesApi
+		accountId: accountId,
+		envelopesApi: envelopesApi
 	};
 }
 
-exports.userHasSigned = async function (user, envelopeID) {
+exports.userHasSigned = async function(user, envelopeID) {
 	// Before we do anything, get a reference to the DocuSign API
-	const { accountId, envelopesApi } = await createDocusignEnvelopesAPI();
+	const {
+ accountId, envelopesApi
+} = await createDocusignEnvelopesAPI();
 
 	let result = null;
 	let userSigned = false;
@@ -216,15 +229,18 @@ exports.userHasSigned = async function (user, envelopeID) {
 				userSigned = true;
 			}
 		});
-	} catch (error) {
+	}
+ catch (error) {
 		log.error(`Could not retrieve envelope ${envelopeID} recipients for user ${user}: ${error} ${__location}`);
 		return false;
 	}
 	return userSigned;
 };
 
-exports.createSigningRequestURL = async function (user, name, email, envelopeID, template, returnUrl) {
-	const { accountId, envelopesApi } = await createDocusignEnvelopesAPI(user, name, email, template);
+exports.createSigningRequestURL = async function(user, name, email, envelopeID, template, returnUrl) {
+	const {
+ accountId, envelopesApi
+} = await createDocusignEnvelopesAPI(user, name, email, template);
 
 	// Create a Template Role that matches the one in our template
 	const role = new DocuSign.TemplateRole();
@@ -240,9 +256,10 @@ exports.createSigningRequestURL = async function (user, name, email, envelopeID,
 	envelope.status = 'sent';
 	if (envelopeID === null) {
 		try {
-			const envelopeSummary = await envelopesApi.createEnvelope(accountId, { envelopeDefinition: envelope });
+			const envelopeSummary = await envelopesApi.createEnvelope(accountId, {envelopeDefinition: envelope});
 			envelopeID = envelopeSummary.envelopeId;
-		} catch (error) {
+		}
+ catch (error) {
 			log.error(`Unable to create DocuSign envelope for ${name} (${email}): ${error} ${__location}`);
 			return null;
 		}
@@ -265,8 +282,9 @@ exports.createSigningRequestURL = async function (user, name, email, envelopeID,
 	// Call the CreateRecipientView API
 	let viewResults = null;
 	try {
-		viewResults = await envelopesApi.createRecipientView(accountId, envelopeID, { recipientViewRequest: viewRequest });
-	} catch (error) {
+		viewResults = await envelopesApi.createRecipientView(accountId, envelopeID, {recipientViewRequest: viewRequest});
+	}
+ catch (error) {
 		log.error(`Unable to create DocuSign view for ${name} (${email}): ${error} ${__location}`);
 		return null;
 	}
