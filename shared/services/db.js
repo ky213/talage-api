@@ -14,13 +14,14 @@ exports.connect = async() => {
 
 	console.log(`Connecting to database ${colors.cyan(global.settings.DATABASE_HOST)}`); // eslint-disable-line no-console
 
-	// Connect to the database
+	// Connect to the database set client to assume db datetimes are in UTC.
 	conn = mysql.createPool({
 		'connectionLimit': 100,
 		'database': global.settings.DATABASE_NAME,
 		'host': global.settings.DATABASE_HOST,
 		'password': global.settings.DATABASE_PASSWORD,
-		'user': global.settings.DATABASE_USER
+        'user': global.settings.DATABASE_USER,
+        'timezone': 'Z'
 	});
 
 	// Try to connect to the database to ensure it is reachable.

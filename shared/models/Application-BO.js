@@ -69,23 +69,22 @@ module.exports = class ApplicationModel {
                 });
                 this.updateProperty();
                 //Check that is still updateable.
-                if(this.state > 15){
-                    log.warn(`Attempt to update a finished application. appid ${applicationJSON.id}`  + __location);
+                if(this.state > 15  && this.state === 0){
+                    log.warn(`Attempt to update a finished or deleted application. appid ${applicationJSON.id}`  + __location);
                     reject(new Error("Data Error:Application may not be updated."));
                     return;
                 }
                 // //Check that it is too old (1 hours) from creation
                 if(this.created){
-                    const dbCreated = moment.utc(this.created);
-                    log.debug('app created at ' + dbCreated.toString())
+                    const dbCreated = moment(this.created);
                     const nowTime = moment().utc();;
-                    const ageInMinutes = dbCreated.diff(nowTime, 'minutes');
+                    const ageInMinutes = nowTime.diff(dbCreated, 'minutes');
                     log.debug('Application age in minutes ' + ageInMinutes);
-                    // if(ageInMinutes > 60){
-                    //     log.warn(`Attempt to update an old application. appid ${applicationJSON.id}`  + __location);
-                    //     reject(new Error("Data Error:Application may not be updated."));
-                    //     return;
-                    // }
+                    if(ageInMinutes > 60){
+                        log.warn(`Attempt to update an old application. appid ${applicationJSON.id}`  + __location);
+                        reject(new Error("Data Error:Application may not be updated."));
+                        return;
+                    }
                 }
                 else {
                     log.warn(`Application missing created value. appid ${applicationJSON.id}`  + __location);
