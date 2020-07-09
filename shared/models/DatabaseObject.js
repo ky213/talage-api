@@ -15,7 +15,8 @@ const validator = global.requireShared('./helpers/validator.js');
 //usable in catches from promises.  (this not available)
 let tableName = '';
 // do not update or insert into database
-const doNotUpdateColoumns = ['created', 'created_by', 'modified', 'deleted'];
+const doNotInsertColoumns = ['id','created', 'created_by', 'modified', 'deleted'];
+const doNotUpdateColoumns = ['id','uuid','created', 'created_by', 'modified', 'deleted'];
 
 module.exports = class DatabaseObject {
 	#constructors = {};
@@ -372,7 +373,7 @@ module.exports = class DatabaseObject {
 				if (property === 'id') {
 					continue;
                 }
-                if(doNotUpdateColoumns.includes(property)){
+                if(doNotInsertColoumns.includes(property)){
                     continue;
                 }
 				if(this[property] || this[property] == '' || this[property] === 0 ){
