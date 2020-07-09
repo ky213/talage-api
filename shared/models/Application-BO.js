@@ -92,6 +92,10 @@ module.exports = class ApplicationModel {
 
 
             }
+            else {
+                //set uuid on new application
+                applicationJSON.uuid = uuidv4().toString();
+            }
             log.debug("applicationJSON: " + JSON.stringify(applicationJSON));
             let error = null;
             let updateBusiness = false;
@@ -121,9 +125,6 @@ module.exports = class ApplicationModel {
                         return;
                     }
 
-                    if (!applicationJSON.uuid) {
-                        applicationJSON.uuid = uuidv4().toString();
-                    }
                     break;
                 case 'locations':
                     // update business data
@@ -256,7 +257,7 @@ module.exports = class ApplicationModel {
             this.#dbTableORM.load(applicationJSON, false).catch(function (err) {
                 log.error("Error loading application orm " + err + __location);
             });
-            if (this.#dbTableORM.uuid) {
+            if (!this.#dbTableORM.uuid) {
                 this.#dbTableORM.uuid = applicationJSON.uuid;
             }
             //save
