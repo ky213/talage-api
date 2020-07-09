@@ -148,6 +148,12 @@ async function Save(req, res, next){
         const applicationModel = new ApplicationModel();
         await applicationModel.saveApplicationStep(applicationRequestJson, worflowStep).then(function(modelResponse){
             if(modelResponse === true){
+
+                // const tokenPayload = {applicationID: applicationModel.id};
+                // const token = jwt.sign(tokenPayload, global.settings.AUTH_SECRET_KEY, {expiresIn: '5m'});
+                
+
+
                 responseObj.demo = applicationRequestJson.demo;
                 responseObj.id = applicationModel.id;
                 responseObj.message = "saved";
@@ -182,6 +188,6 @@ async function Save(req, res, next){
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-	server.addPost('Post Application Workflow', `${basePath}/applicationwf`, Save);
-	server.addPost('Post Application Workflow(depr)', `${basePath}wf`, Save);
+	server.addPostAuthAppWF('Post Application Workflow', `${basePath}/applicationwf`, Save);
+	server.addPostAuthAppWF('Post Application Workflow(depr)', `${basePath}wf`, Save);
 };
