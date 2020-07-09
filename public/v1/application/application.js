@@ -29,7 +29,7 @@ const bindStepParser = require('./parsers/bindrequest-step-parse.js')
  * @returns {void}
  */
 async function Save(req, res, next){
-	log.debug("Application Post: " + JSON.stringify(req.body));
+	//log.debug("Application Post: " + JSON.stringify(req.body));
 	// Check for data
 	if(!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0){
 		log.warn('No data was received' + __location);
@@ -170,7 +170,6 @@ async function Save(req, res, next){
             else {
                 res.send(500, err.message);
             }
-            
             return next(serverHelper.requestError('Unable to save. ' + err.message));
         });
     }
