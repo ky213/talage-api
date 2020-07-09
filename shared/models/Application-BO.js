@@ -26,6 +26,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 const convertToIntFields = [];
 
+const  QUOTE_STEP_NUMBER = 9;
 module.exports = class ApplicationModel {
 
     #dbTableORM = null;
@@ -55,6 +56,30 @@ module.exports = class ApplicationModel {
                 reject(new Error("empty application object given"));
                 return;
             }
+
+            const stepMap = {
+                'contact': 2,
+                'coverage': 3,
+                'locations': 4,
+                'owners': 5,
+                'details': 6,
+                'claims': 7,
+                'questions': 8,
+                'quotes': 9,
+                'cart': 10,
+                'bindRequest': 10,
+            };
+
+            if(!stepMap[workflowStep]){
+                reject(new Error("Unknown Application Workflow Step"))
+                return;   
+            }
+
+            const stepNumber = stepMap[workflowStep];
+            log.debug('workflowStep: ' + workflowStep + ' stepNumber: ' +  stepNumber);
+
+
+
             if (!applicationJSON.id && applicationJSON.step !== "contact") {
                 log.error('saveApplicationStep missing application id ' + __location)
                 reject(new Error("missing application id"));
@@ -89,18 +114,23 @@ module.exports = class ApplicationModel {
                 else {
                     log.warn(`Application missing created value. appid ${applicationJSON.id}`  + __location);
                 }
-
-
+                // if Application has been Quoted and this is an earlier step
+                if(this.last_step >= QUOTE_STEP_NUMBER && stepNumber < QUOTE_STEP_NUMBER){
+                    log.warn(`Attempt to update a Quoted application. appid ${applicationJSON.id}`  + __location);
+                    reject(new Error("Data Error:Application may not be updated."));
+                    return;
+                }
             }
             else {
                 //set uuid on new application
                 applicationJSON.uuid = uuidv4().toString();
             }
-            log.debug("applicationJSON: " + JSON.stringify(applicationJSON));
+            //log.debug("applicationJSON: " + JSON.stringify(applicationJSON));
             let error = null;
             let updateBusiness = false;
             switch (workflowStep) {
                 case "contact":
+                    
                     //setup business special case need new business ID back.
                     if (applicationJSON.businessInfo) {
                         //load business
@@ -230,20 +260,7 @@ module.exports = class ApplicationModel {
                 }
             }
 
-            const stepMap = {
-                'contact': 2,
-                'coverage': 3,
-                'locations': 4,
-                'owners': 5,
-                'details': 6,
-                'claims': 7,
-                'questions': 8,
-                'quotes': 9,
-                'cart': 10,
-                'bindRequest': 10,
-            };
-            const stepNumber = stepMap[workflowStep];
-            log.debug('workflowStep: ' + workflowStep + ' stepNumber: ' +  stepNumber);
+            
             if (!this.#dbTableORM.last_step) {
                 this.#dbTableORM.last_step = stepNumber;
             }
