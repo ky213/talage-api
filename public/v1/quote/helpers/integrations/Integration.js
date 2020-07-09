@@ -1386,8 +1386,8 @@ module.exports = class Integration {
 					ic.naics,
 					ic.iso,
 					iic.attributes
-				FROM #__industry_codes AS ic
-				LEFT JOIN #__insurer_industry_codes AS iic ON
+				FROM clw_talage_industry_codes AS ic
+				INNER JOIN clw_talage_insurer_industry_codes AS iic ON
 					(iic.type = 'i' AND iic.code = ic.iso)
 					OR (iic.type = 'c' AND iic.code = ic.cgl)
 					OR (iic.type = 'h' AND iic.code = ic.hiscox)
