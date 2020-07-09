@@ -15,7 +15,24 @@ const serverHelper = require('../../../server.js');
  */
 async function GetACORDFormWC(req, res, next){
 
-	// TODO pass in app id and insurer id as req params
+	if(!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
+		log.info('ACORD form generation failed. Bad Request: No data received' + __location);
+		return next(serverHelper.requestError('Bad Request: No data received'));
+	}
+
+	// Make sure basic elements are present
+	if(!req.query.application_id){
+		log.info('ACORD form generation failed. Bad Request: Missing Application ID' + __location);
+		return next(serverHelper.requestError('Bad Request: You must supply an application ID'));
+	}
+
+	if(!req.query.insurer_id){
+		log.info('ACORD form generation failed. Bad Request: Invalid insurer id' + __location);
+		return next(serverHelper.requestError('Bad Request: You must supply an insurer ID'));
+	}
+
+
+	// TODO pass in app id and insurer id as req params so we dont have to do these dumb checks ^^^^^^^
 	const form = await acord.generateWCACORD(req.query.application_id, req.query.insurer_id).catch(function(error){
 		log.error('ACORD form generation failed. ' + error + __location);
 		return next(serverHelper.requestError('ACORD form generation failed.'));

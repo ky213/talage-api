@@ -22,85 +22,85 @@ exports.generateWCACORD = async function(application_id, insurer_id){
 
 	let message = '';
 	// Validate the application ID
-	if(application_id && !await validator.is_valid_application(application_id)){
+	if(!application_id || !await validator.is_valid_application(application_id)){
 		message = 'ACORD form generation failed. Bad Request: Invalid application id';
 		log.info(message + __location);
 		return {'error': message};
 	}
 
-	if(insurer_id && !await validator.isValidInsurer(insurer_id)){
-		message = 'ACORD form generation failed. Bad Request: Invalid insurer id'
+	if(!insurer_id || !await validator.isValidInsurer(insurer_id)){
+		message = 'ACORD form generation failed. Bad Request: Invalid insurer id';
 		log.info(message + __location);
 		return {'error': message};
 	}
 
 	// Application and business information query
 	const sql = `SELECT
-					\`a_qt\`.\`policy_type\`,
-					\`b\`.\`name\`,
-					\`b\`.\`dba\`,
-					IF(\`b\`.\`founded\` = '0000-00-00', -1, YEAR(CURDATE()) - YEAR(\`b\`.\`founded\`) - (DATE_FORMAT(CURDATE(), '%m%d') < DATE_FORMAT(\`b\`.\`founded\`, '%m%d'))) AS \`yrs_in_bus\`,
-					\`b\`.\`website\`,
-					\`b\`.\`entity_type\`,
-					\`b\`.\`ncci_number\`,
-					\`b\`.\`owners\`,
-					\`b\`.\`num_owners\`,
-					\`i_code\`.\`sic\`,
-					\`i_code\`.\`naics\`,
-					\`i_code\`.\`description\` AS \`industry_description\`,
-					DATE_FORMAT(\`app\`.\`wc_effective_date\`, "%m/%d/%Y") AS \`effective_date\`,
-					DATE_FORMAT(\`app\`.\`wc_expiration_date\`, "%m/%d/%Y") AS \`expiration_date\`,
-					\`a\`.\`id\` AS \`address_id\`,
-					\`a\`.\`address\`,
-					\`a\`.\`address2\`,
-					\`a\`.\`zip\`,
-					\`a\`.\`billing\`,
-					LOWER(\`insured_zip\`.\`city\`) AS \`city\`,
-					\`insured_zip\`.\`county\`,
-					\`insured_zip\`.\`territory\`,
-					\`app\`.\`owners_covered\`,
-					\`app\`.\`has_ein\`,
-					\`app\`.\`waiver_subrogation\`,
-					\`app\`.\`additional_insured\`,
-					IFNULL(\`app\`.\`agency\`, 1) AS \`agent\`,
-					\`app\`.\`wc_limits\` AS \`limits\`,
-					\`agency\`.\`name\` AS \`agencyName\`,
-					\`al\`.\`address\` AS \`mailing_address\`,
-					\`al\`.\`zip\` AS \`mailing_zip\`,
-					LOWER(\`agent_zip\`.\`city\`) AS \`agencyCity\`,
-					\`agent_zip\`.\`territory\` AS \`agencyTerritory\`,
-					\`al\`.\`fname\` AS \`producerFName\`,
-					\`al\`.\`lname\` AS \`producerLName\`,
-					\`al\`.\`phone\` AS \`agencyPhone\`,
-					\`al\`.\`email\` AS \`agencyEmail\`,
-					\`c\`.\`fname\` AS \`contactFName\`,
-					\`c\`.\`lname\` AS \`contactLName\`,
-					\`c\`.\`phone\` AS \`contactPhone\`,
-					\`c\`.\`email\` AS \`contactEmail\`,
-					\`b\`.\`ein\`,
-					\`a_c\`.\`ncci_code\` AS \`activity_code\`,
-					\`a_c\`.\`payroll\`,
-					\`a\`.\`full_time_employees\`,
-					\`a\`.\`part_time_employees\`,
-					\`payment\`.\`name\` AS \`payment\`,
-					${insurer_id ? `\`insurers\`.\`name\` AS \`insurer\`,` : ''}
-					\`claims\`.\`id\`
-					FROM \`#__applications\` AS \`app\`
-					LEFT JOIN \`#__application_policy_types\` AS \`a_qt\` ON \`a_qt\`.\`application\` = \`app\`.\`id\`
-					LEFT JOIN \`#__businesses\` AS \`b\` ON \`app\`.\`business\` = \`b\`.\`id\`
-					LEFT JOIN \`#__addresses\` AS \`a\` ON \`a\`.\`business\` = \`b\`.\`id\`
-					LEFT JOIN \`#__agencies\` AS \`agency\` ON \`agency\`.\`id\` = IFNULL(\`app\`.\`agency\`, 1)
-					LEFT JOIN \`#__agency_locations\` AS \`al\` ON \`al\`.\`agency\` = \`agency\`.\`id\` AND \`al\`.\`primary\` = 1
-					LEFT JOIN \`#__zip_codes\` AS \`agent_zip\` ON \`al\`.\`zip\` = \`agent_zip\`.\`zip\`
-					LEFT JOIN \`#__zip_codes\` AS \`insured_zip\` ON \`a\`.\`zip\` = \`insured_zip\`.\`zip\`
-					LEFT JOIN \`#__contacts\` AS \`c\` ON \`c\`.\`business\` = \`b\`.\`id\`
-					LEFT JOIN \`#__industry_codes\` AS \`i_code\` ON \`b\`.\`industry_code\` = \`i_code\`.\`id\`
-					LEFT JOIN \`#__claims\` AS \`claims\` ON \`claims\`.\`application\` = \`app\`.\`id\`
-					LEFT JOIN \`#__address_activity_codes\` AS \`a_c\` ON \`a\`.\`id\` = \`a_c\`.\`address\`
-					LEFT JOIN \`#__policies\` AS \`policies\` ON \`policies\`.\`application\` =  \`app\`.\`id\`
-					LEFT JOIN \`#__payment_plans\` AS \`payment\` ON \`policies\`.\`payment_plan\` =  \`payment\`.\`id\`
-					${insurer_id ? `LEFT JOIN \`#__insurers\` AS \`insurers\` ON  \`insurers\`.\`id\` = ${insurer_id}` : ''}
-					WHERE  \`app\`.\`id\` = ${application_id}`;
+					a_qt.policy_type,
+					b.name,
+					b.dba,
+					IF(b.founded = '0000-00-00', -1, YEAR(CURDATE()) - YEAR(b.founded) - (DATE_FORMAT(CURDATE(), '%m%d') < DATE_FORMAT(b.founded, '%m%d'))) AS yrs_in_bus,
+					b.website,
+					b.entity_type,
+					b.ncci_number,
+					b.owners,
+					b.num_owners,
+					i_code.sic,
+					i_code.naics,
+					i_code.description AS industry_description,
+					DATE_FORMAT(app.wc_effective_date, "%m/%d/%Y") AS effective_date,
+					DATE_FORMAT(app.wc_expiration_date, "%m/%d/%Y") AS expiration_date,
+					a.id AS address_id,
+					a.address,
+					a.address2,
+					a.zip,
+					a.billing,
+					LOWER(insured_zip.city) AS city,
+					insured_zip.county,
+					insured_zip.territory,
+					app.owners_covered,
+					app.has_ein,
+					app.waiver_subrogation,
+					app.additional_insured,
+					IFNULL(app.agency, 1) AS agent,
+					app.wc_limits AS limits,
+					agency.name AS agencyName,
+					al.address AS mailing_address,
+					al.zip AS mailing_zip,
+					LOWER(agent_zip.city) AS agencyCity,
+					agent_zip.territory AS agencyTerritory,
+					al.fname AS producerFName,
+					al.lname AS producerLName,
+					al.phone AS agencyPhone,
+					al.email AS agencyEmail,
+					c.fname AS contactFName,
+					c.lname AS contactLName,
+					c.phone AS contactPhone,
+					c.email AS contactEmail,
+					b.ein,
+					a_c.ncci_code AS activity_code,
+					a_c.payroll,
+					a.full_time_employees,
+					a.part_time_employees,
+					payment.name AS payment,
+					${insurer_id ? `insurers.name AS insurer,` : ''}
+					claims.id
+					FROM clw_talage_applications AS app
+					LEFT JOIN clw_talage_application_policy_types AS a_qt ON a_qt.application = app.id
+					LEFT JOIN clw_talage_businesses AS b ON app.business = b.id
+					LEFT JOIN clw_talage_addresses AS a ON a.business = b.id
+					LEFT JOIN clw_talage_agencies AS agency ON agency.id = IFNULL(app.agency, 1)
+					LEFT JOIN clw_talage_agency_locations AS al ON al.agency = agency.id AND al.primary = 1
+					LEFT JOIN clw_talage_zip_codes AS agent_zip ON al.zip = agent_zip.zip
+					LEFT JOIN clw_talage_zip_codes AS insured_zip ON a.zip = insured_zip.zip
+					LEFT JOIN clw_talage_contacts AS c ON c.business = b.id
+					LEFT JOIN clw_talage_industry_codes AS i_code ON b.industry_code = i_code.id
+					LEFT JOIN clw_talage_claims AS claims ON claims.application = app.id
+					LEFT JOIN clw_talage_address_activity_codes AS a_c ON a.id = a_c.address
+					LEFT JOIN clw_talage_policies AS policies ON policies.application =  app.id
+					LEFT JOIN clw_talage_payment_plans AS payment ON policies.payment_plan =  payment.id
+					${insurer_id ? `LEFT JOIN clw_talage_insurers AS insurers ON  insurers.id = ${insurer_id}` : ''}
+					WHERE  app.id = ${application_id}`;
 
 	// Run the query
 	const application_data = await db.query(sql).catch(function(error){
@@ -411,14 +411,14 @@ exports.generateWCACORD = async function(application_id, insurer_id){
 
 	// Start sql ncci code query
 	let sql_ncci = `SELECT
-							\`n\`.\`territory\`,
-							GROUP_CONCAT(\`assoc\`.\`code\`) AS \`activity_codes\`,
-							\`n\`.\`code\`,
-							\`n\`.\`sub\`,
-							\`n\`.\`description\`
-						FROM \`#__activity_code_associations\` AS \`assoc\`
-						LEFT JOIN \`#__insurer_ncci_codes\` AS \`n\` ON \`assoc\`.\`insurer_code\` = \`n\`.\`id\`
-						WHERE \`n\`.\`insurer\` = ${insurer_id} and ((\`assoc\`.\`code\` = ${application_data[0].activity_code} and \`n\`.\`territory\` = '${application_data[0].territory}')`;
+							n.territory,
+							GROUP_CONCAT(assoc.code) AS activity_codes,
+							n.code,
+							n.sub,
+							n.description
+						FROM clw_talage_activity_code_associations AS assoc
+						LEFT JOIN clw_talage_insurer_ncci_codes AS n ON assoc.insurer_code = n.id
+						WHERE n.insurer = ${insurer_id} and ((assoc.code = ${application_data[0].activity_code} and n.territory = '${application_data[0].territory}')`;
 
 	// Loop through addresses
 	const activity_code_data = {};
@@ -875,18 +875,18 @@ exports.generateWCACORD = async function(application_id, insurer_id){
 	};
 
 	// Run the query
-	const sql_base = `SELECT 	\`app_q\`.\`question\` AS \`number\`,
-										\`q_a\`.\`answer\`,
-										\`q\`.\`type\`,
-										\`app_q\`.\`text_answer\`
-										FROM \`#__application_questions\` AS  \`app_q\`
-										LEFT JOIN \`#__question_answers\` AS \`q_a\` ON \`app_q\`.\`answer\` = \`q_a\`.\`id\`
-										INNER JOIN \`#__questions\` AS \`q\` ON \`app_q\`.\`question\` = \`q\`.\`id\`
-										WHERE \`app_q\`.\`application\` = ${application_id} and (\`app_q\`.\`question\` =`;
+	const sql_base = `SELECT 	app_q.question AS number,
+										q_a.answer,
+										q.type,
+										app_q.text_answer
+										FROM clw_talage_application_questions AS  app_q
+										LEFT JOIN clw_talage_question_answers AS q_a ON app_q.answer = q_a.id
+										INNER JOIN clw_talage_questions AS q ON app_q.question = q.id
+										WHERE app_q.application = ${application_id} and (app_q.question =`;
 
 	// Build rest of the query for the listed questions on the form
 	// eslint-disable-next-line no-useless-escape
-	const sql_questions = sql_base.concat(Object.keys(general_information_questions).join(' or \`app_q\`.\`question\` = ')).concat(')');
+	const sql_questions = sql_base.concat(Object.keys(general_information_questions).join(' or app_q.question = ')).concat(')');
 
 	const question_data = await db.query(sql_questions).catch(function(error){
 		message = 'ACORD form generation failed. Database error: ' + error;
