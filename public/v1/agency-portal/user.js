@@ -2,7 +2,6 @@
 const auth = require('./helpers/auth.js');
 const crypt = require('../../../shared/services/crypt.js');
 const jwt = require('jsonwebtoken');
-const request = require('request');
 const serverHelper = require('../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
 const emailsvc = global.requireShared('./services/emailsvc.js');
@@ -26,7 +25,7 @@ function hasOtherOwner(agency, user, agencyNetwork = false) {
 		if (agencyNetwork) {
 			where = `\`agency_network\` = ${parseInt(agency, 10)}`;
 		}
-		else {
+ else {
 			where = `\`agency\` = ${parseInt(agency, 10)}`;
 		}
 
@@ -115,9 +114,9 @@ exports.hasOtherSigningAuthority = hasOtherSigningAuthority;
 async function validate(req) {
 	// Establish default values
 	const data = {
-		"canSign": 0,
-		"email": '',
-		"group": 5
+		canSign: 0,
+		email: '',
+		group: 5
 	};
 
 	// Validate each parameter
@@ -197,7 +196,7 @@ async function createUser(req, res, next) {
 	if (req.authentication.agencyNetwork) {
 		where = `\`agency_network\`= ${parseInt(req.authentication.agencyNetwork, 10)}`;
 	}
-	else {
+ else {
 		// Get the agents that we are permitted to view
 		const agents = await auth.getAgents(req).catch(function(e) {
 			error = e;
@@ -272,7 +271,7 @@ async function createUser(req, res, next) {
 		controlColumn = 'agency_network';
 		controlValue = req.authentication.agencyNetwork;
 	}
-	else {
+ else {
 		// Get the agents that we are permitted to view
 		const agents = await auth.getAgents(req).catch(function(e) {
 			error = e;
@@ -313,9 +312,9 @@ async function createUser(req, res, next) {
 
 	// Return the response
 	res.send(200, {
-		"userID": userID,
-		"code": 'Success',
-		"message": 'User Created'
+		userID: userID,
+		code: 'Success',
+		message: 'User Created'
 	});
 
 	// Check if this is an agency network
@@ -378,7 +377,7 @@ async function createUser(req, res, next) {
 	}
 
 	// Create a limited life JWT
-	const token = jwt.sign({"userID": userID}, global.settings.AUTH_SECRET_KEY, {"expiresIn": '7d'});
+	const token = jwt.sign({userID: userID}, global.settings.AUTH_SECRET_KEY, {expiresIn: '7d'});
 
 	// Format the brand
 	let brandraw = global.settings.BRAND.toLowerCase();
@@ -392,18 +391,18 @@ async function createUser(req, res, next) {
 
 	// Prepare the email to send to the user
 	const emailData = {
-		"from": brand,
-		"html": emailMessage.
+		from: brand,
+		html: emailMessage.
 			replace(/{{Brand}}/g, brand).
 			replace(/{{Activation Link}}/g,
 				`<a href="${portalurl}/reset-password/${token}" style="background-color:#ED7D31;border-radius:0.25rem;color:#FFF;font-size:1.3rem;padding-bottom:0.75rem;padding-left:1.5rem;padding-top:0.75rem;padding-right:1.5rem;text-decoration:none;text-transform:uppercase;">Activate My Account</a>`),
-		"subject": emailSubject.replace('{{Brand}}', brand),
-		"to": data.email
+		subject: emailSubject.replace('{{Brand}}', brand),
+		to: data.email
 	};
 	const emailResp = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, emailData.from, 0);
 	if (emailResp === false) {
 		log.error(`Unable to send new user email to ${data.email}. Please send manually.`);
-		slack.send('#alerts', 'warning',`Unable to send new user email to ${data.email}. Please send manually.`);
+		slack.send('#alerts', 'warning', `Unable to send new user email to ${data.email}. Please send manually.`);
 	}
 }
 
@@ -425,7 +424,7 @@ async function deleteUser(req, res, next) {
 		agencyOrNetworkID = parseInt(req.authentication.agencyNetwork, 10);
 		where = `\`agency_network\`= ${agencyOrNetworkID}`;
 	}
-	else {
+ else {
 		// Get the agents that we are permitted to view
 		const agents = await auth.getAgents(req).catch(function(e) {
 			error = e;
@@ -524,7 +523,7 @@ async function getUser(req, res, next) {
 	if (req.authentication.agencyNetwork) {
 		where = `\`agency_network\`= ${parseInt(req.authentication.agencyNetwork, 10)}`;
 	}
-	else {
+ else {
 		// Get the agents that we are permitted to view
 		const agents = await auth.getAgents(req).catch(function(e) {
 			error = e;
@@ -593,7 +592,7 @@ async function updateUser(req, res, next) {
 		agencyOrNetworkID = parseInt(req.authentication.agencyNetwork, 10);
 		where = `\`agency_network\`= ${agencyOrNetworkID}`;
 	}
-	else {
+ else {
 		// Get the agents that we are permitted to view
 		const agents = await auth.getAgents(req).catch(function(e) {
 			error = e;
@@ -645,7 +644,7 @@ async function updateUser(req, res, next) {
 
 		// Make sure there is an owner for this agency (we are not removing the last owner)
 	}
-	else if (!await hasOtherOwner(agencyOrNetworkID, data.id, req.authentication.agencyNetwork)) {
+ else if (!await hasOtherOwner(agencyOrNetworkID, data.id, req.authentication.agencyNetwork)) {
 		// Rollback the transaction
 		db.rollback(connection);
 
@@ -676,7 +675,7 @@ async function updateUser(req, res, next) {
 
 			// Make sure there is another signing authority (we are not removing the last one)
 		}
-		else if (!await hasOtherSigningAuthority(agencyOrNetworkID, data.id, req.authentication.agencyNetwork)) {
+ else if (!await hasOtherSigningAuthority(agencyOrNetworkID, data.id, req.authentication.agencyNetwork)) {
 			// Rollback the transaction
 			db.rollback(connection);
 
