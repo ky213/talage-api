@@ -15,9 +15,21 @@ exports.process = function(requestJSON) {
 
     if(requestJSON.agency_id){
         requestJSON.agency = requestJSON.agency_id
+        if(requestJSON.agency === 0 || requestJSON.agency === "0"){
+            requestJSON.agency = 1;
+        }
+    }
+    else {
+        requestJSON.agency = 1;
     }
     if(requestJSON.agencylocation_id){
         requestJSON.agency_location = requestJSON.agencylocation_id
+        if(requestJSON.agency_location === 0 || requestJSON.agency_location === "0"){
+            requestJSON.agency_location = 1;
+        }
+    }
+    else {
+        requestJSON.agency_location = 1;
     }
 
     var fieldstoMoveToBusineess = ["industry_code", "dba", "name"]
