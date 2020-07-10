@@ -79,6 +79,13 @@ module.exports = class ApplicationModel {
             log.debug('workflowStep: ' + workflowStep + ' stepNumber: ' +  stepNumber);
 
 
+            if(applicationJSON.agency_id){
+                applicationJSON.agency = applicationJSON.agency_id
+            }
+            if(applicationJSON.agencylocation_id){
+                applicationJSON.agency_location = applicationJSON.agencylocation_id
+            }
+       
 
             if (!applicationJSON.id && applicationJSON.step !== "contact") {
                 log.error('saveApplicationStep missing application id ' + __location)

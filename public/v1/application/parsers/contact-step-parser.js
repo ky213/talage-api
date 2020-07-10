@@ -13,6 +13,13 @@ exports.process = function(requestJSON) {
 
     requestJSON.experience_modifier = 1.00;
 
+    if(requestJSON.agency_id){
+        requestJSON.agency = requestJSON.agency_id
+    }
+    if(requestJSON.agencylocation_id){
+        requestJSON.agency_location = requestJSON.agencylocation_id
+    }
+
     var fieldstoMoveToBusineess = ["industry_code", "dba", "name"]
     var fieldstoMoveToBusineessContact = ["fname", "lname", "email", "phone"]
     requestJSON.businessInfo = {};
