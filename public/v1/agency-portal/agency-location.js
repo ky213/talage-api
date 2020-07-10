@@ -5,6 +5,8 @@ const AgencyLocation = global.requireShared('./models/AgencyLocation-model.js');
 const auth = require('./helpers/auth.js');
 const validator = global.requireShared('./helpers/validator.js');
 const serverHelper = require('../../../server.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 /**
  * Creates a single Agency Location
@@ -20,6 +22,7 @@ async function createAgencyLocation(req, res, next){
 
 	// Make sure the authentication payload has everything we are expecting
 	await auth.validateJWT(req, 'agencies', 'manage').catch(function(e){
+        log.error("auth.validateJWT error " + e + __location);
 		error = e;
 	});
 	if(error){
@@ -46,6 +49,7 @@ async function createAgencyLocation(req, res, next){
 
 	// Load the request data into it
 	await location.load(req.body).catch(function(err){
+        log.error("location.load error " + err + __location);
 		error = err;
 	});
 	if(error){
@@ -83,6 +87,7 @@ async function deleteAgencyLocation(req, res, next){
 
 	// Make sure the authentication payload has everything we are expecting
 	await auth.validateJWT(req, 'agencies', 'manage').catch(function(e){
+        log.error("auth.validateJWT error " + e + __location);
 		error = e;
 	});
 	if(error){
@@ -113,12 +118,15 @@ async function deleteAgencyLocation(req, res, next){
 	// Get the Agency ID corresponding to this location and load it into the request object
 	try{
 		req.query.agency = await getAgencyByLocationId(id);
-	}catch(err){
+    }
+    catch(err){
+        log.error("Get Agency by ID error: " + err + __location)
 		return next(err);
 	}
 
 	// Get the agencies that the user is permitted to manage
 	const agencies = await auth.getAgents(req).catch(function(e){
+        log.error("auth.getAgents error " + e + __location);
 		error = e;
 	});
 	if(error){
@@ -142,8 +150,9 @@ async function deleteAgencyLocation(req, res, next){
 		`;
 
 	// Run the query
-	const result = await db.query(updateSQL).catch(function(){
-		error = serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+	const result = await db.query(updateSQL).catch(function(err){
+        error = serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
+        log.error('Agency Location delete had an error: ' + err + __location);
 	});
 	if(error){
 		return next(error);
@@ -165,7 +174,7 @@ async function deleteAgencyLocation(req, res, next){
  * @returns {Promise.<Boolean, Error>} A promise that returns an Agency ID if resolved, or an Error if rejected
  */
 function getAgencyByLocationId(id){
-	return new Promise(async (fulfill, reject) => {
+	return new Promise(async(fulfill, reject) => {
 		if(!id || typeof id !== 'number'){
 			log.warn('Invalid ID passed to getAgencyByLocationId()');
 			reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
@@ -183,7 +192,7 @@ function getAgencyByLocationId(id){
 			LIMIT 1;
 		`;
 		const result = await db.query(sql).catch(function(e){
-			log.error(e.message);
+			log.error(e.message + __location);
 			reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 		});
 
@@ -243,6 +252,7 @@ async function updateAgencyLocation(req, res, next){
 
 	// Get the agencies that the user is permitted to manage
 	const agencies = await auth.getAgents(req).catch(function(e){
+        log.error("auth.getAgents error " + e + __location)
 		error = e;
 	});
 	if(error){
@@ -256,10 +266,13 @@ async function updateAgencyLocation(req, res, next){
 			// If this is an Agency Network User, get the agency from the location
 			try{
 				req.body.agency = await getAgencyByLocationId(id);
-			}catch(err){
+            }
+            catch(err){
+                log.error("getAgencyByLocationId error " + err + __location);
 				return next(err);
 			}
-		}else{
+        }
+        else{
 			// If this is an Agency User, get the agency from their permissions
 			req.body.agency = agencies[0];
 		}
@@ -276,6 +289,7 @@ async function updateAgencyLocation(req, res, next){
 
 	// Load the request data into it
 	await location.load(req.body).catch(function(err){
+        log.error("Location load error " + err + __location);
 		error = err;
 	});
 	if(error){
@@ -284,6 +298,7 @@ async function updateAgencyLocation(req, res, next){
 
 	// Save the location
 	await location.save().catch(function(err){
+        log.error("Location save error " + err + __location);
 		error = err;
 	});
 	if(error){

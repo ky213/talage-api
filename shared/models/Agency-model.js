@@ -12,6 +12,7 @@ const imgSize = require('image-size');
 const serverHelper = global.requireRootPath('server.js');
 const{'v4': uuidv4} = require('uuid');
 const validator = global.requireShared('./helpers/validator.js');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 const constructors = {'AgencyLocation': AgencyLocation};
 
@@ -259,7 +260,9 @@ else if(this.id){
 			}
 			if(rejected){
 				return;
-			}
+            }
+            //Sanitize phone
+            this.phone = stringFunctions.santizeNumber(this.phone);
 
 			// Save
 			await DatabaseObject.prototype.save.call(this).catch(function(err){

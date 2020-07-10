@@ -6,6 +6,8 @@ const sendOnboardingEmail = require('./helpers/send-onboarding-email.js');
 const auth = require('./helpers/auth.js');
 const validator = global.requireShared('./helpers/validator.js');
 const serverHelper = require('../../../server.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 /**
  * Generates a random password for the user's first login
@@ -180,7 +182,7 @@ async function getAgency(req, res, next){
 
 	// Going to the database to get the user's info
 	const agencyInfo = await db.query(agencyInfoSQL).catch(function(err){
-		log.error(err.message);
+		log.error(err.message + __location);
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});
 

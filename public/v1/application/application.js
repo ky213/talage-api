@@ -29,7 +29,7 @@ const bindStepParser = require('./parsers/bindrequest-step-parse.js')
  * @returns {void}
  */
 async function Save(req, res, next){
-	log.debug("Application Post: " + JSON.stringify(req.body));
+	//log.debug("Application Post: " + JSON.stringify(req.body));
 	// Check for data
 	if(!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0){
 		log.warn('No data was received' + __location);
@@ -42,6 +42,15 @@ async function Save(req, res, next){
 	// 	return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
     // }
     const applicationRequestJson = req.body;
+
+    if(applicationRequestJson.demo === "true" || applicationRequestJson.id === "-999"){
+        const responseDemo = {};
+        responseDemo.demo = applicationRequestJson.demo;
+        responseDemo.id = -999;
+        responseDemo.message = "saved";
+        res.send(200, responseDemo);
+        return next();
+    }
 
 	//Validation passed, give requst application to model to process and save.
     if(!applicationRequestJson.id && applicationRequestJson.step !== "contact" && applicationRequestJson.step !== "bindRequest"){
@@ -139,6 +148,12 @@ async function Save(req, res, next){
         const applicationModel = new ApplicationModel();
         await applicationModel.saveApplicationStep(applicationRequestJson, worflowStep).then(function(modelResponse){
             if(modelResponse === true){
+
+                // const tokenPayload = {applicationID: applicationModel.id};
+                // const token = jwt.sign(tokenPayload, global.settings.AUTH_SECRET_KEY, {expiresIn: '5m'});
+                
+
+
                 responseObj.demo = applicationRequestJson.demo;
                 responseObj.id = applicationModel.id;
                 responseObj.message = "saved";
@@ -154,7 +169,13 @@ async function Save(req, res, next){
             return next();
         }).catch(function(err){
             //serverError
-            res.send(500, err.message);
+            if(err.message.startsWith('Data Error:')){
+                const message = err.message.replace('Data Error:', '');
+                res.send(400, message);
+            }
+            else {
+                res.send(500, err.message);
+            }
             return next(serverHelper.requestError('Unable to save. ' + err.message));
         });
     }
@@ -167,6 +188,6 @@ async function Save(req, res, next){
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-	server.addPost('Post Application Workflow', `${basePath}/applicationwf`, Save);
-	server.addPost('Post Application Workflow(depr)', `${basePath}wf`, Save);
+	server.addPostAuthAppWF('Post Application Workflow', `${basePath}/applicationwf`, Save);
+	server.addPostAuthAppWF('Post Application Workflow(depr)', `${basePath}wf`, Save);
 };

@@ -227,7 +227,7 @@ var processAbandonApp = async function(applicationId){
             return true;
         }
         else {
-            log.error('AbandonApp missing emailcontent for agencynetwork: ' + agencyNetwork +  __location);
+            log.error('AbandonApp missing emailcontent for agencynetwork: ' + agencyNetwork + __location);
             return false;
         }
     }
