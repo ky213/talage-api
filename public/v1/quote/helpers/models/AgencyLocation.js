@@ -60,7 +60,7 @@ module.exports = class AgencyLocation{
 
 			// SQL for getting agency insurers
 			queries.push(`
-				SELECT ${db.quoteName('ai.insurer', 'id')}, ${db.quoteName('ai.agency_id')}, ${db.quoteName('i.agent_login')}, ${db.quoteName('ai.agent_id')}, ${db.quoteName('ai.bop')}, ${db.quoteName('ai.gl')}, ${db.quoteName('ai.wc')}
+				SELECT ${db.quoteName('ai.insurer', 'id')}, ${db.quoteName('ai.agency_id')}, ${db.quoteName('i.agent_login')}, ${db.quoteName('ai.agent_id')}, ${db.quoteName('ai.bop')}, ${db.quoteName('ai.gl')}, ${db.quoteName('ai.wc')}, ${db.quoteName('i.enable_agent_id')}
 				FROM ${db.quoteName('#__agency_location_insurers')} AS ${db.quoteName('ai')}
 				LEFT JOIN ${db.quoteName('#__agency_locations')} AS ${db.quoteName('a')} ON ${db.quoteName('ai.agency_location')} = ${db.quoteName('a.id')}
 				LEFT JOIN ${db.quoteName('#__insurers')} AS ${db.quoteName('i')} ON ${db.quoteName('i.id')} = ${db.quoteName('ai.insurer')}
@@ -107,18 +107,22 @@ module.exports = class AgencyLocation{
 			for(const insurerId in insurers){
 				if(Object.prototype.hasOwnProperty.call(insurers, insurerId)){
 					const insurer = insurers[insurerId];
-
+					
 					// Decrypt the agent's information
 					if(!insurer.agency_id){
 						log.warn('Agency missing Agency ID in configuration.' + __location);
 						return;
 					}
 					insurer.agency_id = await crypt.decrypt(insurer.agency_id); // eslint-disable-line no-await-in-loop
-					if(!insurer.agent_id){
-						log.warn('Agency missing Agent ID in configuration.' + __location);
-						return;
+
+					// Only decrypt agent_id setting if the insurer has enabled the field
+					if (insurer.enable_agent_id){						
+						if(!insurer.agent_id ){
+							log.warn('Agency missing Agent ID in configuration.' + __location);
+							return;
+						}
+						insurer.agent_id = await crypt.decrypt(insurer.agent_id.toString()); // eslint-disable-line no-await-in-loop
 					}
-					insurer.agent_id = await crypt.decrypt(insurer.agent_id.toString()); // eslint-disable-line no-await-in-loop
 					this.insurers[insurer.id] = insurer;
 				}
 			}
@@ -149,8 +153,8 @@ module.exports = class AgencyLocation{
 			// Check that each insurer has API settings
 			if(this.insurers){
 				for(const insurer in this.insurers){
-					if(Object.prototype.hasOwnProperty.call(this.insurers, insurer)){
-						if(!this.insurers[insurer].agency_id || !this.insurers[insurer].agent_id){
+					if(Object.prototype.hasOwnProperty.call(this.insurers, insurer)){				
+						if(!this.insurers[insurer].agency_id || (this.insurers[insurer].enable_agent_id && !this.insurers[insurer].agent_id)){
 							log.warn(`Agency insurer ID ${insurer} disabled because it was missing the agency_id, agent_id, or both.` + __location);
 							delete this.insurers[insurer];
 						}
