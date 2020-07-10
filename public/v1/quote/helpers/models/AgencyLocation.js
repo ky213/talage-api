@@ -60,7 +60,7 @@ module.exports = class AgencyLocation{
 
 			// SQL for getting agency insurers
 			queries.push(`
-				SELECT ${db.quoteName('ai.insurer', 'id')}, ${db.quoteName('ai.agency_id')}, ${db.quoteName('i.agent_login')}, ${db.quoteName('ai.agent_id')}, ${db.quoteName('ai.bop')}, ${db.quoteName('ai.gl')}, ${db.quoteName('ai.wc')}
+				SELECT ${db.quoteName('ai.insurer', 'id')}, ${db.quoteName('ai.agency_id')}, ${db.quoteName('i.agent_login')}, ${db.quoteName('ai.agent_id')}, ${db.quoteName('ai.bop')}, ${db.quoteName('ai.gl')}, ${db.quoteName('ai.wc')}, ${db.quoteName('i.enable_agent_id')}
 				FROM ${db.quoteName('#__agency_location_insurers')} AS ${db.quoteName('ai')}
 				LEFT JOIN ${db.quoteName('#__agency_locations')} AS ${db.quoteName('a')} ON ${db.quoteName('ai.agency_location')} = ${db.quoteName('a.id')}
 				LEFT JOIN ${db.quoteName('#__insurers')} AS ${db.quoteName('i')} ON ${db.quoteName('i.id')} = ${db.quoteName('ai.insurer')}
@@ -73,12 +73,6 @@ module.exports = class AgencyLocation{
 				FROM ${db.quoteName('#__agency_location_territories')} AS ${db.quoteName('at')}
 				LEFT JOIN ${db.quoteName('#__agency_locations')} AS ${db.quoteName('a')} ON ${db.quoteName('at.agency_location')} = ${db.quoteName('a.id')}
 				WHERE ${where};
-			`);
-			
-			// SQL for getting insurer enable agent id setting
-			queries.push(`
-				SELECT ${db.quoteName('i.id')}, ${db.quoteName('i.enable_agent_id')}
-				FROM ${db.quoteName('#__insurers')} AS ${db.quoteName('i')}
 			`);
 
 			// Wait for all queries to return
@@ -114,12 +108,7 @@ module.exports = class AgencyLocation{
 			for(const insurerId in insurers){
 				if(Object.prototype.hasOwnProperty.call(insurers, insurerId)){
 					const insurer = insurers[insurerId];
-					// Grab the insurer enable agent id setting based on insurer id
-					const enableAgentIdSettingArray = insurersAgentIdSettings.filter((x)=>{
-						return x.id === insurer.id;
-					});
-					// if the insurer is not found then the default value is going to be 0 (aka a truthiness of false)
-					const enableAgentIdSetting = enableAgentIdSettingArray.length > 0 ?  enableAgentIdSettingArray[0].enable_agent_id : 0;
+					
 					// Decrypt the agent's information
 					if(!insurer.agency_id){
 						log.warn('Agency missing Agency ID in configuration.' + __location);
@@ -128,7 +117,7 @@ module.exports = class AgencyLocation{
 					insurer.agency_id = await crypt.decrypt(insurer.agency_id); // eslint-disable-line no-await-in-loop
 
 					// Only decrypt agent_id setting if the insurer has enabled the field
-					if (enableAgentIdSetting){						
+					if (insurer.enable_agent_id){						
 						if(!insurer.agent_id ){
 							log.warn('Agency missing Agent ID in configuration.' + __location);
 							return;
@@ -165,13 +154,8 @@ module.exports = class AgencyLocation{
 			// Check that each insurer has API settings
 			if(this.insurers){
 				for(const insurer in this.insurers){
-					if(Object.prototype.hasOwnProperty.call(this.insurers, insurer)){
-						const enableAgentIdSettingArray = insurersAgentIdSettings.filter((x)=>{
-							return x.id === this.insurers[insurer].id;
-						});
-						// if the insurer is not found then the default value is going to be 0 (aka a truthiness of false)
-						const enableAgentIdSetting = enableAgentIdSettingArray.length > 0 ? enableAgentIdSettingArray[0].enable_agent_id : 0;
-						if(!this.insurers[insurer].agency_id || (enableAgentIdSetting && !this.insurers[insurer].agent_id)){
+					if(Object.prototype.hasOwnProperty.call(this.insurers, insurer)){				
+						if(!this.insurers[insurer].agency_id || (this.insurers[insurer].enable_agent_id && !this.insurers[insurer].agent_id)){
 							log.warn(`Agency insurer ID ${insurer} disabled because it was missing the agency_id, agent_id, or both.` + __location);
 							delete this.insurers[insurer];
 						}
