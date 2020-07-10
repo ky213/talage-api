@@ -1382,6 +1382,7 @@ module.exports = class Integration {
 					ic.id,
 					ic.description,
 					ic.cgl,
+					ic.hiscox,
 					ic.sic,
 					ic.naics,
 					ic.iso,

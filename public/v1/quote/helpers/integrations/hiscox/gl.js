@@ -5,7 +5,8 @@
 'use strict';
 
 const Integration = require('../Integration.js');
-const moment = require('moment');
+const momentTimezone = require('moment-timezone');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js'); // eslint-disable-line no-unused-vars
 const util = require('util');
 
 // Read the template into memory at load
@@ -42,9 +43,6 @@ module.exports = class HiscoxGL extends Integration {
 
 		// Build the Promise that will be returned
 		return new Promise(async(fulfill) => {
-			// Hiscox has us define our own Request ID
-			this.request_id = this.generate_uuid();
-
 			// Determine which URL to use
 			let host = '';
 			if(this.insurer.test_mode){
@@ -83,14 +81,32 @@ module.exports = class HiscoxGL extends Integration {
 			}
 			const token = responseObject.access_token;
 
+			// Hiscox has us define our own Request ID
+			this.request_id = this.generate_uuid();
+
+			// Fill in calculated fields
+			this.requestDate = momentTimezone.tz('America/Los_Angeles').format('YYYY-MM-DD');
+
+			// Determine the primary and secondary locations
+			log.debug('ZACHARY TO DO: Make sure this works with multiple locations and that we do NOT accidentally alter the original application data');
+			this.primaryLocation = this.app.business.locations[0];
+			this.secondaryLocations = false;
+			if(this.app.business.locations.length > 1){
+				this.secondaryLocations = this.app.business.locations;
+				this.secondaryLocations.shift();
+			}
+
+			log.debug('--------------');
+			log.debug(util.inspect(this.primaryLocation));
+
 			// Render the template into XML and remove any empty lines (artifacts of control blocks)
-			const xml = hiscoxGLTemplate.render(this).replace(/\n\s*\n/g, '\n');
+			//const xml = hiscoxGLTemplate.render(this).replace(/\n\s*\n/g, '\n');
 
 
 
 
 
-			log.debug(xml);
+			//log.debug(xml);
 			return;
 		});
 	}
