@@ -5,6 +5,7 @@ const serverHelper = require('../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+const colorConverter = require('color-converter').default;
 
 /**
  * Checks whether the provided agency has a primary page other than the current page
@@ -49,6 +50,84 @@ function hasOtherPrimary(agency, page) {
 }
 
 /**
+ * Calculates an accent color for a custom color scheme
+ *
+ * @param {object} rgbColorString - A color
+ *
+ * @returns {string} The color's accent color
+ */
+function calculateAccentColor(rgbColorString) {
+	// TODO: move this to retrieving the color scheme so that we can adjust this on-the-fly -SF
+	// We calculate the accents based on the HSV color space.
+	const color = colorConverter.fromHex(rgbColorString);
+	// Keep the saturation in the range of 0.2 - 0.8
+	if (color.saturation > 0.5) {
+		color.saturation = Math.max(0.2, color.saturation - 0.5);
+	}
+ else {
+		color.saturation = Math.min(0.8, color.saturation + 0.5);
+	}
+	return color.toHex();
+}
+
+/**
+ * Updates db with custom color and returns the custom color id 
+ * (create and inserts into db if doesn't exist else retrieves id of existing scheme if it does exist in db)
+ * @param {object} data  - Custom color scheme object 	customColorScheme: {primary: 'string',secondary: 'string'}
+ * @param {function} next - The next function from the request
+ * @return {object} -- Object containing landing page information
+ */
+async function retrieveCustomColorScheme(data, next){
+	// see if record already exists
+	const recordSearchQuery = `
+		SELECT 
+			\`id\`
+		FROM \`#__color_schemes\` 					
+		WHERE \`primary\` = ${db.escape(data.primary)} && \`secondary\` = ${db.escape(data.secondary)}
+	`;
+	// variable to hold existing id
+	const exisitingColorId = await db.query(recordSearchQuery).catch(function(err) {
+		log.error(`Error when trying to check if custom color already exists. \n ${err.message}`);
+		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+	});
+	// variable to hold new color id
+	let newColorId = null;
+
+	if (!data.primary_accent || data.primary_accent.length === 0) {
+		data.primary_accent = calculateAccentColor(data.primary);
+		data.secondary_accent = calculateAccentColor(data.secondary);
+		// We hard code the tertiary color at white for now
+		data.tertiary = '#FFFFFF';
+		data.tertiary_accent = '#FFFFFF';
+	}
+
+	// if record does not exist then go ahead and insert into db
+	// commit this update to the database
+	if (exisitingColorId.length === 0) {
+		const sql = `
+				INSERT INTO \`#__color_schemes\` 
+				(\`name\`, \`primary\`,\`primary_accent\`,\`secondary\`,\`secondary_accent\`,\`tertiary\`,\`tertiary_accent\`)
+				VALUES (${db.escape(`Custom`)}, ${db.escape(data.primary)}, ${db.escape(data.primary_accent)}, ${db.escape(data.secondary)}, ${db.escape(data.secondary_accent)}, ${db.escape(data.tertiary)}, ${db.escape(data.tertiary_accent)})
+		`;
+		// Run the query
+		const createCustomColorResult = await db.query(sql).catch(function(err) {
+			log.error(err.message);
+			return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+		});
+		// Make sure the query was successful
+		if (createCustomColorResult.affectedRows === 1) {
+			newColorId = createCustomColorResult.insertId;
+		}
+	else {
+				log.error('Custom color scheme update failed. Query ran successfully; however, no records were affected.');
+				return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+			}
+		}
+
+	return exisitingColorId.length === 0 ? newColorId : exisitingColorId[0].id;
+	
+}
+/**
  * Validates a landing page and returns a clean data object
  *
  * @param {object} request - HTTP request object
@@ -68,7 +147,8 @@ async function validate(request, next) {
 		introText: null,
 		name: '',
 		showIndustrySection: true,
-		slug: ''
+		slug: '',
+		customColorScheme: null
 	};
 
 	// Determine the agency ID
@@ -85,7 +165,6 @@ async function validate(request, next) {
 		if (request.body.about.length > 400) {
 			throw new Error('Reduce the length of your about text to less than 400 characters');
 		}
-
 		data.about = request.body.about;
 	}
 
@@ -97,9 +176,14 @@ async function validate(request, next) {
 		data.banner = request.body.banner;
 	}
 
-	// Color Scheme (a.k.a Theme)
-	if (Object.prototype.hasOwnProperty.call(request.body, 'colorScheme') && request.body.colorScheme) {
-		// TO DO: Validate
+	/**  check if there is custom color scheme info
+	 if scheme exists then upadate the custom color info
+	 else just set the color_scheme to the one the user provided color scheme (a.k.a Theme)
+	*/
+	if(Object.prototype.hasOwnProperty.call(request.body, 'customColorScheme') && request.body.customColorScheme){
+		data.colorScheme = await retrieveCustomColorScheme(request.body.customColorScheme, next);
+
+	} else if (Object.prototype.hasOwnProperty.call(request.body, 'colorScheme') && request.body.colorScheme) {
 		data.colorScheme = request.body.colorScheme;
 	}
 
@@ -215,7 +299,6 @@ async function validate(request, next) {
 		throw new Error('This link is already in use. Choose a different one.');
 	}
 
-	// Return the clean data
 	return data;
 }
 
@@ -496,7 +579,6 @@ async function getLandingPage(req, res, next) {
  */
 async function updateLandingPage(req, res, next) {
 	let error = false;
-
 	// Determine the agency ID
 	const agency = req.authentication.agents[0];
 
