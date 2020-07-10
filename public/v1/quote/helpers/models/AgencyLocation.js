@@ -91,7 +91,6 @@ module.exports = class AgencyLocation{
 			const agencyInfo = results[0];
 			const insurers = results[1];
 			const territories = results[2];
-			const insurersAgentIdSettings = results[3];
 
 			// Extract the agent info, decrypting as necessary
 			this.agency = agencyInfo[0].name;
