@@ -112,8 +112,8 @@
 				<GeneralLiabilityCoverQuoteRq>
 					<CoverId>CGL</CoverId>
 					<RatingInfo>
-						<AggLOI>2000000</AggLOI>
-						<LOI>1000000</LOI>
+						<AggLOI>{{:bestLimits[1]}}</AggLOI>
+						<LOI>{{:bestLimits[0]}}</LOI>
 						<Deductible>{{:policy.deductible}}</Deductible>
 					</RatingInfo>
 				</GeneralLiabilityCoverQuoteRq>

@@ -29,6 +29,77 @@ module.exports = class HiscoxGL extends Integration {
 		this.possible_api_responses.QUOTED = 'quoted';
 		this.possible_api_responses.REFER = 'referred';
 		this.possible_api_responses.RISKRESVDECLINE = 'declined';*/
+		// CHECK SUPPORTED DEDUCTIBLES
+
+		// Define the limits supported by this carrier
+		let carrierLimits = [
+			'300000/600000',
+			'500000/1000000',
+			'1000000/2000000',
+			'2000000/2000000'
+		];
+
+		/**
+		 * All classes of business mapped to Hiscox's Small Contractor, Landscape/Janitorial/Retail, and Mobile Food Classes use different limits.
+		 * These categories are not returned by their API, but can be found in the Development Guidelines for Quote API on the Reference Data tab.
+		 * The following list is in the order in which items appear in that spreadsheet.
+		 */
+		if([
+
+			// Small Contractors (SC)
+
+			'DS3', // Air conditioning systems installation/repair
+			'DS4', // Appliance and accessories installation/repair
+			'DS5', // Carpentry (interior only)
+			'DS9', // Carpet/furniture/upholstery cleaning(offsite only)
+			'DS2', // Clock making/repair
+			'DS6', // Door or window installation/repair
+			'DSC', // Driveway or sidewalk paving/repaving
+			'DSN', // Drywall or wallboard installation/repair
+			'DSD', // Electrical work (interior only)
+			'DSE', // Fence installation/repair
+			'DSF', // Floor covering installation(no ceramic tile/stone)
+			'DS7', // Glass installation/repair (no auto work)
+			'DSG', // Handyperson (no roof work)
+			'DSH', // Heating/air conditioning install/repair(no LPG)
+			'DS8', // Interior finishing work
+			'DS1', // Locksmiths
+			'DSL', // Masonry work
+			'DSM', // Painting (interior only)
+			'DSO', // Plastering or stucco work
+			'DSP', // Plumbing (commercial/industrial)
+			'DSQ', // Plumbing (residential/domestic)
+			'DSS', // Sign painting/lettering (exterior only)
+			'DSR', // Sign painting/lettering (interior only)
+			'DST', // Tile/stone/marble/mosaic/terrazzo work(int. only)
+			'DSA', // Upholstery work
+			'DSU', // Window cleaning (nothing above 15 feet)
+
+			// Landscapers, Janitors and Retailers (LJR)
+
+			'DT1', // Appliance/electronic stores (Retail)
+			'DT2', // Clothing/apparel stores (Retail)
+			'DSB', // Exterior cleaning services
+			'DT3', // Florists (Retail)
+			'DT4', // Home furnishing stores (Retail)
+			'DSI', // Janitorial/cleaning services
+			'DT5', // Jewelry stores (Retail)
+			'DSJ', // Landscaping/gardening services
+			'DSK', // Lawn care services
+			'DT7', // Other stores (with food/drinks) (Retail)
+			'DT6', // Other stores (without food/drinks) (Retail)
+			'DT8', // Snow blowing and removal (no auto coverage)
+
+			// Mobile Food Services
+			'DSV' // Mobile food services
+		].includes(this.industry_code.hiscox)){
+			carrierLimits = [
+				'300000/300000',
+				'500000/500000',
+				'1000000/2000000',
+				'2000000/2000000'
+			];
+		}
 
 		// Define how legal entities are mapped for Hiscox
 		const entity_matrix = {
@@ -40,6 +111,8 @@ module.exports = class HiscoxGL extends Integration {
 			'Partnership': 'Partnership',
 			'Sole Proprietorship': 'Individual/Sole Proprietor'
 		};
+
+		// These are the limits supported by Employers
 
 		// Build the Promise that will be returned
 		return new Promise(async(fulfill) => {
@@ -87,6 +160,14 @@ module.exports = class HiscoxGL extends Integration {
 			// Fill in calculated fields
 			this.requestDate = momentTimezone.tz('America/Los_Angeles').format('YYYY-MM-DD');
 
+			// Determine the best limits
+			this.bestLimits = this.getBestLimits(carrierLimits);
+			if(!this.bestLimits){
+				this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
+				fulfill(this.return_result('autodeclined'));
+				return;
+			}
+
 			// Determine the primary and secondary locations
 			log.debug('ZACHARY TO DO: Make sure this works with multiple locations and that we do NOT accidentally alter the original application data');
 			this.primaryLocation = this.app.business.locations[0];
@@ -97,7 +178,9 @@ module.exports = class HiscoxGL extends Integration {
 			}
 
 			log.debug('--------------');
-			log.debug(util.inspect(this.primaryLocation));
+			log.debug(util.inspect(carrierLimits));
+			log.debug(this.industry_code.hiscox);
+			log.debug(this.bestLimits);
 
 			// Render the template into XML and remove any empty lines (artifacts of control blocks)
 			//const xml = hiscoxGLTemplate.render(this).replace(/\n\s*\n/g, '\n');

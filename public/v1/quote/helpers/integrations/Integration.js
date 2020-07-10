@@ -349,10 +349,17 @@ module.exports = class Integration {
 			// Split the limits up and prepare them for processing
 			const limitSetParts = this.getSplitLimits(limitSet);
 
-			// Check if the supported limits are higher than or equal to the requested limits
-			if (limitSetParts[0] >= requestedLimits[0] && limitSetParts[1] >= requestedLimits[1] && limitSetParts[2] >= requestedLimits[2]) {
-				// Return the first result found
-				higherLimit = higherLimit ? higherLimit : limitSetParts;
+			// Check if the supported limits are higher than or equal to the requested limits (some limit sets have 2 values, others have 3)
+			if (limitSetParts[0] >= requestedLimits[0] && limitSetParts[1] >= requestedLimits[1]) {
+				if(limitSetParts.length > 2){
+					if(limitSetParts[2] >= requestedLimits[2]){
+						// Return the first result found
+						higherLimit = higherLimit ? higherLimit : limitSetParts;
+					}
+				}else{
+					// Return the first result found, ignoring the third number
+					higherLimit = higherLimit ? higherLimit : limitSetParts;
+				}
 			}
 		});
 		return higherLimit;
