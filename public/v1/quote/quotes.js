@@ -2,7 +2,7 @@
 
 const jwt = require('jsonwebtoken');
 const serverHelper = require('../../../server.js');
-
+const fileSvc = global.requireShared('./services/filesvc.js');
 /**
  * Execute a query and log an error if it fails (testing a pattern)
  *
@@ -72,6 +72,7 @@ async function createQuoteSummary(quoteID) {
 				LEFT JOIN #__limits AS limits ON limits.id = quoteLimits.limit
 				WHERE quote = ${quote.id} ORDER BY quoteLimits.limit ASC;
 			`;
+			
 			result = await queryDB(sql, `retrieving limits for quote ${quote.id}`);
 			if (result === null || result.length === 0) {
 				return null;
@@ -112,13 +113,33 @@ async function createQuoteSummary(quoteID) {
 					});
 				}
 			});
+			
+			let quoteLetterContent = '';
+			const quoteLetterName = quote.quote_letter;
+
+			// If we have a quote letter then retrieve the file from our cloud storage service
+			if (quoteLetterName){
+				// Get the file from our cloud storage service
+				const data = await fileSvc.get(`secure/quote-letters/${quoteLetterName}`).catch(function(err){
+					log.error('file get error: ' + err.message + __location);
+					return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+				});
+	
+				// Return the response
+				if (data && data.Body){
+					quoteLetterContent = data.Body;
+				}
+				else {
+						log.error('file get error: no file content' + __location);
+				}
+			}
 			// Return the quote summary
 			return {
 				id: quoteID,
 				policy_type: quote.policy_type,
 				amount: quote.amount,
 				instant_buy: instantBuy,
-				letter: quote.quote_letter ? quote.quote_letter : '',
+				letter: quoteLetterContent,
 				insurer: {
 					id: insurer.id,
 					logo: global.settings.SITE_URL + '/' + insurer.logo,
