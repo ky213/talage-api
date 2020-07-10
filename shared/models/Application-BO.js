@@ -79,11 +79,26 @@ module.exports = class ApplicationModel {
             log.debug('workflowStep: ' + workflowStep + ' stepNumber: ' +  stepNumber);
 
 
+            // fix agency and agencylocation coming from old client.
             if(applicationJSON.agency_id){
                 applicationJSON.agency = applicationJSON.agency_id
+               
+            }
+            if(!applicationJSON.agency){
+                applicationJSON.agency = 1
+            }
+            if(applicationJSON.agency === 0 || applicationJSON.agency === "0"){
+                applicationJSON.agency = 1
             }
             if(applicationJSON.agencylocation_id){
                 applicationJSON.agency_location = applicationJSON.agencylocation_id
+                
+            }
+            if(!applicationJSON.agency_location){
+                applicationJSON.agency_location = 1
+            }
+            if(applicationJSON.agency_location === 0 || applicationJSON.agency_location === "0"){
+                applicationJSON.agency_location = 1
             }
        
 
