@@ -30,7 +30,7 @@ exports.processtask = async function(queueMessage){
             error = err;
         });
         if(error){
-            log.error("Error abandonquotetask deleteTaskQueueItem " + error +  __location);
+            log.error("Error abandonquotetask deleteTaskQueueItem " + error + __location);
         }
         return;
     }
@@ -38,7 +38,7 @@ exports.processtask = async function(queueMessage){
         log.info('removing old Abandon Quote Message from queue');
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(err => error = err)
         if(error){
-            log.error("Error abandonquotetask deleteTaskQueueItem old " + error +  __location);
+            log.error("Error abandonquotetask deleteTaskQueueItem old " + error + __location);
         }
         return;
     }
@@ -91,7 +91,7 @@ var abandonquotetask = async function(){
         // log.debug(JSON.stringify(appIds));
 	}
 catch(err){
-		log.error("abandonquotetask getting appid list error " + err +  __location);
+		log.error("abandonquotetask getting appid list error " + err + __location);
 		throw err;
 	}
     //process list.....
@@ -112,7 +112,7 @@ catch(err){
 
             if(error === null && succesfulProcess === true){
                 await markApplicationProcess(quoteAppid.applicationId).catch(function(err){
-                    log.error(`Error marking abandon quotes in DB for ${quoteAppid.applicationId} error:  ${err}` +  __location);
+                    log.error(`Error marking abandon quotes in DB for ${quoteAppid.applicationId} error:  ${err}` + __location);
                     error = err;
                 })
             }
@@ -173,7 +173,7 @@ var processAbandonQuote = async function(applicationId){
         quotes = await db.query(quoteAppSQL);
     }
     catch(err){
-        log.error(`Error get abandon quotes from DB for ${applicationId} error:  ${err}` +  __location);
+        log.error(`Error get abandon quotes from DB for ${applicationId} error:  ${err}` + __location);
         // Do not throw error other abandon quotes may need to be processed.
         return false;
     }
@@ -181,27 +181,6 @@ var processAbandonQuote = async function(applicationId){
     if(quotes && quotes.length > 0){
 
         const agencyNetwork = quotes[0].agency_network;
-        //Get email content
-        // const emailContentSQL = `
-        //     SELECT
-        //         JSON_EXTRACT(custom_emails, '$.abandoned_quotes_agency') AS agencyEmailData,
-        //         JSON_EXTRACT(custom_emails, '$.abandoned_quotes_customer') AS customerEmailData,
-        //         (SELECT JSON_EXTRACT(custom_emails, '$.abandoned_quotes_agency')  FROM  clw_talage_agency_networks WHERE id = 1 ) AS defaultAgencyEmailData,
-        //         (SELECT JSON_EXTRACT(custom_emails, '$.abandoned_quotes_customer')  FROM  clw_talage_agency_networks WHERE id = 1 ) AS defaultCustomerEmailData
-        //     FROM clw_talage_agency_networks
-        //     WHERE id = ${db.escape(agencyNetwork)}
-        //     ORDER BY id DESC
-        //     LIMIT 2; 
-        // `;
-
-        // let error = null;
-        // const emailContentResultArray = await db.query(emailContentSQL).catch(function(err){
-        //     log.error(`DB Error Unable to get email content for abandon quote. appid: ${applicationId}.  error: ${err}` +  __location);
-        //     error = true;
-        // });
-        // if(error){
-        //     return false;
-        // }
         let error = null;
         const agencyNetworkBO = new AgencyNetworkBO();
         const emailContentJSON = await agencyNetworkBO.getEmailContentAgencyAndCustomer(agencyNetwork, "abandoned_quotes_agency", "abandoned_quotes_customer").catch(function(err){
@@ -228,13 +207,8 @@ var processAbandonQuote = async function(applicationId){
             quotes[0].agencyPhone = await crypt.decrypt(quotes[0].agencyPhone);
             quotes[0].agencyWebsite = await crypt.decrypt(quotes[0].agencyWebsite);
 
-            // const emailContentResult = emailContentResultArray[0];
-            // const customerEmailData = emailContentResult.customerEmailData ? JSON.parse(emailContentResult.customerEmailData) : null;
-            // const defaultCustomerEmailData = emailContentResult.defaultCustomerEmailData ? JSON.parse(emailContentResult.defaultCustomerEmailData) : null;
-
             let agencyName = quotes[0].agencyName
             let agencyPhone = '';
-            //let brand = quotes[0].emailBrand === 'wheelhouse' ? 'agency' : quotes[0].emailBrand.agency;
 
             if(quotes[0].wholesale || quotes[0].agency === 1 || quotes[0].agency === 2){
                 // Override the agency info with Talage
@@ -287,8 +261,6 @@ var processAbandonQuote = async function(applicationId){
             subject = subject.replace(/{{is\/are}}/g, quotes.length === 1 ? 'is' : 'are');
             subject = subject.replace(/{{s}}/g, quotes.length === 1 ? '' : 's');
 
-            // log.debug('Insured subject: ' + subject)
-            // log.debug('Insured message: ' + message)
 
             //send email:
             // Send the email
@@ -312,8 +284,6 @@ var processAbandonQuote = async function(applicationId){
                 quotes[0].lname = await crypt.decrypt(quotes[0].lname);
                 quotes[0].phone = await crypt.decrypt(quotes[0].phone);
 
-                // const agencyEmailData = emailContentResult.agencyEmailData ? JSON.parse(emailContentResult.agencyEmailData) : null;
-                // const defaultAgencyEmailData = emailContentResult.defaultAgencyEmailData ? JSON.parse(emailContentResult.defaultAgencyEmailData) : null;
 
                 const portalLink = agencyNetwork === 1 ? global.settings.PORTAL_URL : global.settings.DIGALENT_AGENTS_URL;
 
@@ -323,10 +293,6 @@ var processAbandonQuote = async function(applicationId){
                 if(quotes[0].phone){
                     phone = formatPhone(quotes[0].phone);
                 }
-
-                //  // Determine which message and subject to use
-                //  message = agencyEmailData && agencyEmailData.message ? agencyEmailData.message : defaultAgencyEmailData.message;
-                //  subject = agencyEmailData && agencyEmailData.subject ? agencyEmailData.subject : defaultAgencyEmailData.subject;
 
                 message = emailContentJSON.agencyMessage;
                 subject = emailContentJSON.agencySubject;
@@ -365,7 +331,7 @@ var processAbandonQuote = async function(applicationId){
             return true;
         }
         else {
-            log.error('AbandonQuote missing emailcontent for agencynetwork: ' + agencyNetwork +  __location);
+            log.error('AbandonQuote missing emailcontent for agencynetwork: ' + agencyNetwork + __location);
             return false;
         }
     }
@@ -383,7 +349,7 @@ var markApplicationProcess = async function(applicationId){
 
     // Update application record
 	await db.query(updateSQL).catch(function(e){
-		log.error('Abandon Quote flag update error: ' + e.message +  __location);
+		log.error('Abandon Quote flag update error: ' + e.message + __location);
 		throw e;
 	});
 }
