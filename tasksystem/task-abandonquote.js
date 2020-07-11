@@ -7,6 +7,8 @@ const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
+
 /**
  * AbandonQuote Task processor
  *
@@ -80,7 +82,7 @@ var abandonquotetask = async function(){
             ORDER BY q.policy_type DESC
     `;
 
-    // log.debug(appIdSQL)
+    //log.debug(appIdSQL)
 
     let appIds = null;
 	try{
@@ -180,28 +182,37 @@ var processAbandonQuote = async function(applicationId){
 
         const agencyNetwork = quotes[0].agency_network;
         //Get email content
-        const emailContentSQL = `
-            SELECT
-                JSON_EXTRACT(custom_emails, '$.abandoned_quotes_agency') AS agencyEmailData,
-                JSON_EXTRACT(custom_emails, '$.abandoned_quotes_customer') AS customerEmailData,
-                (SELECT JSON_EXTRACT(custom_emails, '$.abandoned_quotes_agency')  FROM  clw_talage_agency_networks WHERE id = 1 ) AS defaultAgencyEmailData,
-                (SELECT JSON_EXTRACT(custom_emails, '$.abandoned_quotes_customer')  FROM  clw_talage_agency_networks WHERE id = 1 ) AS defaultCustomerEmailData
-            FROM clw_talage_agency_networks
-            WHERE id = ${db.escape(agencyNetwork)}
-            ORDER BY id DESC
-            LIMIT 2; 
-        `;
+        // const emailContentSQL = `
+        //     SELECT
+        //         JSON_EXTRACT(custom_emails, '$.abandoned_quotes_agency') AS agencyEmailData,
+        //         JSON_EXTRACT(custom_emails, '$.abandoned_quotes_customer') AS customerEmailData,
+        //         (SELECT JSON_EXTRACT(custom_emails, '$.abandoned_quotes_agency')  FROM  clw_talage_agency_networks WHERE id = 1 ) AS defaultAgencyEmailData,
+        //         (SELECT JSON_EXTRACT(custom_emails, '$.abandoned_quotes_customer')  FROM  clw_talage_agency_networks WHERE id = 1 ) AS defaultCustomerEmailData
+        //     FROM clw_talage_agency_networks
+        //     WHERE id = ${db.escape(agencyNetwork)}
+        //     ORDER BY id DESC
+        //     LIMIT 2; 
+        // `;
 
+        // let error = null;
+        // const emailContentResultArray = await db.query(emailContentSQL).catch(function(err){
+        //     log.error(`DB Error Unable to get email content for abandon quote. appid: ${applicationId}.  error: ${err}` +  __location);
+        //     error = true;
+        // });
+        // if(error){
+        //     return false;
+        // }
         let error = null;
-        const emailContentResultArray = await db.query(emailContentSQL).catch(function(err){
-            log.error(`DB Error Unable to get email content for abandon quote. appid: ${applicationId}.  error: ${err}` +  __location);
+        const agencyNetworkBO = new AgencyNetworkBO();
+        const emailContentJSON = await agencyNetworkBO.getEmailContentAgencyAndCustomer(agencyNetwork, "abandoned_quotes_agency", "abandoned_quotes_customer").catch(function(err){
+            log.error(`Email content Error Unable to get email content for abandon quote. appid: ${applicationId}.  error: ${err}` + __location);
             error = true;
         });
         if(error){
             return false;
         }
 
-        if(emailContentResultArray && emailContentResultArray.length > 0){
+        if(emailContentJSON && emailContentJSON.customerMessage && emailContentJSON.customerSubject){
 
             let agencyLocationEmail = null;
 
@@ -217,9 +228,9 @@ var processAbandonQuote = async function(applicationId){
             quotes[0].agencyPhone = await crypt.decrypt(quotes[0].agencyPhone);
             quotes[0].agencyWebsite = await crypt.decrypt(quotes[0].agencyWebsite);
 
-            const emailContentResult = emailContentResultArray[0];
-            const customerEmailData = emailContentResult.customerEmailData ? JSON.parse(emailContentResult.customerEmailData) : null;
-            const defaultCustomerEmailData = emailContentResult.defaultCustomerEmailData ? JSON.parse(emailContentResult.defaultCustomerEmailData) : null;
+            // const emailContentResult = emailContentResultArray[0];
+            // const customerEmailData = emailContentResult.customerEmailData ? JSON.parse(emailContentResult.customerEmailData) : null;
+            // const defaultCustomerEmailData = emailContentResult.defaultCustomerEmailData ? JSON.parse(emailContentResult.defaultCustomerEmailData) : null;
 
             let agencyName = quotes[0].agencyName
             let agencyPhone = '';
@@ -258,8 +269,11 @@ var processAbandonQuote = async function(applicationId){
             }
             quotesHTML += '</table></div><br>';
 
-            let message = customerEmailData && customerEmailData.message ? customerEmailData.message : defaultCustomerEmailData.message;
-            let subject = customerEmailData && customerEmailData.subject ? customerEmailData.subject : defaultCustomerEmailData.subject;
+            // let message = customerEmailData && customerEmailData.message ? customerEmailData.message : defaultCustomerEmailData.message;
+            // let subject = customerEmailData && customerEmailData.subject ? customerEmailData.subject : defaultCustomerEmailData.subject;
+
+            let message = emailContentJSON.customerMessage;
+            let subject = emailContentJSON.customerSubject;
 
             // Perform content replacements
             message = message.replace(/{{Agency}}/g, agencyName);
@@ -298,8 +312,8 @@ var processAbandonQuote = async function(applicationId){
                 quotes[0].lname = await crypt.decrypt(quotes[0].lname);
                 quotes[0].phone = await crypt.decrypt(quotes[0].phone);
 
-                const agencyEmailData = emailContentResult.agencyEmailData ? JSON.parse(emailContentResult.agencyEmailData) : null;
-                const defaultAgencyEmailData = emailContentResult.defaultAgencyEmailData ? JSON.parse(emailContentResult.defaultAgencyEmailData) : null;
+                // const agencyEmailData = emailContentResult.agencyEmailData ? JSON.parse(emailContentResult.agencyEmailData) : null;
+                // const defaultAgencyEmailData = emailContentResult.defaultAgencyEmailData ? JSON.parse(emailContentResult.defaultAgencyEmailData) : null;
 
                 const portalLink = agencyNetwork === 1 ? global.settings.PORTAL_URL : global.settings.DIGALENT_AGENTS_URL;
 
@@ -311,9 +325,11 @@ var processAbandonQuote = async function(applicationId){
                 }
 
                 //  // Determine which message and subject to use
-                 message = agencyEmailData && agencyEmailData.message ? agencyEmailData.message : defaultAgencyEmailData.message;
-                 subject = agencyEmailData && agencyEmailData.subject ? agencyEmailData.subject : defaultAgencyEmailData.subject;
+                //  message = agencyEmailData && agencyEmailData.message ? agencyEmailData.message : defaultAgencyEmailData.message;
+                //  subject = agencyEmailData && agencyEmailData.subject ? agencyEmailData.subject : defaultAgencyEmailData.subject;
 
+                message = emailContentJSON.agencyMessage;
+                subject = emailContentJSON.agencySubject;
 
                 //already have quotesHTML from above
 
