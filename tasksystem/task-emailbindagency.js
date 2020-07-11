@@ -2,7 +2,7 @@
 
 const moment = require('moment');
 const crypt = global.requireShared('./services/crypt.js');
-const email = global.requireShared('./services/emailsvc.js');
+const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
@@ -211,7 +211,7 @@ var emailbindagency = async function(applicationId, quoteId) {
                     'agency_location': applications[0].agencyLocation
                 };
                 if (agencyLocationEmail) {
-                    const emailResp = await email.send(agencyLocationEmail, subject, message, keyData, applications[0].emailBrand);
+                    const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData, applications[0].emailBrand);
                     if (emailResp === false) {
                         slack.send('#alerts', 'warning', `The system failed to inform an agency of the emailbindagency for application ${applicationId}. Please follow-up manually.`);
                     }
@@ -236,7 +236,7 @@ var emailbindagency = async function(applicationId, quoteId) {
                     subject = subject.replace(/{{Agency}}/g, applications[0].agencyName);
 
                     log.debug("sending customer email " + __location);
-                    const emailResp2 = await email.send(applications[0].email, subject, message, keyData, applications[0].emailBrand);
+                    const emailResp2 = await emailSvc.send(applications[0].email, subject, message, keyData, applications[0].emailBrand);
                     // log.debug("emailResp = " + emailResp);
                     if (emailResp2 === false) {
                         slack.send('#alerts', 'warning', `Failed to send Policy Bind Email to Insured application #${applicationId} and quote ${quoteId}. Please follow-up manually.`);

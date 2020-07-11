@@ -2,7 +2,7 @@
 
 const moment = require('moment');
 const crypt = global.requireShared('./services/crypt.js');
-const email = global.requireShared('./services/emailsvc.js');
+const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
@@ -245,7 +245,7 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
             if(agencyLocationEmail){
                 const keyData = {'agency_location': agencyLocationDB.alid};
                 // send email
-                const emailResp = await email.send(agencyLocationEmail, subject, message, keyData, agencyLocationDB.emailBrand);
+                const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData, agencyLocationDB.emailBrand);
                 if(emailResp === false){
                     slack.send('#alerts', 'warning',`The system failed to send daily digest email for Agency Location  #${agencyLocationDB.alid}.`);
                 }

@@ -2,7 +2,7 @@
 
 const moment = require('moment');
 const crypt = global.requireShared('./services/crypt.js');
-const email = global.requireShared('./services/emailsvc.js');
+const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
@@ -282,7 +282,7 @@ var processAbandonQuote = async function(applicationId){
                 'application': applicationId,
                 'agency_location': quotes[0].agencyLocation
                 }
-            let emailResp = await email.send(quotes[0].email, subject, message, keyData, quotes[0].emailBrand);
+            let emailResp = await emailSvc.send(quotes[0].email, subject, message, keyData, quotes[0].emailBrand);
            // log.debug("emailResp = " + emailResp);
             if(emailResp === false){
                slack.send('#alerts', 'warning',`The system failed to remind the insured to revisit their quotes for application #${applicationId}. Please follow-up manually.`);
@@ -336,7 +336,7 @@ var processAbandonQuote = async function(applicationId){
                 };
                 if(agencyLocationEmail){
                     log.info(`Send agency location abandonquote email from ${quotes[0].emailBrand} to ${agencyLocationEmail} for application ${applicationId} `)
-                    emailResp = await email.send(agencyLocationEmail, subject, message, keyData2, quotes[0].emailBrand);
+                    emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData2, quotes[0].emailBrand);
                     if(emailResp === false){
                         slack.send('#alerts', 'warning','The system failed to inform an agency of the abandoned quote' + (quotes.length === 1 ? '' : 's') + ` for application ${applicationId}. Please follow-up manually.`);
                     }

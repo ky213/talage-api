@@ -2,7 +2,7 @@
 
 const moment = require('moment');
 const crypt = global.requireShared('./services/crypt.js');
-const email = global.requireShared('./services/emailsvc.js');
+const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 
 /**
@@ -115,7 +115,7 @@ var soleproApplicationEmailTask = async function(applicationId) {
             'agency_location': applications[0].agencyLocation
         };
         if (agencyLocationEmail) {
-            const emailResp = await email.send(agencyLocationEmail, subject, message, keyData2, 'digalent');
+            const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData2, 'digalent');
             if (emailResp === false) {
                 slack.send('#alerts', 'warning', `The system failed to inform an agency of the soleproApplicationEmailTask for application ${applicationId}. Please follow-up manually.`);
             }

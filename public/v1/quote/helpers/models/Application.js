@@ -4,7 +4,7 @@
 
 'use strict';
 
-const email = global.requireShared('./services/emailsvc.js');
+const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const get_questions = global.requireShared('./helpers/getQuestions.js');
@@ -454,7 +454,7 @@ module.exports = class Application {
 				subject = subject.replace(/{{Agency}}/g, this.agencyLocation.agency);
 
 				// Send the email message
-				email.send(this.business.contacts[0].email,
+				emailSvc.send(this.business.contacts[0].email,
 					subject,
 					message,
 					{
@@ -519,7 +519,7 @@ module.exports = class Application {
 					}
 
 					// Send the email message
-					email.send(this.agencyLocation.agencyEmail,
+					emailSvc.send(this.agencyLocation.agencyEmail,
 						subject,
 						message,
 						{

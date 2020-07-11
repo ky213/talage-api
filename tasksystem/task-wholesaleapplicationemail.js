@@ -2,7 +2,7 @@
 
 const moment = require('moment');
 const crypt = global.requireShared('./services/crypt.js');
-const email = global.requireShared('./services/emailsvc.js');
+const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
@@ -144,7 +144,7 @@ var wholesaleApplicationEmailTask = async function(applicationId) {
                 'agency_location': applications[0].agencyLocation
             };
             if (agencyLocationEmail) {
-                const emailResp = await email.send(agencyLocationEmail, subject, message, keyData2, applications[0].emailBrand);
+                const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData2, applications[0].emailBrand);
                 if (emailResp === false) {
                     slack.send('#alerts', 'warning', `The system failed to inform an agency of the wholesaleApplicationEmailTask for application ${applicationId}. Please follow-up manually.`);
                 }
