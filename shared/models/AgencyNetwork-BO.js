@@ -8,7 +8,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 const tableName = 'clw_talage_agency_networks'
 const skipCheckRequired = false;
-module.exports = class ApplicationClaimModel{
+module.exports = class ApplicationNetworkBO{
 
     #dbTableORM = null;
 
@@ -139,12 +139,22 @@ module.exports = class ApplicationClaimModel{
       }
     // ############ Email content retrievial methods ###############################
     // AgencyNetwork does not need to be loaded AgencyNetwork Id is passed in.
-    // methods are async returning the contentJSON {"message:" messageTemplate, "subject:" subjectTemplate}..
-
+    // methods are async returning the contentJSON {"emailBrand": brandName message:" messageTemplate, "subject:" subjectTemplate}..
+    
+    /**
+	 * getEmailContentAgencyAndCustomer
+     *
+	 * @param {string} agencyNetworkId - string or integer for agencyNetwork Id
+     * @param {string} agencyContentProperty - string for Agency's template property
+     * @param {string} customerContentProperty - string for Customer's template property
+     * 
+	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with BrandName. message template and subject template, or an Error if rejected
+	 */
     async getEmailContentAgencyAndCustomer(agencyNetworkId, agencyContentProperty, customerContentProperty ) {
         
         const emailContentSQL = `
         SELECT
+            email_brand AS emailBrand,
             JSON_EXTRACT(custom_emails, '$.${agencyContentProperty}') AS agencyEmailData,
             JSON_EXTRACT(custom_emails, '$.${customerContentProperty}') AS customerEmailData,
             (SELECT JSON_EXTRACT(custom_emails, '$.${agencyContentProperty}')  FROM  clw_talage_agency_networks WHERE id = 1 ) AS defaultAgencyEmailData,
@@ -152,7 +162,7 @@ module.exports = class ApplicationClaimModel{
         FROM clw_talage_agency_networks
         WHERE id = ${db.escape(agencyNetworkId)}
         `;
-        // log.debug("emailContent SQL: " + emailContentSQL);
+        log.debug("emailContent SQL: " + emailContentSQL);
         let error = null;
         const emailContentResultArray = await db.query(emailContentSQL).catch(function(err){
             log.error(`DB Error Unable to get email content for abandon quote. appid: ${applicationId}.  error: ${err}` +  __location);
@@ -181,6 +191,7 @@ module.exports = class ApplicationClaimModel{
                 const agencySubject = agencyEmailData && agencyEmailData.subject ? agencyEmailData.subject : defaultAgencyEmailData.subject;
 
                 emailTemplateJSON = { 
+                        "emailBrand": emailContentResult.emailBrand,
                         "customerMessage": customermessage, 
                         "customerSubject": customersubject,
                         "agencyMessage": agencyMessage, 
@@ -199,6 +210,70 @@ module.exports = class ApplicationClaimModel{
         }
         else {
             log.error(`${agencyContentProperty} missing emailcontent for agencynetwork: ${agencyNetworkId}`  +  __location);
+            throw (new Error("No email content"));
+        }
+        
+    }
+    /**
+	 * getEmailContent 
+     *
+	 * @param {string} agencyNetworkId - string or integer for agencyNetwork Id
+     * @param {string} contentProperty - string for template property
+     * 
+	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with BrandName. message template and subject template, or an Error if rejected
+	 */
+    async getEmailContent(agencyNetworkId, contentProperty ) {
+        
+        const emailContentSQL = `
+        SELECT
+            email_brand AS emailBrand,
+            JSON_EXTRACT(custom_emails, '$.${contentProperty}') AS emailData,
+            (SELECT JSON_EXTRACT(custom_emails, '$.${contentProperty}')  FROM  clw_talage_agency_networks WHERE id = 1 ) AS defaultEmailData
+        FROM clw_talage_agency_networks
+        WHERE id = ${db.escape(agencyNetworkId)}
+        `;
+        // log.debug("emailContent SQL: " + emailContentSQL);
+        let error = null;
+        const emailContentResultArray = await db.query(emailContentSQL).catch(function(err){
+            log.error(`DB Error Unable to get email content for abandon quote. appid: ${applicationId}.  error: ${err}` +  __location);
+            error = true;
+        });
+        if(error){
+            log.error("getEmailContentAgencyAndCustomer error: " + err + __location);
+            throw (error);
+        }
+
+        if(emailContentResultArray && emailContentResultArray.length > 0){
+
+            const emailContentResult = emailContentResultArray[0];
+            let emailTemplateJSON = {};
+            try{
+                emailContentResult.defaultEmailData = JSON.parse(emailContentResult.defaultEmailData);
+                if(emailContentResult.emailData){
+                    emailContentResult.emailData = JSON.parse(emailContentResult.emailData);
+                }
+                let message = emailContentResult.emailData && emailContentResult.emailData.message && emailContentResult.emailData.message !== "" ? emailContentResult.emailData.message : emailContentResult.defaultEmailData.message;
+                let subject = emailContentResult.emailData && emailContentResult.emailData.subject && emailContentResult.emailData.subject !== "" ? emailContentResult.emailData.subject : emailContentResult.defaultEmailData.subject;
+
+
+                emailTemplateJSON = { 
+                        "emailBrand": emailContentResult.emailBrand,
+                        "message": message, 
+                        "subject": subject
+                    }
+                
+            }
+            catch(err) {
+                log.error("getEmailContentAgencyAndCustomer error: " + err + __location);
+                error = err;
+            }
+            if(error){
+                throw (error);
+            }
+            return emailTemplateJSON;
+        }
+        else {
+            log.error(`${contentProperty} missing emailcontent for agencynetwork: ${agencyNetworkId}`  +  __location);
             throw (new Error("No email content"));
         }
         

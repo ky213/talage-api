@@ -6,6 +6,7 @@ const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 
 /**
  * AbandonQuote Task processor
@@ -84,7 +85,6 @@ var wholesaleApplicationEmailTask = async function(applicationId) {
         a.id =  ${applicationId}
         AND a.wholesale = 1
     `;
-
     let applications = null;
     try {
         applications = await db.query(appSQL);
@@ -110,30 +110,21 @@ var wholesaleApplicationEmailTask = async function(applicationId) {
 
         //get email content.
         const agencyNetwork = applications[0].agency_network;
-        const emailContentSQL = `
-            SELECT
-                JSON_EXTRACT(custom_emails, '$.talage_wholesale') AS agencyEmailData,
-                (SELECT JSON_EXTRACT(custom_emails, '$.talage_wholesale')  FROM  clw_talage_agency_networks WHERE id = 1 ) AS defaultAgencyEmailData
-            FROM clw_talage_agency_networks
-            WHERE id = ${db.escape(agencyNetwork)}
-        `;
 
         let error = null;
-        const emailContentResultArray = await db.query(emailContentSQL).catch(function(err){
-            log.error(`DB Error Unable to get email content for abandon application. appid: ${applicationId}.  error: ${err}`);
+        const agencyNetworkBO = new AgencyNetworkBO();
+        const emailContentJSON = await agencyNetworkBO.getEmailContent(agencyNetwork, "talage_wholesale").catch(function(err){
+            log.error(`Unable to get email content for Talage WholeSale application. agency_network: ${agencyNetwork}.  error: ${err}` + __location);
             error = true;
         });
         if(error){
             return false;
         }
 
-        if(emailContentResultArray && emailContentResultArray.length > 0){
-            const emailContentResult = emailContentResultArray[0];
-            const agencyEmailData = emailContentResult.agencyEmailData ? JSON.parse(emailContentResult.agencyEmailData) : null;
-            const defaultAgencyEmailData = emailContentResult.defaultAgencyEmailData ? JSON.parse(emailContentResult.defaultAgencyEmailData) : null;
+        if(emailContentJSON && emailContentJSON.message){
 
-            let message = agencyEmailData && agencyEmailData.message ? agencyEmailData.message : defaultAgencyEmailData.message;
-            let subject = agencyEmailData && agencyEmailData.subject ? agencyEmailData.subject : defaultAgencyEmailData.subject;
+            let message = emailContentJSON.message;
+            let subject = emailContentJSON.subject;
 
             message = message.replace(/{{Brand}}/g, applications[0].emailBrand);
             subject = subject.replace(/{{Brand}}/g, applications[0].emailBrand);

@@ -9,6 +9,7 @@ const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 
 /**
  * DailyDigest Task processor
@@ -151,39 +152,20 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
     let appCount = 0;
     if(appDBJSON && appDBJSON.length > 0){
 
-        const emailContentSQL = `
-            SELECT
-                JSON_EXTRACT(custom_emails, '$.daily_digest') AS emailData,
-                (SELECT JSON_EXTRACT(custom_emails, '$.daily_digest')  FROM  clw_talage_agency_networks WHERE id = 1 ) AS defaultEmailData
-            FROM clw_talage_agency_networks
-            WHERE id = ${db.escape(agencyLocationDB.agency_network)}
-            ORDER BY id DESC `;
-
         let error = null;
-        const emailContentResultArray = await db.query(emailContentSQL).catch(function(err){
-            log.error(`DB Error Unable to get email content for Daily Digest. agency_network: ${db.escape(agencyLocationDB.agency_network)}.  error: ${err}` + __location);
+        const agencyNetworkBO = new AgencyNetworkBO();
+        const emailContentJSON = await agencyNetworkBO.getEmailContent(agencyLocationDB.agency_network, "daily_digest").catch(function(err){
+            log.error(`Unable to get email content for Daily Digest. agency_network: ${db.escape(agencyLocationDB.agency_network)}.  error: ${err}` + __location);
             error = true;
         });
         if(error){
             return false;
         }
-        // emailContentResultArray.defaultEmailData must exist it is the fallback.
-        if(emailContentResultArray && emailContentResultArray[0].defaultEmailData){
-            const emailContentResult = emailContentResultArray[0];
-            // message and subject not coming back as JSON properties.
-            try{
-                emailContentResult.defaultEmailData = JSON.parse(emailContentResult.defaultEmailData);
-                if(emailContentResult.emailData){
-                    emailContentResult.emailData = JSON.parse(emailContentResult.emailData);
-                }
-            }
-            catch(e){
-                log.warn(`DailyDigest message JSON parse error: ${e}` + __location)
-            }
 
-             // Determine which message and subject to use
-            let message = emailContentResult.emailData && emailContentResult.emailData.message && emailContentResult.emailData.message !== "" ? emailContentResult.emailData.message : emailContentResult.defaultEmailData.message;
-            let subject = emailContentResult.emailData && emailContentResult.emailData.subject && emailContentResult.emailData.subject !== "" ? emailContentResult.emailData.subject : emailContentResult.defaultEmailData.subject;
+        if(emailContentJSON && emailContentJSON.message){
+
+            let message = emailContentJSON.message;
+            let subject = emailContentJSON.subject;
 
             if(!message){
                 log.error(`Daily Digest email content creation error: no message. agency_network: ${db.escape(agencyLocationDB.agency_network)}.` + __location);
@@ -256,7 +238,7 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
 
         }
         else {
-            log.error(`DB Error Unable to get email content for Daily Digest. agency_network: ${db.escape(agencyLocationDB.agency_network)}. sql: ${emailContentSQL}` + __location);
+            log.error(`DB Error Unable to get email content for Daily Digest. agency_network: ${db.escape(agencyLocationDB.agency_network)}.` + __location);
             return false;
         }
     }

@@ -53,7 +53,7 @@ exports.taskProcessorExternal = async function(){
     let error = null;
     await abandonAppTask().catch(err => error = err);
     if(error){
-        log.error('abandonAppTask external: ' + error +  __location);
+        log.error('abandonAppTask external: ' + error + __location);
     }
     return;
 };
@@ -104,7 +104,7 @@ var abandonAppTask = async function(){
 
             if(error === null && succesfulProcess === true){
                 await markApplicationProcess(appIdDbRec.applicationId).catch(function(err){
-                    log.error(`Error marking abandon app in DB for ${appIdDbRec.applicationId} error:  ${err}` +  __location);
+                    log.error(`Error marking abandon app in DB for ${appIdDbRec.applicationId} error:  ${err}` + __location);
                     error = err;
                 });
             }
@@ -150,7 +150,7 @@ var processAbandonApp = async function(applicationId){
     let appDBJSON = null;
 
     appDBJSON = await db.query(appSQL).catch(function(err){
-        log.error(`Error get abandon applications from DB for ${applicationId} error:  ${err}` +  __location);
+        log.error(`Error get abandon applications from DB for ${applicationId} error:  ${err}` + __location);
         // Do not throw error other abandon applications may need to be processed.
         return false;
     });
@@ -159,24 +159,6 @@ var processAbandonApp = async function(applicationId){
 
         const agencyNetwork = appDBJSON[0].agency_network;
         //Get email content
-        // const emailContentSQL = `
-        //     SELECT
-        //         JSON_EXTRACT(custom_emails, '$.abandoned_applications_customer') AS agencyEmailData,
-        //         JSON_EXTRACT(custom_emails, '$.abandoned_applications_customer') AS customerEmailData,
-        //         (SELECT JSON_EXTRACT(custom_emails, '$.abandoned_applications_customer')  FROM  clw_talage_agency_networks WHERE id = 1 ) AS defaultAgencyEmailData,
-        //         (SELECT JSON_EXTRACT(custom_emails, '$.abandoned_applications_customer')  FROM  clw_talage_agency_networks WHERE id = 1 ) AS defaultCustomerEmailData
-        //     FROM clw_talage_agency_networks
-        //     WHERE id = ${db.escape(agencyNetwork)}
-        // `;
-
-        // let error = null;
-        // const emailContentResultArray = await db.query(emailContentSQL).catch(function(err){
-        //     log.error(`DB Error Unable to get email content for abandon application. appid: ${applicationId}.  error: ${err}` +  __location);
-        //     error = true;
-        // });
-        // if(error){
-        //     return false;
-        // }
         // TODO only uses customer...
         let error = null;
         const agencyNetworkBO = new AgencyNetworkBO();

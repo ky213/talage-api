@@ -2,7 +2,7 @@
 // We will need to update in order for it to recognize the ECMAscript extension for private properties. -SF
 
 /**
- * Defines a single Agency
+ * Defines a single record
  */
 
 'use strict';

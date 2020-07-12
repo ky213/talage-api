@@ -93,7 +93,7 @@ exports.send = async function(recipients, subject, content, keys = {}, brand = '
 
         // Validate the agency
         if (!await validator.agency(emailJSON.agency)) {
-            const message = 'The agency specified is not valid';
+            const message = 'The agency specified is not valid ' + emailJSON.agency;
             log.warn('Email Service send: ' + message + __location);
             return false;
         }
