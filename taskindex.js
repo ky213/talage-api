@@ -7,6 +7,8 @@ const moment = require('moment');
 // Add global helpers to load shared modules
 global.sharedPath = require('path').join(__dirname, 'shared');
 global.requireShared = (moduleName) => require(`${global.sharedPath}/${moduleName}`);
+global.rootPath = require('path').join(__dirname, '/');
+global.requireRootPath = (moduleName) => require(`${global.rootPath}/${moduleName}`);
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
@@ -122,7 +124,7 @@ async function main(){
 	// local development of tasks run one of the task.
 	if(global.settings.ENV === 'development' && global.settings.RUN_LOCAL_TASK && global.settings.RUN_LOCAL_TASK === 'YES'){
 		log.debug('Auto Running Task');
-		const taskJson = {"taskname": "optoutapplication"};
+		const taskJson = {"taskname": "dailydigest"};
 		const messageTS = moment().utc().valueOf();
 		const messageAtributes = {"SentTimestamp": messageTS};
 		const testMessage = {
