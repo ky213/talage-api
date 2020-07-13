@@ -11,14 +11,22 @@ const styles = require('./acordhelpers/document-style/acord-form-wc/styles.js');
 const positions = require('./acordhelpers/document-style/acord-form-wc/positions.js');
 
 /**
+ * @typedef generatedAcord
+ * @type {Object}
+ * @property {Object} doc - Object containing the acord form data
+ * @property {Array} missing_data - Array containing strings describing any and all data missing from the application (primarily for business team use)
+ * @property {String} error - Message describing any error encountered by the service to be passed to the front end
+ */
+
+/**
  * Responds to get requests for the certificate endpoint
  *
- * @param {int} application_id - id of the application for ACORD form generation
- * @param {int} insurer_id = id of the insurer for ACORD form generation
+ * @param {number} application_id - id of the application for ACORD form generation
+ * @param {number} insurer_id - id of the insurer for ACORD form generation
  *
- * @returns {obj} Generated ACORD form for selected application and insurer
+ * @returns {generatedAcord} Generated ACORD form for selected application and insurer
  */
-exports.generateWCACORD = async function(application_id, insurer_id){
+exports.create = async function(application_id, insurer_id){
 
 	let message = '';
 	// Validate the application ID

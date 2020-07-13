@@ -15,6 +15,7 @@ const serverHelper = require('../../../server.js');
  */
 async function GetACORDFormWC(req, res, next){
 
+	// Check data was received
 	if(!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
 		log.info('ACORD form generation failed. Bad Request: No data received' + __location);
 		return next(serverHelper.requestError('Bad Request: No data received'));
@@ -32,16 +33,18 @@ async function GetACORDFormWC(req, res, next){
 	}
 
 
-	// TODO pass in app id and insurer id as req params so we dont have to do these dumb checks ^^^^^^^
-	const form = await acord.generateWCACORD(req.query.application_id, req.query.insurer_id).catch(function(error){
+	// TODO pass in app id and insurer id as req params
+	const form = await acord.create(req.query.application_id, req.query.insurer_id).catch(function(error){
 		log.error('ACORD form generation failed. ' + error + __location);
 		return next(serverHelper.requestError('ACORD form generation failed.'));
 	});
 
+	// If there was an error while generating the form return it to the front end
 	if(form.error){
 		return next(serverHelper.requestError(form.error));
 	}
 
+	// Pull out the document and array containing details of missing data
 	const doc = form.doc;
 	const missing_data = form.missing_data;
 
