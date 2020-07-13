@@ -5,6 +5,7 @@
 'use strict';
 
 const Integration = require('../Integration.js');
+const moment = require('moment');
 const momentTimezone = require('moment-timezone');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js'); // eslint-disable-line no-unused-vars
 const util = require('util');
@@ -167,6 +168,14 @@ module.exports = class HiscoxGL extends Integration {
 				fulfill(this.return_result('autodeclined'));
 				return;
 			}
+
+			// Check and format the effective date (Hiscox only allows effective dates in the next 60 days, while Talage supports 90 days)
+			if(this.policy.effective_date.isAfter(moment().startOf('day').add(60, 'days'))){
+				this.reasons.push(`${this.insurer.name} does not support effective dates more than 60 days in the future`);
+				fulfill(this.return_result('autodeclined'));
+				return;
+			}
+			this.effectiveDate = this.policy.effective_date.format('YYYY-MM-DD');
 
 			// Determine the primary and secondary locations
 			log.debug('ZACHARY TO DO: Make sure this works with multiple locations and that we do NOT accidentally alter the original application data');
