@@ -12,8 +12,8 @@
 		<StateOrProvCd>{{:app.business.primary_territory}}</StateOrProvCd>
 		<ClassOfBusinessCd>{{:industry_code.hiscox}}</ClassOfBusinessCd>
 		<ProducerInfo>
-			<!--<ProducerUID>Test ProducerUID</ProducerUID>    NOT DOCUMENTED-->
-			<!--<ProducerType>Test Agent</ProducerType>    NOT DOCUMENTED-->
+			{{!-- <ProducerUID>Test ProducerUID</ProducerUID>    NOT DOCUMENTED --}}
+			<ProducerType>{{:app.agencyLocation.insurers[insurer.id].agency_id}}</ProducerType>{{!-- Per Hiscox, send in the Agent ID here also --}}
 			<ProducerAgency>{{:app.agencyLocation.agency.substring(0, 100)}}</ProducerAgency>
 			<ProducerAgentID>{{:app.agencyLocation.insurers[insurer.id].agency_id}}</ProducerAgentID>
 			{{if app.agencyLocation.first_name && app.agencyLocation.last_name}}
@@ -31,7 +31,7 @@
 				{{if app.agencyLocation.agencyPhone}}
 				<PhoneInfo>
 					<PhoneNumber>{{:app.agencyLocation.agencyPhone.toString().substring(0,50)}}</PhoneNumber>
-					<!--<PhoneExtension>1100</PhoneExtension>   WE DO NOT SUPPORT THIS FIELD -->
+					{{!--<PhoneExtension>1100</PhoneExtension>   WE DO NOT SUPPORT THIS FIELD --}}
 				</PhoneInfo>
 				{{/if}}
 				{{if app.agencyLocation.agencyEmail}}
@@ -51,7 +51,7 @@
 			<CommunicationsInfo>
 				<PhoneInfo>
 					<PhoneNumber>{{:app.business.contacts[0].phone.toString().substring(0,10)}}</PhoneNumber>
-					<!--<PhoneExtension>1100</PhoneExtension>   WE DO NOT SUPPORT THIS FIELD -->
+					{{!--<PhoneExtension>1100</PhoneExtension>   WE DO NOT SUPPORT THIS FIELD --}}
 				</PhoneInfo>
 				<EmailInfo>
 					<EmailAddr>{{:app.business.contacts[0].email.substring(0,60)}}</EmailAddr>
@@ -64,8 +64,8 @@
 						{{if primaryLocation.address2}}
 						<Addr2>{{:primaryLocation.address2.substring(0,40)}}</Addr2>
 						{{/if}}
-						<City>{{:stringFunctions.ucwords(primaryLocation.city.toLowerCase()).substring(0,30)}}</City>
-						<StateOrProvCd>{{:primaryLocation.territory}}</StateOrProvCd><!-- TO DO: Sample shows 2 letter abbreviation, but documentation appears to call for the full name, need to know which -->
+						<City>{{:~ucwords(primaryLocation.city).substring(0,30)}}</City>
+						<StateOrProvCd>{{:primaryLocation.territory}}</StateOrProvCd>
 						<PostalCode>{{:primaryLocation.zip.substring(0,5)}}</PostalCode>
 						<Country>US</Country>
 					</AddrInfo>
@@ -78,8 +78,8 @@
 						{{if ~location.address2}}
 						<Addr2>{{:~location.address2.substring(0,40)}}</Addr2>
 						{{/if}}
-						<City>{{:stringFunctions.ucwords(~location.city.toLowerCase()).substring(0,30)}}</City>
-						<StateOrProvCd>{{:~location.territory}}</StateOrProvCd><!-- TO DO: Sample shows 2 letter abbreviation, but documentation appears to call for the full name, need to know which -->
+						<City>{{:~ucwords(~location.city).substring(0,30)}}</City>
+						<StateOrProvCd>{{:~location.territory}}</StateOrProvCd>
 						<PostalCode>{{:~location.zip.substring(0,5)}}</PostalCode>
 						<Country>US</Country>
 					</AddrInfo>
@@ -92,19 +92,20 @@
 			<GeneralLiabilityQuoteRq>
 				<ProductId>CGL</ProductId>
 				<RatingInfo>
-					<OperatedFromHome>Yes</OperatedFromHome> // Is your business operated out of your home?  (Yes/No)
-					<NumOfEmployees>3</NumOfEmployees> // ALL CLASSES EXCEPT Real estate agent/broker: Numeric, 1-999 (includes temporary employees)
+					<CoverageStartDate>{{:effectiveDate}}</CoverageStartDate>
+					{{!-- TO DO: Do we always accept payroll? If not, how do we make sure we do in these cases --}}
+					<EstmtdPayrollExpense>{{:get_total_payroll()}}</EstmtdPayrollExpense> {{!-- ALL CLASSES EXCEPT SC, LJR-Retail COBs, Home Health --}}
+					<NumOfEmployees>{{:get_total_employees()}}</NumOfEmployees> {{!-- ALL CLASSES EXCEPT Real estate agent/broker: Numeric, 1-999 (includes temporary employees) --}}
+					<BusinessOwnershipStructure>{{:entityType}}</BusinessOwnershipStructure>
+					<AdditionalLocation>0</AdditionalLocation> {{!-- 0, 1, 2, 3, 4, 5+ --}}
+					<OperatedFromHome>No</OperatedFromHome> {{!-- Is your business operated out of your home?  (Yes/No) --}}
 					<SupplyManufactDistbtGoodsOrProducts>No</SupplyManufactDistbtGoodsOrProducts>
-					<TangibleGoodWorkIT>Yes</TangibleGoodWorkIT>
-					<TangibleGoodWork>Yes</TangibleGoodWork>
-					<HardwareWork>No</HardwareWork> // LIMITED CLASSES: Does your business manufacture, design, or assist in the design of any hardware or components?
-					<AdditionalLocation>3</AdditionalLocation>
-					<BusinessOwnershipStructure>Trust</BusinessOwnershipStructure>
-					<SimilarInsurance>Yes</SimilarInsurance> // ALL CLASSES EXCEPT LJR, SC, and Mobile Food Service: Do you currently have an insurance policy in effect for the coverage requested?
-					<SimilarInsuranceCarrier>Insurance</SimilarInsuranceCarrier> // Only when the prior one is answered yes. THIS IS REQUIRED
-					<CoverageStartDate>2019-03-07</CoverageStartDate>
-					<EstmtdPayrollExpense>250000</EstmtdPayrollExpense>
-					<HireNonOwnVehclUse>Yes</HireNonOwnVehclUse>
+					<TangibleGoodWorkIT>No</TangibleGoodWorkIT>
+					<TangibleGoodWork>No</TangibleGoodWork>
+					<HardwareWork>No</HardwareWork> {{!-- LIMITED CLASSES: Does your business manufacture, design, or assist in the design of any hardware or components? --}}
+					<SimilarInsurance>No</SimilarInsurance> {{!-- ALL CLASSES EXCEPT LJR, SC, and Mobile Food Service: Do you currently have an insurance policy in effect for the coverage requested? --}}
+					<SimilarInsuranceCarrier>Insurance</SimilarInsuranceCarrier> {{!-- Only when the prior one is answered yes. THIS IS REQUIRED --}}
+					<HireNonOwnVehclUse>No</HireNonOwnVehclUse>
 					<AgreeDisagreeToStatements>I have read and agree with these statements</AgreeDisagreeToStatements>
 					<EmailConsent>Yes</EmailConsent>
 					<InformationConfirmAgreement>Yes</InformationConfirmAgreement>

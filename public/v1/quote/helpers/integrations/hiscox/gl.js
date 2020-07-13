@@ -103,7 +103,7 @@ module.exports = class HiscoxGL extends Integration {
 		}
 
 		// Define how legal entities are mapped for Hiscox
-		const entity_matrix = {
+		const entityMatrix = {
 			'Association': 'Corporation or other Organization (other than the above)',
 			'Corporation': 'Corporation or other Organization (other than the above)',
 			'Limited Liability Company': 'Limited Liability Company',
@@ -161,6 +161,14 @@ module.exports = class HiscoxGL extends Integration {
 			// Fill in calculated fields
 			this.requestDate = momentTimezone.tz('America/Los_Angeles').format('YYYY-MM-DD');
 
+			// Ensure this entity type is in the entity matrix above
+			if(!(this.app.business.entity_type in entityMatrix)){
+				this.reasons.push(`${this.insurer.name} does not support the entity type selected by the user`);
+				fulfill(this.return_result('autodeclined'));
+				return;
+			}
+			this.entityType = entityMatrix[this.app.business.entity_type];
+
 			// Determine the best limits
 			this.bestLimits = this.getBestLimits(carrierLimits);
 			if(!this.bestLimits){
@@ -186,19 +194,9 @@ module.exports = class HiscoxGL extends Integration {
 				this.secondaryLocations.shift();
 			}
 
-			log.debug('--------------');
-			log.debug(util.inspect(carrierLimits));
-			log.debug(this.industry_code.hiscox);
-			log.debug(this.bestLimits);
-
 			// Render the template into XML and remove any empty lines (artifacts of control blocks)
-			//const xml = hiscoxGLTemplate.render(this).replace(/\n\s*\n/g, '\n');
-
-
-
-
-
-			//log.debug(xml);
+			const xml = hiscoxGLTemplate.render(this, {'ucwords': (val) => stringFunctions.ucwords(val.toLowerCase())}).replace(/\n\s*\n/g, '\n');
+			log.debug(xml);
 			return;
 		});
 	}
