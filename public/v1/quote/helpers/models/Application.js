@@ -176,42 +176,42 @@ module.exports = class Application {
 	 * @param {object} data - The application data
 	 * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
 	 */
-	load(data) {
+	async load(data) {
 		log.verbose('Loading data into Application');
-		return new Promise(async(fulfill, reject) => {
-			// Agent
-			this.agencyLocation = new AgencyLocation(this);
-			// Note: The front-end is sending in 'agent' but this is really a reference to the 'agency location'
-			if (data.agent) {
-				await this.agencyLocation.load({id: data.agent});
-			}
+
+		// Agent
+		this.agencyLocation = new AgencyLocation(this);
+		// Note: The front-end is sending in 'agent' but this is really a reference to the 'agency location'
+		if (data.agent) {
+			await this.agencyLocation.load({id: data.agent});
+		}
  else {
-				await this.agencyLocation.load({id: 1}); // This is Talage's agency location record
-			}
+			await this.agencyLocation.load({id: 1}); // This is Talage's agency location record
+		}
 
-			// Load the business information
-			this.business = new Business(this);
-			await this.business.load(data.business).catch(function(error) {
-				reject(error);
-			});
+		// Load the business information
+		this.business = new Business(this);
+		try {
+			await this.business.load(data.business);
+		}
+ catch (error) {
+			throw error;
+		}
 
-			// ID
-			this.id = parseInt(data.id, 10);
+		// ID
+		this.id = parseInt(data.id, 10);
 
-			// Load the policy information
-			data.policies.forEach((policy) => {
-				const p = new Policy(this);
-				p.load(policy);
-				this.policies.push(p);
-			});
-
-			this.questions = data.questions;
-
-			// Get the test flag
-			this.test = data.test === true;
-
-			fulfill();
+		// Load the policy information
+		data.policies.forEach((policy) => {
+			const p = new Policy(this);
+			p.load(policy);
+			this.policies.push(p);
 		});
+
+		this.questions = data.questions;
+
+		// Get the test flag
+		this.test = data.test === true;
 	}
 
 	/**
