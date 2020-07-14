@@ -179,45 +179,43 @@ module.exports = class Application {
 	 * @param {object} data - The application data
 	 * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
 	 */
-    load(data) {
-        log.verbose('Loading data into Application');
-        return new Promise(async(fulfill, reject) => {
-            // Agent
-            this.agencyLocation = new AgencyLocation(this);
-            // Note: The front-end is sending in 'agent' but this is really a reference to the 'agency location'
-            if (data.agent) {
-                await this.agencyLocation.load({id: data.agent});
-            }
-            else {
-                await this.agencyLocation.load({id: 1}); // This is Talage's agency location record
-            }
+	async load(data) {
+		log.verbose('Loading data into Application');
 
-            // Load the business information
-            this.business = new Business(this);
-            await this.business.load(data.business).catch(function(error) {
-                reject(error);
-            });
+		// Agent
+		this.agencyLocation = new AgencyLocation(this);
+		// Note: The front-end is sending in 'agent' but this is really a reference to the 'agency location'
+		if (data.agent) {
+			await this.agencyLocation.load({id: data.agent});
+		}
+ else {
+			await this.agencyLocation.load({id: 1}); // This is Talage's agency location record
+		}
 
-            // ID
-            this.id = parseInt(data.id, 10);
+		// Load the business information
+		this.business = new Business(this);
+		try {
+			await this.business.load(data.business);
+		}
+ catch (error) {
+			throw error;
+		}
 
-            // Load the policy information - Should this reject on no policies??
-            if(data.policies){
-                data.policies.forEach((policy) => {
-                    const p = new Policy(this);
-                    p.load(policy);
-                    this.policies.push(p);
-                });
-            }
+		// ID
+		this.id = parseInt(data.id, 10);
 
-            this.questions = data.questions;
+		// Load the policy information
+		data.policies.forEach((policy) => {
+			const p = new Policy(this);
+			p.load(policy);
+			this.policies.push(p);
+		});
 
-            // Get the test flag
-            this.test = data.test === true;
+		this.questions = data.questions;
 
-            fulfill();
-        });
-    }
+		// Get the test flag
+		this.test = data.test === true;
+	}
 
 	/**
 	 * Generate an example API response
