@@ -9,7 +9,7 @@
 //var assert = require('chai').assert;
 //var expect = require("chai").expect;
 //var should = require('chai').should();
-//var simple = require('simple-mock');
+var simple = require('simple-mock');
 //var rewire = require('rewire');
 var sinon = require('sinon');
 // eslint-disable-next-line no-unused-vars

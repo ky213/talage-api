@@ -9,7 +9,6 @@ const signature = require('./acordhelpers/signature.js');
 const generate = require('./acordhelpers/state-rating-sheets.js');
 const styles = require('./acordhelpers/document-style/acord-form-wc/styles.js');
 const positions = require('./acordhelpers/document-style/acord-form-wc/positions.js');
-
 /**
  * @typedef generatedAcord
  * @type {Object}

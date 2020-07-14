@@ -308,21 +308,66 @@ module.exports = class Application {
 		const policyTypeReferred = {};
 		const policyTypeQuoted = {};
 
+		// Define query to retrieve acord support info
+		const acord_info_sql = `SELECT ipt.insurer, ipt.policy_type, aipt.acord_quoting
+			FROM clw_talage_agency_insurer_policy_type aipt
+			INNER JOIN clw_talage_insurer_policy_types ipt ON aipt.insurer_policy_type = ipt.id
+			WHERE aipt.agency = ${this.agencyLocation.agencyId};`
+
+		const acord_info = await db.query(acord_info_sql).catch(function(error){
+			log.error('Could not retrieve ACORD support data from the database. ' + error + __location);
+		})
+
 		this.policies.forEach((policy) => {
 			// Generate quotes for each insurer for the given policy type
 			this.insurers.forEach((insurer) => {
 				// Check that the given policy type is enabled for this insurer
 				if (insurer.policy_types.indexOf(policy.type) >= 0) {
-					// Check if the integration file for this insurer exists
-					const normalizedPath = `${__dirname}/../integrations/${insurer.slug}/${policy.type.toLowerCase()}.js`;
-					if (fs.existsSync(normalizedPath)) {
-						// Require the integration file and add the response to our promises
-						const IntegrationClass = require(normalizedPath);
-						const integration = new IntegrationClass(this, insurer, policy);
-						quote_promises.push(integration.quote());
+
+					let use_integration = false;
+					let slug = '';
+
+					// Retrieve policy type info for this insurer and policy type for easy access
+					const insurer_policy_info = insurer.policy_type_details[policy.type];
+
+					// If the agency has a relationship with this insurer (the returned rows include an entry for this insurer and policy type)
+					if(acord_info && acord_info.length() && acord_info.find(entry => entry.insurer === insurer && entry.policy_type === policy.type)){
+						// Store the record for easy access
+						const agency_insurer_policy_info = acord_info.find(entry => entry.insurer === insurer && entry.policy_type === policy.type);
+
+						// If the agency prefers acord submission and the insurer supports it for this policy type
+						if(agency_insurer_policy_info.acord_quoting && insurer_policy_info.acord_support){
+							use_integration = true;
+							slug = 'acord';
+						}
+						// If the agency does not prefer ACORD submission and the insurer has api support
+						else if(!insurer_policy_info.acord_quoting && insurer_policy_info.api_support){
+							use_integration = true;
+							slug = insurer.slug;
+						}
 					}
- else {
-						log.warn(`Insurer integration file does not exist: ${insurer.name} ${policy.type}` + __location);
+					// Else the agency and insurer do not have a relationship so check for API support
+					else if(insurer_policy_info.api_support){
+						use_integration = true;
+						slug = 'acord';
+					}
+
+					// Use the appropriate integration
+					if(use_integration){
+						const normalizedPath = `${__dirname}/../integrations/${slug}/${policy.type.toLowerCase()}.js`;
+						if (fs.existsSync(normalizedPath)) {
+							// Require the integration file and add the response to our promises
+							const IntegrationClass = require(normalizedPath);
+							const integration = new IntegrationClass(this, insurer, policy);
+							quote_promises.push(integration.quote());
+						}
+						else {
+							log.error(`Database and Implementation mismatch: api support exists in the database but implementation file was not found. ${insurer.name} ${policy.type}` + __location);
+						}
+					}
+					else{
+						// No api support and the agency either does not prefer acord quoting or the insurer does not support acord quoting
+						log.warn('Insurer unable to quote: No api support and the agency either does not prefer acord quoting or the insurer does not support acord quoting. ' + __location);
 					}
 				}
 			});
