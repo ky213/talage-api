@@ -103,7 +103,7 @@ async function deleteAgency(req, res, next){
  */
 async function getAgency(req, res, next){
 	let error = false;
-
+	
 	// Determine which permissions group to use (start with the default permission needed by an agency network)
 	let permissionGroup = 'agencies';
 
@@ -233,6 +233,9 @@ async function getAgency(req, res, next){
 			\`i\`.\`id\`,
 			\`i\`.\`logo\`,
 			\`i\`.\`name\`,
+			\`i\`.agency_id_label,
+			\`i\`.agent_id_label,
+			\`i\`.enable_agent_id,
 		GROUP_CONCAT(\`it\`.\`territory\`) AS \`territories\`
 		FROM \`clw_talage_agency_network_insurers\` AS \`agi\`
 		LEFT JOIN \`clw_talage_insurers\` AS \`i\` ON \`agi\`.\`insurer\` = \`i\`.\`id\`
