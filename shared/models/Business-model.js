@@ -7,11 +7,6 @@ const SearchStringModel = require('./SearchStrings-model.js');
 const crypt = global.requireShared('./services/crypt.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-// const util = require('util');
-// const email = global.requireShared('./services/emailsvc.js');
-// const slack = global.requireShared('./services/slacksvc.js');
-// const formatPhone = global.requireShared('./helpers/formatPhone.js');
-// const get_questions = global.requireShared('./helpers/getQuestions.js');
 
 const validator = global.requireShared('./helpers/validator.js');
 

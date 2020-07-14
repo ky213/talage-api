@@ -67,13 +67,12 @@ async function PostResetPassword(req, res, next){
 		}
 
 		const emailData = {
-			'from': brandRaw,
 			'html': `<p style="text-align:center;">A request to reset your password has been recieved. To continue the reset process, please click the button below within 15 minutes.</p><br><p style="text-align: center;"><a href="${portalurl}/reset-password/${token}" style="background-color:#ED7D31;border-radius:0.25rem;color:#FFF;font-size:1.3rem;padding-bottom:0.75rem;padding-left:1.5rem;padding-top:0.75rem;padding-right:1.5rem;text-decoration:none;text-transform:uppercase;">Reset Password</a></p>`,
 			'subject': `Reset Your ${brandRaw.charAt(0).toUpperCase() + brandRaw.substr(1).toLowerCase()} Password`,
 			'to': req.body.email
 		};
 
-		const emailResp = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, brandRaw, 0);
+		const emailResp = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, brandRaw);
 		if(emailResp === false){
 			log.error(`Failed to send the password reset email to ${req.body.email}. Please contact the user.`);
 			slack.send('#alerts', 'warning',`Failed to send the password reset email to ${req.body.email}. Please contact the user.`);

@@ -7,7 +7,7 @@ const csvStringify = util.promisify(require("csv-stringify"));
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-const email = global.requireShared('./services/emailsvc.js');
+const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 
 /**
@@ -154,7 +154,7 @@ var quoteReportTask = async function(){
             };
             const attachments = [];
             attachments.push(attachmentJson);
-            const emailResp = await email.send(toEmail, 'Quote Report', 'Your daily quote report is attached.', {}, 'talage', 0, attachments);
+            const emailResp = await emailSvc.send(toEmail, 'Quote Report', 'Your daily quote report is attached.', {}, 'talage', 1, attachments);
             if(emailResp === false){
                 slack.send('#alerts', 'warning',`The system failed to send Quote Report email.`);
             }
@@ -171,7 +171,7 @@ var quoteReportTask = async function(){
         if(global.settings.ENV !== 'production'){
             toEmail = 'brian@talageins.com';
         }
-        const emailResp = await email.send(toEmail, 'Quote Report', 'Your daily quote report: No Quotes.', {}, 'talage', 0);
+        const emailResp = await emailSvc.send(toEmail, 'Quote Report', 'Your daily quote report: No Quotes.', {}, 'talage', 1);
         if(emailResp === false){
             slack.send('#alerts', 'warning',`The system failed to send Quote Report email.`);
         }

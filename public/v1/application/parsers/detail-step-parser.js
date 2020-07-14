@@ -36,6 +36,9 @@ exports.process = async function(requestJSON) {
     requestJSON.businessInfo.entity_type = stringFunctions.santizeString(requestJSON.entity_type);
     requestJSON.businessInfo.ein = stringFunctions.santizeString(requestJSON.ein);
     requestJSON.businessInfo.file_num = stringFunctions.santizeString(requestJSON.file_num);
+    requestJSON.businessInfo.association = stringFunctions.santizeString(requestJSON.association);
+    requestJSON.businessInfo.association_id = stringFunctions.santizeString(requestJSON.association_id);
+
     //requestJSON.businessInfo.founded = new \DateTime(requestJSON.founded', null, 'string')),
     try{
         const found_date = moment(requestJSON.founded, 'MM/DD/YYYY');

@@ -7,6 +7,7 @@ const serverHelper = require('../../../server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const emailSvc = global.requireShared('./services/emailsvc.js');
+const validator = global.requireShared('./helpers/validator.js');
 
 /* -----==== Version 1 Functions ====-----*/
 

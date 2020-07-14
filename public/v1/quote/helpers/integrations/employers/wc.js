@@ -48,12 +48,6 @@ module.exports = class EmployersWC extends Integration {
 		// Define a list of required questions
 		const required_questions = [979];
 
-		// Ensure this entity type is in the entity matrix above
-		if (!(this.app.business.entity_type in entityMatrix)) {
-			this.reasons.push('Invalid entity type');
-			return;
-		}
-
 		// Build the Promise
 		return new Promise(async (fulfill) => {
 			// Employers has us define our own Request ID
@@ -67,6 +61,13 @@ module.exports = class EmployersWC extends Integration {
 			if (this.policy.claims.length > 0) {
 				// Get the claims organized by year
 				this.claims_by_year = this.claims_to_policy_years();
+			}
+
+			// Ensure this entity type is in the entity matrix above
+			if (!(this.app.business.entity_type in entityMatrix)) {
+				this.reasons.push(`${this.insurer.name} does not support the selected entity type`);
+				fulfill(this.return_result('autodeclined'));
+				return;
 			}
 
 			// Prepare limits

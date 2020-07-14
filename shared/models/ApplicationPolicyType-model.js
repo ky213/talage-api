@@ -1,19 +1,14 @@
 'use strict';
 
 const DatabaseObject = require('./DatabaseObject.js');
-const BusinessAddressActivityCodeModel = require('./BusinessAddressActivityCode-model.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const crypt = global.requireShared('./services/crypt.js');
 
 
 
-//const validator = global.requireShared('./helpers/validator.js');
-
-const hashFields = ["email"];
-const tableName = 'clw_talage_addresses'
+const tableName = 'clw_talage_application_policy_types'
 const skipCheckRequired = false;
-module.exports = class BusinessAddressModel{
+module.exports = class ApplicationClaimModel{
 
     #dbTableORM = null;
 
@@ -54,45 +49,17 @@ module.exports = class BusinessAddressModel{
             });
             this.updateProperty();
             this.id = this.#dbTableORM.id;
-            //proces Activity Codes
-            if(newObjectJSON.activity_codes){
-                await this.processActivityCodes(newObjectJSON.activity_codes).catch(function(err){
-                    log.error("process Address ActivityCodes error: " + err + __location)
-                })
-            }
+
 
             resolve(true);
 
         });
     }
 
-    async processActivityCodes(activityCodesJSON){
-        
-        const businessAddressActivityCodeModelDelete = new BusinessAddressActivityCodeModel();
-        //remove existing addresss acivity codes. we do not get ids from UI.
-        await businessAddressActivityCodeModelDelete.DeleteBusinessAddressesCodes( this.id).catch(function(err){
-            
-        });
-        for(var i = 0; i < activityCodesJSON.length; i++){
-            const businessAddressActivityCodeModel = new BusinessAddressActivityCodeModel();
-            const activityCodeJSON = activityCodesJSON[i];
-            const addressActivityCode =  { 
-                "address": this.id,
-                "ncci_code": activityCodeJSON.id,
-                "payroll": activityCodeJSON.payroll
-            };                
-            await businessAddressActivityCodeModel.saveModel(addressActivityCode).catch(function(err){
-                log.error("Error updating business address error: " + err + __location);
-            })
-        }
-            
-        
-        return;
-    }
     /**
 	 * saves businessContact.
      *
-	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved object , or an Error if rejected
+	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
 	 */
 
     save(asNew = false){
@@ -121,16 +88,16 @@ module.exports = class BusinessAddressModel{
         });
     }
 
-    DeleteBusinessAddresses(businessId) {
+    DeleteByApplicationId(applicationId) {
         return new Promise(async(resolve, reject) => {
             //Remove old records.
-            const sql =`DELETE FROM clw_talage_addresses
-                   WHERE business = ${businessId}
+            const sql =`DELETE FROM ${tableName} 
+                   WHERE application = ${applicationId}
             `;
             let rejected = false;
 			const result = await db.query(sql).catch(function (error) {
 				// Check if this was
-				log.error("Database Object clw_talage_addresses DELETE error :" + error + __location);
+				log.error("Database Object ${tableName} DELETE error :" + error + __location);
 				rejected = true;
 				reject(error);
 			});
@@ -163,24 +130,13 @@ module.exports = class BusinessAddressModel{
         }
     }
 
-    updateProperty(noNulls = false){
-        const dbJSON = this.#dbTableORM.cleanJSON(noNulls)
+    updateProperty(){
+        const dbJSON = this.#dbTableORM.cleanJSON()
         // eslint-disable-next-line guard-for-in
         for (const property in properties) {
             this[property] = dbJSON[property];
         }
       }
-    
-      /**
-	 * Load new object JSON into ORM. can be used to filter JSON to object properties
-     *
-	 * @param {object} inputJSON - input JSON
-	 * @returns {void} 
-	 */
-    async loadORM(inputJSON){
-        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
-        return true;
-    }
 
 }
 
@@ -194,16 +150,7 @@ const properties = {
       "type": "number",
       "dbType": "int(11) unsigned"
     },
-    "billing": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "tinyint(1)"
-    },
-    "business": {
+    "application": {
       "default": 0,
       "encrypted": false,
       "hashed": false,
@@ -212,86 +159,14 @@ const properties = {
       "type": "number",
       "dbType": "int(11) unsigned"
     },
-    "address": {
+    "policy_type": {
       "default": "",
-      "encrypted": true,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "string",
-      "dbType": "blob"
-    },
-    "address2": {
-      "default": " ",
-      "encrypted": true,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "string",
-      "dbType": "blob"
-    },
-    "zip": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "number",
-      "dbType": "mediumint(5) unsigned"
-    },
-    "ein": {
-      "default": " ",
-      "encrypted": true,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "string",
-      "dbType": "blob"
-    },
-    "ein_hash": {
-      "default": " ",
       "encrypted": false,
       "hashed": false,
       "required": true,
       "rules": null,
       "type": "string",
-      "dbType": "varchar(40)"
-    },
-    "full_time_employees": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "number",
-      "dbType": "tinyint(3) unsigned"
-    },
-    "part_time_employees": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "number",
-      "dbType": "tinyint(3) unsigned"
-    },
-    "square_footage": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "number",
-      "dbType": "mediumint(5) unsigned"
-    },
-    "unemployment_num": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(8) unsigned"
+      "dbType": "varchar(3)"
     }
   }
 

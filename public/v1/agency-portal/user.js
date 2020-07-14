@@ -2,11 +2,11 @@
 const auth = require('./helpers/auth.js');
 const crypt = require('../../../shared/services/crypt.js');
 const jwt = require('jsonwebtoken');
-const request = require('request');
 const serverHelper = require('../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
 const emailsvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 
 /**
  * Checks whether the provided agency has an owner other than the current user
@@ -26,7 +26,7 @@ function hasOtherOwner(agency, user, agencyNetwork = false) {
 		if (agencyNetwork) {
 			where = `\`agency_network\` = ${parseInt(agency, 10)}`;
 		}
-		else {
+ else {
 			where = `\`agency\` = ${parseInt(agency, 10)}`;
 		}
 
@@ -115,9 +115,9 @@ exports.hasOtherSigningAuthority = hasOtherSigningAuthority;
 async function validate(req) {
 	// Establish default values
 	const data = {
-		"canSign": 0,
-		"email": '',
-		"group": 5
+		canSign: 0,
+		email: '',
+		group: 5
 	};
 
 	// Validate each parameter
@@ -197,7 +197,7 @@ async function createUser(req, res, next) {
 	if (req.authentication.agencyNetwork) {
 		where = `\`agency_network\`= ${parseInt(req.authentication.agencyNetwork, 10)}`;
 	}
-	else {
+ else {
 		// Get the agents that we are permitted to view
 		const agents = await auth.getAgents(req).catch(function(e) {
 			error = e;
@@ -272,7 +272,7 @@ async function createUser(req, res, next) {
 		controlColumn = 'agency_network';
 		controlValue = req.authentication.agencyNetwork;
 	}
-	else {
+ else {
 		// Get the agents that we are permitted to view
 		const agents = await auth.getAgents(req).catch(function(e) {
 			error = e;
@@ -313,9 +313,9 @@ async function createUser(req, res, next) {
 
 	// Return the response
 	res.send(200, {
-		"userID": userID,
-		"code": 'Success',
-		"message": 'User Created'
+		userID: userID,
+		code: 'Success',
+		message: 'User Created'
 	});
 
 	// Check if this is an agency network
@@ -341,70 +341,60 @@ async function createUser(req, res, next) {
 		agencyNetwork = agencyNetworkResult[0].agency_network;
 	}
 
-	// Get the content of the new user email
-	const emailContentSQL = `
-				SELECT
-					JSON_EXTRACT(\`custom_emails\`, '$.${req.authentication.agencyNetwork ? 'new_agency_network_user' : 'new_agency_user'}') AS emailData
-				FROM \`#__agency_networks\`
-				WHERE \`id\` IN (${db.escape(agencyNetwork)},1)
-				ORDER BY \`id\` DESC
-				LIMIT 2;
-			`;
-	const emailContentResult = await db.query(emailContentSQL).catch(function(err) {
-		log.error(`DB Error Unable to send new user email to ${data.email}. Please send manually.`);
-		log.error(err);
-		error = true;
-	});
-	if (error) {
-		return;
-	}
+    // Get the content of the new user email
+    //Refactor to use AgencyNetworkBO
+    log.debug("req.authentication.agencyNetwork: " + req.authentication.agencyNetwork);
 
-	// Decode the JSON
-	emailContentResult[0].emailData = JSON.parse(emailContentResult[0].emailData);
+    const jsonEmailProp = req.authentication.agencyNetwork ? 'new_agency_network_user' : 'new_agency_user';
+    log.debug("jsonEmailProp: " + jsonEmailProp);
+    error = null;
+    const agencyNetworkBO = new AgencyNetworkBO();
+    const emailContentJSON = await agencyNetworkBO.getEmailContent(agencyNetwork, jsonEmailProp).catch(function(err){
+        log.error(`Unable to get email content for New Agency Portal User. agency_network: ${agencyNetwork}.  error: ${err}` + __location);
+        error = true;
+    });
+    if(error){
+        return false;
+    }
 
-	// By default, use the message and subject of the agency network
-	let emailMessage = emailContentResult[0].emailData.message;
-	let emailSubject = emailContentResult[0].emailData.subject;
+    if(emailContentJSON && emailContentJSON.message){
 
-	// If either of these are null, use the Wheelhouse default
-	if (emailContentResult[1]) {
-		emailContentResult[1].emailData = JSON.parse(emailContentResult[1].emailData);
-		if (!emailMessage) {
-			emailMessage = emailContentResult[1].emailData.message;
-		}
-		if (!emailSubject) {
-			emailSubject = emailContentResult[1].emailData.subject;
-		}
-	}
+        // By default, use the message and subject of the agency network
+        const emailMessage = emailContentJSON.message;
+        const emailSubject = emailContentJSON.subject;
 
-	// Create a limited life JWT
-	const token = jwt.sign({"userID": userID}, global.settings.AUTH_SECRET_KEY, {"expiresIn": '7d'});
+        // Create a limited life JWT
+        const token = jwt.sign({userID: userID}, global.settings.AUTH_SECRET_KEY, {expiresIn: '7d'});
 
-	// Format the brand
-	let brandraw = global.settings.BRAND.toLowerCase();
-	let portalurl = global.settings.PORTAL_URL;
-	if (agencyNetwork === 2) {
-		brandraw = 'Digalent';
-		portalurl = global.settings.DIGALENT_AGENTS_URL;
-	}
-	let brand = brandraw.toLowerCase();
-	brand = `${brand.charAt(0).toUpperCase() + brand.slice(1)}`;
+        // Format the brand
+        let brandraw = global.settings.BRAND.toLowerCase();
+        let portalurl = global.settings.PORTAL_URL;
+        if (agencyNetwork === 2) {
+            brandraw = 'Digalent';
+            portalurl = global.settings.DIGALENT_AGENTS_URL;
+        }
+        let brand = brandraw.toLowerCase();
+        brand = `${brand.charAt(0).toUpperCase() + brand.slice(1)}`;
 
-	// Prepare the email to send to the user
-	const emailData = {
-		"from": brand,
-		"html": emailMessage.
-			replace(/{{Brand}}/g, brand).
-			replace(/{{Activation Link}}/g,
-				`<a href="${portalurl}/reset-password/${token}" style="background-color:#ED7D31;border-radius:0.25rem;color:#FFF;font-size:1.3rem;padding-bottom:0.75rem;padding-left:1.5rem;padding-top:0.75rem;padding-right:1.5rem;text-decoration:none;text-transform:uppercase;">Activate My Account</a>`),
-		"subject": emailSubject.replace('{{Brand}}', brand),
-		"to": data.email
-	};
-	const emailResp = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, emailData.from, 0);
-	if (emailResp === false) {
-		log.error(`Unable to send new user email to ${data.email}. Please send manually.`);
-		slack.send('#alerts', 'warning',`Unable to send new user email to ${data.email}. Please send manually.`);
-	}
+        // Prepare the email to send to the user
+        const emailData = {
+            html: emailMessage.
+                replace(/{{Brand}}/g, brand).
+                replace(/{{Activation Link}}/g,
+                    `<a href="${portalurl}/reset-password/${token}" style="background-color:#ED7D31;border-radius:0.25rem;color:#FFF;font-size:1.3rem;padding-bottom:0.75rem;padding-left:1.5rem;padding-top:0.75rem;padding-right:1.5rem;text-decoration:none;text-transform:uppercase;">Activate My Account</a>`),
+            subject: emailSubject.replace('{{Brand}}', brand),
+            to: data.email
+        };
+        const emailResp = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, brand);
+        if (emailResp === false) {
+            log.error(`Unable to send new user email to ${data.email}. Please send manually.`);
+            slack.send('#alerts', 'warning', `Unable to send new user email to ${data.email}. Please send manually.`);
+        }
+    }
+    else {
+        log.error(`Unable to get email content for New Agency Portal User. agency_network: ${agencyNetwork}.` + __location);
+        slack.send('#alerts', 'warning', `Unable to send new user email to ${data.email}. Please send manually.`);
+    }
 }
 
 /**
@@ -425,7 +415,7 @@ async function deleteUser(req, res, next) {
 		agencyOrNetworkID = parseInt(req.authentication.agencyNetwork, 10);
 		where = `\`agency_network\`= ${agencyOrNetworkID}`;
 	}
-	else {
+ else {
 		// Get the agents that we are permitted to view
 		const agents = await auth.getAgents(req).catch(function(e) {
 			error = e;
@@ -524,7 +514,7 @@ async function getUser(req, res, next) {
 	if (req.authentication.agencyNetwork) {
 		where = `\`agency_network\`= ${parseInt(req.authentication.agencyNetwork, 10)}`;
 	}
-	else {
+ else {
 		// Get the agents that we are permitted to view
 		const agents = await auth.getAgents(req).catch(function(e) {
 			error = e;
@@ -593,7 +583,7 @@ async function updateUser(req, res, next) {
 		agencyOrNetworkID = parseInt(req.authentication.agencyNetwork, 10);
 		where = `\`agency_network\`= ${agencyOrNetworkID}`;
 	}
-	else {
+ else {
 		// Get the agents that we are permitted to view
 		const agents = await auth.getAgents(req).catch(function(e) {
 			error = e;
@@ -645,7 +635,7 @@ async function updateUser(req, res, next) {
 
 		// Make sure there is an owner for this agency (we are not removing the last owner)
 	}
-	else if (!await hasOtherOwner(agencyOrNetworkID, data.id, req.authentication.agencyNetwork)) {
+ else if (!await hasOtherOwner(agencyOrNetworkID, data.id, req.authentication.agencyNetwork)) {
 		// Rollback the transaction
 		db.rollback(connection);
 
@@ -676,7 +666,7 @@ async function updateUser(req, res, next) {
 
 			// Make sure there is another signing authority (we are not removing the last one)
 		}
-		else if (!await hasOtherSigningAuthority(agencyOrNetworkID, data.id, req.authentication.agencyNetwork)) {
+ else if (!await hasOtherSigningAuthority(agencyOrNetworkID, data.id, req.authentication.agencyNetwork)) {
 			// Rollback the transaction
 			db.rollback(connection);
 
