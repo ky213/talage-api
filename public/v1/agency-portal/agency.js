@@ -308,6 +308,7 @@ async function getAgency(req, res, next){
 					${db.quoteName('i.id', 'insurer')},
 					${db.quoteName('i.logo')},
 					${db.quoteName('i.name')},
+					${db.quoteName('i.enable_agent_id', 'enable_agent_id')},
 					${db.quoteName('li.id')},
 					${db.quoteName('li.agency_location', 'locationID')},
 					${db.quoteName('li.agency_id', 'agencyId')},
