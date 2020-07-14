@@ -352,7 +352,7 @@ module.exports = class Application {
 					// Else the agency and insurer do not have a relationship so check for API support
 					else if(insurer_policy_info.api_support){
 						use_integration = true;
-						slug = 'acord';
+						slug = insurer.slug;
 					}
 
 					// Use the appropriate integration
@@ -375,25 +375,6 @@ module.exports = class Application {
 				}
 			});
 		});
-        this.policies.forEach((policy) => {
-            // Generate quotes for each insurer for the given policy type
-            this.insurers.forEach((insurer) => {
-                // Check that the given policy type is enabled for this insurer
-                if (insurer.policy_types.indexOf(policy.type) >= 0) {
-                    // Check if the integration file for this insurer exists
-                    const normalizedPath = `${__dirname}/../integrations/${insurer.slug}/${policy.type.toLowerCase()}.js`;
-                    if (fs.existsSync(normalizedPath)) {
-                        // Require the integration file and add the response to our promises
-                        const IntegrationClass = require(normalizedPath);
-                        const integration = new IntegrationClass(this, insurer, policy);
-                        quote_promises.push(integration.quote());
-                    }
-                    else {
-                        log.warn(`Insurer integration file does not exist: ${insurer.name} ${policy.type}` + __location);
-                    }
-                }
-            });
-        });
 
         // Wait for all quotes to finish
         let quoteIDs = null;
