@@ -16,13 +16,7 @@ const taskEmailBindAgency = global.requireRootPath('tasksystem/task-emailbindage
 const { 'v4': uuidv4 } = require('uuid');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-// const util = require('util');
-// const email = global.requireShared('./services/emailsvc.js');
-// const slack = global.requireShared('./services/slacksvc.js');
-// const formatPhone = global.requireShared('./helpers/formatPhone.js');
-// const get_questions = global.requireShared('./helpers/getQuestions.js');
 
-//const validator = global.requireShared('./helpers/validator.js');
 
 const convertToIntFields = [];
 
@@ -79,11 +73,26 @@ module.exports = class ApplicationModel {
             log.debug('workflowStep: ' + workflowStep + ' stepNumber: ' +  stepNumber);
 
 
+            // fix agency and agencylocation coming from old client.
             if(applicationJSON.agency_id){
                 applicationJSON.agency = applicationJSON.agency_id
+               
+            }
+            if(!applicationJSON.agency){
+                applicationJSON.agency = 1
+            }
+            if(applicationJSON.agency === 0 || applicationJSON.agency === "0"){
+                applicationJSON.agency = 1
             }
             if(applicationJSON.agencylocation_id){
                 applicationJSON.agency_location = applicationJSON.agencylocation_id
+                
+            }
+            if(!applicationJSON.agency_location){
+                applicationJSON.agency_location = 1
+            }
+            if(applicationJSON.agency_location === 0 || applicationJSON.agency_location === "0"){
+                applicationJSON.agency_location = 1
             }
        
 

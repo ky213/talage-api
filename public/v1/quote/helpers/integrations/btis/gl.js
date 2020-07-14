@@ -88,7 +88,7 @@ module.exports = class BtisGL extends Integration {
 'TX',
 'UT',
 'WA'].includes(this.app.business.primary_territory)) {
-				switch (this.policy.deductble) {
+				switch (this.policy.deductible) {
 					case 500:
 						deductible_id = 2000500;
 						break;
