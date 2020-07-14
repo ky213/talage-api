@@ -461,6 +461,7 @@ async function postAgency(req, res, next){
 	const insurersSQL = `
 			SELECT
 				${db.quoteName('i.id')},
+				${db.quoteName('i.enable_agent_id')},
 				GROUP_CONCAT(${db.quoteName('it.territory')}) AS ${db.quoteName('territories')}
 			FROM ${db.quoteName('#__insurers', 'i')}
 			LEFT JOIN ${db.quoteName('#__insurer_territories', 'it')} ON ${db.quoteName('it.insurer')} = ${db.quoteName('i.id')}
@@ -513,6 +514,21 @@ async function postAgency(req, res, next){
 			if (!req.body.agencyIds[insurerID]){
 				return next(serverHelper.requestError('An agency ID is required for each insurer.'));
 			}
+
+			// Make sure the agentId field wasn't left blank for insurers that require agent id
+			const maybeInsurer = insurers.filter((ins)=> {
+				return ins.id == insurerID;
+			});
+			const insurer = maybeInsurer.length > 0 ? maybeInsurer[0] : null;
+			// if we find the insurer and the enable agent id is true and the agentId field is empty then throw error
+			if(insurer !== null){
+				if(insurer.enable_agent_id === 1 && !req.body.agentIds[insurerID]){
+					return next(serverHelper.requestError('An Agent ID is required for each insurer.'));
+				}
+			} else {
+				log.warn('We have in insurer info being sent to the backend \
+					with an insurer id that does not exist in the db. Error at ' + __location)
+			}
 		}
 	}
 
@@ -523,6 +539,7 @@ async function postAgency(req, res, next){
 	const name = req.body.name;
 	const territories = req.body.territories;
 	const agencyIds = req.body.agencyIds;
+	const agentIds = req.body.agentIds;
 
 	// Make sure we don't already have an user tied to this email address
 	const emailHash = await crypt.hash(email);
@@ -686,8 +703,9 @@ async function postAgency(req, res, next){
 		if (Object.prototype.hasOwnProperty.call(agencyIds, insurerID)){
 			// eslint-disable-next-line  no-await-in-loop
 			const insureragencyId = await crypt.encrypt(agencyIds[insurerID]);
+			// check to see if we have agent id if we do then encrypt it else we will just set the value to null
 			// eslint-disable-next-line  no-await-in-loop
-			const insureragentId = await crypt.encrypt('placeholder-unsupported');
+			const  insureragentId = Object.prototype.hasOwnProperty.call(agentIds, insurerID) ? await crypt.encrypt(agentIds[insurerID]) : null;
 			agencyIdValues.push(`(${db.escape(locationID)}, ${db.escape(insurerID)}, ${db.escape(insureragencyId)}, ${db.escape(insureragentId)}, 0, 0 ,1)`);
 		}
 	}
