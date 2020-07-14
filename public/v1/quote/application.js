@@ -59,16 +59,16 @@ async function postApplication(req, res, next) {
 		result = await db.query(sql);
 	}
  catch (error) {
-		log.error(`Could not update the quote progress to 'quoting' for application ${application.id}: ${error} ${__location}`);
+		log.error(`Could not update the quote progress to 'quoting' for application ${req.body.id}: ${error} ${__location}`);
 		return next(serverHelper.internalError('An unexpected error occurred.'));
 	}
 	if (result === null || result.affectedRows !== 1) {
-		log.error(`Could not update the quote progress to 'quoting' for application ${application.id}: ${sql} ${__location}`);
+		log.error(`Could not update the quote progress to 'quoting' for application ${req.body.id}: ${sql} ${__location}`);
 		return next(serverHelper.internalError('An unexpected error occurred.'));
 	}
 
 	// Build a JWT that contains the application ID that expires in 5 minutes.
-	const tokenPayload = {applicationID: application.id};
+	const tokenPayload = {applicationID: req.body.id};
 	const token = jwt.sign(tokenPayload, global.settings.AUTH_SECRET_KEY, {expiresIn: '5m'});
 	// Send back the token
 	res.send(200, token);
