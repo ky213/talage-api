@@ -584,41 +584,41 @@ processQuotes(applicationJSON){
     * @param {boolean} save - Saves application if true
     * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved application , or an Error if rejected
     */
-    saveApplicationFullObject(applicationJSON) {
-        return new Promise(async (resolve, reject) => {
-            if (!applicationJSON) {
-                reject(new Error("empty application object given"));
-                return;
-            }
-            //load existing record if give ID.
-            if (applicationJSON.id && applicationJSON.step !== "contact") {
-                //load application from database.
-                await this.#dbTableORM.getById(applicationJSON.id).catch(function (err) {
-                    log.error("Error getting application from Database " + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
+    // saveApplicationFullObject(applicationJSON) {
+    //     return new Promise(async (resolve, reject) => {
+    //         if (!applicationJSON) {
+    //             reject(new Error("empty application object given"));
+    //             return;
+    //         }
+    //         //load existing record if give ID.
+    //         if (applicationJSON.id && applicationJSON.step !== "contact") {
+    //             //load application from database.
+    //             await this.#dbTableORM.getById(applicationJSON.id).catch(function (err) {
+    //                 log.error("Error getting application from Database " + err + __location);
+    //                 reject(err);
+    //                 return;
+    //             });
+    //             this.updateProperty();
 
-            }
+    //         }
 
 
-            //Save Business (Application record is child of business)
+    //         //Save Business (Application record is child of business)
             
-            if (applicationJSON.businessInfo) {
-                applicationJSON.businessInfo.id = this.business;
-                await this.processBusiness(applicationJSON.businessInfo).catch(function (err) {
-                    log.error("updating business error:" + err + __location);
-                    reject(err);
-                });
-                delete applicationJSON.businessInfo
-            }
-            //Save Application
+    //         if (applicationJSON.businessInfo) {
+    //             applicationJSON.businessInfo.id = this.business;
+    //             await this.processBusiness(applicationJSON.businessInfo).catch(function (err) {
+    //                 log.error("updating business error:" + err + __location);
+    //                 reject(err);
+    //             });
+    //             delete applicationJSON.businessInfo
+    //         }
+    //         //Save Application
 
-            //Save Application children if provided.
-            resolve(true);
-        });
-    }
+    //         //Save Application children if provided.
+    //         resolve(true);
+    //     });
+    // }
     save(asNew = false) {
         return new Promise(async (resolve, reject) => {
             //validate
@@ -669,11 +669,20 @@ processQuotes(applicationJSON){
         }
     }
 
-    updateProperty() {
-        const dbJSON = this.#dbTableORM.cleanJSON()
+    updateProperty(noNulls = false) {
+        const dbJSON = this.#dbTableORM.cleanJSON(noNulls)
         // eslint-disable-next-line guard-for-in
         for (const property in properties) {
-            this[property] = dbJSON[property];
+            if(noNulls === true){
+                if(dbJSON[property]){
+                  this[property] = dbJSON[property];
+                } else if(this[property]){
+                    delete this[property];
+                }
+            }
+            else {
+              this[property] = dbJSON[property];
+            }
         }
     }
 }
