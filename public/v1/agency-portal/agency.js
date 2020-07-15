@@ -302,13 +302,16 @@ async function getAgency(req, res, next){
 	// Get the insurers and territories
 	if(req.authentication.insurers.length && locationIDs.length){
 
+		
 		// Define queries for insurers and territories
 		const insurersSQL = `
 				SELECT
 					${db.quoteName('i.id', 'insurer')},
 					${db.quoteName('i.logo')},
 					${db.quoteName('i.name')},
-					${db.quoteName('i.enable_agent_id', 'enable_agent_id')},
+					${db.quoteName('i.agency_id_label', 'agency_id_label')},
+					${db.quoteName('i.agent_id_label', 'agent_id_label')},
+					${db.quoteName('i.enable_agent_id', 'enable_agent_id')},					
 					${db.quoteName('li.id')},
 					${db.quoteName('li.agency_location', 'locationID')},
 					${db.quoteName('li.agency_id', 'agencyId')},
