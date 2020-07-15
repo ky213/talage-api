@@ -78,30 +78,6 @@ module.exports = class ApplicationModel {
             const stepNumber = stepMap[workflowStep];
             log.debug('workflowStep: ' + workflowStep + ' stepNumber: ' +  stepNumber);
 
-
-            // fix agency and agencylocation coming from old client.
-            if(applicationJSON.agency_id){
-                applicationJSON.agency = applicationJSON.agency_id
-               
-            }
-            if(!applicationJSON.agency){
-                applicationJSON.agency = 1
-            }
-            if(applicationJSON.agency === 0 || applicationJSON.agency === "0"){
-                applicationJSON.agency = 1
-            }
-            if(applicationJSON.agencylocation_id){
-                applicationJSON.agency_location = applicationJSON.agencylocation_id
-                
-            }
-            if(!applicationJSON.agency_location){
-                applicationJSON.agency_location = 1
-            }
-            if(applicationJSON.agency_location === 0 || applicationJSON.agency_location === "0"){
-                applicationJSON.agency_location = 1
-            }
-       
-
             if (!applicationJSON.id && applicationJSON.step !== "contact") {
                 log.error('saveApplicationStep missing application id ' + __location)
                 reject(new Error("missing application id"));
@@ -142,11 +118,34 @@ module.exports = class ApplicationModel {
                     reject(new Error("Data Error:Application may not be updated."));
                     return;
                 }
+                //check for 
+
             }
             else {
                 //set uuid on new application
                 applicationJSON.uuid = uuidv4().toString();
+                //Agency Defaults
+                if(applicationJSON.agency_id && !applicationJSON.agency){
+                    applicationJSON.agency = applicationJSON.agency_id
+                }
+                if(!applicationJSON.agency){
+                    applicationJSON.agency = 1
+                }
+                if(applicationJSON.agency === 0 && applicationJSON.agency === "0"){
+                    applicationJSON.agency = 1
+                }
+                //agency location defaults
+                if(applicationJSON.agencylocation_id && !applicationJSON.agency_location){
+                    applicationJSON.agency_location = applicationJSON.agencylocation_id   
+                }
+                if(!applicationJSON.agency_location){
+                    applicationJSON.agency_location = 1
+                }
+                if(applicationJSON.agency_location === 0 || applicationJSON.agency_location === "0"){
+                    applicationJSON.agency_location = 1
+                }
             }
+
             //log.debug("applicationJSON: " + JSON.stringify(applicationJSON));
             let error = null;
             let updateBusiness = false;
