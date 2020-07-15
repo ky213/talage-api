@@ -137,6 +137,17 @@ module.exports = class ApplicationClaimModel{
         }
       }
 
+    /**
+	 * Load new object JSON into ORM. can be used to filter JSON to object properties
+     *
+	 * @param {object} inputJSON - input JSON
+	 * @returns {void} 
+	 */
+    async loadORM(inputJSON){
+        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
+        return true;
+    }
+
 }
 
 const properties = {

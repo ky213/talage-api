@@ -282,12 +282,33 @@ module.exports = class BusinessModel{
         }
     }
 
-    updateProperty(){
-      const dbJSON = this.#dbTableORM.cleanJSON()
+    updateProperty(noNulls = false){
+      const dbJSON = this.#dbTableORM.cleanJSON(noNulls)
       // eslint-disable-next-line guard-for-in
       for (const property in properties) {
-          this[property] = dbJSON[property];
+          if(noNulls === true){
+              if(dbJSON[property]){
+                this[property] = dbJSON[property];
+              } else if(this[property]){
+                  delete this[property];
+              }
+          }
+          else {
+            this[property] = dbJSON[property];
+          }
+          
       }
+    }
+
+    /**
+	 * Load new business JSON into ORM. can be used to filter JSON to busines properties
+     *
+	 * @param {object} inputJSON - business JSON
+	 * @returns {void} 
+	 */
+    async loadORM(inputJSON){
+        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
+        return true;
     }
 }
 
