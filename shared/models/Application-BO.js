@@ -125,7 +125,7 @@ module.exports = class ApplicationModel {
                 //set uuid on new application
                 applicationJSON.uuid = uuidv4().toString();
                 //Agency Defaults
-                if(applicationJSON.agency_id && !application.agency){
+                if(applicationJSON.agency_id && !applicationJSON.agency){
                     applicationJSON.agency = applicationJSON.agency_id
                 }
                 if(!applicationJSON.agency){
