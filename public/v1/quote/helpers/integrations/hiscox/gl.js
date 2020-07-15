@@ -9,6 +9,7 @@ const moment = require('moment');
 const momentTimezone = require('moment-timezone');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js'); // eslint-disable-line no-unused-vars
 const util = require('util');
+const xmlToObj = require('xml2js').parseString;
 
 // Read the template into memory at load
 const hiscoxGLTemplate = require('jsrender').templates('./public/v1/quote/helpers/integrations/hiscox/gl.xmlt');
@@ -186,18 +187,73 @@ module.exports = class HiscoxGL extends Integration {
 			this.effectiveDate = this.policy.effective_date.format('YYYY-MM-DD');
 
 			// Determine the primary and secondary locations
-			log.debug('ZACHARY TO DO: Make sure this works with multiple locations and that we do NOT accidentally alter the original application data');
 			this.primaryLocation = this.app.business.locations[0];
 			this.secondaryLocations = false;
 			if(this.app.business.locations.length > 1){
-				this.secondaryLocations = this.app.business.locations;
+				this.secondaryLocations = [...this.app.business.locations];
 				this.secondaryLocations.shift();
 			}
 
 			// Render the template into XML and remove any empty lines (artifacts of control blocks)
 			const xml = hiscoxGLTemplate.render(this, {'ucwords': (val) => stringFunctions.ucwords(val.toLowerCase())}).replace(/\n\s*\n/g, '\n');
-			log.debug(xml);
-			return;
+
+			// Specify the path to the Quote endpoint
+			const path = '/partner/v3/quote';
+
+			log.info(`Sending application to https://${host}${path}. This can take up to 30 seconds.`);
+
+			// Send the XML to the insurer
+			await this.send_xml_request(host, path, xml, {'Authorization': `Bearer ${token}`, 'Accept': 'application/xml', 'Content-Type': 'application/xml'})
+				.then((result) => {
+					// Parse the various status codes and take the appropriate action
+					log.debug('---------------');
+					log.debug(util.inspect(res));
+					/*let res = result['soap:Envelope']['soap:Body'][0]['eig:getWorkCompPolicyResponse'][0].response[0];
+					const status_code = res.PolicyRs[0].MsgStatus[0].MsgStatusCd[0];*/
+
+
+
+
+
+
+
+				})
+				.catch((err) => {
+					// Check if we have an HTTP status code to give us more information about the error encountered
+					if(Object.prototype.hasOwnProperty.call(err, 'httpStatusCode')){
+						if(err.httpStatusCode === 422 && Object.prototype.hasOwnProperty.call(err, 'response')){
+							// Convert the response to XML
+							xmlToObj(err.response, (e, xmlResponse) => {
+								// Check if there was an error parsing the XML
+								if(e){
+									log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to parse 422 error returned from API (response may not be XML)` + __location);
+									log.info(err.response);
+									fulfill(this.return_result('error'));
+									return;
+								}
+
+								// Attempt to extract the details of the fault encountered
+								if(Object.prototype.hasOwnProperty.call(xmlResponse, 'fault') && Object.prototype.hasOwnProperty.call(xmlResponse.fault, 'faultstring')){
+									log.error(`${this.insurer.name} ${this.policy.type} Integration Error: API returned 422 error with message: ${xmlResponse.fault.faultstring[0]}` + __location);
+									this.reasons.push(`API returned 422 error with message: ${xmlResponse.fault.faultstring[0]}`);
+								}else{
+									log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to parse 422 error returned from API (XML did not contain fault object)` + __location);
+								}
+
+								// Return an error result
+								fulfill(this.return_result('error'));
+							});
+						}else{
+							// An HTTP error was encountered other than a 422 error
+							log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer. API returned error code: ${res.httpStatusCode}` + __location);
+							fulfill(this.return_result('error'));
+						}
+					}else{
+						// There is no response from the API server to help us understand the error
+						log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer. An unknown error was encountered.` + __location);
+						fulfill(this.return_result('error'));
+					}
+				});
 		});
 	}
 };

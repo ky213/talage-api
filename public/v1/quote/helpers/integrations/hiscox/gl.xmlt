@@ -30,13 +30,13 @@
 			<CommunicationsInfo>
 				{{if app.agencyLocation.agencyPhone}}
 				<PhoneInfo>
-					<PhoneNumber>{{:app.agencyLocation.agencyPhone.toString().substring(0,50)}}</PhoneNumber>
+					<PhoneNumber>{{:app.agencyLocation.agencyPhone.toString().substring(0,10)}}</PhoneNumber>
 					{{!--<PhoneExtension>1100</PhoneExtension>   WE DO NOT SUPPORT THIS FIELD --}}
 				</PhoneInfo>
 				{{/if}}
 				{{if app.agencyLocation.agencyEmail}}
 				<EmailInfo>
-					<EmailAddr>{{:app.agencyLocation.agencyEmail.substring(0,100)}}</EmailAddr>
+					<EmailAddr>{{:app.agencyLocation.agencyEmail.substring(0,60)}}</EmailAddr>
 				</EmailInfo>
 				{{/if}}
 			</CommunicationsInfo>
@@ -92,23 +92,26 @@
 			<GeneralLiabilityQuoteRq>
 				<ProductId>CGL</ProductId>
 				<RatingInfo>
+					{{!-- The following are special cases, Hiscox takes them in as a question, but we ask them elsewhere --}}
 					<CoverageStartDate>{{:effectiveDate}}</CoverageStartDate>
-					{{!-- TO DO: Do we always accept payroll? If not, how do we make sure we do in these cases --}}
+					<BusinessOwnershipStructure>{{:entityType}}</BusinessOwnershipStructure>
 					<EstmtdPayrollExpense>{{:get_total_payroll()}}</EstmtdPayrollExpense> {{!-- ALL CLASSES EXCEPT SC, LJR-Retail COBs, Home Health --}}
 					<NumOfEmployees>{{:get_total_employees()}}</NumOfEmployees> {{!-- ALL CLASSES EXCEPT Real estate agent/broker: Numeric, 1-999 (includes temporary employees) --}}
-					<BusinessOwnershipStructure>{{:entityType}}</BusinessOwnershipStructure>
-					<AdditionalLocation>0</AdditionalLocation> {{!-- 0, 1, 2, 3, 4, 5+ --}}
-					<OperatedFromHome>No</OperatedFromHome> {{!-- Is your business operated out of your home?  (Yes/No) --}}
-					<SupplyManufactDistbtGoodsOrProducts>No</SupplyManufactDistbtGoodsOrProducts>
-					<TangibleGoodWorkIT>No</TangibleGoodWorkIT>
-					<TangibleGoodWork>No</TangibleGoodWork>
-					<HardwareWork>No</HardwareWork> {{!-- LIMITED CLASSES: Does your business manufacture, design, or assist in the design of any hardware or components? --}}
-					<SimilarInsurance>No</SimilarInsurance> {{!-- ALL CLASSES EXCEPT LJR, SC, and Mobile Food Service: Do you currently have an insurance policy in effect for the coverage requested? --}}
-					<SimilarInsuranceCarrier>Insurance</SimilarInsuranceCarrier> {{!-- Only when the prior one is answered yes. THIS IS REQUIRED --}}
-					<HireNonOwnVehclUse>No</HireNonOwnVehclUse>
+					{{!-- The following are universal questions. It is unclear if we will handle these in the database or not at this time --}}
 					<AgreeDisagreeToStatements>I have read and agree with these statements</AgreeDisagreeToStatements>
 					<EmailConsent>Yes</EmailConsent>
 					<InformationConfirmAgreement>Yes</InformationConfirmAgreement>
+					{{!-- These are unviersal questions that should be handled at the database level --}}
+					<AdditionalLocation>0</AdditionalLocation> {{!-- 0, 1, 2, 3, 4, 5+ --}}
+					<OperatedFromHome>No</OperatedFromHome> {{!-- Is your business operated out of your home?  (Yes/No) --}}
+					{{!-- The following are class specific questions --}}
+					<SupplyManufactDistbtGoodsOrProducts>No</SupplyManufactDistbtGoodsOrProducts>{{!-- All COBs except: Delivery service providers, LJR and SC COBs, Mobile food services --}}
+					<TangibleGoodWorkIT>No</TangibleGoodWorkIT>{{!-- For IT Consulting COB Only --}}
+					<TangibleGoodWork>No</TangibleGoodWork>{{!-- All COBs except LJR --}}
+					<HardwareWork>No</HardwareWork> {{!-- LIMITED CLASSES: Does your business manufacture, design, or assist in the design of any hardware or components? --}}
+					<SimilarInsurance>No</SimilarInsurance> {{!-- ALL CLASSES EXCEPT LJR, SC, and Mobile Food Service: Do you currently have an insurance policy in effect for the coverage requested? --}}
+					<SimilarInsuranceCarrier>Insurance</SimilarInsuranceCarrier> {{!-- Only when the prior one is answered yes. THIS IS REQUIRED --}}
+					<HireNonOwnVehclUse>No</HireNonOwnVehclUse>{{!-- All CoBs, except: LJR, Small Contractors, Mobile Foood Services --}}
 				</RatingInfo>
 				<GeneralLiabilityCoverQuoteRq>
 					<CoverId>CGL</CoverId>
