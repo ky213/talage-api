@@ -88,7 +88,11 @@ exports.process = async function(requestJSON) {
          requestJSON.businessInfo.locations = locationsList;
          requestJSON.businessInfo.territories = territories;
          //application info
-         requestJSON.agency_location = agency_location ? agency_location : null;
+
+         //Only include it if exists. b/c of how the model works.
+         if(agency_location){
+            requestJSON.agency_location = agency_location
+         }
          requestJSON.territories = territories;
          requestJSON.total_payroll = total_payroll;
          requestJSON.zip = zip;
