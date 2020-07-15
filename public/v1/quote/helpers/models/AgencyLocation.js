@@ -52,7 +52,7 @@ module.exports = class AgencyLocation{
 
 			// SQL for getting agency / location details
 			queries.push(`
-				SELECT ${db.quoteName('ag.id')}, ${db.quoteName('ag.agency_network')}, ${db.quoteName('a.email')}, ${db.quoteName('a.fname')}, ${db.quoteName('a.lname')}, ${db.quoteName('ag.name')}, ${db.quoteName('ag.phone')}, ${db.quoteName('ag.website')}, ${db.quoteName('ag.wholesale')}
+				SELECT ${db.quoteName('ag.id')}, ${db.quoteName('ag.agency_network')}, ${db.quoteName('a.email')}, ${db.quoteName('a.fname')}, ${db.quoteName('a.lname')}, ${db.quoteName('ag.name')}, ${db.quoteName('a.phone')}, ${db.quoteName('ag.website')}, ${db.quoteName('ag.wholesale')}
 				FROM ${db.quoteName('#__agency_locations', 'a')}
 				LEFT JOIN ${db.quoteName('#__agencies', 'ag')} ON ${db.quoteName('a.agency')} = ${db.quoteName('ag.id')}
 				WHERE ${where} LIMIT 1;
