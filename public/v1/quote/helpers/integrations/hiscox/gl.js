@@ -322,16 +322,17 @@ log.debug(xml);
 						// Even though an error occurred, we may still be able to get a quote, so processing will continue to try and provide a good user experience
 					}
 
-
-log.debug('TO DO: How do we process different results? The above is for quoted, but need to look into price indications, declinations, referrals, etc.');
-
 					// Send the result of the request
 					fulfill(this.return_result('quoted'));
 				})
 				.catch((err) => {
 					// Check if we have an HTTP status code to give us more information about the error encountered
 					if(Object.prototype.hasOwnProperty.call(err, 'httpStatusCode')){
+
 						if(err.httpStatusCode === 422 && Object.prototype.hasOwnProperty.call(err, 'response')){
+
+						log.debug(util.inspect(err.response, false, null));
+
 							// Convert the response to XML
 							xmlToObj(err.response, (e, xmlResponse) => {
 								// Check if there was an error parsing the XML
@@ -369,6 +370,32 @@ log.debug('TO DO: How do we process different results? The above is for quoted, 
 											this.reasons.push(`API returned an error that could not be parsed. Validation object missing one of the following: DataItem, Status, XPath`);
 										}
 									}
+								}else if(Object.prototype.hasOwnProperty.call(xmlResponse, 'InsuranceSvcRq')
+									&& Object.prototype.hasOwnProperty.call(xmlResponse.InsuranceSvcRq, 'Errors')
+									&& Array.isArray(xmlResponse.InsuranceSvcRq.Errors)
+									&& xmlResponse.InsuranceSvcRq.Errors.length > 0
+									&& Object.prototype.hasOwnProperty.call(xmlResponse.InsuranceSvcRq.Errors[0], 'Error')
+									&& Array.isArray(xmlResponse.InsuranceSvcRq.Errors[0].Error)
+									&& xmlResponse.InsuranceSvcRq.Errors[0].Error.length > 0
+								){
+									// Check for an error response
+
+									// Localize the validation errors for easier reference
+									const errorResponses = xmlResponse.InsuranceSvcRq.Errors[0].Error;
+
+									// Loop through and capture each error
+									for(const errorResponse of errorResponses){
+										if(Object.prototype.hasOwnProperty.call(errorResponse, 'Code')
+											&& Object.prototype.hasOwnProperty.call(errorResponse, 'Description')
+										){
+											const reason = `${errorResponse.Description} (${errorResponse.Code})`;
+											log.error(`${this.insurer.name} ${this.policy.type} Integration Error: ${reason}`);
+											this.reasons.push(reason);
+										}else{
+											log.error(`${this.insurer.name} ${this.policy.type} Integration Error: API returned validation errors, but not as an array as expected. ${JSON.stringify(validationError)}` + __location);
+											this.reasons.push(`API returned an error that could not be parsed. Validation object missing one of the following: DataItem, Status, XPath`);
+										}
+									}
 								}else if(Object.prototype.hasOwnProperty.call(xmlResponse, 'fault') && Object.prototype.hasOwnProperty.call(xmlResponse.fault, 'faultstring')){
 									// Check for a system fault
 									log.error(`${this.insurer.name} ${this.policy.type} Integration Error: API returned 422 error with message: ${xmlResponse.fault.faultstring[0]}` + __location);
@@ -383,8 +410,8 @@ log.debug('TO DO: How do we process different results? The above is for quoted, 
 							});
 						}else{
 							// An HTTP error was encountered other than a 422 error
-							log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer. API returned error code: ${res.httpStatusCode}` + __location);
-							this.reasons.push(`Unable to connect to insurer. API returned error code: ${res.httpStatusCode}`);
+							log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer. API returned error code: ${err.httpStatusCode}` + __location);
+							this.reasons.push(`Unable to connect to insurer. API returned error code: ${err.httpStatusCode}`);
 							fulfill(this.return_result('error'));
 						}
 					}else{

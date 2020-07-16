@@ -101,15 +101,18 @@
 					<BusinessOwnershipStructure>{{:entityType}}</BusinessOwnershipStructure>
 					<EstmtdPayrollExpense>{{:get_total_payroll()}}</EstmtdPayrollExpense> {{!-- ALL CLASSES EXCEPT SC, LJR-Retail COBs, Home Health --}}
 					<NumOfEmployees>{{:get_total_employees()}}</NumOfEmployees> {{!-- ALL CLASSES EXCEPT Real estate agent/broker: Numeric, 1-999 (includes temporary employees) --}}
+					<EstmtdAnnualGrossSales>{{:policy.gross_sales}}</EstmtdAnnualGrossSales> {{!-- For the following COB groups: A&E, AH, LJR (Retail), SC, Photography, Real Estate, Home health aide, Personal care aide and Mobile Food Services --}}{{!-- ENFOCE LIMITS? $1 - $1m --}}
 					{{!-- The following are universal questions. It is unclear if we will handle these in the database or not at this time --}}
 					<AgreeDisagreeToStatements>I have read and agree with these statements</AgreeDisagreeToStatements>
 					<EmailConsent>Yes</EmailConsent>
 					<InformationConfirmAgreement>Yes</InformationConfirmAgreement>
 					{{!-- These are universal questions that should be handled at the database level --}}
 					<AdditionalLocation>0</AdditionalLocation> {{!-- 0, 1, 2, 3, 4, 5+ --}}
-					<OperatedFromHome>No</OperatedFromHome> {{!-- Is your business operated out of your home?  (Yes/No) --}}
+					<OperatedFromHome>Yes</OperatedFromHome> {{!-- Is your business operated out of your home?  (Yes/No) --}}
 					{{!-- The following are class specific questions --}}
-					<SupplyManufactDistbtGoodsOrProducts>No</SupplyManufactDistbtGoodsOrProducts>{{!-- All COBs except: Delivery service providers, LJR and SC COBs, Mobile food services --}}
+					<SupplyManufactDistbtGoodsOrProducts>Yes</SupplyManufactDistbtGoodsOrProducts>{{!-- All COBs except: Delivery service providers, LJR and SC COBs, Mobile food services --}}
+					<SupplyManufactDistbtGoodsOrProductsDetail>No</SupplyManufactDistbtGoodsOrProductsDetail>
+					<SupplyManufactDistbtGoodsExplain>qwe</SupplyManufactDistbtGoodsExplain>
 					<TangibleGoodWorkIT>No</TangibleGoodWorkIT>{{!-- For IT Consulting COB Only --}}
 					<TangibleGoodWork>No</TangibleGoodWork>{{!-- All COBs except LJR --}}
 					<HardwareWork>No</HardwareWork> {{!-- LIMITED CLASSES: Does your business manufacture, design, or assist in the design of any hardware or components? --}}
