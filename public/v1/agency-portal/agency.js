@@ -240,9 +240,12 @@ async function getAgency(req, res, next){
 		FROM \`clw_talage_agency_network_insurers\` AS \`agi\`
 		LEFT JOIN \`clw_talage_insurers\` AS \`i\` ON \`agi\`.\`insurer\` = \`i\`.\`id\`
 		LEFT JOIN \`clw_talage_insurer_territories\` AS \`it\` ON \`i\`.\`id\` = \`it\`.\`insurer\`
+		LEFT JOIN \`clw_talage_insurer_policy_types\` AS \`pti\` ON \`i\`.\`id\` = \`pti\`.\`insurer\`
 		WHERE
 			\`i\`.\`id\` IN (${req.authentication.insurers.join(',')}) AND
-			\`i\`.\`state\` = 1
+			\`i\`.\`state\` = 1 AND
+			\`pti\`.\`wheelhouse_support\` = 1
+
 		GROUP BY \`i\`.\`id\`
 		ORDER BY \`i\`.\`name\` ASC;
 	`;
@@ -321,10 +324,12 @@ async function getAgency(req, res, next){
 					${db.quoteName('li.wc')}
 				FROM ${db.quoteName('#__agency_location_insurers', 'li')}
 				LEFT JOIN ${db.quoteName('#__insurers', 'i')} ON ${db.quoteName('li.insurer')} = ${db.quoteName('i.id')}
+				LEFT JOIN ${db.quoteName('#__insurer_policy_types','pti')} ON ${db.quoteName('i.id')} = ${db.quoteName('pti.insurer')}
 				WHERE
 					${db.quoteName('li.agency_location')} IN (${locationIDs.join(',')}) AND
 					${db.quoteName('i.id')} IN (${req.authentication.insurers.join(',')}) AND
-					${db.quoteName('i.state')} > 0
+					${db.quoteName('i.state')} > 0 AND
+					${db.quoteName('pti.wheelhouse_support')} = 1
 				ORDER BY ${db.quoteName('i.name')} ASC;
 			`;
 
@@ -343,6 +348,7 @@ async function getAgency(req, res, next){
 			log.error(err.message);
 			return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 		});
+
 		territories = await db.query(territoriesSQL).catch(function(err){
 			log.error(err.message);
 			return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
