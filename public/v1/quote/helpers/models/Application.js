@@ -188,7 +188,7 @@ module.exports = class Application {
 		if (data.agent) {
 			await this.agencyLocation.load({id: data.agent});
 		}
- else {
+        else {
 			await this.agencyLocation.load({id: 1}); // This is Talage's agency location record
 		}
 
@@ -197,7 +197,7 @@ module.exports = class Application {
 		try {
 			await this.business.load(data.business);
 		}
- catch (error) {
+        catch (error) {
 			throw error;
 		}
 
@@ -596,207 +596,212 @@ module.exports = class Application {
 	 * @param {object} requestedInsurers - Array of insurer slugs
 	 * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
 	 */
-    validate(requestedInsurers) {
-        return new Promise(async(fulfill, reject) => {
-            let stop = false;
+	validate(requestedInsurers) {
+		return new Promise(async(fulfill, reject) => {
+			let stop = false;
 
-            // Agent
-            await this.agencyLocation.validate().catch(function(error) {
-                log.error('Location.validate() error ' + error + __location);
-                reject(error);
-                stop = true;
-            });
-            if (stop) {
-                return;
-            }
+			// Agent
+			await this.agencyLocation.validate().catch(function(error) {
+				log.error('Location.validate() error ' + error + __location);
+				reject(error);
+				stop = true;
+			});
+			if (stop) {
+				return;
+			}
 
-            // Initialize the agent so it is ready for later
-            await this.agencyLocation.init().catch(function(error) {
-                log.error('Location.init() error ' + error);
-                reject(error);
-                stop = true;
-            });
+			// Initialize the agent so it is ready for later
+			await this.agencyLocation.init().catch(function(error) {
+				log.error('Location.init() error ' + error + __location);
+				reject(error);
+				stop = true;
+			});
 
-            // Validate the ID (on test applications, don't validate)
-            if (!this.test) {
-                if (!await validator.application(this.id)) {
-                    reject(serverHelper.requestError('Invalid application ID specified.'));
-                    return;
-                }
-            }
+			// Validate the ID (on test applications, don't validate)
+			if (!this.test) {
+				if (!await validator.application(this.id)) {
+                    log.error('validator.application() ' + this.id + __location)
+					reject(serverHelper.requestError('Invalid application ID specified.'));
+					return;
+				}
+			}
 
-            // Get a list of insurers and wait for it to return
-            const insurers = await this.get_insurers(requestedInsurers).catch(async(error) => {
-                if (error === 'Agent does not support this request') {
-                    if (this.agencyLocation.wholesale) {
-                        // Switching to the Talage agent
-                        this.agencyLocation = new AgencyLocation(this);
-                        await this.agencyLocation.load({id: 1}); // This is Talage's agency location record
+			// Get a list of insurers and wait for it to return
+			const insurers = await this.get_insurers(requestedInsurers).catch(async(error) => {
+				if (error === 'Agent does not support this request') {
+					if (this.agencyLocation.wholesale) {
+						// Switching to the Talage agent
+						this.agencyLocation = new AgencyLocation(this);
+						await this.agencyLocation.load({id: 1}); // This is Talage's agency location record
 
-                        // Initialize the agent so we can use it
-                        await this.agencyLocation.init().catch(function(init_error) {
-                            reject(init_error);
-                            stop = true;
-                        });
+						// Initialize the agent so we can use it
+						await this.agencyLocation.init().catch(function(init_error) {
+                            log.error('Location.init() error ' + init_error + __location);
+							reject(init_error);
+							stop = true;
+						});
 
-                        // Try to get the insurers again
-                        return this.get_insurers();
-                    }
+						// Try to get the insurers again
+						return this.get_insurers();
+					}
 
-                    reject(serverHelper.requestError('The Agent specified cannot support this policy.'));
-                    stop = true;
-                }
+					reject(serverHelper.requestError('The Agent specified cannot support this policy.'));
+					stop = true;
+				}
                 else {
-                    log.error('get insurers error ' + error + __location);
-                    reject(error);
-                    stop = true;
-                }
-            });
-            if (stop) {
-                return;
-            }
-            if (!insurers || insurers.length === 0 || Object.prototype.toString.call(insurers) !== '[object Array]') {
-                reject(serverHelper.requestError('Invalid insurer(s) specified in policy.'));
-                return;
-            }
+					log.error('get insurers error ' + error + __location);
+					reject(error);
+					stop = true;
+				}
+			});
+			if (stop) {
+				return;
+			}
+			if (!insurers || insurers.length === 0 || Object.prototype.toString.call(insurers) !== '[object Array]') {
+                log.error('Invalid insurer(s) specified in policy. ' + __location);
+				reject(serverHelper.requestError('Invalid insurer(s) specified in policy.'));
+				return;
+			}
 
-            // Validate the business
-            await this.business.validate().catch(function(error) {
-                log.error('business.validate() error ' + error + __location);
-                reject(error);
-                stop = true;
-            });
-            if (stop) {
-                return;
-            }
+			// Validate the business
+			await this.business.validate().catch(function(error) {
+				log.error('business.validate() error ' + error + __location);
+				reject(error);
+				stop = true;
+			});
+			if (stop) {
+				return;
+			}
 
-            // Validate all policies
-            const policy_types = [];
-            const policy_promises = [];
-            this.policies.forEach(function(policy) {
-                policy_promises.push(policy.validate());
-                policy_types.push(policy.type);
-            });
-            await Promise.all(policy_promises).catch(function(error) {
-                reject(error);
-                stop = true;
-            });
-            if (stop) {
-                return;
-            }
+			// Validate all policies
+			const policy_types = [];
+			const policy_promises = [];
+			this.policies.forEach(function(policy) {
+				policy_promises.push(policy.validate());
+				policy_types.push(policy.type);
+			});
+			await Promise.all(policy_promises).catch(function(error) {
+                log.error('Policy Validation error. ' + error + __location);
+				reject(error);
+				stop = true;
+			});
+			if (stop) {
+				return;
+			}
 
-            // Get a list of all questions the user may need to answer
-            const insurer_ids = this.get_insurer_ids();
-            const wc_codes = this.get_wc_codes();
-            const questions = await get_questions(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids).catch(function(error) {
-                log.error('get_questions error ' + error + __location);
-                reject(error);
-            });
+			// Get a list of all questions the user may need to answer
+			const insurer_ids = this.get_insurer_ids();
+			const wc_codes = this.get_wc_codes();
+			const questions = await get_questions(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids).catch(function(error) {
+				log.error('get_questions error ' + error + __location);
+				reject(error);
+			});
 
-            // Grab the answers the user provided to our questions and reset the question object
-            const user_questions = this.questions;
-            this.questions = {};
+			// Grab the answers the user provided to our questions and reset the question object
+			const user_questions = this.questions;
+			this.questions = {};
 
-            // Convert each question from the databse into a question object and load in the user's answer to each
-            let has_error = false;
-            if (questions) {
-                await questions.forEach((question) => {
-                    // Prepare a Question object based on this data and store it
-                    const q = new Question();
-                    q.load(question);
+			// Convert each question from the databse into a question object and load in the user's answer to each
+			let has_error = false;
+			if (questions) {
+				await questions.forEach((question) => {
+					// Prepare a Question object based on this data and store it
+					const q = new Question();
+					q.load(question);
 
-                    // Load the user's answer
-                    if (user_questions) {
-                        if (Object.prototype.hasOwnProperty.call(user_questions, q.id)) {
-                            const user_answer = user_questions[q.id];
+					// Load the user's answer
+					if (user_questions) {
+						if (Object.prototype.hasOwnProperty.call(user_questions, q.id)) {
+							const user_answer = user_questions[q.id];
 
-                            q.set_answer(user_answer).catch(function(error) {
-                                log.error('set answers error ' + error + __location);
-                                reject(error);
-                                has_error = true;
-                            });
-                        }
-                    }
+							q.set_answer(user_answer).catch(function(error) {
+								log.error('set answers error ' + error + __location);
+								reject(error);
+								has_error = true;
+							});
+						}
+					}
 
-                    // Store the question object in the Application for later use
-                    this.questions[q.id] = q;
-                });
-            }
-            if (has_error) {
-                return;
-            }
+					// Store the question object in the Application for later use
+					this.questions[q.id] = q;
+				});
+			}
+			if (has_error) {
+				return;
+			}
 
-            // Enforce required questions (this must be done AFTER all questions are loaded with their answers)
-            if (this.questions) {
-                for (const question_id in this.questions) {
-                    if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
-                        const question = this.questions[question_id];
+			// Enforce required questions (this must be done AFTER all questions are loaded with their answers)
+			if (this.questions) {
+				for (const question_id in this.questions) {
+					if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
+						const question = this.questions[question_id];
 
-                        // Hidden questions are not required
-                        if (question.hidden) {
-                            continue;
-                        }
+						// Hidden questions are not required
+						if (question.hidden) {
+							continue;
+						}
 
-                        if (question.parent) {
-                            // Get the parent question
-                            const parent_question = this.questions[question.parent];
+						if (question.parent) {
+							// Get the parent question
+							const parent_question = this.questions[question.parent];
 
-                            // If no parent was found, throw an error
-                            if (!parent_question) {
-                                log.error(`Question ${question.id} has invalid parent setting. (${htmlentities.decode(question.text).replace('%', '%%')})` + __location);
-                                reject(serverHelper.requestError('An unexpected error has occurred. Our team has been alerted and will contact you.'));
-                                return;
-                            }
+							// If no parent was found, throw an error
+							if (!parent_question) {
+								log.error(`Question ${question.id} has invalid parent setting. (${htmlentities.decode(question.text).replace('%', '%%')})` + __location);
+								reject(serverHelper.requestError('An unexpected error has occurred. Our team has been alerted and will contact you.'));
+								return;
+							}
 
-                            // If this question's parent_answer is equal to the answer given for the parent, it is required
-                            if (parent_question.answer_id === question.parent_answer) {
-                                question.required = true;
-                            }
-                        }
-                        else {
-                            question.required = true;
-                        }
+							// If this question's parent_answer is equal to the answer given for the parent, it is required
+							if (parent_question.answer_id === question.parent_answer) {
+								question.required = true;
+							}
+						}
+ else {
+							question.required = true;
+						}
 
-                        // If required, check that this question was answered by the user
-                        if (question.required && (!user_questions || !Object.prototype.hasOwnProperty.call(user_questions, question.id))) {
-                            reject(serverHelper.requestError(`Question ${question.id} missing from request. (${htmlentities.decode(question.text).replace('%', '%%')})`));
-                            return;
-                        }
-                    }
-                }
-            }
+						// If required, check that this question was answered by the user
+						if (question.required && (!user_questions || !Object.prototype.hasOwnProperty.call(user_questions, question.id))) {
+							reject(serverHelper.requestError(`Question ${question.id} missing from request. (${htmlentities.decode(question.text).replace('%', '%%')})`));
+							return;
+						}
+					}
+				}
+			}
 
-            // Validate all of the questions
-            if (this.questions) {
-                const question_promises = [];
-                for (const question_id in this.questions) {
-                    if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
-                        question_promises.push(this.questions[question_id].validate());
-                    }
-                }
-                await Promise.all(question_promises).catch(function(error) {
-                    reject(error);
-                    stop = true;
-                });
-                if (stop) {
-                    return;
-                }
-            }
+			// Validate all of the questions
+			if (this.questions) {
+				const question_promises = [];
+				for (const question_id in this.questions) {
+					if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
+						question_promises.push(this.questions[question_id].validate());
+					}
+				}
+				await Promise.all(question_promises).catch(function(error) {
+                    log.error('question_promises error. ' + error + __location);
+					reject(error);
+					stop = true;
+				});
+				if (stop) {
+					return;
+				}
+			}
 
-            // (id: 1015 should have been removed as it was not required). What is the correct way to handle this?
-            // Note: we cannot hurt questions where a child must be sent
+			// (id: 1015 should have been removed as it was not required). What is the correct way to handle this?
+			// Note: we cannot hurt questions where a child must be sent
 
-            // Check agent support
-            await this.agencyLocation.supports_application().catch(function(error) {
-                log.error('agencyLocation.supports_application() error ' + error + __location);
-                reject(error);
-                stop = true;
-            });
-            if (stop) {
-                return;
-            }
+			// Check agent support
+			await this.agencyLocation.supports_application().catch(function(error) {
+				log.error('agencyLocation.supports_application() error ' + error + __location);
+				reject(error);
+				stop = true;
+			});
+			if (stop) {
+				return;
+			}
 
-            fulfill(true);
-        });
-    }
+			fulfill(true);
+		});
+	}
 };
