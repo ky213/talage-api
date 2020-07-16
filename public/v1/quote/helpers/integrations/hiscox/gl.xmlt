@@ -2,7 +2,9 @@
 <InsuranceSvcRq>
 	<SignonRq>
 		<ClientApp>
-			<Org>Talage</Org>
+			<Org>Talage, Inc.</Org>
+			<Name>Talage</Name>
+			<Version>{{:version}}</Version>
 		</ClientApp>
 	</SignonRq>
 	<QuoteRq>
@@ -12,7 +14,7 @@
 		<StateOrProvCd>{{:app.business.primary_territory}}</StateOrProvCd>
 		<ClassOfBusinessCd>{{:industry_code.hiscox}}</ClassOfBusinessCd>
 		<ProducerInfo>
-			{{!-- <ProducerUID>Test ProducerUID</ProducerUID>    NOT DOCUMENTED --}}
+			<ProducerUID>{{:app.agencyLocation.agencyId}}</ProducerUID>
 			<ProducerType>{{:app.agencyLocation.insurers[insurer.id].agency_id}}</ProducerType>{{!-- Per Hiscox, send in the Agent ID here also --}}
 			<ProducerAgency>{{:app.agencyLocation.agency.substring(0, 100)}}</ProducerAgency>
 			<ProducerAgentID>{{:app.agencyLocation.insurers[insurer.id].agency_id}}</ProducerAgentID>
@@ -45,6 +47,8 @@
 		<BusinessInfo>
 			<CommercialName>{{:app.business.name.substring(0, 100)}}</CommercialName>
 			<PersonName>
+				{{!-- <Title>Mrs.</Title> --}}
+				{{!-- <Suffix>I</Suffix> --}}
 				<FirstName>{{:app.business.contacts[0].first_name.substring(0, 75)}}</FirstName>
 				<LastName>{{:app.business.contacts[0].last_name.substring(0, 75)}}</LastName>
 			</PersonName>
@@ -101,7 +105,7 @@
 					<AgreeDisagreeToStatements>I have read and agree with these statements</AgreeDisagreeToStatements>
 					<EmailConsent>Yes</EmailConsent>
 					<InformationConfirmAgreement>Yes</InformationConfirmAgreement>
-					{{!-- These are unviersal questions that should be handled at the database level --}}
+					{{!-- These are universal questions that should be handled at the database level --}}
 					<AdditionalLocation>0</AdditionalLocation> {{!-- 0, 1, 2, 3, 4, 5+ --}}
 					<OperatedFromHome>No</OperatedFromHome> {{!-- Is your business operated out of your home?  (Yes/No) --}}
 					{{!-- The following are class specific questions --}}
@@ -112,13 +116,14 @@
 					<SimilarInsurance>No</SimilarInsurance> {{!-- ALL CLASSES EXCEPT LJR, SC, and Mobile Food Service: Do you currently have an insurance policy in effect for the coverage requested? --}}
 					<SimilarInsuranceCarrier>Insurance</SimilarInsuranceCarrier> {{!-- Only when the prior one is answered yes. THIS IS REQUIRED --}}
 					<HireNonOwnVehclUse>No</HireNonOwnVehclUse>{{!-- All CoBs, except: LJR, Small Contractors, Mobile Foood Services --}}
+					<ForbiddenProjectsJanitorial>No</ForbiddenProjectsJanitorial>{{!-- This is a class specific question --}}
 				</RatingInfo>
 				<GeneralLiabilityCoverQuoteRq>
 					<CoverId>CGL</CoverId>
 					<RatingInfo>
 						<AggLOI>{{:bestLimits[1]}}</AggLOI>
 						<LOI>{{:bestLimits[0]}}</LOI>
-						<Deductible>{{:policy.deductible}}</Deductible>
+						<Deductible>0</Deductible>
 					</RatingInfo>
 				</GeneralLiabilityCoverQuoteRq>
 				<TRIACoverQuoteRq>
