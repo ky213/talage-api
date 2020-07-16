@@ -35,17 +35,20 @@ async function postApplication(req, res, next) {
 
 	const application = new Application();
 	// Populate the Application object
-	try {
-		// Load
-		await application.load(req.params);
-		// Validate
-		await application.validate(requestedInsurers);
-	}
- catch (error) {
-		log.warn(`Error loading/validating application ${req.params.id ? req.params.id : ''}: ${error.message}` + __location);
-		res.send(error);
-		return next();
-	}
+
+    // Load
+    await application.load(req.params).catch(function(error){
+        log.error(`Error loading application ${req.params.id ? req.params.id : ''}: ${error.message}` + __location);
+        res.send(error);
+        return next();
+    });
+    // Validate
+    await application.validate(requestedInsurers).catch(function(error){
+        log.error(`Error validating application ${req.params.id ? req.params.id : ''}: ${error.message}` + __location);
+        res.send(error);
+        return next();
+    });
+
 
 	// Create an application progress entry. Do not reuse an existing row since hung processes could
 	// still update it.
@@ -55,13 +58,12 @@ async function postApplication(req, res, next) {
 		WHERE id = ${req.body.id}
 	`;
 	let result = null;
-	try {
-		result = await db.query(sql);
-	}
- catch (error) {
-		log.error(`Could not update the quote progress to 'quoting' for application ${req.body.id}: ${error} ${__location}`);
-		return next(serverHelper.internalError('An unexpected error occurred.'));
-	}
+
+    result = await db.query(sql).catch(function(error){
+        log.error(`Could not update the quote progress to 'quoting' for application ${req.body.id}: ${error} ${__location}`);
+        return next(serverHelper.internalError('An unexpected error occurred.'));
+    });
+
 	if (result === null || result.affectedRows !== 1) {
 		log.error(`Could not update the quote progress to 'quoting' for application ${req.body.id}: ${sql} ${__location}`);
 		return next(serverHelper.internalError('An unexpected error occurred.'));
