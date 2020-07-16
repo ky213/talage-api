@@ -399,7 +399,7 @@ async function createUser(req, res, next) {
 		subject: emailSubject.replace('{{Brand}}', brand),
 		to: data.email
 	};
-	const emailResp = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, emailData.from, 0);
+	const emailResp = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, emailData.from);
 	if (emailResp === false) {
 		log.error(`Unable to send new user email to ${data.email}. Please send manually.`);
 		slack.send('#alerts', 'warning', `Unable to send new user email to ${data.email}. Please send manually.`);

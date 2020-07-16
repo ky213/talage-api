@@ -4,6 +4,8 @@ const moment = require('moment');
 const crypt = global.requireShared('./services/crypt.js');
 const email = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 /**
  * AbandonQuote Task processor
@@ -88,7 +90,7 @@ var wholesaleApplicationEmailTask = async function(applicationId) {
         applications = await db.query(appSQL);
     }
     catch (err) {
-        log.error(`Error get opt out applications from DB for ${applicationId} error:  ${err}`);
+        log.error(`Error get opt out applications from DB for ${applicationId} error:  ${err}` + __location);
         // Do not throw error other opt out may need to be processed.
         return false;
     }
