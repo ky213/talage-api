@@ -185,7 +185,7 @@ module.exports = class Application {
 		if (data.agent) {
 			await this.agencyLocation.load({id: data.agent});
 		}
- else {
+        else {
 			await this.agencyLocation.load({id: 1}); // This is Talage's agency location record
 		}
 
@@ -194,7 +194,7 @@ module.exports = class Application {
 		try {
 			await this.business.load(data.business);
 		}
- catch (error) {
+        catch (error) {
 			throw error;
 		}
 
@@ -628,7 +628,7 @@ module.exports = class Application {
 
 			// Initialize the agent so it is ready for later
 			await this.agencyLocation.init().catch(function(error) {
-				log.error('Location.init() error ' + error);
+				log.error('Location.init() error ' + error + __location);
 				reject(error);
 				stop = true;
 			});
@@ -636,6 +636,7 @@ module.exports = class Application {
 			// Validate the ID (on test applications, don't validate)
 			if (!this.test) {
 				if (!await validator.application(this.id)) {
+                    log.error('validator.application() ' + this.id + __location)
 					reject(serverHelper.requestError('Invalid application ID specified.'));
 					return;
 				}
@@ -651,6 +652,7 @@ module.exports = class Application {
 
 						// Initialize the agent so we can use it
 						await this.agencyLocation.init().catch(function(init_error) {
+                            log.error('Location.init() error ' + init_error + __location);
 							reject(init_error);
 							stop = true;
 						});
@@ -662,7 +664,7 @@ module.exports = class Application {
 					reject(serverHelper.requestError('The Agent specified cannot support this policy.'));
 					stop = true;
 				}
- else {
+                else {
 					log.error('get insurers error ' + error + __location);
 					reject(error);
 					stop = true;
@@ -672,6 +674,7 @@ module.exports = class Application {
 				return;
 			}
 			if (!insurers || insurers.length === 0 || Object.prototype.toString.call(insurers) !== '[object Array]') {
+                log.error('Invalid insurer(s) specified in policy. ' + __location);
 				reject(serverHelper.requestError('Invalid insurer(s) specified in policy.'));
 				return;
 			}
@@ -694,6 +697,7 @@ module.exports = class Application {
 				policy_types.push(policy.type);
 			});
 			await Promise.all(policy_promises).catch(function(error) {
+                log.error('Policy Validation error. ' + error + __location);
 				reject(error);
 				stop = true;
 			});
@@ -791,6 +795,7 @@ module.exports = class Application {
 					}
 				}
 				await Promise.all(question_promises).catch(function(error) {
+                    log.error('question_promises error. ' + error + __location);
 					reject(error);
 					stop = true;
 				});
