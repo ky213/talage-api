@@ -18,7 +18,7 @@ const properties = {
 
 	},
 	'agentId': {
-		'default': 'placeholder-unsupported',
+		'default': null,
 		'encrypted': true,
 		'required': false,
 		'rules': [],
