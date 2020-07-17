@@ -29,7 +29,6 @@ module.exports = class Application {
 		this.insurers = [];
 		this.policies = [];
 		this.questions = {};
-		this.test = false;
 	}
 
 	/**
@@ -212,91 +211,6 @@ module.exports = class Application {
 		});
 
 		this.questions = data.questions;
-
-		// Get the test flag
-		this.test = data.test === true;
-	}
-
-	/**
-	 * Generate an example API response
-	 *
-	 * @returns {Promise.<object, Error>} A promise that returns an object containing an example API response if resolved, or an Error if rejected
-	 */
-	run_test() {
-		log.info('Returning test data');
-
-		return new Promise((fulfill) => {
-			// Generate example quotes for each policy type
-			const quotes = [];
-			this.policies.forEach((policy) => {
-				// Generate example quotes for each insurer for the given policy type
-				this.insurers.forEach(function(insurer) {
-					// Check that the insurer supports this policy type
-					if (insurer.policy_types.indexOf(policy.type) >= 0) {
-						// Determine the amount
-						const amount = Math.round(Math.random() * (10000 - 6000) + 6000);
-
-						const limits = {};
-						if (policy.type === 'WC') {
-							limits['Employers Liability Disease Per Employee'] = 1000000;
-							limits['Employers Liability Disease Policy Limit'] = 1000000;
-							limits['Employers Liability Per Occurrence'] = 1000000;
-						}
- else {
-							limits['Damage to Rented Premises'] = '1000000';
-							limits['Each Occurrence'] = '1000000';
-							limits['General Aggregate'] = '1000000';
-							limits['Personal & Advertising Injury'] = '1000000';
-							limits['Products & Completed Operations'] = '1000000';
-							limits['Medical Expense'] = '15000';
-						}
-
-						// Prepare a list of payment options
-						const payment_options = [];
-						if (insurer.payment_options.length) {
-							insurer.payment_options.forEach(function(payment_option) {
-								if (amount > payment_option.threshold) {
-									payment_options.push({
-										description: payment_option.description,
-										id: payment_option.id,
-										name: payment_option.name
-									});
-								}
-							});
-						}
-
-						// Build the quote
-						quotes.push({
-							amount: amount,
-							id: quotes.length + 1,
-							instant_buy: Math.random() >= 0.5,
-							insurer: {
-								id: insurer.id,
-								logo: `${global.settings.SITE_URL}/${insurer.logo}`,
-								name: insurer.name,
-								rating: insurer.rating
-							},
-							limits: limits,
-							payment_options: payment_options,
-							policy_type: policy.type
-						});
-					}
-				});
-			});
-
-			// Check for no quotes
-			if (quotes.length < 1) {
-				fulfill(serverHelper.requestError('The request submitted will not result in quotes. Please check the insurers specified and ensure they support the policy types selected.'));
-				return;
-			}
-
-			const json = {
-				done: true,
-				quotes: quotes
-			};
-
-			fulfill(json);
-		});
 	}
 
 	/**
@@ -606,13 +520,11 @@ module.exports = class Application {
 				stop = true;
 			});
 
-			// Validate the ID (on test applications, don't validate)
-			if (!this.test) {
-				if (!await validator.application(this.id)) {
-					log.error('validator.application() ' + this.id + __location);
-					reject(serverHelper.requestError('Invalid application ID specified.'));
-					return;
-				}
+			// Validate the ID
+			if (!await validator.application(this.id)) {
+				log.error('validator.application() ' + this.id + __location);
+				reject(serverHelper.requestError('Invalid application ID specified.'));
+				return;
 			}
 
 			// Get a list of insurers and wait for it to return
