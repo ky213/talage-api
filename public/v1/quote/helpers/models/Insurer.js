@@ -117,10 +117,10 @@ module.exports = class Insurer{
 
 			// Construct a query to get all of the payment plans for this insurer
 			const payment_plan_sql = `
-				SELECT \`pp\`.\`id\`, \`pp\`.\`name\`, \`pp\`.\`description\`, \`ipp\`.\`premium_threshold\`
-				FROM \`#__insurer_payment_plans\` AS \`ipp\`
-				LEFT JOIN \`#__payment_plans\` AS \`pp\` ON \`pp\`.\`id\` = \`ipp\`.\`payment_plan\`
-				WHERE \`ipp\`.\`insurer\` = ${db.escape(this.id)};
+				SELECT pp.id, pp.name, pp.description, ipp.premium_threshold
+				FROM clw_talage_insurer_payment_plans AS ipp
+				LEFT JOIN clw_talage_payment_plans AS pp ON pp.id = ipp.payment_plan
+				WHERE ipp.insurer = ${db.escape(this.id)};
 			`;
 
 			// Run that query
@@ -151,9 +151,9 @@ module.exports = class Insurer{
 
 			// Construct a query to get all of the packages for this insurer
 			const packages_sql = `
-				SELECT \`id\`, \`description\`, \`name\`
-				FROM \`#__insurer_package_types\`
-				WHERE \`insurer\` = ${db.escape(this.id)};
+				SELECT id, description, name
+				FROM clw_talage_insurer_package_types
+				WHERE insurer = ${db.escape(this.id)};
 			`;
 
 			// Run that query
@@ -183,12 +183,12 @@ module.exports = class Insurer{
 			}
 
 			// Construct a query to get all the acord and api support data for all supported policy types
-			const policy_type_details_sql = `SELECT ipt.insurer, ipt.policy_type, ipt.api_support, ipt.acord_support, ipt.acord_support_email
+			const policy_type_details_sql = `SELECT ipt.insurer, ipt.policy_type, ipt.api_support, ipt.acord_support
 							FROM clw_talage_insurer_policy_types ipt
 							WHERE ipt.insurer = ${this.id}`;
 
 			const policy_type_details = await db.query(policy_type_details_sql).catch(function(error){
-				log.error('Database error: ' + error + __location);
+				log.error(`Database error retrieving policy type details for insurer: ` + error + __location);
 				had_error = true;
 			});
 
@@ -201,8 +201,7 @@ module.exports = class Insurer{
 				policy_type_details.forEach(policy_type_detail => {
 					this.policy_type_details[policy_type_detail.policy_type] = {
 						'api_support': policy_type_detail.api_support,
-						'acord_support': policy_type_detail.acord_support,
-						'acord_support_email': policy_type_detail.acord_support_email
+						'acord_support': policy_type_detail.acord_support
 					}
 				})
 			}
