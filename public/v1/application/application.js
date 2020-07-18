@@ -1,3 +1,4 @@
+/* eslint-disable dot-notation */
 /* eslint-disable no-case-declarations */
 /**
  * Handles all tasks related to managing quotes
@@ -19,6 +20,8 @@ const claimStepParser = require('./parsers/claim-step-parser.js')
 const questionStepParser = require('./parsers/question-step-parser.js')
 const bindStepParser = require('./parsers/bindrequest-step-parse.js')
 
+const LandingPageBO = global.requireShared('models/LandingPage-BO.js');
+
 /**
  * Responds to POST related ot new applications
  *
@@ -29,7 +32,7 @@ const bindStepParser = require('./parsers/bindrequest-step-parse.js')
  * @returns {void}
  */
 async function Save(req, res, next){
-	//log.debug("Application Post: " + JSON.stringify(req.body));
+	log.debug("Application Post: " + JSON.stringify(req.body));
 	// Check for data
 	if(!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0){
 		log.warn('No data was received' + __location);
@@ -136,28 +139,16 @@ async function Save(req, res, next){
     }
     // eslint-disable-next-line prefer-const
     let responseObj = {};
-    if(applicationRequestJson.demo === true){
-        responseObj.demo = applicationRequestJson.demo;
-        responseObj.id = -999;
-        responseObj.message = "saved";
-        res.send(200, responseObj);
-        return next();
-    }
 
     if(knownWorkflowStep === true){
         const applicationModel = new ApplicationModel();
         await applicationModel.saveApplicationStep(applicationRequestJson, worflowStep).then(function(modelResponse){
             if(modelResponse === true){
-
                 // const tokenPayload = {applicationID: applicationModel.id};
                 // const token = jwt.sign(tokenPayload, global.settings.AUTH_SECRET_KEY, {expiresIn: '5m'});
-                
-
-
-                responseObj.demo = applicationRequestJson.demo;
+               // responseObj.demo = applicationRequestJson.demo;
                 responseObj.id = applicationModel.id;
                 responseObj.message = "saved";
-                //TODO add business_id and contact_id
                 //associations
                 res.send(200, responseObj);
             }
@@ -186,8 +177,62 @@ async function Save(req, res, next){
     }
 }
 
+/**
+ * Responds to GET related to initizlize quote app for new applications
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function Initialize(req, res, next){
+    // php system used to setup user session. -No Session here.
+    //
+    //  $affiliateId = $app->input->cookie->get('talage_affiliate');
+    // if($affiliateId){
+    // 	$database->set('business', 'affiliate', $affiliateId);
+    // }
+    // update token for affiliateId....
+    // eslint-disable-next-line prefer-const
+    let responseObj = {};
+    responseObj.initialized = true;
+    if(req.query["landingPage"]){
+        const landingPageBO = new LandingPageBO();
+        await landingPageBO.getLandingPageandInsurerBySlug(req.query["landingPage"]).then(function(loadingPageReponse){
+            if(loadingPageReponse){
+                responseObj.landingPage = loadingPageReponse;
+                res.send(200, responseObj);
+            }
+            else {
+                //modelReponse is list of validation errors.
+                //validationErrors
+                res.send(200,responseObj);
+            }
+            return next();
+        }).catch(function(err){
+            //serverError
+            if(err.message.startsWith('Data Error:')){
+                const message = err.message.replace('Data Error:', '');
+                res.send(400, message);
+            }
+            else {
+                res.send(500, err.message);
+            }
+            return next(serverHelper.requestError('Unable to get landing page info. ' + err.message));
+        });
+    }
+    else {
+        res.send(200, responseObj);
+    }
+}
+
+
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
 	server.addPostAuthAppWF('Post Application Workflow', `${basePath}/applicationwf`, Save);
-	server.addPostAuthAppWF('Post Application Workflow(depr)', `${basePath}wf`, Save);
+    server.addPostAuthAppWF('Post Application Workflow(depr)', `${basePath}wf`, Save);
+    //server.addGetAuthAppWF('Get Application Workflow Initialize', `${basePath}/applicationwf/initialize`, Initialize);
+    server.addGet('Get Application Workflow Initialize', `${basePath}/applicationwf/initialize`, Initialize);
+	server.addGet('Get Application Workflow(depr) Initialize', `${basePath}wf/initialize`, Initialize);
 };
