@@ -20,7 +20,12 @@ const claimStepParser = require('./parsers/claim-step-parser.js')
 const questionStepParser = require('./parsers/question-step-parser.js')
 const bindStepParser = require('./parsers/bindrequest-step-parse.js')
 
-const LandingPageBO = global.requireShared('models/LandingPage-BO.js');
+const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
+
+const slackSvc = global.requireShared('./services/slacksvc.js');
+const emailSvc = global.requireShared('./services/emailsvc.js');
+const crypt = global.requireShared('./services/crypt.js');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 /**
  * Responds to POST related ot new applications
@@ -350,6 +355,116 @@ async function GetAssociations(req, res, next){
 
 }
 
+/**
+ * POST  send slack error message
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function ReportError(req, res, next){
+    //body examlple
+    // attachment: {
+    //     applicationID
+    // },
+    // channel: '#alerts',
+    // message: `${businessName} from ${territory} completed an application for ${coverageList} but encountered the following errors: ${message}`,
+    // messageType: 'error'
+
+    const responseObj = {};
+    if(req.body && req.body.message && req.body.message.length > 0){
+        log.error("From client: " + req.body.message);
+        await slackSvc.send2SlackJSON(req.body).catch(function(err){
+            log.error(err + __location);
+        });
+       res.send(200, responseObj);
+       return next();
+    }
+    else {
+        res.send(200, responseObj);
+        return next();
+    }
+
+}
+
+/**
+ * POST Send AgencyEmail base on options supplied
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function AgencyEmail(req, res, next){
+    //body example
+    // attachment: {
+    //     applicationID
+    // },
+    // channel: '#alerts',
+    // message: `${businessName} from ${territory} completed an application for ${coverageList} but encountered the following errors: ${message}`,
+    // messageType: 'error'
+
+    const responseObj = {};
+    //only type =3 will be processed. - Contact us
+    if(req.body
+        && req.body.email && req.body.email
+        && req.body.type && req.body.type === "3"
+        && req.body.agency){
+
+        const email = req.body.email;
+        const messageText = req.body.message;
+        const name = req.body.name;
+        //DB for Agency
+        const agencyLocationId = stringFunctions.santizeNumber(req.body.agency,true);
+        const messageKeys = {agency_location: agencyLocationId};
+        let error = null;
+        const agencyLocationBO = new AgencyLocationBO();
+        await agencyLocationBO.loadFromId(agencyLocationId).catch(function(err) {
+            log.error(`Loading agency in AgencyEmail error:` + err + __location);
+            error = err;
+        });
+        if(!error){
+            if(agencyLocationBO.email){
+                const agencyEmail = agencyLocationBO.email;
+                // Build the email
+                let message = '<p style="text-align:left;">You received the following message from ' + name + ' (' + email + '):</p>';
+                message = message + '<p style="text-align:left;margin-top:10px;">"' + messageText + '"</p>';
+                message += `<p style="text-align:right;">-Your Wheelhouse Team</p>`;
+                //call email service
+                const respSendEmail = await emailSvc.send(agencyEmail, 'A Wheelhouse user wants to get in touch with you', message, messageKeys, 'wheelhouse').catch(function(err){
+                    log.error("Send email error: " + err + __location);
+                    return res.send(serverHelper.internalError("SendEmail Error"));
+                });
+                if(respSendEmail === false){
+                    log.error("Send email error response was false: " + __location);
+                    return res.send(serverHelper.internalError("SendEmail Error"));
+                }
+                else {
+                    res.send(200, responseObj);
+                    return next();
+                }
+            }
+            else{
+                log.error(`No Agencylocation email ${agencyLocationId} ` + __location)
+                res.send(200, responseObj);
+                return next();
+            }
+        }
+        else {
+            res.send(200, responseObj);
+            return next();
+        }
+    }
+    else {
+        log.error("AgencyEmail missing parameters " + __location)
+        res.send(200, responseObj);
+        return next();
+    }
+
+}
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
@@ -361,4 +476,13 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPost('Checkzip for Quote Engine', `${basePath}wf/checkzip`, CheckZip)
     server.addGet('GetAssociations for Quote Engine', `${basePath}/applicationwf/getassociations`, GetAssociations)
     server.addGet('GetAssociations for Quote Engine', `${basePath}wf/getassociations`, GetAssociations)
+    server.addPostAuthAppWF('Post Application Error', `${basePath}/applicationwf/reporterror`, ReportError);
+    server.addPostAuthAppWF('Post Application Error(depr)', `${basePath}wf/reporterror`, ReportError);
+    //server.addPostAuthAppWF('Post Application agencyemail', `${basePath}/applicationwf/agencyemail`, AgencyEmail);
+    //server.addPostAuthAppWF('Post Application agencyemail(depr)', `${basePath}wf/agencyemail`, AgencyEmail);
+    server.addPost('Post Application agencyemail', `${basePath}/applicationwf/agencyemail`, AgencyEmail);
+    server.addPost('Post Application agencyemail(depr)', `${basePath}wf/agencyemail`, AgencyEmail);
 };
+
+
+//agencyemail
