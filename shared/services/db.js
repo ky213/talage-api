@@ -144,6 +144,32 @@ exports.query = function(sql){
 	});
 };
 
+exports.queryParam = function(sql, params){
+	return new Promise(function(fulfill, reject){
+		// Force SQL queries to end in a semicolon for security
+		if(sql.slice(-1) !== ';'){
+			sql += ';';
+		}
+
+		// Replace the prefix placeholder
+		sql = sql.replace(/#__/g, global.settings.DATABASE_PREFIX);
+
+		// Run the query on the database
+		conn.query(sql, params, function(err, rows){
+			if(err){
+				log.error('db query error: ' + err +  __location);
+				log.info('sql: ' + sql);
+				// Docs-api had 'reject(new Error(err));'
+				reject(err);
+				return;
+			}
+
+			// Question-api had 'fulfill(JSON.parse(JSON.stringify(rows)));'
+			fulfill(rows);
+		});
+	});
+};
+
 /**
  * Quotes a name with `backticks`
  *
