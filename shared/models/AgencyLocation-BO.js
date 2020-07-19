@@ -6,9 +6,9 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 
 
-const tableName = 'clw_talage_agencies'
+const tableName = 'clw_talage_agency_locations'
 const skipCheckRequired = false;
-module.exports = class AgencyBO{
+module.exports = class AgencyLocationBO{
 
     #dbTableORM = null;
 
@@ -138,7 +138,25 @@ const properties = {
       "type": "number",
       "dbType": "tinyint(1)"
     },
-    "agency_network": {
+    "address": {
+      "default": null,
+      "encrypted": true,
+      "hashed": false,
+      "required": false,
+      "rules": null,
+      "type": "string",
+      "dbType": "blob"
+    },
+    "address2": {
+      "default": null,
+      "encrypted": true,
+      "hashed": false,
+      "required": false,
+      "rules": null,
+      "type": "string",
+      "dbType": "blob"
+    },
+    "agency": {
       "default": null,
       "encrypted": false,
       "hashed": false,
@@ -147,14 +165,14 @@ const properties = {
       "type": "number",
       "dbType": "int(11) unsigned"
     },
-    "ca_license_number": {
-      "default": null,
-      "encrypted": true,
+    "close_time": {
+      "default": "5",
+      "encrypted": false,
       "hashed": false,
-      "required": false,
+      "required": true,
       "rules": null,
-      "type": "string",
-      "dbType": "blob"
+      "type": "number",
+      "dbType": "tinyint(2)"
     },
     "email": {
       "default": null,
@@ -183,23 +201,14 @@ const properties = {
       "type": "string",
       "dbType": "blob"
     },
-    "logo": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "varchar(75)"
-    },
-    "name": {
-      "default": "",
+    "open_time": {
+      "default": "9",
       "encrypted": false,
       "hashed": false,
       "required": true,
       "rules": null,
-      "type": "string",
-      "dbType": "varchar(50)"
+      "type": "number",
+      "dbType": "tinyint(2)"
     },
     "phone": {
       "default": null,
@@ -210,26 +219,8 @@ const properties = {
       "type": "string",
       "dbType": "blob"
     },
-    "slug": {
+    "primary": {
       "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "varchar(30)"
-    },
-    "website": {
-      "default": null,
-      "encrypted": true,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "blob"
-    },
-    "wholesale": {
-      "default": 0,
       "encrypted": false,
       "hashed": false,
       "required": false,
@@ -237,23 +228,14 @@ const properties = {
       "type": "number",
       "dbType": "tinyint(1)"
     },
-    "wholesale_agreement_signed": {
+    "zip": {
       "default": null,
       "encrypted": false,
       "hashed": false,
       "required": false,
       "rules": null,
-      "type": "datetime",
-      "dbType": "datetime"
-    },
-    "enable_optout": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
       "type": "number",
-      "dbType": "tinyint(1)"
+      "dbType": "mediumint(5) unsigned"
     },
     "created": {
       "default": null,

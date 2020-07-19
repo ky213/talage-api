@@ -6,9 +6,9 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 
 
-const tableName = 'clw_talage_agencies'
+const tableName = 'clw_talage_landing_pages'
 const skipCheckRequired = false;
-module.exports = class AgencyBO{
+module.exports = class LandingPageModel{
 
     #dbTableORM = null;
 
@@ -109,14 +109,77 @@ module.exports = class AgencyBO{
         }
     }
 
-    updateProperty(){
-        const dbJSON = this.#dbTableORM.cleanJSON()
+    updateProperty(noNulls = false){
+        const dbJSON = this.#dbTableORM.cleanJSON(noNulls)
         // eslint-disable-next-line guard-for-in
         for (const property in properties) {
-            this[property] = dbJSON[property];
+            if(noNulls === true){
+                if(dbJSON[property]){
+                  this[property] = dbJSON[property];
+                } else if(this[property]){
+                    delete this[property];
+                }
+            }
+            else {
+              this[property] = dbJSON[property];
+            }
         }
       }
-    
+
+    getLandingPageandInsurerBySlug(pageSlug){
+    //db.escape
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(pageSlug ){
+                let rejected = false;
+                let responseLandingPageJSON = {};
+                const sql = `select landing_page from clw_talage_landing_page_paths where path = ${db.escape(pageSlug)}`
+                const result = await db.query(sql).catch(function (error) {
+                    // Check if this was
+                    rejected = true;
+                    log.error(`clw_talage_landing_page_paths error on select ` + error + __location);
+                    reject("internal error");
+                });
+                if (!rejected) {
+                    
+                    if(result &&  result.length >0){
+                        const landingPagePath = result[0];
+                        responseLandingPageJSON.id =landingPagePath.landing_page;
+                        const sql2 = `select insurer, policy_type from clw_talage_landing_page_insurers where landing_page = ${landingPagePath.landing_page}`
+                        const result2 = await db.query(sql2).catch(function (error) {
+                            // Check if this was
+                            rejected = true;
+                            log.error(`clw_talage_landing_page_insurers error on select ` + error + __location);
+                            reject("internal error");
+                        });
+                        if (rejected) {
+                            resolve(responseLandingPageJSON);
+                        }
+                        else {
+                            responseLandingPageJSON.insurers = result2;
+                            resolve(responseLandingPageJSON);
+                        }
+                    }
+                    else {
+                        resolve(null);
+                    }
+
+                }
+                else {
+                    resolve(null);
+                }
+                const pagePathDB = result[0];
+
+            }
+            else {
+                reject(new Error('no pageSlug supplied'))
+            }
+        });
+
+    }
+    //     return true;
+    // }
+
 }
 
 const properties = {
@@ -138,60 +201,6 @@ const properties = {
       "type": "number",
       "dbType": "tinyint(1)"
     },
-    "agency_network": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
-    },
-    "ca_license_number": {
-      "default": null,
-      "encrypted": true,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "blob"
-    },
-    "email": {
-      "default": null,
-      "encrypted": true,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "blob"
-    },
-    "fname": {
-      "default": null,
-      "encrypted": true,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "blob"
-    },
-    "lname": {
-      "default": null,
-      "encrypted": true,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "blob"
-    },
-    "logo": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "varchar(75)"
-    },
     "name": {
       "default": "",
       "encrypted": false,
@@ -201,59 +210,41 @@ const properties = {
       "type": "string",
       "dbType": "varchar(50)"
     },
-    "phone": {
-      "default": null,
-      "encrypted": true,
+    "heading": {
+      "default": "",
+      "encrypted": false,
       "hashed": false,
-      "required": false,
+      "required": true,
       "rules": null,
       "type": "string",
-      "dbType": "blob"
+      "dbType": "varchar(50)"
     },
-    "slug": {
-      "default": null,
+    "sub_heading": {
+      "default": "",
       "encrypted": false,
       "hashed": false,
-      "required": false,
+      "required": true,
       "rules": null,
       "type": "string",
-      "dbType": "varchar(30)"
+      "dbType": "varchar(100)"
     },
-    "website": {
-      "default": null,
-      "encrypted": true,
+    "banner": {
+      "default": "",
+      "encrypted": false,
       "hashed": false,
-      "required": false,
+      "required": true,
       "rules": null,
       "type": "string",
-      "dbType": "blob"
+      "dbType": "varchar(150)"
     },
-    "wholesale": {
-      "default": 0,
+    "logo": {
+      "default": "",
       "encrypted": false,
       "hashed": false,
-      "required": false,
+      "required": true,
       "rules": null,
-      "type": "number",
-      "dbType": "tinyint(1)"
-    },
-    "wholesale_agreement_signed": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "datetime",
-      "dbType": "datetime"
-    },
-    "enable_optout": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "tinyint(1)"
+      "type": "string",
+      "dbType": "varchar(150)"
     },
     "created": {
       "default": null,
