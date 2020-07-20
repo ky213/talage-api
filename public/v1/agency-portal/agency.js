@@ -67,11 +67,11 @@ async function deleteAgency(req, res, next){
 
 	// Update the Agency (we set the state to -2 to signify that the Agency is deleted)
 	const updateSQL = `
-			UPDATE \`#__agencies\`
+			UPDATE clw_talage_agencies
 			SET
-				\`state\` = -2
+				state = -2
 			WHERE
-				\`id\` = ${id}
+				id = ${id}
 			LIMIT 1;
 		`;
 
@@ -271,23 +271,23 @@ async function getAgency(req, res, next){
 
 	// Query the database
 	const allTerritories = await db.query(allTerritoriesSQL).catch(function(err){
-		log.error(err.message);
+		log.error('DB query failed: ' + err.message + __location);
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});
 	const locations = await db.query(locationsSQL).catch(function(err){
-		log.error(err.message);
+		log.error('DB query failed: ' + err.message + __location);
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});
 	const networkInsurers = await db.query(networkInsurersSQL).catch(function(err){
-		log.error(err.message);
+		log.error('DB query failed: ' + err.message + __location);
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});
 	const pages = await db.query(pagesSQL).catch(function(err){
-		log.error(err.message);
+		log.error('DB query failed: ' + err.message + __location);
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});
 	const users = await db.query(userSQL).catch(function(err){
-		log.error(err.message);
+		log.error('DB query failed: ' + err.message + __location);
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});
 

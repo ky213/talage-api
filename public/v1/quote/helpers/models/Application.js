@@ -323,31 +323,28 @@ module.exports = class Application {
                         if(agency_location_insurer_data){
                             if(agency_location_insurer_data.enabled){
                                 let slug = '';
-                                let supported = false;
                                 // If agency wants to send acord, send acord
-                                if(agency_location_insurer_data.useAcord){
+                                if(agency_location_insurer_data.useAcord === 1 && insurer.policy_type_details[policy.type].acord_support === 1){
                                     slug = 'acord';
-                                    supported = insurer.policy_type_details[policy.type].acord_support;
                                 }
                                 // Otherwise use the api
-                                else{
+                                if(insurer.policy_type_details[policy.type.toUpperCase()].api_support === 1){
                                     slug = insurer.slug;
-                                    supported = insurer.policy_type_details[policy.type].api_support;
                                 }
 
-                                const normalizedPath = `${__dirname}/../integrations/${slug}/${policy.type.toLowerCase()}.js`;
-                                if(fs.existsSync(normalizedPath) && supported){
+                                let normalizedPath = `${__dirname}/../integrations/${slug}/${policy.type.toLowerCase()}.js`;
+                                if(slug.length > 0 && fs.existsSync(normalizedPath)){
                                     // Require the integration file and add the response to our promises
                                     const IntegrationClass = require(normalizedPath);
                                     const integration = new IntegrationClass(this, insurer, policy);
                                     quote_promises.push(integration.quote());
                                 }
                                 else{
-                                    log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. ${insurer.name} ${policy.type}` + __location);
+                                    log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} ${insurer.name} ${policy.type}` + __location);
                                 }
                             }
                             else{
-                                log.error(`${policy.type} is not enabled for insurer ${insurer.id}.` + __location);
+                                log.error(`${policy.type} is not enabled for insurer ${insurer.id} for Agency location ${this.agencyLocation.id}` + __location);
                             }
                         }
                         else{

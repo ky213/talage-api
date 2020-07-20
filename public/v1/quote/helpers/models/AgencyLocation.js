@@ -54,8 +54,8 @@ module.exports = class AgencyLocation{
 			// SQL for getting agency / location details
 			queries.push(`
 				SELECT ag.id, ag.agency_network, a.email, a.fname, a.lname, ag.name, ag.phone, ag.website, ag.wholesale
-				FROM clw_talage_agency_locations, a
-				LEFT JOIN clw_talage_agencies, ag ON a.agency = ag.id
+				FROM clw_talage_agency_locations a
+				LEFT JOIN clw_talage_agencies ag ON a.agency = ag.id
 				WHERE ${where} LIMIT 1;
 			`);
 
@@ -111,7 +111,7 @@ module.exports = class AgencyLocation{
 
 					// Decrypt the agent's information
 					if(!insurer.agency_id){
-						log.warn('Agency missing Agency ID in configuration.' + __location);
+						log.error('Agency missing Agency ID in configuration. Agency Location ID: ' + this.id + __location);
 						return;
 					}
 					insurer.agency_id = await crypt.decrypt(insurer.agency_id); // eslint-disable-line no-await-in-loop
@@ -119,7 +119,7 @@ module.exports = class AgencyLocation{
 					// Only decrypt agent_id setting if the insurer has enabled the field
 					if (insurer.enable_agent_id){
 						if(!insurer.agent_id){
-							log.warn('Agency missing Agent ID in configuration.' + __location);
+							log.error('Agency missing Agent ID in configuration. Agency Location ID: ' + this.id + __location);
 							return;
 						}
 						insurer.agent_id = await crypt.decrypt(insurer.agent_id.toString()); // eslint-disable-line no-await-in-loop
