@@ -5,9 +5,10 @@ const DatabaseObject = require('./DatabaseObject.js');
 const tracker = global.requireShared('./helpers/tracker.js');
 
 
-const tableName = 'clw_talage_quotes'
+
+const tableName = 'clw_talage_landing_pages'
 const skipCheckRequired = false;
-module.exports = class ApplicationClaimModel{
+module.exports = class LandingPageModel{
 
     #dbTableORM = null;
 
@@ -87,27 +88,6 @@ module.exports = class ApplicationClaimModel{
         });
     }
 
-    DeleteByApplicationId(applicationId) {
-        return new Promise(async(resolve, reject) => {
-            //Remove old records.
-            const sql =`DELETE FROM ${tableName} 
-                   WHERE application = ${applicationId}
-            `;
-            let rejected = false;
-			const result = await db.query(sql).catch(function (error) {
-				// Check if this was
-				log.error("Database Object ${tableName} DELETE error :" + error + __location);
-				rejected = true;
-				reject(error);
-			});
-			if (rejected) {
-				return false;
-			}
-            resolve(true);
-       });
-    }
-
-
     async cleanupInput(inputJSON){
         for (const property in properties) {
             if(inputJSON[property]){
@@ -129,24 +109,76 @@ module.exports = class ApplicationClaimModel{
         }
     }
 
-    updateProperty(){
-        const dbJSON = this.#dbTableORM.cleanJSON()
+    updateProperty(noNulls = false){
+        const dbJSON = this.#dbTableORM.cleanJSON(noNulls)
         // eslint-disable-next-line guard-for-in
         for (const property in properties) {
-            this[property] = dbJSON[property];
+            if(noNulls === true){
+                if(dbJSON[property]){
+                  this[property] = dbJSON[property];
+                } else if(this[property]){
+                    delete this[property];
+                }
+            }
+            else {
+              this[property] = dbJSON[property];
+            }
         }
       }
 
-    /**
-	 * Load new object JSON into ORM. can be used to filter JSON to object properties
-     *
-	 * @param {object} inputJSON - input JSON
-	 * @returns {void} 
-	 */
-    async loadORM(inputJSON){
-        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
-        return true;
+    getLandingPageandInsurerBySlug(pageSlug){
+    //db.escape
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(pageSlug ){
+                let rejected = false;
+                let responseLandingPageJSON = {};
+                const sql = `select landing_page from clw_talage_landing_page_paths where path = ${db.escape(pageSlug)}`
+                const result = await db.query(sql).catch(function (error) {
+                    // Check if this was
+                    rejected = true;
+                    log.error(`clw_talage_landing_page_paths error on select ` + error + __location);
+                    reject("internal error");
+                });
+                if (!rejected) {
+                    
+                    if(result &&  result.length >0){
+                        const landingPagePath = result[0];
+                        responseLandingPageJSON.id =landingPagePath.landing_page;
+                        const sql2 = `select insurer, policy_type from clw_talage_landing_page_insurers where landing_page = ${landingPagePath.landing_page}`
+                        const result2 = await db.query(sql2).catch(function (error) {
+                            // Check if this was
+                            rejected = true;
+                            log.error(`clw_talage_landing_page_insurers error on select ` + error + __location);
+                            reject("internal error");
+                        });
+                        if (rejected) {
+                            resolve(responseLandingPageJSON);
+                        }
+                        else {
+                            responseLandingPageJSON.insurers = result2;
+                            resolve(responseLandingPageJSON);
+                        }
+                    }
+                    else {
+                        resolve(null);
+                    }
+
+                }
+                else {
+                    resolve(null);
+                }
+                const pagePathDB = result[0];
+
+            }
+            else {
+                reject(new Error('no pageSlug supplied'))
+            }
+        });
+
     }
+    //     return true;
+    // }
 
 }
 
@@ -164,154 +196,55 @@ const properties = {
       "default": "1",
       "encrypted": false,
       "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "tinyint(1)"
-    },
-    "policy_type": {
-      "default": "WC",
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "string",
-      "dbType": "varchar(3)"
-    },
-    "application": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
-    },
-    "insurer": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
-    },
-    "number": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "varchar(15)"
-    },
-    "package_type": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
-    },
-    "request_id": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "varchar(36)"
-    },
-    "amount": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "float(9,2) unsigned"
-    },
-    "seconds": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "tinyint(4) unsigned"
-    },
-    "status": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "varchar(19)"
-    },
-    "api_result": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "varchar(19)"
-    },
-    "bound": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
       "required": true,
       "rules": null,
       "type": "number",
       "dbType": "tinyint(1)"
     },
-    "log": {
+    "name": {
       "default": "",
       "encrypted": false,
       "hashed": false,
       "required": true,
       "rules": null,
       "type": "string",
-      "dbType": "mediumblob"
+      "dbType": "varchar(50)"
     },
-    "payment_plan": {
-      "default": null,
+    "heading": {
+      "default": "",
       "encrypted": false,
       "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
-    },
-    "reasons": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "varchar(500)"
-    },
-    "quote_letter": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "varchar(40)"
-    },
-    "writer": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
+      "required": true,
       "rules": null,
       "type": "string",
       "dbType": "varchar(50)"
+    },
+    "sub_heading": {
+      "default": "",
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "varchar(100)"
+    },
+    "banner": {
+      "default": "",
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "varchar(150)"
+    },
+    "logo": {
+      "default": "",
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "varchar(150)"
     },
     "created": {
       "default": null,
@@ -366,6 +299,24 @@ const properties = {
       "rules": null,
       "type": "number",
       "dbType": "int(11) unsigned"
+    },
+    "checked_out": {
+      "default": 0,
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "number",
+      "dbType": "int(11)"
+    },
+    "checked_out_time": {
+      "default": null,
+      "encrypted": false,
+      "hashed": false,
+      "required": false,
+      "rules": null,
+      "type": "datetime",
+      "dbType": "datetime"
     }
   }
 

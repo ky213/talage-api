@@ -163,13 +163,24 @@ module.exports = class BusinessAddressModel{
         }
     }
 
-    updateProperty(){
-        const dbJSON = this.#dbTableORM.cleanJSON()
+    updateProperty(noNulls = false){
+        const dbJSON = this.#dbTableORM.cleanJSON(noNulls)
         // eslint-disable-next-line guard-for-in
         for (const property in properties) {
             this[property] = dbJSON[property];
         }
       }
+    
+      /**
+	 * Load new object JSON into ORM. can be used to filter JSON to object properties
+     *
+	 * @param {object} inputJSON - input JSON
+	 * @returns {void} 
+	 */
+    async loadORM(inputJSON){
+        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
+        return true;
+    }
 
 }
 

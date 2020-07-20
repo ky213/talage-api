@@ -103,7 +103,7 @@ async function deleteAgency(req, res, next){
  */
 async function getAgency(req, res, next){
 	let error = false;
-
+	
 	// Determine which permissions group to use (start with the default permission needed by an agency network)
 	let permissionGroup = 'agencies';
 
@@ -233,13 +233,19 @@ async function getAgency(req, res, next){
 			\`i\`.\`id\`,
 			\`i\`.\`logo\`,
 			\`i\`.\`name\`,
+			\`i\`.agency_id_label,
+			\`i\`.agent_id_label,
+			\`i\`.enable_agent_id,
 		GROUP_CONCAT(\`it\`.\`territory\`) AS \`territories\`
 		FROM \`clw_talage_agency_network_insurers\` AS \`agi\`
 		LEFT JOIN \`clw_talage_insurers\` AS \`i\` ON \`agi\`.\`insurer\` = \`i\`.\`id\`
 		LEFT JOIN \`clw_talage_insurer_territories\` AS \`it\` ON \`i\`.\`id\` = \`it\`.\`insurer\`
+		LEFT JOIN \`clw_talage_insurer_policy_types\` AS \`pti\` ON \`i\`.\`id\` = \`pti\`.\`insurer\`
 		WHERE
 			\`i\`.\`id\` IN (${req.authentication.insurers.join(',')}) AND
-			\`i\`.\`state\` = 1
+			\`i\`.\`state\` = 1 AND
+			\`pti\`.\`wheelhouse_support\` = 1
+
 		GROUP BY \`i\`.\`id\`
 		ORDER BY \`i\`.\`name\` ASC;
 	`;
@@ -299,12 +305,16 @@ async function getAgency(req, res, next){
 	// Get the insurers and territories
 	if(req.authentication.insurers.length && locationIDs.length){
 
+		
 		// Define queries for insurers and territories
 		const insurersSQL = `
 				SELECT
 					${db.quoteName('i.id', 'insurer')},
 					${db.quoteName('i.logo')},
 					${db.quoteName('i.name')},
+					${db.quoteName('i.agency_id_label', 'agency_id_label')},
+					${db.quoteName('i.agent_id_label', 'agent_id_label')},
+					${db.quoteName('i.enable_agent_id', 'enable_agent_id')},					
 					${db.quoteName('li.id')},
 					${db.quoteName('li.agency_location', 'locationID')},
 					${db.quoteName('li.agency_id', 'agencyId')},
@@ -314,10 +324,12 @@ async function getAgency(req, res, next){
 					${db.quoteName('li.wc')}
 				FROM ${db.quoteName('#__agency_location_insurers', 'li')}
 				LEFT JOIN ${db.quoteName('#__insurers', 'i')} ON ${db.quoteName('li.insurer')} = ${db.quoteName('i.id')}
+				LEFT JOIN ${db.quoteName('#__insurer_policy_types','pti')} ON ${db.quoteName('i.id')} = ${db.quoteName('pti.insurer')}
 				WHERE
 					${db.quoteName('li.agency_location')} IN (${locationIDs.join(',')}) AND
 					${db.quoteName('i.id')} IN (${req.authentication.insurers.join(',')}) AND
-					${db.quoteName('i.state')} > 0
+					${db.quoteName('i.state')} > 0 AND
+					${db.quoteName('pti.wheelhouse_support')} = 1
 				ORDER BY ${db.quoteName('i.name')} ASC;
 			`;
 
@@ -336,6 +348,7 @@ async function getAgency(req, res, next){
 			log.error(err.message);
 			return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 		});
+
 		territories = await db.query(territoriesSQL).catch(function(err){
 			log.error(err.message);
 			return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
@@ -458,6 +471,7 @@ async function postAgency(req, res, next){
 	const insurersSQL = `
 			SELECT
 				${db.quoteName('i.id')},
+				${db.quoteName('i.enable_agent_id')},
 				GROUP_CONCAT(${db.quoteName('it.territory')}) AS ${db.quoteName('territories')}
 			FROM ${db.quoteName('#__insurers', 'i')}
 			LEFT JOIN ${db.quoteName('#__insurer_territories', 'it')} ON ${db.quoteName('it.insurer')} = ${db.quoteName('i.id')}
@@ -510,6 +524,21 @@ async function postAgency(req, res, next){
 			if (!req.body.agencyIds[insurerID]){
 				return next(serverHelper.requestError('An agency ID is required for each insurer.'));
 			}
+
+			// Make sure the agentId field wasn't left blank for insurers that require agent id
+			const maybeInsurer = insurers.filter((ins)=> {
+				return ins.id == insurerID;
+			});
+			const insurer = maybeInsurer.length > 0 ? maybeInsurer[0] : null;
+			// if we find the insurer and the enable agent id is true and the agentId field is empty then throw error
+			if(insurer !== null){
+				if(insurer.enable_agent_id === 1 && !req.body.agentIds[insurerID]){
+					return next(serverHelper.requestError('An Agent ID is required for each insurer.'));
+				}
+			} else {
+				log.warn('We have in insurer info being sent to the backend \
+					with an insurer id that does not exist in the db. Error at ' + __location)
+			}
 		}
 	}
 
@@ -520,6 +549,7 @@ async function postAgency(req, res, next){
 	const name = req.body.name;
 	const territories = req.body.territories;
 	const agencyIds = req.body.agencyIds;
+	const agentIds = req.body.agentIds;
 
 	// Make sure we don't already have an user tied to this email address
 	const emailHash = await crypt.hash(email);
@@ -683,8 +713,9 @@ async function postAgency(req, res, next){
 		if (Object.prototype.hasOwnProperty.call(agencyIds, insurerID)){
 			// eslint-disable-next-line  no-await-in-loop
 			const insureragencyId = await crypt.encrypt(agencyIds[insurerID]);
+			// check to see if we have agent id if we do then encrypt it else we will just set the value to null
 			// eslint-disable-next-line  no-await-in-loop
-			const insureragentId = await crypt.encrypt('placeholder-unsupported');
+			const  insureragentId = Object.prototype.hasOwnProperty.call(agentIds, insurerID) ? await crypt.encrypt(agentIds[insurerID]) : null;
 			agencyIdValues.push(`(${db.escape(locationID)}, ${db.escape(insurerID)}, ${db.escape(insureragencyId)}, ${db.escape(insureragentId)}, 0, 0 ,1)`);
 		}
 	}

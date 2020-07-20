@@ -8,7 +8,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 const tableName = 'clw_talage_agencies'
 const skipCheckRequired = false;
-module.exports = class AgencyPortalUserBO{
+module.exports = class AgencyBO{
 
     #dbTableORM = null;
 
