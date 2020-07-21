@@ -24,7 +24,7 @@ const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 
 const slackSvc = global.requireShared('./services/slacksvc.js');
 const emailSvc = global.requireShared('./services/emailsvc.js');
-const crypt = global.requireShared('./services/crypt.js');
+//const crypt = global.requireShared('./services/crypt.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 /**
@@ -478,10 +478,10 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGet('GetAssociations for Quote Engine', `${basePath}wf/getassociations`, GetAssociations)
     server.addPostAuthAppWF('Post Application Error', `${basePath}/applicationwf/reporterror`, ReportError);
     server.addPostAuthAppWF('Post Application Error(depr)', `${basePath}wf/reporterror`, ReportError);
-    //server.addPostAuthAppWF('Post Application agencyemail', `${basePath}/applicationwf/agencyemail`, AgencyEmail);
-    //server.addPostAuthAppWF('Post Application agencyemail(depr)', `${basePath}wf/agencyemail`, AgencyEmail);
-    server.addPost('Post Application agencyemail', `${basePath}/applicationwf/agencyemail`, AgencyEmail);
-    server.addPost('Post Application agencyemail(depr)', `${basePath}wf/agencyemail`, AgencyEmail);
+    server.addPostAuthAppWF('Post Application agencyemail', `${basePath}/applicationwf/agencyemail`, AgencyEmail);
+    server.addPostAuthAppWF('Post Application agencyemail(depr)', `${basePath}wf/agencyemail`, AgencyEmail);
+    // server.addPost('Post Application agencyemail', `${basePath}/applicationwf/agencyemail`, AgencyEmail);
+    // server.addPost('Post Application agencyemail(depr)', `${basePath}wf/agencyemail`, AgencyEmail);
 };
 
 
