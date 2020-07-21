@@ -1,5 +1,5 @@
 'use strict';
-const AgencyLocation = global.requireShared('./models/AgencyLocation-model.js');
+const AgencyLocationModel = global.requireShared('./models/AgencyLocation-model.js');
 // const crypt = global.requireShared('./services/crypt.js');
 // const util = require('util');
 const auth = require('./helpers/auth.js');
@@ -45,7 +45,7 @@ async function createAgencyLocation(req, res, next){
 	req.body.id = 0;
 
 	// Initialize an agency object
-	const location = new AgencyLocation();
+	const location = new AgencyLocationModel();
 
 	// Load the request data into it
 	await location.load(req.body).catch(function(err){
@@ -217,6 +217,7 @@ function getAgencyByLocationId(id){
  * @returns {void}
  */
 async function updateAgencyLocation(req, res, next){
+    log.debug('updateAgencyLocation: ' + JSON.stringify(req.body))
 	let error = false;
 
 	// Determine which permissions group to use (start with the default permission needed by an agency network)
@@ -285,7 +286,7 @@ async function updateAgencyLocation(req, res, next){
 	}
 
 	// Initialize an agency object
-	const location = new AgencyLocation();
+	const location = new AgencyLocationModel();
 
 	// Load the request data into it
 	await location.load(req.body).catch(function(err){

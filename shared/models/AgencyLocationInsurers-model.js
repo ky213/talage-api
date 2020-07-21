@@ -57,14 +57,33 @@ const properties = {
 		'required': false,
 		'rules': [],
 		'type': 'number'
-	}
-
-	// Bop
-	// Gl
+    },
+    'gl': {
+		'default': 1,
+		'encrypted': false,
+		'required': false,
+		'rules': [],
+		'type': 'number'
+    },
+    'bop': {
+		'default': 1,
+		'encrypted': false,
+		'required': false,
+		'rules': [],
+		'type': 'number'
+    },
+    'policy_type_info' : {
+		'default': null,
+		'encrypted': false,
+		'required': false,
+		'rules': [],
+        'type': 'json',
+        "dbType": "json"
+    }
 };
 
 module.exports = class AgencyLocationInsurers extends DatabaseObject{
 	constructor(){
-		super('#__agency_location_insurers', properties);
+		super('clw_talage_agency_location_insurers', properties);
 	}
 };
