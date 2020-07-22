@@ -69,6 +69,9 @@
 						<Addr2>{{:primaryLocation.address2.substring(0,40)}}</Addr2>
 						{{/if}}
 						<City>{{:~ucwords(primaryLocation.city).substring(0,30)}}</City>
+						{{if primaryLocation.county}}
+						<County>{{:primaryLocation.county.substring(0,60)}}</County>
+						{{/if}}
 						<StateOrProvCd>{{:primaryLocation.territory}}</StateOrProvCd>
 						<PostalCode>{{:primaryLocation.zip.substring(0,5)}}</PostalCode>
 						<Country>US</Country>
@@ -83,6 +86,9 @@
 						<Addr2>{{:~location.address2.substring(0,40)}}</Addr2>
 						{{/if}}
 						<City>{{:~ucwords(~location.city).substring(0,30)}}</City>
+						{{if location.county}}
+						<County>{{:~location.county.substring(0,60)}} County</County>
+						{{/if}}
 						<StateOrProvCd>{{:~location.territory}}</StateOrProvCd>
 						<PostalCode>{{:~location.zip.substring(0,5)}}</PostalCode>
 						<Country>US</Country>
@@ -118,8 +124,9 @@
 					<HardwareWork>No</HardwareWork> {{!-- LIMITED CLASSES: Does your business manufacture, design, or assist in the design of any hardware or components? --}}
 					<SimilarInsurance>No</SimilarInsurance> {{!-- ALL CLASSES EXCEPT LJR, SC, and Mobile Food Service: Do you currently have an insurance policy in effect for the coverage requested? --}}
 					<SimilarInsuranceCarrier>Insurance</SimilarInsuranceCarrier> {{!-- Only when the prior one is answered yes. THIS IS REQUIRED --}}
-					<HireNonOwnVehclUse>No</HireNonOwnVehclUse>{{!-- All CoBs, except: LJR, Small Contractors, Mobile Foood Services --}}
+					<HireNonOwnVehclUse>No</HireNonOwnVehclUse>{{!-- All CoBs, except: LJR, Small Contractors, Mobile Food Services --}}
 					<ForbiddenProjectsJanitorial>No</ForbiddenProjectsJanitorial>{{!-- This is a class specific question --}}
+					<BeautyServices2>Yes</BeautyServices2>
 				</RatingInfo>
 				<GeneralLiabilityCoverQuoteRq>
 					<CoverId>CGL</CoverId>

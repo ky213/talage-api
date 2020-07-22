@@ -168,12 +168,44 @@ module.exports = class HiscoxGL extends Integration {
 			}
 			this.effectiveDate = this.policy.effective_date.format('YYYY-MM-DD');
 
+			// Make a local copy of locations so that any Hiscox specific changes we make don't affect other integrations
+			const locations = [...this.app.business.locations];
+
+			// Hiscox requires a county be supplied in three states, in all other states, remove the county
+			for(const location of locations){
+				if(['FL', 'MO', 'TX'].includes(location.territory)){
+					// Hiscox requires a county
+
+					// There are special conditions in Harris County, TX, Jackson County, MO, Clay County, MO, Cass County, MO, and Platte County, MO
+					if(location.territory === 'MO' && ['Cass', 'Clay', 'Jackson', 'Platte'].includes(location.county)){
+						// For Clay County, MO - Check whether or not we are looking at Kansas City
+						if(location.city === 'KANSAS CITY'){
+							location.county = `${location.county} county (Kansas City)`;
+						}else{
+							location.county = `${location.county} county (other than Kansas City)`;
+						}
+					}else if(location.territory === 'TX' && location.county === 'Harris'){
+						// For Harris County, TX - Check whether or not we are looking at Houston
+						if(location.city === 'HOUSTON'){
+							location.county = 'Harris county (Houston)';
+						}else{
+							location.county = 'Harris county (other than Houston)';
+						}
+					}else{
+						// Hiscox requires the word 'county' on the end of the county name
+						location.county = `${location.county} county`;
+					}
+				}else{
+					// Hiscox does not want a territory, set it to false so the integration doesn't include it
+					location.county = false;
+				}
+			}
+
 			// Determine the primary and secondary locations
-			this.primaryLocation = this.app.business.locations[0];
+			this.primaryLocation = locations[0];
 			this.secondaryLocations = false;
 			if(this.app.business.locations.length > 1){
-				this.secondaryLocations = [...this.app.business.locations];
-				this.secondaryLocations.shift();
+				this.secondaryLocations = locations.shift();
 			}
 
 			// Get a token from their auth server
@@ -331,8 +363,6 @@ log.debug(xml);
 
 						if(err.httpStatusCode === 422 && Object.prototype.hasOwnProperty.call(err, 'response')){
 
-						log.debug(util.inspect(err.response, false, null));
-
 							// Convert the response to XML
 							xmlToObj(err.response, (e, xmlResponse) => {
 								// Check if there was an error parsing the XML
@@ -378,7 +408,7 @@ log.debug(xml);
 									&& Array.isArray(xmlResponse.InsuranceSvcRq.Errors[0].Error)
 									&& xmlResponse.InsuranceSvcRq.Errors[0].Error.length > 0
 								){
-									// Check for an error response
+									// Check for an error response (this includes declined applications)
 
 									// Localize the validation errors for easier reference
 									const errorResponses = xmlResponse.InsuranceSvcRq.Errors[0].Error;
@@ -388,9 +418,16 @@ log.debug(xml);
 										if(Object.prototype.hasOwnProperty.call(errorResponse, 'Code')
 											&& Object.prototype.hasOwnProperty.call(errorResponse, 'Description')
 										){
-											const reason = `${errorResponse.Description} (${errorResponse.Code})`;
-											log.error(`${this.insurer.name} ${this.policy.type} Integration Error: ${reason}`);
-											this.reasons.push(reason);
+											if(errorResponse.Code[0].startsWith('DECLINE')){
+												// Return an error result
+												fulfill(this.return_result('declined'));
+												return;
+											}else{
+												// Non-decline error
+												const reason = `${errorResponse.Description[0]} (${errorResponse.Code[0]})`;
+												log.error(`${this.insurer.name} ${this.policy.type} Integration Error: ${reason}`);
+												this.reasons.push(reason);
+											}
 										}else{
 											log.error(`${this.insurer.name} ${this.policy.type} Integration Error: API returned validation errors, but not as an array as expected. ${JSON.stringify(validationError)}` + __location);
 											this.reasons.push(`API returned an error that could not be parsed. Validation object missing one of the following: DataItem, Status, XPath`);

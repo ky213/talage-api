@@ -17,6 +17,7 @@ module.exports = class Location{
 		this.address = '';
 		this.address2 = '';
 		this.city = '';
+		this.county = '';
 		this.full_time_employees = 0;
 		this.identification_number = '';
 		this.identification_number_type = null;
@@ -195,9 +196,10 @@ else{
 				}
 
 				// Make sure we have match in our database
-				await db.query(`SELECT \`city\`, \`territory\` FROM \`#__zip_codes\` WHERE \`zip\` = ${this.zip} LIMIT 1;`).then((row) => {
+				await db.query(`SELECT \`city\`, \`county\`, \`territory\` FROM \`#__zip_codes\` WHERE \`zip\` = ${this.zip} LIMIT 1;`).then((row) => {
 					if(row){
 						this.city = row[0].city;
+						this.county = row[0].county;
 						this.territory = row[0].territory;
 					}
 else{
