@@ -1,12 +1,14 @@
 'use strict';
 const AgencyLocationModel = global.requireShared('./models/AgencyLocation-model.js');
-// const crypt = global.requireShared('./services/crypt.js');
+const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
+
 // const util = require('util');
 const auth = require('./helpers/auth.js');
 const validator = global.requireShared('./helpers/validator.js');
 const serverHelper = require('../../../server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+
 
 /**
  * Creates a single Agency Location
@@ -311,8 +313,58 @@ async function updateAgencyLocation(req, res, next){
 	return next();
 }
 
+/**
+ * Return location List used for selecting a location
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function getSelectionList(req, res, next){
+   //log.debug('getSelectionList: ' + JSON.stringify(req.body))
+	let error = false;
+
+	// Determine which permissions group to use (start with the default permission needed by an agency network)
+	let permissionGroup = 'agencies';
+
+	// If this is not an agency network, use the agency specific permissions
+	if(req.authentication.agencyNetwork === false){
+		permissionGroup = 'settings';
+	}
+
+	// Make sure the authentication payload has everything we are expecting
+	await auth.validateJWT(req, permissionGroup, 'view').catch(function(e){
+		error = e;
+	});
+	if(error){
+		return next(error);
+	}
+
+
+    // Determine the agency ID
+	const agencyId = req.authentication.agents[0];
+
+	// Initialize an agency object
+	const agencyLocationBO = new AgencyLocationBO();
+
+	// Load the request data into it
+	const locationList = await agencyLocationBO.getSelectionList(agencyId).catch(function(err){
+        log.error("Location load error " + err + __location);
+		error = err;
+	});
+	if(error){
+		return next(error);
+	}
+	// Send back a success response
+	res.send(200, locationList);
+	return next();
+}
+
 exports.registerEndpoint = (server, basePath) => {
 	server.addDeleteAuth('Delete Agency Location', `${basePath}/agency-location`, deleteAgencyLocation);
 	server.addPostAuth('Post Agency Location', `${basePath}/agency-location`, createAgencyLocation);
-	server.addPutAuth('Put Agency Location', `${basePath}/agency-location`, updateAgencyLocation);
+    server.addPutAuth('Put Agency Location', `${basePath}/agency-location`, updateAgencyLocation);
+    server.addGetAuth('GET Agency Location List for Selection', `${basePath}/agency-location/selectionlist`, getSelectionList);
 };

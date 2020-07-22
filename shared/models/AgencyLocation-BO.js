@@ -3,6 +3,7 @@
 const DatabaseObject = require('./DatabaseObject.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+const crypt = global.requireShared('./services/crypt.js');
 
 
 
@@ -116,6 +117,38 @@ module.exports = class AgencyLocationBO{
             this[property] = dbJSON[property];
         }
       }
+    async getSelectionList(agencyId){
+        if(agencyId){
+            let rejected = false;
+                let responseLandingPageJSON = {};
+                let reject  = false;
+                const sql = `select al.id, al.address, z.city, z.territory, al.zip  
+                    from clw_talage_agency_locations al
+                    left outer join clw_talage_zip_codes z on z.zip = al.zip
+                
+                    where agency = ${agencyId}`
+                const result = await db.query(sql).catch(function (error) {
+                    // Check if this was
+                    rejected = true;
+                    log.error(`clw_talage_landing_page_paths error on select ` + error + __location);
+                });
+                if (!rejected && result && result.length >0) {
+                    //created encrypt and format
+                    for(var i = 0; i < result.length; i++){
+                        let location = result[i];
+                        location.address = await crypt.decrypt(location.address);
+                        location.address = location.address + " " + location.city + " " + location.territory + " " +  location.zip;
+                    }
+                    return result;
+                }
+                else {
+                    return [];
+                }
+        }
+        else {
+            throw new Error("No agency id");
+        }
+    }
     
 }
 
