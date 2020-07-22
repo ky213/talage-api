@@ -337,8 +337,9 @@ async function createLandingPage(req, res, next) {
 		agency: agency,
 		banner: data.banner,
 		color_scheme: data.colorScheme,
-		heading: data.heading,
-		industry_code: data.industryCode,
+        heading: data.heading,
+        agency_location_id: req.body.agencyLocationId,
+        industry_code: data.industryCode,
 		industry_code_category: data.industryCodeCategory,
 		intro_heading: data.introHeading,
 		intro_text: data.introText,
@@ -501,7 +502,8 @@ async function getLandingPage(req, res, next) {
 	// Build a query that will return all of the landing pages
 	const landingPageSQL = `
 			SELECT
-				\`id\`,
+                \`id\`,
+                agency_location_id as agencyLocationId,
 				\`about\`,
 				\`banner\`,
 				\`color_scheme\` AS 'colorScheme',
@@ -578,6 +580,7 @@ async function getLandingPage(req, res, next) {
  * @returns {void}
  */
 async function updateLandingPage(req, res, next) {
+    log.debug("update landing page " + JSON.stringify(req.body));
 	let error = false;
 	// Determine the agency ID
 	const agency = req.authentication.agents[0];
@@ -604,7 +607,8 @@ async function updateLandingPage(req, res, next) {
 	if (!await validator.landingPageId(req.body.id)) {
 		throw new Error('ID is invalid');
 	}
-	data.id = req.body.id;
+    data.id = req.body.id;
+    data.agencyLocationId = req.body.agencyLocationId;
 
 	// Commit this update to the database
 	const sql = `
@@ -612,7 +616,8 @@ async function updateLandingPage(req, res, next) {
 			SET \`about\` = ${db.escape(data.about)},
 				\`banner\` = ${db.escape(data.banner)},
 				\`color_scheme\` = ${db.escape(data.colorScheme)},
-				\`heading\` = ${db.escape(data.heading)},
+                \`heading\` = ${db.escape(data.heading)},
+                \`agency_location_id\` = ${db.escape(data.agencyLocationId)},
 				\`industry_code\` = ${db.escape(data.industryCode)},
 				\`industry_code_category\` = ${db.escape(data.industryCodeCategory)},
 				\`intro_heading\` = ${db.escape(data.introHeading)},
