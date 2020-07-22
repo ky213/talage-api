@@ -18,16 +18,17 @@ exports.process = async function(requestJSON) {
     // to businessInfo
     //Clean inputs
     // Should be in request
+    const makeInt = true;
     requestJSON.solepro = stringFunctions.parseBool(requestJSON.solepro, false);
     requestJSON.solepro = requestJSON.solepro === true ? 1 : 0;
     requestJSON.wholesale = stringFunctions.parseBool(requestJSON.wholesale, false);
     requestJSON.wholesale = requestJSON.wholesale === true ? 1 : 0
 
     requestJSON.questions = {};
-    //let agencyLocation = 1;
-    // if(requestJSON.agencyLocation){
-    //     agencyLocation = stringFunctions.santizeNumber(requestJSON.agencyLocation, makeInt);
-    // }
+
+    if(requestJSON.agencyLocation){
+        requestJSON.agency_location = stringFunctions.santizeNumber(requestJSON.agencyLocation, makeInt);
+    }
     let question_answersJSON = null;
     if(requestJSON.question_answers){
         question_answersJSON = jsonFunctions.jsonParse(requestJSON.question_answers)
@@ -71,7 +72,7 @@ exports.process = async function(requestJSON) {
 
     delete requestJSON.question_answers;
     delete requestJSON.question_defaults
-    delete requestJSON.agency_location
+    //delete requestJSON.agency_location
 
     //log.debug("Owners Question requestJSON: " + JSON.stringify(requestJSON));
     return true;
