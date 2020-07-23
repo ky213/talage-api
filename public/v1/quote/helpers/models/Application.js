@@ -238,11 +238,11 @@ module.exports = class Application {
                             if(agency_location_insurer_data.enabled){
                                 let slug = '';
                                 // If agency wants to send acord, send acord
-                                if(agency_location_insurer_data.useAcord === 1 && insurer.policy_type_details[policy.type].acord_support === 1){
+								if(agency_location_insurer_data.useAcord === true && insurer.policy_type_details[policy.type].acord_support === 1){
                                     slug = 'acord';
                                 }
                                 // Otherwise use the api
-                                if(insurer.policy_type_details[policy.type.toUpperCase()].api_support === 1){
+								if(insurer.policy_type_details[policy.type.toUpperCase()].api_support === 1){
                                     slug = insurer.slug;
                                 }
 

@@ -19,6 +19,7 @@ module.exports = class AgencyLocation {
         this.agencyNetwork = '';
         this.agencyPhone = '';
         this.agencyWebsite = '';
+        this.emailBrand = '';
         this.first_name = '';
         this.id = 0;
         this.key = '';
@@ -53,9 +54,10 @@ module.exports = class AgencyLocation {
 
 			// SQL for getting agency / location details
 			queries.push(`
-				SELECT ag.id, ag.agency_network, a.email, a.fname, a.lname, ag.name, ag.phone, ag.website, ag.wholesale
+				SELECT ag.id, ag.agency_network, an.email_brand, a.email, a.fname, a.lname, ag.name, ag.phone, ag.website, ag.wholesale
 				FROM clw_talage_agency_locations a
 				LEFT JOIN clw_talage_agencies ag ON a.agency = ag.id
+				INNER JOIN clw_talage_agency_networks an ON ag.agency_network = an.id
 				WHERE ${where} LIMIT 1;
 			`);
 
@@ -100,6 +102,7 @@ module.exports = class AgencyLocation {
             this.agencyNetwork = agencyInfo[0].agency_network;
             this.agencyPhone = await crypt.decrypt(agencyInfo[0].phone);
             this.agencyWebsite = await crypt.decrypt(agencyInfo[0].website);
+            this.emailBrand = agencyInfo[0].email_brand;
             this.first_name = await crypt.decrypt(agencyInfo[0].fname);
             this.last_name = await crypt.decrypt(agencyInfo[0].lname);
             this.wholesale = Boolean(agencyInfo[0].wholesale);

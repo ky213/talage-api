@@ -9,6 +9,7 @@ const signature = require('./acordhelpers/signature.js');
 const generate = require('./acordhelpers/state-rating-sheets.js');
 const styles = require('./acordhelpers/document-style/acord-form-wc/styles.js');
 const positions = require('./acordhelpers/document-style/acord-form-wc/positions.js');
+
 /**
  * @typedef generatedAcord
  * @type {Object}
@@ -989,6 +990,8 @@ exports.create = async function(application_id, insurer_id){
 
 	// Create PDF
 	const doc = printer.createPdfKitDocument(docDefinition);
+
+
 
 	return {
 		'doc': doc,
