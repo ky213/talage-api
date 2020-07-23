@@ -129,6 +129,10 @@ exports.send = async function(recipients, subject, content, keys = {}, brand = '
         logoHTML = await getAgencyLogoHtml(emailJSON.agency).catch(function(err) {
             log.error('Email Svc getAgencyLogoHtml error: ' + err + __location);
         });
+        // Make sure to not get an undefined in email.
+        if(!logoHTML){
+            logoHTML = '';
+        }
         emailJSON.html = emailJSON.html.replace('{{logo}}', logoHTML);
     }
 
@@ -270,8 +274,8 @@ var sendUsingSendGrid = async function(emailJSON) {
     // Set the Sendgrid API key
     Sendgrid.setApiKey(global.settings.SENDGRID_API_KEY);
 
-    // Initialize the email object
-    await Sendgrid.send(emailJSON).
+    // Initialize the email object 
+   await Sendgrid.send(emailJSON).
         then(function() {
             log.info('Email successfully sent.' + __location);
             return true;
@@ -313,7 +317,7 @@ var sendUsingSendGrid = async function(emailJSON) {
                 return false;
             }
         });
-    return true;
+    //return true;
 };
 
 /**
@@ -335,7 +339,7 @@ var imgSize = function(address) {
                 const chunks = [];
 
                 if (response.statusCode !== 200) {
-                    log.info(`Image not found (code: ${response.statusCode})`);
+                    log.error(`Image not found ${address} (code: ${response.statusCode})`);
                     reject(new Error(`Image not found`));
                     return;
                 }
