@@ -128,6 +128,10 @@ exports.send = async function(recipients, subject, content, keys = {}, brand = '
         logoHTML = await getAgencyLogoHtml(emailJSON.agency).catch(function(err) {
             log.error('Email Svc getAgencyLogoHtml error: ' + err + __location);
         });
+        // Make sure to not get an undefined in email.
+        if(!logoHTML){
+            logoHTML = '';
+        }
         emailJSON.html = emailJSON.html.replace('{{logo}}', logoHTML);
     }
 
@@ -334,7 +338,7 @@ var imgSize = function(address) {
                 const chunks = [];
 
                 if (response.statusCode !== 200) {
-                    log.info(`Image not found (code: ${response.statusCode})`);
+                    log.error(`Image not found ${address} (code: ${response.statusCode})`);
                     reject(new Error(`Image not found`));
                     return;
                 }
