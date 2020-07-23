@@ -78,6 +78,7 @@ var emailbindagency = async function(applicationId, quoteId) {
                 a.id,
                 a.agency_location AS agencyLocation,
                 al.phone as agencyLocationPhone,
+                ag.id as agencyId,
                 ag.email AS agencyEmail,
                 ag.name AS agencyName,
                 ag.agency_network,
@@ -235,8 +236,9 @@ var emailbindagency = async function(applicationId, quoteId) {
 
                     subject = subject.replace(/{{Agency}}/g, applications[0].agencyName);
 
-                    log.debug("sending customer email " + __location);
-                    const emailResp2 = await email.send(applications[0].email, subject, message, keyData, applications[0].emailBrand);
+                    //log.debug("sending customer email " + __location);
+                    const brand = applications[0].emailBrand === 'wheelhouse' ? 'agency' : `${applications[0].emailBrand}-agency`
+                    const emailResp2 = await email.send(applications[0].email, subject, message, keyData, brand, applications[0].agencyId);
                     // log.debug("emailResp = " + emailResp);
                     if (emailResp2 === false) {
                         slack.send('#alerts', 'warning', `Failed to send Policy Bind Email to Insured application #${applicationId} and quote ${quoteId}. Please follow-up manually.`);
