@@ -5,8 +5,8 @@ const acordsvc = global.requireShared('./services/acordsvc.js');
 const emailsvc = global.requireShared('./services/emailsvc.js');
 
 // Email template
-let email_subject = 'ACORD Application from TEMPLATE_BUSINESS_NAME';
-let email_body = 'Attached is the ACORD 130 application from TEMPLATE_BUSINESS_NAME for a Worker\'s Compensation policy';
+let email_subject = 'ACORD Application from TEMPLATE_AGENCY_NAME';
+let email_body = 'Attached is the ACORD 130 application from TEMPLATE_AGENCY_NAME for a Worker\'s Compensation policy';
 
 module.exports = class ACORDWC extends Integration{
 
@@ -38,8 +38,8 @@ module.exports = class ACORDWC extends Integration{
 		}
 
 		// Prepare email subject and body with application business name
-		email_subject = email_subject.replace('TEMPLATE_BUSINESS_NAME', this.app.business.name);
-		email_body = email_body.replace('TEMPLATE_BUSINESS_NAME', this.app.business.name);
+		email_subject = email_subject.replace('TEMPLATE_AGENCY_NAME', this.app.agencyLocation.agency);
+		email_body = email_body.replace('TEMPLATE_AGENCY_NAME', this.app.agencyLocation.agency);
 
 		// Prepare keys so that the record of the email being sent is written
 		const email_keys = {
