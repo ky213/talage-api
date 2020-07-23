@@ -28,7 +28,7 @@ async function PostEmail(req, res, next){
 		return next(serverHelper.requestError('No data was received'));
 	}
 
-	// Define systems with their sending email address
+	// Define systems with their sending email address - Only to Check inputs
 	const systems = {
 		'agency': 'no-reply@insurancewheelhouse.com',
 		'digalent': 'no-reply@digalent.com',
@@ -37,13 +37,23 @@ async function PostEmail(req, res, next){
 		'wheelhouse': 'info@insurancewheelhouse.com'
 	};
 
-	// Validate the from parameter
-	if(!Object.prototype.hasOwnProperty.call(req.body, 'from') || typeof req.body.from !== 'string' || !Object.keys(systems).includes(req.body.from.toLowerCase())){
-		const message = `Invalid 'from' parameter. Must be one of: ${Object.keys(systems).join(', ')}`;
-		log.warn("Email Service PostEmail: " + message + __location);
-		return next(serverHelper.requestError(message));
-	}
-	const system = req.body.from.toLowerCase();
+    let systemBrand = '';
+    // Validate the brand parameter
+    if(!Object.prototype.hasOwnProperty.call(req.body, 'brand') || typeof req.body.brand !== 'string' || !Object.keys(systems).includes(req.body.brand.toLowerCase())){
+        // from  - backwards compatibility
+		if(!Object.prototype.hasOwnProperty.call(req.body, 'from') || typeof req.body.from !== 'string' || !Object.keys(systems).includes(req.body.from.toLowerCase())){
+            const message = `Invalid 'brand' parameter. Must be one of: ${Object.keys(systems).join(', ')}`;
+            log.warn("Email Service PostEmail: " + message + __location);
+            return next(serverHelper.requestError(message));
+        }
+        else {
+            systemBrand = req.body.from.toLowerCase();
+        }
+    }
+    else {
+        systemBrand = req.body.brand.toLowerCase();
+    }
+    
 
 	// Validate the html parameter
 	if(!Object.prototype.hasOwnProperty.call(req.body, 'html') || typeof req.body.html !== 'string'){
@@ -53,9 +63,9 @@ async function PostEmail(req, res, next){
 	}
 
 	// If this is an agency, make sure we have an agency ID in the payload
-	if(system === 'agency' || system === 'digalent-agency'){
+	if(systemBrand === 'agency' || systemBrand === 'digalent-agency'){
 		if(!Object.prototype.hasOwnProperty.call(req.body, 'agency') || !/^\d*$/.test(req.body.agency)){
-			const message = `You must specify an agency when sending from '${system}'`;
+			const message = `You must specify an agency when sending from '${systemBrand}'`;
 			log.warn("Email Service PostEmail: " + message + __location);
 			return next(serverHelper.requestError(message));
 		}
@@ -84,7 +94,7 @@ async function PostEmail(req, res, next){
 
 
 	//call email service
-	const respSendEmail = await emailSvc.send(req.body.to, req.body.subject, req.body.html, req.body.keys, req.body.from, req.body.agency, req.body.attachments).catch(function(err){
+	const respSendEmail = await emailSvc.send(req.body.to, req.body.subject, req.body.html, req.body.keys, systemBrand, req.body.agency, req.body.attachments).catch(function(err){
 		log.error("Send email error: " + err + __location);
 		return res.send(serverHelper.internalError("SendEmail Error"));
 	});
