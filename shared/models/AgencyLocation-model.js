@@ -10,6 +10,8 @@ const DatabaseObject = require('./DatabaseObject.js');
 const serverHelper = global.requireRootPath('server.js');
 const validator = global.requireShared('./helpers/validator.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 const constructors = {'AgencyLocationInsurers': AgencyLocationInsurers};
 
@@ -203,8 +205,9 @@ module.exports = class AgencyLocation extends DatabaseObject{
 			`;
 
 			// Run the query
-			await db.query(associateSQL).catch(function(){
-				rejected = true;
+			await db.query(associateSQL).catch(function(err){
+                rejected = true;
+                log.err("clw_talage_agency_location_territories insert error: " + err + __location);
 				reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 			});
 			if(rejected){
