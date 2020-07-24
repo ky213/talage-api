@@ -33,9 +33,10 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 exports.send = async function(recipients, subject, content, keys = {}, brand = 'talage', agency = 1, attachments) {
     // If we are in the test environment, don't send and just return true
-    if (global.settings.ENV === 'test') {
+    if(global.settings.ENV === 'test'){
         return true;
     }
+
     var emailJSON = {};
     // Define systems with their sending email address
     const systems = {
@@ -283,7 +284,7 @@ var sendUsingSendGrid = async function(emailJSON) {
             // Make sure the error returned is an object and has a code
             if (typeof error !== 'object' || !Object.prototype.hasOwnProperty.call(error, 'code')) {
                 //const message = 'An unexpected error was returned from Sendgrid. Check the logs for more information. ' ;
-                log.error('Email Service PostEmail: ' + error);
+                log.error('Email Service PostEmail: ' + error + __location);
                 //log.verbose(util.inspect(error, false, null));
                 return false;
             }

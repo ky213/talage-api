@@ -65,13 +65,13 @@ async function deleteAgency(req, res, next) {
         return next(serverHelper.forbiddenError('You are not authorized to delete this agency'));
     }
 
-    // Update the Agency (we set the state to -2 to signify that the Agency is deleted)
-    const updateSQL = `
-			UPDATE \`#__agencies\`
+	// Update the Agency (we set the state to -2 to signify that the Agency is deleted)
+	const updateSQL = `
+			UPDATE clw_talage_agencies
 			SET
-				\`state\` = -2
+				state = -2
 			WHERE
-				\`id\` = ${id}
+				id = ${id}
 			LIMIT 1;
 		`;
 
@@ -275,27 +275,27 @@ async function getAgency(req, res, next) {
 			WHERE \`apu\`.\`agency\` = ${agent} AND state > 0;
 		`;
 
-    // Query the database
-    const allTerritories = await db.query(allTerritoriesSQL).catch(function(err) {
-        log.error(err.message);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    });
-    const locations = await db.query(locationsSQL).catch(function(err) {
-        log.error(err.message);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    });
-    const networkInsurers = await db.query(networkInsurersSQL).catch(function(err) {
-        log.error(err.message);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    });
-    const pages = await db.query(pagesSQL).catch(function(err) {
-        log.error(err.message);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    });
-    const users = await db.query(userSQL).catch(function(err) {
-        log.error(err.message);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    });
+	// Query the database
+	const allTerritories = await db.query(allTerritoriesSQL).catch(function(err){
+		log.error('DB query failed: ' + err.message + __location);
+		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+	});
+	const locations = await db.query(locationsSQL).catch(function(err){
+		log.error('DB query failed: ' + err.message + __location);
+		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+	});
+	const networkInsurers = await db.query(networkInsurersSQL).catch(function(err){
+		log.error('DB query failed: ' + err.message + __location);
+		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+	});
+	const pages = await db.query(pagesSQL).catch(function(err){
+		log.error('DB query failed: ' + err.message + __location);
+		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+	});
+	const users = await db.query(userSQL).catch(function(err){
+		log.error('DB query failed: ' + err.message + __location);
+		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+	});
 
     // Separate out location IDs and define some variables
     const locationIDs = locations.map((location) => location.id);

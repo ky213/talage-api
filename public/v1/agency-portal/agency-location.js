@@ -290,6 +290,8 @@ async function updateAgencyLocation(req, res, next){
 	// Initialize an agency object
 	const location = new AgencyLocationModel();
 
+	// Search req body for all jsons and stringify
+
 	// Load the request data into it
 	await location.load(req.body).catch(function(err){
         log.error("Location load error " + err + __location);

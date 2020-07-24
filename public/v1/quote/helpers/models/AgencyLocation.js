@@ -19,6 +19,7 @@ module.exports = class AgencyLocation {
         this.agencyNetwork = '';
         this.agencyPhone = '';
         this.agencyWebsite = '';
+        this.emailBrand = '';
         this.first_name = '';
         this.id = 0;
         this.key = '';
@@ -47,31 +48,33 @@ module.exports = class AgencyLocation {
             // Array for tracking queries
             const queries = [];
 
-            // Define the where clause
-            const where = `${db.quoteName('a.id')} = ${db.escape(parseInt(this.id, 10))}`;
+			// Define the where clause
+			// const where = `a.id = ${db.escape(parseInt(this.id, 10))}`;
+			const where = `a.id = ${this.id}`
 
-            // SQL for getting agency / location details
-            queries.push(`
-				SELECT ${db.quoteName('ag.id')}, ${db.quoteName('ag.agency_network')}, ${db.quoteName('a.email')}, ${db.quoteName('a.fname')}, ${db.quoteName('a.lname')}, ${db.quoteName('ag.name')}, ${db.quoteName('ag.phone')}, ${db.quoteName('ag.website')}, ${db.quoteName('ag.wholesale')}
-				FROM ${db.quoteName('#__agency_locations', 'a')}
-				LEFT JOIN ${db.quoteName('#__agencies', 'ag')} ON ${db.quoteName('a.agency')} = ${db.quoteName('ag.id')}
+			// SQL for getting agency / location details
+			queries.push(`
+				SELECT ag.id, ag.agency_network, an.email_brand, a.email, a.fname, a.lname, ag.name, ag.phone, ag.website, ag.wholesale
+				FROM clw_talage_agency_locations a
+				LEFT JOIN clw_talage_agencies ag ON a.agency = ag.id
+				INNER JOIN clw_talage_agency_networks an ON ag.agency_network = an.id
 				WHERE ${where} LIMIT 1;
 			`);
 
-            // SQL for getting agency insurers
-            queries.push(`
-				SELECT ${db.quoteName('ai.insurer', 'id')}, ${db.quoteName('ai.agency_id')}, ${db.quoteName('i.agent_login')}, ${db.quoteName('ai.agent_id')}, ${db.quoteName('ai.bop')}, ${db.quoteName('ai.gl')}, ${db.quoteName('ai.wc')}, ${db.quoteName('i.enable_agent_id')}
-				FROM ${db.quoteName('#__agency_location_insurers')} AS ${db.quoteName('ai')}
-				LEFT JOIN ${db.quoteName('#__agency_locations')} AS ${db.quoteName('a')} ON ${db.quoteName('ai.agency_location')} = ${db.quoteName('a.id')}
-				LEFT JOIN ${db.quoteName('#__insurers')} AS ${db.quoteName('i')} ON ${db.quoteName('i.id')} = ${db.quoteName('ai.insurer')}
-				WHERE ${where} AND ${db.quoteName('i.state')} > 0;
+			// SQL for getting agency insurers
+			queries.push(`
+				SELECT ai.insurer id, ai.agency_id, i.agent_login, ai.agent_id, ai.policy_type_info, ai.bop, ai.gl, ai.wc, i.enable_agent_id
+				FROM clw_talage_agency_location_insurers AS ai
+				LEFT JOIN clw_talage_agency_locations AS a ON ai.agency_location = a.id
+				LEFT JOIN clw_talage_insurers AS i ON i.id = ai.insurer
+				WHERE ${where} AND i.state > 0;
 			`);
 
-            // SQL for getting agency territories
-            queries.push(`
-				SELECT ${db.quoteName('at.territory')}
-				FROM ${db.quoteName('#__agency_location_territories')} AS ${db.quoteName('at')}
-				LEFT JOIN ${db.quoteName('#__agency_locations')} AS ${db.quoteName('a')} ON ${db.quoteName('at.agency_location')} = ${db.quoteName('a.id')}
+			// SQL for getting agency territories
+			queries.push(`
+				SELECT at.territory
+				FROM clw_talage_agency_location_territories AS at
+				LEFT JOIN clw_talage_agency_locations AS a ON at.agency_location = a.id
 				WHERE ${where};
 			`);
 
@@ -99,6 +102,7 @@ module.exports = class AgencyLocation {
             this.agencyNetwork = agencyInfo[0].agency_network;
             this.agencyPhone = await crypt.decrypt(agencyInfo[0].phone);
             this.agencyWebsite = await crypt.decrypt(agencyInfo[0].website);
+            this.emailBrand = agencyInfo[0].email_brand;
             this.first_name = await crypt.decrypt(agencyInfo[0].fname);
             this.last_name = await crypt.decrypt(agencyInfo[0].lname);
             this.wholesale = Boolean(agencyInfo[0].wholesale);
@@ -123,6 +127,11 @@ module.exports = class AgencyLocation {
                         }
                         insurer.agent_id = await crypt.decrypt(insurer.agent_id.toString()); // eslint-disable-line no-await-in-loop
                     }
+
+					// Parse the JSON for easy access
+					if(insurer.policy_type_info){
+						insurer.policy_type_info = JSON.parse(insurer.policy_type_info);
+					}
                     this.insurers[insurer.id] = insurer;
                 }
             }

@@ -19,6 +19,7 @@ module.exports = class Insurer {
 		this.password = '';
 		this.payment_options = [];
 		this.policy_types = [];
+		this.policy_type_details = {};
 		this.rating = '';
 		this.slug = '';
 		this.state = 1;
@@ -114,12 +115,12 @@ module.exports = class Insurer {
 			}
 		}
 
-		// Construct a query to get all of the payment plans for this insurer
-		const payment_plan_sql = `
-				SELECT \`pp\`.\`id\`, \`pp\`.\`name\`, \`pp\`.\`description\`, \`ipp\`.\`premium_threshold\`
-				FROM \`#__insurer_payment_plans\` AS \`ipp\`
-				LEFT JOIN \`#__payment_plans\` AS \`pp\` ON \`pp\`.\`id\` = \`ipp\`.\`payment_plan\`
-				WHERE \`ipp\`.\`insurer\` = ${db.escape(this.id)};
+			// Construct a query to get all of the payment plans for this insurer
+			const payment_plan_sql = `
+				SELECT pp.id, pp.name, pp.description, ipp.premium_threshold
+				FROM clw_talage_insurer_payment_plans AS ipp
+				LEFT JOIN clw_talage_payment_plans AS pp ON pp.id = ipp.payment_plan
+				WHERE ipp.insurer = ${db.escape(this.id)};
 			`;
 		let payment_plans = null;
 		try {
@@ -147,11 +148,11 @@ module.exports = class Insurer {
 			}
 		}
 
-		// Construct a query to get all of the packages for this insurer
-		const packages_sql = `
-				SELECT \`id\`, \`description\`, \`name\`
-				FROM \`#__insurer_package_types\`
-				WHERE \`insurer\` = ${db.escape(this.id)};
+			// Construct a query to get all of the packages for this insurer
+			const packages_sql = `
+				SELECT id, description, name
+				FROM clw_talage_insurer_package_types
+				WHERE insurer = ${db.escape(this.id)};
 			`;
 		let packages = null;
 		try {
@@ -174,6 +175,30 @@ module.exports = class Insurer {
 				}
 			}
 		}
+
+		// Construct a query to get all the acord and api support data for all supported policy types
+		const policy_type_details_sql = `SELECT ipt.insurer, ipt.policy_type, ipt.api_support, ipt.acord_support
+							FROM clw_talage_insurer_policy_types ipt
+							WHERE ipt.insurer = ${this.id}`;
+
+		let policy_type_details = null;
+		try {
+			policy_type_details = await db.query(policy_type_details_sql)
+		}
+		catch(error){
+			log.error(`Database error retrieving policy type details for insurer: ${id}` + error + __location);
+			return serverHelper.internalError('Database error');
+		}
+
+		if(policy_type_details){
+			policy_type_details.forEach(policy_type_detail => {
+				this.policy_type_details[policy_type_detail.policy_type] = {
+					'api_support': policy_type_detail.api_support,
+					'acord_support': policy_type_detail.acord_support
+				}
+			})
+		}
+
 		return this;
 	}
 };

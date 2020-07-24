@@ -230,17 +230,44 @@ module.exports = class Application {
 			this.insurers.forEach((insurer) => {
 				// Check that the given policy type is enabled for this insurer
 				if (insurer.policy_types.indexOf(policy.type) >= 0) {
-					// Check if the integration file for this insurer exists
-					const normalizedPath = `${__dirname}/../integrations/${insurer.slug}/${policy.type.toLowerCase()}.js`;
-					if (fs.existsSync(normalizedPath)) {
-						// Require the integration file and add the response to our promises
-						const IntegrationClass = require(normalizedPath);
-						const integration = new IntegrationClass(this, insurer, policy);
-						quote_promises.push(integration.quote());
-					}
- else {
-						log.warn(`Insurer integration file does not exist: ${insurer.name} ${policy.type}` + __location);
-					}
+				    // Get the agency_location_insurer data for this insurer from the agency location
+                    if(this.agencyLocation.insurers[insurer.id].policy_type_info){
+                        //Retrieve the data for this policy type
+                        const agency_location_insurer_data = this.agencyLocation.insurers[insurer.id].policy_type_info[policy.type];
+                        if(agency_location_insurer_data){
+                            if(agency_location_insurer_data.enabled){
+                                let slug = '';
+                                // If agency wants to send acord, send acord
+								if(agency_location_insurer_data.useAcord === true && insurer.policy_type_details[policy.type].acord_support === 1){
+                                    slug = 'acord';
+                                }
+                                // Otherwise use the api
+								if(insurer.policy_type_details[policy.type.toUpperCase()].api_support === 1){
+                                    slug = insurer.slug;
+                                }
+
+                                let normalizedPath = `${__dirname}/../integrations/${slug}/${policy.type.toLowerCase()}.js`;
+                                if(slug.length > 0 && fs.existsSync(normalizedPath)){
+                                    // Require the integration file and add the response to our promises
+                                    const IntegrationClass = require(normalizedPath);
+                                    const integration = new IntegrationClass(this, insurer, policy);
+                                    quote_promises.push(integration.quote());
+                                }
+                                else{
+                                    log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} ${insurer.name} ${policy.type}` + __location);
+                                }
+                            }
+                            else{
+                                log.error(`${policy.type} is not enabled for insurer ${insurer.id} for Agency location ${this.agencyLocation.id}` + __location);
+                            }
+                        }
+                        else{
+                            log.error(`Info for policy type ${policy.type} not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id}` + __location);
+                        }
+                    }
+                    else{
+                        log.error(`Policy info not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id}` + __location);
+                    }
 				}
 			});
 		});
