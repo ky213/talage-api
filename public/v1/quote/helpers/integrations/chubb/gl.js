@@ -75,7 +75,7 @@ module.exports = class ChubbGL extends Integration {
 
 			// Determine which API host to use
 			let host = '';
-			if (this.insurer.test_mode) {
+			if (this.insurer.useSandbox) {
 				host = 'nauat.chubbdigital.com';
 			}
  else {

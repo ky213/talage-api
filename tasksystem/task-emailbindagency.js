@@ -2,10 +2,12 @@
 
 const moment = require('moment');
 const crypt = global.requireShared('./services/crypt.js');
-const email = global.requireShared('./services/emailsvc.js');
+const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 
 /**
  * AbandonQuote Task processor
@@ -136,26 +138,17 @@ var emailbindagency = async function(applicationId, quoteId) {
 
             //get email content.
             const agencyNetwork = applications[0].agency_network;
-            const emailContentSQL = `
-                SELECT
-                JSON_EXTRACT(custom_emails, '$.policy_purchase_agency') AS agencyEmailData,
-                JSON_EXTRACT(custom_emails, '$.policy_purchase_customer') AS customerEmailData,
-                (SELECT JSON_EXTRACT(custom_emails, '$.policy_purchase_agency')  FROM  clw_talage_agency_networks WHERE id = 1 ) AS defaultAgencyEmailData,
-                (SELECT JSON_EXTRACT(custom_emails, '$.policy_purchase_customer')  FROM  clw_talage_agency_networks WHERE id = 1 ) AS defaultCustomerEmailData
-                FROM clw_talage_agency_networks
-                WHERE id = ${db.escape(agencyNetwork)}
-            `;
-
             let error = null;
-            const emailContentResultArray = await db.query(emailContentSQL).catch(function(err) {
-                log.error(`DB Error Unable to get email content for email bind agency appid: ${applicationId}.  error: ${err}`);
+            const agencyNetworkBO = new AgencyNetworkBO();
+            const emailContentJSON = await agencyNetworkBO.getEmailContentAgencyAndCustomer(agencyNetwork, "policy_purchase_agency", "policy_purchase_customer").catch(function(err){
+                log.error(`Email content Error Unable to get email content for  email bind agency. appid: ${applicationId}.  error: ${err}` + __location);
                 error = true;
             });
-            if (error) {
+            if(error){
                 return false;
             }
 
-            if (emailContentResultArray && emailContentResultArray.length > 0) {
+            if (emailContentJSON && emailContentJSON.customerMessage && emailContentJSON.customerSubject) {
 
                 //decrypt application fields needed.
                 applications[0].email = await crypt.decrypt(applications[0].email);
@@ -185,12 +178,8 @@ var emailbindagency = async function(applicationId, quoteId) {
                     quoteResult = quoteResult.substring(0, quoteResult.indexOf('_'));
                 }
                 // TO AGENCY
-                const emailContentResult = emailContentResultArray[0];
-                const agencyEmailData = emailContentResult.agencyEmailData ? JSON.parse(emailContentResult.agencyEmailData) : null;
-                const defaultAgencyEmailData = emailContentResult.defaultAgencyEmailData ? JSON.parse(emailContentResult.defaultAgencyEmailData) : null;
-
-                let message = agencyEmailData && agencyEmailData.message ? agencyEmailData.message : defaultAgencyEmailData.message;
-                let subject = agencyEmailData && agencyEmailData.subject ? agencyEmailData.subject : defaultAgencyEmailData.subject;
+                let message = emailContentJSON.agencyMessage;
+                let subject = emailContentJSON.agencySubject;
 
                 message = message.replace(/{{Agent Login URL}}/g, applications[0].agent_login);
                 message = message.replace(/{{Business Name}}/g, applications[0].businessName);
@@ -212,7 +201,7 @@ var emailbindagency = async function(applicationId, quoteId) {
                     'agency_location': applications[0].agencyLocation
                 };
                 if (agencyLocationEmail) {
-                    const emailResp = await email.send(agencyLocationEmail, subject, message, keyData, applications[0].emailBrand);
+                    const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData, applications[0].emailBrand);
                     if (emailResp === false) {
                         slack.send('#alerts', 'warning', `The system failed to inform an agency of the emailbindagency for application ${applicationId}. Please follow-up manually.`);
                     }
@@ -222,11 +211,10 @@ var emailbindagency = async function(applicationId, quoteId) {
                 }
 
                 //TO INSURED
-                const customerEmailData = emailContentResult.customerEmailData ? JSON.parse(emailContentResult.customerEmailData) : null;
-                const defaultCustomerEmailData = emailContentResult.defaultCustomerEmailData ? JSON.parse(emailContentResult.defaultCustomerEmailData) : null;
                 try{
-                    message = customerEmailData && customerEmailData.message ? customerEmailData.message : defaultCustomerEmailData.message;
-                    subject = customerEmailData && customerEmailData.subject ? customerEmailData.subject : defaultCustomerEmailData.subject;
+                    message = emailContentJSON.customerMessage;
+                    subject = emailContentJSON.customerSubject;
+
 
                     message = message.replace(/{{Agency}}/g, applications[0].agencyName);
                     message = message.replace(/{{Agency Email}}/g, applications[0].agencyEmail);
@@ -238,7 +226,7 @@ var emailbindagency = async function(applicationId, quoteId) {
 
                     //log.debug("sending customer email " + __location);
                     const brand = applications[0].emailBrand === 'wheelhouse' ? 'agency' : `${applications[0].emailBrand}-agency`
-                    const emailResp2 = await email.send(applications[0].email, subject, message, keyData, brand, applications[0].agencyId);
+                    const emailResp2 = await emailSvc.send(applications[0].email, subject, message, keyData, brand, applications[0].agencyId);
                     // log.debug("emailResp = " + emailResp);
                     if (emailResp2 === false) {
                         slack.send('#alerts', 'warning', `Failed to send Policy Bind Email to Insured application #${applicationId} and quote ${quoteId}. Please follow-up manually.`);
@@ -252,7 +240,7 @@ var emailbindagency = async function(applicationId, quoteId) {
 
             }
             else {
-                log.error('AbandonQuote missing emailcontent for agencynetwork: ' + agencyNetwork + __location);
+                log.error('emailbindagency missing emailcontent for agencynetwork: ' + agencyNetwork + __location);
                 return false;
             }
 

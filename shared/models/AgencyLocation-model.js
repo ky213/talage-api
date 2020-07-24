@@ -41,7 +41,7 @@ const properties = {
 			validator.id
 		],
 		'type': 'number'
-	},
+    },
 	'closeTime': {
 		'default': 5,
 		'encrypted': false,

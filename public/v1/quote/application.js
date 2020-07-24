@@ -55,7 +55,7 @@ async function postApplication(req, res, next) {
 	const sql = `
 		UPDATE clw_talage_applications
 		SET progress = ${db.escape('quoting')}
-		WHERE id = ${req.body.id}
+		WHERE id = ${db.escape(req.body.id)}
 	`;
 	let result = null;
 
