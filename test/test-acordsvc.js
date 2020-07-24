@@ -13,26 +13,27 @@ var simple = require('simple-mock');
 //var rewire = require('rewire');
 var sinon = require('sinon');
 // eslint-disable-next-line no-unused-vars
-//var testGlobal = require('./test.js');
+var testGlobal = require('./test.js');
 
-var taskAcordSvc = require('../shared/services/acordsvc.js');
 
-describe("Acordsvc - generateWCACORD ", function (){
+// var taskAcordSvc = require('../shared/services/acordsvc.js');
 
-	beforeEach(function(done) {
+// describe("Acordsvc - generateWCACORD ", function (){
 
-		// Aw crap, I dont know how to mock things
-		sinon.stub(db, "query");
-		done();
-	});
+// 	beforeEach(function(done) {
 
-	afterEach(function(done) {
+// 		// Aw crap, I dont know how to mock things
+// 		sinon.stub(db, "query");
+// 		done();
+// 	});
 
-		// If I dont know how to mock I probably dont know how to reset either do I
+// 	afterEach(function(done) {
 
-		done();
-	});
+// 		// If I dont know how to mock I probably dont know how to reset either do I
 
-	// TODO: AAAALL the unit tests
+// 		done();
+// 	});
 
-});
+// 	// TODO: AAAALL the unit tests
+
+// });
