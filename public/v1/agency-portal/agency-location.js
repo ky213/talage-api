@@ -219,7 +219,7 @@ function getAgencyByLocationId(id) {
  * @returns {void}
  */
 async function updateAgencyLocation(req, res, next) {
-    log.debug('updateAgencyLocation: ' + JSON.stringify(req.body))
+
     let error = false;
 
     // Determine which permissions group to use (start with the default permission needed by an agency network)
@@ -307,7 +307,6 @@ async function updateAgencyLocation(req, res, next) {
 
 
         // Load the request data into it
-        log.debug("agencylocation update request body " + JSON.stringify(req.body))
         await location.load(req.body).catch(function (err) {
             log.error("Location load error " + err + __location);
             error = err;
@@ -315,7 +314,6 @@ async function updateAgencyLocation(req, res, next) {
         if (error) {
             return next(error);
         }
-        log.debug("agencylocation location model " + JSON.stringify(location))
         // Save the location
         await location.save().catch(function (err) {
             log.error("Location save error " + err + __location);
