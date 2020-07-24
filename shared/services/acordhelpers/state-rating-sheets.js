@@ -152,5 +152,6 @@ exports.state_rating_sheets = function(data, ncci_codes){
 		// Increase the rating sheet page number
 		current_rating_sheet++;
 	}
+
 	return rating_sheets;
 };

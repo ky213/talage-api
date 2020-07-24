@@ -1,5 +1,6 @@
 /**
- * Defines a single Agency
+ * Defines a single Agency  = limited fields and functionality for Agency-Portal save.
+ *  Use Agency-BO.js 
  */
 
 'use strict';

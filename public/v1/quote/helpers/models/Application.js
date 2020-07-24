@@ -1,10 +1,11 @@
+/* eslint-disable no-catch-shadow */
 /**
  * Defines a single industry code
  */
 
 'use strict';
 
-const email = global.requireShared('./services/emailsvc.js');
+const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const get_questions = global.requireShared('./helpers/getQuestions.js');
@@ -18,6 +19,8 @@ const Question = require('./Question.js');
 const serverHelper = require('../../../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
 
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
+
 module.exports = class Application {
 	constructor() {
 		this.agencyLocation = null;
@@ -26,7 +29,6 @@ module.exports = class Application {
 		this.insurers = [];
 		this.policies = [];
 		this.questions = {};
-		this.test = false;
 	}
 
 	/**
@@ -185,7 +187,7 @@ module.exports = class Application {
 		if (data.agent) {
 			await this.agencyLocation.load({id: data.agent});
 		}
-        else {
+ else {
 			await this.agencyLocation.load({id: 1}); // This is Talage's agency location record
 		}
 
@@ -194,7 +196,7 @@ module.exports = class Application {
 		try {
 			await this.business.load(data.business);
 		}
-        catch (error) {
+ catch (error) {
 			throw error;
 		}
 
@@ -209,91 +211,6 @@ module.exports = class Application {
 		});
 
 		this.questions = data.questions;
-
-		// Get the test flag
-		this.test = data.test === true;
-	}
-
-	/**
-	 * Generate an example API response
-	 *
-	 * @returns {Promise.<object, Error>} A promise that returns an object containing an example API response if resolved, or an Error if rejected
-	 */
-	run_test() {
-		log.info('Returning test data');
-
-		return new Promise((fulfill) => {
-			// Generate example quotes for each policy type
-			const quotes = [];
-			this.policies.forEach((policy) => {
-				// Generate example quotes for each insurer for the given policy type
-				this.insurers.forEach(function(insurer) {
-					// Check that the insurer supports this policy type
-					if (insurer.policy_types.indexOf(policy.type) >= 0) {
-						// Determine the amount
-						const amount = Math.round(Math.random() * (10000 - 6000) + 6000);
-
-						const limits = {};
-						if (policy.type === 'WC') {
-							limits['Employers Liability Disease Per Employee'] = 1000000;
-							limits['Employers Liability Disease Policy Limit'] = 1000000;
-							limits['Employers Liability Per Occurrence'] = 1000000;
-						}
- else {
-							limits['Damage to Rented Premises'] = '1000000';
-							limits['Each Occurrence'] = '1000000';
-							limits['General Aggregate'] = '1000000';
-							limits['Personal & Advertising Injury'] = '1000000';
-							limits['Products & Completed Operations'] = '1000000';
-							limits['Medical Expense'] = '15000';
-						}
-
-						// Prepare a list of payment options
-						const payment_options = [];
-						if (insurer.payment_options.length) {
-							insurer.payment_options.forEach(function(payment_option) {
-								if (amount > payment_option.threshold) {
-									payment_options.push({
-										description: payment_option.description,
-										id: payment_option.id,
-										name: payment_option.name
-									});
-								}
-							});
-						}
-
-						// Build the quote
-						quotes.push({
-							amount: amount,
-							id: quotes.length + 1,
-							instant_buy: Math.random() >= 0.5,
-							insurer: {
-								id: insurer.id,
-								logo: `${global.settings.SITE_URL}/${insurer.logo}`,
-								name: insurer.name,
-								rating: insurer.rating
-							},
-							limits: limits,
-							payment_options: payment_options,
-							policy_type: policy.type
-						});
-					}
-				});
-			});
-
-			// Check for no quotes
-			if (quotes.length < 1) {
-				fulfill(serverHelper.requestError('The request submitted will not result in quotes. Please check the insurers specified and ensure they support the policy types selected.'));
-				return;
-			}
-
-			const json = {
-				done: true,
-				quotes: quotes
-			};
-
-			fulfill(json);
-		});
 	}
 
 	/**
@@ -313,17 +230,44 @@ module.exports = class Application {
 			this.insurers.forEach((insurer) => {
 				// Check that the given policy type is enabled for this insurer
 				if (insurer.policy_types.indexOf(policy.type) >= 0) {
-					// Check if the integration file for this insurer exists
-					const normalizedPath = `${__dirname}/../integrations/${insurer.slug}/${policy.type.toLowerCase()}.js`;
-					if (fs.existsSync(normalizedPath)) {
-						// Require the integration file and add the response to our promises
-						const IntegrationClass = require(normalizedPath);
-						const integration = new IntegrationClass(this, insurer, policy);
-						quote_promises.push(integration.quote());
-					}
- else {
-						log.warn(`Insurer integration file does not exist: ${insurer.name} ${policy.type}` + __location);
-					}
+				    // Get the agency_location_insurer data for this insurer from the agency location
+                    if(this.agencyLocation.insurers[insurer.id].policy_type_info){
+                        //Retrieve the data for this policy type
+                        const agency_location_insurer_data = this.agencyLocation.insurers[insurer.id].policy_type_info[policy.type];
+                        if(agency_location_insurer_data){
+                            if(agency_location_insurer_data.enabled){
+                                let slug = '';
+                                // If agency wants to send acord, send acord
+								if(agency_location_insurer_data.useAcord === true && insurer.policy_type_details[policy.type].acord_support === 1){
+                                    slug = 'acord';
+                                }
+                                // Otherwise use the api
+								if(insurer.policy_type_details[policy.type.toUpperCase()].api_support === 1){
+                                    slug = insurer.slug;
+                                }
+
+                                let normalizedPath = `${__dirname}/../integrations/${slug}/${policy.type.toLowerCase()}.js`;
+                                if(slug.length > 0 && fs.existsSync(normalizedPath)){
+                                    // Require the integration file and add the response to our promises
+                                    const IntegrationClass = require(normalizedPath);
+                                    const integration = new IntegrationClass(this, insurer, policy);
+                                    quote_promises.push(integration.quote());
+                                }
+                                else{
+                                    log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} ${insurer.name} ${policy.type}` + __location);
+                                }
+                            }
+                            else{
+                                log.error(`${policy.type} is not enabled for insurer ${insurer.id} for Agency location ${this.agencyLocation.id}` + __location);
+                            }
+                        }
+                        else{
+                            log.error(`Info for policy type ${policy.type} not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id}` + __location);
+                        }
+                    }
+                    else{
+                        log.error(`Policy info not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id}` + __location);
+                    }
 				}
 			});
 		});
@@ -387,11 +331,6 @@ module.exports = class Application {
 	 * @returns {void}
 	 */
 	async send_notifications(quotes) {
-		if (global.settings.ENV === 'development') {
-			log.info('!!! Skipping sending notification (slack and email) due to development environment. !!!');
-			return;
-		}
-
 		// Determine which message will be sent
 		let all_had_quotes = true;
 		let some_quotes = false;
@@ -406,45 +345,30 @@ module.exports = class Application {
 
 		// Send an emails if there were no quotes generated
 		if (!some_quotes) {
-			// Get the email information from the database
-			const sql = `SELECT
-				\`email_brand\` AS emailBrand,
-				JSON_EXTRACT(\`custom_emails\`, '$.no_quotes_agency') as agency,
-				JSON_EXTRACT(\`custom_emails\`, '$.no_quotes_customer') as customer,
-				(SELECT JSON_EXTRACT(\`custom_emails\`, '$.no_quotes_agency') FROM \`clw_talage_agency_networks\` WHERE id = 1) AS defaultAgency,
-				(SELECT JSON_EXTRACT(\`custom_emails\`, '$.no_quotes_customer') FROM \`clw_talage_agency_networks\` WHERE id = 1) AS defaultCustomer
-			FROM \`clw_talage_agency_networks\`
-			WHERE \`id\` = ${db.escape(this.agencyLocation.agencyNetwork)}
-			LIMIT 1;`;
-			let emailData = null;
-			try {
-				emailData = await db.query(sql);
-			}
- catch (error) {
-				log.error(`Unable to get 'No Quote' email content from the database for agency network ${this.agencyLocation.agencyNetwork}: ${error} ${__location}`);
+			let error = null;
+			const agencyNetworkBO = new AgencyNetworkBO();
+			const emailContentJSON = await agencyNetworkBO.getEmailContentAgencyAndCustomer(this.agencyLocation.agencyNetwork, 'no_quotes_agency', 'no_quotes_customer').catch(function(err) {
+				log.error(`Email content Error Unable to get email content for no quotes.  error: ${err}` + __location);
+				error = true;
+			});
+			if (error) {
+				return false;
 			}
 
-			if (emailData && emailData[0]) {
-				// Reduce the result for easier reference
-				emailData = emailData[0];
+			if (emailContentJSON && emailContentJSON.customerMessage && emailContentJSON.customerSubject && emailContentJSON.emailBrand) {
 
 				/* ---=== Email to Insured === --- */
 
-				// Decode the customer email JSON
-				const customerEmailData = emailData.customer ? JSON.parse(emailData.customer) : null;
-				const defaultCustomerEmailData = emailData.defaultCustomer ? JSON.parse(emailData.defaultCustomer) : null;
-
 				// Determine the branding to use for this email
-				let brand = emailData.emailBrand === 'wheelhouse' ? 'agency' : `${emailData.emailBrand}-agency`;
+				let brand = emailContentJSON.emailBrand === 'wheelhouse' ? 'agency' : `${emailContentJSON.emailBrand}-agency`;
 
 				// If this is Talage, update the brand
 				if (this.agencyLocation.agencyId <= 2) {
 					brand = 'talage';
 				}
 
-				// Determine which message and subject to use
-				let message = customerEmailData && Object.prototype.hasOwnProperty.call(customerEmailData, 'message') && customerEmailData.message ? customerEmailData.message : defaultCustomerEmailData.message;
-				let subject = customerEmailData && Object.prototype.hasOwnProperty.call(customerEmailData, 'subject') && customerEmailData.subject ? customerEmailData.subject : defaultCustomerEmailData.subject;
+				let message = emailContentJSON.customerMessage;
+				let subject = emailContentJSON.customerSubject;
 
 				// Perform content replacements
 				message = message.replace(/{{Agency}}/g, this.agencyLocation.agency);
@@ -454,7 +378,8 @@ module.exports = class Application {
 				subject = subject.replace(/{{Agency}}/g, this.agencyLocation.agency);
 
 				// Send the email message
-				email.send(this.business.contacts[0].email,
+				log.debug('sending customer email');
+				await emailSvc.send(this.business.contacts[0].email,
 					subject,
 					message,
 					{
@@ -483,23 +408,11 @@ module.exports = class Application {
 							break;
 					}
 
-					// Decode the agency email JSON
-					const agencyEmailData = emailData.agency ? JSON.parse(emailData.agency) : null;
-					const defaultAgencyEmailData = emailData.defaultAgency ? JSON.parse(emailData.defaultAgency) : null;
-
-					// Determine which message and subject to use
-					message = agencyEmailData && Object.prototype.hasOwnProperty.call(agencyEmailData, 'message') && agencyEmailData.message ? agencyEmailData.message : defaultAgencyEmailData.message;
-					subject = agencyEmailData && Object.prototype.hasOwnProperty.call(agencyEmailData, 'subject') && agencyEmailData.subject ? agencyEmailData.subject : defaultAgencyEmailData.subject;
+					message = emailContentJSON.agencyMessage;
+					subject = emailContentJSON.agencySubject;
 
 					// Perform content replacements
-					let capitalizedBrand = null;
-					try {
-						capitalizedBrand = emailData.emailBrand.charAt(0).toUpperCase() + emailData.emailBrand.substring(1);
-					}
- catch (error) {
-						log.error(`REFER TO SCOTT: possible charAt() issue: agencyNetwork=${this.agencyLocation.agencyNetwork} emailData=${JSON.stringify(emailData)} ${error} ${__location}`);
-						capitalizedBrand = emailData.emailBrand;
-					}
+					const capitalizedBrand = emailContentJSON.emailBrand.charAt(0).toUpperCase() + emailContentJSON.emailBrand.substring(1);
 					message = message.replace(/{{Agency Portal}}/g, `<a href="${portalLink}" target="_blank" rel="noopener noreferrer">${capitalizedBrand} Agency Portal</a>`);
 					message = message.replace(/{{Agency}}/g, this.agencyLocation.agency);
 					message = message.replace(/{{Agent Login URL}}/g, this.agencyLocation.insurers[quotes[0].insurer].agent_login);
@@ -510,23 +423,19 @@ module.exports = class Application {
 					message = message.replace(/{{Contact Phone}}/g, formatPhone(this.business.contacts[0].phone));
 					message = message.replace(/{{Industry}}/g, this.business.industry_code_description);
 
-					try {
+					if (quotes[0].status) {
 						message = message.replace(/{{Quote Result}}/g, quotes[0].status.charAt(0).toUpperCase() + quotes[0].status.substring(1));
 					}
- catch (error) {
-						log.error(`REFER TO SCOTT: possible charAt() issue: agencyNetwork=${this.agencyLocation.agencyNetwork} quote=${JSON.stringify(quotes[0])}: ${error} ${__location}`);
-						capitalizedBrand = emailData.emailBrand;
-					}
-
-					// Send the email message
-					email.send(this.agencyLocation.agencyEmail,
+					log.debug('sending agency email');
+					// Send the email message - development should email. change local config to get the email.
+					await emailSvc.send(this.agencyLocation.agencyEmail,
 						subject,
 						message,
 						{
 							agencyLocation: this.agencyLocation.id,
 							application: this.id
 						},
-						emailData.emailBrand,
+						emailContentJSON.emailBrand,
 						this.agencyLocation.agencyId);
 				}
 			}
@@ -554,6 +463,11 @@ module.exports = class Application {
 					}).
 					join(' and ')}`
 			};
+
+			if (global.settings.ENV === 'development') {
+				log.info('!!! Skipping sending notification slack due to development environment. !!!');
+				return;
+			}
 
 			// Send a message to Slack
 			if (all_had_quotes) {
@@ -633,13 +547,11 @@ module.exports = class Application {
 				stop = true;
 			});
 
-			// Validate the ID (on test applications, don't validate)
-			if (!this.test) {
-				if (!await validator.application(this.id)) {
-                    log.error('validator.application() ' + this.id + __location)
-					reject(serverHelper.requestError('Invalid application ID specified.'));
-					return;
-				}
+			// Validate the ID
+			if (!await validator.application(this.id)) {
+				log.error('validator.application() ' + this.id + __location);
+				reject(serverHelper.requestError('Invalid application ID specified.'));
+				return;
 			}
 
 			// Get a list of insurers and wait for it to return
@@ -652,7 +564,7 @@ module.exports = class Application {
 
 						// Initialize the agent so we can use it
 						await this.agencyLocation.init().catch(function(init_error) {
-                            log.error('Location.init() error ' + init_error + __location);
+							log.error('Location.init() error ' + init_error + __location);
 							reject(init_error);
 							stop = true;
 						});
@@ -674,7 +586,7 @@ module.exports = class Application {
 				return;
 			}
 			if (!insurers || insurers.length === 0 || Object.prototype.toString.call(insurers) !== '[object Array]') {
-                log.error('Invalid insurer(s) specified in policy. ' + __location);
+				log.error('Invalid insurer(s) specified in policy. ' + __location);
 				reject(serverHelper.requestError('Invalid insurer(s) specified in policy.'));
 				return;
 			}
@@ -697,7 +609,7 @@ module.exports = class Application {
 				policy_types.push(policy.type);
 			});
 			await Promise.all(policy_promises).catch(function(error) {
-                log.error('Policy Validation error. ' + error + __location);
+				log.error('Policy Validation error. ' + error + __location);
 				reject(error);
 				stop = true;
 			});
@@ -795,7 +707,7 @@ module.exports = class Application {
 					}
 				}
 				await Promise.all(question_promises).catch(function(error) {
-                    log.error('question_promises error. ' + error + __location);
+					log.error('question_promises error. ' + error + __location);
 					reject(error);
 					stop = true;
 				});

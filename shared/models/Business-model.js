@@ -7,11 +7,6 @@ const SearchStringModel = require('./SearchStrings-model.js');
 const crypt = global.requireShared('./services/crypt.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-// const util = require('util');
-// const email = global.requireShared('./services/emailsvc.js');
-// const slack = global.requireShared('./services/slacksvc.js');
-// const formatPhone = global.requireShared('./helpers/formatPhone.js');
-// const get_questions = global.requireShared('./helpers/getQuestions.js');
 
 const validator = global.requireShared('./helpers/validator.js');
 
@@ -287,12 +282,33 @@ module.exports = class BusinessModel{
         }
     }
 
-    updateProperty(){
-      const dbJSON = this.#dbTableORM.cleanJSON()
+    updateProperty(noNulls = false){
+      const dbJSON = this.#dbTableORM.cleanJSON(noNulls)
       // eslint-disable-next-line guard-for-in
       for (const property in properties) {
-          this[property] = dbJSON[property];
+          if(noNulls === true){
+              if(dbJSON[property]){
+                this[property] = dbJSON[property];
+              } else if(this[property]){
+                  delete this[property];
+              }
+          }
+          else {
+            this[property] = dbJSON[property];
+          }
+          
       }
+    }
+
+    /**
+	 * Load new business JSON into ORM. can be used to filter JSON to busines properties
+     *
+	 * @param {object} inputJSON - business JSON
+	 * @returns {void} 
+	 */
+    async loadORM(inputJSON){
+        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
+        return true;
     }
 }
 

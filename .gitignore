@@ -7,3 +7,4 @@ local.env
 coverage/
 .nyc_output/
 mochawesome-report/
+/localfunctiontest.js

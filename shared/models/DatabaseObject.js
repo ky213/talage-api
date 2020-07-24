@@ -2,7 +2,7 @@
 // We will need to update in order for it to recognize the ECMAscript extension for private properties. -SF
 
 /**
- * Defines a single Agency
+ * Defines a single record
  */
 
 'use strict';
@@ -139,6 +139,9 @@ module.exports = class DatabaseObject {
                             }
                             // correct input.
                             
+                        }
+                        else if (expectedDataType === "json"  && typeof value === 'object' ){
+                            log.debug('Load() Processing JSON column');
                         }
 						else {
                             if (expectedDataType !== typeof value) {
@@ -386,6 +389,10 @@ module.exports = class DatabaseObject {
                     }
                     if(this.#properties[property].type === "timestamp" || this.#properties[property].type === "date" || this.#properties[property].type === "datetime"){
 						value = this.dbDateTimeString(value);
+                    }
+                    
+                    if(this.#properties[property].type === "json"){
+						value = this.JSON.stringify(value);
 					}
 
                     // Store the column and value
@@ -488,6 +495,9 @@ module.exports = class DatabaseObject {
 					}
 					if(this.#properties[property].type === "timestamp" || this.#properties[property].type === "date" || this.#properties[property].type === "datetime"){
 						value = this.dbDateTimeString(value);
+                    }
+                    if(this.#properties[property].type === "json"){
+						value = JSON.stringify(value);
 					}
                     if(value || value === '' || value === 0){
                         // Write the set statement for this value
@@ -507,7 +517,6 @@ module.exports = class DatabaseObject {
 					\`id\` = ${db.escape(this.id)}
 				LIMIT 1;
 			`;
-
             // Run the query
             // usable in catch
 			const result = await db.query(sql).catch(function (error) {
@@ -569,6 +578,7 @@ module.exports = class DatabaseObject {
 			if(result && result.length === 1){
                 //Decrypt encrypted fields.
                 await this.decryptFields(result[0]);
+                await this.convertJSONColumns(result[0]);
 
 				this.load(result[0], false).catch(function(err){
 					log.error(`getById error loading object: ` + err);
@@ -594,10 +604,35 @@ module.exports = class DatabaseObject {
         return 
     }
 
-	cleanJSON(){
+    async convertJSONColumns(data){
+        for (const property in this.#properties) {
+            // Only set properties that were provided in the data
+            // if from database ignore required rules.
+            if (this.#properties[property].type === 'json' && Object.prototype.hasOwnProperty.call(data, property) && data[property]) {
+                try{
+                    data[property] = JSON.parse(data[property]);
+                }
+                catch(e){
+                    log.error("json parse error " + e + __location)
+                }
+                
+            }
+        }
+        return 
+    }
+
+	cleanJSON(noNulls = true){
 		let propertyNameJson = {};
 		for (const property in this.#properties) {
-			propertyNameJson[property] = this[`#${property}`]
+            if(noNulls === true){
+                if(this[`#${property}`]){
+                    propertyNameJson[property] = this[`#${property}`]   
+                }
+            }
+            else {
+                propertyNameJson[property] = this[`#${property}`]
+            }
+			
 		}
 		return propertyNameJson;
 	}

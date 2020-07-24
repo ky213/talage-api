@@ -3,11 +3,13 @@
 const DatabaseObject = require('./DatabaseObject.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+const crypt = global.requireShared('./services/crypt.js');
 
 
-const tableName = 'clw_talage_quotes'
+
+const tableName = 'clw_talage_agency_locations'
 const skipCheckRequired = false;
-module.exports = class ApplicationClaimModel{
+module.exports = class AgencyLocationBO{
 
     #dbTableORM = null;
 
@@ -87,27 +89,6 @@ module.exports = class ApplicationClaimModel{
         });
     }
 
-    DeleteByApplicationId(applicationId) {
-        return new Promise(async(resolve, reject) => {
-            //Remove old records.
-            const sql =`DELETE FROM ${tableName} 
-                   WHERE application = ${applicationId}
-            `;
-            let rejected = false;
-			const result = await db.query(sql).catch(function (error) {
-				// Check if this was
-				log.error("Database Object ${tableName} DELETE error :" + error + __location);
-				rejected = true;
-				reject(error);
-			});
-			if (rejected) {
-				return false;
-			}
-            resolve(true);
-       });
-    }
-
-
     async cleanupInput(inputJSON){
         for (const property in properties) {
             if(inputJSON[property]){
@@ -136,18 +117,39 @@ module.exports = class ApplicationClaimModel{
             this[property] = dbJSON[property];
         }
       }
-
-    /**
-	 * Load new object JSON into ORM. can be used to filter JSON to object properties
-     *
-	 * @param {object} inputJSON - input JSON
-	 * @returns {void} 
-	 */
-    async loadORM(inputJSON){
-        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
-        return true;
+    async getSelectionList(agencyId){
+        if(agencyId){
+            let rejected = false;
+                let responseLandingPageJSON = {};
+                let reject  = false;
+                const sql = `select al.id, al.address, z.city, z.territory, al.zip  
+                    from clw_talage_agency_locations al
+                    left outer join clw_talage_zip_codes z on z.zip = al.zip
+                
+                    where agency = ${agencyId}`
+                const result = await db.query(sql).catch(function (error) {
+                    // Check if this was
+                    rejected = true;
+                    log.error(`clw_talage_landing_page_paths error on select ` + error + __location);
+                });
+                if (!rejected && result && result.length >0) {
+                    //created encrypt and format
+                    for(var i = 0; i < result.length; i++){
+                        let location = result[i];
+                        location.address = await crypt.decrypt(location.address);
+                        location.address = location.address + " " + location.city + " " + location.territory + " " +  location.zip;
+                    }
+                    return result;
+                }
+                else {
+                    return [];
+                }
+        }
+        else {
+            throw new Error("No agency id");
+        }
     }
-
+    
 }
 
 const properties = {
@@ -164,120 +166,30 @@ const properties = {
       "default": "1",
       "encrypted": false,
       "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "tinyint(1)"
-    },
-    "policy_type": {
-      "default": "WC",
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "string",
-      "dbType": "varchar(3)"
-    },
-    "application": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
-    },
-    "insurer": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
-    },
-    "number": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "varchar(15)"
-    },
-    "package_type": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
-    },
-    "request_id": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "varchar(36)"
-    },
-    "amount": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "float(9,2) unsigned"
-    },
-    "seconds": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "tinyint(4) unsigned"
-    },
-    "status": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "varchar(19)"
-    },
-    "api_result": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "varchar(19)"
-    },
-    "bound": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
       "required": true,
       "rules": null,
       "type": "number",
       "dbType": "tinyint(1)"
     },
-    "log": {
-      "default": "",
-      "encrypted": false,
+    "address": {
+      "default": null,
+      "encrypted": true,
       "hashed": false,
-      "required": true,
+      "required": false,
       "rules": null,
       "type": "string",
-      "dbType": "mediumblob"
+      "dbType": "blob"
     },
-    "payment_plan": {
+    "address2": {
+      "default": null,
+      "encrypted": true,
+      "hashed": false,
+      "required": false,
+      "rules": null,
+      "type": "string",
+      "dbType": "blob"
+    },
+    "agency": {
       "default": null,
       "encrypted": false,
       "hashed": false,
@@ -286,32 +198,77 @@ const properties = {
       "type": "number",
       "dbType": "int(11) unsigned"
     },
-    "reasons": {
-      "default": null,
+    "close_time": {
+      "default": "5",
       "encrypted": false,
       "hashed": false,
-      "required": false,
+      "required": true,
       "rules": null,
-      "type": "string",
-      "dbType": "varchar(500)"
+      "type": "number",
+      "dbType": "tinyint(2)"
     },
-    "quote_letter": {
+    "email": {
       "default": null,
-      "encrypted": false,
+      "encrypted": true,
       "hashed": false,
       "required": false,
       "rules": null,
       "type": "string",
-      "dbType": "varchar(40)"
+      "dbType": "blob"
     },
-    "writer": {
+    "fname": {
+      "default": null,
+      "encrypted": true,
+      "hashed": false,
+      "required": false,
+      "rules": null,
+      "type": "string",
+      "dbType": "blob"
+    },
+    "lname": {
+      "default": null,
+      "encrypted": true,
+      "hashed": false,
+      "required": false,
+      "rules": null,
+      "type": "string",
+      "dbType": "blob"
+    },
+    "open_time": {
+      "default": "9",
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "number",
+      "dbType": "tinyint(2)"
+    },
+    "phone": {
+      "default": null,
+      "encrypted": true,
+      "hashed": false,
+      "required": false,
+      "rules": null,
+      "type": "string",
+      "dbType": "blob"
+    },
+    "primary": {
       "default": null,
       "encrypted": false,
       "hashed": false,
       "required": false,
       "rules": null,
-      "type": "string",
-      "dbType": "varchar(50)"
+      "type": "number",
+      "dbType": "tinyint(1)"
+    },
+    "zip": {
+      "default": null,
+      "encrypted": false,
+      "hashed": false,
+      "required": false,
+      "rules": null,
+      "type": "number",
+      "dbType": "mediumint(5) unsigned"
     },
     "created": {
       "default": null,
@@ -366,6 +323,24 @@ const properties = {
       "rules": null,
       "type": "number",
       "dbType": "int(11) unsigned"
+    },
+    "checked_out": {
+      "default": 0,
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "number",
+      "dbType": "int(11)"
+    },
+    "checked_out_time": {
+      "default": null,
+      "encrypted": false,
+      "hashed": false,
+      "required": false,
+      "rules": null,
+      "type": "datetime",
+      "dbType": "datetime"
     }
   }
 

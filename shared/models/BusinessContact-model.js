@@ -7,15 +7,9 @@ const tracker = global.requireShared('./helpers/tracker.js');
 const crypt = global.requireShared('./services/crypt.js');
 
 
-// const util = require('util');
-// const email = global.requireShared('./services/emailsvc.js');
-// const slack = global.requireShared('./services/slacksvc.js');
-// const formatPhone = global.requireShared('./helpers/formatPhone.js');
-// const get_questions = global.requireShared('./helpers/getQuestions.js');
-
-//const validator = global.requireShared('./helpers/validator.js');
 
 const hashFields = ["email"];
+const skipCheckRequired = false;
 
 module.exports = class BusinessContactModel{
 
@@ -159,79 +153,117 @@ module.exports = class BusinessContactModel{
         }
     }
 
-    updateProperty(){
-        const dbJSON = this.#dbTableORM.cleanJSON()
+    updateProperty(noNulls = false){
+        const dbJSON = this.#dbTableORM.cleanJSON(noNulls)
         // eslint-disable-next-line guard-for-in
         for (const property in properties) {
-            this[property] = dbJSON[property];
+            if(noNulls === true){
+                if(dbJSON[property]){
+                  this[property] = dbJSON[property];
+                } else if(this[property]){
+                    delete this[property];
+                }
+            }
+            else {
+                this[property] = dbJSON[property];
+              }
         }
       }
 
+    /**
+	 * Load new object JSON into ORM. can be used to filter JSON to object properties
+     *
+	 * @param {object} inputJSON - input JSON
+	 * @returns {void} 
+	 */
+    async loadORM(inputJSON){
+        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
+        return true;
+    }
+
 }
 
-const properties = {
+const properties ={
     "id": {
       "default": 0,
       "encrypted": false,
+      "hashed": false,
       "required": false,
       "rules": null,
-      "type": "number"
+      "type": "number",
+      "dbType": "int(11) unsigned"
     },
     "state": {
       "default": "1",
       "encrypted": false,
-      "required": false,
+      "hashed": false,
+      "required": true,
       "rules": null,
-      "type": "number"
+      "type": "number",
+      "dbType": "tinyint(1)"
     },
     "business": {
       "default": 0,
       "encrypted": false,
-      "required": false,
+      "hashed": false,
+      "required": true,
       "rules": null,
-      "type": "number"
+      "type": "number",
+      "dbType": "int(11) unsigned"
     },
     "email": {
       "default": "",
       "encrypted": true,
-      "required": false,
+      "hashed": false,
+      "required": true,
       "rules": null,
-      "type": "string"
+      "type": "string",
+      "dbType": "blob"
     },
     "email_hash": {
       "default": "",
       "encrypted": false,
-      "required": false,
+      "hashed": false,
+      "required": true,
       "rules": null,
-      "type": "string"
+      "type": "string",
+      "dbType": "varchar(40)"
     },
     "fname": {
       "default": "",
       "encrypted": true,
-      "required": false,
+      "hashed": false,
+      "required": true,
       "rules": null,
-      "type": "string"
+      "type": "string",
+      "dbType": "blob"
     },
     "lname": {
       "default": "",
       "encrypted": true,
-      "required": false,
+      "hashed": false,
+      "required": true,
       "rules": null,
-      "type": "string"
+      "type": "string",
+      "dbType": "blob"
     },
     "phone": {
       "default": "",
       "encrypted": true,
-      "required": false,
+      "hashed": false,
+      "required": true,
       "rules": null,
-      "type": "string"
+      "type": "string",
+      "dbType": "blob"
     },
     "primary": {
       "default": "1",
       "encrypted": false,
-      "required": false,
+      "hashed": false,
+      "required": true,
       "rules": null,
-      "type": "number"
+      "type": "number",
+      "dbType": "tinyint(1)"
     }
   }
 
