@@ -27,7 +27,7 @@ const properties = {
 	'agencyLocation': {
 		'default': 0,
 		'encrypted': false,
-		'required': true,
+		'required': false,
 		'rules': [
 			validator.id
 		],
