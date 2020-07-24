@@ -308,6 +308,7 @@ module.exports = class DatabaseObject {
 					try {
 						await this[this.#properties[property].saveHandler]();
 					} catch (error) {
+                        log.error(this.#properties[property] + " Save error " + error + __location );
 						rejected = true;
 						reject(error);
 						break;
