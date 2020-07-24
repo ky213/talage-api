@@ -60,10 +60,11 @@ async function createAgencyLocation(req, res, next) {
 
     // Save the location
     await location.save().catch(function (err) {
+        log.error("location.save error " + err + __location);
         error = err;
     });
     if (error) {
-        return next(error);
+        return next(new Error("Save error"));
     }
 
     // Return the response
