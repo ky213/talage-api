@@ -21,7 +21,6 @@ const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
      * @returns {void}
      */
     async function getbyId(req, res, next) {
-        log.debug('getbyId: ' + JSON.stringify(req.params.id))
         let error = false;
         //santize id.
         const id = stringFunctions.santizeNumber(req.params.id, true);
