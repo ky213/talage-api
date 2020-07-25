@@ -162,6 +162,7 @@ module.exports = class AgencyLocationBO{
                         let insurer = result[i];
                         insurer.agencyId = await crypt.decrypt(insurer.agencyId);
                         insurer.agentId = await crypt.decrypt(insurer.agentId);
+                        insurer.policy_type_info = JSON.parse(insurer.policy_type_info)
                     }
                     return result;
                 }
