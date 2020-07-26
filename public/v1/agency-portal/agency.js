@@ -551,8 +551,7 @@ async function postAgency(req, res, next) {
                 }
             }
             else {
-                log.warn('We have in insurer info being sent to the backend \
-					with an insurer id that does not exist in the db. Error at ' + __location)
+                log.error('We have in insurer info being sent to the backend with an insurer id that does not exist in the db. Error at ' + __location)
             }
         }
     }
