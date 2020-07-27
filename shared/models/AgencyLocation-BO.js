@@ -154,10 +154,10 @@ module.exports = class AgencyLocationBO{
     }
 
 
-    async getByIdAndAgencyForAgencyPortal(id,agencyId, children=true ){
+    async getByIdAndAgencyListForAgencyPortal(id,agencyList, children=true ){
         
-        if(agencyId && id){
-            agencyId = stringFunctions.santizeNumber(agencyId, true);
+        if(agencyList && id){
+            //agencyId = stringFunctions.santizeNumber(agencyId, true);
             id = stringFunctions.santizeNumber(id, true);
             //santize id.
             let rejected = false;
@@ -180,10 +180,10 @@ module.exports = class AgencyLocationBO{
                     l.primary
                 FROM clw_talage_agency_locations l
                 LEFT OUTER JOIN clw_talage_zip_codes z ON z.zip = l.zip
-                WHERE l.id = ? AND l.agency = ? AND l.state > 0;`
+                WHERE l.id = ? AND l.agency in (?) AND l.state > 0;`
 
             //WHERE l.id = ${id} AND l.agency = ${agencyId} AND l.state > 0;`
-            const parmList = [id, agencyId];
+            const parmList = [id, agencyList];
             const result = await db.queryParam(sql, parmList).catch(function (error) {
                 // Check if this was
                 rejected = true;
@@ -234,7 +234,7 @@ module.exports = class AgencyLocationBO{
             }
         }
         else {
-            throw new Error("No id or agency id");
+            throw new Error("No id or agencyList");
         }
     }
 
@@ -289,6 +289,8 @@ module.exports = class AgencyLocationBO{
             throw new Error("No id or agency id");
         }
     }
+
+    
     
 }
 

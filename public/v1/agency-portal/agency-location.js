@@ -46,13 +46,13 @@ const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 
         // Determine the agency ID
-        const agencyId = req.authentication.agents[0];
+        const agencyList = req.authentication.agents;
 
         // Initialize an agency object
         const agencyLocationBO = new AgencyLocationBO();
 
         // Load the request data into it
-        const locaionJSON = await agencyLocationBO.getByIdAndAgencyForAgencyPortal(id,agencyId).catch(function(err) {
+        const locaionJSON = await agencyLocationBO.getByIdAndAgencyListForAgencyPortal(id,agencyList).catch(function(err) {
             log.error("Location load error " + err + __location);
             error = err;
         });
