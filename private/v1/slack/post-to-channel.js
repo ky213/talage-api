@@ -49,7 +49,7 @@ async function postToChannel(req, res, next){
 			"error": true,
 			"message": 'No data was received'
 		});
-		return next(serverHelper.badRequestError('No data was received'));
+		return next(serverHelper.BadRequestError('No data was received'));
 	}
 
 	log.verbose(util.inspect(req.body) + __location);
@@ -69,7 +69,7 @@ async function postToChannel(req, res, next){
 				"error": true
 			});
 
-			return next(serverHelper.badRequestError(`Channel ${req.body.channel} is not valid`));
+			return next(serverHelper.BadRequestError(`Channel ${req.body.channel} is not valid`));
 		}
 
 		if (!valid_channels.includes(req.body.channel)){
@@ -119,7 +119,7 @@ async function postToChannel(req, res, next){
 			};
 
 			res.send(400, Object.assign(response, response_messages));
-			return next(serverHelper.badRequestError('Message must be given as a string'));
+			return next(serverHelper.BadRequestError('Message must be given as a string'));
 		}
 	}
  else {
@@ -132,7 +132,7 @@ async function postToChannel(req, res, next){
 
 		res.send(400, Object.assign(response, response_messages));
 
-		return next(serverHelper.badRequestError('Missing property: message'));
+		return next(serverHelper.BadRequestError('Missing property: message'));
 	}
 
 	if (req.body.attachment){
@@ -146,7 +146,7 @@ async function postToChannel(req, res, next){
 
 			res.send(400, Object.assign(response, response_messages));
 
-			return next(serverHelper.badRequestError('Attachment title must be given as a string'));
+			return next(serverHelper.BadRequestError('Attachment title must be given as a string'));
 		}
 
 		if (req.body.attachment.text && typeof req.body.attachment.text !== 'string'){
@@ -159,7 +159,7 @@ async function postToChannel(req, res, next){
 
 			res.send(400, Object.assign(response, response_messages));
 
-			return next(serverHelper.badRequestError('Attachment text must be given as a string'));
+			return next(serverHelper.BadRequestError('Attachment text must be given as a string'));
 		}
 
 		// Attachment_fields sanitization
@@ -174,7 +174,7 @@ async function postToChannel(req, res, next){
 
 				res.send(400, Object.assign(response, response_messages));
 
-				return next(serverHelper.badRequestError('Attachment Fields must be given as an array of JSON objects'));
+				return next(serverHelper.BadRequestError('Attachment Fields must be given as an array of JSON objects'));
 			}
 
 			if (!req.body.attachment.fields.length){
@@ -193,7 +193,7 @@ async function postToChannel(req, res, next){
 
 					res.send(400, Object.assign(response, response_messages));
 
-					return next(serverHelper.badRequestError(`The field at index ${i} is missing title`));
+					return next(serverHelper.BadRequestError(`The field at index ${i} is missing title`));
 				}
 
 				if (!req.body.attachment.fields[i].value){
@@ -206,7 +206,7 @@ async function postToChannel(req, res, next){
 
 					res.send(400, Object.assign(response, response_messages));
 
-					return next(serverHelper.badRequestError(`The field at index ${i} is missing value`));
+					return next(serverHelper.BadRequestError(`The field at index ${i} is missing value`));
 				}
 
 				if (req.body.attachment.fields[i].short){
@@ -227,7 +227,7 @@ async function postToChannel(req, res, next){
 
 							res.send(400, Object.assign(response, response_messages));
 
-							return next(serverHelper.badRequestError(`The field at index ${i} has short that is not true or false`));
+							return next(serverHelper.BadRequestError(`The field at index ${i} has short that is not true or false`));
 						}
 					}
  else if (typeof req.body.attachment.fields[i].short !== 'boolean'){
@@ -240,7 +240,7 @@ async function postToChannel(req, res, next){
 
 						res.send(400, Object.assign(response, response_messages));
 
-						return next(serverHelper.badRequestError(`The field at index ${i} has short that is not a boolean`));
+						return next(serverHelper.BadRequestError(`The field at index ${i} has short that is not a boolean`));
 					}
 				}
 			}
@@ -258,7 +258,7 @@ async function postToChannel(req, res, next){
 
 		res.send(400, Object.assign(response, response_messages));
 
-		return next(serverHelper.badRequestError(`Application id ${req.body.attachment.application_id} is not valid`));
+		return next(serverHelper.BadRequestError(`Application id ${req.body.attachment.application_id} is not valid`));
 	}
 
 	if (!slackSvc){
