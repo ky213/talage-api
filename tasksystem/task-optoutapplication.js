@@ -2,7 +2,7 @@
 
 const moment = require('moment');
 const crypt = global.requireShared('./services/crypt.js');
-const email = global.requireShared('./services/emailsvc.js');
+const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
@@ -221,7 +221,7 @@ var processOptOutEmail = async function(applicationId) {
             'agency_location': applications[0].agencyLocation
         };
         if (agencyLocationEmail) {
-            const emailResp = await email.send(agencyLocationEmail, subject, message, keyData2, applications[0].emailBrand);
+            const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData2, applications[0].emailBrand);
             if (emailResp === false) {
                 slack.send('#alerts', 'warning', `The system failed to inform an agency of the Opt Out Email for application ${applicationId}. Please follow-up manually.`);
             }

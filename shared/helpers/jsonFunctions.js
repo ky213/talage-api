@@ -13,6 +13,20 @@ exports.jsonCopy = function(sourceJSON){
 	return JSON.parse(JSON.stringify(sourceJSON))
 };
 
+/**
+ * delete property from JSON object if it exists
+ *
+ * @param {JSON} sourceJSON - source JSON object
+ * @param {JSON} prop - prop name
+ * @return {void}
+ */
+exports.deleteProp = function(sourceJSON, prop){
+    if(sourceJSON[prop]){
+        delete sourceJSON[prop];
+    }
+    return true;
+};
+
 
 /**
  * Copy JSON object

@@ -160,14 +160,8 @@ var send2SlackInternal = async function(slackReqJSON) {
 	// Validate Channel
 	if (slackReqJSON.channel) {
 		slackReqJSON.channel = slackReqJSON.channel.toLowerCase();
-
-		try {
-			if (slackReqJSON.channel.charAt(0) !== '#') {
-				slackReqJSON.channel = `#${slackReqJSON.channel}`; // Add # to beginning of channel
-			}
-		}
- catch (error) {
-			log.error(`REFER TO SCOTT: possible charAt() issue: slackReqJSON=${JSON.stringify(slackReqJSON)} ${__location}`);
+		if (slackReqJSON.channel.charAt(0) !== '#') {
+			slackReqJSON.channel = `#${slackReqJSON.channel}`; // Add # to beginning of channel
 		}
 
 		if (!/^#[a-z_-]{1,22}$/.test(slackReqJSON.channel)) {
