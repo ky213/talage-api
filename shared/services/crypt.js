@@ -124,7 +124,12 @@ function getUniqueNonce() {
 exports.decrypt = function(val) {
 	return new Promise(async function(resolve) {
 		// If this is a buffer, convert it to a string
-		if (Buffer.isBuffer(val)) {
+        if(!val){
+            resolve(null);
+            return;
+        }
+
+        if (Buffer.isBuffer(val)) {
 			val = val.toString();
 		}
 
