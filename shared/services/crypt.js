@@ -136,7 +136,8 @@ exports.decrypt = function(val) {
 
 		// Send a request to the encryption service
 		let hadError = false;
-		const result = await decryptInternal(val).catch(function() {
+		const result = await decryptInternal(val).catch(function(err) {
+            log.error('decrypt err ' + err + __location)
 			hadError = true;
 			resolve(false);
 		});

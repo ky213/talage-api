@@ -76,7 +76,8 @@ async function deleteAgency(req, res, next) {
 		`;
 
     // Run the query
-    const result = await db.query(updateSQL).catch(function() {
+    const result = await db.query(updateSQL).catch(function(err) {
+        log.error('clw_talage_agencies error ' + err + __location);
         error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
     });
     if (error) {

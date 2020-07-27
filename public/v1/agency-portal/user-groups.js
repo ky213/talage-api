@@ -1,5 +1,7 @@
 'use strict';
 const serverHelper = require('../../../server.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 /**
  * Responds to get requests for the userGroups endpoint
@@ -20,8 +22,9 @@ async function getUserGroups(req, res, next){
 			FROM \`#__agency_portal_user_groups\`
 			WHERE \`id\` != 3;
 		`;
-
-	const userGroups = await db.query(userGroupsSQL).catch(function(){
+    //TODO Fix Catch logic
+	const userGroups = await db.query(userGroupsSQL).catch(function(err){
+        log.error('__agency_portal_user_groups error ' + err + __location);
 		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 	});
 

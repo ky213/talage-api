@@ -156,8 +156,8 @@ exports.send = async function(recipients, subject, content, keys = {}, brand = '
 
             // Since we know the application, we can determine the business, and we want both
             const businessQuery = `SELECT business FROM #__applications WHERE id = ${db.escape(columns.application)} LIMIT 1;`;
-            const result = await db.query(businessQuery).catch(function() {
-                log.error(`Email helper send() unable to get business ID from database for application ${columns.application}`);
+            const result = await db.query(businessQuery).catch(function(err) {
+                log.error(`Email helper send() unable to get business ID from database for application ${columns.application} ` + err + __location);
             });
             columns.business = result[0].business;
         }

@@ -1,5 +1,7 @@
 'use strict';
 const serverHelper = require('../../../server.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 /**
  * Responds to get requests for the getCityTerritory endpoint

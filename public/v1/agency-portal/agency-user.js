@@ -2,6 +2,8 @@
 const auth = require('./helpers/auth.js');
 const serverHelper = require('../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 const hasOtherOwner = require('./user').hasOtherOwner;
 const hasOtherSigningAuthority = require('./user').hasOtherSigningAuthority;
@@ -36,7 +38,8 @@ async function deleteAgencyUser(req, res, next){
 	const userSQL = `SELECT agency FROM #__agency_portal_users WHERE id = ${parseInt(id, 10)} LIMIT 1;`;
 
 	// Run the query
-	const userResult = await db.query(userSQL).catch(function(){
+	const userResult = await db.query(userSQL).catch(function(err){
+        log.error('agency_portal_users error ' + err + __location);
 		error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 	});
 	if (error){
@@ -85,7 +88,8 @@ async function deleteAgencyUser(req, res, next){
 		`;
 
 	// Run the query
-	const result = await db.query(updateSQL).catch(function(){
+	const result = await db.query(updateSQL).catch(function(err){
+        log.error('agency_portal_users error ' + err + __location);
 		error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 	});
 	if (error){
