@@ -15,7 +15,7 @@ const serverHelper = require('../../../../server.js');
  * @param {object} req - The Restify request object
  * @return {Promise.<array, ServerError>} A promise that returns an array of agent IDs on success, or a ServerError on failure
  */
-exports.getAgents = async function (req) {
+exports.getAgents = async function(req) {
 	// Localize data variables that the user is permitted to access
 	const agencyNetwork = req.authentication.agencyNetwork;
 	let error = false;
@@ -32,7 +32,7 @@ exports.getAgents = async function (req) {
 		FROM \`#__agencies\`
 		WHERE \`agency_network\` = ${db.escape(agencyNetwork)};
 	`;
-	const agencyResult = await db.query(agencySQL).catch(function (e) {
+	const agencyResult = await db.query(agencySQL).catch(function(e) {
 		log.error(e.message);
 		error = serverHelper.internalError('Error querying database. Check logs.');
 	});
@@ -41,7 +41,7 @@ exports.getAgents = async function (req) {
 	}
 
 	// Everything appears to be okay, return the requested agents
-	return agencyResult.map(function (agency) {
+	return agencyResult.map(function(agency) {
 		return agency.id;
 	});
 };
@@ -54,7 +54,7 @@ exports.getAgents = async function (req) {
  * @param {string} permissionType - Required permissions type
  * @return {string} null on success, error message on error
  */
-exports.validateJWT = async function (req, permission, permissionType) {
+exports.validateJWT = async function(req, permission, permissionType) {
 	try {
 		// NOTE: This function should be moved to a shared module. That module should also token creation
 
@@ -103,7 +103,6 @@ exports.validateJWT = async function (req, permission, permissionType) {
 		}
 
 		// Make sure each of the agents are valid
-		const agentIDs = [];
 		for (let i = 0; i < req.authentication.agents.length; i++) {
 			const agent = req.authentication.agents[i];
 			// Check the type
@@ -121,7 +120,7 @@ exports.validateJWT = async function (req, permission, permissionType) {
 		// Additional validation for group administrators
 		if (req.authentication.agencyNetwork) {
 			// Validate the agency network ID
-			if (!(await validator.is_valid_id(req.authentication.agencyNetwork))) {
+			if (!await validator.is_valid_id(req.authentication.agencyNetwork)) {
 				log.info('Forbidden: User is not authenticated (agencyNetwork)');
 				return 'User is not properly authenticated';
 			}
@@ -131,18 +130,20 @@ exports.validateJWT = async function (req, permission, permissionType) {
 				log.info('Forbidden: User is not authenticated');
 				return 'User is not authenticated';
 			}
-		} else if (req.authentication.agents.length > 1) {
+		}
+ else if (req.authentication.agents.length > 1) {
 			// Agencies can only have one agent in their payload
 			log.info('Forbidden: JWT payload is invalid (too many agents)');
 			return 'User is not properly authenticated';
 		}
 
 		// Make sure the User ID is valid
-		if (!(await validator.agency_portal_user(req.authentication.userID))) {
+		if (!await validator.agency_portal_user(req.authentication.userID)) {
 			log.info('Forbidden: JWT payload is invalid (invalid User ID)');
 			return 'User is not properly authenticated';
 		}
-	} catch (error) {
+	}
+ catch (error) {
 		return `An unknown error occurred when validating the JWT: ${error}`;
 	}
 	// Success
