@@ -4,6 +4,16 @@ const jwt = require('jsonwebtoken');
 const server = require('../../../server.js');
 
 async function login(req, res, next) {
+	// Ensure we have login information
+	if (!req.body.email || !req.body.password) {
+		return server.sendError('Missing credentials', res, next);
+	}
+
+	// Temporary credentials check
+	if (req.body.email !== 'talage' || req.body.password !== 'talage') {
+		return server.sendError('Invalid credentials', res, next);
+	}
+
 	// Get the user information.
 	const user = {
 		id: 1,
