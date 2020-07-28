@@ -111,11 +111,7 @@ exports.validateJWT = async function (req, permission, permissionType) {
 				log.info('Forbidden: JWT payload is invalid (single agent)');
 				return 'User is not properly authenticated';
 			}
-
-			// Add this Agent ID to the list of IDs
-			agentIDs.push(agent);
 		}
-
 		// Make sure the agencyNetwork is what we are expecting
 		if (typeof req.authentication.agencyNetwork !== 'number' && typeof req.authentication.agencyNetwork !== 'boolean') {
 			log.info('Forbidden: JWT payload is invalid (agencyNetwork)');
@@ -149,7 +145,6 @@ exports.validateJWT = async function (req, permission, permissionType) {
 	} catch (error) {
 		return `An unknown error occurred when validating the JWT: ${error}`;
 	}
-
 	// Success
 	return null;
 };
