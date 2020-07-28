@@ -364,17 +364,13 @@ module.exports = {
 
 	serviceUnavailableError: (message) => new RestifyError.ServiceUnavailableError(message),
 
-	success: (data) => {
-		return {
-			error: null,
-			data
-		};
+	send: (data, res, next) => {
+		res.send({ error: null, data });
+		return next();
 	},
 
-	error: (errorMessage) => {
-		return {
-			error: errorMessage,
-			data: null
-		};
+	sendError: (errorMessage, res, next) => {
+		res.send({ error: errorMessage, data: null });
+		return next();
 	}
 };

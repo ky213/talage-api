@@ -86,6 +86,7 @@ exports.registerEndpoints = (server) => {
 	// Application
 	registerEndpoint(server, 'application', 'application');
 	// Auth
+	registerEndpoint(server, 'auth', 'administration');
 	registerEndpoint(server, 'auth', 'agency-portal');
 	registerEndpoint(server, 'auth', 'token');
 
@@ -110,7 +111,6 @@ exports.registerEndpoints = (server) => {
 	registerEndpoint(server, 'site', 'brand');
 
 	// Administration
-	registerEndpoint(server, 'administration', 'auth');
 	registerEndpoint(server, 'administration', 'color-scheme');
 
 	// Server.AddGet('Uptime Check', '/', GetUptime);
