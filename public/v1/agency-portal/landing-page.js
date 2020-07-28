@@ -350,7 +350,7 @@ async function createLandingPage(req, res, next) {
         show_industry_section: data.showIndustrySection,
         slug: data.slug
     };
-    
+
     if(!insertData.agency_location_id){
         insertData.agency_location_id = 0;
     }
@@ -617,6 +617,9 @@ async function updateLandingPage(req, res, next) {
     }
     data.id = req.body.id;
     data.agencyLocationId = req.body.agencyLocationId;
+    if(!data.agencyLocationId){
+        data.agencyLocationId = 0;
+    }
 
     // Commit this update to the database
     const sql = `
