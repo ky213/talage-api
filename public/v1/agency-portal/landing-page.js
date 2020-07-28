@@ -350,6 +350,10 @@ async function createLandingPage(req, res, next) {
         show_industry_section: data.showIndustrySection,
         slug: data.slug
     };
+    
+    if(!insertData.agency_location_id){
+        insertData.agency_location_id = 0;
+    }
 
     // Create the SQL to insert this item into the database
     const sql = `
