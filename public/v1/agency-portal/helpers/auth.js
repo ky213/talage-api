@@ -56,48 +56,71 @@ exports.getAgents = async function (req) {
  */
 exports.validateJWT = async function (req, permission, permissionType) {
 	try {
+		// NOTE: This function should be moved to a shared module. That module should also token creation
+
+		// Tokens should have a 'namespace' added for where they are valid, in addition to a permission and permissionType.
+		// That namespace should be 'agency-portal' or 'administration'
+		// Then we can validate the tokens using the namespace, permission, permissionType, and different requirements.
+		// For now, detect if the permission is "administration" and validate just it until we can refactor to include
+		// a validation namespace.
+
+		// Administration validation
+		// ====================================================================================================
+		if (permission && permission === 'administration') {
+			if (!req.authentication.permissions[permission][permissionType]) {
+				log.info('Forbidden: User does not have the correct permissions');
+				return 'User does not have the correct permissions';
+			}
+			return null;
+		}
+
+		// Agency Portal validation
+		// ====================================================================================================
+
 		// Make sure this user is authenticated
 		if (!Object.prototype.hasOwnProperty.call(req, 'authentication') || !req.authentication) {
 			log.info('Forbidden: User is not authenticated');
 			return 'User is not authenticated';
 		}
 		// Make sure the authentication payload has everything we are expecting
-		// if (!Object.prototype.hasOwnProperty.call(req.authentication, 'agents') || !Object.prototype.hasOwnProperty.call(req.authentication, 'userID') || !Object.prototype.hasOwnProperty.call(req.authentication, 'permissions')) {
-		if (!req.authentication.permissions) {
-			log.info('Forbidden: JWT payload is missing permissions');
+		if (!Object.prototype.hasOwnProperty.call(req.authentication, 'agents') || !Object.prototype.hasOwnProperty.call(req.authentication, 'userID') || !Object.prototype.hasOwnProperty.call(req.authentication, 'permissions')) {
+			log.info('Forbidden: JWT payload is missing parameters');
 			return 'User is not properly authenticated';
 		}
 
 		// Make sure the agents are what we are expecting
-		// if (typeof req.authentication.agents !== 'object'){
-		// 	log.info('Forbidden: JWT payload is invalid (agents)');
-		// 	return 'User is not properly authenticated';
-		// }
+		if (typeof req.authentication.agents !== 'object') {
+			log.info('Forbidden: JWT payload is invalid (agents)');
+			return 'User is not properly authenticated';
+		}
 
 		// Check for the correct permissions
 		if (permission && permissionType) {
-			if (!req.authentication.permissions[permission] || !req.authentication.permissions[permission][permissionType]) {
+			if (!req.authentication.permissions[permission][permissionType]) {
 				log.info('Forbidden: User does not have the correct permissions');
 				return 'User does not have the correct permissions';
 			}
 		}
 
 		// Make sure each of the agents are valid
-		if (req.authentication.agents) {
-			for (let i = 0; i < req.authentication.agents.length; i++) {
-				const agent = req.authentication.agents[i];
-				// Check the type
-				if (typeof agent !== 'number') {
-					log.info('Forbidden: JWT payload is invalid (single agent)');
-					return 'User is not properly authenticated';
-				}
+		const agentIDs = [];
+		for (let i = 0; i < req.authentication.agents.length; i++) {
+			const agent = req.authentication.agents[i];
+			// Check the type
+			if (typeof agent !== 'number') {
+				log.info('Forbidden: JWT payload is invalid (single agent)');
+				return 'User is not properly authenticated';
 			}
+
+			// Add this Agent ID to the list of IDs
+			agentIDs.push(agent);
 		}
+
 		// Make sure the agencyNetwork is what we are expecting
-		// if (typeof req.authentication.agencyNetwork !== 'number' && typeof req.authentication.agencyNetwork !== 'boolean'){
-		// 	log.info('Forbidden: JWT payload is invalid (agencyNetwork)');
-		// 	return 'User is not properly authenticated';
-		// }
+		if (typeof req.authentication.agencyNetwork !== 'number' && typeof req.authentication.agencyNetwork !== 'boolean') {
+			log.info('Forbidden: JWT payload is invalid (agencyNetwork)');
+			return 'User is not properly authenticated';
+		}
 
 		// Additional validation for group administrators
 		if (req.authentication.agencyNetwork) {
@@ -112,22 +135,21 @@ exports.validateJWT = async function (req, permission, permissionType) {
 				log.info('Forbidden: User is not authenticated');
 				return 'User is not authenticated';
 			}
-		} else if (req.authentication.agents && req.authentication.agents.length > 1) {
+		} else if (req.authentication.agents.length > 1) {
 			// Agencies can only have one agent in their payload
 			log.info('Forbidden: JWT payload is invalid (too many agents)');
 			return 'User is not properly authenticated';
 		}
 
 		// Make sure the User ID is valid
-		if (req.authentication.userID) {
-			if (!(await validator.agency_portal_user(req.authentication.userID))) {
-				log.info('Forbidden: JWT payload is invalid (invalid User ID)');
-				return 'User is not properly authenticated';
-			}
+		if (!(await validator.agency_portal_user(req.authentication.userID))) {
+			log.info('Forbidden: JWT payload is invalid (invalid User ID)');
+			return 'User is not properly authenticated';
 		}
 	} catch (error) {
 		return `An unknown error occurred when validating the JWT: ${error}`;
 	}
+
 	// Success
 	return null;
 };
