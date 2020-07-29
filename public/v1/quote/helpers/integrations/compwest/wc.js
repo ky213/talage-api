@@ -378,6 +378,18 @@ module.exports = class CompwestWC extends Integration {
 			}
 			// </Communications>
 			// </GeneralPartyInfo>
+
+			// <AdditionInterestInfo>
+			// <NatureInterestCd>
+
+			if (this.app.business.dba) {
+				const AdditionInterestInfo = InsuredOrPrincipal.ele('AdditionInterestInfo');
+				AdditionInterestInfo.ele('NatureInterestCd', 'DBA');
+				AdditionInterestInfo.ele('AdditionInterestInfo', this.app.business.dba);
+			}
+			// </NatureInterestCd>
+			// </AdditionInterestInfo>
+
 			// </InsuredOrPrincipal
 
 			// <CommlPolicy>
