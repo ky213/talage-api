@@ -42,6 +42,12 @@ exports.create = async function(application_id, insurer_id){
 		return {'error': message};
 	}
 
+	return createWC(application_id, insurer_id);
+
+}
+
+async function createWC(application_id, insurer_id){
+
 	// Application and business information query
 	const sql = `SELECT
 					a_qt.policy_type,
@@ -991,10 +997,10 @@ exports.create = async function(application_id, insurer_id){
 	// Create PDF
 	const doc = printer.createPdfKitDocument(docDefinition);
 
-
-
 	return {
 		'doc': doc,
 		'missing_data': missing_data
 	};
+
+
 }
