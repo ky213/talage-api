@@ -220,7 +220,7 @@ var emailbindagency = async function(applicationId, quoteId) {
                     message = message.replace(/{{Agency Email}}/g, applications[0].agencyEmail);
                     message = message.replace(/{{Agency Phone}}/g, agencyPhone);
                     message = message.replace(/{{Agency Website}}/g, applications[0].agencyWebsite ? '<a href="' + applications[0].agencyWebsite + '" rel="noopener noreferrer" target="_blank">' + applications[0].agencyWebsite + '</a>' : '');
-                    message = message.replace(/{{Quotes}}/g, '<br /><div align="center"><table border="0" cellpadding="0" cellspacing="0" width="350"><tr><td width="200"><img alt="' + applications[0].insurer_name + '" src="https://talageins.com/' + applications[0].insurer_logo + '" width="100%" /></td><td width="20"></td><td style="padding-left:20px;font-size:30px;">$' + stringFunctions.number_format(applications[0].amount) + '</td></tr></table></div><br />');
+                    message = message.replace(/{{Quotes}}/g, '<br /><div align="center"><table border="0" cellpadding="0" cellspacing="0" width="350"><tr><td width="200"><img alt="' + applications[0].insurer_name + '" src="https://img.talageins.com/' + applications[0].insurer_logo + '" width="100%" /></td><td width="20"></td><td style="padding-left:20px;font-size:30px;">$' + stringFunctions.number_format(applications[0].amount) + '</td></tr></table></div><br />');
 
                     subject = subject.replace(/{{Agency}}/g, applications[0].agencyName);
 
