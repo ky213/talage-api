@@ -1,7 +1,7 @@
 'use strict';
 
 const util = require('util');
-const serverHelper = require('../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
 
 /**
  * Parses through the questions we have recieved to see if any are missing based on those referenced as the 'parent' of an existing question

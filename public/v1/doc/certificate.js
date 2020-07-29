@@ -15,7 +15,7 @@ const generate = require('./helpers/certificate/generate-page-2-3.js');
 const signature = require('./helpers/signature.js');
 const positions = require('./helpers/document-style/certificate/positions.js');
 const styles = require('./helpers/document-style/certificate/styles.js');
-const serverHelper = require('../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
 
 /**
  * Responds to get requests for the certificate endpoint
