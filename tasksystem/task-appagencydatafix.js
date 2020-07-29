@@ -22,7 +22,7 @@ exports.processtask = async function(queueMessage){
             error = err;
         });
         if(error){
-            log.error("Error App Agency Null fix deleteTaskQueueItem " + error +  __location);
+            log.error("Error App Agency Null fix deleteTaskQueueItem " + error + __location);
         }
         return;
     }
@@ -30,7 +30,7 @@ exports.processtask = async function(queueMessage){
         log.debug('removing old expirePoliciesTask Message from queue');
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(err => error = err)
         if(error){
-            log.error("Error App Agency Null fix deleteTaskQueueItem old " + error +  __location);
+            log.error("Error App Agency Null fix deleteTaskQueueItem old " + error + __location);
         }
         return;
     }
@@ -45,7 +45,7 @@ exports.taskProcessorExternal = async function(){
     let error = null;
     await appDataFixTask().catch(err => error = err);
     if(error){
-        log.error('App Agency Null fix external: ' + error +  __location);
+        log.error('App Agency Null fix external: ' + error + __location);
     }
     return;
 }
@@ -56,14 +56,40 @@ exports.taskProcessorExternal = async function(){
  * @returns {void}
  */
 var appDataFixTask = async function(){
-
     const updateSQL = `
     UPDATE clw_talage_applications 
         SET agency = 1, agency_location = 1
         WHERE agency is NULL
     `;
     await db.query(updateSQL).catch(function(e){
-        log.error(`App Agency Null fix caused an error: ` + e.message +  __location);
+        log.error(`App Agency Null fix caused an error: ` + e.message + __location);
     });
+
+    // update missing Policy type JSON.
+    // and update anything with Agency_location change in last hour (this runs very 5 minutes)
+    const updatePolicyJSONSQL = `
+    UPDATE clw_talage_agency_location_insurers ali
+        SET policy_type_info = JSON_OBJECT('GL',
+                                   JSON_OBJECT('enabled', gl,
+                                               'useAcord', false,
+                                               'acordInfo',
+                                               JSON_OBJECT('sendToEmail', '')),
+                                   'WC',
+                                   JSON_OBJECT('enabled', wc,
+                                               'useAcord', false,
+                                               'acordInfo',
+                                               JSON_OBJECT('sendToEmail', '')),
+                                   'BOP',
+                                   JSON_OBJECT('enabled', bop,
+                                               'useAcord', false,
+                                               'acordInfo',
+                                               JSON_OBJECT('sendToEmail', ''))
+    )
+    Where policy_type_info is null `;
+    await db.query(updatePolicyJSONSQL).catch(function(e){
+        log.error(`clw_talage_agency_location_insurers policy_type fix caused an error: ` + e.message + __location);
+    });
+
+
     return;
 }
