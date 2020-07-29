@@ -239,7 +239,7 @@ var processAbandonQuote = async function(applicationId){
                 const quoteResult = quote.api_result.indexOf('_') ? quote.api_result.substr(stringFunctions.ucwords(quote.api_result), 0, quote.api_result.indexOf('_')) : stringFunctions.ucwords(quote.api_result);
                 const quoteNumber = quote.number ? quote.number : "No Quote Number";
                 // Write a row of the table
-                quotesHTML = quotesHTML + `<tr><td width=\"180\"><img alt=\"${quote.insurer}\" src=\"https://talageins.com/${quote.logo}\" width=\"100%\"></td><td width=\"20\"></td><td align=\"center\">` + quoteResult + `</td><td width=\"20\"></td><td align=\"center\">${quoteNumber}</td><td width=\"20\"></td><td style=\"padding-left:20px;font-size:30px;\">` + stringFunctions.number_format(quote.amount) + `</td></tr>`;
+                quotesHTML = quotesHTML + `<tr><td width=\"180\"><img alt=\"${quote.insurer}\" src=\"https://img.talageins.com/${quote.logo}\" width=\"100%\"></td><td width=\"20\"></td><td align=\"center\">` + quoteResult + `</td><td width=\"20\"></td><td align=\"center\">${quoteNumber}</td><td width=\"20\"></td><td style=\"padding-left:20px;font-size:30px;\">` + stringFunctions.number_format(quote.amount) + `</td></tr>`;
             }
             quotesHTML += '</table></div><br>';
 
