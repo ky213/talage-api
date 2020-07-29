@@ -1,7 +1,7 @@
 'use strict';
 
 const acord = global.requireShared('./services/acordsvc.js');
-const serverHelper = require('../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
 
 
 /**
