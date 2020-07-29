@@ -22,6 +22,7 @@ let MessageSchema = new Schema({
     subject: {type: String, required:[true, 'subject required']},
     message: {type: String, required:[true, 'message required']},
     attachment: {type: String, required: false},
+    recipients: [String],
     "sent": Date
 })
 

@@ -69,7 +69,7 @@ exports.registerEndpoints = (server) => {
 	registerEndpoint(server, 'agency-portal', 'color-schemes');
 	registerEndpoint(server, 'agency-portal', 'create-agency');
 	registerEndpoint(server, 'agency-portal', 'landing-page');
-	registerEndpoint(server, 'agency-portal', 'landing-pages');
+    registerEndpoint(server, 'agency-portal', 'landing-pages');
 	registerEndpoint(server, 'agency-portal', 'questions');
 	registerEndpoint(server, 'agency-portal', 'quote-letter');
 	registerEndpoint(server, 'agency-portal', 'reports');
@@ -111,7 +111,8 @@ exports.registerEndpoints = (server) => {
 	registerEndpoint(server, 'site', 'brand');
 
 	// Administration
-	registerEndpoint(server, 'administration', 'color-scheme');
+    registerEndpoint(server, 'administration', 'color-scheme');
+    registerEndpoint(server, 'administration', 'message');
 
 	// Server.AddGet('Uptime Check', '/', GetUptime);
 	// AWS load balancers and pingdom send /uptime
