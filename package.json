@@ -23,6 +23,7 @@
 	"homepage": "https://gitlab.com/talage/talage-api#readme",
 	"dependencies": {
 		"@sendgrid/mail": "^7.0.1",
+		"async": "^2.6.3",
 		"atob": "^2.1.2",
 		"aws-sdk": "^2.656.0",
 		"axios": "^0.19.2",
@@ -39,6 +40,9 @@
 		"jsrender": "^1.0.6",
 		"moment": "^2.24.0",
 		"moment-timezone": "^0.5.31",
+		"mongoose": "^5.9.26",
+		"mongoose-history": "^0.8.0",
+		"mongoose-timestamp": "^0.6.0",
 		"mysql": "^2.18.1",
 		"node-ec2-metadata": "0.0.5",
 		"pdfmake": "^0.1.65",
