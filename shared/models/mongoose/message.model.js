@@ -19,6 +19,7 @@ let MessageSchema = new Schema({
     applicationId: {type: Number, required: false},
     businessId: {type: Number, required: false},
     agencyLocationId: {type: Number, required: false},
+    subject: {type: String, required:[true, 'subject required']},
     message: {type: String, required:[true, 'message required']},
     attachment: {type: String, required: false},
     "sent": Date
