@@ -81,12 +81,17 @@ exports.createGL = async function(application_id, insurer_id){
 					DATE_FORMAT(a.gl_effective_date, "%m/%d/%Y") AS effective_date,
 					a.limits,
 					b.name,
-					apt.policy_type
+					apt.policy_type,
+					ac.description
 				FROM clw_talage_applications AS a
 				INNER JOIN clw_talage_agencies AS ag ON a.agency = ag.id
 				INNER JOIN clw_talage_businesses AS b ON a.business = b.id
 				INNER JOIN clw_talage_industry_codes AS ic ON ic.id = b.industry_code
 				INNER JOIN clw_talage_application_policy_types AS apt ON apt.application = a.id
+				INNER JOIN clw_talage_addresses AS ad ON ad.business = b.id
+				INNER JOIN clw_talage_address_activity_codes AS aac ON ad.id = aac.address
+				INNER JOIN clw_talage_activity_codes AS ac ON ac.id = aac.ncci_code
+
 				WHERE a.id = ${application_id};`;
 
 	// Run the query
@@ -133,6 +138,8 @@ exports.createGL = async function(application_id, insurer_id){
 		general.carrier = insurer_data[0].name;
 	}
 
+	// Create array of unique activity code descriptions (only up to 3 since thats all that can fit on the form)
+	const activity_codes = [... new Set(application_data.map(row => row.description))].slice(0,2);
 
 	// PREP PAGE 1 DATA
 
@@ -147,7 +154,10 @@ exports.createGL = async function(application_id, insurer_id){
 		return {'error': message};
 	}
 
-	console.log(general);
+	// Separate the limits
+	general.limits = general.limits.match(/[1-9]+0+/g);
+
+	// ADD PAGE 1 DATA
 	docDefinition.content = docDefinition.content.concat([
 		{
 			'absolutePosition': pos.date,
@@ -177,9 +187,44 @@ exports.createGL = async function(application_id, insurer_id){
 		{
 			'text': 'X',
 			'absolutePosition': pos.commercial_gl
+		},
+		{
+			'text': general.limits[1],
+			'absolutePosition': pos.general_aggregate
+		},
+		{
+			'text': 'X',
+			'absolutePosition': pos.per_policy
+		},
+		{
+			'text': general.limits[1],
+			'absolutePosition': pos.pco_aggregate
+		},
+		{
+			'text': general.limits[0],
+			'absolutePosition': pos.each_occurence
 		}
 	])
 
+	// Classification descriptions
+	activity_codes.forEach((code, index) => {
+		console.log(code);
+		docDefinition.content.push({
+			'text': code,
+			'absolutePosition': {
+				'x': pos.classification_description.x,
+				'y': pos.classification_description.y + index*73
+			}
+		})
+	})
+
+	// Claims made
+	for(let index = 0; index <= 4; index++){
+		docDefinition.content.push({
+			'text': 'N',
+			'absolutePosition': pos[`claims_made_${index}`]
+		})
+	}
 
 
 	docDefinition.content.push({
