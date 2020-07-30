@@ -129,13 +129,20 @@ module.exports = class AgencyLocationBO{
             agencyLocationId = stringFunctions.santizeNumber(agencyLocationId, true);
             let rejected  = false;
             //what agencyportal client expects.
+            // const sql = `SELECT
+            //     lt.id,
+            //     lt.agency_location as locationID,
+            //     t.abbr,
+            //     t.name
+            // FROM clw_talage_agency_location_territories as lt
+            // INNER JOIN clw_talage_territories as t ON lt.territory = t.abbr
+            // WHERE lt.agency_location =  ${agencyLocationId} 
+            // ORDER BY t.name ASC;`
+
             const sql = `SELECT
-                lt.id,
-                lt.agency_location as locationID,
-                t.abbr,
-                t.name
+                t.abbr
             FROM clw_talage_agency_location_territories as lt
-                LEFT JOIN clw_talage_territories as t ON lt.territory = t.abbr
+            INNER JOIN clw_talage_territories as t ON lt.territory = t.abbr
             WHERE lt.agency_location =  ${agencyLocationId} 
             ORDER BY t.name ASC;`
 
@@ -146,7 +153,11 @@ module.exports = class AgencyLocationBO{
             });
             if(result && result.length>0) {
                 if (!rejected && result && result.length >0) {
-                    return result;
+                    let territoryList = []
+                    for(let i=0; i< result.length; i++ ){
+                        territoryList = result[i].abbr;
+                    }
+                    return territoryList;
                 }
                 else {
                     return null;
