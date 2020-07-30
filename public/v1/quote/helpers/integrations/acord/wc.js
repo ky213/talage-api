@@ -18,7 +18,7 @@ module.exports = class ACORDWC extends Integration{
 	async _insurer_quote(){
 
 		// Generate acord
-		const generated_acord = await acordsvc.create(this.app.id, this.insurer.id);
+		const generated_acord = await acordsvc.create(this.app.id, this.insurer.id, 'wc');
 
 		// Check the acord generated successfully
 		if(generated_acord.error){
