@@ -140,7 +140,8 @@ module.exports = class AgencyLocationBO{
             // ORDER BY t.name ASC;`
 
             const sql = `SELECT
-                t.abbr
+                t.abbr,
+                t.name
             FROM clw_talage_agency_location_territories as lt
             INNER JOIN clw_talage_territories as t ON lt.territory = t.abbr
             WHERE lt.agency_location =  ${agencyLocationId} 
@@ -153,11 +154,11 @@ module.exports = class AgencyLocationBO{
             });
             if(result && result.length>0) {
                 if (!rejected && result && result.length >0) {
-                    let territoryList = []
-                    for(let i=0; i< result.length; i++ ){
-                        territoryList = result[i].abbr;
-                    }
-                    return territoryList;
+                    // let territoryList = []
+                    // for(let i=0; i< result.length; i++ ){
+                    //     territoryList = result[i].abbr;
+                    // }
+                    return result;
                 }
                 else {
                     return null;
