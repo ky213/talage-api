@@ -34,7 +34,7 @@ async function GetACORDFormWC(req, res, next){
 
 
 	// TODO pass in app id and insurer id as req params
-	const form = await acord.create(req.query.application_id, req.query.insurer_id, 'wc').catch(function(error){
+	const form = await acord.create(req.query.application_id, req.query.insurer_id, 'gl').catch(function(error){
 		log.error('ACORD form generation failed. ' + error + __location);
 		return next(serverHelper.requestError('ACORD form generation failed.'));
 	});
