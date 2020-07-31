@@ -286,7 +286,7 @@ module.exports = class Application {
 
 		// Check for no quotes
 		if (quoteIDs.length < 1) {
-			log.error(`No quotes returned for application ${this.id}`);
+			log.error(`No quotes returned for application ${this.id}` + __location);
 			return;
 		}
 

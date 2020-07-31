@@ -802,8 +802,8 @@ module.exports = class Integration {
 	 * @returns {mixed} - ID on success, error on error
 	 */
 	async record_quote(amount, api_result) {
-		const encrypted_log = await crypt.encrypt(this.log).catch(function() {
-			log.error('Unable to encrypt log. Proceeding anyway.' + __location);
+		const encrypted_log = await crypt.encrypt(this.log).catch(function(err) {
+			log.error('Unable to encrypt log. Proceeding anyway. ' + err + __location);
 		});
 
 		const columns = ['application',

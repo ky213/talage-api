@@ -189,7 +189,8 @@ module.exports = class AgencyLocation extends DatabaseObject{
 			`;
 
 			// Run the query
-			await db.query(deleteSQL).catch(function(){
+			await db.query(deleteSQL).catch(function(err){
+                log.err("clw_talage_agency_location_territories delete error: " + err + __location);
 				rejected = true;
 				reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 			});

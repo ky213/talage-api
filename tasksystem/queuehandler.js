@@ -63,7 +63,7 @@ exports.deleteTaskQueueItem = async function(messageReceiptHandle){
     let errorMessage = null;
 	await sqs.deleteMessage(params, function(err){
 		if (err){
-            log.error("delete queueitem error: " + err+ __location);
+            log.error("delete queueitem error: " + err + __location);
 			errorMessage = err;
 		}
 	}).promise();
@@ -77,11 +77,16 @@ exports.deleteTaskQueueItem = async function(messageReceiptHandle){
 exports.initialize = async function(){
 
     // AWS Setup
-	AWS.config.update({
-		'accessKeyId': global.settings.AWS_KEY,
-		'secretAccessKey': global.settings.AWS_SECRET,
-		'region': global.settings.AWS_REGION
-	});
+    if(global.settings.AWS_USE_KEYS === "YES"){
+        AWS.config.update({
+            'accessKeyId': global.settings.AWS_KEY,
+            'secretAccessKey': global.settings.AWS_SECRET,
+            'region': global.settings.AWS_REGION
+        });
+    }
+    else {
+        AWS.config.update({'region': global.settings.AWS_REGION});
+    }
 
     sqs = new AWS.SQS({'apiVersion': global.settings.awsApiVersion});
     return true;

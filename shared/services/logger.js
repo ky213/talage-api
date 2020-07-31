@@ -121,12 +121,12 @@ exports.connect = () => {
 		if(global.settings.AWS_SECRET){
 			SecretAccessKey = global.settings.AWS_SECRET;
 		}
-
-		AWS.config.update({
-			'credentials': new AWS.Credentials(AccessKeyId, SecretAccessKey),
-			'region': awsRegion
-		});
-
+        if(global.settings.AWS_USE_KEYS === "YES"){
+            AWS.config.update({
+                'credentials': new AWS.Credentials(AccessKeyId, SecretAccessKey),
+                'region': awsRegion
+            });
+        }
 		// AWS ElasticSearch
 		const awsClient = new elasticsearch.Client({
 			'host': awsEndPoint,
