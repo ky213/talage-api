@@ -35,8 +35,8 @@ const requiredVariables = [
 	'SECRET',
 	'TEST_API_TOKEN',
 	// AWS
-	'AWS_KEY',
-	'AWS_SECRET',
+	//'AWS_KEY',
+	//'AWS_SECRET',
 	'AWS_ELASTICSEARCH_ENDPOINT',
 	'AWS_ELASTICSEARCH_LOGLEVEL',
 	'AWS_LOG_TO_AWS_ELASTICSEARCH',
@@ -62,7 +62,7 @@ const requiredVariables = [
 exports.load = () => {
 	let variables = {};
     variables.AWS_USE_KEYS = "YES";
-    
+
 	if (fs.existsSync('local.env')){
 		// Load the variables from the aws.env file if it exists
 		console.log('Loading settings from local.env file');
