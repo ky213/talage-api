@@ -48,7 +48,6 @@ exports.create = async function(application_id, insurer_id, policy_type){
 		return await gl.createGL(application_id, insurer_id);
 	}
 
-	return doc
 }
 
 async function createGL(application_id, insurer_id){
