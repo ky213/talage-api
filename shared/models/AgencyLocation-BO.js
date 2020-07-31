@@ -1,9 +1,12 @@
 'use strict';
 
 const DatabaseObject = require('./DatabaseObject.js');
+const AgencyLocationInsurer = require('./AgencyLocationInsurer-BO.js');
+const AgencyLocationTerritory = require('./AgencyLocationTerritory-BO.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const crypt = global.requireShared('./services/crypt.js');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 
 
@@ -130,7 +133,7 @@ module.exports = class AgencyLocationBO{
                 const result = await db.query(sql).catch(function (error) {
                     // Check if this was
                     rejected = true;
-                    log.error(`clw_talage_landing_page_paths error on select ` + error + __location);
+                    log.error(`clw_talage_agency_locations error on select ` + error + __location);
                 });
                 if (!rejected && result && result.length >0) {
                     //created encrypt and format
@@ -149,6 +152,145 @@ module.exports = class AgencyLocationBO{
             throw new Error("No agency id");
         }
     }
+
+
+    async getByIdAndAgencyListForAgencyPortal(id,agencyList, children=true ){
+        
+        if(agencyList && id){
+            //agencyId = stringFunctions.santizeNumber(agencyId, true);
+            id = stringFunctions.santizeNumber(id, true);
+            //santize id.
+            let rejected = false;
+                
+            //what agencyportal client expects.
+            const sql = `SELECT
+                    l.id,
+                    l.state,
+                    l.email,
+                    l.fname,
+                    l.lname,
+                    l.phone,
+                    l.address,
+                    l.address2,
+                    z.city,
+                    z.territory,
+                    LPAD(CONVERT(l.zip,char), 5, '0') AS zip,
+                    l.open_time as openTime,
+                    l.close_time as closeTime,
+                    l.primary
+                FROM clw_talage_agency_locations l
+                LEFT OUTER JOIN clw_talage_zip_codes z ON z.zip = l.zip
+                WHERE l.id = ? AND l.agency in (?) AND l.state > 0;`
+
+            //WHERE l.id = ${id} AND l.agency = ${agencyId} AND l.state > 0;`
+            const parmList = [id, agencyList];
+            const result = await db.queryParam(sql, parmList).catch(function (error) {
+                // Check if this was
+                rejected = true;
+                log.error(`clw_talage_agency_locations error on select ` + error + __location);
+            });
+            if(result && result.length>0) {
+                let locationJSON = result[0];
+                if (!rejected && result && result.length >0) {
+                    //created encrypt and format
+                    let location = locationJSON;
+                    location.address = await crypt.decrypt(location.address);
+                    if(location.address2){
+                        location.address2 = await crypt.decrypt(location.address2);
+                    }
+                    
+                    location.email = await crypt.decrypt(location.email);
+                    location.fname = await crypt.decrypt(location.fname);
+                    location.lname = await crypt.decrypt(location.lname);
+                    location.phone = await crypt.decrypt(location.phone);
+                    
+                    if(children === true ){
+                        const agencyLocationInsurer = new AgencyLocationInsurer
+                        const insurerList = await agencyLocationInsurer.getListByAgencyLoationForAgencyPortal(id).catch(function (error) {
+                            // Check if this was
+                            rejected = true;
+                            log.error(`agencyLocationInsurer.getListByAgencyLoationForAgencyPortal error on select ` + error + __location);
+                        });
+                        location.insurers = insurerList;
+
+                        // Territories 
+                        const agencyLocationTerritory = new AgencyLocationTerritory
+                        const territoryList = await agencyLocationTerritory.getListByAgencyLoationForAgencyPortal(id).catch(function (error) {
+                            // Check if this was
+                            rejected = true;
+                            log.error(`agencyLocationTerritory.getListByAgencyLoationForAgencyPortal error on select ` + error + __location);
+                        });
+                        location.territories = territoryList;
+
+                    }
+                    return locationJSON;
+                }
+                else {
+                    return null;
+                }
+            }
+            else {
+                return null;
+            }
+        }
+        else {
+            throw new Error("No id or agencyList");
+        }
+    }
+
+    async getByIdAndAgency(id,agencyId, children=true ){
+        
+        if(agencyId && id){
+            agencyId = stringFunctions.santizeNumber(agencyId, true);
+            id = stringFunctions.santizeNumber(id, true);
+            //santize id.
+            
+            let rejected  = false;
+            //what agencyportal client expects.
+            //TODO parameterize query....
+            const sql = `select *
+                from clw_talage_agency_locations 
+                where agency = ${agencyId} and l.id = ${id} AND state > 0`
+
+            const result = await db.query(sql).catch(function (error) {
+                // Check if this was
+                rejected = true;
+                log.error(`clw_talage_agency_locations error on select ` + error + __location);
+            });
+            if(result && result.length>0) {
+                let locationJSON = result[0];
+                if (!rejected && result && result.length >0) {
+                    //created encrypt and format
+                    
+                    let location = locationJSON;
+                    location.address = await crypt.decrypt(location.address);
+                    if(location.address2){
+                        location.address2 = await crypt.decrypt(location.address2);
+                    }
+                    
+                    location.email = await crypt.decrypt(location.email);
+                    location.fname = await crypt.decrypt(location.fname);
+                    location.phone = await crypt.decrypt(location.phone);    
+                    
+                    if(children === true ){
+
+                    }
+                    return result;
+                }
+                else {
+                    return locationJSON;
+                }
+            }
+            else {
+                return null;
+            }
+        }
+        else {
+            throw new Error("No id or agency id");
+        }
+    }
+
+    
     
 }
 

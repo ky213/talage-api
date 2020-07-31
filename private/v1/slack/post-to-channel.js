@@ -1,7 +1,7 @@
 'use strict';
 
 const util = require('util');
-const serverHelper = require('../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
 const slackSvc = global.requireShared('./services/slacksvc.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');

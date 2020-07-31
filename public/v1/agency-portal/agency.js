@@ -76,7 +76,8 @@ async function deleteAgency(req, res, next) {
 		`;
 
     // Run the query
-    const result = await db.query(updateSQL).catch(function() {
+    const result = await db.query(updateSQL).catch(function(err) {
+        log.error('clw_talage_agencies error ' + err + __location);
         error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
     });
     if (error) {
@@ -410,7 +411,29 @@ async function getAgency(req, res, next) {
         networkInsurer.territories = networkInsurer.territories.split(',');
         return networkInsurer;
     });
-
+	// For each network insurer grab the policy_types
+	for (let i = 0; i < networkInsurers.length; i++) {
+		const insurer = networkInsurers[i];
+		// Grab all of the policy type and accord support for a given insurer
+		let policyTypeSql = `
+			SELECT policy_type, acord_support
+			FROM clw_talage_insurer_policy_types
+			WHERE
+				insurer = ${insurer.id}
+		`
+		let policyTypesResults = null;
+		try {
+			policyTypesResults = await db.query(policyTypeSql);
+		} catch (error) {
+			log.error(`Could not retrieve policy and accord_support for insurer ${insurer} :  ${error}  ${__location}`);
+			return next(serverHelper.internalError('Internal Error'));
+		}			
+		// Push policy types and accord support for said policy type into an array
+		insurer.policyTypes = [];
+		policyTypesResults.forEach((policyType) => {
+			insurer.policyTypes.push(policyType);
+		});
+	}
     // Build the response
     const response = {
         ...agency,
@@ -551,8 +574,7 @@ async function postAgency(req, res, next) {
                 }
             }
             else {
-                log.warn('We have in insurer info being sent to the backend \
-					with an insurer id that does not exist in the db. Error at ' + __location)
+                log.error('We have in insurer info being sent to the backend with an insurer id that does not exist in the db. Error at ' + __location)
             }
         }
     }

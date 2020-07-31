@@ -14,6 +14,8 @@ const serverHelper = global.requireRootPath('server.js');
 const{'v4': uuidv4} = require('uuid');
 const validator = global.requireShared('./helpers/validator.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 const constructors = {'AgencyLocation': AgencyLocation};
 
@@ -148,11 +150,11 @@ module.exports = class Agency extends DatabaseObject{
 				LIMIT 1;
 			`;
 
-			// Run the query
+            // Run the query
 			let rejected = false;
-			const pathResult = await db.query(pathSQL).catch(function(){
+			const pathResult = await db.query(pathSQL).catch(function(err){
 				rejected = true;
-				log.error('Unable to get path of existing agency logo');
+				log.error('Unable to get path of existing agency logo ' + err + __location);
 				reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 			});
 			if(rejected){

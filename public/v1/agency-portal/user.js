@@ -7,6 +7,8 @@ const validator = global.requireShared('./helpers/validator.js');
 const emailsvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 /**
  * Checks whether the provided agency has an owner other than the current user
@@ -42,7 +44,8 @@ function hasOtherOwner(agency, user, agencyNetwork = false) {
 			`;
 
 		// Run the query
-		const result = await db.query(sql).catch(function() {
+		const result = await db.query(sql).catch(function(err) {
+            log.error('__agency_portal_users error ' + err + __location);
 			error = true;
 			fulfill(false);
 		});
@@ -86,7 +89,8 @@ function hasOtherSigningAuthority(agency, user) {
 			`;
 
 		// Run the query
-		const result = await db.query(sql).catch(function() {
+		const result = await db.query(sql).catch(function(err) {
+            log.error('__agency_portal_users error ' + err + __location);
 			error = true;
 			fulfill(false);
 		});
@@ -155,7 +159,8 @@ async function validate(req) {
 				${req.body.id ? `AND \`id\` != ${db.escape(req.body.id)}` : ''}
 			;
 		`;
-	const duplicateResult = await db.query(duplicateSQL).catch(function() {
+	const duplicateResult = await db.query(duplicateSQL).catch(function(err) {
+        log.error('__agency_portal_users error ' + err + __location);
 		throw new Error('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 	});
 	if (duplicateResult.length > 0) {
@@ -209,7 +214,8 @@ async function createUser(req, res, next) {
 	}
 
 	// Begin a database transaction
-	const connection = await db.beginTransaction().catch(function() {
+	const connection = await db.beginTransaction().catch(function(err) {
+        log.error('db beginTransaction error ' + err + __location);
 		error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 	});
 	if (error) {
@@ -230,7 +236,8 @@ async function createUser(req, res, next) {
 			`;
 
 		// Run the query
-		await db.query(removeOwnerSQL, connection).catch(function() {
+		await db.query(removeOwnerSQL, connection).catch(function(err) {
+            log.error('__agency_portal_users error ' + err + __location);
 			error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 		});
 		if (error) {
@@ -250,7 +257,8 @@ async function createUser(req, res, next) {
 			`;
 
 		// Run the query
-		await db.query(removeCanSignSQL, connection).catch(function() {
+		await db.query(removeCanSignSQL, connection).catch(function(err) {
+            log.error('__agency_portal_users error ' + err + __location);
 			error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 		});
 		if (error) {
@@ -291,7 +299,8 @@ async function createUser(req, res, next) {
 		`;
 
 	// Run the query
-	const result = await db.query(insertSQL, connection).catch(function() {
+	const result = await db.query(insertSQL, connection).catch(function(err) {
+        log.error('__agency_portal_users error ' + err + __location);
 		error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 	});
 	if (error) {
@@ -332,7 +341,8 @@ async function createUser(req, res, next) {
 			`;
 
 		// Run the query
-		const agencyNetworkResult = await db.query(agencyNetworkSQL).catch(function() {
+		const agencyNetworkResult = await db.query(agencyNetworkSQL).catch(function(err) {
+            log.error('__agency_network error ' + err + __location);
 			error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 		});
 		if (error) {
@@ -470,7 +480,8 @@ async function deleteUser(req, res, next) {
 		`;
 
 	// Run the query
-	const result = await db.query(updateSQL).catch(function() {
+	const result = await db.query(updateSQL).catch(function(err) {
+        log.error('__agency_portal_users error ' + err + __location);
 		error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 	});
 	if (error) {
@@ -540,7 +551,8 @@ async function getUser(req, res, next) {
 				${where};
 		`;
 
-	const userInfo = await db.query(userSQL).catch(function() {
+	const userInfo = await db.query(userSQL).catch(function(err) {
+        log.error('__agency_portal_users error ' + err + __location);
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});
 
@@ -605,7 +617,8 @@ async function updateUser(req, res, next) {
 	data.id = req.body.id;
 
 	// Begin a database transaction
-	const connection = await db.beginTransaction().catch(function() {
+	const connection = await db.beginTransaction().catch(function(err) {
+        log.error('db beginTransaction error ' + err + __location);
 		error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 	});
 	if (error) {
@@ -626,7 +639,8 @@ async function updateUser(req, res, next) {
 			`;
 
 		// Run the query
-		await db.query(removeOwnerSQL, connection).catch(function() {
+		await db.query(removeOwnerSQL, connection).catch(function(err) {
+            log.error('__agency_portal_users error ' + err + __location);
 			error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 		});
 		if (error) {
@@ -657,7 +671,8 @@ async function updateUser(req, res, next) {
 				`;
 
 			// Run the query
-			await db.query(removeCanSignSQL, connection).catch(function() {
+			await db.query(removeCanSignSQL, connection).catch(function(err) {
+                log.error('__agency_portal_users error ' + err + __location);
 				error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 			});
 			if (error) {
@@ -695,7 +710,8 @@ async function updateUser(req, res, next) {
 		`;
 
 	// Run the query
-	const result = await db.query(updateSQL, connection).catch(function() {
+	const result = await db.query(updateSQL, connection).catch(function(err) {
+        log.error('__agency_portal_users error ' + err + __location);
 		error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 	});
 	if (error) {
