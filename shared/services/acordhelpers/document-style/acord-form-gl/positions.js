@@ -62,5 +62,9 @@ module.exports = {
     'per_policy':{
         'x': 305,
         'y': 172
+    },
+    'questions': {
+        'x': 71.5, 
+        'y': 125
     }
 }

@@ -55,12 +55,21 @@ exports.createGL = async function(application_id, insurer_id){
 			'height': 792,
 			'image': `${__dirname}/img/acord_form_gl_page4.jpeg`,
 			'width': 612
-		}];
+		},
+		{
+			'height': 792,
+			'image': `${__dirname}/img/question_table.jpeg`,
+			'width': 612
+		}
+	];
 
 	const docDefinition = {
 		'background': function(currentPage){
-			// 1:1 background function for pages
-			return img[currentPage-1];
+			// 1:1 background function for acord pages
+			if(currentPage > 0 && currentPage <= 4){
+				return img[currentPage-1];
+			}
+			return img[4];
 	
 		},
 		'content': [],
@@ -208,7 +217,6 @@ exports.createGL = async function(application_id, insurer_id){
 
 	// Classification descriptions
 	activity_codes.forEach((code, index) => {
-		console.log(code);
 		docDefinition.content.push({
 			'text': code,
 			'absolutePosition': {
@@ -226,20 +234,96 @@ exports.createGL = async function(application_id, insurer_id){
 		})
 	}
 
-
-	docDefinition.content.push({
-		'pageBreak': 'before',
-		'text': ''
-	});
-	docDefinition.content.push({
-		'pageBreak': 'before',
-		'text': ''
-	});
+	// PAGE 2
 	docDefinition.content.push({
 		'pageBreak': 'before',
 		'text': ''
 	});
 
+	// Question mapping
+	const questions = {
+		'contractors': {
+			1: 1160,
+			6: 1142,
+			7: 969,
+			'7a': 970,
+			'7b': 1045
+		},
+		'products': {
+			1: 671,
+			5: 789,
+			7: 1147,
+			8: 999
+		},
+		'general_info': {
+			2: 464,
+			3: 1145,
+			6: 997,
+			13: 1013,
+			17: 995
+		}
+	}
+
+	const question_sql = `SELECT 
+								q.id,
+								q.question,
+								qa.answer,
+								q.parent,
+								q.sub_level
+							FROM clw_talage_application_questions AS aq
+							INNER JOIN clw_talage_questions AS q ON q.id = aq.question
+							INNER JOIN clw_talage_question_answers AS qa ON qa.id = aq.answer
+							WHERE aq.application = ${application_id}`
+
+	const question_data = await db.query(question_sql).catch(function(error){
+		message = 'ACORD form generation failed due to database error.';
+		log.error(message + error + __location);
+		return {'error': message};
+	});
+
+	const question_ids = question_data.reduce((acc, el, i) => {
+		acc[el.id] = i;
+		return acc;
+	}, {});
+
+	const question_tree = [];
+
+	question_data.forEach(question => {
+		if(question.parent === null){
+			question_tree.push(question);
+			return
+		}
+		const parent_question = question_data[question_ids[question.parent]];
+		
+		if(parent_question){
+			parent_question.children = [...(parent_question.children || []), question];
+		}
+		else{
+			question_tree.push(question);
+		}
+		
+	});
+
+	// PAGE 3 
+	docDefinition.content.push({
+		'pageBreak': 'before',
+		'text': ''
+	});
+
+	// PAGE 4
+	docDefinition.content.push({
+		'pageBreak': 'before',
+		'text': ''
+	});
+
+	// Questions table
+	docDefinition.content.push({
+		'pageBreak': 'before',
+		'text': ''
+	});
+	let total = 0;
+	writeQuestions(question_tree, docDefinition, 0, total);
+	
 	const doc = printer.createPdfKitDocument(docDefinition);
 
 	return {
@@ -248,6 +332,48 @@ exports.createGL = async function(application_id, insurer_id){
 	
 }
 
-function prepPDF(){
+function writeQuestions(question_tree, docDefinition, level, total){
+	question_tree.forEach(question => {
+
+		let indentation = '| ';
+		for(let index = 0; index < level; index++){
+			indentation+='    ';
+		}
+		if(level > 0){
+			indentation += '¬ ';
+		}
+		question.question = indentation + question.question.replace(/\\n/g, ' ');
+
+		let result = '';
+		while(question.question.length > 0){
+			result += question.question.substring(0, 105) + '\n|  ';
+			question.question = question.question.substring(105); 
+		}
+
+		question.question = result;
+		
+		docDefinition.content.push({
+			'text': question.question,
+			'absolutePosition': {
+				'x': pos.questions.x,
+				'y': pos.questions.y + total*33
+			},
+			'style': styles.questions
+		})
+		total++;
+		if(total%17 === 0){
+			docDefinition.content.push({
+				'pageBreak': 'before',
+				'text': ''
+			})
+			total = 0;
+		}
+
+		if(question.children){
+			total = writeQuestions(question.children, docDefinition, level+1, total);
+		}
+		
+	});
+	return total;
 
 }
