@@ -269,7 +269,8 @@ exports.createGL = async function(application_id, insurer_id){
 								q.question,
 								qa.answer,
 								q.parent,
-								q.sub_level
+								q.sub_level,
+								aq.text_answer
 							FROM clw_talage_application_questions AS aq
 							INNER JOIN clw_talage_questions AS q ON q.id = aq.question
 							INNER JOIN clw_talage_question_answers AS qa ON qa.id = aq.answer
