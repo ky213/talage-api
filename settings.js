@@ -35,8 +35,8 @@ const requiredVariables = [
 	'SECRET',
 	'TEST_API_TOKEN',
 	// AWS
-	'AWS_KEY',
-	'AWS_SECRET',
+	//'AWS_KEY',
+    //'AWS_SECRET',
 	'AWS_ELASTICSEARCH_ENDPOINT',
 	'AWS_ELASTICSEARCH_LOGLEVEL',
 	'AWS_LOG_TO_AWS_ELASTICSEARCH',
@@ -62,7 +62,7 @@ const requiredVariables = [
 exports.load = () => {
 	let variables = {};
     variables.AWS_USE_KEYS = "YES";
-    
+
 	if (fs.existsSync('local.env')){
 		// Load the variables from the aws.env file if it exists
 		console.log('Loading settings from local.env file');
@@ -91,7 +91,12 @@ exports.load = () => {
 			}
 			variables[variableName] = process.env[variableName];
 		}
-	});
+    });
+    //need optional array....
+    if(process.env.AWS_USE_KEYS){
+        variables.AWS_USE_KEYS = process.env.AWS_USE_KEYS;
+    }
+
 	console.log(colors.green('\tCompleted'));
 
 	// Ensure required variables exist and inject them into the global 'settings' object
@@ -107,7 +112,8 @@ exports.load = () => {
 			return false;
 		}
 		global.settings[requiredVariables[i]] = variables[requiredVariables[i]];
-	}
+    }
+    
 
 	// Add any other hard-coded global settings here
 	console.log('Loading hard-coded settings');
