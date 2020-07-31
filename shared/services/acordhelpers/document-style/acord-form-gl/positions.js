@@ -3,6 +3,10 @@ module.exports = {
         'x': 50,
         'y': 75
     },
+    'answers': {
+        'x': 465,
+        'y': 130
+    },
     'carrier': {
         'x': 315,
         'y': 78

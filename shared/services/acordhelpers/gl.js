@@ -360,6 +360,15 @@ function writeQuestions(question_tree, docDefinition, level, total){
 			},
 			'style': styles.questions
 		})
+
+		docDefinition.content.push({
+			'text': question.answer,
+			'absolutePosition': {
+				'x': pos.answers.x,
+				'y': pos.answers.y + total*33
+			}
+		})
+
 		total++;
 		if(total%17 === 0){
 			docDefinition.content.push({
