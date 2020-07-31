@@ -61,7 +61,8 @@ const requiredVariables = [
 
 exports.load = () => {
 	let variables = {};
-
+    variables.AWS_USE_KEYS = "YES";
+    
 	if (fs.existsSync('local.env')){
 		// Load the variables from the aws.env file if it exists
 		console.log('Loading settings from local.env file');
