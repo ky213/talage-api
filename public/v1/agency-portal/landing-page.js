@@ -31,7 +31,8 @@ function hasOtherPrimary(agency, page) {
 			`;
 
         // Run the query
-        const result = await db.query(sql).catch(function() {
+        const result = await db.query(sql).catch(function(err) {
+            log.error('agency_landing_pages error ' + err + __location);
             error = true;
             fulfill(false);
         });
@@ -464,7 +465,8 @@ async function deleteLandingPage(req, res, next) {
 		`;
 
     // Run the query
-    const result = await db.query(updateSQL).catch(function() {
+    const result = await db.query(updateSQL).catch(function(err) {
+        log.error('agency_landing_pages error ' + err + __location);
         error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
     });
     if (error) {

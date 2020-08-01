@@ -6,9 +6,9 @@ const emailsvc = global.requireShared('./services/emailsvc.js');
 
 // Email template
 let email_subject = 'ACORD Application from TEMPLATE_AGENCY_NAME';
-let email_body = 'Attached is the ACORD 130 application from TEMPLATE_AGENCY_NAME for a Worker\'s Compensation policy';
+let email_body = 'Attached is the ACORD 126 application from TEMPLATE_AGENCY_NAME for a General Liability policy';
 
-module.exports = class ACORDWC extends Integration{
+module.exports = class ACORDGL extends Integration{
 
 	/**
 	 * Generate and sends ACORD email and returns
@@ -18,7 +18,7 @@ module.exports = class ACORDWC extends Integration{
 	async _insurer_quote(){
 
 		// Generate acord
-		const generated_acord = await acordsvc.create(this.app.id, this.insurer.id, 'wc');
+		const generated_acord = await acordsvc.create(this.app.id, this.insurer.id, 'gl');
 
 		// Check the acord generated successfully
 		if(generated_acord.error){
@@ -33,7 +33,7 @@ module.exports = class ACORDWC extends Integration{
 
 		//Check the email was retrieved successfully
 		if(acord_email === false){
-			log.error(`Failed to retrieve Email for agency location ${this.app.agencyLocation.id}, insurer ${this.insurer.id} for WC` + __location);
+			log.error(`Failed to retrieve Email for agency location ${this.app.agencyLocation.id}, insurer ${this.insurer.id} for GL` + __location);
 			return this.return_result('error');
 		}
 
@@ -57,7 +57,7 @@ module.exports = class ACORDWC extends Integration{
 			const result = Buffer.concat(chunks);
 			const attachment = {
 				'content': result.toString('base64'),
-				'filename': 'acord-130.pdf',
+				'filename': 'acord-126.pdf',
 				'type': 'application/pdf',
 				'disposition': 'attachment'
 			};
@@ -78,7 +78,7 @@ module.exports = class ACORDWC extends Integration{
 	}
 
 	/**
-	 * Retrieve agency location/insurer email address to send acord form to for WC
+	 * Retrieve agency location/insurer email address to send acord form to for GL
 	 *
 	 * @returns {Promise<string|false>} A promise that contains an email address if resolved, false otherwise
 	 */
@@ -103,17 +103,17 @@ module.exports = class ACORDWC extends Integration{
 			return false;
 		}
 
-		//Retrieve the email address for WC
+		//Retrieve the email address for GL
 		let email_address = await JSON.parse(acord_email[0].policy_type_info);
 
-		email_address = email_address.WC.acordInfo.sendToEmail;
+		email_address = email_address.GL.acordInfo.sendToEmail;
 
 		//Check the email was found
 		if(email_address && email_address.length > 0){
 			return email_address;
 		}
 		else{
-			log.error(`Email for agency location ${this.app.agencyLocation.id}, insurer ${this.insurer.id}, policy type WC, was not found.` + __location);
+			log.error(`Email for agency location ${this.app.agencyLocation.id}, insurer ${this.insurer.id}, policy type GL, was not found.` + __location);
 			return false;
 		}
 	}

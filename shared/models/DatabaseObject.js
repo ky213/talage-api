@@ -393,7 +393,7 @@ module.exports = class DatabaseObject {
                     }
                     
                     if(this.#properties[property].type === "json"){
-						value = this.JSON.stringify(value);
+						value = JSON.stringify(value);
 					}
 
                     // Store the column and value
