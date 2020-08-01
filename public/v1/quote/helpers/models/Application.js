@@ -241,8 +241,8 @@ module.exports = class Application {
 								if(agency_location_insurer_data.useAcord === true && insurer.policy_type_details[policy.type].acord_support === 1){
                                     slug = 'acord';
                                 }
-                                // Otherwise use the api
-								if(insurer.policy_type_details[policy.type.toUpperCase()].api_support === 1){
+                                else if(insurer.policy_type_details[policy.type.toUpperCase()].api_support === 1){
+                                    // Otherwise use the api
                                     slug = insurer.slug;
                                 }
 
