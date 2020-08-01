@@ -274,7 +274,7 @@ var sendUsingSendGrid = async function(emailJSON) {
     // Set the Sendgrid API key
     Sendgrid.setApiKey(global.settings.SENDGRID_API_KEY);
 
-    // Initialize the email object 
+    // Initialize the email object
    await Sendgrid.send(emailJSON).
         then(function() {
             log.info('Email successfully sent.' + __location);
