@@ -246,7 +246,7 @@ module.exports = class Application {
                                     slug = insurer.slug;
                                 }
 
-                                let normalizedPath = `${__dirname}/../integrations/${slug}/${policy.type.toLowerCase()}.js`;
+                                const normalizedPath = `${__dirname}/../integrations/${slug}/${policy.type.toLowerCase()}.js`;
                                 if(slug.length > 0 && fs.existsSync(normalizedPath)){
                                     // Require the integration file and add the response to our promises
                                     const IntegrationClass = require(normalizedPath);
@@ -254,7 +254,7 @@ module.exports = class Application {
                                     quote_promises.push(integration.quote());
                                 }
                                 else{
-                                    log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} ${insurer.name} ${policy.type}` + __location);
+                                    log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} ${insurer.name} ${policy.type} slug: ${slug} path: ${normalizedPath} ` + __location);
                                 }
                             }
                             else{
