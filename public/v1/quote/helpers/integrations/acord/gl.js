@@ -76,9 +76,10 @@ module.exports = class ACORDGL extends Integration{
 			return this.return_result('error');
 		}
 	}
+    // TODO getEmail logic should be in the agency location's BO  NOT HERE.
 
 	/**
-	 * Retrieve agency location/insurer email address to send acord form to for GL
+	 * Retrieve agency location/insurer email address to send acord form to for GL - This logic snou
 	 *
 	 * @returns {Promise<string|false>} A promise that contains an email address if resolved, false otherwise
 	 */
@@ -104,9 +105,15 @@ module.exports = class ACORDGL extends Integration{
 		}
 
 		//Retrieve the email address for GL
-		let email_address = await JSON.parse(acord_email[0].policy_type_info);
+		const policyTypeInfoJSON = await JSON.parse(acord_email[0].policy_type_info);
 
-		email_address = email_address.GL.acordInfo.sendToEmail;
+        let email_address = null;
+        try{
+            email_address = policyTypeInfoJSON.GL.acordInfo.sendToEmail;
+        }
+		catch(e){
+            log.error(`Missing accord email address GL agency location id ${this.app.agencyLocation.id} ` + __location)
+        }
 
 		//Check the email was found
 		if(email_address && email_address.length > 0){
