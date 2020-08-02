@@ -74,8 +74,7 @@ var appDataFixTask = async function() {
     });
 
     //const datetimeFormat = 'YYYY-MM-DD hh:mm';
-    //const oneHourAgo = moment().subtract(1,'h');
-    const oneHourAgo = moment().subtract(10,'d');
+    const oneHourAgo = moment().subtract(1,'h');
 
     // update missing Policy type JSON caused by Joomla admin updates to agencylocation
     // and update anything with Agency_location changes or missing policy_type_info in last hour (this runs very 5 minutes)
