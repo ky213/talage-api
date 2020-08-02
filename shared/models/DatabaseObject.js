@@ -143,6 +143,10 @@ module.exports = class DatabaseObject {
                         else if (expectedDataType === "json"  && typeof value === 'object' ){
                             log.debug('Load() Processing JSON column');
                         }
+                        else if (expectedDataType === "json"  && typeof value === 'string' ){
+                            log.debug('Load() Processing JSON column convert string');
+                            value = JSON.parse(value)
+                        }
 						else {
                             if (expectedDataType !== typeof value) {
                                 const badType = typeof value;
