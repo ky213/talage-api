@@ -468,6 +468,11 @@ async function legacyFieldUpdate(requestALJSON) {
                     }
                 }
             }
+            else{
+                insurer.GL = 0;
+                insurer.WC = 0;
+                insurer.BOP = 0;
+            }
         }
 
     }
