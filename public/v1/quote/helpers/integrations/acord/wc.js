@@ -26,9 +26,10 @@ module.exports = class ACORDWC extends Integration {
             return this.return_result('error');
         }
         // Retrieve email address to send to
-        const acord_email = await this.getEmail().catch(function(err) {
+        let acord_email = await this.getEmail().catch(function(err) {
             log.error(`Could not retrieve email for agency` + err + __location);
-            return this.return_result('error');
+            //return this.return_result('error');
+            acord_email = false;
         });
 
         //Check the email was retrieved successfully
@@ -68,17 +69,13 @@ module.exports = class ACORDWC extends Integration {
             if(emailResp === false){
                 log.error(`Unable to send accord for applicationId ${this.app.id}` + __location)
              }
-             return emailResp;
-        });
-
-        const email_sent = generated_acord.doc.end();
-
-        if (email_sent === true) {
-            return this.return_result('referred');
-        }
-        else {
-            return this.return_result('error');
-        }
+             if(emailResp === true){
+                this.return_result('referred');
+            }
+            else{
+                this.return_result('error');
+            }
+        }).bind(this);
     }
     // TODO BP - Move logic ot Agency location BO is it alread in 2 places in the code.
 
