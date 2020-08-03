@@ -26,9 +26,10 @@ module.exports = class ACORDGL extends Integration{
 			return this.return_result('error');
 		}
 		// Retrieve email address to send to
-		const acord_email = await this.getEmail().catch(function(err){
+		let acord_email = await this.getEmail().catch(function(err){
 			log.error(`Could not retrieve email for agency` + err + __location);
-			return this.return_result('error');
+            //	return this.return_result('error');
+            acord_email = false;
 		});
 
 		//Check the email was retrieved successfully
@@ -52,6 +53,7 @@ module.exports = class ACORDGL extends Integration{
 		generated_acord.doc.on('data', function(chunk){
 			chunks.push(chunk);
 		});
+        // eslint-disable-next-line consistent-this
 
 		generated_acord.doc.on('end', async() => {
 			const result = Buffer.concat(chunks);
@@ -64,18 +66,24 @@ module.exports = class ACORDGL extends Integration{
 			const attachments = [];
 			attachments.push(attachment);
 			// Email it
-			return emailsvc.send(acord_email, email_subject, email_body, email_keys, this.app.agencyLocation.email_brand, this.app.agencyLocation.agencyId, attachments);
-		});
+            const emailResp = await emailsvc.send(acord_email, email_subject, email_body, email_keys, this.app.agencyLocation.email_brand, this.app.agencyLocation.agencyId, attachments);
+            if(emailResp === false){
+                log.error(`Unable to send accord for applicationId ${this.app.id}` + __location)
+             }
+            //  if(emailResp === true){
+            //     self.return_result('referred');
+            // }
+            // else{
+            //     self.return_result('error');
+            // }
+            return emailResp;
+        });
+        // always referred regardless of email .
+        const email_sent = generated_acord.doc.end();
+        return this.return_result('referred');
+    }
 
-		const email_sent = generated_acord.doc.end();
 
-		if(email_sent === true){
-			return this.return_result('referred');
-		}
-		else{
-			return this.return_result('error');
-		}
-	}
     // TODO getEmail logic should be in the agency location's BO  NOT HERE.
 
 	/**

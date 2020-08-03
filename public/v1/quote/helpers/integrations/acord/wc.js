@@ -26,9 +26,10 @@ module.exports = class ACORDWC extends Integration {
             return this.return_result('error');
         }
         // Retrieve email address to send to
-        const acord_email = await this.getEmail().catch(function(err) {
+        let acord_email = await this.getEmail().catch(function(err) {
             log.error(`Could not retrieve email for agency` + err + __location);
-            return this.return_result('error');
+            //return this.return_result('error');
+            acord_email = false;
         });
 
         //Check the email was retrieved successfully
@@ -52,7 +53,7 @@ module.exports = class ACORDWC extends Integration {
         generated_acord.doc.on('data', function(chunk) {
             chunks.push(chunk);
         });
-
+        // eslint-disable-next-line consistent-this
         generated_acord.doc.on('end', async() => {
             const result = Buffer.concat(chunks);
             const attachment = {
@@ -64,17 +65,20 @@ module.exports = class ACORDWC extends Integration {
             const attachments = [];
             attachments.push(attachment);
             // Email it
-            return emailsvc.send(acord_email, email_subject, email_body, email_keys, this.app.agencyLocation.email_brand, this.app.agencyLocation.agencyId, attachments);
+            const emailResp = await emailsvc.send(acord_email, email_subject, email_body, email_keys, this.app.agencyLocation.email_brand, this.app.agencyLocation.agencyId, attachments);
+            if(emailResp === false){
+                log.error(`Unable to send accord for applicationId ${this.app.id}` + __location)
+             }
+            //  if(emailResp === true){
+            //     self.return_result('referred');
+            // }
+            // else{
+            //     self.return_result('error');
+            // }
+            return emailResp;
         });
-
         const email_sent = generated_acord.doc.end();
-
-        if (email_sent === true) {
-            return this.return_result('referred');
-        }
-        else {
-            return this.return_result('error');
-        }
+        return this.return_result('referred');
     }
     // TODO BP - Move logic ot Agency location BO is it alread in 2 places in the code.
 
