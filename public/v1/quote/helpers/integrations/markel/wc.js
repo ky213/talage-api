@@ -44,6 +44,7 @@ module.exports = class MarkelWC extends Integration {
 			// Prepare limits
 			const limits = this.getBestLimits(carrierLimits);
 			if (!limits) {
+                log.warn(`autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location)
 				this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
 				fulfill(this.return_result('autodeclined'));
 				return;
@@ -52,6 +53,7 @@ module.exports = class MarkelWC extends Integration {
 			// Check the number of claims
 			if (excessive_loss_states.indexOf(this.app.business.primary_territory) !== -1) {
 				if (this.policy.claims.length > 2) {
+                    log.info(`autodeclined: ${this.insurer.name} Too many claims ` + __location);
 					this.reasons.push(`Too many past claims`);
 					fulfill(this.return_result('autodeclined'));
 					return;
@@ -61,6 +63,7 @@ module.exports = class MarkelWC extends Integration {
 			// Check for excessive losses in South Dakota
 			if (this.app.business.primary_territory === 'SD') {
 				if (this.policy.claims.length > 4) {
+                    log.info(`autodeclined: ${this.insurer.name} Too many claims ` + __location);
 					this.reasons.push(`Too many past claims`);
 					fulfill(this.return_result('autodeclined'));
 					return;

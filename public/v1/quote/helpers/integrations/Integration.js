@@ -1353,6 +1353,7 @@ moment().format('YYYY-MM-DD HH:mm:ss')];
 			});
 
 			if (!codes.length) {
+                log.warn(`autodeclined: no codes  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location)
 				this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code');
 				fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
 				return;
@@ -1360,6 +1361,7 @@ moment().format('YYYY-MM-DD HH:mm:ss')];
 
 			// Make sure the number of codes matched (otherwise there were codes unsupported by this insurer)
 			if (Object.keys(wcCodes).length !== codes.length) {
+                log.warn(`autodeclined: Code length do not match  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location)
 				this.reasons.push('Out of Appetite: The insurer does not support one or more of the selected activity codes');
 				fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
 				return;
@@ -1368,6 +1370,7 @@ moment().format('YYYY-MM-DD HH:mm:ss')];
 			// Load the codes locally
 			codes.forEach((code) => {
 				if (code.result === 0) {
+                    log.warn(`autodeclined: Code length do not match  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location)
 					this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code');
 					fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
 					hadError = true;
@@ -1376,7 +1379,8 @@ moment().format('YYYY-MM-DD HH:mm:ss')];
 				if (code.state) {
 					this.insurer_wc_codes[code.territory + code.id] = code.code + (code.sub ? code.sub : '');
 					return;
-				}
+                }
+                log.warn(`autodeclined: this.insurer_wc_codes ${this.insurer_wc_codes} insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location)
 				this.reasons.push('Out of Appetite: The insurer does not support one or more of the selected activity codes');
 				fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
 				hadError = true;
@@ -1407,6 +1411,7 @@ moment().format('YYYY-MM-DD HH:mm:ss')];
 				fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 			});
 			if (!result || !result.length) {
+                log.warn(`autodeclined: no database result insurer: ${this.insurer.id} ${this.app.business.primary_territory} ic.id = ${this.app.business.industry_code} ` + __location)
 				this.reasons.push('Out of Appetite: The insurer does not support the industry code selected');
 				fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
 				return;

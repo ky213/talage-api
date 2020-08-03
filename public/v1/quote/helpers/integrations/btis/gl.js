@@ -114,6 +114,7 @@ module.exports = class BtisGL extends Integration {
 					return carrierLimit.text.replace(/,/g, '');
 				}));
 			if (!limits) {
+                log.warn(`autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location)
 				this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
 				fulfill(this.return_result('autodeclined'));
 				return;
