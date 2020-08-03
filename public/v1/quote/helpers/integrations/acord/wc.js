@@ -64,7 +64,11 @@ module.exports = class ACORDWC extends Integration {
             const attachments = [];
             attachments.push(attachment);
             // Email it
-            return emailsvc.send(acord_email, email_subject, email_body, email_keys, this.app.agencyLocation.email_brand, this.app.agencyLocation.agencyId, attachments);
+            const emailResp = await emailsvc.send(acord_email, email_subject, email_body, email_keys, this.app.agencyLocation.email_brand, this.app.agencyLocation.agencyId, attachments);
+            if(emailResp === false){
+                log.error(`Unable to send accord for applicationId ${this.app.id}` + __location)
+             }
+             return emailResp;
         });
 
         const email_sent = generated_acord.doc.end();
