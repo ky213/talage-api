@@ -75,7 +75,9 @@ module.exports = class ACORDWC extends Integration {
             // else{
             //     self.return_result('error');
             // }
+            return emailResp;
         });
+        const email_sent = generated_acord.doc.end();
         return this.return_result('referred');
     }
     // TODO BP - Move logic ot Agency location BO is it alread in 2 places in the code.
