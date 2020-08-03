@@ -69,6 +69,7 @@ module.exports = class EmployersWC extends Integration {
 
 			// Ensure this entity type is in the entity matrix above
 			if (!(this.app.business.entity_type in entityMatrix)) {
+                log.warn(`autodeclined: no limits  ${this.insurer.name} does not support the selected entity type ${this.entity_code} ` + __location)
 				this.reasons.push(`${this.insurer.name} does not support the selected entity type`);
 				fulfill(this.return_result('autodeclined'));
 				return;
@@ -77,6 +78,7 @@ module.exports = class EmployersWC extends Integration {
 			// Prepare limits
 			this.bestLimits = this.getBestLimits(carrierLimits);
 			if (!this.bestLimits) {
+                log.warn(`autodeclined: no best limits  ${this.insurer.name} does not support the requested liability limits ` + __location)
 				this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
 				fulfill(this.return_result('autodeclined'));
 				return;
