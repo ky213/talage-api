@@ -54,7 +54,7 @@ module.exports = class ACORDGL extends Integration{
 			chunks.push(chunk);
 		});
         // eslint-disable-next-line consistent-this
-        const self = this;
+
 		generated_acord.doc.on('end', async() => {
 			const result = Buffer.concat(chunks);
 			const attachment = {
@@ -70,13 +70,15 @@ module.exports = class ACORDGL extends Integration{
             if(emailResp === false){
                 log.error(`Unable to send accord for applicationId ${this.app.id}` + __location)
              }
-             if(emailResp === true){
-                self.return_result('referred');
-            }
-            else{
-                self.return_result('error');
-            }
-		});
+            //  if(emailResp === true){
+            //     self.return_result('referred');
+            // }
+            // else{
+            //     self.return_result('error');
+            // }
+        });
+        // always referred regardless of email .
+        return this.return_result('referred');
     }
 
 
