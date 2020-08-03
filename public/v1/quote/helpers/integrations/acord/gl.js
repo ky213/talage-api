@@ -76,8 +76,10 @@ module.exports = class ACORDGL extends Integration{
             // else{
             //     self.return_result('error');
             // }
+            return emailResp;
         });
         // always referred regardless of email .
+        const email_sent = generated_acord.doc.end();
         return this.return_result('referred');
     }
 
