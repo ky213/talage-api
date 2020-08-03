@@ -244,7 +244,8 @@ module.exports = class CompwestWC extends Integration {
 					log.info(`TO DO: As this business could not be written by ${this.insurer.name}, we can wholesale it.`);
 				}
 
-				// For now, just auto decline
+                // For now, just auto decline
+                log.warn(`autodeclined: Non-Core State:  ${this.insurer.name} will not write policies where the primary territory is ${this.app.business.primary_territory} ` + __location)
 				this.reasons.push(`Non-Core State: ${this.insurer.name} will not write policies where the primary territory is ${this.app.business.primary_territory}`);
 				fulfill(this.return_result('autodeclined'));
 				return;
@@ -253,6 +254,7 @@ module.exports = class CompwestWC extends Integration {
 			// Prepare limits
 			const limits = this.getBestLimits(carrierLimits);
 			if (!limits) {
+                log.warn(`autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location)
 				this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
 				fulfill(this.return_result('autodeclined'));
 				return;
