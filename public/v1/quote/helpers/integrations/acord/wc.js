@@ -54,7 +54,6 @@ module.exports = class ACORDWC extends Integration {
             chunks.push(chunk);
         });
         // eslint-disable-next-line consistent-this
-        const self = this;
         generated_acord.doc.on('end', async() => {
             const result = Buffer.concat(chunks);
             const attachment = {
@@ -70,13 +69,14 @@ module.exports = class ACORDWC extends Integration {
             if(emailResp === false){
                 log.error(`Unable to send accord for applicationId ${this.app.id}` + __location)
              }
-             if(emailResp === true){
-                self.return_result('referred');
-            }
-            else{
-                self.return_result('error');
-            }
+            //  if(emailResp === true){
+            //     self.return_result('referred');
+            // }
+            // else{
+            //     self.return_result('error');
+            // }
         });
+        return this.return_result('referred');
     }
     // TODO BP - Move logic ot Agency location BO is it alread in 2 places in the code.
 
