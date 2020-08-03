@@ -67,6 +67,7 @@ module.exports = class LibertyGL extends Integration{
 			// Prepare limits
 			const limits = this.getBestLimits(carrierLimits);
 			if(!limits){
+                log.warn(`autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location)
 				this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
 				fulfill(this.return_result('autodeclined'));
 				return;

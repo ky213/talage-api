@@ -59,6 +59,7 @@ module.exports = class PieWC extends Integration {
 			// Prepare limits
 			const limits = this.getBestLimits(carrierLimits);
 			if (!limits) {
+                log.warn(`autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location)
 				this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
 				fulfill(this.return_result('autodeclined'));
 				return;
@@ -66,6 +67,7 @@ module.exports = class PieWC extends Integration {
 
 			// If the user want's owners included, Pie cannot write it
 			if (this.app.business.owners_included) {
+                log.info(`autodeclined: Pie does not support owners being included in a WC policy at this time. ` + __location)
 				this.reasons.push(`Pie does not support owners being included in a WC policy at this time.`);
 				fulfill(this.return_result('autodeclined'));
 				return;
