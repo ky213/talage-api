@@ -1398,7 +1398,11 @@ moment().format('YYYY-MM-DD HH:mm:ss')];
 	_insurer_supports_industry_codes() {
 		return new Promise(async(fulfill) => {
 			// Query the database to see if this insurer supports this industry code
-			const sql = `SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.naics, ic.iso, iic.attributes FROM #__industry_codes AS ic LEFT JOIN #__insurer_industry_codes AS iic ON (iic.type = 'i' AND iic.code = ic.iso) OR (iic.type = 'c' AND iic.code = ic.cgl) OR (iic.type = 'n' AND iic.code = ic.naics) OR (iic.type = 's' AND iic.code = ic.sic) WHERE iic.insurer = ${this.insurer.id} AND ic.id = ${this.app.business.industry_code} AND iic.territory = '${this.app.business.primary_territory}' LIMIT 1;`;
+            const sql = `SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.naics, ic.iso, iic.attributes 
+                        FROM clw_talage_industry_codes AS ic 
+                            LEFT JOIN  clw_talage_insurer_industry_codes AS iic ON ((iic.type = 'i' AND iic.code = ic.iso) OR (iic.type = 'c' AND iic.code = ic.cgl) OR (iic.type = 'n' AND iic.code = ic.naics) OR (iic.type = 's' AND iic.code = ic.sic)) 
+                                                                                    AND  iic.insurer = ${this.insurer.id} AND iic.territory = '${this.app.business.primary_territory}'
+                        WHERE  ic.id = ${this.app.business.industry_code}  LIMIT 1;`;
 			const result = await db.query(sql).catch(() => {
 				fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 			});
