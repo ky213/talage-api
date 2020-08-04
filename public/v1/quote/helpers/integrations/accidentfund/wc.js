@@ -5,6 +5,8 @@
 'use strict';
 
 const Integration = require('../Integration.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 module.exports = class AccidentfundWC extends Integration{
 

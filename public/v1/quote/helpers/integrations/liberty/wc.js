@@ -527,8 +527,8 @@ module.exports = class LibertyWC extends Integration {
 
                 // Send the result of the request
                 fulfill(this.return_result(status));
-            }).catch(() => {
-                log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.`);
+            }).catch((err) => {
+                log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer. error: ${err}` + __location);
                 fulfill(this.return_result('error'));
             });
         });
