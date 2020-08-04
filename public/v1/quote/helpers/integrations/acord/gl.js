@@ -3,6 +3,8 @@
 const Integration = require('../Integration.js');
 const acordsvc = global.requireShared('./services/acordsvc.js');
 const emailsvc = global.requireShared('./services/emailsvc.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 // Email template
 let email_subject = 'ACORD Application from TEMPLATE_AGENCY_NAME';

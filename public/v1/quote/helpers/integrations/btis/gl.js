@@ -10,6 +10,8 @@
 const Integration = require('../Integration.js');
 const moment = require('moment');
 const util = require('util');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 module.exports = class BtisGL extends Integration {
 

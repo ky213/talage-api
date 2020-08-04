@@ -1409,7 +1409,8 @@ module.exports = class Integration {
                             LEFT JOIN  clw_talage_insurer_industry_codes AS iic ON ((iic.type = 'i' AND iic.code = ic.iso) OR (iic.type = 'c' AND iic.code = ic.cgl) OR (iic.type = 'n' AND iic.code = ic.naics) OR (iic.type = 's' AND iic.code = ic.sic)) 
                                                                                     AND  iic.insurer = ${this.insurer.id} AND iic.territory = '${this.app.business.primary_territory}'
                         WHERE  ic.id = ${this.app.business.industry_code}  LIMIT 1;`;
-            const result = await db.query(sql).catch(() => {
+            const result = await db.query(sql).catch((err) => {
+                log.err(`Integration: _insurer_supports_industry_codes query error ${err} ` + __location)
                 fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
             });
             if (!result || !result.length) {
