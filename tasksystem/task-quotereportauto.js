@@ -30,14 +30,14 @@ exports.processtask = async function(queueMessage){
             error = err;
         });
         if(error){
-            log.error("Error abandonquotetask deleteTaskQueueItem " + error + __location);
+            log.error("Error quotereportauto deleteTaskQueueItem " + error + __location);
         }
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle);
 
         return;
     }
     else {
-        log.info('removing old Abandon Application Message from queue');
+        log.info('removing old quotereportauto Message from queue');
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(err => error = err)
         if(error){
             log.error("Error quote report deleteTaskQueueItem old " + error + __location);
@@ -55,7 +55,7 @@ exports.taskProcessorExternal = async function(){
     let error = null;
     await quoteReportTask().catch(err => error = err);
     if(error){
-        log.error('quotereportTask external: ' + error + __location);
+        log.error('quotereportauto Task external: ' + error + __location);
     }
     return;
 }
@@ -92,7 +92,7 @@ var quoteReportTask = async function(){
     GROUP BY
         q.id
     `;
-    log.debug(quoteSQL);
+    //log.debug(quoteSQL);
     let quoteListDBJSON = null;
 
     quoteListDBJSON = await db.query(quoteSQL).catch(function(err){
