@@ -1410,7 +1410,7 @@ module.exports = class Integration {
                                                                                     AND  iic.insurer = ${this.insurer.id} AND iic.territory = '${this.app.business.primary_territory}'
                         WHERE  ic.id = ${this.app.business.industry_code}  LIMIT 1;`;
             const result = await db.query(sql).catch((err) => {
-                log.err(`Integration: _insurer_supports_industry_codes query error ${err} ` + __location)
+                log.error(`Integration: _insurer_supports_industry_codes query error ${err} ` + __location)
                 fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
             });
             if (!result || !result.length) {
