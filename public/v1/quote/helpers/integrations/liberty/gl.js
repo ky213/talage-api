@@ -10,6 +10,8 @@
 const builder = require('xmlbuilder');
 const moment_timezone = require('moment-timezone');
 const Integration = require('../Integration.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 module.exports = class LibertyGL extends Integration{
 
@@ -679,8 +681,8 @@ catch(e){
 
 				// Send the result of the request
 				fulfill(this.return_result(status));
-			}).catch(() => {
-				log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.` + __location);
+			}).catch((err) => {
+				log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer. error: ${err}` + __location);
 				fulfill(this.return_result('error'));
 			});
 		});
