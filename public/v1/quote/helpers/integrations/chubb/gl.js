@@ -10,6 +10,8 @@
 const builder = require('xmlbuilder');
 const moment = require('moment');
 const Integration = require('../Integration.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 module.exports = class ChubbGL extends Integration {
 
@@ -43,31 +45,37 @@ module.exports = class ChubbGL extends Integration {
 		return new Promise(async(fulfill) => {
 			// Check Industry Code Support
 			if (!this.industry_code.cgl) {
+                log.error(`Chubb GL: CGL not set for Industry Code ${this.industry_code.id} ` + __location)
 				this.reasons.push(`CGL not set for Industry Code ${this.industry_code.id}`);
 				fulfill(this.return_result('error'));
 				return;
 			}
 			if (!this.industry_code.iso) {
+                log.error(`Chubb GL:  ISO not set for Industry Code ${this.industry_code.id} ` + __location)
 				this.reasons.push(`ISO not set for Industry Code ${this.industry_code.id}`);
 				fulfill(this.return_result('error'));
 				return;
 			}
 			if (!this.industry_code.attributes) {
+                log.error(`Chubb GL: Missing Attributes for Industry Code ${this.industry_code.id} ` + __location)
 				this.reasons.push(`Missing Attributes for Industry Code ${this.industry_code.id}`);
 				fulfill(this.return_result('error'));
 				return;
 			}
 			if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'class_code_id')) {
+                log.error(`Chubb GL: Missing required attribute 'class_code_id' for Industry Code ${this.industry_code.id} ` + __location)
 				this.reasons.push(`Missing required attribute 'class_code_id' for Industry Code ${this.industry_code.id}`);
 				fulfill(this.return_result('error'));
 				return;
 			}
 			if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'segment')) {
+                log.error(`Chubb GL: Missing required attribute 'segment' for Industry Code ${this.industry_code.id} ` + __location)
 				this.reasons.push(`Missing required attribute 'segment' for Industry Code ${this.industry_code.id}`);
 				fulfill(this.return_result('error'));
 				return;
 			}
 			if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'exposure')) {
+                log.error(`Chubb GL: Missing required attribute 'exposure' for Industry Code ${this.industry_code.id} ` + __location)
 				this.reasons.push(`Missing required attribute 'exposure' for Industry Code ${this.industry_code.id}`);
 				fulfill(this.return_result('error'));
 				return;
@@ -466,7 +474,8 @@ module.exports = class ChubbGL extends Integration {
 				 * Show
 				 */
 				default:
-					// Unsupported Exposure
+                    // Unsupported Exposure
+                    log.error(`Chubb GL: Unsupported exposure of '${this.industry_code.attributes.exposure}'} ` + __location)
 					this.reasons.push(`Unsupported exposure of '${this.industry_code.attributes.exposure}'`);
 					fulfill(this.return_result('error'));
 					return;
@@ -525,7 +534,8 @@ module.exports = class ChubbGL extends Integration {
 					Rating.ele('Exposure', this.get_total_payroll());
 					break;
 				default:
-					// Unsupported Exposure
+                    // Unsupported Exposure
+                    log.error(`Chubb GL: Unsupported exposure of '${this.industry_code.attributes.exposure}'} ` + __location)
 					this.reasons.push(`Unsupported exposure of '${this.industry_code.attributes.exposure}'`);
 					fulfill(this.return_result('error'));
 					return;
@@ -544,7 +554,8 @@ module.exports = class ChubbGL extends Integration {
 			// </GeneralLiabilityClassification>
 			// </LiabilityInfo>
 
-			const question_identifiers = await this.get_question_identifiers().catch(() => {
+			const question_identifiers = await this.get_question_identifiers().catch((err) => {
+                log.error(`Chubb GL: get_question_identifiers error ${err}` + __location)
 				this.reasons.push('Unable to get question identifiers');
 				fulfill(this.return_result('error'));
 				hadError = true;
@@ -616,10 +627,12 @@ module.exports = class ChubbGL extends Integration {
 					// Determine what happened
 					switch (res.Status[0].StatusCd[0]) {
 						case 'DC-100':
+                            log.error(`Chubb GL: Error DC-100: The data we sent was invalid ` + __location)
 							this.reasons.push('Error DC-100: The data we sent was invalid');
 							fulfill(this.return_result('error'));
 							return;
 						case '400':
+                            log.error(`Chubb GL: Error 400: ${res.Status[0].StatusDesc[0]} ` + __location)
 							this.reasons.push(`Error 400: ${res.Status[0].StatusDesc[0]}`);
 							fulfill(this.return_result('error'));
 							return;
@@ -697,6 +710,7 @@ module.exports = class ChubbGL extends Integration {
 							return;
 
 						default:
+                            log.error(`${this.insurer.name} ${this.policy.type} API returned unknown status code of ${res.Status[0].StatusCd[0]}` + __location);
 							this.reasons.push(`API returned unknown status code of ${res.Status[0].StatusCd[0]}`);
 							fulfill(this.return_result('error'));
 					}

@@ -10,6 +10,8 @@
 const builder = require('xmlbuilder');
 const moment_timezone = require('moment-timezone');
 const Integration = require('../Integration.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 module.exports = class MarkelWC extends Integration {
 
