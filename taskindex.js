@@ -11,6 +11,7 @@ global.rootPath = require('path').join(__dirname, '/');
 global.requireRootPath = (moduleName) => require(`${global.rootPath}/${moduleName}`);
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+global.tracker = tracker;
 
 const colors = require('colors');
 
@@ -21,6 +22,8 @@ const utility = require('./shared/helpers/utility.js');
 const taskDistributor = require('./tasksystem/task-distributor.js');
 const queueHandler = require('./tasksystem/queuehandler.js');
 const responseObject = require('./tasksystem/response-object.js')
+
+
 
 /**
  * Convenience method to log errors both locally and remotely. This is used to display messages both on the console and in the error logs.

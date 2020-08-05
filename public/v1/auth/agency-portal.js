@@ -109,11 +109,13 @@ async function createToken(req, res, next){
 
 	// Check if this was an agency network
 	if (result[0].agency_network) {
-		payload.agencyNetwork = result[0].agency_network;
+        payload.agencyNetwork = result[0].agency_network;
+        //agency network ID now in payload for consistency between network and agency.
+        payload.agencyNetworkId = result[0].agency_network;
 	}
 
-	// Store a local copy of the agency network ID for later use (not in the payload)
-	let agencyNetwork = payload.agencyNetwork;
+	// Store a local copy of the agency network ID .
+    let agencyNetworkId = payload.agencyNetwork;
 
 	// For agency networks get the agencies they are allowed to access
 	if (payload.agencyNetwork) {
@@ -169,7 +171,7 @@ async function createToken(req, res, next){
 		}
 
 		// Store the agency network ID locally for later use
-		agencyNetwork = wholesaleInfo[0].agency_network;
+		agencyNetworkId = wholesaleInfo[0].agency_network;
 	}
 
 	// Build a query to get all of the insurers this agency network can use
@@ -177,7 +179,7 @@ async function createToken(req, res, next){
 		SELECT \`i\`.\`id\`
 		FROM \`#__insurers\` AS \`i\`
 		RIGHT JOIN \`#__agency_network_insurers\` AS \`ani\` ON \`i\`.\`id\` = \`ani\`.\`insurer\`
-		WHERE \`ani\`.\`agency_network\` = ${db.escape(agencyNetwork)} AND \`i\`.\`state\` > 0;
+		WHERE \`ani\`.\`agency_network\` = ${db.escape(agencyNetworkId)} AND \`i\`.\`state\` > 0;
 	`;
 
 	// Query the database
@@ -197,7 +199,8 @@ async function createToken(req, res, next){
 	});
 
 	// Add the user ID to the payload
-	payload.userID = result[0].id;
+    payload.userID = result[0].id;
+    payload.agencyNetworkId = agencyNetworkId;
 
 	// Add the permissions to the payload
 	payload.permissions = JSON.parse(result[0].permissions);

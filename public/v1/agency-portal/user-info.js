@@ -1,6 +1,9 @@
 'use strict';
 
 const serverHelper = require('../../../server.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
+
 
 /**
  * Retrieves the information for a single user

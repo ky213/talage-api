@@ -8,7 +8,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 const tableName = 'clw_talage_agency_networks'
 const skipCheckRequired = false;
-module.exports = class ApplicationNetworkBO{
+module.exports = class AgencyNetworkBO{
 
     #dbTableORM = null;
 
@@ -70,7 +70,7 @@ module.exports = class ApplicationNetworkBO{
         });
     }
 
-    loadFromId(id) {
+    getById(id) {
         return new Promise(async (resolve, reject) => {
             //validate
             if(id && id >0 ){
@@ -88,26 +88,7 @@ module.exports = class ApplicationNetworkBO{
         });
     }
 
-    DeleteByApplicationId(applicationId) {
-        return new Promise(async(resolve, reject) => {
-            //Remove old records.
-            const sql =`DELETE FROM ${tableName} 
-                   WHERE application = ${applicationId}
-            `;
-            let rejected = false;
-			const result = await db.query(sql).catch(function (error) {
-				// Check if this was
-				log.error("Database Object ${tableName} DELETE error :" + error + __location);
-				rejected = true;
-				reject(error);
-			});
-			if (rejected) {
-				return false;
-			}
-            resolve(true);
-       });
-    }
-
+   
 
     async cleanupInput(inputJSON){
         for (const property in properties) {
@@ -137,6 +118,19 @@ module.exports = class ApplicationNetworkBO{
             this[property] = dbJSON[property];
         }
       }
+
+    /**
+	 * Load new object JSON into ORM. can be used to filter JSON to object properties
+     *
+	 * @param {object} inputJSON - input JSON
+	 * @returns {void} 
+	 */
+    async loadORM(inputJSON){
+        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
+        return true;
+    }
+
+
     // ############ Email content retrievial methods ###############################
     // AgencyNetwork does not need to be loaded AgencyNetwork Id is passed in.
     // methods are async returning the contentJSON {"emailBrand": brandName message:" messageTemplate, "subject:" subjectTemplate}..
@@ -305,7 +299,7 @@ const properties = {
       "hashed": false,
       "required": false,
       "rules": null,
-      "type": "string",
+      "type": "json",
       "dbType": "longtext"
     },
     "email": {
@@ -359,7 +353,7 @@ const properties = {
       "hashed": false,
       "required": false,
       "rules": null,
-      "type": "string",
+      "type": "json",
       "dbType": "longtext"
     },
     "lname": {
@@ -398,6 +392,15 @@ const properties = {
       "type": "string",
       "dbType": "blob"
     },
+    "feature_json": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "json",
+        "dbType": "json"
+      },
     "created": {
       "default": null,
       "encrypted": false,

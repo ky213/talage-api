@@ -429,7 +429,7 @@ async function getAgency(req, res, next) {
 	for (let i = 0; i < networkInsurers.length; i++) {
 		const insurer = networkInsurers[i];
 		// Grab all of the policy type and accord support for a given insurer
-		let policyTypeSql = `
+		const policyTypeSql = `
 			SELECT policy_type, acord_support
 			FROM clw_talage_insurer_policy_types
 			WHERE
@@ -438,10 +438,11 @@ async function getAgency(req, res, next) {
 		let policyTypesResults = null;
 		try {
 			policyTypesResults = await db.query(policyTypeSql);
-		} catch (error) {
+		}
+ catch (error) {
 			log.error(`Could not retrieve policy and accord_support for insurer ${insurer} :  ${error}  ${__location}`);
 			return next(serverHelper.internalError('Internal Error'));
-		}			
+		}
 		// Push policy types and accord support for said policy type into an array
 		insurer.policyTypes = [];
 		policyTypesResults.forEach((policyType) => {
