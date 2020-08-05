@@ -598,7 +598,7 @@ module.exports = class ChubbBOP extends Integration {
 
             let had_error = false;
             const question_identifiers = await this.get_question_identifiers().catch((err) => {
-                log.err(`Chubb BOP: get_question_identifiers error ${err}` + __location)
+                log.error(`Chubb BOP: get_question_identifiers error ${err}` + __location)
                 this.reasons.push('Unable to get question identifiers');
                 fulfill(this.return_result('error'));
                 had_error = true;

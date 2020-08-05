@@ -56,7 +56,7 @@ async function getbyId(req, res, next) {
     const agencyLocationBO = new AgencyLocationBO();
 
     // Load the request data into it
-    const locaionJSON = await agencyLocationBO.getByIdAndAgencyListForAgencyPortal(id, agencyList).catch(function(err) {
+    const locationJSON = await agencyLocationBO.getByIdAndAgencyListForAgencyPortal(id, agencyList).catch(function(err) {
         log.error("Location load error " + err + __location);
         error = err;
     });
@@ -64,8 +64,8 @@ async function getbyId(req, res, next) {
         return next(error);
     }
     // Send back a success response
-    if (locaionJSON) {
-        res.send(200, locaionJSON);
+    if (locationJSON) {
+        res.send(200, locationJSON);
         return next();
     }
     else {
@@ -467,6 +467,11 @@ async function legacyFieldUpdate(requestALJSON) {
                         insurer[policyType.toLowerCase()] = 0;
                     }
                 }
+            }
+            else{
+                insurer.GL = 0;
+                insurer.WC = 0;
+                insurer.BOP = 0;
             }
         }
 
