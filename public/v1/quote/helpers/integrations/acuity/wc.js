@@ -19,6 +19,8 @@ const builder = require('xmlbuilder');
 const moment = require('moment');
 const moment_timezone = require('moment-timezone');
 const Integration = require('../Integration.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 module.exports = class AcuityWC extends Integration {
 
@@ -67,6 +69,7 @@ module.exports = class AcuityWC extends Integration {
 			// Prepare limits
 			const limits = this.getBestLimits(carrierLimits);
 			if (!limits) {
+                log.warn(`autodeclined: no limits  ${this.insurer.name} ${this.policy.type} ${this.industry_code.id} ` + __location)
 				this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
 				fulfill(this.return_result('autodeclined'));
 				return;

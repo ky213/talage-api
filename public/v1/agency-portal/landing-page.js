@@ -351,6 +351,10 @@ async function createLandingPage(req, res, next) {
         slug: data.slug
     };
 
+    if(!insertData.agency_location_id){
+        insertData.agency_location_id = 0;
+    }
+
     // Create the SQL to insert this item into the database
     const sql = `
 			INSERT INTO \`#__agency_landing_pages\` (${Object.keys(insertData).
@@ -613,6 +617,9 @@ async function updateLandingPage(req, res, next) {
     }
     data.id = req.body.id;
     data.agencyLocationId = req.body.agencyLocationId;
+    if(!data.agencyLocationId){
+        data.agencyLocationId = 0;
+    }
 
     // Commit this update to the database
     const sql = `

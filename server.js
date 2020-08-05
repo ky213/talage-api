@@ -37,25 +37,23 @@ function processJWT() {
  */
 function validateJWT(options) {
 	return async(req, res, next) => {
-
-        if (!Object.prototype.hasOwnProperty.call(req, 'authentication') || !req.authentication){
+		if (!Object.prototype.hasOwnProperty.call(req, 'authentication') || !req.authentication) {
 			log.info('Forbidden: User is not authenticated');
-            return next(new RestifyError.ForbiddenError('User is not authenticated'));
-        }
+			return next(new RestifyError.ForbiddenError('User is not authenticated'));
+		}
 
-        // Validate the JWT
-        if(options.agencyPortal === true){
-            const errorMessage = await auth.validateJWT(req, options.permission, options.permissionType);
-            if (errorMessage) {
-                // There was an error. Return a Forbidden error (403)
-                return next(new RestifyError.ForbiddenError(errorMessage));
-            }
-            return options.handler(req, res, next);
-        }
-        else {
-            return options.handler(req, res, next);
-        }
-
+		// Validate the JWT
+		if (options.agencyPortal === true) {
+			const errorMessage = await auth.validateJWT(req, options.permission, options.permissionType);
+			if (errorMessage) {
+				// There was an error. Return a Forbidden error (403)
+				return next(new RestifyError.ForbiddenError(errorMessage));
+			}
+			return options.handler(req, res, next);
+		}
+ else {
+			return options.handler(req, res, next);
+		}
 	};
 }
 
@@ -106,11 +104,11 @@ class AbstractedHTTPServer {
 				handler: handlerWrapper(path, handler),
 				permission: permission,
 				permissionType: permissionType,
-                agencyPortal: true
+				agencyPortal: true
 			}));
-    }
+	}
 
-    addPostAuthAppWF(name, path, handler, permission = null, permissionType = null) {
+	addPostAuthAppWF(name, path, handler, permission = null, permissionType = null) {
 		name += ' (authAppWF)';
 		this.server.post({
 				name: name,
@@ -120,12 +118,12 @@ class AbstractedHTTPServer {
 			validateJWT({
 				handler: handlerWrapper(path, handler),
 				permission: permission,
-                permissionType: permissionType,
-                agencyPortal: false
+				permissionType: permissionType,
+				agencyPortal: false
 			}));
 	}
 
-    addGetAuthAppWF(name, path, handler, permission = null, permissionType = null) {
+	addGetAuthAppWF(name, path, handler, permission = null, permissionType = null) {
 		name += ' (authAppWF)';
 		this.server.get({
 				name: name,
@@ -135,8 +133,8 @@ class AbstractedHTTPServer {
 			validateJWT({
 				handler: handlerWrapper(path, handler),
 				permission: permission,
-                permissionType: permissionType,
-                agencyPortal: false
+				permissionType: permissionType,
+				agencyPortal: false
 			}));
 	}
 
@@ -159,7 +157,7 @@ class AbstractedHTTPServer {
 				handler: handlerWrapper(path, handler),
 				permission: permission,
 				permissionType: permissionType,
-                agencyPortal: true
+				agencyPortal: true
 			}));
 	}
 
@@ -183,7 +181,7 @@ class AbstractedHTTPServer {
 				handler: handlerWrapper(path, handler),
 				permission: permission,
 				permissionType: permissionType,
-                agencyPortal: true
+				agencyPortal: true
 			}));
 	}
 
@@ -205,8 +203,8 @@ class AbstractedHTTPServer {
 			validateJWT({
 				handler: handlerWrapper(path, handler),
 				permission: permission,
-                permissionType: permissionType,
-                agencyPortal: true
+				permissionType: permissionType,
+				agencyPortal: true
 			}));
 	}
 
@@ -346,5 +344,21 @@ module.exports = {
 
 	requestError: (message) => new RestifyError.BadRequestError(message),
 
-	serviceUnavailableError: (message) => new RestifyError.ServiceUnavailableError(message)
+	serviceUnavailableError: (message) => new RestifyError.ServiceUnavailableError(message),
+
+	send: (data, res, next) => {
+		res.send({
+ error: null,
+data: data
+});
+		return next();
+	},
+
+	sendError: (errorMessage, res, next) => {
+		res.send({
+ error: errorMessage,
+data: null
+});
+		return next();
+	}
 };

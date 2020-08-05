@@ -4,7 +4,7 @@
 
 'use strict';
 
-const serverHelper = require('../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
 
 /**
  * Responds to get requests for an authorization token
@@ -27,7 +27,7 @@ function PostBrand(req, res, next){
 				'env': 'production',
 				'portalURL': 'https://agents.talageins.com',
 				's3Bucket': 'website-images-staging',
-				'siteURL': 'https://www.talageins.com'
+				'siteURL': 'https://img.talageins.com'
 			});
 			break;
 		case 'alpine.talageins.com':

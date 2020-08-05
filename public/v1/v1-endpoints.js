@@ -11,11 +11,10 @@ const apiVersion = 'v1';
  *
  * @returns {void}
  */
-function registerEndpoint(server, namespace, endpointName){
-	if(namespace === null){
+function registerEndpoint(server, namespace, endpointName) {
+	if (namespace === null) {
 		require(`./${endpointName}.js`).registerEndpoint(server, `/${apiVersion}`);
-	}
-else{
+	} else {
 		require(`./${namespace}/${endpointName}.js`).registerEndpoint(server, `/${apiVersion}/${namespace}`);
 	}
 }
@@ -29,13 +28,13 @@ else{
  * @param {function} next - The next function to execute
  * @returns {void}
  */
-async function getUptime(req, res, next){
+async function getUptime(req, res, next) {
 	res.setHeader('content-type', 'application/xml');
 	const startTime = process.hrtime();
 
 	// Check the database connection by selecting all active activity codes
 	let error = false;
-	await db.query('SELECT COUNT(*) FROM `#__api_users`').catch(function(e){
+	await db.query('SELECT COUNT(*) FROM `#__api_users`').catch(function (e) {
 		log.error(e.message + __location);
 		error = true;
 	});
@@ -44,7 +43,7 @@ async function getUptime(req, res, next){
 	const elapsed = process.hrtime(startTime)[1] / 1000000;
 
 	// Send the appropriate response
-	if(error){
+	if (error) {
 		res.end(`<pingdom_http_custom_check> <status>DOWN</status> <response_time>${elapsed.toFixed(8)}</response_time> <version>${global.version}</version> </pingdom_http_custom_check>`);
 		return next();
 	}
@@ -59,7 +58,8 @@ exports.registerEndpoints = (server) => {
 	// Activities removed in 1.5.0
 	// RegisterEndpoint(server, 'agency-portal', 'activities');
 	registerEndpoint(server, 'agency-portal', 'agencies');
-	registerEndpoint(server, 'agency-portal', 'agency');
+    registerEndpoint(server, 'agency-portal', 'agency');
+    registerEndpoint(server, 'agency-portal', 'agency-network');
 	registerEndpoint(server, 'agency-portal', 'agency-location');
 	registerEndpoint(server, 'agency-portal', 'agency-user');
 	registerEndpoint(server, 'agency-portal', 'application');
@@ -87,6 +87,7 @@ exports.registerEndpoints = (server) => {
 	// Application
 	registerEndpoint(server, 'application', 'application');
 	// Auth
+	registerEndpoint(server, 'auth', 'administration');
 	registerEndpoint(server, 'auth', 'agency-portal');
 	registerEndpoint(server, 'auth', 'token');
 
@@ -110,9 +111,10 @@ exports.registerEndpoints = (server) => {
 	// Site
 	registerEndpoint(server, 'site', 'brand');
 
+	// Administration
+	registerEndpoint(server, 'administration', 'color-scheme');
+
 	// Server.AddGet('Uptime Check', '/', GetUptime);
 	// AWS load balancers and pingdom send /uptime
 	server.addGet('Uptime Check', '/uptime', getUptime);
-
-
 };
