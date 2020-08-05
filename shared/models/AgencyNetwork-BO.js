@@ -57,15 +57,17 @@ module.exports = class AgencyNetworkBO{
     }
 
     /**
-	 * saves businessContact.
+	 * saves this object.
      *
-	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
+	 * @returns {Promise.<JSON, Error>} save return true , or an Error if rejected
 	 */
-
     save(asNew = false){
         return new Promise(async(resolve, reject) => {
-        //validate
-
+            //validate
+            this.#dbTableORM.load(this, skipCheckRequired);
+            await this.#dbTableORM.save().catch(function(err){
+                reject(err);
+            });
             resolve(true);
         });
     }
@@ -88,7 +90,9 @@ module.exports = class AgencyNetworkBO{
         });
     }
 
-   
+    cleanJSON(noNulls = true){
+		return this.#dbTableORM.cleanJSON(noNulls);
+	}
 
     async cleanupInput(inputJSON){
         for (const property in properties) {
