@@ -20,44 +20,52 @@ async function GetUserInfo(req, res, next){
 	let userInfoSQL = '';
 	if(agencyNetwork){
 		userInfoSQL = `
-				SELECT
-					\`an\`.\`id\` AS agencyNetwork,
-					\`an\`.\`logo\`,
-					\`an\`.\`name\`,
-					\`t\`.\`tz\`
-				FROM \`#__agency_networks\` AS \`an\`
-				LEFT JOIN \`#__agency_portal_users\` AS \`au\` ON \`au\`.\`agency_network\` =\`an\`.\`id\`
-				LEFT JOIN \`#__timezones\` AS \`t\` ON \`au\`.\`timezone\` = \`t\`.\`id\`
-				WHERE \`au\`.\`id\` = ${parseInt(req.authentication.userID, 10)}
-				LIMIT 1;
+            SELECT
+                an.id AS agencyNetwork,
+                an.logo,
+                an.name,
+                an.feature_json,
+                t.tz
+            FROM #__agency_networks AS an
+                LEFT JOIN clw_talage_agency_portal_users AS au ON au.agency_network =an.id
+                LEFT JOIN clw_talage_timezones AS t ON au.timezone = t.id
+            WHERE au.id = ${parseInt(req.authentication.userID, 10)}
+            LIMIT 1;
 			`;
-	}
-else{
+        }
+    else{
 		userInfoSQL = `
-				SELECT
-					\`a\`.\`agency_network\` AS agencyNetwork,
-					\`a\`.\`id\` AS \`agency\`,
-					\`a\`.\`logo\`,
-					\`a\`.\`name\`,
-					\`a\`.\`slug\`,
-					\`a\`.\`wholesale\`,
-					\`an\`.\`help_text\` AS helpText,
-					\`t\`.\`tz\`
-				FROM \`#__agencies\` AS \`a\`
-				LEFT JOIN \`#__agency_networks\` AS \`an\` ON \`a\`.\`agency_network\` = \`an\`.\`id\`
-				LEFT JOIN \`#__agency_portal_users\` AS \`au\` ON \`au\`.\`agency\` =\`a\`.\`id\`
-				LEFT JOIN \`#__timezones\` AS \`t\` ON \`au\`.\`timezone\` = \`t\`.\`id\`
-				WHERE \`au\`.\`id\` = ${parseInt(req.authentication.userID, 10)}
-				LIMIT 1;
+                SELECT
+                    a.agency_network AS agencyNetwork,
+                    an.feature_json,
+                    a.id AS agency,
+                    a.logo,
+                    a.name,
+                    a.slug,
+                    a.wholesale,
+                    an.help_text AS helpText,
+                    t.tz
+                FROM clw_talage_agencies AS a
+                    LEFT JOIN clw_talage_agency_networks AS an ON a.agency_network = an.id
+                    LEFT JOIN clw_talage_agency_portal_users AS au ON au.agency =a.id
+                    LEFT JOIN clw_talage_timezones AS t ON au.timezone = t.id
+                WHERE au.id = ${parseInt(req.authentication.userID, 10)}
+                LIMIT 1;
 			`;
 	}
 
-	// Going to the database to get the user's info
+    // Going to the database to get the user's
+    let error = null;
 	const userInfo = await db.query(userInfoSQL).catch(function(err){
-		log.error(err.message);
-		return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
-	});
-
+		log.error(err.message + __location);
+		error = err;
+    });
+    if(error){
+        return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+    }
+    if(userInfo[0].feature_json){
+        userInfo[0].feature_json = JSON.parse(userInfo[0].feature_json);
+    }
 	// Send the user's data back
 	res.send(200, userInfo[0]);
 	return next();
