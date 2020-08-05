@@ -141,7 +141,11 @@ module.exports = class DatabaseObject {
                             
                         }
                         else if (expectedDataType === "json"  && typeof value === 'object' ){
-                            log.debug('Load() Processing JSON column');
+                            //log.debug('Load() Processing JSON column');
+                        }
+                        else if (expectedDataType === "json"  && typeof value === 'string' ){
+                            //log.debug('Load() Processing JSON column convert string');
+                            value = JSON.parse(value)
                         }
 						else {
                             if (expectedDataType !== typeof value) {
@@ -588,6 +592,7 @@ module.exports = class DatabaseObject {
 				})
 			}
 			else {
+                log.debug("not found getbyId: " + sql);
 				reject(new Error("not found"));
 				return
 			}

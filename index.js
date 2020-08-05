@@ -14,6 +14,10 @@ const globalSettings = require('./settings.js');
 const version = require('./version.js');
 const server = require('./server.js');
 
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
+global.tracker = tracker;
+
 // Inject the tracker code
 //require('./tracker.js');
 
