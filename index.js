@@ -10,6 +10,7 @@ const colors = require('colors');
 const logger = require('./shared/services/logger.js');
 const db = require('./shared/services/db.js');
 const s3 = require('./shared/services/s3.js');
+const cognitoSvc = require('./shared/services/cognitosvc.js');
 const globalSettings = require('./settings.js');
 const version = require('./version.js');
 const server = require('./server.js');
@@ -38,7 +39,7 @@ function logInfoMessage(message){
  * @returns {void}
  */
 function logErrorMessage(message){
-	log.error(message +  __location);
+	log.error(message + __location);
 }
 
 /**
@@ -49,7 +50,7 @@ function logErrorMessage(message){
  */
 function logLocalErrorMessage(message){
 	if(global.log){
-		log.error(message +  __location);
+		log.error(message + __location);
 	}
 	// eslint-disable-next-line no-console
 	console.log(colors.red(message));
@@ -100,7 +101,14 @@ async function main(){
 	if(!await s3.connect()){
 		logLocalErrorMessage('Error connecting to S3. Stopping.');
 		return;
-	}
+    }
+
+    // Connect to Cognito
+	if(!await cognitoSvc.connect()){
+		logLocalErrorMessage('Error connecting to cognitoSvc. Stopping.');
+		return;
+    }
+    global.cognitoSvc = cognitoSvc;
 
 	// Load the database module and make it globally available
 	global.db = global.requireShared('./services/db.js');

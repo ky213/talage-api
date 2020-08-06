@@ -1,3 +1,4 @@
+/* eslint-disable no-lonely-if */
 'use strict';
 
 const colors = require('colors');
@@ -66,16 +67,45 @@ function validateJWT(options) {
  */
 function validateCognitoJWT(options) {
     return async(req, res, next) => {
-        log.debug("in validateCognitoJWT " + __location)
-
         let jwtToken = req.headers.authorization || (req.body && req.body.access_token) || (req.query && req.query.access_token) || req.headers.token;
-        jwtToken = jwtToken.replace("Bearer ","");
-        log.debug("validateCognitoJWT jwtToken: " + jwtToken)
-        //check Cognito if the Token is good and get groups.
-
-
-        options.handler(req, res, next);
-
+        if(jwtToken){
+            jwtToken = jwtToken.replace("Bearer ","");
+           // log.debug("jwtToken: " + jwtToken);
+            //check Cognito if the Token is good and get groups.
+            cognitoSvc.getUserByToken(jwtToken, function(err, cognitoUser){
+                if(err){
+                    log.error(`Error returned by cognitoSvc.getUserByToken ${err}` + __location)
+                    return next(new RestifyError.ForbiddenError("access denied"));
+                }
+                else {
+                    //log.debug("Cognito user: " + JSON.stringify(data));
+                    // must be in group.  TalageAdminUser
+                    if(cognitoUser.Groups){
+                        let hasAccess = false;
+                        for(let i = 0; i < cognitoUser.Groups.length; i++){
+                            if(cognitoUser.Groups[i].GroupName === "TalageAdminUser"){
+                                hasAccess = true;
+                            }
+                        }
+                        if(hasAccess){
+                            options.handler(req, res, next);
+                        }
+                        else {
+                            log.warn(`CognitoUser on in approved a group.` + __location)
+                            return next(new RestifyError.ForbiddenError("access denied"));
+                        }
+                    }
+                    else {
+                        log.warn(`CognitoUser had no groups.` + __location)
+                        return next(new RestifyError.ForbiddenError("access denied"));
+                    }
+                }
+            })
+        }
+        else {
+            log.debug("no cognito JWT " + __location);
+            return next(new RestifyError.ForbiddenError("access denied"));
+        }
     }
 }
 
