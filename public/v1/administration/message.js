@@ -20,6 +20,7 @@ async function findAll(req, res, next) {
     let options = {};
     let query = {};
     options.sort = {};
+    log.debug("Message List req.query: " + JSON.stringify(req.query))
     if (req.query.sort) {
         var acs = 1;
         if (req.query.desc) {
@@ -55,6 +56,21 @@ async function findAll(req, res, next) {
         }
         delete req.query.count;
     }
+    let flippedSort = false;
+    if(req.query.maxid){
+        query.mysqlId = {$lte: parseInt(req.query.maxid,10)};
+        delete req.query.maxid;
+    }
+    if(req.query.minid){
+        query.mysqlId = {$gte: parseInt(req.query.minid,10)};
+        delete req.query.minid;
+        //change sort
+        options.sort.sent = 1;
+        options.sort.mysqlId = 1;
+        flippedSort = true;
+    }
+
+
     if (req.query) {
         for (var key in req.query) {
             query[key] = req.query[key];
@@ -74,6 +90,8 @@ async function findAll(req, res, next) {
         // });
         let docList = null;
         try {
+            log.debug("MessageList query " + JSON.stringify(query))
+            log.debug("MessageList options " + JSON.stringify(options))
             docList = await Message.find(query, '-__v', options);
         }
         catch (err) {
@@ -81,6 +99,11 @@ async function findAll(req, res, next) {
             return serverHelper.sendError(res, next, 'Internal Error');
         }
         log.debug("docList.length: " + docList.length);
+        if(flippedSort === true){
+            docList.sort((a, b) => parseInt(b.mysqlId, 10) - parseInt(a.mysqlId, 10));
+        }
+
+
         res.send(200, mongoUtils.objListCleanup(docList));
         return next();
     }
@@ -132,10 +155,10 @@ async function findOne(req, res, next) {
 
 exports.registerEndpoint = (server, basePath) => {
     // We require the 'administration.read' permission
-    server.addGetAuthAdmin('Get Message list', `${basePath}/message`, findAll, 'administration', 'all');
-    server.addGetAuthAdmin('GET Message Object', `${basePath}/message/:id`, findOne, 'administration', 'all');
+    // server.addGetAuthAdmin('Get Message list', `${basePath}/message`, findAll, 'administration', 'all');
+    // server.addGetAuthAdmin('GET Message Object', `${basePath}/message/:id`, findOne, 'administration', 'all');
 
-    // server.addGet('Get Message list', `${basePath}/message`, findAll, 'administration', 'all');
-    // server.addGet('GET Message Object', `${basePath}/message/:id`, findOne, 'administration', 'all');
+    server.addGet('Get Message list', `${basePath}/message`, findAll, 'administration', 'all');
+    server.addGet('GET Message Object', `${basePath}/message/:id`, findOne, 'administration', 'all');
 
 };
