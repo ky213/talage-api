@@ -7,23 +7,11 @@
 const crypt = global.requireShared('./services/crypt.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
-/**
- * Responds to POST requests and returns policy quotes
- *
- * @param {object} req - HTTP request object
- * @param {object} res - HTTP response object
- * @param {function} next - The next function to execute
- *
- * @returns {void}
- */
-async function getAgency(req, res, next) {
-	if (!req.query.url) {
-		res.send(400, { error: 'Missing URL' });
-		return next();
-	}
+function parseQuoteURL(url) {
+	url = url.replace(/index\.[a-zA-Z]*\/*/, '');
 	let quoteURL = null;
 	try {
-		quoteURL = new URL(req.query.url);
+		quoteURL = new URL(url);
 	} catch (error) {
 		log.error(`Could not parse url '${req.query.url}': ${error} ${__location}`);
 		res.send(400, { error: 'Invalid URL' });
@@ -50,7 +38,35 @@ async function getAgency(req, res, next) {
 			pageSlug = path[2];
 		}
 	}
+	return {
+		agencySlug,
+		pageSlug
+	};
+}
+
+/**
+ * Responds to POST requests and returns policy quotes
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function getAgency(req, res, next) {
+	if (!req.query.url) {
+		res.send(400, { error: 'Missing URL' });
+		return next();
+	}
+	const { agencySlug, pageSlug } = parseQuoteURL(req.query.url);
+
 	let agency = null;
+
+	if (agencySlug.includes('.htm')) {
+		res.send(200, { agency });
+		return next();
+	}
+
 	if (agencySlug) {
 		let sql = `
 			SELECT
@@ -108,16 +124,26 @@ async function getAgency(req, res, next) {
 			return next();
 		}
 		try {
-			agency.landingPageContent = JSON.parse(agency.landingPageContent);
-			agency.defaultLandingPageContent = JSON.parse(agency.defaultLandingPageContent);
-			agency.meta = JSON.parse(agency.meta);
+			if (agency.landingPageContent) {
+				agency.landingPageContent = JSON.parse(agency.landingPageContent);
+			}
+			if (agency.defaultLandingPageContent) {
+				agency.defaultLandingPageContent = JSON.parse(agency.defaultLandingPageContent);
+			}
+			if (agency.meta) {
+				agency.meta = JSON.parse(agency.meta);
+			}
+			if (agency.californiaLicense) {
+				agency.californiaLicense = await crypt.decrypt(agency.californiaLicense);
+			}
+			if (agency.website) {
+				agency.website = await crypt.decrypt(agency.website);
+			}
 		} catch (error) {
 			log.error(`Could not parse landingPageContent/defaultLandingPageContent/meta in agency ${agencySlug}: ${error} ${__location}`);
-			res.send(400, { error: 'Could not proces agency data' });
+			res.send(400, { error: 'Could not process agency data' });
 			return next();
 		}
-		agency.californiaLicense = await crypt.decrypt(agency.californiaLicense);
-		agency.website = await crypt.decrypt(agency.website);
 
 		// Get the locations
 		sql = `
@@ -202,7 +228,82 @@ async function getAgency(req, res, next) {
 	return next();
 }
 
+/**
+ * Responds to POST requests and returns social media meta data
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function getAgencySocialMetadata(req, res, next) {
+	if (!req.query.url) {
+		res.send(400, { error: 'Missing URL' });
+		return next();
+	}
+
+	let { agencySlug, pageSlug } = parseQuoteURL(req.query.url);
+	if (!agencySlug) {
+		agencySlug = 'talage';
+	}
+	// Retrieve the information needed to create the social media sharing metadata
+	const sql = `
+		SELECT
+			ag.name,
+			an.landing_page_content as landingPageContent,
+			ag.logo,
+			(SELECT landing_page_content FROM clw_talage_agency_networks WHERE id = 1) AS defaultLandingPageContent
+		FROM clw_talage_agency_landing_pages as alp
+		LEFT JOIN clw_talage_agencies AS ag ON alp.agency = ag.id
+		LEFT JOIN clw_talage_agency_networks AS an ON ag.agency_network = an.id
+		WHERE
+			ag.slug = ${db.escape(agencySlug)}
+			AND ag.state = 1
+			AND alp.state = 1
+			AND ${pageSlug ? 'alp.slug = ' + db.escape(pageSlug) : 'alp.primary = 1'}
+	`;
+	let agency = null;
+	try {
+		const result = await db.query(sql);
+		if (result.length === 0) {
+			throw 'zero-length query result';
+		}
+		agency = result[0];
+	} catch (error) {
+		log.warn(`Could not retrieve quote engine agency slug '${agencySlug}' (${pageSlug ? 'page ' + pageSlug : 'no page'}) for social metadata: ${error} ${__location}`);
+		res.send(400, { error: 'Could not retrieve agency' });
+		return next();
+	}
+	if (!agency) {
+		res.send(400, { error: 'Could not retrieve agency' });
+		return next();
+	}
+	try {
+		if (agency.landingPageContent) {
+			agency.landingPageContent = JSON.parse(agency.landingPageContent);
+		}
+		if (agency.defaultLandingPageContent) {
+			agency.defaultLandingPageContent = JSON.parse(agency.defaultLandingPageContent);
+		}
+		if (agency.website) {
+			agency.website = await crypt.decrypt(agency.website);
+		}
+	} catch (error) {
+		log.error(`Could not parse landingPageContent/defaultLandingPageContent in agency slug '${agencySlug}' for social metadata: ${error} ${__location}`);
+		res.send(400, { error: 'Could not process agency data' });
+		return next();
+	}
+	res.send(200, {
+		metaTitle: agency.name,
+		metaDescription: agency.landingPageContent.bannerHeadingDefault ? agency.landingPageContent.bannerHeadingDefault : agency.defaultLandingPageContent.bannerHeadingDefault,
+		metaImage: `https://${global.settings.S3_BUCKET}.s3-us-west-1.amazonaws.com/public/agency-logos/${agency.logo}`
+	});
+	return next();
+}
+
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
 	server.addGetAuthAppWF('Get Quote Agency', `${basePath}/agency`, getAgency);
+	server.addGet('Get Quote Agency Metadata', `${basePath}/agency/social-metadata`, getAgencySocialMetadata);
 };
