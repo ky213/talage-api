@@ -33,7 +33,7 @@ exports.getAgents = async function(req) {
 		WHERE \`agency_network\` = ${db.escape(agencyNetwork)};
 	`;
 	const agencyResult = await db.query(agencySQL).catch(function(e) {
-		log.error(e.message);
+		log.error(e.message + __location);
 		error = serverHelper.internalError('Error querying database. Check logs.');
 	});
 	if (error) {
