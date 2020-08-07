@@ -7,23 +7,33 @@
 const crypt = global.requireShared('./services/crypt.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
+/**
+ * Parses the quote app request URL and extracts the agency and page slugs
+ *
+ * @param {string} url - quote app request URL
+ *
+ * @returns {object} agencySlug, pageSlug
+ */
 function parseQuoteURL(url) {
+	// Parse the agency slug
+	let agencySlug = null;
+	let pageSlug = null;
+
 	url = url.replace(/index\.[a-zA-Z]*\/*/, '');
 	let quoteURL = null;
 	try {
 		quoteURL = new URL(url);
-	} catch (error) {
-		log.error(`Could not parse url '${req.query.url}': ${error} ${__location}`);
-		res.send(400, { error: 'Invalid URL' });
-		return next();
+	}
+ catch (error) {
+		log.error(`Could not parse quote application url '${url}': ${error} ${__location}`);
+		return {
+			agencySlug: agencySlug,
+			pageSlug: pageSlug
+		};
 	}
 
 	// Split the path so we can extract the agency and page slug if needed
 	const path = quoteURL.pathname.split('/');
-
-	// Parse the agency slug
-	let agencySlug = null;
-	let pageSlug = null;
 
 	if (quoteURL.searchParams.has('agency')) {
 		// URL: http://domain/?agency=agencySlug&page=pageSlug
@@ -31,7 +41,8 @@ function parseQuoteURL(url) {
 		if (quoteURL.searchParams.has('page')) {
 			pageSlug = quoteURL.searchParams.get('page');
 		}
-	} else if (path.length > 1) {
+	}
+ else if (path.length > 1) {
 		// URL: http://domain/agencySlug/pageSlug
 		agencySlug = path[1];
 		if (path.length > 2) {
@@ -39,8 +50,8 @@ function parseQuoteURL(url) {
 		}
 	}
 	return {
-		agencySlug,
-		pageSlug
+		agencySlug: agencySlug,
+		pageSlug: pageSlug
 	};
 }
 
@@ -55,19 +66,21 @@ function parseQuoteURL(url) {
  */
 async function getAgency(req, res, next) {
 	if (!req.query.url) {
-		res.send(400, { error: 'Missing URL' });
+		res.send(400, {error: 'Missing URL'});
 		return next();
 	}
-	const { agencySlug, pageSlug } = parseQuoteURL(req.query.url);
+	const {
+ agencySlug, pageSlug
+} = parseQuoteURL(req.query.url);
 
 	let agency = null;
 
-	if (agencySlug.includes('.htm')) {
-		res.send(200, { agency });
-		return next();
-	}
-
 	if (agencySlug) {
+		if (agencySlug.includes('.htm')) {
+			res.send(200, {agency: agency});
+			return next();
+		}
+
 		let sql = `
 			SELECT
 				alp.about,
@@ -113,14 +126,15 @@ async function getAgency(req, res, next) {
 		try {
 			const result = await db.query(sql);
 			agency = result[0];
-		} catch (error) {
+		}
+ catch (error) {
 			log.warn(`Could not retrieve quote engine agency ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${error} ${__location}`);
-			res.send(400, { error: 'Could not retrieve agency' });
+			res.send(400, {error: 'Could not retrieve agency'});
 			return next();
 		}
 		if (!agency) {
 			log.warn(`Could not retrieve quote engine agency ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}) ${__location}`);
-			res.send(400, { error: 'Could not retrieve agency' });
+			res.send(400, {error: 'Could not retrieve agency'});
 			return next();
 		}
 		try {
@@ -139,9 +153,10 @@ async function getAgency(req, res, next) {
 			if (agency.website) {
 				agency.website = await crypt.decrypt(agency.website);
 			}
-		} catch (error) {
+		}
+ catch (error) {
 			log.error(`Could not parse landingPageContent/defaultLandingPageContent/meta in agency ${agencySlug}: ${error} ${__location}`);
-			res.send(400, { error: 'Could not process agency data' });
+			res.send(400, {error: 'Could not process agency data'});
 			return next();
 		}
 
@@ -181,9 +196,10 @@ async function getAgency(req, res, next) {
 				l.city = stringFunctions.ucFirstLetter(l.city);
 				l.appointments = l.appointments.split(',');
 			}
-		} catch (error) {
+		}
+ catch (error) {
 			log.error(`Could not retrieve quote engine locations ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${error} ${__location}`);
-			res.send(400, { error: 'Could not retrieve locations' });
+			res.send(400, {error: 'Could not retrieve locations'});
 			return next();
 		}
 
@@ -204,9 +220,10 @@ async function getAgency(req, res, next) {
 		`;
 		try {
 			agency.insurers = await db.query(sql);
-		} catch (error) {
+		}
+ catch (error) {
 			log.error(`Could not retrieve quote engine insurers ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${error} ${__location}`);
-			res.send(400, { error: 'Could not retrieve insurers' });
+			res.send(400, {error: 'Could not retrieve insurers'});
 			return next();
 		}
 
@@ -218,13 +235,14 @@ async function getAgency(req, res, next) {
 		`;
 		try {
 			await db.query(sql);
-		} catch (error) {
+		}
+ catch (error) {
 			log.error(`Could not update landing page hit for ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${error} ${__location}`);
 			// continue (non-fatal)
 		}
 	}
 
-	res.send(200, { agency });
+	res.send(200, {agency: agency});
 	return next();
 }
 
@@ -239,11 +257,14 @@ async function getAgency(req, res, next) {
  */
 async function getAgencySocialMetadata(req, res, next) {
 	if (!req.query.url) {
-		res.send(400, { error: 'Missing URL' });
+		res.send(400, {error: 'Missing URL'});
 		return next();
 	}
 
-	let { agencySlug, pageSlug } = parseQuoteURL(req.query.url);
+	const slugs = parseQuoteURL(req.query.url);
+	let agencySlug = slugs.agencySlug;
+	const pageSlug = slugs.pageSlug;
+
 	if (!agencySlug) {
 		agencySlug = 'talage';
 	}
@@ -267,16 +288,17 @@ async function getAgencySocialMetadata(req, res, next) {
 	try {
 		const result = await db.query(sql);
 		if (result.length === 0) {
-			throw 'zero-length query result';
+			throw new Error('zero-length query result');
 		}
 		agency = result[0];
-	} catch (error) {
+	}
+ catch (error) {
 		log.warn(`Could not retrieve quote engine agency slug '${agencySlug}' (${pageSlug ? 'page ' + pageSlug : 'no page'}) for social metadata: ${error} ${__location}`);
-		res.send(400, { error: 'Could not retrieve agency' });
+		res.send(400, {error: 'Could not retrieve agency'});
 		return next();
 	}
 	if (!agency) {
-		res.send(400, { error: 'Could not retrieve agency' });
+		res.send(400, {error: 'Could not retrieve agency'});
 		return next();
 	}
 	try {
@@ -289,9 +311,10 @@ async function getAgencySocialMetadata(req, res, next) {
 		if (agency.website) {
 			agency.website = await crypt.decrypt(agency.website);
 		}
-	} catch (error) {
+	}
+ catch (error) {
 		log.error(`Could not parse landingPageContent/defaultLandingPageContent in agency slug '${agencySlug}' for social metadata: ${error} ${__location}`);
-		res.send(400, { error: 'Could not process agency data' });
+		res.send(400, {error: 'Could not process agency data'});
 		return next();
 	}
 	res.send(200, {

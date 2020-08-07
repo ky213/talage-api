@@ -29,7 +29,7 @@ async function getToken(req, res, next) {
 
 		// Query the database for this joomla_user
 		const user_sql = `SELECT \`id\` FROM \`clw_users\` WHERE \`id\` = ${db.escape(req.query.joomla_user)} LIMIT 1;`;
-		const user_result = await db.query(user_sql).catch(function (e) {
+		const user_result = await db.query(user_sql).catch(function(e) {
 			log.error(e.message);
 			res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
 			error = true;
@@ -50,7 +50,7 @@ async function getToken(req, res, next) {
 	if (req.query.user && req.query.key) {
 		// Authenticate the information provided by the user
 		const sql = `SELECT \`id\`, \`key\` FROM \`#__api_users\` WHERE \`user\` = ${db.escape(req.query.user)} LIMIT 1;`;
-		const result = await db.query(sql).catch(function (e) {
+		const result = await db.query(sql).catch(function(e) {
 			log.error(e.message);
 			res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
 			error = true;
@@ -67,7 +67,7 @@ async function getToken(req, res, next) {
 		}
 
 		// Check the key
-		if (!(await crypt.verifyPassword(result[0].key, req.query.key))) {
+		if (!await crypt.verifyPassword(result[0].key, req.query.key)) {
 			log.info('Authentication failed');
 			res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
 			return next();
@@ -79,7 +79,7 @@ async function getToken(req, res, next) {
 
 	// This is a valid user, generate and return a token
 	const jwt = require('jsonwebtoken');
-	const token = `Bearer ${jwt.sign(payload, global.settings.AUTH_SECRET_KEY, { expiresIn: '1h' })}`;
+	const token = `Bearer ${jwt.sign(payload, global.settings.AUTH_SECRET_KEY, {expiresIn: '1h'})}`;
 	res.send(201, {
 		status: 'Created',
 		token: token

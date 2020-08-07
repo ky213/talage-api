@@ -8,7 +8,7 @@
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-const { raw } = require('mysql');
+// const {raw} = require('mysql');
 
 var sanitizer = require('sanitize')();
 
@@ -18,8 +18,8 @@ var sanitizer = require('sanitize')();
  * @param {string} str - The string
  * @return {string} - The upper-cased string
  */
-exports.ucwords = function (str) {
-	return String(str).replace(/^([a-z])|\s+([a-z])/g, function ($1) {
+exports.ucwords = function(str) {
+	return String(str).replace(/^([a-z])|\s+([a-z])/g, function($1) {
 		return $1.toUpperCase();
 	});
 };
@@ -30,7 +30,7 @@ exports.ucwords = function (str) {
  * @param {string} str - The string
  * @return {string} The lower-case string
  */
-exports.strtolower = function (str) {
+exports.strtolower = function(str) {
 	return String(str).toLowerCase();
 };
 
@@ -43,7 +43,7 @@ exports.strtolower = function (str) {
  * @param {string} thousands_sep - The character used to separate groups of thousands digits
  * @return {string} - The formatted number
  */
-exports.number_format = function (number, decimals, dec_point, thousands_sep) {
+exports.number_format = function(number, decimals, dec_point, thousands_sep) {
 	// Strip all characters but numerical ones.
 	number = String(number).replace(/[^0-9+\-Ee.]/g, '');
 	const n = !isFinite(Number(number)) ? 0 : Number(number);
@@ -51,7 +51,7 @@ exports.number_format = function (number, decimals, dec_point, thousands_sep) {
 	const sep = typeof thousands_sep === 'undefined' ? ',' : thousands_sep;
 	const dec = typeof dec_point === 'undefined' ? '.' : dec_point;
 	let s = '';
-	const toFixedFix = function (n2, prec2) {
+	const toFixedFix = function(n2, prec2) {
 		const k = Math.pow(10, prec2);
 		return String(Math.round(n2 * k) / k);
 	};
@@ -67,13 +67,13 @@ exports.number_format = function (number, decimals, dec_point, thousands_sep) {
 	return s.join(dec);
 };
 
-exports.remove_array_duplicates = function (arr) {
+exports.remove_array_duplicates = function(arr) {
 	const s = new Set(arr);
 	const it = s.values();
 	return Array.from(it);
 };
 
-exports.htmlspecialchars_decode = function (string, quote_style) {
+exports.htmlspecialchars_decode = function(string, quote_style) {
 	// Convert special HTML entities back to characters
 	//
 	// version: 901.714
@@ -112,7 +112,7 @@ exports.htmlspecialchars_decode = function (string, quote_style) {
 	return tmp_str;
 };
 
-exports.get_html_translation_table = function (table, quote_style) {
+exports.get_html_translation_table = function(table, quote_style) {
 	// Returns the internal translation table used by htmlspecialchars and htmlentities
 	//
 	// version: 902.2516
@@ -170,7 +170,8 @@ exports.get_html_translation_table = function (table, quote_style) {
 		entities['38'] = '&amp;';
 		entities['60'] = '&lt;';
 		entities['62'] = '&gt;';
-	} else if (useTable === 'HTML_ENTITIES') {
+	}
+ else if (useTable === 'HTML_ENTITIES') {
 		// ascii decimals for better compatibility
 		entities['38'] = '&amp;';
 		entities['60'] = '&lt;';
@@ -271,7 +272,8 @@ exports.get_html_translation_table = function (table, quote_style) {
 		entities['253'] = '&yacute;';
 		entities['254'] = '&thorn;';
 		entities['255'] = '&yuml;';
-	} else {
+	}
+ else {
 		throw Error('Table: ' + useTable + ' not supported');
 		//return false;
 	}
@@ -285,20 +287,22 @@ exports.get_html_translation_table = function (table, quote_style) {
 	return histogram;
 };
 
-exports.santizeString = function (rawString) {
+exports.santizeString = function(rawString) {
 	if (rawString && 'string' === typeof rawString) {
 		let cleanString = '';
 		try {
 			cleanString = sanitizer.my.str(rawString);
-		} catch (e) {
+		}
+ catch (e) {
 			log.error('Error sanitizing ' + rawString + ' error: ' + e + __location);
 		}
 		return cleanString;
-	} else {
+	}
+ else {
 		return null;
 	}
 };
-exports.santizeNumber = function (rawString, makeInt) {
+exports.santizeNumber = function(rawString, makeInt) {
 	let returnInt = false;
 	if (makeInt) {
 		returnInt = makeInt;
@@ -311,13 +315,16 @@ exports.santizeNumber = function (rawString, makeInt) {
 			if (returnInt === true) {
 				cleanString = parseInt(cleanString, 10);
 			}
-		} catch (e) {
+		}
+ catch (e) {
 			log.error('Error sanitizing ' + rawString + ' error: ' + e + __location);
 		}
 		return cleanString;
-	} else if (rawString && 'number' === typeof rawString) {
+	}
+ else if (rawString && 'number' === typeof rawString) {
 		return rawString;
-	} else {
+	}
+ else {
 		return null;
 	}
 };
@@ -328,21 +335,23 @@ exports.santizeNumber = function (rawString, makeInt) {
  * @param {string} defaultValue - boolean value used if error or null input
  * @return {boolean} boolean, if error or null input defaultValue
  */
-exports.parseBool = function (rawString, defaultValue) {
+exports.parseBool = function(rawString, defaultValue) {
 	if (rawString && 'string' === typeof rawString) {
 		let newBool = defaultValue;
 		try {
 			const lowerString = String(rawString).toLowerCase().trim();
 			newBool = lowerString === 'true';
-		} catch (e) {
+		}
+ catch (e) {
 			log.error('Error converting to Boolean ' + rawString + ' error: ' + e + __location);
 		}
 		return newBool;
-	} else {
+	}
+ else {
 		return defaultValue;
 	}
 };
 
-exports.ucFirstLetter = function (s) {
+exports.ucFirstLetter = function(s) {
 	return s[0].toUpperCase() + s.toLowerCase().slice(1);
 };
