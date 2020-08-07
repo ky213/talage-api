@@ -105,7 +105,7 @@ exports.connect = () => {
 		if(global.settings.AWS_REGION){
 			awsRegion = global.settings.AWS_REGION;
 		}
-		AWS.config.region = awsRegion;
+		//AWS.config.region = awsRegion;
 
 		let awsEndPoint = '';
 		if(global.settings.AWS_ELASTICSEARCH_ENDPOINT){
@@ -120,23 +120,37 @@ exports.connect = () => {
 		let SecretAccessKey = '';
 		if(global.settings.AWS_SECRET){
 			SecretAccessKey = global.settings.AWS_SECRET;
-		}
-
-		AWS.config.update({
-			'credentials': new AWS.Credentials(AccessKeyId, SecretAccessKey),
-			'region': awsRegion
-		});
-
-		// AWS ElasticSearch
-		const awsClient = new elasticsearch.Client({
-			'host': awsEndPoint,
-			'connectionClass': awsHttpClient // ,
-			/*
-			 * AmazonES: {
-			 *      credentials: new AWS.Credentials(AccessKeyId,SecretAccessKey)
-			 *  }
-			 */
-		});
+        }
+        // let awsEsJson = {"region": awsRegion }
+        let options = {
+            'host': awsEndPoint, // array of amazon es hosts (required)
+            connectionClass: awsHttpClient // use this connector (required)
+            //awsConfig: new AWS.Config({ awsRegion }) // set an aws config e.g. for multiple clients to different regions
+            
+          };
+        if(global.settings.AWS_USE_KEYS === "YES"){
+            AWS.config.update({
+                'credentials': new AWS.Credentials(AccessKeyId, SecretAccessKey),
+                'region': awsRegion
+            });
+           // options.awsConfig.credentials = AWS.Credentials(AccessKeyId, SecretAccessKey);
+        }
+        else {
+            options.awsConfig = new AWS.Config({ awsRegion })
+        }
+        
+        // AWS ElasticSearch
+        const awsClient = new elasticsearch.Client(options);
+		// const awsClient = new elasticsearch.Client({
+		// 	'host': awsEndPoint,
+        //     'connectionClass': awsHttpClient
+        //     //,
+		//  	/*
+		// 	 * AmazonES: {
+		// 	 *      credentials: new AWS.Credentials(AccessKeyId,SecretAccessKey)
+		// 	 *  }
+		// 	 */
+		// });
 
 		if(awsClient){
 			const elasticSearchOptions = {

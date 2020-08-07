@@ -194,24 +194,24 @@ exports.send = async function(recipients, subject, content, keys = {}, brand = '
     // DO NOT send non talageins.com email in development (local) or awsdev
     // Scheduled tasks and db restores may lead to applications or agencies with "real" emails
     // in dev databases.
-    if (global.settings.ENV === 'development' || global.settings.ENV === 'awsdev') {
-        // Hard override
-        if (global.settings.OVERRIDE_EMAIL && global.settings.OVERRIDE_EMAIL === 'YES' && global.settings.TEST_EMAIL) {
-            emailJSON.to = global.settings.TEST_EMAIL;
-            log.debug('Overriding email: ' + emailJSON.to);
-        }
-        else if (recipients.endsWith('@talageins.com') === false || recipients.includes(',')) {
-            // Soft override
-            // eslint-disable-next-line keyword-spacing
-            if (global.settings.TEST_EMAIL) {
-                emailJSON.to = global.settings.TEST_EMAIL;
-            }
-            else {
-                const overrideEmail = 'brian@talageins.com';
-                emailJSON.to = overrideEmail;
-            }
-        }
-    }
+    // if (global.settings.ENV === 'development' || global.settings.ENV === 'awsdev') {
+    //     // Hard override
+    //     if (global.settings.OVERRIDE_EMAIL && global.settings.OVERRIDE_EMAIL === 'YES' && global.settings.TEST_EMAIL) {
+    //         emailJSON.to = global.settings.TEST_EMAIL;
+    //         log.debug('Overriding email: ' + emailJSON.to);
+    //     }
+    //     else if (recipients.endsWith('@talageins.com') === false || recipients.includes(',')) {
+    //         // Soft override
+    //         // eslint-disable-next-line keyword-spacing
+    //         if (global.settings.TEST_EMAIL) {
+    //             emailJSON.to = global.settings.TEST_EMAIL;
+    //         }
+    //         else {
+    //             const overrideEmail = 'brian@talageins.com';
+    //             emailJSON.to = overrideEmail;
+    //         }
+    //     }
+    // }
 
     if (attachments) {
         emailJSON.attachments = attachments;
@@ -274,7 +274,11 @@ var sendUsingSendGrid = async function(emailJSON) {
     // Set the Sendgrid API key
     Sendgrid.setApiKey(global.settings.SENDGRID_API_KEY);
 
-    // Initialize the email object 
+    const recipientsList = emailJSON.to.split(',');
+    if(recipientsList.length > 0){
+        emailJSON.to = recipientsList;
+    }
+    // Initialize the email object
    await Sendgrid.send(emailJSON).
         then(function() {
             log.info('Email successfully sent.' + __location);

@@ -23,9 +23,10 @@
 	"homepage": "https://gitlab.com/talage/talage-api#readme",
 	"dependencies": {
 		"@sendgrid/mail": "^7.0.1",
+		"amazon-cognito-identity-js": "^4.3.3",
 		"async": "^2.6.3",
 		"atob": "^2.1.2",
-		"aws-sdk": "^2.656.0",
+		"aws-sdk": "^2.727.1",
 		"axios": "^0.19.2",
 		"color-converter": "^1.4.1",
 		"colors": "^1.4.0",
@@ -85,7 +86,8 @@
 		"globals": {
 			"admin": true,
 			"config": true,
-			"db": true,
+            "db": true,
+            "cognitoSvc": true,
 			"log": true,
 			"log_auth": true,
 			"restify": true,

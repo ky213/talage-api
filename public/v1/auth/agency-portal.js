@@ -64,7 +64,7 @@ async function createToken(req, res, next){
 		WHERE \`apu\`.\`email_hash\` = ${db.escape(emailHash)} AND \`apu\`.\`state\` > 0
 		LIMIT 1;
 	`;
-	const result = await db.query(agencySQL).catch(function(e) {
+	const agencyPortalUserResult = await db.query(agencySQL).catch(function(e) {
 		log.error(e.message + __location);
 		res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
 		error = true;
@@ -74,7 +74,7 @@ async function createToken(req, res, next){
 	}
 
 	// Make sure we found the user
-	if (!result || !result.length) {
+	if (!agencyPortalUserResult || !agencyPortalUserResult.length) {
 		log.info('Authentication failed - Account not found');
 		log.verbose(emailHash);
 		res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
@@ -82,7 +82,7 @@ async function createToken(req, res, next){
 	}
 
 	// Check the password
-	if (!await crypt.verifyPassword(result[0].password, req.body.password)) {
+	if (!await crypt.verifyPassword(agencyPortalUserResult[0].password, req.body.password)) {
 		log.info('Authentication failed - Bad password');
 		res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
 		return next();
@@ -99,7 +99,7 @@ async function createToken(req, res, next){
 	const lastLoginSQL = `
 		UPDATE \`#__agency_portal_users\`
 		SET \`last_login\` = NOW()
-		WHERE \`id\` = ${result[0].id}
+		WHERE \`id\` = ${agencyPortalUserResult[0].id}
 		LIMIT 1;
 	`;
 	db.query(lastLoginSQL).catch(function(e) {
@@ -108,12 +108,14 @@ async function createToken(req, res, next){
 	});
 
 	// Check if this was an agency network
-	if (result[0].agency_network) {
-		payload.agencyNetwork = result[0].agency_network;
+	if (agencyPortalUserResult[0].agency_network) {
+        payload.agencyNetwork = agencyPortalUserResult[0].agency_network;
+        //agency network ID now in payload for consistency between network and agency.
+        payload.agencyNetworkId = agencyPortalUserResult[0].agency_network;
 	}
 
-	// Store a local copy of the agency network ID for later use (not in the payload)
-	let agencyNetwork = payload.agencyNetwork;
+	// Store a local copy of the agency network ID .
+    let agencyNetworkId = payload.agencyNetwork;
 
 	// For agency networks get the agencies they are allowed to access
 	if (payload.agencyNetwork) {
@@ -139,10 +141,10 @@ async function createToken(req, res, next){
 		});
 	}else{
 		// Just allow access to the current agency
-		payload.agents.push(result[0].agency);
+		payload.agents.push(agencyPortalUserResult[0].agency);
 
 		// Add the signing authority permission to the payload
-		payload.canSign = Boolean(result[0].can_sign);
+		payload.canSign = Boolean(agencyPortalUserResult[0].can_sign);
 
 		// Determine whether or not the user needs to sign a wholesale agreement
 		const wholesaleSQL = `
@@ -151,7 +153,7 @@ async function createToken(req, res, next){
 				\`wholesale\` ,
 				\`wholesale_agreement_signed\`
 			FROM \`#__agencies\`
-			WHERE \`id\` = ${db.escape(result[0].agency)} AND \`state\` > 0
+			WHERE \`id\` = ${db.escape(agencyPortalUserResult[0].agency)} AND \`state\` > 0
 			LIMIT 1;
 		`;
 		const wholesaleInfo = await db.query(wholesaleSQL).catch(function(e) {
@@ -169,7 +171,7 @@ async function createToken(req, res, next){
 		}
 
 		// Store the agency network ID locally for later use
-		agencyNetwork = wholesaleInfo[0].agency_network;
+		agencyNetworkId = wholesaleInfo[0].agency_network;
 	}
 
 	// Build a query to get all of the insurers this agency network can use
@@ -177,7 +179,7 @@ async function createToken(req, res, next){
 		SELECT \`i\`.\`id\`
 		FROM \`#__insurers\` AS \`i\`
 		RIGHT JOIN \`#__agency_network_insurers\` AS \`ani\` ON \`i\`.\`id\` = \`ani\`.\`insurer\`
-		WHERE \`ani\`.\`agency_network\` = ${db.escape(agencyNetwork)} AND \`i\`.\`state\` > 0;
+		WHERE \`ani\`.\`agency_network\` = ${db.escape(agencyNetworkId)} AND \`i\`.\`state\` > 0;
 	`;
 
 	// Query the database
@@ -197,19 +199,20 @@ async function createToken(req, res, next){
 	});
 
 	// Add the user ID to the payload
-	payload.userID = result[0].id;
+    payload.userID = agencyPortalUserResult[0].id;
+    payload.agencyNetworkId = agencyNetworkId;
 
 	// Add the permissions to the payload
-	payload.permissions = JSON.parse(result[0].permissions);
+	payload.permissions = JSON.parse(agencyPortalUserResult[0].permissions);
 
 	// Check whether or not this is the first time the user is logging in
-	payload.firstLogin = Boolean(result[0].last_login);
+	payload.firstLogin = Boolean(agencyPortalUserResult[0].last_login);
 
 	// Report back whether or not a password reset is required
-	payload.resetRequired = Boolean(result[0].reset_required);
+	payload.resetRequired = Boolean(agencyPortalUserResult[0].reset_required);
 
 	// Return the version of the Terms of Service
-	payload.termsOfServiceVersion = result[0].termsOfServiceVersion;
+	payload.termsOfServiceVersion = agencyPortalUserResult[0].termsOfServiceVersion;
 
 	// This is a valid user, generate and return a token
 	const token = `Bearer ${jwt.sign(payload, global.settings.AUTH_SECRET_KEY, {expiresIn: global.settings.JWT_TOKEN_EXPIRATION})}`;

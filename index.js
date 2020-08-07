@@ -10,12 +10,14 @@ const colors = require('colors');
 const logger = require('./shared/services/logger.js');
 const db = require('./shared/services/db.js');
 const s3 = require('./shared/services/s3.js');
+const cognitoSvc = require('./shared/services/cognitosvc.js');
 const globalSettings = require('./settings.js');
 const version = require('./version.js');
 const server = require('./server.js');
 const talageEvent = require('./shared/services/talageeventemitter.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+global.tracker = tracker;
 
 var hasMongoMadeInitialConnected = false;
 // Inject the tracker code
@@ -100,7 +102,13 @@ async function main(){
 	if(!await s3.connect()){
 		logLocalErrorMessage('Error connecting to S3. Stopping.');
 		return;
-	}
+    }
+    // Connect to Cognito
+	if(!await cognitoSvc.connect()){
+		logLocalErrorMessage('Error connecting to cognitoSvc. Stopping.');
+		return;
+    }
+    global.cognitoSvc = cognitoSvc;
 
 	// Load the database module and make it globally available
 	global.db = global.requireShared('./services/db.js');

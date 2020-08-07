@@ -1,3 +1,4 @@
+/* eslint-disable array-element-newline */
 'use strict';
 const AgencyModel = global.requireShared('models/Agency-model.js');
 const crypt = global.requireShared('./services/crypt.js');
@@ -300,7 +301,7 @@ async function getAgency(req, res, next) {
 
     // Separate out location IDs and define some variables
     const locationIDs = locations.map((location) => location.id);
-    let insurers = [];
+    let locationInsurers = [];
     let territories = [];
 
     // Get the insurers and territories
@@ -350,7 +351,7 @@ async function getAgency(req, res, next) {
 				WHERE ${db.quoteName('lt.agency_location')} IN (${locationIDs.join(',')})
 				ORDER BY ${db.quoteName('t.name')} ASC;
 			`;
-        insurers = await db.query(insurersSQL).catch(function(err) {
+        locationInsurers = await db.query(insurersSQL).catch(function(err) {
             log.error(err.message);
             return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
         });
@@ -375,7 +376,7 @@ async function getAgency(req, res, next) {
         'lname',
         'phone']);
     const usersDecrypt = crypt.batchProcessObjectArray(users, 'decrypt', ['email']);
-    const insurersDecrypt = crypt.batchProcessObjectArray(insurers, 'decrypt', ['agencyId', 'agentId']);
+    const insurersDecrypt = crypt.batchProcessObjectArray(locationInsurers, 'decrypt', ['agencyId', 'agentId']);
 
     // Wait for all data to decrypt
     await Promise.all([agencyDecrypt,
@@ -384,20 +385,33 @@ async function getAgency(req, res, next) {
         insurersDecrypt]);
 
     // Parse json field
-    insurers.forEach((insurer) => {
-        if (insurer.policy_type_info) {
+    locationInsurers.forEach((locationInsurer) => {
+        if (locationInsurer.policy_type_info) {
             try {
-                insurer.policy_type_info = JSON.parse(insurer.policy_type_info)
+                locationInsurer.policy_type_info = JSON.parse(locationInsurer.policy_type_info)
+                //fix database 1/0 to true and false
+                const policyTypeList = ["GL", "BOP","WC"];
+                for(let i = 0; i < policyTypeList.length; i++){
+                    const policyType = policyTypeList[i];
+                    if(locationInsurer.policy_type_info[policyType]){
+                        if(locationInsurer.policy_type_info[policyType].enabled === 1){
+                            locationInsurer.policy_type_info[policyType].enabled = true;
+                        }
+                        else if(locationInsurer.policy_type_info[policyType].enabled === 0){
+                            locationInsurer.policy_type_info[policyType].enabled = false;
+                        }
+                    }
+                }
             }
             catch (err) {
-                log.error(`Agency location insurer JSON parse error ${err} JSON ` + JSON.stringify(insurer));
+                log.error(`Agency location insurer JSON parse error ${err} JSON ` + JSON.stringify(locationInsurer));
             }
         }
     });
     // Sort insurers and territories into the appropriate locations if necessary
-    if (insurers.length || territories.length) {
+    if (locationInsurers.length || territories.length) {
         locations.forEach((location) => {
-            location.insurers = insurers.filter((insurer) => insurer.locationID === location.id);
+            location.insurers = locationInsurers.filter((insurer) => insurer.locationID === location.id);
             location.territories = territories.
                 filter((territory) => territory.locationID === location.id).
                 map(function(territory) {
@@ -411,7 +425,30 @@ async function getAgency(req, res, next) {
         networkInsurer.territories = networkInsurer.territories.split(',');
         return networkInsurer;
     });
-
+	// For each network insurer grab the policy_types
+	for (let i = 0; i < networkInsurers.length; i++) {
+		const insurer = networkInsurers[i];
+		// Grab all of the policy type and accord support for a given insurer
+		const policyTypeSql = `
+			SELECT policy_type, acord_support
+			FROM clw_talage_insurer_policy_types
+			WHERE
+				insurer = ${insurer.id}
+		`
+		let policyTypesResults = null;
+		try {
+			policyTypesResults = await db.query(policyTypeSql);
+		}
+ catch (error) {
+			log.error(`Could not retrieve policy and accord_support for insurer ${insurer} :  ${error}  ${__location}`);
+			return next(serverHelper.internalError('Internal Error'));
+		}
+		// Push policy types and accord support for said policy type into an array
+		insurer.policyTypes = [];
+		policyTypesResults.forEach((policyType) => {
+			insurer.policyTypes.push(policyType);
+		});
+	}
     // Build the response
     const response = {
         ...agency,
