@@ -379,7 +379,7 @@ function writeQuestions(question_tree, docDefinition, level, total){
 			total = 0;
 		}
 
-		if(question.children){
+		if(question.children && question.answer.toLowerCase() === 'yes'){
 			total = writeQuestions(question.children, docDefinition, level+1, total);
 		}
 		
