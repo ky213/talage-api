@@ -10,7 +10,7 @@ const colors = require('colors');
 const logger = require('./shared/services/logger.js');
 const db = require('./shared/services/db.js');
 const s3 = require('./shared/services/s3.js');
-//const cognitoSvc = require('./shared/services/cognitosvc.js');
+const cognitoSvc = require('./shared/services/cognitosvc.js');
 const globalSettings = require('./settings.js');
 const version = require('./version.js');
 const server = require('./server.js');
@@ -102,13 +102,12 @@ async function main(){
 		logLocalErrorMessage('Error connecting to S3. Stopping.');
 		return;
     }
-    // Temp to fix logging to AWS ES problem.
-    // // Connect to Cognito
-	// if(!await cognitoSvc.connect()){
-	// 	logLocalErrorMessage('Error connecting to cognitoSvc. Stopping.');
-	// 	return;
-    // }
-    // global.cognitoSvc = cognitoSvc;
+    // Connect to Cognito
+	if(!await cognitoSvc.connect()){
+		logLocalErrorMessage('Error connecting to cognitoSvc. Stopping.');
+		return;
+    }
+    global.cognitoSvc = cognitoSvc;
 
 	// Load the database module and make it globally available
 	global.db = global.requireShared('./services/db.js');
