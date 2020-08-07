@@ -127,32 +127,28 @@ exports.connect = () => {
                 'credentials': new AWS.Credentials(AccessKeyId, SecretAccessKey),
                 'region': awsRegion
             });
-            //awsEsJson.credentials = new AWS.Credentials(AccessKeyId, SecretAccessKey)
         }
-        let options = {
-            'host': awsEndPoint, // array of amazon es hosts (required)
-            connectionClass: awsHttpClient, // use this connector (required)
-            //awsConfig: new AWS.Config({ awsRegion }), // set an aws config e.g. for multiple clients to different regions
-            awsConfig: new AWS.Config({
-                    'credentials': new AWS.Credentials(AccessKeyId, SecretAccessKey),
-                    'region': awsRegion
-                })
-          };
+        // let options = {
+        //     'host': awsEndPoint, // array of amazon es hosts (required)
+        //     connectionClass: awsHttpClient, // use this connector (required)
+        //     //awsConfig: new AWS.Config({ awsRegion }), // set an aws config e.g. for multiple clients to different regions
+        //     awsConfig: new AWS.Config({
+        //             'credentials': new AWS.Credentials(AccessKeyId, SecretAccessKey),
+        //             'region': awsRegion
+        //         })
+        //   };
         // AWS ElasticSearch
-        const awsClient = new elasticsearch.Client(options);
-		// const awsClient = new elasticsearch.Client({
-		// 	'host': awsEndPoint,
-        //     'connectionClass': awsHttpClient,
-        //     amazonES: {
-        //         credentials: new AWS.EnvironmentCredentials('AWS')
-        //       }
-		// 	 //AmazonES: awsEsJson
-		// 	 	/*
-		// 	 * AmazonES: {
-		// 	 *      credentials: new AWS.Credentials(AccessKeyId,SecretAccessKey)
-		// 	 *  }
-		// 	 */
-		// });
+       // const awsClient = new elasticsearch.Client(options);
+		const awsClient = new elasticsearch.Client({
+			'host': awsEndPoint,
+            'connectionClass': awsHttpClient
+            //,
+		 	/*
+			 * AmazonES: {
+			 *      credentials: new AWS.Credentials(AccessKeyId,SecretAccessKey)
+			 *  }
+			 */
+		});
 
 		if(awsClient){
 			const elasticSearchOptions = {
