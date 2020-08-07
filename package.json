@@ -86,8 +86,8 @@
 		"globals": {
 			"admin": true,
 			"config": true,
-            "db": true,
-            "cognitoSvc": true,
+			"db": true,
+			"cognitoSvc": true,
 			"log": true,
 			"log_auth": true,
 			"restify": true,
