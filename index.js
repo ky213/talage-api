@@ -14,11 +14,12 @@ const cognitoSvc = require('./shared/services/cognitosvc.js');
 const globalSettings = require('./settings.js');
 const version = require('./version.js');
 const server = require('./server.js');
-
+const talageEvent = require('./shared/services/talageeventemitter.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 global.tracker = tracker;
 
+var hasMongoMadeInitialConnected = false;
 // Inject the tracker code
 //require('./tracker.js');
 
@@ -112,24 +113,60 @@ async function main(){
 	// Load the database module and make it globally available
 	global.db = global.requireShared('./services/db.js');
 
-	// Configure the server and register endpoints
+
+    // MONGO
+    if(global.settings.USE_MONGO === "YES"){
+        var mongoose = require('./mongoose');
+        global.monogdb = mongoose();
+        //Mongo connect event here to setup listeners
+        talageEvent.on('mongo-connected', function() {
+            //log.info('Assetws Mongoose connected to mongodb');
+            if(hasMongoMadeInitialConnected === false){
+                hasMongoMadeInitialConnected = true;
+                setupListeners();
+            }
+        });
+
+        talageEvent.on('mongo-disconnected', function() {
+        log.warn('Mongoose disconnected');
+
+        });
+
+        talageEvent.on('mongo-error', function(err) {
+        log.error('Mongoose database error ' + err);
+        });
+
+    }
+    else {
+        await setupListeners();
+    }
+
+
+}
+
+/**
+ * setupListeners
+ *
+ * @returns {void}
+ */
+async function setupListeners() {
+    // Configure the server and register endpoints
 	const isDevelopment = global.settings.ENV === 'development';
+      // Create the public server
+      if(!await server.create('0.0.0.0', global.settings.PUBLIC_API_PORT, 'public/public-endpoints', true, isDevelopment, logInfoMessage, logErrorMessage)){
+        logLocalErrorMessage('Error starting public server. Stopping.');
+        return;
+    }
+    // Create the uptime server
+    if(!await server.create('0.0.0.0', global.settings.UPTIME_PORT, 'uptime/uptime-endpoints', false, isDevelopment, logInfoMessage, logErrorMessage)){
+        logLocalErrorMessage('Error starting uptime server. Stopping.');
+        return;
+    }
+    // Create the private server
+    if(!await server.create('0.0.0.0', global.settings.PRIVATE_API_PORT, 'private/private-endpoints', false, isDevelopment, logInfoMessage, logErrorMessage)){
+        logLocalErrorMessage('Error starting private server. Stopping.');
 
-	// Create the public server
-	if(!await server.create('0.0.0.0', global.settings.PUBLIC_API_PORT, 'public/public-endpoints', true, isDevelopment, logInfoMessage, logErrorMessage)){
-		logLocalErrorMessage('Error starting public server. Stopping.');
-		return;
-	}
-	// Create the uptime server
-	if(!await server.create('0.0.0.0', global.settings.UPTIME_PORT, 'uptime/uptime-endpoints', false, isDevelopment, logInfoMessage, logErrorMessage)){
-		logLocalErrorMessage('Error starting uptime server. Stopping.');
-		return;
-	}
-	// Create the private server
-	if(!await server.create('0.0.0.0', global.settings.PRIVATE_API_PORT, 'private/private-endpoints', false, isDevelopment, logInfoMessage, logErrorMessage)){
-		logLocalErrorMessage('Error starting private server. Stopping.');
-
-	}
+    }
 }
 
 main();
