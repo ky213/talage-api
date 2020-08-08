@@ -23,7 +23,7 @@ async function findAll(req, res, next) {
     let options = {};
     let query = {};
     options.sort = {};
-    log.debug("Message List req.query: " + JSON.stringify(req.query))
+   // log.debug("Message List req.query: " + JSON.stringify(req.query))
     if (req.query.sort) {
         var acs = 1;
         if (req.query.desc) {
@@ -131,21 +131,10 @@ async function findAll(req, res, next) {
         }
     }
     if (findCount === false) {
-        // Message.find(query, '-__v', options, function(err, docList){
-        //     if(err){
-        //         log.error(err + __location);
-        //         return serverHelper.sendError(res, next, 'Internal Error');
-        //     }
-        //     else {
-        //         res.send(200, mongoUtils.objListCleanup(docList));
-        //         return next();
-        //     }
-
-        // });
         let docList = null;
         try {
-            log.debug("MessageList query " + JSON.stringify(query))
-            log.debug("MessageList options " + JSON.stringify(options))
+            //log.debug("MessageList query " + JSON.stringify(query))
+            //log.debug("MessageList options " + JSON.stringify(options))
             docList = await Message.find(query, '-__v', options);
         }
         catch (err) {
