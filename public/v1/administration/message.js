@@ -1,3 +1,6 @@
+/* eslint-disable object-property-newline */
+/* eslint-disable block-scoped-var */
+/* eslint-disable object-curly-newline */
 /* eslint-disable dot-location */
 /* eslint-disable prefer-const */
 /* eslint-disable guard-for-in */
@@ -10,7 +13,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
-
+const moment = require("moment")
 
 var Message = require('mongoose').model('Message');
 
@@ -47,7 +50,7 @@ async function findAll(req, res, next) {
             options.limit = queryLimit;
         }
     }
-    else{
+    else {
         options.limit = queryLimit;
     }
     if (req.query.count) {
@@ -57,23 +60,74 @@ async function findAll(req, res, next) {
         delete req.query.count;
     }
     let flippedSort = false;
-    if(req.query.maxid){
-        query.mysqlId = {$lte: parseInt(req.query.maxid,10)};
+    if (req.query.maxid && req.query.minid) {
+        query.mysqlId = {$lte: parseInt(req.query.maxid, 10),$gte: parseInt(req.query.minid, 10)};
         delete req.query.maxid;
     }
-    if(req.query.minid){
-        query.mysqlId = {$gte: parseInt(req.query.minid,10)};
+    else if (req.query.maxid) {
+        query.mysqlId = {$lte: parseInt(req.query.maxid, 10)};
+        delete req.query.maxid;
+    }
+    else if (req.query.minid) {
+        query.mysqlId = {$gte: parseInt(req.query.minid, 10)};
         delete req.query.minid;
         //change sort
         options.sort.sent = 1;
         options.sort.mysqlId = 1;
         flippedSort = true;
     }
+    if (req.query.searchbegindate && req.query.searchenddate) {
+        var fromDate = moment(req.query.searchbegindate);
+        var toDate = moment(req.query.searchenddate);
+        if (fromDate.isValid() && toDate.isValid()) {
+            query.sent = {$lte: toDate,$gte: fromDate};
+            delete req.query.searchbegindate;
+            delete req.query.searchenddate;
+        }
+        else {
+            res.status(400).send({"error": "Date format"});
+            return serverHelper.requestError('invalid Date format');
+        }
+    }
+    else if (req.query.searchbegindate) {
+        // eslint-disable-next-line no-redeclare
+        var fromDate = moment(req.query.searchbegindate);
+        if (fromDate.isValid()) {
+            query.sent = {$gte: fromDate};
+            delete req.query.searchbegindate;
+        }
+        else {
+            res.status(400).send({"error": "Date format"});
+            return serverHelper.requestError('invalid Date format');
+        }
+    }
+    else if (req.query.searchenddate) {
+        // eslint-disable-next-line no-redeclare
+        var toDate = moment(req.query.searchenddate);
+        if (toDate.isValid()) {
+            query.sent = {$lte: toDate};
+            delete req.query.searchenddate;
+        }
+        else {
+            res.status(400).send({"error": "Date format"});
+            return serverHelper.requestError('invalid Date format');
+        }
+    }
 
 
     if (req.query) {
         for (var key in req.query) {
-            query[key] = req.query[key];
+            if (req.query[key].includes('%')) {
+                let clearString = req.query[key].replace("%", "");
+                clearString = clearString.replace("%", "");
+                query[key] = {
+                    "$regex": clearString,
+                    "$options": "i"
+                };
+            }
+            else {
+                query[key] = req.query[key];
+            }
         }
     }
     if (findCount === false) {
@@ -99,7 +153,7 @@ async function findAll(req, res, next) {
             return serverHelper.sendError(res, next, 'Internal Error');
         }
         log.debug("docList.length: " + docList.length);
-        if(flippedSort === true){
+        if (flippedSort === true) {
             docList.sort((a, b) => parseInt(b.mysqlId, 10) - parseInt(a.mysqlId, 10));
         }
 
@@ -122,7 +176,7 @@ async function findAll(req, res, next) {
 
 async function findOne(req, res, next) {
     let query = {};
-    if(isNaN(req.params.id)){
+    if (isNaN(req.params.id)) {
         query.messageId = req.params.id;
     }
     else {
