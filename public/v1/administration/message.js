@@ -199,10 +199,10 @@ async function findOne(req, res, next) {
 
 exports.registerEndpoint = (server, basePath) => {
     // We require the 'administration.read' permission
-    // server.addGetAuthAdmin('Get Message list', `${basePath}/message`, findAll, 'administration', 'all');
-    // server.addGetAuthAdmin('GET Message Object', `${basePath}/message/:id`, findOne, 'administration', 'all');
+    server.addGetAuthAdmin('Get Message list', `${basePath}/message`, findAll, 'administration', 'all');
+    server.addGetAuthAdmin('GET Message Object', `${basePath}/message/:id`, findOne, 'administration', 'all');
 
-    server.addGet('Get Message list', `${basePath}/message`, findAll, 'administration', 'all');
-    server.addGet('GET Message Object', `${basePath}/message/:id`, findOne, 'administration', 'all');
+    // server.addGet('Get Message list', `${basePath}/message`, findAll, 'administration', 'all');
+    // server.addGet('GET Message Object', `${basePath}/message/:id`, findOne, 'administration', 'all');
 
 };
