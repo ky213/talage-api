@@ -145,7 +145,6 @@ module.exports = class MessageBO{
         const mongoModelMapping = {
             application: "applicationId",
             business: "businessId",
-            id: "mySqlId",
             agency_location: "agencyLocationId"
         }
         //************************** */
@@ -167,6 +166,7 @@ module.exports = class MessageBO{
                 throw err;
             });
         if (messagesId) {
+            
             if (global.settings.ENV === 'development' || global.settings.ENV === 'awsdev') {
                 log.debug('recipients:' + recipients + __location);
             }
@@ -194,6 +194,7 @@ module.exports = class MessageBO{
             var Message = require('mongoose').model('Message');
             columns.message = await crypt.decrypt(columns.message);
             let mongoMessageDoc = {}
+            mongoMessageDoc.mysqlId = messagesId;
             mongoMessageDoc.recipients = recipients;
             mongoMessageDoc.sendGridResp = sendGridResp;
             const sentDtm = moment(columns.sent)
