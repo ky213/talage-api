@@ -1,6 +1,6 @@
 'use strict';
 
-var Message = require('mongoose').model('Message');
+
 const DatabaseObject = require('./DatabaseObject.js');
 const crypt = requireShared('./services/crypt.js');
 // eslint-disable-next-line no-unused-vars
@@ -191,6 +191,7 @@ module.exports = class MessageBO{
         //   MongoDB Write 
         //************************** */
         if(global.settings.USE_MONGO === "YES"){
+            var Message = require('mongoose').model('Message');
             columns.message = await crypt.decrypt(columns.message);
             let mongoMessageDoc = {}
             mongoMessageDoc.recipients = recipients;
