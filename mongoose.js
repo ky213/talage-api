@@ -35,7 +35,9 @@ let mongoConnStr = '';
   mongoConnStr = connectionUrl + databaseName + connectionUrlQuery
   // eslint-disable-next-line object-property-newline
   var connectionOption = {useNewUrlParser: true, useUnifiedTopology: true};
-  log.debug("mongoConnStr: " + mongoConnStr);
+  //do not log password
+  const mongoConnStrParts = mongoConnStr.split("@")
+  log.debug("mongoConnStr: " + mongoConnStrParts[1]);
   var mongodb = mongoose.connect(mongoConnStr,connectionOption);
   var mongodb2 = mongoose.connection;
 
