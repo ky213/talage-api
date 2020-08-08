@@ -13,6 +13,13 @@ const { stringify } = require('csv');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
+let AttachmentSchema = new Schema({
+    content: {type: String, required: false},
+    filename: {type: String, required: false},
+    type: {type: String, required: false},
+    disposition: {type: String, required: false},
+})
+
 let MessageSchema = new Schema({
     messageId: { type: String, required: [true, 'messageId required'], unique: true },
     mysqlId: {type: Number, required: false},
@@ -23,7 +30,9 @@ let MessageSchema = new Schema({
     message: {type: String, required:[true, 'message required']},
     attachment: {type: String, required: false},
     recipients: [String],
-    "sent": Date
+    attachments: [AttachmentSchema],
+    "sent": Date,
+    sendGridResp: { type: Schema.Types.Mixed }
 })
 
 MessageSchema.plugin(timestamps);
