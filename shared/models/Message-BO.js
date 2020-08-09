@@ -6,7 +6,7 @@ const crypt = requireShared('./services/crypt.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const moment = require('moment');
-
+const moment_timezone = require('moment-timezone');
 
 
 const tableName = 'clw_talage_messages'
@@ -147,9 +147,16 @@ module.exports = class MessageBO{
             business: "businessId",
             agency_location: "agencyLocationId"
         }
+        //For MongoDB
+        const sentDtm = columns.sent
         //************************** */
         //   MYSQL Write 
         //************************** */
+
+        // Convert sent to Pacific timezone for mysql;
+        const sentPST = sentDtm.tz('America/Los_Angeles').format('YYYY-MM-DD HH:mm:ss');
+        log.debug("sentPST: " + sentPST);
+        columns.sent = sentPST;
         const insertQuery = `INSERT INTO clw_talage_messages (${Object.keys(columns).join(',')}) VALUES (${Object.values(columns).
             map(function(val) {
                 return db.escape(val);
@@ -197,8 +204,11 @@ module.exports = class MessageBO{
             mongoMessageDoc.mysqlId = messagesId;
             mongoMessageDoc.recipients = recipients;
             mongoMessageDoc.sendGridResp = sendGridResp;
-            const sentDtm = moment(columns.sent)
-            columns.sent  = sentDtm;
+            mongoMessageDoc.sent  = sentDtm;
+            
+            if(columns.sent){
+                delete columns.sent;
+            }
 
             if(attachments){
                 mongoMessageDoc.attachments = attachments;
