@@ -67,6 +67,7 @@ function validateJWT(options) {
  */
 function validateCognitoJWT(options) {
     return async(req, res, next) => {
+        // eslint-disable-next-line no-extra-parens
         let jwtToken = req.headers.authorization || (req.body && req.body.access_token) || (req.query && req.query.access_token) || req.headers.token;
         if(jwtToken){
             jwtToken = jwtToken.replace("Bearer ","");
@@ -88,6 +89,7 @@ function validateCognitoJWT(options) {
                             }
                         }
                         if(hasAccess){
+                            req.user = cognitoUser;
                             options.handler(req, res, next);
                         }
                         else {
