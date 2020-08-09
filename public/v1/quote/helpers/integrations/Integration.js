@@ -716,7 +716,7 @@ module.exports = class Integration {
                 return;
             }
 
-            // Check for outage
+            // Check for outage - "outages" in Insurer class and database SQL
             if (this.insurer.outage) {
                 const error_message = `${this.insurer.name} is currently unavailable`;
                 this.reasons.push(error_message);
