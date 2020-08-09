@@ -12,7 +12,8 @@ const crypt = require('./crypt.js');
 const validator = global.requireShared('./helpers/validator.js');
 const fs = require('fs');
 //const imgSize = require('./emailhelpers/imgSize.js');
-const moment_timezone = require('moment-timezone');
+const moment = require('moment');
+//const moment_timezone = require('moment-timezone');
 //const request = require('request');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
@@ -139,13 +140,13 @@ exports.send = async function(recipients, subject, content, keys = {}, brand = '
     }
 
     //Setup storing sent email.
-    // Get the current time in the Pacific timezone
-    const now = moment_timezone.tz('America/Los_Angeles');
+    // Working UTC with MongoDB and sending momemt object
+    const sentDtm = moment();
     // Begin populating a list of columns to insert into the database
     const columns = {
         checked_out: '0',
         message: await crypt.encrypt(content),
-        sent: now.format('YYYY-MM-DD HH:mm:ss'),
+        sent: sentDtm,
         subject: emailJSON.subject
     };
 
