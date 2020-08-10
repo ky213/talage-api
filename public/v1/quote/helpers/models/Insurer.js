@@ -71,7 +71,7 @@ module.exports = class Insurer {
 		// Build a query to get some basic information about this insurer from the database
 		const sql = `
 				SELECT i.id, i.state, i.logo, i.name, i.slug, i.rating, i.test_username, i.test_password, i.username
-					,i.password, GROUP_CONCAT(DISTINCT ipt.policy_type) AS 'policy_types', GROUP_CONCAT(DISTINCT io.id) AS outages
+					,i.password, GROUP_CONCAT(DISTINCT ipt.policy_type) AS 'policy_types', GROUP_CONCAT(DISTINCT io.id) AS outage
 					,ipt.slug as policyslug
 				FROM clw_talage_insurers AS i
 					 LEFT JOIN clw_talage_insurer_policy_types AS ipt ON ipt.insurer = i.id
@@ -89,7 +89,7 @@ module.exports = class Insurer {
 			log.error(`Could not query the database for insurer ${id} information: ${error} ${__location}`);
 			return serverHelper.requestError('Database error');
 		}
-		// Make sure we found the insurer, if not, the ID is bad
+        // Make sure we found the insurer, if not, the ID is bad
 		if (!rows || rows.length !== 1) {
 			log.error(`Empty results when querying the database for insurer ${id} information ${__location}`);
 			return serverHelper.requestError('Invalid insurer');
