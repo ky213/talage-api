@@ -115,6 +115,7 @@ exports.registerEndpoints = (server) => {
 	// Administration
     registerEndpoint(server, 'administration', 'color-scheme');
     registerEndpoint(server, 'administration', 'message');
+    registerEndpoint(server, 'administration', 'insurer-outage');
 
 	// Server.AddGet('Uptime Check', '/', GetUptime);
 	// AWS load balancers and pingdom send /uptime
