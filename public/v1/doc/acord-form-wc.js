@@ -32,8 +32,14 @@ async function GetACORDFormWC(req, res, next){
 		return next(serverHelper.requestError('Bad Request: You must supply an insurer ID'));
 	}
     let policy_type = 'wc';
-    if(req.query.policy_type && (req.query.policy_type === "GL" || req.query.policy_type === "WC")){
-        policy_type = req.query.policy_type
+    if(req.query.policy_type){
+        if(req.query.policy_type === "GL" || req.query.policy_type === "WC"){
+            policy_type = req.query.policy_type
+        }
+        else {
+            log.info('ACORD form generation failed. Bad Request: policy type' + __location);
+            return next(serverHelper.requestError('Bad Request: Bad policy type'));
+        }
     }
 
     //Generic for policy_type regardless of old endpoint name.
