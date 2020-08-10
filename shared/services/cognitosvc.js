@@ -19,23 +19,17 @@ const poolData = {
 let cognitoidentityserviceprovider = null;
 
 exports.connect = async() => {
-    // should be set 
+    // should be set
     if(global.settings.AWS_USE_KEYS === "YES"){
         aws2.config.update({
             'accessKeyId': global.settings.AWS_KEY,
-            'secretAccessKey': global.settings.AWS_SECRET,
-            region: PoolRegion
-        });
-    }
-    else {
-        aws2.config.update({
-             region: PoolRegion
+            'secretAccessKey': global.settings.AWS_SECRET
         });
     }
     const CognitoIdentityServiceProvider = aws2.CognitoIdentityServiceProvider;
 
 
-    cognitoidentityserviceprovider = new CognitoIdentityServiceProvider({region: 'us-east-1'});
+    cognitoidentityserviceprovider = new CognitoIdentityServiceProvider({region: PoolRegion});
 
     if (cognitoidentityserviceprovider) {
         log.debug('have cognitoidentityserviceprovider')

@@ -121,34 +121,36 @@ exports.connect = () => {
 		if(global.settings.AWS_SECRET){
 			SecretAccessKey = global.settings.AWS_SECRET;
         }
-        let awsEsJson = {"region": awsRegion }
+        // let awsEsJson = {"region": awsRegion }
+        let options = {
+            'host': awsEndPoint, // array of amazon es hosts (required)
+            connectionClass: awsHttpClient // use this connector (required)
+            //awsConfig: new AWS.Config({ awsRegion }) // set an aws config e.g. for multiple clients to different regions
+            
+          };
         if(global.settings.AWS_USE_KEYS === "YES"){
             AWS.config.update({
                 'credentials': new AWS.Credentials(AccessKeyId, SecretAccessKey),
                 'region': awsRegion
             });
+           // options.awsConfig.credentials = AWS.Credentials(AccessKeyId, SecretAccessKey);
         }
-        // let options = {
-        //     'host': awsEndPoint, // array of amazon es hosts (required)
-        //     connectionClass: awsHttpClient, // use this connector (required)
-        //     //awsConfig: new AWS.Config({ awsRegion }), // set an aws config e.g. for multiple clients to different regions
-        //     awsConfig: new AWS.Config({
-        //             'credentials': new AWS.Credentials(AccessKeyId, SecretAccessKey),
-        //             'region': awsRegion
-        //         })
-        //   };
+        else {
+            options.awsConfig = new AWS.Config({ awsRegion })
+        }
+        
         // AWS ElasticSearch
-       // const awsClient = new elasticsearch.Client(options);
-		const awsClient = new elasticsearch.Client({
-			'host': awsEndPoint,
-            'connectionClass': awsHttpClient
-            //,
-		 	/*
-			 * AmazonES: {
-			 *      credentials: new AWS.Credentials(AccessKeyId,SecretAccessKey)
-			 *  }
-			 */
-		});
+        const awsClient = new elasticsearch.Client(options);
+		// const awsClient = new elasticsearch.Client({
+		// 	'host': awsEndPoint,
+        //     'connectionClass': awsHttpClient
+        //     //,
+		//  	/*
+		// 	 * AmazonES: {
+		// 	 *      credentials: new AWS.Credentials(AccessKeyId,SecretAccessKey)
+		// 	 *  }
+		// 	 */
+		// });
 
 		if(awsClient){
 			const elasticSearchOptions = {

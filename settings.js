@@ -59,9 +59,14 @@ const requiredVariables = [
 	'SQS_TASK_QUEUE'
 ];
 
+const optionalVariables = [
+    'AWS_USE_KEYS', 'USE_MONGO'
+]
 exports.load = () => {
 	let variables = {};
     variables.AWS_USE_KEYS = "YES";
+     //Default to no use mongo if there are not ENV settings for it.
+     variables.USE_MONGO = "NO";
 
 	if (fs.existsSync('local.env')){
 		// Load the variables from the aws.env file if it exists
@@ -92,12 +97,18 @@ exports.load = () => {
 			variables[variableName] = process.env[variableName];
 		}
     });
-    //need optional array....
-    if(process.env.AWS_USE_KEYS){
-        variables.AWS_USE_KEYS = process.env.AWS_USE_KEYS;
-    }
+    // optional array....
+    optionalVariables.forEach((variableName) => {
+		if (process.env.hasOwnProperty(variableName)){
+			if (settingsDebugOutput){
+				console.log(colors.yellow(`\t${variables.hasOwnProperty(variableName) ? 'Overriding' : 'Setting'} ${variableName}=${process.env[variableName]}`));
+			}
+			variables[variableName] = process.env[variableName];
+		}
+    });
 
-	console.log(colors.green('\tCompleted'));
+
+	//console.log(colors.green('\tSettings Load Completed'));
 
 	// Ensure required variables exist and inject them into the global 'settings' object
 	global.settings = {};
@@ -113,7 +124,7 @@ exports.load = () => {
 		}
 		global.settings[requiredVariables[i]] = variables[requiredVariables[i]];
     }
-    
+
 
 	// Add any other hard-coded global settings here
 	console.log('Loading hard-coded settings');
@@ -121,7 +132,7 @@ exports.load = () => {
 	global.settings.JWT_TOKEN_EXPIRATION = '15h';
 	console.log(`\tJWT_TOKEN_EXPIRATION = ${global.settings.JWT_TOKEN_EXPIRATION}`);
 
-	console.log(colors.green('\tCompleted'));
+	console.log(colors.green('\tSettings Load Completed'));
 
 	return true;
 };
