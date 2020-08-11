@@ -90,6 +90,7 @@ function validateCognitoJWT(options) {
                         }
                         if(hasAccess){
                             req.user = cognitoUser;
+                            log.debug("cognitoUser " + JSON.stringify(cognitoUser))
                             options.handler(req, res, next);
                         }
                         else {
@@ -302,8 +303,49 @@ class AbstractedHTTPServer {
             validateCognitoJWT({
                 handler: handlerWrapper(path, handler),
                 permission: permission,
-                permissionType: permissionType,
-                agencyPortal: true
+                permissionType: permissionType
+            }));
+    }
+
+    addPostAuthAdmin(name, path, handler, permission = null, permissionType = null) {
+        name += ' (authAdmin)';
+        this.server.post({
+            name: name,
+            path: path
+        },
+            processJWT(),
+            validateCognitoJWT({
+                handler: handlerWrapper(path, handler),
+                permission: permission,
+                permissionType: permissionType
+            }));
+    }
+
+    addPutAuthAdmin(name, path, handler, permission = null, permissionType = null) {
+        name += ' (authAdmin)';
+        this.server.put({
+            name: name,
+            path: path
+        },
+            processJWT(),
+            validateCognitoJWT({
+                handler: handlerWrapper(path, handler),
+                permission: permission,
+                permissionType: permissionType
+            }));
+    }
+
+    addDeleteAuthAdmin(name, path, handler, permission = null, permissionType = null) {
+        name += ' (authAdmin)';
+        this.server.del({
+            name: name,
+            path: path
+        },
+            processJWT(),
+            validateCognitoJWT({
+                handler: handlerWrapper(path, handler),
+                permission: permission,
+                permissionType: permissionType
             }));
     }
 }

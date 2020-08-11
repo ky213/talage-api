@@ -19,10 +19,10 @@ const moment = require("moment")
 async function findAll(req, res, next) {
     let error = null;
     const insurerOutageBO = new InsurerOutageBO();
-    const rows = await insurerOutageBO.getListForAdmin(req.query).catch(function(err){
+    const rows = await insurerOutageBO.getListForAdmin(req.query).catch(function(err) {
         error = err;
     })
-    if(error){
+    if (error) {
         return next(error);
     }
     if (rows) {
@@ -43,8 +43,8 @@ async function findOne(req, res, next) {
     }
     let error = null;
     const insurerOutageBO = new InsurerOutageBO();
-     // Load the request data into it
-     const outageJSON = await insurerOutageBO.getById(id).catch(function(err) {
+    // Load the request data into it
+    const outageJSON = await insurerOutageBO.getById(id).catch(function(err) {
         log.error("Location load error " + err + __location);
         error = err;
     });
@@ -64,33 +64,75 @@ async function findOne(req, res, next) {
 }
 
 async function add(req, res, next) {
-    const insurerOutageBO = new InsurerOutageBO();
 
+    log.debug("insurer-outage post " + JSON.stringify(req.body));
+    if (req.body.insurerId) {
+        req.body.insurer = req.body.insurerId;
+        delete req.body.insurerId
+    }
+    else {
+        return next(serverHelper.requestError('Missing insurerId'))
+    }
+    if (req.body.start) {
+        try{
+            req.body.start = moment(req.body.start.trim()).tz("America/Los_Angeles").format(db.dbTimeFormat());
+        }
+        catch(e){
+            log.error("Add outage start date error " + e + __location)
+            return next(serverHelper.requestError('Bad start'))
+        }
+    }
+    else {
+        return next(serverHelper.requestError('Missing start'))
+    }
 
-    res.send(200,doc);
+    if (req.body.end) {
+        try{
+            req.body.end = moment(req.body.end.trim()).tz("America/Los_Angeles").format(db.dbTimeFormat());
+        }
+        catch(e){
+            log.error("Add outage end date error " + e + __location)
+            return next(serverHelper.requestError('Bad end'))
+        }
+
+    }
+    else {
+        return next(serverHelper.requestError('Missing end'))
+    }
+    log.debug("insurer-outage fixed json " + JSON.stringify(req.body));
+     const insurerOutageBO = new InsurerOutageBO();
+    let error = null;
+     const result = await insurerOutageBO.saveModel(req.body).catch(function(err) {
+        log.error("Location load error " + err + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+
+    res.send(200, insurerOutageBO.cleanJSON());
     return next();
 
 }
 
 async function deleteObject(req, res, next) {
     let doc = {};
-    res.send(200,doc);
+    res.send(200, doc);
     return next();
 
 }
 
 
-
 exports.registerEndpoint = (server, basePath) => {
     // We require the 'administration.read' permission
-    // server.addGetAuthAdmin('Get Insurer Outage list', `${basePath}/insurer-outage`, findAll, 'administration', 'all');
-    // server.addGetAuthAdmin('GET Insurer Outage  Object', `${basePath}/insurer-outage/:id`, findOne, 'administration', 'all');
-    // server.addPostAuthAdmin('Get Insurer Outage list', `${basePath}/insurer-outage`, add, 'administration', 'all');
-    // server.addDeleteAuthAdmin('GET Insurer Outage  Object', `${basePath}/insurer-outage/:id`, deleteObject, 'administration', 'all');
+    server.addGetAuthAdmin('Get Insurer Outage list', `${basePath}/insurer-outage`, findAll, 'administration', 'all');
+    server.addGetAuthAdmin('GET Insurer Outage  Object', `${basePath}/insurer-outage/:id`, findOne, 'administration', 'all');
+    server.addPostAuthAdmin('Get Insurer Outage list', `${basePath}/insurer-outage`, add, 'administration', 'all');
+    server.addDeleteAuthAdmin('GET Insurer Outage  Object', `${basePath}/insurer-outage/:id`, deleteObject, 'administration', 'all');
 
-    server.addGet('Get Insurer Outage list', `${basePath}/insurer-outage`, findAll, 'administration', 'all');
-    server.addGet('GET Insurer Outage  Object', `${basePath}/insurer-outage/:id`, findOne, 'administration', 'all');
-    server.addPost('Add Insurer Outage', `${basePath}/insurer-outage`, add, 'administration', 'all');
-    server.addDelete('DELETE Insurer Outage  Object', `${basePath}/insurer-outage/:id`, deleteObject, 'administration', 'all');
+    // server.addGet('Get Insurer Outage list', `${basePath}/insurer-outage`, findAll, 'administration', 'all');
+    // server.addGet('GET Insurer Outage  Object', `${basePath}/insurer-outage/:id`, findOne, 'administration', 'all');
+    // server.addPost('Add Insurer Outage', `${basePath}/insurer-outage`, add, 'administration', 'all');
+    // server.addDelete('DELETE Insurer Outage  Object', `${basePath}/insurer-outage/:id`, deleteObject, 'administration', 'all');
 
 };

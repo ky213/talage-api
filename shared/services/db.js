@@ -212,7 +212,7 @@ else{
  */
 exports.rollback = function(connection){
 	if(!connection){
-		log.error('Parameter missing. db.rollback() requires a database connection as a parameter' +  __location);
+		log.error('Parameter missing. db.rollback() requires a database connection as a parameter' + __location);
 		return;
 	}
 
@@ -225,7 +225,7 @@ exports.rollback = function(connection){
 };
 
 exports.dbTimeFormat = function(){
-	return 'YYYY-MM-DD hh:mm:ss';
+	return 'YYYY-MM-DD HH:mm:ss';
 };
 
 /**

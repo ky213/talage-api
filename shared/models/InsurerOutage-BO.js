@@ -35,6 +35,7 @@ module.exports = class InsurerOutageBO{
                 reject(new Error(`empty ${tableName} object given`));
             }
             await this.cleanupInput(newObjectJSON);
+            newObjectJSON.state = 1;
             if(newObjectJSON.id){
                 await this.#dbTableORM.getById(newObjectJSON.id).catch(function (err) {
                     log.error(`Error getting ${tableName} from Database ` + err + __location);
