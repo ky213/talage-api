@@ -187,48 +187,76 @@ module.exports = class InsurerOutageBO{
      *   For administration site
      * 
      ***************************/
-    getListForAdmin(queryJSON){
-        return new Promise(async (resolve, reject) => {
-            let sql = `
-				SELECT io.id, i.id as insurerId, i.name as insurerName, io.start, io.end
-				FROM clw_talage_outages AS io 
-					 LEFT JOIN clw_talage_insurers AS i ON i.id = io.insurer
-			`;
-            let hasWhere = false;
-            if(queryJSON.insurerid){
-                sql +=  ` WHERE io.insurer = ${db.escape(parseInt(queryJSON.insurerid, 10))} `;
-                hasWhere = true;
-
-            }
-            if(queryJSON.searchdate){
-                sql += hasWhere ? " AND " : " WHERE ";
-                sql +=  ` ('${moment(queryJSON.searchdate).tz('America/Los_Angeles').format('YYYY/MM/DD HH:mm:ss')}' BETWEEN io.start AND io.end)`;
-            }
-            sql += " Order by io.start desc"
-
-            //log.debug('Outage list sql: ' + sql);
-            const rows = await db.query(sql).catch(function (err) {
-                log.error(`Error getting  ${tableName} from Database ` + err + __location);
-                reject(err);
-                return;
-            });
-            //fix date to be UTC for front end.
-            if(rows.length > 0 ){
-                for(let i=0; i <rows.length;i++ ){
-                    const dbSent = moment(rows[i].start);
-                    const dbSentString = dbSent.utc().format('YYYY-MM-DD HH:mm:ss');
-                    rows[i].start = moment.tz(dbSentString, "America/Los_Angeles").utc();
-
-                    const dbSent2 = moment(rows[i].end);
-                    const dbSentString2 = dbSent2.utc().format('YYYY-MM-DD HH:mm:ss');
-                    rows[i].end = moment.tz(dbSentString2, "America/Los_Angeles").utc();
-                    
-                }
-            }
-            resolve(rows);
-           
+   
+    async getSelectionList(){
+        
+        let rejected = false;
+        let responseLandingPageJSON = {};
+        let reject  = false;
+        const sql = `select id, name, logo  
+            from clw_talage_insurers
+            where state > 0
+            order by name`
+        const result = await db.query(sql).catch(function (error) {
+            // Check if this was
+            rejected = true;
+            log.error(`${tableName} error on select ` + error + __location);
         });
+        if (!rejected && result && result.length >0) {
+            return result;
+        }
+        else {
+            return [];
+        }
+       
     }
+   
+   
+   
+   
+   
+    //  getListForAdmin(queryJSON){
+    //     return new Promise(async (resolve, reject) => {
+    //         let sql = `
+	// 			SELECT io.id, i.id as insurerId, i.name as insurerName, io.start, io.end
+	// 			FROM clw_talage_outages AS io 
+	// 				 LEFT JOIN clw_talage_insurers AS i ON i.id = io.insurer
+	// 		`;
+    //         let hasWhere = false;
+    //         if(queryJSON.insurerid){
+    //             sql +=  ` WHERE io.insurer = ${db.escape(parseInt(queryJSON.insurerid, 10))} `;
+    //             hasWhere = true;
+
+    //         }
+    //         if(queryJSON.searchdate){
+    //             sql += hasWhere ? " AND " : " WHERE ";
+    //             sql +=  ` ('${moment(queryJSON.searchdate).tz('America/Los_Angeles').format('YYYY/MM/DD HH:mm:ss')}' BETWEEN io.start AND io.end)`;
+    //         }
+    //         sql += " Order by io.start desc"
+
+    //         log.debug('Outage list sql: ' + sql);
+    //         const rows = await db.query(sql).catch(function (err) {
+    //             log.error(`Error getting  ${tableName} from Database ` + err + __location);
+    //             reject(err);
+    //             return;
+    //         });
+    //         //fix date to be UTC for front end.
+    //         if(rows.length > 0 ){
+    //             for(let i=0; i <rows.length;i++ ){
+    //                 const dbSent = moment(rows[i].start);
+    //                 const dbSentString = dbSent.utc().format('YYYY-MM-DD HH:mm:ss');
+    //                 rows[i].start = moment.tz(dbSentString, "America/Los_Angeles").utc();
+
+    //                 const dbSent2 = moment(rows[i].end);
+    //                 const dbSentString2 = dbSent2.utc().format('YYYY-MM-DD HH:mm:ss');
+    //                 rows[i].end = moment.tz(dbSentString2, "America/Los_Angeles").utc();
+                    
+    //             }
+    //         }
+    //         resolve(rows);
+           
+    //     });
+    // }
 
 }
 
@@ -246,37 +274,271 @@ const properties = {
       "default": "1",
       "encrypted": false,
       "hashed": false,
-      "required": false,
+      "required": true,
       "rules": null,
       "type": "number",
       "dbType": "tinyint(1)"
     },
-    "insurer": {
+    "ordering": {
       "default": 0,
       "encrypted": false,
       "hashed": false,
       "required": true,
       "rules": null,
       "type": "number",
-      "dbType": "int(11) unsigned"
+      "dbType": "int(11)"
     },
-    "start": {
+    "logo": {
+      "default": "",
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "varchar(100)"
+    },
+    "name": {
+      "default": "",
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "varchar(50)"
+    },
+    "slug": {
       "default": null,
       "encrypted": false,
       "hashed": false,
       "required": false,
       "rules": null,
-      "type": "datetime",
-      "dbType": "datetime"
+      "type": "string",
+      "dbType": "varchar(30)"
     },
-    "end": {
+    "commission": {
+      "default": 0,
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "number",
+      "dbType": "float(4,2) unsigned"
+    },
+    "website": {
+      "default": "",
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "varchar(50)"
+    },
+    "agency_id_label": {
+      "default": "Agency ID",
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "varchar(15)"
+    },
+    "agent_id_label": {
       "default": null,
       "encrypted": false,
       "hashed": false,
       "required": false,
       "rules": null,
-      "type": "datetime",
-      "dbType": "datetime"
+      "type": "string",
+      "dbType": "varchar(15)"
+    },
+    "agent_login": {
+      "default": "",
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "varchar(200)"
+    },
+    "claim_email": {
+      "default": "",
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "varchar(50)"
+    },
+    "claim_phone": {
+      "default": "",
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "varchar(14)"
+    },
+    "claim_website": {
+      "default": "",
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "varchar(60)"
+    },
+    "enable_agent_id": {
+      "default": 0,
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "number",
+      "dbType": "tinyint(1)"
+    },
+    "featured": {
+      "default": 0,
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "number",
+      "dbType": "tinyint(1)"
+    },
+    "payment_link": {
+      "default": "",
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "varchar(200)"
+    },
+    "payment_mailing_address": {
+      "default": "",
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "varchar(200)"
+    },
+    "payment_phone": {
+      "default": "",
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "varchar(15)"
+    },
+    "producer_code": {
+      "default": "",
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "varchar(15)"
+    },
+    "stock": {
+      "default": "",
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "varchar(15)"
+    },
+    "social_fb": {
+      "default": "",
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "varchar(75)"
+    },
+    "social_linkedin": {
+      "default": "",
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "varchar(75)"
+    },
+    "social_twitter": {
+      "default": "",
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "varchar(50)"
+    },
+    "rating": {
+      "default": "",
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "varchar(15)"
+    },
+    "description": {
+      "default": "",
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "varchar(500)"
+    },
+    "application_emails": {
+      "default": "",
+      "encrypted": true,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "blob"
+    },
+    "username": {
+      "default": "",
+      "encrypted": true,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "blob"
+    },
+    "password": {
+      "default": "",
+      "encrypted": true,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "blob"
+    },
+    "test_username": {
+      "default": "",
+      "encrypted": true,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "blob"
+    },
+    "test_password": {
+      "default": "",
+      "encrypted": true,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "blob"
     },
     "created": {
       "default": null,
