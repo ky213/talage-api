@@ -10,14 +10,15 @@ const htmlentities = require('html-entities').Html5Entities;
 const https = require('https');
 const moment = require('moment');
 const util = require('util');
-const { v4: uuidv4 } = require('uuid');
+const {v4: uuidv4} = require('uuid');
 const xmlToObj = util.promisify(require('xml2js').parseString);
 const serverHelper = require('../../../../../server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const { getQuoteAggregatedStatus } = global.requireShared('./helpers/status.js');
+const {getQuoteAggregatedStatus} = global.requireShared('./helpers/status.js');
 
 module.exports = class Integration {
+
 	/**
 	 * Constructor for each integration
 	 *
@@ -57,12 +58,12 @@ module.exports = class Integration {
 		if (this.app.business) {
 			if (app.business.primary_territory === 'NV') {
 				// Loop through each location
-				app.business.locations.forEach(function (location, location_index) {
+				app.business.locations.forEach(function(location, location_index) {
 					// Total the employees
 					const total_employees = location.full_time_employees + location.part_time_employees;
 
 					// Loop through each class code
-					location.activity_codes.forEach(function (code, code_index) {
+					location.activity_codes.forEach(function(code, code_index) {
 						// If the payroll is over the cap, set it to the cap
 						if (code.payroll / total_employees > nv_payroll_cap) {
 							app.business.locations[location_index].activity_codes[code_index].payroll = nv_payroll_cap * total_employees;
@@ -80,7 +81,7 @@ module.exports = class Integration {
 	 */
 	bind() {
 		log.info(`${this.insurer.name} ${this.policy.type} Bind Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
-		return new Promise(async (fulfill, reject) => {
+		return new Promise(async(fulfill, reject) => {
 			// Make sure the _bind() function exists
 			if (typeof this._bind === 'undefined') {
 				log.warn(`${this.insurer} ${this.policy.type} integration does not support binding quotes` + __location);
@@ -96,11 +97,11 @@ module.exports = class Integration {
 			}
 
 			// Run the insurer's bind function
-			await this._bind()
-				.then(function (result) {
+			await this._bind().
+				then(function(result) {
 					fulfill(result);
-				})
-				.catch(function (error) {
+				}).
+				catch(function(error) {
 					reject(error);
 				});
 		});
@@ -291,7 +292,7 @@ module.exports = class Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object indexed on territory + activity code (e.g. AZ908252) each with an array of corresponding question ideas if resolved, or an Error if rejected
 	 */
 	get_activity_codes_to_questions_relationships() {
-		return new Promise(async (fulfill, reject) => {
+		return new Promise(async(fulfill, reject) => {
 			// Only proceed if we have activity codes
 			if (!this.insurer_wc_codes) {
 				reject(new Error('No activity codes'));
@@ -315,7 +316,7 @@ module.exports = class Integration {
 				LEFT JOIN clw_talage_questions AS q ON incq.question = q.id
 				WHERE q.state = 1 AND (${where_chunks.join(' OR ')}) GROUP BY inc.territory, class_code;
 			`;
-			const results = await db.query(sql).catch(function (error) {
+			const results = await db.query(sql).catch(function(error) {
 				reject(error);
 			});
 
@@ -421,13 +422,13 @@ module.exports = class Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing objects indexed on the Talage Question ID with question information specific to this insurer if resolved, or an Error if rejected
 	 */
 	get_question_details() {
-		return new Promise(async (fulfill, reject) => {
+		return new Promise(async(fulfill, reject) => {
 			// Build an array of question IDs to retrieve
 			const question_ids = Object.keys(this.questions);
 
 			if (question_ids.length > 0) {
 				const sql = `SELECT question, universal, identifier, attributes FROM #__insurer_questions WHERE insurer = ${this.insurer.id} AND question IN (${question_ids.join(',')});`;
-				const results = await db.query(sql).catch(function (error) {
+				const results = await db.query(sql).catch(function(error) {
 					reject(error);
 				});
 
@@ -476,14 +477,14 @@ module.exports = class Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing question information if resolved, or an Error if rejected
 	 */
 	get_question_identifiers() {
-		log.info('get_question_identifiers FUNCTION IS DEPRECATED AND WILL BE REMOVED. USE get_question_details() INSTEAD WHICH RETURNS MORE DATA IN ONE QUERY');
-		return new Promise(async (fulfill, reject) => {
+		// log.info('get_question_identifiers FUNCTION IS DEPRECATED AND WILL BE REMOVED. USE get_question_details() INSTEAD WHICH RETURNS MORE DATA IN ONE QUERY');
+		return new Promise(async(fulfill, reject) => {
 			// Build an array of question IDs to retrieve
 			const question_ids = Object.keys(this.questions);
 
 			if (question_ids.length > 0) {
 				const sql = `SELECT question, universal, identifier FROM #__insurer_questions WHERE insurer = ${this.insurer.id} AND question IN (${question_ids.join(',')});`;
-				const results = await db.query(sql).catch(function (error) {
+				const results = await db.query(sql).catch(function(error) {
 					reject(error);
 				});
 
@@ -511,7 +512,7 @@ module.exports = class Integration {
 	 * @returns {array} - An array of integers
 	 */
 	getSplitLimits(limits) {
-		return limits.split('/').map(function (val) {
+		return limits.split('/').map(function(val) {
 			return parseInt(val, 10);
 		});
 	}
@@ -548,7 +549,7 @@ module.exports = class Integration {
 	 */
 	get_total_employees() {
 		let total = 0;
-		this.app.business.locations.forEach(function (loc) {
+		this.app.business.locations.forEach(function(loc) {
 			total += loc.full_time_employees;
 			total += loc.part_time_employees;
 		});
@@ -562,7 +563,7 @@ module.exports = class Integration {
 	 */
 	get_total_full_time_employees() {
 		let total = 0;
-		this.app.business.locations.forEach(function (loc) {
+		this.app.business.locations.forEach(function(loc) {
 			total += loc.full_time_employees;
 		});
 		return total;
@@ -575,7 +576,7 @@ module.exports = class Integration {
 	 */
 	get_total_part_time_employees() {
 		let total = 0;
-		this.app.business.locations.forEach(function (loc) {
+		this.app.business.locations.forEach(function(loc) {
 			total += loc.part_time_employees;
 		});
 		return total;
@@ -588,8 +589,8 @@ module.exports = class Integration {
 	 */
 	get_total_payroll() {
 		let total = 0;
-		this.app.business.locations.forEach(function (loc) {
-			loc.activity_codes.forEach(function (wc_code) {
+		this.app.business.locations.forEach(function(loc) {
+			loc.activity_codes.forEach(function(wc_code) {
 				total += wc_code.payroll;
 			});
 		});
@@ -603,7 +604,7 @@ module.exports = class Integration {
 	 */
 	get_total_square_footage() {
 		let total = 0;
-		this.app.business.locations.forEach(function (loc) {
+		this.app.business.locations.forEach(function(loc) {
 			total += loc.square_footage;
 		});
 		return total;
@@ -697,7 +698,7 @@ module.exports = class Integration {
 	 */
 	quote() {
 		log.info(`${this.insurer.name} ${this.policy.type} Quote Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
-		return new Promise(async (fulfill, reject) => {
+		return new Promise(async(fulfill, reject) => {
 			// Get the credentials ready for use
 			this.password = await this.insurer.get_password();
 			this.username = await this.insurer.get_username();
@@ -779,11 +780,11 @@ module.exports = class Integration {
 			}
 
 			// Run the quote
-			await this._insurer_quote()
-				.then(function (result) {
+			await this._insurer_quote().
+				then(function(result) {
 					fulfill(result);
-				})
-				.catch(function (error) {
+				}).
+				catch(function(error) {
 					reject(error);
 				});
 		});
@@ -797,12 +798,26 @@ module.exports = class Integration {
 	 * @returns {mixed} - ID on success, error on error
 	 */
 	async record_quote(amount, api_result) {
-		const encrypted_log = await crypt.encrypt(this.log).catch(function (err) {
+		const encrypted_log = await crypt.encrypt(this.log).catch(function(err) {
 			log.error('Unable to encrypt log. Proceeding anyway. ' + err + __location);
 		});
 
-		const columns = ['application', 'insurer', 'log', 'policy_type', 'seconds', 'created'];
-		const values = [this.app.id, this.insurer.id, encrypted_log ? encrypted_log : '', this.policy.type, this.seconds, moment().format('YYYY-MM-DD HH:mm:ss')];
+		const columns = [
+			'application',
+			'insurer',
+			'log',
+			'policy_type',
+			'seconds',
+			'created'
+		];
+		const values = [
+			this.app.id,
+			this.insurer.id,
+			encrypted_log ? encrypted_log : '',
+			this.policy.type,
+			this.seconds,
+			moment().format('YYYY-MM-DD HH:mm:ss')
+		];
 
 		// Amount
 		if (amount) {
@@ -862,7 +877,7 @@ module.exports = class Integration {
 		values.push(getQuoteAggregatedStatus(false, '', api_result));
 
 		// Insert the quote record
-		const quoteResult = await db.query(`INSERT INTO \`#__quotes\` (\`${columns.join('`,`')}\`) VALUES (${values.map(db.escape).join(',')});`).catch(function (err) {
+		const quoteResult = await db.query(`INSERT INTO \`#__quotes\` (\`${columns.join('`,`')}\`) VALUES (${values.map(db.escape).join(',')});`).catch(function(err) {
 			return err;
 		});
 		const quoteID = quoteResult.insertId;
@@ -875,7 +890,7 @@ module.exports = class Integration {
 					limitValues.push(`(${quoteID}, ${limitId}, ${this.limits[limitId]})`);
 				}
 			}
-			db.query(`INSERT INTO \`#__quote_limits\` (\`quote\`, \`limit\`, \`amount\`) VALUES ${limitValues.join(',')};`).catch(function (err) {
+			db.query(`INSERT INTO \`#__quote_limits\` (\`quote\`, \`limit\`, \`amount\`) VALUES ${limitValues.join(',')};`).catch(function(err) {
 				log.error(err + __location);
 			});
 		}
@@ -940,7 +955,7 @@ module.exports = class Integration {
 		}
 
 		// Get the limit descriptions from the database
-		const result = await db.query(`SELECT * FROM \`#__limits\` WHERE \`id\` IN (${Object.keys(this.limits).join(',')}) ORDER BY description ASC;`).catch(function (err) {
+		const result = await db.query(`SELECT * FROM \`#__limits\` WHERE \`id\` IN (${Object.keys(this.limits).join(',')}) ORDER BY description ASC;`).catch(function(err) {
 			return err;
 		});
 
@@ -1040,7 +1055,7 @@ module.exports = class Integration {
 
 			case 'declined':
 				if (this.reasons) {
-					this.reasons.forEach(function (reason) {
+					this.reasons.forEach(function(reason) {
 						log.verbose(reason);
 					});
 				}
@@ -1050,7 +1065,7 @@ module.exports = class Integration {
 			case 'error':
 				log.error(`${this.insurer.name} ${this.policy.type} Integration Encountered An Error` + __location);
 				if (this.reasons) {
-					this.reasons.forEach(function (reason) {
+					this.reasons.forEach(function(reason) {
 						log.info(reason);
 					});
 				}
@@ -1059,7 +1074,7 @@ module.exports = class Integration {
 			case 'outage':
 				log.warn(`${this.insurer.name} ${this.policy.type} Experienced A System Outage At The Time of Quote` + __location);
 				if (this.reasons) {
-					this.reasons.forEach(function (reason) {
+					this.reasons.forEach(function(reason) {
 						log.verbose(reason);
 					});
 				}
@@ -1071,7 +1086,7 @@ module.exports = class Integration {
 
 			case 'referred':
 				if (this.reasons) {
-					this.reasons.forEach(function (reason) {
+					this.reasons.forEach(function(reason) {
 						log.verbose(reason);
 					});
 				}
@@ -1106,7 +1121,11 @@ module.exports = class Integration {
 			}
 
 			// Check that we have a valid method
-			if (!['GET', 'POST', 'PUT'].includes(method)) {
+			if (![
+				'GET',
+				'POST',
+				'PUT'
+			].includes(method)) {
 				const error = new Error('Invalid method provided to send_request()');
 				log.error(error.message + __location);
 				reject(error);
@@ -1211,7 +1230,7 @@ module.exports = class Integration {
 	 */
 
 	send_json_request(host, path, json, additional_headers, method) {
-		return new Promise(async (fulfill, reject) => {
+		return new Promise(async(fulfill, reject) => {
 			// If we don't have additional headers, start an object to append
 			if (!additional_headers) {
 				additional_headers = {};
@@ -1224,11 +1243,11 @@ module.exports = class Integration {
 			additional_headers.accept = 'application/json';
 
 			// Send the request
-			await this.send_request(host, path, json, additional_headers, method)
-				.then((result) => {
+			await this.send_request(host, path, json, additional_headers, method).
+				then((result) => {
 					fulfill(JSON.parse(result));
-				})
-				.catch((error) => {
+				}).
+				catch((error) => {
 					reject(error);
 				});
 		});
@@ -1291,11 +1310,11 @@ module.exports = class Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an true or an object containing error information on success
 	 */
 	_insurer_supports_activity_codes() {
-		return new Promise(async (fulfill) => {
+		return new Promise(async(fulfill) => {
 			// Get all of the WC Codes with their ID and territory, removing duplicates
 			const wcCodes = {};
-			this.app.business.locations.forEach(function (location) {
-				location.activity_codes.forEach(function (activity_code) {
+			this.app.business.locations.forEach(function(location) {
+				location.activity_codes.forEach(function(activity_code) {
 					// Check if this code already existed
 					if (!Object.prototype.hasOwnProperty.call(wcCodes, `${location.territory}${activity_code.id}`)) {
 						wcCodes[`${location.territory}${activity_code.id}`] = {
@@ -1307,7 +1326,7 @@ module.exports = class Integration {
 			});
 
 			// Build some WHERE statements from those codes
-			const whereCombinations = Object.values(wcCodes).map(function (codeObj) {
+			const whereCombinations = Object.values(wcCodes).map(function(codeObj) {
 				return `(\`ac\`.\`id\` = ${db.escape(codeObj.id)} AND \`inc\`.\`territory\` = ${db.escape(codeObj.territory)})`;
 			});
 
@@ -1380,7 +1399,7 @@ module.exports = class Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an true or an object containing error information on success
 	 */
 	_insurer_supports_industry_codes() {
-		return new Promise(async (fulfill) => {
+		return new Promise(async(fulfill) => {
 			// Query the database to see if this insurer supports this industry code
 			const sql = `SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.naics, ic.iso, iic.attributes 
                         FROM clw_talage_industry_codes AS ic 
