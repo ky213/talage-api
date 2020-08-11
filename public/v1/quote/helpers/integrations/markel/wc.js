@@ -17,7 +17,7 @@ module.exports = class MarkelWC extends Integration {
 	/**
 	 * Requests a quote from Markel and returns. This request is not intended to be called directly.
 	 *
-	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
+	 * @returns {result} The result of return_result()
 	 */
 	async _insurer_quote() {
 		// These are the statuses returned by the insurer and how they map to our Talage statuses
@@ -29,8 +29,6 @@ module.exports = class MarkelWC extends Integration {
 		// These are the limits supported by AF Group
 		const carrierLimits = ['100000/500000/100000', '500000/500000/500000', '500000/1000000/500000', '1000000/1000000/1000000', '2000000/2000000/2000000'];
 
-		// Build the Promise
-		// return new Promise(async (fulfill) => {
 		// Check for excessive losses in DE, HI, MI, PA and VT
 		const excessive_loss_states = ['DE', 'HI', 'MI', 'PA', 'VT'];
 
@@ -763,7 +761,6 @@ module.exports = class MarkelWC extends Integration {
 		// Parse the various status codes and take the appropriate action
 		let message_status = null;
 		let res = result.ACORD;
-		console.log(JSON.stringify(res));
 		let status = parseInt(res.Status[0].StatusCd[0], 10);
 		switch (status) {
 			case 1740:
@@ -800,7 +797,7 @@ module.exports = class MarkelWC extends Integration {
 					this.amount = parseInt(res.PolicySummaryInfo[0].FullTermAmt[0].Amt[0], 10);
 				} catch (error) {
 					log.error(`Markel WC: Error getting amount ${error}` + __location);
-					// This is handled in return_result()
+					return this.return_result('error');
 				}
 
 				// Grab the limits info
@@ -827,7 +824,7 @@ module.exports = class MarkelWC extends Integration {
 					});
 				} catch (e) {
 					log.error(`Markel WC: Error getting limits ${e} ` + __location);
-					// This is handled in return_result()
+					return this.return_result('error');
 				}
 
 				// Send the result of the request

@@ -21,7 +21,7 @@ const status = global.requireShared('./helpers/status.js');
  */
 async function postApplication(req, res, next) {
 	// Check for data
-	if (!req.body || (typeof req.body === 'object' && Object.keys(req.body).length === 0)) {
+	if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
 		log.warn('No data was received' + __location);
 		return next(serverHelper.requestError('No data was received'));
 	}
@@ -39,7 +39,8 @@ async function postApplication(req, res, next) {
 	// Load
 	try {
 		await application.load(req.params);
-	} catch (error) {
+	}
+ catch (error) {
 		log.error(`Error loading application ${req.params.id ? req.params.id : ''}: ${error.message}` + __location);
 		res.send(error);
 		return next();
@@ -47,7 +48,8 @@ async function postApplication(req, res, next) {
 	// Validate
 	try {
 		await application.validate(requestedInsurers);
-	} catch (error) {
+	}
+ catch (error) {
 		log.error(`Error validating application ${req.params.id ? req.params.id : ''}: ${error.message}` + __location);
 		res.send(error);
 		return next();
@@ -62,7 +64,8 @@ async function postApplication(req, res, next) {
 	let result = null;
 	try {
 		result = await db.query(sql);
-	} catch (error) {
+	}
+ catch (error) {
 		log.error(`Could not update the quote progress to 'quoting' for application ${req.body.id}: ${error} ${__location}`);
 		return next(serverHelper.internalError('An unexpected error occurred.'));
 	}
@@ -72,8 +75,8 @@ async function postApplication(req, res, next) {
 	}
 
 	// Build a JWT that contains the application ID that expires in 5 minutes.
-	const tokenPayload = { applicationID: req.body.id };
-	const token = jwt.sign(tokenPayload, global.settings.AUTH_SECRET_KEY, { expiresIn: '5m' });
+	const tokenPayload = {applicationID: req.body.id};
+	const token = jwt.sign(tokenPayload, global.settings.AUTH_SECRET_KEY, {expiresIn: '5m'});
 	// Send back the token
 	res.send(200, token);
 
@@ -92,7 +95,8 @@ async function postApplication(req, res, next) {
 async function runQuotes(application) {
 	try {
 		await application.run_quotes();
-	} catch (error) {
+	}
+ catch (error) {
 		log.error(`Getting quotes on application ${application.id} failed: ${error} ${__location}`);
 	}
 
@@ -104,7 +108,8 @@ async function runQuotes(application) {
 	`;
 	try {
 		await db.query(sql);
-	} catch (error) {
+	}
+ catch (error) {
 		log.error(`Could not update the quote progress to 'complete' for application ${application.id}: ${error} ${__location}`);
 	}
 
