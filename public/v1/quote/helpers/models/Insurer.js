@@ -103,7 +103,7 @@ module.exports = class Insurer {
 			// Make sure this property is part of the rows[0] object and that it is alsoa. property of this object
 			if (Object.prototype.hasOwnProperty.call(rows[0], property) && Object.prototype.hasOwnProperty.call(this, property)) {
 				switch (property) {
-					case 'outages':
+					case 'outage':
 						this[property] = Boolean(rows[0][property]);
 						continue;
 					case 'policy_types':
