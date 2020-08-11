@@ -15,8 +15,7 @@ async function queryDB(sql, queryDescription) {
 	let result = null;
 	try {
 		result = await db.query(sql);
-	}
- catch (error) {
+	} catch (error) {
 		log.error(`ERROR: ${queryDescription}: ${error} ${__location}`);
 		return null;
 	}
@@ -72,7 +71,7 @@ async function createQuoteSummary(quoteID) {
 				LEFT JOIN #__limits AS limits ON limits.id = quoteLimits.limit
 				WHERE quote = ${quote.id} ORDER BY quoteLimits.limit ASC;
 			`;
-			
+
 			result = await queryDB(sql, `retrieving limits for quote ${quote.id}`);
 			if (result === null || result.length === 0) {
 				return null;
@@ -113,24 +112,23 @@ async function createQuoteSummary(quoteID) {
 					});
 				}
 			});
-			
+
 			let quoteLetterContent = '';
 			const quoteLetterName = quote.quote_letter;
 
 			// If we have a quote letter then retrieve the file from our cloud storage service
-			if (quoteLetterName){
+			if (quoteLetterName) {
 				// Get the file from our cloud storage service
-				const data = await fileSvc.get(`secure/quote-letters/${quoteLetterName}`).catch(function(err){
+				const data = await fileSvc.get(`secure/quote-letters/${quoteLetterName}`).catch(function (err) {
 					log.error('file get error: ' + err.message + __location);
 					return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 				});
-	
+
 				// Return the response
-				if (data && data.Body){
+				if (data && data.Body) {
 					quoteLetterContent = data.Body;
-				}
-				else {
-						log.error('file get error: no file content' + __location);
+				} else {
+					log.error('file get error: no file content' + __location);
 				}
 			}
 			// Return the quote summary
@@ -142,7 +140,7 @@ async function createQuoteSummary(quoteID) {
 				letter: quoteLetterContent,
 				insurer: {
 					id: insurer.id,
-					logo: global.settings.SITE_URL + '/' + insurer.logo,
+					logo: 'http://img.talageins.com/' + insurer.logo,
 					name: insurer.name,
 					rating: insurer.rating
 				},
@@ -174,8 +172,7 @@ async function getQuotes(req, res, next) {
 	let tokenPayload = null;
 	try {
 		tokenPayload = jwt.verify(req.query.token, global.settings.AUTH_SECRET_KEY);
-	}
- catch (error) {
+	} catch (error) {
 		// Expired token
 		return next(serverHelper.invalidCredentialsError('Expired token.'));
 	}
