@@ -10,6 +10,7 @@ const jwt = require('jsonwebtoken');
 const status = global.requireShared('./helpers/status.js');
 
 /**
+ *
  * Responds to POST requests and returns policy quotes
  *
  * @param {object} req - HTTP request object
@@ -20,7 +21,7 @@ const status = global.requireShared('./helpers/status.js');
  */
 async function postApplication(req, res, next) {
 	// Check for data
-	if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
+	if (!req.body || (typeof req.body === 'object' && Object.keys(req.body).length === 0)) {
 		log.warn('No data was received' + __location);
 		return next(serverHelper.requestError('No data was received'));
 	}
@@ -35,43 +36,44 @@ async function postApplication(req, res, next) {
 
 	const application = new Application();
 	// Populate the Application object
+	// Load
+	try {
+		await application.load(req.params);
+	} catch (error) {
+		log.error(`Error loading application ${req.params.id ? req.params.id : ''}: ${error.message}` + __location);
+		res.send(error);
+		return next();
+	}
+	// Validate
+	try {
+		await application.validate(requestedInsurers);
+	} catch (error) {
+		log.error(`Error validating application ${req.params.id ? req.params.id : ''}: ${error.message}` + __location);
+		res.send(error);
+		return next();
+	}
 
-    // Load
-    await application.load(req.params).catch(function(error){
-        log.error(`Error loading application ${req.params.id ? req.params.id : ''}: ${error.message}` + __location);
-        res.send(error);
-        return next();
-    });
-    // Validate
-    await application.validate(requestedInsurers).catch(function(error){
-        log.error(`Error validating application ${req.params.id ? req.params.id : ''}: ${error.message}` + __location);
-        res.send(error);
-        return next();
-    });
-
-
-	// Create an application progress entry. Do not reuse an existing row since hung processes could
-	// still update it.
+	// Set the application progress to 'quoting'
 	const sql = `
 		UPDATE clw_talage_applications
 		SET progress = ${db.escape('quoting')}
 		WHERE id = ${db.escape(req.body.id)}
 	`;
 	let result = null;
-
-    result = await db.query(sql).catch(function(error){
-        log.error(`Could not update the quote progress to 'quoting' for application ${req.body.id}: ${error} ${__location}`);
-        return next(serverHelper.internalError('An unexpected error occurred.'));
-    });
-
+	try {
+		result = await db.query(sql);
+	} catch (error) {
+		log.error(`Could not update the quote progress to 'quoting' for application ${req.body.id}: ${error} ${__location}`);
+		return next(serverHelper.internalError('An unexpected error occurred.'));
+	}
 	if (result === null || result.affectedRows !== 1) {
 		log.error(`Could not update the quote progress to 'quoting' for application ${req.body.id}: ${sql} ${__location}`);
 		return next(serverHelper.internalError('An unexpected error occurred.'));
 	}
 
 	// Build a JWT that contains the application ID that expires in 5 minutes.
-	const tokenPayload = {applicationID: req.body.id};
-	const token = jwt.sign(tokenPayload, global.settings.AUTH_SECRET_KEY, {expiresIn: '5m'});
+	const tokenPayload = { applicationID: req.body.id };
+	const token = jwt.sign(tokenPayload, global.settings.AUTH_SECRET_KEY, { expiresIn: '5m' });
 	// Send back the token
 	res.send(200, token);
 
@@ -90,8 +92,7 @@ async function postApplication(req, res, next) {
 async function runQuotes(application) {
 	try {
 		await application.run_quotes();
-	}
- catch (error) {
+	} catch (error) {
 		log.error(`Getting quotes on application ${application.id} failed: ${error} ${__location}`);
 	}
 
@@ -103,8 +104,7 @@ async function runQuotes(application) {
 	`;
 	try {
 		await db.query(sql);
-	}
- catch (error) {
+	} catch (error) {
 		log.error(`Could not update the quote progress to 'complete' for application ${application.id}: ${error} ${__location}`);
 	}
 
