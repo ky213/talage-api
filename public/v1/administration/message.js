@@ -142,7 +142,7 @@ async function findAll(req, res, next) {
             log.error(err + __location);
             return serverHelper.sendError(res, next, 'Internal Error');
         }
-        log.debug("docList.length: " + docList.length);
+        //log.debug("docList.length: " + docList.length);
         if (flippedSort === true) {
             docList.sort((a, b) => parseInt(b.mysqlId, 10) - parseInt(a.mysqlId, 10));
         }
