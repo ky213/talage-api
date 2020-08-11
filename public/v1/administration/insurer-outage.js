@@ -100,9 +100,12 @@ async function add(req, res, next) {
         return next(serverHelper.requestError('Missing end'))
     }
     log.debug("insurer-outage fixed json " + JSON.stringify(req.body));
-     const insurerOutageBO = new InsurerOutageBO();
+    // if(req.cognitoUser){
+    //     //req.body.created_by = req.cognitoUser
+    // }
+    const insurerOutageBO = new InsurerOutageBO();
     let error = null;
-     const result = await insurerOutageBO.saveModel(req.body).catch(function(err) {
+     await insurerOutageBO.saveModel(req.body).catch(function(err) {
         log.error("Location load error " + err + __location);
         error = err;
     });
@@ -116,8 +119,20 @@ async function add(req, res, next) {
 }
 
 async function deleteObject(req, res, next) {
-    let doc = {};
-    res.send(200, doc);
+    const id = stringFunctions.santizeNumber(req.params.id, true);
+    if (!id) {
+        return next(new Error("bad parameter"));
+    }
+    let error = null;
+    const insurerOutageBO = new InsurerOutageBO();
+    await insurerOutageBO.deleteSoftById(id).catch(function(err) {
+        log.error("Location load error " + err + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+    res.send(200, {"success": true});
     return next();
 
 }
@@ -131,8 +146,8 @@ exports.registerEndpoint = (server, basePath) => {
     server.addDeleteAuthAdmin('GET Insurer Outage  Object', `${basePath}/insurer-outage/:id`, deleteObject, 'administration', 'all');
 
     // server.addGet('Get Insurer Outage list', `${basePath}/insurer-outage`, findAll, 'administration', 'all');
-    // server.addGet('GET Insurer Outage  Object', `${basePath}/insurer-outage/:id`, findOne, 'administration', 'all');
+    //server.addGet('GET Insurer Outage  Object', `${basePath}/insurer-outage/:id`, findOne, 'administration', 'all');
     // server.addPost('Add Insurer Outage', `${basePath}/insurer-outage`, add, 'administration', 'all');
-    // server.addDelete('DELETE Insurer Outage  Object', `${basePath}/insurer-outage/:id`, deleteObject, 'administration', 'all');
+    //server.addDelete('DELETE Insurer Outage  Object', `${basePath}/insurer-outage/:id`, deleteObject, 'administration', 'all');
 
 };

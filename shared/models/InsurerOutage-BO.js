@@ -89,7 +89,36 @@ module.exports = class InsurerOutageBO{
                     return;
                 });
                 this.updateProperty();
+                resolve(this.#dbTableORM.cleanJSON());
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
+    deleteSoftById(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id && id >0 ){
+              
+                //Remove old records.
+                const sql =`Update ${tableName} 
+                        SET state = -2
+                        WHERE id = ${id}
+                `;
+                let rejected = false;
+                const result = await db.query(sql).catch(function (error) {
+                    // Check if this was
+                    log.error("Database Object ${tableName} UPDATE State error :" + error + __location);
+                    rejected = true;
+                    reject(error);
+                });
+                if (rejected) {
+                    return false;
+                }
                 resolve(true);
+              
             }
             else {
                 reject(new Error('no id supplied'))
@@ -193,17 +222,17 @@ module.exports = class InsurerOutageBO{
             let sql = `
 				SELECT io.id, i.id as insurerId, i.name as insurerName, io.start, io.end
 				FROM clw_talage_outages AS io 
-					 LEFT JOIN clw_talage_insurers AS i ON i.id = io.insurer
+                     LEFT JOIN clw_talage_insurers AS i ON i.id = io.insurer
+                WHERE io.state > 0
 			`;
             let hasWhere = false;
             if(queryJSON.insurerid){
-                sql +=  ` WHERE io.insurer = ${db.escape(parseInt(queryJSON.insurerid, 10))} `;
+                sql +=  ` AND io.insurer = ${db.escape(parseInt(queryJSON.insurerid, 10))} `;
                 hasWhere = true;
 
             }
             if(queryJSON.searchdate){
-                sql += hasWhere ? " AND " : " WHERE ";
-                sql +=  ` ('${moment(queryJSON.searchdate).tz('America/Los_Angeles').format('YYYY/MM/DD HH:mm:ss')}' BETWEEN io.start AND io.end)`;
+                sql +=  ` AND ('${moment(queryJSON.searchdate).tz('America/Los_Angeles').format('YYYY/MM/DD HH:mm:ss')}' BETWEEN io.start AND io.end)`;
             }
             sql += " Order by io.start desc"
 

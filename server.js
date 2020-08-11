@@ -79,7 +79,6 @@ function validateCognitoJWT(options) {
                     return next(new RestifyError.ForbiddenError("access denied"));
                 }
                 else {
-                    //log.debug("Cognito user: " + JSON.stringify(data));
                     // must be in group.  TalageAdminUser
                     if(cognitoUser.Groups){
                         let hasAccess = false;
@@ -90,7 +89,7 @@ function validateCognitoJWT(options) {
                         }
                         if(hasAccess){
                             req.user = cognitoUser;
-                            log.debug("cognitoUser " + JSON.stringify(cognitoUser))
+                          //  log.debug("cognitoUser " + JSON.stringify(cognitoUser))
                             options.handler(req, res, next);
                         }
                         else {
