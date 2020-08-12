@@ -1,3 +1,5 @@
+/* eslint-disable valid-jsdoc */
+/* eslint-disable prefer-const */
 /**
  * Defines a single industry code
  */
@@ -9,7 +11,13 @@ const Location = require('./Location.js');
 const crypt = global.requireShared('./services/crypt.js');
 const moment = require('moment');
 const serverHelper = require('../../../../../server.js');
+const {reject} = require('async');
 const validator = global.requireShared('./helpers/validator.js');
+const BusinessBO = global.requireShared('./models/Business-model.js');
+const BusinessContactBO = global.requireShared('./models/BusinessContact-model.js');
+const BusinessAddressBO = global.requireShared('./models/BusinessAddress-model.js');
+const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
+
 
 module.exports = class Business {
 
@@ -81,7 +89,7 @@ module.exports = class Business {
         return zips;
     }
 
-    setPolicyTypeList(appPolicyTypeList){
+    setPolicyTypeList(appPolicyTypeList) {
         this.appPolicyTypeList = appPolicyTypeList;
         this.locations.forEach(function(loc) {
             loc.setPolicyTypeList(appPolicyTypeList);
@@ -92,68 +100,153 @@ module.exports = class Business {
 	/**
 	 * Populates this object with data from the request
 	 *
+     * @param {object} businessId - The business data
 	 * @param {object} data - The business data
-	 * @returns {Promise.<Boolean, Error>} A promise that returns true if resolved, or an Error if rejected
+	 * @returns  returns true , or an Error if rejected
 	 */
-    load(data) {
-        return new Promise((fulfill) => {
+    async load(businessId, applicationBO) {
+        // return new Promise((fulfill) => {
+        let businessBO = new BusinessBO();
+        let error = null;
+        log.debug("businessId: " + businessId);
+        await businessBO.loadFromId(businessId).catch(function(err) {
+            error = err;
+            log.error("Unable to get Business for quoting appId: " + businessId + __location);
+        });
+
+        if (error) {
+            throw error;
+        }
+
+     
+
+        const data2 = businessBO.cleanJSON();
+        log.debug("BusinessBO: " + JSON.stringify(data2));
+        let businessContactBO = new BusinessContactBO();
+        let contactList = await businessContactBO.loadFromBusinessId(businessBO.id).catch(function(err){
+            error = err;
+            log.error("Unable to get contactList for quoting appId: " + businessId + __location);
+        });
+        if (error) {
+            throw error;
+        }
+
+        //population from database record
+        try {
             Object.keys(this).forEach((property) => {
-                if (!Object.prototype.hasOwnProperty.call(data, property)) {
+                if (!Object.prototype.hasOwnProperty.call(data2, property)) {
                     return;
                 }
-
                 // Trim whitespace
-                if (typeof data[property] === 'string') {
-                    data[property] = data[property].trim();
+                if (typeof data2[property] === 'string') {
+                    data2[property] = data2[property].trim();
                 }
-
                 switch (property) {
-                    case 'association':
-                    case 'association_id':
-                    case 'num_owners':
-                    case 'years_of_exp':
-                        this[property] = parseInt(data[property], 10);
+                    case "industry_code":
+                        //database has it as int, downstream expects string.
+                        this.industry_code = data2.industry_code.toString();
                         break;
-                    case 'contacts':
-                        data[property].forEach((c) => {
-                            const contact = new Contact();
-                            contact.load(c);
-                            this.contacts.push(contact);
-                        });
+                    case "zip":
+                        //database has it as int, downstream expects string.
+                        this.zip = data2.zip.toString();
                         break;
-                    case 'corporation_type':
-                    case 'management_structure':
                     case 'website':
-                        this[property] = data[property] ? data[property].toLowerCase() : '';
+                        this[property] = data2[property] ? data2[property].toLowerCase() : '';
                         break;
-                    case 'experience_modifier':
-                        this[property] = parseFloat(data[property], 10);
-                        break;
+                    // case 'experience_modifier':
+                    //     this[property] = parseFloat(data2[property], 10);
+                    //     break;
                     case 'founded':
-                        this[property] = moment(data[property], 'MM-YYYY', true);
-                        break;
-                    case 'locations':
-                        data[property].forEach((l) => {
-                            const location = new Location();
-                            //pass down data needed for validation.
-                            location.business_entity_type = this.entity_type;
-                            location.load(l);
-                            this.locations.push(location);
-                        });
+                        const foundDtm = moment(data2[property].toString()).utc();
+                        this[property] = foundDtm;
                         break;
                     case 'owners':
-                        this[property] = Array.isArray(data[property]) ? data[property] : [];
+                        this[property] = Array.isArray(data2[property]) ? data2[property] : [];
                         break;
-                    case 'owners_included':
-                        this[property] = Boolean(data[property]);
+                    case "Identification Number":
                         break;
+                    // case 'owners_included':
+                    //     this[property] = Boolean(data[property]);
+                    //     break;
                     default:
-                        this[property] = data[property];
+                        if(data2[property]){
+                            this[property] = data2[property];
+                        }
                         break;
                 }
             });
-            fulfill(true);
+        }
+        catch (e) {
+            log.error('populating business from db error: ' + e + __location)
+        }
+
+        this.owners_included = Boolean(applicationBO.owners_covered);
+        this.years_of_exp = applicationBO.years_of_exp;
+        //Zipcode processing
+        let zipCodeBO = new ZipCodeBO();
+        await zipCodeBO.loadByZipCode(this.zip).catch(function(err) {
+            error = err;
+            log.error("Unable to get ZipCode records for quoting appId: " + businessId + __location);
         });
+        if (error) {
+            throw error;
+        }
+        //Assign primary territory
+        this.primary_territory = zipCodeBO.territory
+
+        if(contactList && contactList.length > 0){
+            this.phone = contactList[0].phone;
+            for(let i = 0; i < contactList.length; i++){
+                const contact = new Contact();
+                contact.load(contactList[i]);
+                this.contacts.push(contact);
+            }
+        }
+
+        let businessAddressBO = new BusinessAddressBO();
+        let addressList = await businessAddressBO.loadFromBusinessId(businessBO.id).catch(function(err){
+            error = err;
+            log.error("Unable to get addressList for quoting appId: " + businessId + __location);
+        });
+        if (error) {
+            throw error;
+        }
+        log.debug("addressList: " + JSON.stringify(addressList))
+        if(addressList && addressList.length > 0){
+            for(let i = 0; i < addressList.length; i++){
+                log.debug("addressList[i]: " + JSON.stringify(addressList[i]))
+                const location = new Location();
+                //pass down data needed for validation.
+                //add activity codes.
+               // addressList[i].identification_number = addressList[i].ein ? addressList[i].ein : businessBO.ein;
+                addressList[i].activity_codes = await addressList[i].getActivityCode().catch(function(err){
+                    log.error("Unable to get address activity codes for quoting appId: " + businessId + err + __location);
+                })
+
+                await location.load(addressList[i]);
+                location.business_entity_type = businessBO.entity_type;
+                location.identification_number = addressList[i].ein ? addressList[i].ein : businessBO.ein;
+                //location.identification_number
+                if(applicationBO.has_ein){
+                    location.identification_number = `${location.identification_number.substr(0, 2)}-${location.identification_number.substr(2, 7)}`;
+                }
+                else{
+                    location.identification_number = `${location.identification_number.substr(0, 3)}-${location.identification_number.substr(3, 2)}-${location.identification_number.substr(5, 4)}`;
+                }
+                log.debug("location.identification_number " + location.identification_number)
+                this.locations.push(location);
+            }
+            log.debug("this.locations: " + JSON.stringify(this.locations))
+        }
+        else {
+            log.error("Missing Business locations businessId  " + businessId + __location);
+        }
+
+        log.debug("Business: " + JSON.stringify(this));
+       // throw new Error("stop")
+        //fulfill(true);
+        //return true;
+        //});
     }
 
 	/**
@@ -228,36 +321,36 @@ module.exports = class Business {
 			 * - Must exist in our database
 			 */
 
-            // TODO Consistent return ERROR type - currently mixed
-            if (this.zip) {
-                // Check formatting
-                if (!validator.isZip(this.zip)) {
-                    reject(serverHelper.requestError('Invalid formatting for property: zip. Expected 5 digit format'));
-                    return;
-                }
+            // // TODO Consistent return ERROR type - currently mixed
+            // if (this.zip) {
+            //     // Check formatting
+            //     if (!validator.isZip(this.zip)) {
+            //         reject(serverHelper.requestError('Invalid formatting for property: zip. Expected 5 digit format'));
+            //         return;
+            //     }
 
-                // Make sure we have a primary state
-                const rows = await db.query(`SELECT territory FROM clw_talage_zip_codes WHERE zip = ${this.zip} LIMIT 1;`).catch(function(db_error) {
-                    log.error(db_error + __location);
-                    const error = new Error(db_error);
-                    error.code = 500;
-                    // TODO Consistent return ERROR type - currently mixed
-                    reject(error);
+            //     // Make sure we have a primary state
+            //     const rows = await db.query(`SELECT territory FROM clw_talage_zip_codes WHERE zip = ${this.zip} LIMIT 1;`).catch(function(db_error) {
+            //         log.error(db_error + __location);
+            //         const error = new Error(db_error);
+            //         error.code = 500;
+            //         // TODO Consistent return ERROR type - currently mixed
+            //         reject(error);
 
-                });
+            //     });
 
-                if (!rows || rows.length !== 1 || !Object.prototype.hasOwnProperty.call(rows[0], 'territory')) {
-                    reject(serverHelper.requestError('The zip code you entered is not valid'));
-                    return;
-                }
+            //     if (!rows || rows.length !== 1 || !Object.prototype.hasOwnProperty.call(rows[0], 'territory')) {
+            //         reject(serverHelper.requestError('The zip code you entered is not valid'));
+            //         return;
+            //     }
 
-                this.primary_territory = rows[0].territory;
+            //     this.primary_territory = rows[0].territory;
 
-            }
-            else {
-                reject(serverHelper.requestError('Missing required field: zip'));
-                return;
-            }
+            // }
+            // else {
+            //     reject(serverHelper.requestError('Missing required field: zip'));
+            //     return;
+            // }
 
 			/**
 			 * Association (optional)
@@ -586,7 +679,6 @@ module.exports = class Business {
                 return;
             }
 
-			
 
 			/**
 			 * Website (optional)

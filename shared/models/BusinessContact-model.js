@@ -9,6 +9,7 @@ const crypt = global.requireShared('./services/crypt.js');
 
 
 const hashFields = ["email"];
+const tableName = 'clw_talage_contacts'
 const skipCheckRequired = false;
 
 module.exports = class BusinessContactModel{
@@ -95,6 +96,71 @@ module.exports = class BusinessContactModel{
         });
     }
 
+    loadFromBusinessId(businessId) {
+        return new Promise(async (resolve, reject) => {
+            if(businessId && businessId >0 ){
+                let rejected = false;
+                // Create the update query
+                const sql = `
+                    select *  from clw_talage_contacts where business = ${businessId}
+                `;
+
+                // Run the query
+                const result = await db.query(sql).catch(function (error) {
+                    // Check if this was
+                
+                    rejected = true;
+                    log.error(`getById ${tableName} id: ${db.escape(this.id)}  error ` + error + __location)
+                    reject(error);
+                });
+                if (rejected) {
+                    return;
+                }
+                let contactList = [];
+                if(result && result.length > 0 ){
+                    for(let i=0; i < result.length; i++ ){
+                        //Decrypt encrypted fields.
+                        let contactBO = new BusinessContactModel();
+                        await contactBO.#dbTableORM.decryptFields(result[i]);
+                        await contactBO.#dbTableORM.convertJSONColumns(result[i]);
+                      
+                        const resp = await contactBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                            log.error(`loadFromBusinessId error loading object: ` + err + __location);
+                            //not reject on issues from database object.
+                            //reject(err);
+                        })
+                        if(!resp){
+                            log.debug("Bad BO load" + __location)
+                        }
+                        contactList.push(contactBO);
+                    }
+                    resolve(contactList);
+                }
+                else {
+                    log.debug("not found loadFromBusinessId: " + sql);
+                    reject(new Error("not found"));
+                    return
+                }
+               
+            }
+            else {
+                reject(new Error('no businessid supplied'))
+            }
+        });
+    }
+
+    async decryptFields(data){
+        for (const property in this.properties) {
+            // Only set properties that were provided in the data
+            // if from database ignore required rules.
+            if (this.properties[property].encrypted === true && Object.prototype.hasOwnProperty.call(data, property) && data[property]) {
+                data[property] = await crypt.decrypt(data[property]);
+            }
+        }
+        return 
+    }
+
+
     DeleteBusinessContacts(businessId) {
         return new Promise(async(resolve, reject) => {
             //Remove old records.
@@ -178,8 +244,13 @@ module.exports = class BusinessContactModel{
 	 */
     async loadORM(inputJSON){
         await this.#dbTableORM.load(inputJSON, skipCheckRequired);
+        this.updateProperty();
         return true;
     }
+
+    cleanJSON(noNulls = true){
+		return this.#dbTableORM.cleanJSON(noNulls);
+	}
 
 }
 

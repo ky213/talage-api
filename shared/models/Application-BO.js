@@ -630,7 +630,7 @@ processQuotes(applicationJSON){
         return new Promise(async (resolve, reject) => {
             //validate
             if (id && id > 0) {
-                await this.#dbTableORM.getById(applicationJSON.id).catch(function (err) {
+                await this.#dbTableORM.getById(id).catch(function (err) {
                     log.error("Error getting application from Database " + err + __location);
                     reject(err);
                     return;

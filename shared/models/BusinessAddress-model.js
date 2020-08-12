@@ -121,6 +121,87 @@ module.exports = class BusinessAddressModel{
         });
     }
 
+    loadFromBusinessId(businessId) {
+        return new Promise(async (resolve, reject) => {
+            if(businessId && businessId >0 ){
+                let rejected = false;
+                // Create the update query
+                const sql = `
+                    select *  from clw_talage_addresses where business = ${businessId}
+                `;
+
+                // Run the query
+                const result = await db.query(sql).catch(function (error) {
+                    // Check if this was
+                
+                    rejected = true;
+                    log.error(`getById ${tableName} id: ${db.escape(this.id)}  error ` + error + __location)
+                    reject(error);
+                });
+                if (rejected) {
+                    return;
+                }
+                let addressList = [];
+                if(result && result.length > 0 ){
+                    for(let i=0; i < result.length; i++ ){
+                        //Decrypt encrypted fields.
+                        let businessAddressModel = new BusinessAddressModel();
+                        await businessAddressModel.#dbTableORM.decryptFields(result[i]);
+                        await businessAddressModel.#dbTableORM.convertJSONColumns(result[i]);
+                      
+                        const resp = await businessAddressModel.loadORM(result[i], skipCheckRequired).catch(function(err){
+                            log.error(`loadFromBusinessId error loading object: ` + err + __location);
+                            //not reject on issues from database object.
+                            //reject(err);
+                        })
+                        if(!resp){
+                            log.debug("Bad BO load" + __location)
+                        }
+                        addressList.push(businessAddressModel);
+                    }
+                    resolve(addressList);
+                }
+                else {
+                    log.debug("not found loadFromBusinessId: " + sql);
+                    reject(new Error("not found"));
+                    return
+                }
+               
+            }
+            else {
+                reject(new Error('no businessid supplied'))
+            }
+        });
+    }
+
+    async getActivityCode( ){
+        //santize id.
+        let rejected  = false;
+        //what agencyportal client expects.
+        const sql = `select * from clw_talage_address_activity_codes  where address = ${this.id} `
+
+        const result = await db.query(sql).catch(function (error) {
+            // Check if this was
+            rejected = true;
+            log.error(`clw_talage_agency_location_insurers error on select ` + error + __location);
+        });
+        if(result && result.length>0) {
+            if (!rejected && result && result.length >0) {
+                return result;
+            }
+            else {
+                return null;
+            }
+        }
+        else {
+            return null;
+        }
+       
+    }
+    
+
+    
+
     DeleteBusinessAddresses(businessId) {
         return new Promise(async(resolve, reject) => {
             //Remove old records.
@@ -179,9 +260,13 @@ module.exports = class BusinessAddressModel{
 	 */
     async loadORM(inputJSON){
         await this.#dbTableORM.load(inputJSON, skipCheckRequired);
+        this.updateProperty();
         return true;
     }
-
+    
+    cleanJSON(noNulls = true){
+		return this.#dbTableORM.cleanJSON(noNulls);
+	}
 }
 
 const properties = {

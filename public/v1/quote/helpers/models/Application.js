@@ -1,3 +1,4 @@
+/* eslint-disable prefer-const */
 /* eslint-disable no-catch-shadow */
 /**
  * Defines a single industry code
@@ -13,7 +14,7 @@ const get_questions = global.requireShared('./helpers/getQuestions.js');
 const htmlentities = require('html-entities').Html5Entities;
 const AgencyLocation = require('./AgencyLocation.js');
 const Business = require('./Business.js');
-const Insurer = require('./Insurer.js');``
+const Insurer = require('./Insurer.js'); ``
 const Policy = require('./Policy.js');
 const Question = require('./Question.js');
 const serverHelper = require('../../../../../server.js');
@@ -21,6 +22,7 @@ const validator = global.requireShared('./helpers/validator.js');
 const helper = global.requireShared('./helpers/helper.js');
 
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
+const ApplicationBO = global.requireShared('./models/Application-BO.js');
 
 module.exports = class Application {
     constructor() {
@@ -182,17 +184,31 @@ module.exports = class Application {
     async load(data) {
         log.verbose('Loading data into Application');
 
-        // Load the business information
-        this.business = new Business();
-        try {
-            await this.business.load(data.business);
-        }
-        catch (error) {
+        // ID
+        this.id = parseInt(data.id, 10);
+
+        // load application from database.
+        let error = null
+        let applicationBO = new ApplicationBO();
+        await applicationBO.loadFromId(this.id).catch(function(err) {
+            error = err;
+            log.error("Unable to get application for quoting appId: " + data.id + __location);
+        });
+
+        if (error) {
             throw error;
         }
 
-        // ID
-        this.id = parseInt(data.id, 10);
+
+        // Load the business information
+        this.business = new Business();
+        try {
+            await this.business.load(applicationBO.business, applicationBO);
+        }
+        catch (err) {
+            throw err;
+        }
+
 
         // eslint-disable-next-line prefer-const
         let appPolicyTypeList = [];
@@ -205,15 +221,15 @@ module.exports = class Application {
         });
         //update business with policy type list.
         this.business.setPolicyTypeList(appPolicyTypeList);
-         // Agent
-         this.agencyLocation = new AgencyLocation(this.business, this.policies);
-         // Note: The front-end is sending in 'agent' but this is really a reference to the 'agency location'
-         if (data.agent) {
-             await this.agencyLocation.load({id: data.agent});
-         }
-         else {
-             await this.agencyLocation.load({id: 1}); // This is Talage's agency location record
-         }
+        // Agent
+        this.agencyLocation = new AgencyLocation(this.business, this.policies);
+        // Note: The front-end is sending in 'agent' but this is really a reference to the 'agency location'
+        if (data.agent) {
+            await this.agencyLocation.load({id: data.agent});
+        }
+        else {
+            await this.agencyLocation.load({id: 1}); // This is Talage's agency location record
+        }
 
         this.questions = data.questions;
     }
@@ -606,26 +622,26 @@ module.exports = class Application {
             if (stop) {
                 return;
             }
-             //Rules related Business rules based on application level data. 
-            /**
+            //Rules related Business rules based on application level data.
+			/**
 			 * Management Structure (required only for LLCs in MT)
 			 * - Must be either 'member' or 'manager'
 			 */
-			if(this.has_policy_type('WC') && this.business.entity_type === 'Limited Liability Company' && this.business.primary_territory === 'MT'){
-                if(this.business.management_structure){
-					if(!validator.management_structure(this.business.management_structure)){
+            if (this.has_policy_type('WC') && this.business.entity_type === 'Limited Liability Company' && this.business.primary_territory === 'MT') {
+                if (this.business.management_structure) {
+                    if (!validator.management_structure(this.business.management_structure)) {
                         log.warn(`Invalid management structure. Must be either "member" or "manager."` + this.id + __location)
-						reject(serverHelper.requestError('Invalid management structure. Must be either "member" or "manager."'));
-						return;
-					}
-				}
-				else {
-					reject(serverHelper.requestError('Missing required field: management_structure'));
-					return;
-				}
-			}
+                        reject(serverHelper.requestError('Invalid management structure. Must be either "member" or "manager."'));
+                        return;
+                    }
+                }
+                else {
+                    reject(serverHelper.requestError('Missing required field: management_structure'));
+                    return;
+                }
+            }
 
-            /**
+			/**
 			 * Corporation type (required only for WC for Corporations in PA that are excluding owners)
 			 * - Must be one of 'c', 'n', or 's'
 			 */
@@ -658,7 +674,7 @@ module.exports = class Application {
                 }
             }
 
-            /**
+			/**
 			 * Unincorporated Association (Required only for WC, in NH, and for LLCs and Corporations)
 			 */
             if (this.has_policy_type('WC') && (this.business.entity_type === 'Corporation' || this.business.entity_type === 'Limited Liability Company') && this.business.primary_territory === 'NH') {
@@ -678,9 +694,6 @@ module.exports = class Application {
                 // Prepare the value for later use
                 this.business.unincorporated_association = helper.convert_to_boolean(this.business.unincorporated_association);
             }
-
-
-
 
 
             // Validate all policies
