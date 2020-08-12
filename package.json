@@ -135,7 +135,7 @@
 			],
 			"brace-style": [
 				"error",
-				"stroustrup",
+				"1tbs",
 				{
 					"allowSingleLine": true
 				}
@@ -183,8 +183,8 @@
 				"beside"
 			],
 			"indent": [
-				"off",
-				"tab",
+				"error",
+				4,
 				{
 					"SwitchCase": 1
 				}
