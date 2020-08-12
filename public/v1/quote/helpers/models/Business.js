@@ -105,10 +105,8 @@ module.exports = class Business {
 	 * @returns  returns true , or an Error if rejected
 	 */
     async load(businessId, applicationBO) {
-        // return new Promise((fulfill) => {
         let businessBO = new BusinessBO();
         let error = null;
-        log.debug("businessId: " + businessId);
         await businessBO.loadFromId(businessId).catch(function(err) {
             error = err;
             log.error("Unable to get Business for quoting appId: " + businessId + __location);
@@ -118,10 +116,7 @@ module.exports = class Business {
             throw error;
         }
 
-     
-
         const data2 = businessBO.cleanJSON();
-        log.debug("BusinessBO: " + JSON.stringify(data2));
         let businessContactBO = new BusinessContactBO();
         let contactList = await businessContactBO.loadFromBusinessId(businessBO.id).catch(function(err){
             error = err;
@@ -211,10 +206,8 @@ module.exports = class Business {
         if (error) {
             throw error;
         }
-        log.debug("addressList: " + JSON.stringify(addressList))
         if(addressList && addressList.length > 0){
             for(let i = 0; i < addressList.length; i++){
-                log.debug("addressList[i]: " + JSON.stringify(addressList[i]))
                 const location = new Location();
                 //pass down data needed for validation.
                 //add activity codes.
@@ -233,20 +226,13 @@ module.exports = class Business {
                 else{
                     location.identification_number = `${location.identification_number.substr(0, 3)}-${location.identification_number.substr(3, 2)}-${location.identification_number.substr(5, 4)}`;
                 }
-                log.debug("location.identification_number " + location.identification_number)
                 this.locations.push(location);
             }
-            log.debug("this.locations: " + JSON.stringify(this.locations))
         }
         else {
             log.error("Missing Business locations businessId  " + businessId + __location);
         }
 
-        log.debug("Business: " + JSON.stringify(this));
-       // throw new Error("stop")
-        //fulfill(true);
-        //return true;
-        //});
     }
 
 	/**

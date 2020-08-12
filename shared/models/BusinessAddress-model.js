@@ -135,7 +135,7 @@ module.exports = class BusinessAddressModel{
                     // Check if this was
                 
                     rejected = true;
-                    log.error(`getById ${tableName} id: ${db.escape(this.id)}  error ` + error + __location)
+                    log.error(`loadFromBusinessId ${tableName} id: ${db.escape(this.id)}  error ` + error + __location)
                     reject(error);
                 });
                 if (rejected) {

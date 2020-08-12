@@ -23,29 +23,38 @@ module.exports = class Claim{
 	/**
 	 * Populates this object with data from the request
 	 *
-	 * @param {object} data - The business data
+	 * @param {object} claimBO - The business data
 	 * @returns {void}
 	 */
-	load(data){
-		Object.keys(this).forEach((property) => {
-			if(!Object.prototype.hasOwnProperty.call(data, property)){
-				return;
-			}
+	load(claimBO){
 
-			// Trim whitespace
-			if(typeof data[property] === 'string'){
-				data[property] = data[property].trim();
-			}
+        this.amountPaid = claimBO.amount_paid;
+		this.amountReserved = claimBO.amount_reserved;
+		this.date = claimBO.date;
 
-			switch(property){
-				case 'date':
-					this[property] = moment(data[property], 'YYYY-MM-DD');
-					break;
-				default:
-					this[property] = data[property];
-					break;
-			}
-		});
+		// Worker's Compensation Claims
+		this.missedWork = claimBO.missed_work;
+		this.open = Boolean(claimBO.open);
+	
+		// Object.keys(this).forEach((property) => {
+		// 	if(!Object.prototype.hasOwnProperty.call(data, property)){
+		// 		return;
+		// 	}
+
+		// 	// Trim whitespace
+		// 	if(typeof data[property] === 'string'){
+		// 		data[property] = data[property].trim();
+		// 	}
+
+		// 	switch(property){
+		// 		case 'date':
+		// 			this[property] = moment(data[property], 'YYYY-MM-DD');
+		// 			break;
+		// 		default:
+		// 			this[property] = data[property];
+		// 			break;
+		// 	}
+		// });
 	}
 
 	/**
