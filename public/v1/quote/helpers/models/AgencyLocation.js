@@ -10,9 +10,10 @@ const validator = global.requireShared('./helpers/validator.js');
 
 module.exports = class AgencyLocation {
 
-    constructor(app) {
-        this.app = app;
-
+    constructor(appBusiness, appPolicies) {
+        //this.app = app;
+        this.business = appBusiness;
+        this.appPolicies = appPolicies;
         this.agency = '';
         this.agencyEmail = '';
         this.agencyId = 0;
@@ -221,7 +222,7 @@ module.exports = class AgencyLocation {
     supports_application() {
         return new Promise((fulfill, reject) => {
             // Territories
-            this.app.business.locations.forEach((location) => {
+            this.business.locations.forEach((location) => {
                 if (!this.territories.includes(location.territory)) {
                     log.info(`Agent does not have ${location.territory} enabled`);
                     reject(serverHelper.requestError('The specified agent is not setup to support this application.'));
@@ -230,7 +231,7 @@ module.exports = class AgencyLocation {
             });
 
             // Policy Types
-            this.app.policies.forEach((policy) => {
+            this.appPolicies.forEach((policy) => {
                 let match_found = false;
                 for (const insurer in this.insurers) {
                     if (Object.prototype.hasOwnProperty.call(this.insurers, insurer)) {

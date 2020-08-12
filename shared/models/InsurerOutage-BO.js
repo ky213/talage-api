@@ -213,6 +213,32 @@ module.exports = class InsurerOutageBO{
 
         return true;
     }
+
+
+    async isInOutage(insurerId){
+
+        const sql = `SELECT * 
+                     FROM clw_talage_outages
+                     WHERE insurer  = ${insurerId} AND ('${moment_timezone.tz('America/Los_Angeles').format('YYYY/MM/DD HH:mm:ss')}' BETWEEN start AND end) `;
+        let error = false;
+        const result = await db.query(sql).catch(function (err) {
+            // Check if this was
+            log.error("Database Object ${tableName} Outage check :" + err + __location);
+            error = err;
+        });
+        if (error) {
+            return false;
+        }
+        if(result && result.length >0){
+            return true;
+        }
+        else {
+            return false;
+        }
+
+
+
+    }
     /*****************************
      *   For administration site
      * 
