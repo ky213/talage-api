@@ -82,7 +82,7 @@ module.exports = class ChubbGL extends Integration {
 		}
 
 		// Get a token from their auth server
-		const tokenResponse = null;
+		let tokenResponse = null;
 		try {
 			tokenResponse = await this.send_json_request(host, '/api/v1/tokens', null, { App_ID: this.username, App_Key: this.password }, 'POST');
 		} catch (error) {
