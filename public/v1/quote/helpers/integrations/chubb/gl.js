@@ -629,33 +629,35 @@ module.exports = class ChubbGL extends Integration {
 				if (status !== 'Success') {
 					try {
 						const error_message = res.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0];
-						log.warn(`Error Returned by Carrier: ${error_message}` + __location);
-						this.log += `Error Returned by Carrier: ${error_message}`;
+						log.error(`${this.insurer.name} ${this.policy.type} Error Returned by Carrier: ${error_message} ${__location}`);
 					} catch (e) {
-						log.warn(`${this.insurer.name} ${this.policy.type} Error Returned by Carrier: Quote structure changed. Unable to find error message.` + __location);
-						return this.return_result('error');
+						log.error(`${this.insurer.name} ${this.policy.type} Error Returned by Carrier: Quote structure changed. Unable to find error message. ${__location}`);
 					}
+					return this.return_result('error');
 				}
 
 				// Attempt to get the quote number
 				try {
 					this.request_id = res.CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0];
 				} catch (e) {
-					log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.`);
+					log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.`);
+					return this.return_result('error');
 				}
 
 				// Get the amount of the quote (from the Silver package only, per Adam)
 				try {
 					this.amount = parseInt(res.CommlPolicy[0].SilverTotalPremium[0], 10);
 				} catch (e) {
-					// This is handled in return_result()
+					log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote ${this.id} amount/premium.`);
+					return this.return_result('error');
 				}
 
 				// Grab the writing company
 				try {
 					this.writer = res.CommlPolicy[0].WritingCompany[0];
 				} catch (e) {
-					log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.` + __location);
+					log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company. ${__location}`);
+					return this.return_result('error');
 				}
 
 				// Grab the limits info
