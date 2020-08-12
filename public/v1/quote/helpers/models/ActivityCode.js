@@ -9,8 +9,7 @@ const serverHelper = require('../../../../../server.js');
 module.exports = class ActivityCode{
 
 	constructor(){
-		this.app = null;
-
+        this.appPolicyTypeList = [];
 		this.description = '';
 		this.id = 0;
 
@@ -94,7 +93,7 @@ module.exports = class ActivityCode{
 				return;
 			}
 
-			if(this.app.has_policy_type('WC')){
+			if(this.appPolicyTypeList.includes('WC')){
 				if(this.payroll < 1){
 					reject(serverHelper.requestError(`You must provide a payroll for each activity code (Activity Code ${this.id})`));
 					return;

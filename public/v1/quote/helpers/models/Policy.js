@@ -11,10 +11,10 @@ const validator = global.requireShared('./helpers/validator.js');
 
 module.exports = class Policy {
 
-    constructor(app) {
-        this.app = app;
+    constructor(appBusiness) {
 
         // All Policies
+        this.appBusiness = appBusiness;
         this.claims = [];
         this.effective_date = '';
         this.expiration_date = '';
@@ -116,25 +116,6 @@ module.exports = class Policy {
                 return;
             }
 
-            // Validate insurers (optional, contains ID's of insurers)
-            // if (Array.isArray(this.insurers)) {
-            //     if (this.insurers.length) {
-            //         let matched_insurer_count = 0;
-            //         await this.app.insurers.forEach((insurer) => {
-            //             if (this.insurers.includes(insurer.id) && insurer.policy_types.includes(this.type)) {
-            //                 matched_insurer_count++;
-            //             }
-            //         });
-            //         if (this.insurers.length !== matched_insurer_count) {
-            //             reject(serverHelper.requestError(`Specified insurer does not support ${this.type}.`));
-            //             return;
-            //         }
-            //     }
-            // }
-            // else {
-            //     reject(serverHelper.requestError(`Insurers must be specified as an array of IDs.`));
-            //     return;
-            // }
 
             // Validate claims
             const claim_promises = [];
@@ -148,7 +129,7 @@ module.exports = class Policy {
             });
 
             // Limits: If this is a WC policy, check if further limit controls are needed
-            const territories = this.app.business.getTerritories();
+            const territories = this.appBusiness.getTerritories();
             if (this.type === 'WC') {
                 // In CA, force limits to be at least 1,000,000/1,000,000/1,000,000
                 if (territories.includes('CA')) {
@@ -241,7 +222,7 @@ module.exports = class Policy {
                     'OR',
                     'TX',
                     'UT',
-                    'WA'].includes(this.app.business.primary_territory)) {
+                    'WA'].includes(this.appBusiness.primary_territory)) {
                     if (!this.deductible) {
                         reject(serverHelper.requestError('You must supply a deductible for GL policies in AR, AZ, CA, CO, ID, NM, NV, OK, OR, TX, UT, or WA. The deductible can be 500, 1000, or 1500'));
                         return;
