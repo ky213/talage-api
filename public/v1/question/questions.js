@@ -38,14 +38,14 @@ function find_missing_questions(questions) {
  *
  * @returns {void}
  */
-async function GetQuestions(req, res, next) {
+async function getQuestions(req, res, next) {
 
 	/* ---=== Check Request Requirements ===--- */
 
 	// Check for data
 	if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
 		log.warn('Bad Request: Required data missing. Please see documentation.');
-		return next(serverHelper.badRequestError('Required data missing. Please see documentation.'));
+		return next(serverHelper.requestError('Required data missing. Please see documentation.'));
 	}
 
 	log.verbose(util.inspect(req.query));
@@ -53,27 +53,27 @@ async function GetQuestions(req, res, next) {
 	// Make sure basic elements are present
 	if (!req.query.policy_types) {
 		log.warn('Bad Request: Missing Policy Types');
-		return next(serverHelper.badRequestError('You must supply one or more policy types'));
+		return next(serverHelper.requestError('You must supply one or more policy types'));
 	}
 
 	// Make sure the proper codes were supplied
 	if (req.query.policy_types.includes('BOP') || req.query.policy_types.includes('GL')) {
 		if (!req.query.industry_code) {
 			log.warn('Bad Request: Missing Industry Code');
-			return next(serverHelper.badRequestError('You must supply an industry code'));
+			return next(serverHelper.requestError('You must supply an industry code'));
 		}
 	}
 	if (req.query.policy_types.includes('WC')) {
 		if (!req.query.activity_codes) {
 			log.warn('Bad Request: Missing Activity Codes');
-			return next(serverHelper.badRequestError('You must supply one or more activity codes'));
+			return next(serverHelper.requestError('You must supply one or more activity codes'));
 		}
 	}
 
 	// Make sure a zip code was provided
 	if (!Object.prototype.hasOwnProperty.call(req.query, 'zips') || !req.query.zips) {
 		log.warn('Bad Request: Missing Zip Codes');
-		return next(serverHelper.badRequestError('You must supply at least one zip code'));
+		return next(serverHelper.requestError('You must supply at least one zip code'));
 	}
 
 	// Check if we should return hidden questions also
@@ -96,7 +96,7 @@ async function GetQuestions(req, res, next) {
 	// Do not permit requests that include both BOP and GL
 	if (req.query.policy_types.includes('BOP') && req.query.policy_types.includes('GL')) {
 		log.warn('Bad Request: Both BOP and GL are not allowed, must be one or the other');
-		return next(serverHelper.badRequestError('Both BOP and GL are not allowed, please choose one or the other'));
+		return next(serverHelper.requestError('Both BOP and GL are not allowed, please choose one or the other'));
 	}
 
 	// Sanitize and de-duplicate
@@ -122,7 +122,7 @@ async function GetQuestions(req, res, next) {
 			insurers.push(insurer_id);
 		});
 		if (invalid_insurer) {
-			return next(serverHelper.badRequestError('Bad Request: Invalid Insurer'));
+			return next(serverHelper.requestError('Bad Request: Invalid Insurer'));
 		}
 	}
 
@@ -137,7 +137,7 @@ async function GetQuestions(req, res, next) {
 
 	// Check that each activity code is valid
 	if (activity_codes.length) {
-		sql = `SELECT id FROM #__activity_codes WHERE id IN (${activity_codes.join(',')}) AND state = 1;`;
+		sql = `SELECT id FROM clw_talage_activity_codes WHERE id IN (${activity_codes.join(',')}) AND state = 1;`;
 		const activity_code_result = await db.query(sql).catch(function(err) {
 			error = err.message;
 		});
@@ -146,13 +146,13 @@ async function GetQuestions(req, res, next) {
 			error = 'One or more of the activity codes supplied is invalid';
 		}
 		if (error) {
-			return next(serverHelper.badRequestError(error));
+			return next(serverHelper.requestError(error));
 		}
 	}
 
 	// Check if the industry code is valid
 	if (industry_code) {
-		sql = `SELECT id FROM #__industry_codes WHERE id = ${db.escape(industry_code)} AND state = 1 LIMIT 1;`;
+		sql = `SELECT id FROM clw_talage_industry_codes WHERE id = ${db.escape(industry_code)} AND state = 1 LIMIT 1;`;
 		const industry_code_result = await db.query(sql).catch(function(err) {
 			error = err.message;
 		});
@@ -161,13 +161,13 @@ async function GetQuestions(req, res, next) {
 			error = 'The industry code supplied is invalid';
 		}
 		if (error) {
-			return next(serverHelper.badRequestError(error));
+			return next(serverHelper.requestError(error));
 		}
 	}
 
 	// Check that insurers were valid
 	if (insurers.length) {
-		sql = `SELECT id FROM #__insurers WHERE id IN (${insurers.join(',')}) AND state = 1;`;
+		sql = `SELECT id FROM clw_talage_insurers WHERE id IN (${insurers.join(',')}) AND state = 1;`;
 		const insurers_result = await db.query(sql).catch(function(err) {
 			error = err.message;
 		});
@@ -176,17 +176,17 @@ async function GetQuestions(req, res, next) {
 			error = 'One or more of the insurers supplied is invalid';
 		}
 		if (error) {
-			return next(serverHelper.badRequestError(error));
+			return next(serverHelper.requestError(error));
 		}
 	}
 
 	// Get Policy Types from the database
-	sql = 'SELECT abbr FROM #__policy_types;';
+	sql = 'SELECT abbr FROM clw_talage_policy_types;';
 	const policy_types_result = await db.query(sql).catch(function(err) {
 		error = err.message;
 	});
 	if (error) {
-		return next(serverHelper.badRequestError(error));
+		return next(serverHelper.requestError(error));
 	}
 
 	// Prepare the response
@@ -203,22 +203,22 @@ async function GetQuestions(req, res, next) {
 		}
 	});
 	if (error) {
-		return next(serverHelper.badRequestError(error));
+		return next(serverHelper.requestError(error));
 	}
 
 	// Check that the zip code is valid
 	const territories = [];
 	if (!zips || !zips.length) {
 		log.warn('Bad Request: Zip Codes');
-		return next(serverHelper.badRequestError('You must supply at least one zip code'));
+		return next(serverHelper.requestError('You must supply at least one zip code'));
 	}
 
-	sql = `SELECT DISTINCT territory FROM #__zip_codes WHERE zip IN (${zips.join(',')});`;
+	sql = `SELECT DISTINCT territory FROM clw_talage_zip_codes WHERE zip IN (${zips.join(',')});`;
 	const zip_result = await db.query(sql).catch(function(err) {
 		error = err.message;
 	});
 	if (error) {
-		return next(serverHelper.badRequestError(error));
+		return next(serverHelper.requestError(error));
 	}
 	if (zip_result && zip_result.length >= 1) {
 		zip_result.forEach(function(result) {
@@ -226,7 +226,7 @@ async function GetQuestions(req, res, next) {
 		});
 	} else {
 		log.warn('Bad Request: Zip Code');
-		return next(serverHelper.badRequestError('The zip code(s) supplied is/are invalid'));
+		return next(serverHelper.requestError('The zip code(s) supplied is/are invalid'));
 	}
 
 	/* ---=== Get The Applicable Questions ===--- */
@@ -241,18 +241,18 @@ async function GetQuestions(req, res, next) {
 
 	// GET All UNIVERSAL Questions
 	sql = `
-				SELECT ${select}
-				FROM #__questions AS q
-				LEFT JOIN #__question_types AS qt ON q.type = qt.id
-				LEFT JOIN #__insurer_questions AS iq ON q.id = iq.question
-				LEFT JOIN #__insurer_question_territories as iqt ON iqt.insurer_question = iq.id
-				WHERE iq.policy_type IN ('${policy_types.join("','")}') AND iq.universal = 1 AND (iqt.territory IN (${territories.map(db.escape).join(',')}) OR iqt.territory IS NULL) AND ${where} GROUP BY q.id;
-		`;
+		SELECT ${select}
+		FROM clw_talage_questions AS q
+		LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
+		LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
+		LEFT JOIN clw_talage_insurer_question_territories as iqt ON iqt.insurer_question = iq.id
+		WHERE iq.policy_type IN ('${policy_types.join("','")}') AND iq.universal = 1 AND (iqt.territory IN (${territories.map(db.escape).join(',')}) OR iqt.territory IS NULL) AND ${where} GROUP BY q.id;
+	`;
 	const universal_questions = await db.query(sql).catch(function(err) {
 		error = err.message;
 	});
 	if (error) {
-		return next(serverHelper.badRequestError(error));
+		return next(serverHelper.requestError(error));
 	}
 
 	// Add these questions to the array
@@ -265,19 +265,19 @@ async function GetQuestions(req, res, next) {
 	if (policy_types.includes('BOP') || policy_types.includes('GL')) {
 		// Get the ISO questions
 		sql = `
-				SELECT ${select}
-				FROM #__industry_code_questions AS icq
-				LEFT JOIN #__questions AS q ON (q.id = icq.question)
-				LEFT JOIN #__question_types AS qt ON q.type = qt.id
-				LEFT JOIN #__insurer_questions AS iq ON q.id = iq.question
-				WHERE icq.insurer_industry_code = (SELECT code FROM #__industry_codes_iso WHERE id = (SELECT iso FROM #__industry_codes WHERE id = ${db.escape(industry_code)}) LIMIT 1)
-				AND ${where} GROUP BY q.id;
-			`;
+			SELECT ${select}
+			FROM clw_talage_industry_code_questions AS icq
+			LEFT JOIN clw_talage_questions AS q ON (q.id = icq.question)
+			LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
+			LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
+			WHERE icq.insurer_industry_code = (SELECT code FROM clw_talage_industry_codes_iso WHERE id = (SELECT iso FROM clw_talage_industry_codes WHERE id = ${db.escape(industry_code)}) LIMIT 1)
+			AND ${where} GROUP BY q.id;
+		`;
 		const iso_questions = await db.query(sql).catch(function(err) {
 			error = err.message;
 		});
 		if (error) {
-			return next(serverHelper.badRequestError(error));
+			return next(serverHelper.requestError(error));
 		}
 
 		// Add these questions to the array
@@ -285,20 +285,20 @@ async function GetQuestions(req, res, next) {
 
 		// Get the CGL questions
 		sql = `
-				SELECT ${select}
-				FROM #__industry_code_questions AS icq
-				LEFT JOIN #__questions AS q ON (q.id = icq.question)
-				LEFT JOIN #__question_types AS qt ON q.type = qt.id
-				LEFT JOIN #__insurer_questions AS iq ON q.id = iq.question
-				LEFT JOIN #__insurer_industry_codes AS iic ON icq.insurer_industry_code = iic.id
-				LEFT JOIN #__industry_codes AS ic ON ic.cgl = iic.code AND iic.type = 'c'
-				WHERE ic.id = ${db.escape(industry_code)} AND ${where} GROUP BY q.id;
-			`;
+			SELECT ${select}
+			FROM clw_talage_industry_code_questions AS icq
+			LEFT JOIN clw_talage_questions AS q ON (q.id = icq.question)
+			LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
+			LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
+			LEFT JOIN clw_talage_insurer_industry_codes AS iic ON icq.insurer_industry_code = iic.id
+			LEFT JOIN clw_talage_industry_codes AS ic ON ic.cgl = iic.code AND iic.type = 'c'
+			WHERE ic.id = ${db.escape(industry_code)} AND ${where} GROUP BY q.id;
+		`;
 		const cgl_questions = await db.query(sql).catch(function(err) {
 			error = err.message;
 		});
 		if (error) {
-			return next(serverHelper.badRequestError(error));
+			return next(serverHelper.requestError(error));
 		}
 
 		// Add these questions to the array
@@ -308,23 +308,23 @@ async function GetQuestions(req, res, next) {
 	// GET WC Questions
 	if (policy_types.includes('WC')) {
 		sql = `
-				SELECT ${select}
-				FROM #__questions AS q
-				LEFT JOIN #__insurer_questions AS iq ON q.id = iq.question
-				INNER JOIN #__insurer_ncci_code_questions AS ncq ON q.id = ncq.question AND ncq.ncci_code IN(
-					SELECT nca.insurer_code FROM #__activity_code_associations AS nca
-					LEFT JOIN #__insurer_ncci_codes AS inc ON nca.insurer_code = inc.id
-					WHERE nca.code IN (${activity_codes.join(',')})
-					AND inc.state = 1${territories && territories.length ? ` AND inc.territory IN (${territories.map(db.escape).join(',')})` : ``}
-				)
-				LEFT JOIN #__question_types AS qt ON q.type = qt.id
-				WHERE iq.policy_type IN ('WC') AND ${where} GROUP BY q.id;
-			`;
+			SELECT ${select}
+			FROM clw_talage_questions AS q
+			LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
+			INNER JOIN clw_talage_insurer_ncci_code_questions AS ncq ON q.id = ncq.question AND ncq.ncci_code IN(
+				SELECT nca.insurer_code FROM clw_talage_activity_code_associations AS nca
+				LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON nca.insurer_code = inc.id
+				WHERE nca.code IN (${activity_codes.join(',')})
+				AND inc.state = 1${territories && territories.length ? ` AND inc.territory IN (${territories.map(db.escape).join(',')})` : ``}
+			)
+			LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
+			WHERE iq.policy_type IN ('WC') AND ${where} GROUP BY q.id;
+		`;
 		const wc_questions = await db.query(sql).catch(function(err) {
 			error = err.message;
 		});
 		if (error) {
-			return next(serverHelper.badRequestError(error));
+			return next(serverHelper.requestError(error));
 		}
 
 		// Add these questions to the array
@@ -347,20 +347,20 @@ async function GetQuestions(req, res, next) {
 	while (missing_questions) {
 		// Query to get all missing questions
 		sql = `
-				SELECT ${select}
-				FROM #__questions AS q
-				LEFT JOIN #__question_types AS qt ON q.type = qt.id
-				LEFT JOIN #__insurer_questions AS iq ON q.id = iq.question
-				WHERE q.id IN (${missing_questions.join(',')})
-				GROUP BY q.id;
-			`;
+			SELECT ${select}
+			FROM clw_talage_questions AS q
+			LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
+			LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
+			WHERE q.id IN (${missing_questions.join(',')})
+			GROUP BY q.id;
+		`;
 		let error2 = null;
 		const added_questions = await db.query(sql).catch(function(err) {
 			// eslint-disable-line no-await-in-loop, no-loop-func
 			error2 = err.message;
 		});
 		if (error2) {
-			return next(serverHelper.badRequestError(error));
+			return next(serverHelper.requestError(error));
 		}
 		questions = questions.concat(added_questions);
 
@@ -369,12 +369,14 @@ async function GetQuestions(req, res, next) {
 	}
 
 	// Let's do some cleanup and get a list of question IDs
-	await questions.forEach(async function(question, index) {
+	for (let index = 0; index < questions.length; index++) {
+		const question = questions[index];
+
 		// If this question is hidden and we don't want hidden questions
 		if (!return_hidden && question.hidden) {
 			// Do a bit of extra processing to make sure we don't need it
 			let unhidden_child = false;
-			await questions.forEach(function(q) {
+			questions.forEach((q) => {
 				if (question.id === q.parent && !q.hidden) {
 					unhidden_child = true;
 				}
@@ -406,7 +408,7 @@ async function GetQuestions(req, res, next) {
 		} else {
 			delete question.hidden;
 		}
-	});
+	}
 
 	// Remove empty elements in the array
 	if (questions) {
@@ -419,19 +421,19 @@ async function GetQuestions(req, res, next) {
 	});
 	if (question_ids) {
 		// Get the answers to the questions
-		sql = `SELECT id, question, \`default\`, answer FROM #__question_answers WHERE question IN (${question_ids.filter(Boolean).join(',')}) AND state = 1;`;
+		sql = `SELECT id, question, \`default\`, answer FROM clw_talage_question_answers WHERE question IN (${question_ids.filter(Boolean).join(',')}) AND state = 1;`;
 		const answers = await db.query(sql).catch(function(err) {
 			error = err.message;
 		});
 		if (error) {
-			return next(serverHelper.badRequestError(error));
+			return next(serverHelper.requestError(error));
 		}
 
 		// Combine the answers with their questions
-		questions.forEach(function(question) {
+		questions.forEach((question) => {
 			if (question.type_id >= 1 && question.type_id <= 3) {
 				question.answers = [];
-				answers.forEach(function(answer) {
+				answers.forEach((answer) => {
 					if (answer.question === question.id) {
 						// Create a local copy of the answer so we can remove properties
 						const answer_obj = Object.assign({}, answer);
@@ -470,6 +472,6 @@ async function GetQuestions(req, res, next) {
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-	server.addGet('Get Questions', `${basePath}/list`, GetQuestions);
-	server.addGet('Get Questions (depr)', `${basePath}/v1`, GetQuestions);
+	server.addGet('Get Questions', `${basePath}/list`, getQuestions);
+	server.addGet('Get Questions (depr)', `${basePath}/v1`, getQuestions);
 };
