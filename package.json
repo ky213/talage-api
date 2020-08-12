@@ -135,7 +135,7 @@
 			],
 			"brace-style": [
 				"error",
-				"1tbs",
+				"stroustrup",
 				{
 					"allowSingleLine": true
 				}
