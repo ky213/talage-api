@@ -33,9 +33,25 @@ module.exports = class ApplicationModel {
         this.policies = [];
         this.questions = {};
         this.test = false;
+        this.WorkFlowSteps = {
+            'contact': 2,
+            'coverage': 3,
+            'locations': 4,
+            'owners': 5,
+            'details': 6,
+            'claims': 7,
+            'questions': 8,
+            'quotes': 9,
+            'cart': 10,
+            'bindRequest': 10,
+        };
+
+
+
+
         this.#dbTableORM = new ApplicationOrm();
     }
-
+   
 
     /**
    * Load new application JSON with optional save.

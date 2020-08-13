@@ -11,7 +11,7 @@ const Location = require('./Location.js');
 const crypt = global.requireShared('./services/crypt.js');
 const moment = require('moment');
 const serverHelper = require('../../../../../server.js');
-const {reject} = require('async');
+//const {reject} = require('async');
 const validator = global.requireShared('./helpers/validator.js');
 const BusinessBO = global.requireShared('./models/Business-model.js');
 const BusinessContactBO = global.requireShared('./models/BusinessContact-model.js');
@@ -118,7 +118,7 @@ module.exports = class Business {
 
         const data2 = businessBO.cleanJSON();
         let businessContactBO = new BusinessContactBO();
-        let contactList = await businessContactBO.loadFromBusinessId(businessBO.id).catch(function(err){
+        let contactList = await businessContactBO.loadFromBusinessId(businessBO.id).catch(function(err) {
             error = err;
             log.error("Unable to get contactList for quoting appId: " + businessId + __location);
         });
@@ -156,7 +156,7 @@ module.exports = class Business {
                         this[property] = foundDtm;
                         break;
                     case 'owners':
-                        if(data2.owners){
+                        if (data2.owners) {
                             const ownerJSON = JSON.parse(data2.owners);
                             this[property] = ownerJSON;
                         }
@@ -167,7 +167,7 @@ module.exports = class Business {
                     //     this[property] = Boolean(data[property]);
                     //     break;
                     default:
-                        if(data2[property]){
+                        if (data2[property]) {
                             this[property] = data2[property];
                         }
                         break;
@@ -192,9 +192,9 @@ module.exports = class Business {
         //Assign primary territory
         this.primary_territory = zipCodeBO.territory
 
-        if(contactList && contactList.length > 0){
+        if (contactList && contactList.length > 0) {
             this.phone = contactList[0].phone;
-            for(let i = 0; i < contactList.length; i++){
+            for (let i = 0; i < contactList.length; i++) {
                 const contact = new Contact();
                 contact.load(contactList[i]);
                 this.contacts.push(contact);
@@ -202,20 +202,20 @@ module.exports = class Business {
         }
 
         let businessAddressBO = new BusinessAddressBO();
-        let addressList = await businessAddressBO.loadFromBusinessId(businessBO.id).catch(function(err){
+        let addressList = await businessAddressBO.loadFromBusinessId(businessBO.id).catch(function(err) {
             error = err;
             log.error("Unable to get addressList for quoting appId: " + businessId + __location);
         });
         if (error) {
             throw error;
         }
-        if(addressList && addressList.length > 0){
-            for(let i = 0; i < addressList.length; i++){
+        if (addressList && addressList.length > 0) {
+            for (let i = 0; i < addressList.length; i++) {
                 const location = new Location();
                 //pass down data needed for validation.
                 //add activity codes.
-               // addressList[i].identification_number = addressList[i].ein ? addressList[i].ein : businessBO.ein;
-                addressList[i].activity_codes = await addressList[i].getActivityCode().catch(function(err){
+                // addressList[i].identification_number = addressList[i].ein ? addressList[i].ein : businessBO.ein;
+                addressList[i].activity_codes = await addressList[i].getActivityCode().catch(function(err) {
                     log.error("Unable to get address activity codes for quoting appId: " + businessId + err + __location);
                 })
 
@@ -223,10 +223,10 @@ module.exports = class Business {
                 location.business_entity_type = businessBO.entity_type;
                 location.identification_number = addressList[i].ein ? addressList[i].ein : businessBO.ein;
                 //location.identification_number
-                if(applicationBO.has_ein){
+                if (applicationBO.has_ein) {
                     location.identification_number = `${location.identification_number.substr(0, 2)}-${location.identification_number.substr(2, 7)}`;
                 }
-                else{
+                else {
                     location.identification_number = `${location.identification_number.substr(0, 3)}-${location.identification_number.substr(3, 2)}-${location.identification_number.substr(5, 4)}`;
                 }
                 this.locations.push(location);

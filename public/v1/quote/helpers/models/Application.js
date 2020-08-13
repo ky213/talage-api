@@ -5,7 +5,7 @@
  */
 
 'use strict';
-
+const moment = require('moment');
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
@@ -59,6 +59,23 @@ module.exports = class Application {
         if (error) {
             throw error;
         }
+        //LastStep check.
+        // this.state > 15, 16 is finished.
+        if(applicationBO.state > 15){
+            log.warn("An attempt to quote application that is finished.")
+            throw new Error("Finished Application cannot be quoted")
+
+        }
+        //age check - TODO add override Age parameter to allow requoting.
+        const dbCreated = moment(applicationBO.created);
+        const nowTime = moment().utc();
+        const ageInMinutes = nowTime.diff(dbCreated, 'minutes');
+        log.debug('Application age in minutes ' + ageInMinutes);
+        if(ageInMinutes > 60){
+            log.warn(`Attempt to update an old application. appid ${this.id}` + __location);
+            throw new Error("Data Error: Application may not be updated do to age.");
+        }
+
         //log.debug("applicationBO: " + JSON.stringify(applicationBO));
 
         // Load the business information

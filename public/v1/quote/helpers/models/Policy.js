@@ -8,7 +8,7 @@
 const Claim = require('./Claim.js');
 const moment = require('moment');
 const serverHelper = require('../../../../../server.js');
-const { loggers } = require('winston');
+//const { loggers } = require('winston');
 const validator = global.requireShared('./helpers/validator.js');
 const ApplicationClaimBO = global.requireShared('./models/ApplicationClaim-BO.js');
 
