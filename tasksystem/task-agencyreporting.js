@@ -119,9 +119,9 @@ var quoteReportTask = async function(){
                                     "header": true,
                                     "columns": cvsHeaderColumns,
                                     "cast": {
-                                        date: function(value) {
-                                            console.log('---------------------------------are you going here')
-                                            return moment(value).format('YYYY-MM-DD');
+                                        created: function(value) {
+                                            return value.format("YYYY/MM/DD hh:mm:ss");
+ 
                                         }
                                     }
                                  };
@@ -130,7 +130,6 @@ var quoteReportTask = async function(){
             log.error("Quote Report JSON to CSV error: " + err + __location);
             return;
         });
-        // log.debug(csvData);
         
 
         if(csvData){
@@ -139,9 +138,9 @@ var quoteReportTask = async function(){
             // send email
             // Production email goes to Adam.
             // non production Brian so we can test it.
-            let toEmail = 'krishna@talageins.com';
+            let toEmail = 'adam@talageins.com';
             if(global.settings.ENV !== 'production'){
-                toEmail = 'krishna@talageins.com';
+                toEmail = 'brian@talageins.com';
             }
             const attachmentJson = {
                 'content': csvContent,
@@ -164,9 +163,9 @@ var quoteReportTask = async function(){
     }
     else {
         log.info("Quote Report: No quotes to report ");
-        let toEmail = 'krishna@talageins.com';
+        let toEmail = 'adam@talageins.com';
         if(global.settings.ENV !== 'production'){
-            toEmail = 'krishna@talageins.com';
+            toEmail = 'brian@talageins.com';
         }
         const emailResp = await emailSvc.send(toEmail, 'Quote Report', 'Your daily quote report: No Quotes.', {}, 'talage', 1);
         if(emailResp === false){
