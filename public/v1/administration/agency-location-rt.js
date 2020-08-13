@@ -73,10 +73,10 @@ async function findOne(req, res, next) {
 
 exports.registerEndpoint = (server, basePath) => {
     // We require the 'administration.read' permission
-    // server.addGetAuthAdmin('Get Agency Location list', `${basePath}/agency-location`, findAll, 'administration', 'all');
-    // server.addGetAuthAdmin('Get Agency Location Object', `${basePath}/agency-location/:id`, findOne, 'administration', 'all');
+    server.addGetAuthAdmin('Get Agency Location list', `${basePath}/agency-location`, findAll, 'administration', 'all');
+    server.addGetAuthAdmin('Get Agency Location Object', `${basePath}/agency-location/:id`, findOne, 'administration', 'all');
 
-    server.addGet('Get Agency Location list', `${basePath}/agency-location`, findAll, 'administration', 'all');
-    server.addGet('Get Agency Location Object', `${basePath}/agency-location/:id`, findOne, 'administration', 'all');
+    // server.addGet('Get Agency Location list', `${basePath}/agency-location`, findAll, 'administration', 'all');
+    // server.addGet('Get Agency Location Object', `${basePath}/agency-location/:id`, findOne, 'administration', 'all');
 
 };
