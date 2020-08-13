@@ -24,6 +24,7 @@ const helper = global.requireShared('./helpers/helper.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
 const ApplicationPolicyTypeBO = global.requireShared('./models/ApplicationPolicyType-BO.js');
+const ApplicationQuestionBO = global.requireShared('./models/ApplicationQuestion-BO.js');
 
 module.exports = class Application {
     constructor() {
@@ -108,7 +109,17 @@ module.exports = class Application {
             await this.agencyLocation.load({id: 1}); // This is Talage's agency location record
         }
 
-        this.questions = data.questions;
+        //this.questions = data.questions;
+        let applicationQuestionBO = new ApplicationQuestionBO();
+        const GET_QUESTION_LIST = true;
+        this.questions = await applicationQuestionBO.loadFromApplicationId(this.id,GET_QUESTION_LIST).catch(function(err){
+            log.error("Quote Application error get question list " + err + __location);
+            error = err;
+        })
+        if (error) {
+            throw error;
+        }
+
 
         //throw new Error("stop");
     }
