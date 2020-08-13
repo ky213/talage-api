@@ -35,7 +35,7 @@ module.exports = class CompwestWC extends Integration {
         };
 
         // Build the Promise
-        return new Promise(async(fulfill, reject) => {
+        return new Promise(async (fulfill, reject) => {
             // Temporarily turn off bind
             reject(serverHelper.internalError('Bind is currently disabled for this insurer'));
             return;
@@ -112,7 +112,7 @@ module.exports = class CompwestWC extends Integration {
             log.debug('Add additional insureds here');
 
             // Get the XML structure as a string
-            const xml = ACORD.end({pretty: true});
+            const xml = ACORD.end({ pretty: true });
 
             // Determine which URL to use
             let host = '';
@@ -232,7 +232,7 @@ module.exports = class CompwestWC extends Integration {
         };
 
         // Build the Promise
-        return new Promise(async(fulfill) => {
+        return new Promise(async (fulfill) => {
             // CompWest has us define our own Request ID
             this.request_id = this.generate_uuid();
 
@@ -382,20 +382,33 @@ module.exports = class CompwestWC extends Integration {
             }
             // </Communications>
             // </GeneralPartyInfo>
-            
 
-            // <AdditionalInterest> 
             if (this.business.dba) {
-                // <NameInfo>
-                NameInfo = GeneralPartyInfo.ele('NameInfo');
+                // <AdditionalInterest id="c2">
+                const AdditionalInterest = location.ele('additionalInterest');
+                    // <GeneralPartyInfo>
 
-                // <CommlName>
-                const CommlName = NameInfo.ele('CommlName');
-                CommlName.ele('CommercialName', this.app.business.name.replace('’', "'").replace('+', '').replace('|', ''));
-                // </CommlName>
-                // </NameInfo>
+                        let GeneralPartyInfo = AdditionalInterest.ele('GeneralPartyInfo');
+
+                        // <NameInfo>
+                            let NameInfo = GeneralPartyInfo.ele('NameInfo');
+                            // <CommlName>
+                            const CommlName = NameInfo.ele('CommlName');
+                            CommlName.ele('CommercialName', this.app.business.name.replace('’', "'").replace('+', '').replace('|', ''));
+                            //</CommlName>  
+                        //</NameInfo>
+                    // </GeneralPartyInfo>
+                // <AdditionalInterestInfo>
+                    const AdditionInterestInfo = additionalInterest.ele('AdditionInterestInfo');
+                    // <NatureInterestCd>
+
+				        AdditionInterestInfo.ele('NatureInterestCd', 'DBA');
+			            AdditionInterestInfo.ele('AdditionInterestInfo', this.app.business.dba);
+                    // </NatureInterestCd>
+                // </AdditionalInterestInfo>					
+                // </AdditionalInterest> 
+
             }
-                // </AdditionalInterest>
 
 
             // </InsuredOrPrincipal
@@ -639,7 +652,7 @@ module.exports = class CompwestWC extends Integration {
             // </ACORD>
 
             // Get the XML structure as a string
-            const xml = ACORD.end({pretty: true});
+            const xml = ACORD.end({ pretty: true });
 
             // Determine which URL to use
             let host = '';
