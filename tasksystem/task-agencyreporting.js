@@ -124,7 +124,7 @@ var quoteReportTask = async function(){
             // send email
             // Production email goes to Adam.
             // non production Brian so we can test it.
-            let toEmail = 'adan@talageins.com';
+            let toEmail = 'adam@talageins.com';
             if(global.settings.ENV !== 'production'){
                 toEmail = 'brian@talageins.com';
             }
