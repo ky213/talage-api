@@ -42,7 +42,7 @@ module.exports = class Policy {
         this.coverage_lapse = null;
     }
 
-	/**
+    /**
 	 * Populates this object with data from the request
 	 *
      * @param {object} applicationPolicyTypeBO - The business data
@@ -114,13 +114,13 @@ module.exports = class Policy {
         }
 
         //load claims from db
-         // Load the policy information
-         try{
+        // Load the policy information
+        try{
             let error = null;
             const applicationClaimBO = new ApplicationClaimBO();
-            const claimList = await applicationClaimBO.loadFromApplicationId(applicationId).catch(function(err){
+            const claimList = await applicationClaimBO.loadFromApplicationId(applicationId, this.type).catch(function(err){
                 error = err;
-                log.error("Unable to load list of applicationClaimBO for quoting appId: " + applicationId + __location);
+                log.error(`Unable to load list of applicationClaimBO for quoting appId: ${applicationId} PolicyType = ${applicationPolicyTypeBO.policy_type} ` + __location);
             });
             if (error) {
                 throw error;
@@ -130,21 +130,21 @@ module.exports = class Policy {
                 claim.load(claimBO);
                 this.claims.push(claim);
             });
-         }
-         catch(e){
-             log.error("Error loading claims " + e + __location)
-             throw e;
-         }
+        }
+        catch(e){
+            log.error(`Error loading claims appId: ${applicationId} PolicyType = ${applicationPolicyTypeBO.policy_type} error:` + e + __location)
+            throw e;
+        }
         //log.debug("Policy object: " + JSON.stringify(this));
     }
 
 
     formatLimits(dbLimit) {
         const individualLimits = dbLimit.match(/[1-9]+0*/g);
-       return individualLimits.join('/');
+        return individualLimits.join('/');
     }
 
-	/**
+    /**
 	 * Checks that the data supplied is valid
 	 *
 	 * @returns {Promise.<array, Error>} A promise that returns a boolean indicating whether or not this record is valid, or an Error if rejected

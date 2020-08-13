@@ -55,7 +55,7 @@ module.exports = class Business {
         this.unincorporated_association = null; // NH only, LLC or Corporation
     }
 
-	/**
+    /**
 	 * Returns a list of all territories present in the application
 	 *
 	 * @returns {array} - A list of territory abbreviations
@@ -72,7 +72,7 @@ module.exports = class Business {
         return territories;
     }
 
-	/**
+    /**
 	 * Returns a list of all zip codes present in the application
 	 *
 	 * @returns {array} - A list of zip codes
@@ -97,7 +97,7 @@ module.exports = class Business {
 
     }
 
-	/**
+    /**
 	 * Populates this object with data from the request
 	 *
      * @param {object} businessId - The business data
@@ -238,7 +238,7 @@ module.exports = class Business {
 
     }
 
-	/**
+    /**
 	 * Populates this object with data from the database
 	 *
 	 * @param {int} id - The id of the business
@@ -296,7 +296,7 @@ module.exports = class Business {
         });
     }
 
-	/**
+    /**
 	 * Checks that the data supplied is valid
 	 *
 	 * @returns {Promise.<array, Error>} A promise that returns a boolean indicating whether or not this record is valid, or an Error if rejected
@@ -304,7 +304,7 @@ module.exports = class Business {
     validate() {
         return new Promise(async(fulfill, reject) => {
 
-			/**
+            /**
 			 * Zip Code (required)
 			 * - Must be a string composed of 5 numeric digits
 			 * - Must exist in our database
@@ -341,7 +341,7 @@ module.exports = class Business {
             //     return;
             // }
 
-			/**
+            /**
 			 * Association (optional)
 			 * - Defaults to null
 			 * - Must be an integer >= 1
@@ -355,7 +355,7 @@ module.exports = class Business {
                 }
             }
 
-			/**
+            /**
 			 * Association ID (conditionally required)
 			 * - Required if Association is set
 			 * - Cannot exceed 20 characters
@@ -373,7 +373,7 @@ module.exports = class Business {
                 }
             }
 
-			/**
+            /**
 			 * Bureau Number (optional)
 			 * - <= 999999999
 			 * - In CA, must be formatted as ##-##-##
@@ -398,7 +398,7 @@ module.exports = class Business {
                 }
             }
 
-			/**
+            /**
 			 * Contacts (required - validation handled in Contact object)
 			 */
             if (this.contacts.length) {
@@ -422,7 +422,7 @@ module.exports = class Business {
                 return;
             }
 
-			/**
+            /**
 			 * DBA (optional)
 			 * - Must be a valid business name
 			 * - Must be 100 characters or less
@@ -441,7 +441,7 @@ module.exports = class Business {
                 }
             }
 
-			/**
+            /**
 			 * Entity Type (required)
 			 * - Must be one of our supported entity types
 			 */
@@ -466,7 +466,7 @@ module.exports = class Business {
                 return;
             }
 
-			/**
+            /**
 			 * Experience Modifier (optional)
 			 * - Only accepted if a Bureau Number is provided
 			 * - Defaults to 1.00 if nothing is specified
@@ -480,7 +480,7 @@ module.exports = class Business {
                 }
             }
 
-			/**
+            /**
 			 * Founded (required)
 			 * - Must be a valid date formatted mm-yyyy
 			 * - Cannot be in the future
@@ -510,7 +510,7 @@ module.exports = class Business {
                 return;
             }
 
-			/**
+            /**
 			 * Industry Code (required)
 			 * - > 0
 			 * - <= 99999999999
@@ -528,7 +528,7 @@ module.exports = class Business {
                 return;
             }
 
-			/**
+            /**
 			 * Locations (required - validation handled in Location object)
 			 */
             if (this.locations.length) {
@@ -552,7 +552,7 @@ module.exports = class Business {
                 return;
             }
 
-			/**
+            /**
 			 * Mailing Address (required)
 			 * - Must be under 100 characters
 			 */
@@ -568,7 +568,7 @@ module.exports = class Business {
                 return;
             }
 
-			/**
+            /**
 			 * Mailing Zip (required)
 			 * - Must be a 5 digit string
 			 */
@@ -597,7 +597,7 @@ module.exports = class Business {
                 return;
             }
 
-			/**
+            /**
 			 * Name (required)
 			 * - Must be a valid business name
 			 * - Must be 100 characters or less
@@ -620,7 +620,7 @@ module.exports = class Business {
                 return;
             }
 
-			/**
+            /**
 			 * Number of Owners (conditionally required)
 			 * - > 0
 			 * - <= 99
@@ -639,7 +639,7 @@ module.exports = class Business {
             }
 
 
-			/**
+            /**
 			 * Phone (required)
 			 * - Must be a valid 9 digit phone number
 			 */
@@ -669,7 +669,7 @@ module.exports = class Business {
             }
 
 
-			/**
+            /**
 			 * Website (optional)
 			 * - Must be a valid URL
 			 * - Must be 100 characters or less
