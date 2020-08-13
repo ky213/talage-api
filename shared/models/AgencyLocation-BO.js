@@ -91,6 +91,23 @@ module.exports = class AgencyLocationBO{
             }
         });
     }
+    getById(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id && id >0 ){
+                await this.#dbTableORM.getById(id).catch(function (err) {
+                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
+                    reject(err);
+                    return;
+                });
+                this.updateProperty();
+                resolve(this.#dbTableORM.cleanJSON());
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
 
     async cleanupInput(inputJSON){
         for (const property in properties) {
