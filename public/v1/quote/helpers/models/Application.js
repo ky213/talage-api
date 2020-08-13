@@ -67,11 +67,12 @@ module.exports = class Application {
 
         }
         //age check - TODO add override Age parameter to allow requoting.
+        const bypassAgeCheck = global.settings.ENV === 'development' && global.settings.APPLICATION_AGE_CHECK_BYPASS === 'YES';
         const dbCreated = moment(applicationBO.created);
         const nowTime = moment().utc();
         const ageInMinutes = nowTime.diff(dbCreated, 'minutes');
         log.debug('Application age in minutes ' + ageInMinutes);
-        if(ageInMinutes > 60){
+        if(!bypassAgeCheck && ageInMinutes > 60){
             log.warn(`Attempt to update an old application. appid ${this.id}` + __location);
             throw new Error("Data Error: Application may not be updated do to age.");
         }
@@ -280,7 +281,6 @@ module.exports = class Application {
         return rtn;
     }
 
-
     /**
 	 * Begins the process of getting and returning quotes from insurers
 	 *
@@ -293,9 +293,21 @@ module.exports = class Application {
         const policyTypeReferred = {};
         const policyTypeQuoted = {};
 
+        let requestedInsurer = null;
+        if (global.settings.QUOTE_ONLY_INSURER) {
+            requestedInsurer = global.settings.QUOTE_ONLY_INSURER;
+            log.info('================================================================================');
+            log.info(`QUOTE_ONLY_INSURER is set. Running quotes again '${requestedInsurer}'`);
+            log.info('================================================================================');
+        }
+
         this.policies.forEach((policy) => {
             // Generate quotes for each insurer for the given policy type
             this.insurers.forEach((insurer) => {
+                // Only run quotes against requested insurers (if present)
+                if (requestedInsurer && requestedInsurer !== insurer.slug) {
+                    return;
+                }
                 // Check that the given policy type is enabled for this insurer
                 if (insurer.policy_types.indexOf(policy.type) >= 0) {
                     // Get the agency_location_insurer data for this insurer from the agency location

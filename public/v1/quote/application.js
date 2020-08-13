@@ -27,13 +27,10 @@ async function postApplication(req, res, next) {
     }
 
     // Make sure basic elements are present
-    if (!Object.prototype.hasOwnProperty.call(req.body, 'id') ) {
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'id')) {
         log.warn('Some required data is missing' + __location);
         return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
     }
-
-    //Quote app no longer sends insurers in, Server Side decision.
-    //const requestedInsurers = Object.prototype.hasOwnProperty.call(req.query, 'insurers') ? req.query.insurers.split(',') : [];
 
     const application = new Application();
     // Populate the Application object
@@ -48,7 +45,6 @@ async function postApplication(req, res, next) {
     }
     // Validate
     try {
-        //await application.validate(requestedInsurers);
         await application.validate();
     }
     catch (error) {
@@ -97,7 +93,8 @@ async function postApplication(req, res, next) {
 async function runQuotes(application) {
     try {
         await application.run_quotes();
-    } catch (error) {
+    }
+    catch (error) {
         log.error(`Getting quotes on application ${application.id} failed: ${error} ${__location}`);
     }
 
@@ -109,7 +106,8 @@ async function runQuotes(application) {
     `;
     try {
         await db.query(sql);
-    } catch (error) {
+    }
+    catch (error) {
         log.error(`Could not update the quote progress to 'complete' for application ${application.id}: ${error} ${__location}`);
     }
 
