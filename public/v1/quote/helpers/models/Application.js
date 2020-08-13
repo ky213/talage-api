@@ -137,12 +137,12 @@ module.exports = class Application {
             throw error;
         }
 
-
+        //log.debug("Quote Application Model: " + JSON.stringify(this))
         //throw new Error("stop");
     }
 
 
-	/**
+    /**
 	 * Returns an array of IDs that represent the active insurance carriers (limited by the selections in the API request)
 	 *
 	 * @returns {array} - An array of integers that are insurer IDs
@@ -153,7 +153,7 @@ module.exports = class Application {
         });
     }
 
-	/**
+    /**
 	 * Returns a list of the active insurers in the Talage System. Will return only desired insurers based on the request
 	 * received from the user. If no desired insurers are specified, will return all insurers.
 	 *
@@ -246,7 +246,7 @@ module.exports = class Application {
         });
     }
 
-	/**
+    /**
 	 * Returns an array of the Talage WC Codes that were included in this application
 	 *
 	 * @returns {array} - An array of integers that are the IDs of Talage WC Codes
@@ -261,7 +261,7 @@ module.exports = class Application {
         return ids;
     }
 
-	/**
+    /**
 	 * Checks whether or not the incoming request includes the specified policy type
 	 *
 	 * @param {string} policy_type - The policy type (BOP, GL, or WC)
@@ -281,7 +281,7 @@ module.exports = class Application {
     }
 
 
-	/**
+    /**
 	 * Begins the process of getting and returning quotes from insurers
 	 *
 	 * @returns {void}
@@ -392,7 +392,7 @@ module.exports = class Application {
         await this.send_notifications(quotes);
     }
 
-	/**
+    /**
 	 * Sends a email and slack notifications based on the quotes returned
 	 *
 	 * @param {array} quotes - An array of quote objects
@@ -550,7 +550,7 @@ module.exports = class Application {
         }
     }
 
-	/**
+    /**
 	 * Updates the state of the application as follows:
 	 *   1 - New Application (no change, this is default)
 	 *   12 - Referred (Application did not receive quotes and had at least one referral per policy type)
@@ -588,7 +588,7 @@ module.exports = class Application {
         }
     }
 
-	/**
+    /**
 	 * Checks that the data supplied is valid
 	 *
 	 * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
@@ -671,7 +671,7 @@ module.exports = class Application {
                 return;
             }
             //Rules related Business rules based on application level data.
-			/**
+            /**
 			 * Management Structure (required only for LLCs in MT)
 			 * - Must be either 'member' or 'manager'
 			 */
@@ -689,7 +689,7 @@ module.exports = class Application {
                 }
             }
 
-			/**
+            /**
 			 * Corporation type (required only for WC for Corporations in PA that are excluding owners)
 			 * - Must be one of 'c', 'n', or 's'
 			 */
@@ -707,7 +707,7 @@ module.exports = class Application {
                 }
             }
 
-			/**
+            /**
 			 * Owners (conditionally required)
 			 * - Only used for WC policies, ignored otherwise
 			 * - Only required if owners_included is false
@@ -722,7 +722,7 @@ module.exports = class Application {
                 }
             }
 
-			/**
+            /**
 			 * Unincorporated Association (Required only for WC, in NH, and for LLCs and Corporations)
 			 */
             if (this.has_policy_type('WC') && (this.business.entity_type === 'Corporation' || this.business.entity_type === 'Limited Liability Company') && this.business.primary_territory === 'NH') {

@@ -89,21 +89,23 @@ module.exports = class ApplicationClaimBO{
         
     }
 
-    loadFromApplicationId(applicationId) {
+    loadFromApplicationId(applicationId, policy_type = null) {
         return new Promise(async (resolve, reject) => {
             if(applicationId && applicationId >0 ){
                 let rejected = false;
                 // Create the update query
-                const sql = `
+                let sql = `
                     select *  from ${tableName} where application = ${applicationId}
                 `;
-
+                if(policy_type){
+                    sql += ` AND  policy_type = '${policy_type}'`
+                }
                 // Run the query
                 const result = await db.query(sql).catch(function (error) {
                     // Check if this was
                 
                     rejected = true;
-                    log.error(`loadFromApplicationId ${tableName} id: ${db.escape(this.id)}  error ` + error + __location)
+                    log.error(`loadFromApplicationId ${tableName} applicationId: ${db.escape(applicationId)}  error ` + error + __location)
                     reject(error);
                 });
                 if (rejected) {
@@ -131,9 +133,6 @@ module.exports = class ApplicationClaimBO{
                 }
                 else {
                     // no records is normal.
-                    // log.debug("not found loadFromApplicationId: " + sql);
-                    // reject(new Error("not found"));
-                    // return
                     resolve([]);
                 }
                
