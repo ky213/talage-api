@@ -36,7 +36,7 @@ module.exports = class ActivityCode{
 
 			switch(property){
 				case 'id':
-					this[property] = parseInt(data[property], 10);
+					this[property] = parseInt(data.ncci_code, 10);
 					break;
 				case 'payroll':
 					if(typeof data[property] === 'string'){

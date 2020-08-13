@@ -1,14 +1,14 @@
 'use strict';
 
 const DatabaseObject = require('./DatabaseObject.js');
+const SearchStringModel = require('./SearchStrings-model.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
 
-
-const tableName = 'clw_talage_application_questions'
+const tableName = 'clw_talage_claims'
 const skipCheckRequired = false;
-module.exports = class ApplicationClaimModel{
+module.exports = class ApplicationClaimBO{
 
     #dbTableORM = null;
 
@@ -86,9 +86,65 @@ module.exports = class ApplicationClaimModel{
                 reject(new Error('no id supplied'))
             }
         });
+        
     }
 
-    DeleteQuestionsByApplicationId(applicationId) {
+    loadFromApplicationId(applicationId) {
+        return new Promise(async (resolve, reject) => {
+            if(applicationId && applicationId >0 ){
+                let rejected = false;
+                // Create the update query
+                const sql = `
+                    select *  from ${tableName} where application = ${applicationId}
+                `;
+
+                // Run the query
+                const result = await db.query(sql).catch(function (error) {
+                    // Check if this was
+                
+                    rejected = true;
+                    log.error(`loadFromApplicationId ${tableName} id: ${db.escape(this.id)}  error ` + error + __location)
+                    reject(error);
+                });
+                if (rejected) {
+                    return;
+                }
+                let boList = [];
+                if(result && result.length > 0 ){
+                    for(let i=0; i < result.length; i++ ){
+                        //Decrypt encrypted fields.
+                        let applicationClaimBO = new ApplicationClaimBO();
+                        await applicationClaimBO.#dbTableORM.decryptFields(result[i]);
+                        await applicationClaimBO.#dbTableORM.convertJSONColumns(result[i]);
+                      
+                        const resp = await applicationClaimBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                            log.error(`loadFromApplicationId error loading object: ` + err + __location);
+                            //not reject on issues from database object.
+                            //reject(err);
+                        })
+                        if(!resp){
+                            log.debug("Bad BO load" + __location)
+                        }
+                        boList.push(applicationClaimBO);
+                    }
+                    resolve(boList);
+                }
+                else {
+                    // no records is normal.
+                    // log.debug("not found loadFromApplicationId: " + sql);
+                    // reject(new Error("not found"));
+                    // return
+                    resolve([]);
+                }
+               
+            }
+            else {
+                reject(new Error('no applicationId supplied'))
+            }
+        });
+    }
+
+    DeleteClaimsByApplicationId(applicationId) {
         return new Promise(async(resolve, reject) => {
             //Remove old records.
             const sql =`DELETE FROM ${tableName} 
@@ -130,6 +186,10 @@ module.exports = class ApplicationClaimModel{
         }
     }
 
+    cleanJSON(noNulls = true){
+		return this.#dbTableORM.cleanJSON(noNulls);
+	}
+
     updateProperty(){
         const dbJSON = this.#dbTableORM.cleanJSON()
         // eslint-disable-next-line guard-for-in
@@ -137,7 +197,18 @@ module.exports = class ApplicationClaimModel{
             this[property] = dbJSON[property];
         }
       }
-
+    
+      /**
+	 * Load new object JSON into ORM. can be used to filter JSON to object properties
+     *
+	 * @param {object} inputJSON - input JSON
+	 * @returns {void} 
+	 */
+    async loadORM(inputJSON){
+        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
+        this.updateProperty();
+        return true;
+    }
 }
 
 const properties = {
@@ -150,6 +221,24 @@ const properties = {
       "type": "number",
       "dbType": "int(11) unsigned"
     },
+    "amount_paid": {
+      "default": 0,
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "number",
+      "dbType": "mediumint(10) unsigned"
+    },
+    "amount_reserved": {
+      "default": 0,
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "number",
+      "dbType": "mediumint(10) unsigned"
+    },
     "application": {
       "default": 0,
       "encrypted": false,
@@ -159,32 +248,41 @@ const properties = {
       "type": "number",
       "dbType": "int(11) unsigned"
     },
-    "question": {
+    "date": {
+      "default": null,
+      "encrypted": false,
+      "hashed": false,
+      "required": false,
+      "rules": null,
+      "type": "date",
+      "dbType": "date"
+    },
+    "missed_work": {
       "default": 0,
       "encrypted": false,
       "hashed": false,
       "required": true,
       "rules": null,
       "type": "number",
-      "dbType": "int(11) unsigned"
+      "dbType": "tinyint(1) unsigned"
     },
-    "answer": {
-      "default": null,
+    "open": {
+      "default": 0,
       "encrypted": false,
       "hashed": false,
-      "required": false,
+      "required": true,
       "rules": null,
       "type": "number",
-      "dbType": "int(11) unsigned"
+      "dbType": "tinyint(1) unsigned"
     },
-    "text_answer": {
-      "default": null,
+    "policy_type": {
+      "default": "",
       "encrypted": false,
       "hashed": false,
-      "required": false,
+      "required": true,
       "rules": null,
       "type": "string",
-      "dbType": "varchar(355)"
+      "dbType": "varchar(3)"
     }
   }
 

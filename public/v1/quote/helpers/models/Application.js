@@ -1,10 +1,11 @@
+/* eslint-disable prefer-const */
 /* eslint-disable no-catch-shadow */
 /**
  * Defines a single industry code
  */
 
 'use strict';
-
+const moment = require('moment');
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
@@ -13,7 +14,7 @@ const get_questions = global.requireShared('./helpers/getQuestions.js');
 const htmlentities = require('html-entities').Html5Entities;
 const AgencyLocation = require('./AgencyLocation.js');
 const Business = require('./Business.js');
-const Insurer = require('./Insurer.js');``
+const Insurer = require('./Insurer.js');
 const Policy = require('./Policy.js');
 const Question = require('./Question.js');
 const serverHelper = require('../../../../../server.js');
@@ -21,6 +22,9 @@ const validator = global.requireShared('./helpers/validator.js');
 const helper = global.requireShared('./helpers/helper.js');
 
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
+const ApplicationBO = global.requireShared('./models/Application-BO.js');
+const ApplicationPolicyTypeBO = global.requireShared('./models/ApplicationPolicyType-BO.js');
+const ApplicationQuestionBO = global.requireShared('./models/ApplicationQuestion-BO.js');
 
 module.exports = class Application {
     constructor() {
@@ -31,6 +35,112 @@ module.exports = class Application {
         this.policies = [];
         this.questions = {};
     }
+
+    /**
+	 * Populates this object based on applicationId in the request
+	 *
+	 * @param {object} data - The application data
+	 * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
+	 */
+    async load(data) {
+        log.verbose('Loading data into Application');
+
+        // ID
+        this.id = parseInt(data.id, 10);
+
+        // load application from database.
+        let error = null
+        let applicationBO = new ApplicationBO();
+        await applicationBO.loadFromId(this.id).catch(function(err) {
+            error = err;
+            log.error("Unable to get application for quoting appId: " + data.id + __location);
+        });
+
+        if (error) {
+            throw error;
+        }
+        //LastStep check.
+        // this.state > 15, 16 is finished.
+        if(applicationBO.state > 15){
+            log.warn("An attempt to quote application that is finished.")
+            throw new Error("Finished Application cannot be quoted")
+
+        }
+        //age check - TODO add override Age parameter to allow requoting.
+        const dbCreated = moment(applicationBO.created);
+        const nowTime = moment().utc();
+        const ageInMinutes = nowTime.diff(dbCreated, 'minutes');
+        log.debug('Application age in minutes ' + ageInMinutes);
+        if(ageInMinutes > 60){
+            log.warn(`Attempt to update an old application. appid ${this.id}` + __location);
+            throw new Error("Data Error: Application may not be updated do to age.");
+        }
+
+        //log.debug("applicationBO: " + JSON.stringify(applicationBO));
+
+        // Load the business information
+        this.business = new Business();
+        try {
+            await this.business.load(applicationBO.business, applicationBO);
+        }
+        catch (err) {
+            throw err;
+        }
+
+
+        // eslint-disable-next-line prefer-const
+        let appPolicyTypeList = [];
+        // Load the policy information
+
+        let applicationPolicyTypeBO = new ApplicationPolicyTypeBO()
+        let policyTypeList = await applicationPolicyTypeBO.loadFromApplicationId(this.id).catch(function(err) {
+            error = err;
+            log.error("Unable to load list of applicationPolicyTypeBO for quoting appId: " + data.id + __location);
+        });
+        if (error) {
+            throw error;
+        }
+        for (let i = 0; i < policyTypeList.length; i++) {
+            const policyTypeBO = policyTypeList[i];
+            const p = new Policy(this.business);
+            await p.load(policyTypeBO, this.id, applicationBO, data.policies);
+            this.policies.push(p);
+            appPolicyTypeList.push(policyTypeBO.policy_type);
+        }
+
+        // data.policies.forEach((policy) => {
+        //     const p = new Policy(this.business);
+        //     p.load(policy);
+        //     this.policies.push(p);
+        //     appPolicyTypeList.push(p.type);
+        // });
+        //update business with policy type list.
+        this.business.setPolicyTypeList(appPolicyTypeList);
+        // Agent
+        this.agencyLocation = new AgencyLocation(this.business, this.policies);
+        // Note: The front-end is sending in 'agent' but this is really a reference to the 'agency location'
+        if (data.agent) {
+            await this.agencyLocation.load({id: data.agent});
+        }
+        else {
+            await this.agencyLocation.load({id: 1}); // This is Talage's agency location record
+        }
+
+        //this.questions = data.questions;
+        let applicationQuestionBO = new ApplicationQuestionBO();
+        const GET_QUESTION_LIST = true;
+        this.questions = await applicationQuestionBO.loadFromApplicationId(this.id,GET_QUESTION_LIST).catch(function(err){
+            log.error("Quote Application error get question list " + err + __location);
+            error = err;
+        })
+        if (error) {
+            throw error;
+        }
+
+
+        //throw new Error("stop");
+    }
+
 
 	/**
 	 * Returns an array of IDs that represent the active insurance carriers (limited by the selections in the API request)
@@ -47,11 +157,13 @@ module.exports = class Application {
 	 * Returns a list of the active insurers in the Talage System. Will return only desired insurers based on the request
 	 * received from the user. If no desired insurers are specified, will return all insurers.
 	 *
-	 * @param {object} requestedInsurers - Array of insurer slugs
 	 * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
 	 */
-    get_insurers(requestedInsurers) {
+    get_insurers() {
+        // requestedInsureres not longer sent from Web app.
+        //get_insurers(requestedInsurers) {
         return new Promise(async(fulfill, reject) => {
+            log.debug("IN GET INSURERS FROM REQUESTED INSURERS")
             // Get a list of desired insurers
             let desired_insurers = [];
             let stop = false;
@@ -128,11 +240,6 @@ module.exports = class Application {
             // Wait for all the insurers to initialize
             await Promise.all(insurer_promises);
 
-            // Filter the allowed insurers to only those that are requested
-            if (requestedInsurers && requestedInsurers.length > 0) {
-                insurers = insurers.filter((insurer) => requestedInsurers.includes(insurer.slug));
-            }
-
             // Store and return the insurers
             this.insurers = insurers;
             fulfill(insurers);
@@ -173,50 +280,6 @@ module.exports = class Application {
         return rtn;
     }
 
-	/**
-	 * Populates this object with data from the request
-	 *
-	 * @param {object} data - The application data
-	 * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
-	 */
-    async load(data) {
-        log.verbose('Loading data into Application');
-
-        // Load the business information
-        this.business = new Business();
-        try {
-            await this.business.load(data.business);
-        }
-        catch (error) {
-            throw error;
-        }
-
-        // ID
-        this.id = parseInt(data.id, 10);
-
-        // eslint-disable-next-line prefer-const
-        let appPolicyTypeList = [];
-        // Load the policy information
-        data.policies.forEach((policy) => {
-            const p = new Policy(this.business);
-            p.load(policy);
-            this.policies.push(p);
-            appPolicyTypeList.push(p.type);
-        });
-        //update business with policy type list.
-        this.business.setPolicyTypeList(appPolicyTypeList);
-         // Agent
-         this.agencyLocation = new AgencyLocation(this.business, this.policies);
-         // Note: The front-end is sending in 'agent' but this is really a reference to the 'agency location'
-         if (data.agent) {
-             await this.agencyLocation.load({id: data.agent});
-         }
-         else {
-             await this.agencyLocation.load({id: 1}); // This is Talage's agency location record
-         }
-
-        this.questions = data.questions;
-    }
 
 	/**
 	 * Begins the process of getting and returning quotes from insurers
@@ -528,10 +591,9 @@ module.exports = class Application {
 	/**
 	 * Checks that the data supplied is valid
 	 *
-	 * @param {object} requestedInsurers - Array of insurer slugs
 	 * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
 	 */
-    validate(requestedInsurers) {
+    validate() {
         return new Promise(async(fulfill, reject) => {
             let stop = false;
 
@@ -560,10 +622,12 @@ module.exports = class Application {
             }
 
             // Get a list of insurers and wait for it to return
-            const insurers = await this.get_insurers(requestedInsurers).catch(async(error) => {
+            // Determine if WholeSale shoud be used.  (this might have already been determined in the app workflow.)
+            const insurers = await this.get_insurers().catch(async(error) => {
                 if (error === 'Agent does not support this request') {
                     if (this.agencyLocation.wholesale) {
                         // Switching to the Talage agent
+                        log.info("Quote Application model Switching to the Talage agent appId: " + this.id + __location)
                         this.agencyLocation = new AgencyLocation(this);
                         await this.agencyLocation.load({id: 1}); // This is Talage's agency location record
 
@@ -606,26 +670,26 @@ module.exports = class Application {
             if (stop) {
                 return;
             }
-             //Rules related Business rules based on application level data. 
-            /**
+            //Rules related Business rules based on application level data.
+			/**
 			 * Management Structure (required only for LLCs in MT)
 			 * - Must be either 'member' or 'manager'
 			 */
-			if(this.has_policy_type('WC') && this.business.entity_type === 'Limited Liability Company' && this.business.primary_territory === 'MT'){
-                if(this.business.management_structure){
-					if(!validator.management_structure(this.business.management_structure)){
+            if (this.has_policy_type('WC') && this.business.entity_type === 'Limited Liability Company' && this.business.primary_territory === 'MT') {
+                if (this.business.management_structure) {
+                    if (!validator.management_structure(this.business.management_structure)) {
                         log.warn(`Invalid management structure. Must be either "member" or "manager."` + this.id + __location)
-						reject(serverHelper.requestError('Invalid management structure. Must be either "member" or "manager."'));
-						return;
-					}
-				}
-				else {
-					reject(serverHelper.requestError('Missing required field: management_structure'));
-					return;
-				}
-			}
+                        reject(serverHelper.requestError('Invalid management structure. Must be either "member" or "manager."'));
+                        return;
+                    }
+                }
+                else {
+                    reject(serverHelper.requestError('Missing required field: management_structure'));
+                    return;
+                }
+            }
 
-            /**
+			/**
 			 * Corporation type (required only for WC for Corporations in PA that are excluding owners)
 			 * - Must be one of 'c', 'n', or 's'
 			 */
@@ -658,7 +722,7 @@ module.exports = class Application {
                 }
             }
 
-            /**
+			/**
 			 * Unincorporated Association (Required only for WC, in NH, and for LLCs and Corporations)
 			 */
             if (this.has_policy_type('WC') && (this.business.entity_type === 'Corporation' || this.business.entity_type === 'Limited Liability Company') && this.business.primary_territory === 'NH') {
@@ -678,9 +742,6 @@ module.exports = class Application {
                 // Prepare the value for later use
                 this.business.unincorporated_association = helper.convert_to_boolean(this.business.unincorporated_association);
             }
-
-
-
 
 
             // Validate all policies

@@ -1,3 +1,4 @@
+/* eslint-disable prefer-const */
 /**
  * Defines a single industry code
  */
@@ -7,6 +8,7 @@
 const ActivityCode = require('./ActivityCode.js');
 const serverHelper = require('../../../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
+const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
 
 module.exports = class Location {
 
@@ -38,7 +40,7 @@ module.exports = class Location {
 	 * @param {object} data - The business data
 	 * @returns {void}
 	 */
-    load(data) {
+    async load(data) {
         Object.keys(this).forEach((property) => {
             if (!Object.prototype.hasOwnProperty.call(data, property)) {
                 return;
@@ -51,6 +53,9 @@ module.exports = class Location {
 
             // Perform property specific tasks
             switch (property) {
+                case "identification_number":
+                    this[property] = data.ein;
+                    break;
                 case 'activity_codes':
                     data[property].forEach((c) => {
                         // Check if we have already seen this activity code
@@ -82,10 +87,25 @@ module.exports = class Location {
                     this[property] = parseInt(data[property], 10);
                     break;
                 default:
-                    this[property] = data[property];
+                    if(data[property]){
+                        this[property] = data[property];
+                    }
                     break;
             }
+        }); //object loop
+
+        //Process zip.
+        let error = null;
+        let zipCodeBO = new ZipCodeBO();
+        await zipCodeBO.loadByZipCode(this.zip).catch(function(err) {
+            error = err;
+            log.error("Unable to get ZipCode records for quoting locationId: " + data.id + __location);
         });
+        if (error) {
+            throw error;
+        }
+        this.territory = zipCodeBO.territory
+        this.city = zipCodeBO.city;
     }
 
     setPolicyTypeList(appPolicyTypeList){
