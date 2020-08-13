@@ -143,19 +143,19 @@ var quoteReportTask = async function(){
             return;
         }
         else {
-            log.error("Quote Report JSON to CSV error: csvData empty file: " + __location);
+            log.error("Agency Report JSON to CSV error: csvData empty file: " + __location);
             return;
         }
     }
     else {
-        log.info("Quote Report: No quotes to report ");
+        log.info("Agency Report: No agencies to report ");
         let toEmail = 'adam@talageins.com';
         if(global.settings.ENV !== 'production'){
             toEmail = 'brian@talageins.com';
         }
-        const emailResp = await emailSvc.send(toEmail, 'Quote Report', 'Your daily quote report: No Quotes.', {}, 'talage', 1);
+        const emailResp = await emailSvc.send(toEmail, '"Agency Report', 'Your "Agency Report report: No Agencies.', {}, 'talage', 1);
         if(emailResp === false){
-            slack.send('#alerts', 'warning',`The system failed to send Quote Report email.`);
+            slack.send('#alerts', 'warning',`The system failed to send "Agency Report email.`);
         }
         return;
     }
