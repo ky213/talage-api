@@ -30,31 +30,11 @@ module.exports = class Claim{
 
         this.amountPaid = claimBO.amount_paid;
 		this.amountReserved = claimBO.amount_reserved;
-		this.date = claimBO.date;
+		this.date = moment(claimBO.date);
 
 		// Worker's Compensation Claims
-		this.missedWork = claimBO.missed_work;
+		this.missedWork = Boolean(claimBO.missed_work);
 		this.open = Boolean(claimBO.open);
-	
-		// Object.keys(this).forEach((property) => {
-		// 	if(!Object.prototype.hasOwnProperty.call(data, property)){
-		// 		return;
-		// 	}
-
-		// 	// Trim whitespace
-		// 	if(typeof data[property] === 'string'){
-		// 		data[property] = data[property].trim();
-		// 	}
-
-		// 	switch(property){
-		// 		case 'date':
-		// 			this[property] = moment(data[property], 'YYYY-MM-DD');
-		// 			break;
-		// 		default:
-		// 			this[property] = data[property];
-		// 			break;
-		// 	}
-		// });
 	}
 
 	/**

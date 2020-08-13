@@ -118,7 +118,7 @@ module.exports = class ApplicationClaimBO{
                         await applicationClaimBO.#dbTableORM.convertJSONColumns(result[i]);
                       
                         const resp = await applicationClaimBO.loadORM(result[i], skipCheckRequired).catch(function(err){
-                            log.error(`loadFromBusinessId error loading object: ` + err + __location);
+                            log.error(`loadFromApplicationId error loading object: ` + err + __location);
                             //not reject on issues from database object.
                             //reject(err);
                         })
@@ -185,6 +185,10 @@ module.exports = class ApplicationClaimBO{
             }
         }
     }
+
+    cleanJSON(noNulls = true){
+		return this.#dbTableORM.cleanJSON(noNulls);
+	}
 
     updateProperty(){
         const dbJSON = this.#dbTableORM.cleanJSON()

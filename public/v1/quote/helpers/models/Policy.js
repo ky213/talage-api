@@ -140,16 +140,8 @@ module.exports = class Policy {
 
 
     formatLimits(dbLimit) {
-      const individualLimits = dbLimit.match(/[1-9]+0*/g);
-      log.debug("individualLimits.join('/') " + individualLimits.join('/'));
-	    // Separate each ammount with a '/'
-	    return individualLimits.join('/');
-        // if (this.policyLimitMap[dbLimit]) {
-        //     return this.policyLimitMap[dbLimit];
-        // }
-        // else {
-        //     log.error("Missing policyLimitMap entry for " + dbLimit + __location);
-        // }
+        const individualLimits = dbLimit.match(/[1-9]+0*/g);
+       return individualLimits.join('/');
     }
 
 	/**

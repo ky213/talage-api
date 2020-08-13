@@ -156,7 +156,10 @@ module.exports = class Business {
                         this[property] = foundDtm;
                         break;
                     case 'owners':
-                        this[property] = Array.isArray(data2[property]) ? data2[property] : [];
+                        if(data2.owners){
+                            const ownerJSON = JSON.parse(data2.owners);
+                            this[property] = ownerJSON;
+                        }
                         break;
                     case "Identification Number":
                         break;

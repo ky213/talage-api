@@ -1355,7 +1355,7 @@ module.exports = class Integration {
                 LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON aca.insurer_code = inc.id
             WHERE inc.insurer = ${this.insurer.id} AND (${whereCombinations.join(' OR ')});
             `;
-            log.debug("_insurer_supports_activity_codes sql: " + sql);
+            //log.debug("_insurer_supports_activity_codes sql: " + sql);
             const codes = await db.query(sql).catch((error) => {
                 log.error(error + __location);
                 this.reasons.push('System Error: insurer_supports_activity_codes() failed to get codes.');
