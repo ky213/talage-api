@@ -124,19 +124,19 @@ var quoteReportTask = async function(){
             // send email
             // Production email goes to Adam.
             // non production Brian so we can test it.
-            let toEmail = 'adam@talageins.com';
+            let toEmail = 'adan@talageins.com';
             if(global.settings.ENV !== 'production'){
                 toEmail = 'brian@talageins.com';
             }
             const attachmentJson = {
                 'content': csvContent,
-                'filename': 'quotes.csv',
+                'filename': 'AgencyReport.csv',
                 'type': 'text/csv',
                 'disposition': 'attachment'
             };
             const attachments = [];
             attachments.push(attachmentJson);
-            const emailResp = await emailSvc.send(toEmail, 'Quote Report', 'Your daily quote report is attached.', {}, 'talage', 1, attachments);
+            const emailResp = await emailSvc.send(toEmail, 'Agency Report', 'Monthly report with number of agencies, active/inactive, and onboarding dates as of the 1st of that month.', {}, 'talage', 1, attachments);
             if(emailResp === false){
                 slack.send('#alerts', 'warning',`The system failed to send Quote Report email.`);
             }
