@@ -2,6 +2,7 @@
 'use strict';
 
 const moment = require('moment');
+const moment_timezone = require('moment-timezone');
 const util = require("util");
 const csvStringify = util.promisify(require("csv-stringify"));
 // eslint-disable-next-line no-unused-vars
@@ -61,17 +62,9 @@ exports.taskProcessorExternal = async function(){
 }
 
 var quoteReportTask = async function(){
-
-    const yesterdayBegin = moment.tz("America/Los_Angeles").subtract(1,'d').startOf('day');
-    const yesterdayEnd = moment.tz("America/Los_Angeles").subtract(1,'d').endOf('day');
-
+    
     const startOfMonth = moment().subtract(4, 'month');
-    const currentDate = moment().utc().format()
-    // const twoHourAgo = moment().subtract(2,'h');
-    console.log("")
-    console.log(yesterdayBegin);
-    console.log(startOfMonth);
-    console.log("")
+    const currentDate = moment().utc().format(db.dbTimeFormat())
 
     //S QLAgency locations
     const quoteSQL = `
@@ -81,8 +74,7 @@ var quoteReportTask = async function(){
             clw_talage_agencies 
         where 
             state = 1
-            AND created BETWEEN '${startOfMonth.utc().format()}' AND '${currentDate}'
-    `;
+            AND created BETWEEN '${startOfMonth.utc().format(db.dbTimeFormat())}' AND '${currentDate}'`;
     let quoteListDBJSON = null;
 
     quoteListDBJSON = await db.query(quoteSQL).catch(function(err){
@@ -104,26 +96,20 @@ var quoteReportTask = async function(){
     if(quoteListDBJSON && quoteListDBJSON.length > 0){
         for(let i = 0; i < quoteListDBJSON.length; i++){
             const quote = quoteListDBJSON[i];
-            //split activity_codes
-            if(quote.activity_codes){
-                const activityCodeList = quote.activity_codes.split(",")
-                if (activityCodeList.length > 0) quote.activitycode1 = activityCodeList[0];
-                if (activityCodeList.length > 1) quote.activitycode2 = activityCodeList[1];
-                if (activityCodeList.length > 2) quote.activitycode3 = activityCodeList[2];
+            
+            quote.created = moment_timezone(quote.created).tz('America/Los_Angeles').format('YYYY-MM-DD');
+            quote.modified = moment_timezone(quote.modified).tz('America/Los_Angeles').format('YYYY-MM-DD');
+            if(quote.deleted){
+                quote.deleted = moment_timezone(quote.deleted).tz('America/Los_Angeles').format('YYYY-MM-DD');
             }
+            
         }
 
         //Map Quote list to CSV
         // eslint-disable-next-line object-property-newline
         const stringifyOptions = {
                                     "header": true,
-                                    "columns": cvsHeaderColumns,
-                                    "cast": {
-                                        created: function(value) {
-                                            return value.format("YYYY/MM/DD hh:mm:ss");
- 
-                                        }
-                                    }
+                                    "columns": cvsHeaderColumns
                                  };
 
         const csvData = await csvStringify(quoteListDBJSON, stringifyOptions).catch(function(err){
