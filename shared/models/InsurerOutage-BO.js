@@ -167,6 +167,7 @@ module.exports = class InsurerOutageBO{
 	 */
     async loadORM(inputJSON){
         await this.#dbTableORM.load(inputJSON, skipCheckRequired);
+        this.updateProperty();
         return true;
     }
 
