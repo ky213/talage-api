@@ -449,11 +449,11 @@ processQuestions(questions){
             let valueLine = '';
             if(question.type === 'text'){
                 const cleanString = question.answer.replace(/\|/g,',')
-                valueLine = `(${this.id}, ${question.id}, NULL, '${cleanString}')`
+                valueLine = `(${this.id}, ${question.id}, NULL, ${db.escape(cleanString)})`
 
             } else if (question.type === 'array'){
                 const arrayString = "|" + question.answer.join('|');
-                valueLine = `(${this.id}, ${question.id},NULL, '${arrayString}')`
+                valueLine = `(${this.id}, ${question.id},NULL, ${db.escape(arrayString)}))`
             }
             else {
                 valueLine = `(${this.id}, ${question.id}, ${question.answer}, NULL)`
