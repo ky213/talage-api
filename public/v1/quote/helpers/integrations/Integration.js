@@ -865,6 +865,7 @@ module.exports = class Integration {
             // Store the quote letter in our cloud storage
             try {
                 // Store the quote letter in our cloud storage
+                // TODO Secure
                 const result = await fileSvc.PutFile(`secure/quote-letters/${fileName}`, this.quote_letter.data);
                 // The file was successfully saved, store the file name in the database
                 if (result && Object.prototype.hasOwnProperty.call(result, 'code') && result.code === 'Success') {
