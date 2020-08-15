@@ -62,7 +62,10 @@ const requiredVariables = [
 const optionalVariables = [
     'AWS_USE_KEYS',
     'USE_MONGO',
-    'S3_SECURE_BUCKET'
+    'S3_SECURE_BUCKET',
+    'MONGODB_CONNECTIONURL',
+    'MONGODB_DATABASENAME',
+    'MONGODB_CONNECTIONURLQUERY'
 ]
 exports.load = () => {
     let variables = {};
