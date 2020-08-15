@@ -160,7 +160,7 @@ module.exports = class AgencyNetworkBO{
         FROM clw_talage_agency_networks
         WHERE id = ${db.escape(agencyNetworkId)}
         `;
-        log.debug("emailContent SQL: " + emailContentSQL);
+       // log.debug("emailContent SQL: " + emailContentSQL);
         let error = null;
         const emailContentResultArray = await db.query(emailContentSQL).catch(function(err){
             log.error(`DB Error Unable to get email content for abandon quote. appid: ${applicationId}.  error: ${err}` +  __location);
