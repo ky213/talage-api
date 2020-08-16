@@ -193,7 +193,7 @@ function GetFileSecure(req, res, next){
         delete data.Metadata;
         delete data.TagCount;
 
-        log.info('Returning file');
+        //log.info('Returning file');
 
         // Send the data back to the user
         res.send(200, data);
