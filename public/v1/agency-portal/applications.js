@@ -545,5 +545,6 @@ async function getApplications(req, res, next){
 }
 
 exports.registerEndpoint = (server, basePath) => {
-	server.addPostAuth('Get applications', `${basePath}/applications`, getApplications, 'applications', 'view');
+    server.addPostAuth('Get applications', `${basePath}/applications`, getApplications, 'applications', 'view');
+    server.addGetAuth('Get applications', `${basePath}/applications`, getApplications, 'applications', 'view');
 };

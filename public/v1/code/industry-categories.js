@@ -1,4 +1,3 @@
-
 /**
  * Handles all tasks related to managing multiple industry code categories
  */
@@ -14,31 +13,30 @@
  *
  * @returns {void}
  */
-async function GetIndustryCategories(req, res, next){
-
+async function GetIndustryCategories(req, res, next) {
 	// Request for all featured categories with associated codes
 	let error = false;
 	const sql_all_industry_categories = 'SELECT DISTINCT `icc`.`id`, `icc`.`name` FROM `#__industry_code_categories` AS `icc` RIGHT JOIN `#__industry_codes` AS `ic` ON `icc`.`id` = `ic`.`category` WHERE `icc`.`featured` = 1 AND `icc`.`state` = 1 ORDER BY `icc`.`name`;';
-	const categories = await db.query(sql_all_industry_categories).catch(function(e){
+	const categories = await db.query(sql_all_industry_categories).catch(function (e) {
 		log.warn(e.message);
 		res.send(500, {
-			'message': 'Internal Server Error',
-			'status': 'error'
+			message: 'Internal Server Error',
+			status: 'error'
 		});
 		error = true;
 	});
-	if(error){
+	if (error) {
 		return next(false);
 	}
-	if(categories && categories.length){
-		log.info(`Returning ${categories.length} Industry Code Categories`);
+	if (categories && categories.length) {
+		// log.info(`Returning ${categories.length} Industry Code Categories`);
 		res.send(200, categories);
 		return next();
 	}
 	log.info('No Categories Available');
 	res.send(404, {
-		'message': 'No Categories Available',
-		'status': 'error'
+		message: 'No Categories Available',
+		status: 'error'
 	});
 	return next(false);
 }

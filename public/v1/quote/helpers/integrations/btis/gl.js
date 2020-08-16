@@ -191,8 +191,14 @@ module.exports = class BtisGL extends Integration {
 			}
 
 			// The applicant has not completed any work involving apartment conversions, construction work involving condominiums, town homes or time shares in the past 10 years, nor does the applicant plan to in the future.
-			data.BusinessInformation.PerformNewResidentialWork = !this.questions['948'].get_answer_as_boolean();
-			data.BusinessInformation.DescriptionOfOperations = this.get_operation_description();
+            if(this.questions['948']){
+                data.BusinessInformation.PerformNewResidentialWork = !this.questions['948'].get_answer_as_boolean();
+            }
+            else {
+                log.error("BTIS GL missing this.questions['948'] appId: " + this.app.id + __location);
+            }
+
+            data.BusinessInformation.DescriptionOfOperations = this.get_operation_description();
 
 			// Primary Address
 			data.BusinessInformation.PrimaryAddress = {};

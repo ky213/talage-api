@@ -11,7 +11,7 @@ const https = require('https');
 const moment = require('moment');
 const util = require('util');
 const {v4: uuidv4} = require('uuid');
-const xmlToObj = require('xml2js').parseString;
+const xmlToObj = util.promisify(require('xml2js').parseString);
 const serverHelper = require('../../../../../server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
@@ -480,7 +480,7 @@ module.exports = class Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing question information if resolved, or an Error if rejected
 	 */
     get_question_identifiers() {
-        log.info('get_question_identifiers FUNCTION IS DEPRECATED AND WILL BE REMOVED. USE get_question_details() INSTEAD WHICH RETURNS MORE DATA IN ONE QUERY');
+        // log.info('get_question_identifiers FUNCTION IS DEPRECATED AND WILL BE REMOVED. USE get_question_details() INSTEAD WHICH RETURNS MORE DATA IN ONE QUERY');
         return new Promise(async(fulfill, reject) => {
             // Build an array of question IDs to retrieve
             const question_ids = Object.keys(this.questions);
@@ -806,18 +806,22 @@ module.exports = class Integration {
             log.error('Unable to encrypt log. Proceeding anyway. ' + err + __location);
         });
 
-        const columns = ['application',
+        const columns = [
+            'application',
             'insurer',
             'log',
             'policy_type',
             'seconds',
-            'created'];
-        const values = [this.app.id,
-        this.insurer.id,
-        encrypted_log ? encrypted_log : '',
-        this.policy.type,
-        this.seconds,
-        moment().format('YYYY-MM-DD HH:mm:ss')];
+            'created'
+        ];
+        const values = [
+            this.app.id,
+            this.insurer.id,
+            encrypted_log ? encrypted_log : '',
+            this.policy.type,
+            this.seconds,
+            moment().format('YYYY-MM-DD HH:mm:ss')
+        ];
 
         // Amount
         if (amount) {
@@ -861,6 +865,7 @@ module.exports = class Integration {
             // Store the quote letter in our cloud storage
             try {
                 // Store the quote letter in our cloud storage
+                // TODO Secure
                 const result = await fileSvc.PutFile(`secure/quote-letters/${fileName}`, this.quote_letter.data);
                 // The file was successfully saved, store the file name in the database
                 if (result && Object.prototype.hasOwnProperty.call(result, 'code') && result.code === 'Success') {
@@ -928,7 +933,7 @@ module.exports = class Integration {
 	 * @returns {object} - An error object
 	 */
     async return_error(type, message) {
-        log.info(`${this.insurer.name} returned an error of type ${type} for a ${this.policy.type} policy: ${message}`);
+        log.info(`${this.insurer.name} returned an error of type ${type} for a ${this.policy.type} policy: ${message}` + __location);
 
         // If there were reasons, make sure we write them to the log
         if (this.reasons.length > 0) {
@@ -1124,9 +1129,11 @@ module.exports = class Integration {
             }
 
             // Check that we have a valid method
-            if (!['GET',
+            if (![
+                'GET',
                 'POST',
-                'PUT'].includes(method)) {
+                'PUT'
+            ].includes(method)) {
                 const error = new Error('Invalid method provided to send_request()');
                 log.error(error.message + __location);
                 reject(error);
@@ -1264,47 +1271,48 @@ module.exports = class Integration {
 	 * @param {object} additional_headers (optional) - Additional headers to be sent with the request
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
 	 */
-    send_xml_request(host, path, xml, additional_headers) {
-        return new Promise(async(fulfill, reject) => {
-            // If we don't have additional headers, start an object to append
-            if (!additional_headers) {
-                additional_headers = {};
-            }
+    async send_xml_request(host, path, xml, additional_headers) {
+        // return new Promise(async(fulfill, reject) => {
+        // If we don't have additional headers, start an object to append
+        if (!additional_headers) {
+            additional_headers = {};
+        }
 
-            // Add in the content length header
-            additional_headers['Content-Length'] = Buffer.byteLength(xml);
+        // Add in the content length header
+        additional_headers['Content-Length'] = Buffer.byteLength(xml);
 
-            // Add in the XML specific headers
-            if (!Object.prototype.hasOwnProperty.call(additional_headers, 'Content-Type')) {
-                additional_headers['Content-Type'] = 'text/xml';
-            }
+        // Add in the XML specific headers
+        if (!Object.prototype.hasOwnProperty.call(additional_headers, 'Content-Type')) {
+            additional_headers['Content-Type'] = 'text/xml';
+        }
 
-            // Send the request
-            await this.send_request(host, path, xml, additional_headers, 'POST').
-                then((raw_data) => {
-                    // Convert the data to a string
-                    const str_data = raw_data.toString();
+        // Send the request
+        let raw_data = null;
+        try {
+            raw_data = await this.send_request(host, path, xml, additional_headers, 'POST');
+        }
+        catch (error) {
+            log.error(`Integration send_request error: ${error}` + __location);
+            // reject(error);
+            throw error;
+        }
+        // Convert the data to a string
+        const str_data = raw_data.toString();
 
-                    // Convert the response to XML
-                    xmlToObj(str_data, (err, result) => {
-                        if (err) {
-                            const errData = {
-                                // eslint-disable-line prefer-promise-reject-errors
-                                message: 'Response from API was not XML',
-                                raw: str_data
-                            }
-                            reject(new Error(JSON.stringify(errData)));
-                            return;
-                        }
-
-                        fulfill(result);
-                    });
-                }).
-                catch((error) => {
-                    log.error(`Integration send_request error: ${error}` + __location)
-                    reject(error);
-                });
-        });
+        // Convert the response to XML
+        let result = null;
+        try {
+            result = xmlToObj(str_data);
+        }
+        catch (error) {
+            const errData = {
+                // eslint-disable-line prefer-promise-reject-errors
+                message: 'Response from API was not XML',
+                raw: str_data
+            };
+            throw new Error(JSON.stringify(errData));
+        }
+        return result;
     }
 
 	/**
@@ -1347,7 +1355,8 @@ module.exports = class Integration {
                 LEFT JOIN clw_talage_activity_code_associations AS aca ON ac.id = aca.code
                 LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON aca.insurer_code = inc.id
             WHERE inc.insurer = ${this.insurer.id} AND (${whereCombinations.join(' OR ')});
-			`;
+            `;
+            //log.debug("_insurer_supports_activity_codes sql: " + sql);
             const codes = await db.query(sql).catch((error) => {
                 log.error(error + __location);
                 this.reasons.push('System Error: insurer_supports_activity_codes() failed to get codes.');
@@ -1355,7 +1364,7 @@ module.exports = class Integration {
             });
 
             if (!codes.length) {
-                log.warn(`autodeclined: no codes  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location)
+                log.warn(`autodeclined: no codes  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
                 this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code');
                 fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 return;
@@ -1363,7 +1372,7 @@ module.exports = class Integration {
 
             // Make sure the number of codes matched (otherwise there were codes unsupported by this insurer)
             if (Object.keys(wcCodes).length !== codes.length) {
-                log.warn(`autodeclined: Code length do not match  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location)
+                log.warn(`autodeclined: Code length do not match  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
                 this.reasons.push('Out of Appetite: The insurer does not support one or more of the selected activity codes');
                 fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 return;
@@ -1372,7 +1381,7 @@ module.exports = class Integration {
             // Load the codes locally
             codes.forEach((code) => {
                 if (code.result === 0) {
-                    log.warn(`autodeclined: Code length do not match  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location)
+                    log.warn(`autodeclined: Code length do not match  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
                     this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code');
                     fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                     hadError = true;
@@ -1382,7 +1391,7 @@ module.exports = class Integration {
                     this.insurer_wc_codes[code.territory + code.id] = code.code + (code.sub ? code.sub : '');
                     return;
                 }
-                log.warn(`autodeclined: this.insurer_wc_codes ${this.insurer_wc_codes} insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location)
+                log.warn(`autodeclined: this.insurer_wc_codes ${this.insurer_wc_codes} insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
                 this.reasons.push('Out of Appetite: The insurer does not support one or more of the selected activity codes');
                 fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 hadError = true;
@@ -1409,12 +1418,13 @@ module.exports = class Integration {
                             LEFT JOIN  clw_talage_insurer_industry_codes AS iic ON ((iic.type = 'i' AND iic.code = ic.iso) OR (iic.type = 'c' AND iic.code = ic.cgl) OR (iic.type = 'n' AND iic.code = ic.naics) OR (iic.type = 's' AND iic.code = ic.sic)) 
                                                                                     AND  iic.insurer = ${this.insurer.id} AND iic.territory = '${this.app.business.primary_territory}'
                         WHERE  ic.id = ${this.app.business.industry_code}  LIMIT 1;`;
+           // log.debug("_insurer_supports_industry_codes sql: " + sql);
             const result = await db.query(sql).catch((err) => {
-                log.error(`Integration: _insurer_supports_industry_codes query error ${err} ` + __location)
+                log.error(`Integration: _insurer_supports_industry_codes query error ${err} ` + __location);
                 fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
             });
             if (!result || !result.length) {
-                log.warn(`autodeclined: no database result insurer: ${this.insurer.id} ${this.app.business.primary_territory} ic.id = ${this.app.business.industry_code} ` + __location)
+                log.warn(`autodeclined: no database result insurer: ${this.insurer.id} ${this.app.business.primary_territory} ic.id = ${this.app.business.industry_code} ` + __location);
                 this.reasons.push('Out of Appetite: The insurer does not support the industry code selected');
                 fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 return;
@@ -1428,6 +1438,7 @@ module.exports = class Integration {
             }
             else {
                 this.industry_code.attributes = '';
+                log.warn(`No Industry_code attributes:  ${this.insurer.id} and ${this.app.business.primary_territory}` + __location);
             }
 
             fulfill(true);
