@@ -30,7 +30,7 @@ var hasMongoMadeInitialConnected = false;
  * @returns {void}
  */
 function logInfoMessage(message){
-	log.info(message);
+    log.info(message);
 }
 
 /**
@@ -40,7 +40,7 @@ function logInfoMessage(message){
  * @returns {void}
  */
 function logErrorMessage(message){
-	log.error(message + __location);
+    log.error(message + __location);
 }
 
 /**
@@ -50,11 +50,11 @@ function logErrorMessage(message){
  * @returns {void}
  */
 function logLocalErrorMessage(message){
-	if(global.log){
-		log.error(message + __location);
-	}
-	// eslint-disable-next-line no-console
-	console.log(colors.red(message));
+    if(global.log){
+        log.error(message + __location);
+    }
+    // eslint-disable-next-line no-console
+    console.log(colors.red(message));
 }
 
 /**
@@ -63,55 +63,55 @@ function logLocalErrorMessage(message){
  * @returns {void}
  */
 async function main(){
-	// eslint-disable-next-line no-console
-	console.log(Date());
-	// eslint-disable-next-line no-console
-	console.log(colors.green.bold('-'.padEnd(80, '-')));
-	// eslint-disable-next-line no-console
-	console.log(colors.green.bold('Initializing'));
-	// eslint-disable-next-line no-console
-	console.log(colors.green.bold('-'.padEnd(80, '-')));
-	// eslint-disable-next-line no-console
-	console.log(Date());
+    // eslint-disable-next-line no-console
+    console.log(Date());
+    // eslint-disable-next-line no-console
+    console.log(colors.green.bold('-'.padEnd(80, '-')));
+    // eslint-disable-next-line no-console
+    console.log(colors.green.bold('Initializing'));
+    // eslint-disable-next-line no-console
+    console.log(colors.green.bold('-'.padEnd(80, '-')));
+    // eslint-disable-next-line no-console
+    console.log(Date());
 
-	// Load the settings from a .env file - Settings are loaded first
-	if(!globalSettings.load()){
-		logLocalErrorMessage('Error loading variables. Stopping.');
-		return;
-	}
+    // Load the settings from a .env file - Settings are loaded first
+    if(!globalSettings.load()){
+        logLocalErrorMessage('Error loading variables. Stopping.');
+        return;
+    }
 
-	// Initialize the version
-	if(!await version.load()){
-		logLocalErrorMessage('Error initializing version. Stopping.');
-		return;
-	}
+    // Initialize the version
+    if(!await version.load()){
+        logLocalErrorMessage('Error initializing version. Stopping.');
+        return;
+    }
 
-	// Connect to the logger
-	if(!logger.connect()){
-		logLocalErrorMessage('Error connecting to logger. Stopping.');
-		return;
-	}
+    // Connect to the logger
+    if(!logger.connect()){
+        logLocalErrorMessage('Error connecting to logger. Stopping.');
+        return;
+    }
 
-	// Connect to the database
-	if(!await db.connect()){
-		logLocalErrorMessage('Error connecting to database. Stopping.');
-		return;
-	}
+    // Connect to the database
+    if(!await db.connect()){
+        logLocalErrorMessage('Error connecting to database. Stopping.');
+        return;
+    }
 
-	// Connect to S3
-	if(!await s3.connect()){
-		logLocalErrorMessage('Error connecting to S3. Stopping.');
-		return;
+    // Connect to S3
+    if(!await s3.connect()){
+        logLocalErrorMessage('Error connecting to S3. Stopping.');
+        return;
     }
     // Connect to Cognito
-	if(!await cognitoSvc.connect()){
-		logLocalErrorMessage('Error connecting to cognitoSvc. Stopping.');
-		return;
+    if(!await cognitoSvc.connect()){
+        logLocalErrorMessage('Error connecting to cognitoSvc. Stopping.');
+        return;
     }
     global.cognitoSvc = cognitoSvc;
 
-	// Load the database module and make it globally available
-	global.db = global.requireShared('./services/db.js');
+    // Load the database module and make it globally available
+    global.db = global.requireShared('./services/db.js');
 
 
     // MONGO
@@ -128,12 +128,12 @@ async function main(){
         });
 
         talageEvent.on('mongo-disconnected', function() {
-        log.warn('Mongoose disconnected');
+            log.warn('Mongoose disconnected');
 
         });
 
         talageEvent.on('mongo-error', function(err) {
-        log.error('Mongoose database error ' + err);
+            log.error('Mongoose database error ' + err);
         });
 
     }
@@ -151,9 +151,9 @@ async function main(){
  */
 async function setupListeners() {
     // Configure the server and register endpoints
-	const isDevelopment = global.settings.ENV === 'development';
-      // Create the public server
-      if(!await server.create('0.0.0.0', global.settings.PUBLIC_API_PORT, 'public/public-endpoints', true, isDevelopment, logInfoMessage, logErrorMessage)){
+    const isDevelopment = global.settings.ENV === 'development';
+    // Create the public server
+    if(!await server.create('0.0.0.0', global.settings.PUBLIC_API_PORT, 'public/public-endpoints', true, isDevelopment, logInfoMessage, logErrorMessage)){
         logLocalErrorMessage('Error starting public server. Stopping.');
         return;
     }
