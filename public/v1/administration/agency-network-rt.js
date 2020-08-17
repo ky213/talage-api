@@ -47,7 +47,7 @@ async function findOne(req, res, next) {
     let error = null;
     const agencyNetworkBO = new AgencyNetworkBO();
     // Load the request data into it
-    const agencyLocationJSON = await agencyNetworkBO.getById(id).catch(function(err) {
+    const objectJSON = await agencyNetworkBO.getById(id).catch(function(err) {
         log.error("Location load error " + err + __location);
         error = err;
     });
@@ -55,8 +55,8 @@ async function findOne(req, res, next) {
         return next(error);
     }
     // Send back a success response
-    if (agencyLocationJSON) {
-        res.send(200, agencyLocationJSON);
+    if (objectJSON) {
+        res.send(200, objectJSON);
         return next();
     }
     else {
@@ -88,6 +88,10 @@ async function add(req, res, next) {
 //update
 async function update(req, res, next) {
 
+    const id = stringFunctions.santizeNumber(req.params.id, true);
+    if (!id) {
+        return next(new Error("bad parameter"));
+    }
 
     const agencyNetworkBO = new AgencyNetworkBO();
     let error = null;
@@ -107,14 +111,14 @@ async function update(req, res, next) {
 
 exports.registerEndpoint = (server, basePath) => {
     // We require the 'administration.read' permission
-    // server.addGetAuthAdmin('Get Agency Network list', `${basePath}/agency-location`, findAll, 'administration', 'all');
-    // server.addGetAuthAdmin('Get Agency Network Object', `${basePath}/agency-location/:id`, findOne, 'administration', 'all');
-    // server.addPostAuthAdmin('Post Agency Network Object', `${basePath}/agency-network`, add, 'administration', 'all');
-    // server.addPutAuthAdmin('Put Agency Network Object', `${basePath}/agency-network/:id`, update, 'administration', 'all');
+    server.addGetAuthAdmin('Get Agency Network list', `${basePath}/agency-network`, findAll, 'administration', 'all');
+    server.addGetAuthAdmin('Get Agency Network Object', `${basePath}/agency-network/:id`, findOne, 'administration', 'all');
+    server.addPostAuthAdmin('Post Agency Network Object', `${basePath}/agency-network`, add, 'administration', 'all');
+    server.addPutAuthAdmin('Put Agency Network Object', `${basePath}/agency-network/:id`, update, 'administration', 'all');
 
-    server.addGet('Get Agency Network list', `${basePath}/agency-network`, findAll, 'administration', 'all');
-    server.addGet('Get Agency Network Object', `${basePath}/agency-network/:id`, findOne, 'administration', 'all');
-    server.addPost('Post Agency Network Object', `${basePath}/agency-network`, add, 'administration', 'all');
-    server.addPut('Put Agency Network Object', `${basePath}/agency-network/:id`, update, 'administration', 'all');
+    // server.addGet('Get Agency Network list', `${basePath}/agency-network`, findAll, 'administration', 'all');
+    // server.addGet('Get Agency Network Object', `${basePath}/agency-network/:id`, findOne, 'administration', 'all');
+    // server.addPost('Post Agency Network Object', `${basePath}/agency-network`, add, 'administration', 'all');
+    // server.addPut('Put Agency Network Object', `${basePath}/agency-network/:id`, update, 'administration', 'all');
 
 };
