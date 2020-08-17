@@ -118,6 +118,7 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'administration', 'message');
     registerEndpoint(server, 'administration', 'insurer');
     registerEndpoint(server, 'administration', 'insurer-outage');
+    registerEndpoint(server, 'administration', 'agency-network-rt');
     registerEndpoint(server, 'administration', 'agency-location-rt');
     registerEndpoint(server, 'administration', 'territory-rt');
 
