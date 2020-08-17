@@ -8,6 +8,8 @@ const tracker = global.requireShared('./helpers/tracker.js');
 const moment = require('moment');
 const moment_timezone = require('moment-timezone');
 const { debug } = require('request');
+const { load } = require('../../settings.js');
+const smartystreetSvc = global.requireShared('./services/smartystreetssvc.js');
 
 
 const tableName = 'clw_talage_zip_codes'
@@ -79,60 +81,111 @@ module.exports = class ZipCodeBO{
         });
     }
 
-    loadByZipCode(zipCode) {
-        return new Promise(async (resolve, reject) => {
-            if(zipCode){
-                if(  typeof zipCode === 'string'){
-                    zipCode = parseInt(zipCode, 10);
-                }
-                let rejected = false;
-                // Create the update query
-                const sql = `
-                    select *  from clw_talage_zip_codes where zip = ${zipCode}
-                `;
+    async loadByZipCode(zipCode) {
+       
+        if(zipCode){
+            if(  typeof zipCode === 'string'){
+                zipCode = parseInt(zipCode, 10);
+            }
+            let rejected = false;
+            // Create the update query
+            const sql = `
+                select *  from clw_talage_zip_codes where zip = ${zipCode}
+            `;
 
-                // Run the query
-                const result = await db.query(sql).catch(function (error) {
-                    // Check if this was
-                
+            // Run the query
+            const result = await db.query(sql).catch(function (error) {
+                // Check if this was
+            
+                rejected = true;
+                log.error(`getById ${tableName} id: ${db.escape(this.id)}  error ` + error + __location)
+                throw error;
+            });
+            if (rejected) {
+                return;
+            }
+            if(result && result.length > 0 ){
+                    const i = 0; 
+                    const resp = await this.loadORM(result[i], skipCheckRequired).catch(function(err){
+                        log.error(`loadByZipCode error loading object: ` + err + __location);
+                    })
+                    if(!resp){
+                        log.debug("Bad BO load" + __location)
+                    }
+                    return this.cleanJSON();
+            }
+            else {
+                log.debug("not found loadByZipCode in DB check ZipCodeSvc: " + sql);
+                //Call to zipcode service to lookup zip.
+                const newZip = await this.checkZipCodeSvc(zipCode).catch(function(err){
+                    log.error("checkZipCodeSvc error " + err + __location);
                     rejected = true;
-                    log.error(`getById ${tableName} id: ${db.escape(this.id)}  error ` + error + __location)
-                    reject(error);
-                });
+                    throw err;
+                })
                 if (rejected) {
                     return;
                 }
-                let addressList = [];
-                if(result && result.length > 0 ){
-                        const i = 0;
-                        //Decrypt encrypted fields.
-                        await this.#dbTableORM.decryptFields(result[i]);
-                        await this.#dbTableORM.convertJSONColumns(result[i]);
-                      
-                        const resp = await this.loadORM(result[i], skipCheckRequired).catch(function(err){
-                            log.error(`loadByZipCode error loading object: ` + err + __location);
-                            //not reject on issues from database object.
-                            //reject(err);
-                        })
-                        if(!resp){
-                            log.debug("Bad BO load" + __location)
-                        }
-                    resolve(this.cleanJSON());
+                if(newZip){
+                    return this.cleanJSON();
                 }
                 else {
-                    log.debug("not found loadByZipCode: " + sql);
-                    reject(new Error("not found"));
-                    return
+                    throw new Error("not found");
                 }
-               
             }
-            else {
-                reject(new Error('no zipCode supplied'))
-            }
-        });
+            
+        }
+        else {
+            throw new Error('no zipCode supplied');
+        }
+       
     }
 
-   
+   async checkZipCodeSvc(zipCode){
+    let error = null;
+    let response = await smartystreetSvc.checkZipCode(zipCode.toString()).catch(function(err){
+        log.error("smartystreetSvc error: " + err + __location);
+        error = err;
+    })
+    if(error){
+        throw error
+    }
+    if(response.error){
+        return null;
+    }
+    //Got a zip code.
+    if(response.zipcode){
+        //populate BO and save.
+        let newJSON ={};
+        newJSON.zip = response.zipcode;
+        switch(response.zipcode_type){
+            case "S":
+                newJSON.type = "STANDARD";
+                break;
+            case "U":
+                newJSON.type = "UNIQUE";
+                break;
+            case "P":
+                newJSON.type = "PO BOX";
+                break;
+            default:
+                newJSON.type = response.zipcode_type;
+        }
+        newJSON.city = response.city;
+        newJSON.territory = response.state_abbreviation;
+        newJSON.county = response.county_name;
+        this.loadORM(newJSON);
+        
+        await this.#dbTableORM.insert();
+
+        return this.#dbTableORM.cleanJSON();
+
+
+    }
+    else {
+        return null;
+    }
+
+   }
 
     cleanJSON(noNulls = true){
 		return this.#dbTableORM.cleanJSON(noNulls);
@@ -177,55 +230,7 @@ module.exports = class ZipCodeBO{
         await this.#dbTableORM.load(inputJSON, skipCheckRequired);
         this.updateProperty();
         return true;
-    }
-
-    async saveBoth(){
-      
-        //************************** */
-        //   MYSQL Write 
-        //************************** */
-
-        // // Convert sent to Pacific timezone for mysql;
-        // const sentPST = sentDtm.tz('America/Los_Angeles').format('YYYY-MM-DD HH:mm:ss');
-        // log.debug("sentPST: " + sentPST);
-        // columns.sent = sentPST;
-        // const insertQuery = `INSERT INTO ${tableName} (${Object.keys(columns).join(',')}) VALUES (${Object.values(columns).
-        //     map(function(val) {
-        //         return db.escape(val);
-        //     }).
-        //     join(',')})`;
-        // let messagesId = null;
-        // await db.
-        //     query(insertQuery).
-        //     then(function(results) {
-        //         messagesId = results.insertId;
-        //     }).
-        //     catch(function(err) {
-        //         log.error('Unable to record email message in the database' + err + ' sql: ' + insertQuery + __location);
-        //         throw err;
-        //     });
-        
-         //************************** */
-        //   MongoDB Write 
-        // //************************** */
-        // if(global.settings.USE_MONGO === "YES"){
-        //     var Message = require('mongoose').model('Message');
-        //     var message = new Message(mongoMessageDoc);
-
-        //     //Insert a doc
-        //     await message.save().catch(function(err){
-        //         log.error('Mongo Message Save err ' + err + __location);
-        //         //log.debug("message " + JSON.stringify(message.toJSON()));
-        //     });
-           
-        // }
-
-        return true;
-    }
-
-
-    
-    
+    }    
 
 }
 
