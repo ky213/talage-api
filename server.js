@@ -67,6 +67,7 @@ function validateJWT(options) {
  */
 function validateCognitoJWT(options) {
     return async(req, res, next) => {
+        // eslint-disable-next-line no-extra-parens
         let jwtToken = req.headers.authorization || (req.body && req.body.access_token) || (req.query && req.query.access_token) || req.headers.token;
         if(jwtToken){
             jwtToken = jwtToken.replace("Bearer ","");
@@ -78,7 +79,6 @@ function validateCognitoJWT(options) {
                     return next(new RestifyError.ForbiddenError("access denied"));
                 }
                 else {
-                    //log.debug("Cognito user: " + JSON.stringify(data));
                     // must be in group.  TalageAdminUser
                     if(cognitoUser.Groups){
                         let hasAccess = false;
@@ -88,6 +88,8 @@ function validateCognitoJWT(options) {
                             }
                         }
                         if(hasAccess){
+                            req.user = cognitoUser;
+                          //  log.debug("cognitoUser " + JSON.stringify(cognitoUser))
                             options.handler(req, res, next);
                         }
                         else {
@@ -300,8 +302,49 @@ class AbstractedHTTPServer {
             validateCognitoJWT({
                 handler: handlerWrapper(path, handler),
                 permission: permission,
-                permissionType: permissionType,
-                agencyPortal: true
+                permissionType: permissionType
+            }));
+    }
+
+    addPostAuthAdmin(name, path, handler, permission = null, permissionType = null) {
+        name += ' (authAdmin)';
+        this.server.post({
+            name: name,
+            path: path
+        },
+            processJWT(),
+            validateCognitoJWT({
+                handler: handlerWrapper(path, handler),
+                permission: permission,
+                permissionType: permissionType
+            }));
+    }
+
+    addPutAuthAdmin(name, path, handler, permission = null, permissionType = null) {
+        name += ' (authAdmin)';
+        this.server.put({
+            name: name,
+            path: path
+        },
+            processJWT(),
+            validateCognitoJWT({
+                handler: handlerWrapper(path, handler),
+                permission: permission,
+                permissionType: permissionType
+            }));
+    }
+
+    addDeleteAuthAdmin(name, path, handler, permission = null, permissionType = null) {
+        name += ' (authAdmin)';
+        this.server.del({
+            name: name,
+            path: path
+        },
+            processJWT(),
+            validateCognitoJWT({
+                handler: handlerWrapper(path, handler),
+                permission: permission,
+                permissionType: permissionType
             }));
     }
 }

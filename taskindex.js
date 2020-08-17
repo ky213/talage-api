@@ -9,6 +9,7 @@ global.sharedPath = require('path').join(__dirname, 'shared');
 global.requireShared = (moduleName) => require(`${global.sharedPath}/${moduleName}`);
 global.rootPath = require('path').join(__dirname, '/');
 global.requireRootPath = (moduleName) => require(`${global.rootPath}/${moduleName}`);
+const talageEvent = require('./shared/services/talageeventemitter.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 global.tracker = tracker;
@@ -24,6 +25,7 @@ const queueHandler = require('./tasksystem/queuehandler.js');
 const responseObject = require('./tasksystem/response-object.js')
 
 
+var hasMongoMadeInitialConnected = false;
 
 /**
  * Convenience method to log errors both locally and remotely. This is used to display messages both on the console and in the error logs.
@@ -109,9 +111,45 @@ async function main(){
 	}
 
 	// Load the database module and make it globally available
-	global.db = global.requireShared('./services/db.js');
+    global.db = global.requireShared('./services/db.js');
 
-	// Ready to start the queue processing
+    // MONGO
+    if(global.settings.USE_MONGO === "YES"){
+        var mongoose = require('./mongoose');
+        global.monogdb = mongoose();
+        //Mongo connect event here to start queue processing
+        talageEvent.on('mongo-connected', function() {
+            //log.info('Assetws Mongoose connected to mongodb');
+            if(hasMongoMadeInitialConnected === false){
+                hasMongoMadeInitialConnected = true;
+                startQueueProcessing();
+            }
+
+        });
+
+        talageEvent.on('mongo-disconnected', function() {
+            log.warn('Mongoose disconnected');
+
+        });
+
+        talageEvent.on('mongo-error', function(err) {
+            log.error('Mongoose database error ' + err);
+        });
+
+    }
+    else {
+        startQueueProcessing();
+    }
+}
+
+/**
+ * Start Queue procescing
+ *
+ * @returns {void}
+ */
+async function startQueueProcessing() {
+
+    // Ready to start the queue processing
 	if(await queueHandler.initialize()){
 		global.queueHandler = queueHandler;
 		processQueue();
@@ -142,6 +180,7 @@ async function main(){
 		});
 		log.debug('Finished Running Task' + resp);
 	}
+
 }
 
 main();

@@ -91,6 +91,23 @@ module.exports = class AgencyLocationBO{
             }
         });
     }
+    getById(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id && id >0 ){
+                await this.#dbTableORM.getById(id).catch(function (err) {
+                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
+                    reject(err);
+                    return;
+                });
+                this.updateProperty();
+                resolve(this.#dbTableORM.cleanJSON());
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
 
     async cleanupInput(inputJSON){
         for (const property in properties) {
@@ -288,6 +305,61 @@ module.exports = class AgencyLocationBO{
         else {
             throw new Error("No id or agency id");
         }
+    }
+
+    /*****************************
+     *   For administration site
+     * 
+     ***************************/
+    getSearchListForAdmin(queryJSON){
+
+        return new Promise(async (resolve, reject) => {
+            let sql = `
+                select al.id as agencyLocationid, al.address, al.zip, z.city, z.territory, a.name from clw_talage_agencies a
+                    inner join clw_talage_agency_locations al on a.id = al.agency
+                    left join clw_talage_zip_codes z on z.zip = al.zip
+                    where al.state > 0 AND a.state > 0 
+            `;
+            log.debug
+            let hasWhere = false;
+            if(queryJSON.agencyname){
+                sql +=  ` AND  a.name like ${db.escape(queryJSON.agencyname)} `;
+                hasWhere = true;
+
+            }
+            sql += " Order by a.name limit 100"
+
+            //log.debug('AgencyLocation Search list sql: ' + sql);
+            let rows = await db.query(sql).catch(function (err) {
+                log.error(`Error getting  ${tableName} from Database ` + err + __location);
+                reject(err);
+                return;
+            });
+            //decrypt
+            if(rows.length > 0 ){
+                for(let i=0; i <rows.length;i++ ){
+                    let row = rows[i];
+                    for (var key in row) {
+                        if (row.hasOwnProperty(key) && row[key] === null ) {
+                            row[key] = "";
+                        }
+                    }
+                    if(rows[i].address){
+                        rows[i].address = await crypt.decrypt(rows[i].address);
+                        rows[i].displayString = `${rows[i].name}: ${rows[i].address}, ${rows[i].city}, ${rows[i].territory} ${rows[i].zip}`;
+                    }
+                    else if(rows[i].zip){
+                        rows[i].displayString = `${rows[i].name}: ${rows[i].city}, ${rows[i].territory} ${rows[i].zip}`
+                    }
+                    else {
+                        rows[i].displayString = `${rows[i].name}: no address`
+                    }
+                    
+                    
+                }
+            }
+            resolve(rows);
+        });
     }
 
     

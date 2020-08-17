@@ -310,6 +310,10 @@ module.exports = class BusinessModel{
         await this.#dbTableORM.load(inputJSON, skipCheckRequired);
         return true;
     }
+
+    cleanJSON(noNulls = true){
+		return this.#dbTableORM.cleanJSON(noNulls);
+	}
 }
 
 const properties = {

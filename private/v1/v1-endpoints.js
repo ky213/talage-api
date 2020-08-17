@@ -21,7 +21,6 @@ function registerEndpoint(server, namespace, endpointName) {
 }
 // The private endpoints are for hte use of the PHP Administrator app.
 exports.registerEndpoints = (server) => {
-    registerEndpoint(server, 'application', 'application');
     registerEndpoint(server, 'docusign', 'embedded');
     registerEndpoint(server, 'email', 'email');
     registerEndpoint(server, 'encryption', 'decrypt');

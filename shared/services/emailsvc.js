@@ -12,10 +12,13 @@ const crypt = require('./crypt.js');
 const validator = global.requireShared('./helpers/validator.js');
 const fs = require('fs');
 //const imgSize = require('./emailhelpers/imgSize.js');
-const moment_timezone = require('moment-timezone');
+const moment = require('moment');
+//const moment_timezone = require('moment-timezone');
 //const request = require('request');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+
+const MessageBO = global.requireShared('./models/Message-BO.js');
 
 /**
  * Sends an email to the address specified through our email service and saves the message data in the database
@@ -137,13 +140,13 @@ exports.send = async function(recipients, subject, content, keys = {}, brand = '
     }
 
     //Setup storing sent email.
-    // Get the current time in the Pacific timezone
-    const now = moment_timezone.tz('America/Los_Angeles');
+    // Working UTC with MongoDB and sending momemt object
+    const sentDtm = moment();
     // Begin populating a list of columns to insert into the database
     const columns = {
         checked_out: '0',
         message: await crypt.encrypt(content),
-        sent: now.format('YYYY-MM-DD HH:mm:ss'),
+        sent: sentDtm,
         subject: emailJSON.subject
     };
 
@@ -194,81 +197,89 @@ exports.send = async function(recipients, subject, content, keys = {}, brand = '
     // DO NOT send non talageins.com email in development (local) or awsdev
     // Scheduled tasks and db restores may lead to applications or agencies with "real" emails
     // in dev databases.
-    // if (global.settings.ENV === 'development' || global.settings.ENV === 'awsdev') {
-    //     // Hard override
-    //     if (global.settings.OVERRIDE_EMAIL && global.settings.OVERRIDE_EMAIL === 'YES' && global.settings.TEST_EMAIL) {
-    //         emailJSON.to = global.settings.TEST_EMAIL;
-    //         log.debug('Overriding email: ' + emailJSON.to);
-    //     }
-    //     else if (recipients.endsWith('@talageins.com') === false || recipients.includes(',')) {
-    //         // Soft override
-    //         // eslint-disable-next-line keyword-spacing
-    //         if (global.settings.TEST_EMAIL) {
-    //             emailJSON.to = global.settings.TEST_EMAIL;
-    //         }
-    //         else {
-    //             const overrideEmail = 'brian@talageins.com';
-    //             emailJSON.to = overrideEmail;
-    //         }
-    //     }
-    // }
-
+    if (global.settings.ENV === 'development' || global.settings.ENV === 'awsdev') {
+        // Hard override
+        if (global.settings.OVERRIDE_EMAIL && global.settings.OVERRIDE_EMAIL === 'YES' && global.settings.TEST_EMAIL) {
+            emailJSON.to = global.settings.TEST_EMAIL;
+            log.debug('Overriding email: ' + emailJSON.to);
+        }
+        else if (recipients.endsWith('@talageins.com') === false || recipients.includes(',')) {
+            // Soft override
+            // eslint-disable-next-line keyword-spacing
+            if (global.settings.TEST_EMAIL) {
+                emailJSON.to = global.settings.TEST_EMAIL;
+            }
+            else {
+                const overrideEmail = 'brian@talageins.com';
+                emailJSON.to = overrideEmail;
+            }
+        }
+    }
+    //save any overrides for DB Save
+    recipients = emailJSON.to
     if (attachments) {
         emailJSON.attachments = attachments;
     }
 
-    // Store mail before sending to SendGrid
-    // Store a record of this sent message
-    await saveEmailToDb(columns, emailJSON.to).catch(function(err) {
-        log.error('saveEmailToDb error: ' + err + __location);
-    });
-
-    const sendGridResp = await sendUsingSendGrid(emailJSON).catch(function(err) {
+    //emailJSON.to may get changed in sendUsingSendGrid
+    let sendGridResp = await sendUsingSendGrid(emailJSON).catch(function(err) {
         log.error('SendUsingSendGrid error: ' + err + __location);
+        sendGridResp = {"sendGridRespError": err};
+    });
+    log.debug('sendGridResp:  ' + JSON.stringify(sendGridResp))
+
+     // Store mail before sending to SendGrid
+    // Store a record of this sent message
+    // await saveEmailToDb(columns, emailJSON.to, attachments).catch(function(err) {
+    //     log.error('saveEmailToDb error: ' + err + __location);
+    // });
+    const messageBO = new MessageBO();
+    await messageBO.saveMessage(columns,recipients,sendGridResp, attachments).catch(function(err){
+        log.error('saveMessage error: ' + err + __location);
     });
 
     return sendGridResp;
 };
 
-var saveEmailToDb = async function(columns, recipients) {
-    const insertQuery = `INSERT INTO clw_talage_messages (${Object.keys(columns).join(',')}) VALUES (${Object.values(columns).
-        map(function(val) {
-            return db.escape(val);
-        }).
-        join(',')})`;
-    let messagesId = null;
-    await db.
-        query(insertQuery).
-        then(function(results) {
-            messagesId = results.insertId;
-        }).
-        catch(function(err) {
-            log.error('Unable to record email message in the database' + err + ' sql: ' + insertQuery + __location);
-            throw err;
-        });
-    if (messagesId) {
-        if (global.settings.ENV === 'development' || global.settings.ENV === 'awsdev') {
-            log.debug('recipients:' + recipients + __location);
-        }
-        //write to message_recipents table  clw_talage_message_recipients
-        const recipientsList = recipients.split(',');
-        let error = null;
-        for (let i = 0; i < recipientsList.length; i++) {
-            const encryptRecipent = await crypt.encrypt(recipientsList[i]);
-            const hashRecipent = await crypt.hash(recipientsList[i]);
-            const insertQuery2 = `Insert INTO clw_talage_message_recipients (message,recipient,email_hash ) VALUES (${messagesId}, '${encryptRecipent}', '${hashRecipent}' )`;
-            // eslint-disable-next-line no-loop-func
-            await db.query(insertQuery2).catch(function(errDb) {
-                log.error('Unable to record email messager ecipient in the database' + errDb + ' sql: ' + insertQuery2 + __location);
-                error = errDb;
-            });
-        }
-        if (error) {
-            throw error;
-        }
-    }
-    return true;
-};
+// var saveEmailToDb = async function(columns, recipients, attachments) {
+//     const insertQuery = `INSERT INTO clw_talage_messages (${Object.keys(columns).join(',')}) VALUES (${Object.values(columns).
+//         map(function(val) {
+//             return db.escape(val);
+//         }).
+//         join(',')})`;
+//     let messagesId = null;
+//     await db.
+//         query(insertQuery).
+//         then(function(results) {
+//             messagesId = results.insertId;
+//         }).
+//         catch(function(err) {
+//             log.error('Unable to record email message in the database' + err + ' sql: ' + insertQuery + __location);
+//             throw err;
+//         });
+//     if (messagesId) {
+//         if (global.settings.ENV === 'development' || global.settings.ENV === 'awsdev') {
+//             log.debug('recipients:' + recipients + __location);
+//         }
+//         //write to message_recipents table  clw_talage_message_recipients
+//         const recipientsList = recipients.split(',');
+//         let error = null;
+//         for (let i = 0; i < recipientsList.length; i++) {
+//             const encryptRecipent = await crypt.encrypt(recipientsList[i]);
+//             const hashRecipent = await crypt.hash(recipientsList[i]);
+//             const insertQuery2 = `Insert INTO clw_talage_message_recipients (message,recipient,email_hash ) VALUES (${messagesId}, '${encryptRecipent}', '${hashRecipent}' )`;
+//             // eslint-disable-next-line no-loop-func
+//             await db.query(insertQuery2).catch(function(errDb) {
+//                 log.error('Unable to record email messager ecipient in the database' + errDb + ' sql: ' + insertQuery2 + __location);
+//                 error = errDb;
+//             });
+//         }
+//         if (error) {
+//             throw error;
+//         }
+//     }
+//     return true;
+// };
 
 var sendUsingSendGrid = async function(emailJSON) {
     // Set the Sendgrid API key
@@ -279,10 +290,11 @@ var sendUsingSendGrid = async function(emailJSON) {
         emailJSON.to = recipientsList;
     }
     // Initialize the email object
+    let goodSend = false;
    await Sendgrid.send(emailJSON).
         then(function() {
             log.info('Email successfully sent.' + __location);
-            return true;
+            goodSend = true;
         }).
         catch(function(error) {
             // Make sure the error returned is an object and has a code
@@ -290,38 +302,35 @@ var sendUsingSendGrid = async function(emailJSON) {
                 //const message = 'An unexpected error was returned from Sendgrid. Check the logs for more information. ' ;
                 log.error('Email Service PostEmail: ' + error + __location);
                 //log.verbose(util.inspect(error, false, null));
-                return false;
             }
-
-            // If this is a 400, something wrong was sent in
-            if (error.code === 400) {
+            else if (error.code === 400) {
+                  // If this is a 400, something wrong was sent in
                 // Check that the response object has the properties we are expecting, and if not, exit
                 if (!Object.prototype.hasOwnProperty.call(error, 'response') || !Object.prototype.hasOwnProperty.call(error.response, 'body') || !Object.prototype.hasOwnProperty.call(error.response.body, 'errors') || typeof error.response.body.errors !== 'object') {
                     const message = 'Sendgrid may have changed the way it returns errors. Check the logs for more information. ';
                     log.error('Email Service PostEmail: ' + message + JSON.stringify(error) + __location);
                     //log.verbose(util.inspect(error, false, null) + __location);
-                    return false;
                 }
+                else {
+                    // Parse the error message to return something useful
+                    const errors = [];
+                    error.response.body.errors.forEach(function(errorObj) {
+                        errors.push(errorObj.message + __location);
+                    });
 
-                // Parse the error message to return something useful
-                const errors = [];
-                error.response.body.errors.forEach(function(errorObj) {
-                    errors.push(errorObj.message + __location);
-                });
+                    // Build the message to be sent
+                    const message = `Sendgrid returned the following errors: ${errors.join(', ')}`;
+                    log.warn(`Email Failed: ${message}` + __location);
 
-                // Build the message to be sent
-                const message = `Sendgrid returned the following errors: ${errors.join(', ')}`;
-                log.warn(`Email Failed: ${message}` + __location);
-                return false;
+                }
             }
             else {
                 // Some other type of error occurred
                 const message = 'An unexpected error was returned from Sendgrid. Check the logs for more information. ';
                 log.error('Email Service PostEmail: ' + message + JSON.stringify(error) + __location);
-                return false;
             }
         });
-    //return true;
+    return goodSend;
 };
 
 /**

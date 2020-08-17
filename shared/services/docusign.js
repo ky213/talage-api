@@ -231,7 +231,7 @@ exports.userHasSigned = async function(user, envelopeID) {
 		});
 	}
  catch (error) {
-		log.error(`Could not retrieve envelope ${envelopeID} recipients for user ${user}: ${error} ${__location}`);
+		log.error(`Could not retrieve envelope ${envelopeID} recipients for envelope ID ${envelopeID}: ${error} ${__location}`);
 		return false;
 	}
 	return userSigned;
@@ -260,7 +260,7 @@ exports.createSigningRequestURL = async function(user, name, email, envelopeID, 
 			envelopeID = envelopeSummary.envelopeId;
 		}
  catch (error) {
-			log.error(`Unable to create DocuSign envelope for ${name} (${email}): ${error} ${__location}`);
+			log.error(`Unable to create DocuSign envelope for envelope ID ${envelopeID}: ${error} ${__location}`);
 			return null;
 		}
 	}
@@ -285,7 +285,7 @@ exports.createSigningRequestURL = async function(user, name, email, envelopeID, 
 		viewResults = await envelopesApi.createRecipientView(accountId, envelopeID, {recipientViewRequest: viewRequest});
 	}
  catch (error) {
-		log.error(`Unable to create DocuSign view for ${name} (${email}): ${error} ${__location}`);
+		log.error(`Unable to create DocuSign view for envelope ID ${envelopeID}: ${error} ${__location}`);
 		return null;
 	}
 

@@ -34,7 +34,7 @@ module.exports = class DatabaseObject {
 		// Localize the properties
 		this.#constructors = c;
 		this.#table = t;
-		this.#properties = p;
+        this.#properties = p;
         tableName = t;
 		// Loop over each property
 		for (const property in this.#properties) {
