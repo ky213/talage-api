@@ -128,7 +128,7 @@ module.exports = class AgencyNetworkBO{
                 log.debug("AgencyNetworkBO getlist sql: " + sql);
                 const result = await db.query(sql).catch(function (error) {
                     // Check if this was
-                
+                    
                     rejected = true;
                     log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
                     reject(error);
@@ -140,6 +140,8 @@ module.exports = class AgencyNetworkBO{
                 if(result && result.length > 0 ){
                     for(let i=0; i < result.length; i++ ){
                         let agencyNetworkBO = new AgencyNetworkBO();
+                        await agencyNetworkBO.#dbTableORM.decryptFields(result[i]);
+                        await agencyNetworkBO.#dbTableORM.convertJSONColumns(result[i]);
                         const resp = await agencyNetworkBO.loadORM(result[i], skipCheckRequired).catch(function(err){
                             log.error(`getList error loading object: ` + err + __location);
                         })
