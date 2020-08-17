@@ -108,6 +108,9 @@ var quoteReportTask = async function(){
             if(quote.wholesale_agreement_signed){
                 quote.wholesale_agreement_signed = moment_timezone(quote.wholesale_agreement_signed).tz('America/Los_Angeles').format('YYYY-MM-DD');
             }
+            if(quote.wholesale_agreement_signed < startOfMonth){
+                quote.state = "Active"
+            }
                 if(quote.deleted){
                 quote.deleted = moment_timezone(quote.deleted).tz('America/Los_Angeles').format('YYYY-MM-DD');
             }
