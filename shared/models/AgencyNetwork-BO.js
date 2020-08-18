@@ -42,7 +42,7 @@ module.exports = class AgencyNetworkBO{
             else{
                 this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
             }
-
+            this.#dbTableORM.state = 1;
             //save
             await this.#dbTableORM.save().catch(function(err){
                 reject(err);
@@ -72,7 +72,7 @@ module.exports = class AgencyNetworkBO{
         });
     }
 
-    getById(id) {
+    loadFromId(id) {
         return new Promise(async (resolve, reject) => {
             //validate
             if(id && id >0 ){
@@ -87,6 +87,77 @@ module.exports = class AgencyNetworkBO{
             else {
                 reject(new Error('no id supplied'))
             }
+        });
+    }
+
+    getById(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id && id >0 ){
+                await this.#dbTableORM.getById(id).catch(function (err) {
+                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
+                    reject(err);
+                    return;
+                });
+                this.updateProperty();
+                resolve(this.#dbTableORM.cleanJSON());
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
+    getList(queryJSON) {
+        return new Promise(async (resolve, reject) => {
+           
+                let rejected = false;
+                // Create the update query
+                let sql = `
+                    select *  from ${tableName}  
+                `;
+                if(queryJSON){
+                    let hasWhere = false;
+                    if(queryJSON.name){
+                        sql += hasWhere ? " AND " : " WHERE ";
+                        sql += ` name like ${db.escape(queryJSON.name)} `
+                        hasWhere = true;
+                    }
+                }
+                // Run the query
+                log.debug("AgencyNetworkBO getlist sql: " + sql);
+                const result = await db.query(sql).catch(function (error) {
+                    // Check if this was
+                    
+                    rejected = true;
+                    log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
+                    reject(error);
+                });
+                if (rejected) {
+                    return;
+                }
+                let boList = [];
+                if(result && result.length > 0 ){
+                    for(let i=0; i < result.length; i++ ){
+                        let agencyNetworkBO = new AgencyNetworkBO();
+                        await agencyNetworkBO.#dbTableORM.decryptFields(result[i]);
+                        await agencyNetworkBO.#dbTableORM.convertJSONColumns(result[i]);
+                        const resp = await agencyNetworkBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                            log.error(`getList error loading object: ` + err + __location);
+                        })
+                        if(!resp){
+                            log.debug("Bad BO load" + __location)
+                        }
+                        boList.push(agencyNetworkBO);
+                    }
+                    resolve(boList);
+                }
+                else {
+                    //Search so no hits ok.
+                    resolve([]);
+                }
+               
+            
         });
     }
 
@@ -131,6 +202,7 @@ module.exports = class AgencyNetworkBO{
 	 */
     async loadORM(inputJSON){
         await this.#dbTableORM.load(inputJSON, skipCheckRequired);
+        this.updateProperty();
         return true;
     }
 
@@ -397,14 +469,14 @@ const properties = {
       "dbType": "blob"
     },
     "feature_json": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "json",
-        "dbType": "json"
-      },
+      "default": null,
+      "encrypted": false,
+      "hashed": false,
+      "required": false,
+      "rules": null,
+      "type": "json",
+      "dbType": "json"
+    },
     "created": {
       "default": null,
       "encrypted": false,
