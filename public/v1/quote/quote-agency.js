@@ -203,7 +203,9 @@ async function getAgency(req, res, next) {
 			return next();
 		}
 
-		// Get the agency insurers
+        // Get the agency insurers
+        // TODO need to look at policy_type_info JSON.
+        // bop, gl,wc are being decommissioned.
 		const locationIDs = [];
 		agency.locations.forEach((l) => {
 			locationIDs.push(l.id);
