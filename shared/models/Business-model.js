@@ -12,7 +12,8 @@ const validator = global.requireShared('./helpers/validator.js');
 
 const hashFields = ["name", "dba"]
 const skipCheckRequired = false;
-module.exports = class BusinessModel{
+const tableName = 'clw_talage_businesses';
+module.exports = class BusinessBO{
 
    #dbTableORM = null;
 
@@ -37,6 +38,13 @@ module.exports = class BusinessModel{
             await this.cleanupInput(businessJSON);
             log.debug("businessJSON: " + JSON.stringify(businessJSON));
 
+             //Populate Clear version of encrypted fields.
+             for(var i=0;i < hashFields.length; i++){
+                if(businessJSON[hashFields[i]]){
+                    businessJSON[hashFields[i] + "_clear"] = businessJSON[hashFields[i]]
+                }
+            }
+
             //have id load business data.
             if(businessJSON.id){
                 await this.#dbTableORM.getById(businessJSON.id).catch(function (err) {
@@ -51,6 +59,7 @@ module.exports = class BusinessModel{
                 this.#dbTableORM.load(businessJSON, skipCheckRequired);
             }
            
+
            
             //save
             await this.#dbTableORM.save().then(function(resp){
@@ -227,6 +236,86 @@ module.exports = class BusinessModel{
             }
         });
     }
+    
+
+    getById(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id && id >0 ){
+                await this.#dbTableORM.getById(id).catch(function (err) {
+                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
+                    reject(err);
+                    return;
+                });
+                this.updateProperty();
+                resolve(this.#dbTableORM.cleanJSON());
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
+
+
+    getList(queryJSON) {
+        return new Promise(async (resolve, reject) => {
+           
+                let rejected = false;
+                // Create the update query
+                let sql = `
+                    select *  from ${tableName}  
+                `;
+                if(queryJSON){
+                    let hasWhere = false;
+                    if(queryJSON.name){
+                        sql += hasWhere ? " AND " : " WHERE ";
+                        sql += ` name_clear like ${db.escape(queryJSON.name)} `
+                        hasWhere = true;
+                    }
+                    if(queryJSON.name){
+                        sql += hasWhere ? " AND " : " WHERE ";
+                        sql += ` dba_clear like ${db.escape(queryJSON.name)} `
+                        hasWhere = true;
+                    }
+                }
+                // Run the query
+                //log.debug("PaymentPlanBO getlist sql: " + sql);
+                const result = await db.query(sql).catch(function (error) {
+                    // Check if this was
+                    
+                    rejected = true;
+                    log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
+                    reject(error);
+                });
+                if (rejected) {
+                    return;
+                }
+                let boList = [];
+                if(result && result.length > 0 ){
+                    for(let i=0; i < result.length; i++ ){
+                        let businessBO = new BusinessBO();
+                        await businessBO.#dbTableORM.decryptFields(result[i]);
+                        await businessBO.#dbTableORM.convertJSONColumns(result[i]);
+                        const resp = await businessBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                            log.error(`getList error loading object: ` + err + __location);
+                        })
+                        if(!resp){
+                            log.debug("Bad BO load" + __location)
+                        }
+                        boList.push(businessBO);
+                    }
+                    resolve(boList);
+                }
+                else {
+                    //Search so no hits ok.
+                    resolve([]);
+                }
+               
+            
+        });
+    }
+
 
     updateSearchStrings(){
         return new Promise(async(resolve, reject) => {
@@ -380,6 +469,15 @@ const properties = {
       "type": "string",
       "dbType": "blob"
     },
+    "dba_clear": {
+        "default": "",
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(100)"
+      },
     "ein": {
       "default": "",
       "encrypted": true,
@@ -479,6 +577,15 @@ const properties = {
       "type": "string",
       "dbType": "blob"
     },
+    "name_clear": {
+        "default": "",
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(100)"
+      },
     "ncci_number": {
       "default": 0,
       "encrypted": false,
