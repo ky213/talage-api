@@ -110,16 +110,16 @@ async function update(req, res, next) {
 
 exports.registerEndpoint = (server, basePath) => {
 
-    // server.addGetAuthAdmin('Get InsurerContact list', `${basePath}/insurer-contact`, findAll, 'administration', 'all');
-    // server.addGetAuthAdmin('Get InsurerContact Object', `${basePath}/insurer-contact/:id`, findOne, 'administration', 'all');
-    // server.addPostAuthAdmin('Post InsurerContact Object', `${basePath}/insurer-contact`, add, 'administration', 'all');
-    // server.addPutAuthAdmin('Put InsurerContact Object', `${basePath}/insurer-contact/:id`, update, 'administration', 'all');
+    server.addGetAuthAdmin('Get InsurerContact list', `${basePath}/insurer-contact`, findAll, 'administration', 'all');
+    server.addGetAuthAdmin('Get InsurerContact Object', `${basePath}/insurer-contact/:id`, findOne, 'administration', 'all');
+    server.addPostAuthAdmin('Post InsurerContact Object', `${basePath}/insurer-contact`, add, 'administration', 'all');
+    server.addPutAuthAdmin('Put InsurerContact Object', `${basePath}/insurer-contact/:id`, update, 'administration', 'all');
 
 
-    server.addGet('Get InsurerContact list', `${basePath}/insurer-contact`, findAll, 'administration', 'all');
-    server.addGet('Get InsurerContact Object', `${basePath}/insurer-contact/:id`, findOne, 'administration', 'all');
-    server.addPost('Post InsurerContact Object', `${basePath}/insurer-contact`, add, 'administration', 'all');
-    server.addPut('Put InsurerContact Object', `${basePath}/insurer-contact/:id`, update, 'administration', 'all');
+    // server.addGet('Get InsurerContact list', `${basePath}/insurer-contact`, findAll, 'administration', 'all');
+    // server.addGet('Get InsurerContact Object', `${basePath}/insurer-contact/:id`, findOne, 'administration', 'all');
+    // server.addPost('Post InsurerContact Object', `${basePath}/insurer-contact`, add, 'administration', 'all');
+    // server.addPut('Put InsurerContact Object', `${basePath}/insurer-contact/:id`, update, 'administration', 'all');
 
 
 };
