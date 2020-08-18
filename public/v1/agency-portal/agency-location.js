@@ -269,7 +269,7 @@ function getAgencyByLocationId(id) {
 
         // Make sure an agency was found
         if (result.length !== 1) {
-            log.warn('Agency ID not found in updateAgencyLocation()');
+            log.warn('Agency ID not found in getAgencyLocation()' + __location);
             reject(serverHelper.requestError('No agency found. Please contact us.'));
         }
 
@@ -456,6 +456,9 @@ async function legacyFieldUpdate(requestALJSON) {
     if (requestALJSON.insurers) {
         for (let i = 0; i < requestALJSON.insurers.length; i++) {
             let insurer = requestALJSON.insurers[i];
+            insurer.bop = 0;
+            insurer.gl = 0;
+            insurer.wc = 0;
             if (insurer.policy_type_info) {
                 for (let j = 0; j < policyTypeList.length; j++) {
                     const policyType = policyTypeList[j];
@@ -466,13 +469,10 @@ async function legacyFieldUpdate(requestALJSON) {
                     else {
                         insurer[policyType.toLowerCase()] = 0;
                     }
+                    log.debug(`Set ${policyType.toLowerCase()} to ` + insurer[policyType.toLowerCase()])
                 }
             }
-            else{
-                insurer.GL = 0;
-                insurer.WC = 0;
-                insurer.BOP = 0;
-            }
+            //log.debug("insurer: " + JSON.stringify(insurer))
         }
 
     }
