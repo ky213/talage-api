@@ -83,34 +83,34 @@ const tracker = global.requireShared('./helpers/tracker.js');
  * @returns {Promise.<object, Error>} - A promise that returns an object containing the nonce as a string if resolved, or an Error if rejected
  */
 function getUniqueNonce() {
-	return new Promise(async function(fulfill, reject) {
-		let duplicate = true;
-		let nonce = '';
+    return new Promise(async function(fulfill, reject) {
+        let duplicate = true;
+        let nonce = '';
 
-		while (duplicate) {
-			// Generate a random nonce
-			nonce = Buffer.allocUnsafe(sodium.crypto_secretbox_NONCEBYTES);
-			sodium.randombytes(nonce, sodium.crypto_secretbox_NONCEBYTES);
+        while (duplicate) {
+            // Generate a random nonce
+            nonce = Buffer.allocUnsafe(sodium.crypto_secretbox_NONCEBYTES);
+            sodium.randombytes(nonce, sodium.crypto_secretbox_NONCEBYTES);
 
-			// Query the database to check if the nonce is unique
-			const sql = `SELECT id FROM #__security_nonces WHERE nonce = '${nonce.toString('hex')}';`;
-			const rows = await db.query(sql).catch(function(error) {
-				// eslint-disable-line no-await-in-loop
-				reject(error);
-			});
-			if (!rows || rows.length === 0) {
-				duplicate = false;
-			}
-		}
+            // Query the database to check if the nonce is unique
+            const sql = `SELECT id FROM #__security_nonces WHERE nonce = '${nonce.toString('hex')}';`;
+            const rows = await db.query(sql).catch(function(error) {
+                // eslint-disable-line no-await-in-loop
+                reject(error);
+            });
+            if (!rows || rows.length === 0) {
+                duplicate = false;
+            }
+        }
 
-		fulfill(nonce);
+        fulfill(nonce);
 
-		// Store this nonce so we know it was used
-		const sql = `INSERT INTO #__security_nonces (nonce) VALUES ('${nonce.toString('hex')}');`;
-		await db.query(sql).catch(function(error) {
-			reject(error);
-		});
-	});
+        // Store this nonce so we know it was used
+        const sql = `INSERT INTO #__security_nonces (nonce) VALUES ('${nonce.toString('hex')}');`;
+        await db.query(sql).catch(function(error) {
+            reject(error);
+        });
+    });
 }
 
 // Public Interfaces
@@ -122,37 +122,37 @@ function getUniqueNonce() {
  * @return {Promise.<string, boolean>} - The decrypted value on success, false otherwise
  */
 exports.decrypt = function(val) {
-	return new Promise(async function(resolve) {
-		// If this is a buffer, convert it to a string
+    return new Promise(async function(resolve) {
+        // If this is a buffer, convert it to a string
         if(!val){
             resolve(null);
             return;
         }
 
         if (Buffer.isBuffer(val)) {
-			val = val.toString();
-		}
+            val = val.toString();
+        }
 
-		// Make sure this is a string and that it is not empty
-		if (typeof val !== 'string' || val === '') {
-			resolve(false);
-			return;
-		}
+        // Make sure this is a string and that it is not empty
+        if (typeof val !== 'string' || val === '') {
+            resolve(false);
+            return;
+        }
 
-		// Send a request to the encryption service
-		let hadError = false;
-		const result = await decryptInternal(val).catch(function(err) {
+        // Send a request to the encryption service
+        let hadError = false;
+        const result = await decryptInternal(val).catch(function(err) {
             log.error('decrypt err ' + err + __location)
-			hadError = true;
-			resolve(false);
-		});
-		if (hadError) {
-			return;
-		}
+            hadError = true;
+            resolve(false);
+        });
+        if (hadError) {
+            return;
+        }
 
-		// Return the decrypted result
-		resolve(result);
-	});
+        // Return the decrypted result
+        resolve(result);
+    });
 };
 
 /**
@@ -162,42 +162,42 @@ exports.decrypt = function(val) {
  * @returns {mixed} - The decrypted value on success, false otherwise
  */
 var decryptInternal = async function(val) {
-	if (!val) {
-		return val;
-	}
+    if (!val) {
+        return val;
+    }
 
-	// Make sure this is a string, and if it is not, try to convert it to one
-	if (typeof val !== 'string') {
-		try {
-			val = val.toString();
-		}
-		catch(error){
-			log.error(error +  __location);
-			return false;
-		}
-	}
+    // Make sure this is a string, and if it is not, try to convert it to one
+    if (typeof val !== 'string') {
+        try {
+            val = val.toString();
+        }
+        catch(error){
+            log.error(error + __location);
+            return false;
+        }
+    }
 
-	// Separate the value from its IV
-	const pieces = val.split('|');
-	val = Buffer.from(`00000000000000000000000000000000${pieces[0]}`, 'hex');
-	const nonce = Buffer.from(pieces[1], 'hex');
-	if (nonce.length !== 24) {
-		return false;
-	}
+    // Separate the value from its IV
+    const pieces = val.split('|');
+    val = Buffer.from(`00000000000000000000000000000000${pieces[0]}`, 'hex');
+    const nonce = Buffer.from(pieces[1], 'hex');
+    if (nonce.length !== 24) {
+        return false;
+    }
 
-	// Decrypt
-	val = sodium.crypto_secretbox_open(val, nonce, Buffer.from(global.settings.ENCRYPTION_KEY));
+    // Decrypt
+    val = sodium.crypto_secretbox_open(val, nonce, Buffer.from(global.settings.ENCRYPTION_KEY));
 
-	// Check if decryption was successful, if not, return
-	if (!val) {
-		return false;
-	}
+    // Check if decryption was successful, if not, return
+    if (!val) {
+        return false;
+    }
 
-	// Convert the buffer back to a string
-	val = val.toString();
+    // Convert the buffer back to a string
+    val = val.toString();
 
-	// Unserialize
-	return php_serialize.unserialize(val);
+    // Unserialize
+    return php_serialize.unserialize(val);
 };
 
 /**
@@ -207,8 +207,8 @@ var decryptInternal = async function(val) {
  * @returns {Promise.<object, Error>} - A promise that returns an object containing the encrypted value as a string if resolved, or an Error if rejected
  */
 exports.encrypt = function(val) {
-	return new Promise(async function(fulfill, reject) {
-		if (val || val === '') {
+    return new Promise(async function(fulfill, reject) {
+        if (val || val === '') {
             // Serialize the value for easy storage
             val = php_serialize.serialize(val);
 
@@ -239,9 +239,9 @@ exports.encrypt = function(val) {
         }
         else {
             fulfill(false);
-			return;
-		}
-	});
+            return;
+        }
+    });
 };
 
 /**
@@ -251,14 +251,14 @@ exports.encrypt = function(val) {
  * @return {string} - The hash value
  */
 exports.hash = async function(val) {
-	// Convert the value to lowercase
-	val = val.toLowerCase();
+    // Convert the value to lowercase
+    val = val.toLowerCase();
 
-	// Salt the value
-	val += global.settings.SALT;
+    // Salt the value
+    val += global.settings.SALT;
 
-	// Hash the value and return the result
-	return sha1(val);
+    // Hash the value and return the result
+    return sha1(val);
 };
 
 /**
@@ -268,29 +268,29 @@ exports.hash = async function(val) {
  * @return {Promise.<string, Error>} - A promise that returns an string containing the hashed password if successful, or an Error if rejected
  */
 exports.hashPassword = function(val) {
-	return new Promise(function(fulfill, reject) {
-		// Make sure we have a value to work with
-		if (!val || typeof val !== 'string') {
-			reject(new Error('Invalid value passed to hashPassword. Must be a non-empty string.'));
-		}
+    return new Promise(function(fulfill, reject) {
+        // Make sure we have a value to work with
+        if (!val || typeof val !== 'string') {
+            reject(new Error('Invalid value passed to hashPassword. Must be a non-empty string.'));
+        }
 
-		// Hash the value
-		val = sodium.crypto_pwhash_str(Buffer.from(val, 'utf8'), sodium.crypto_pwhash_OPSLIMIT_INTERACTIVE, sodium.crypto_pwhash_MEMLIMIT_INTERACTIVE);
+        // Hash the value
+        val = sodium.crypto_pwhash_str(Buffer.from(val, 'utf8'), sodium.crypto_pwhash_OPSLIMIT_INTERACTIVE, sodium.crypto_pwhash_MEMLIMIT_INTERACTIVE);
 
-		if (val) {
-			// Conver from a buffer to a string
-			val = val.toString();
+        if (val) {
+            // Conver from a buffer to a string
+            val = val.toString();
 
-			// Remove all but the first 97 characters as those are the only ones that contain hash data, the rest is zeros
-			val = val.substring(0, 97);
+            // Remove all but the first 97 characters as those are the only ones that contain hash data, the rest is zeros
+            val = val.substring(0, 97);
 
-			// Return the password
-			fulfill(val);
-			return;
-		}
+            // Return the password
+            fulfill(val);
+            return;
+        }
 
-		reject(new Error('Failed to hash'));
-	});
+        reject(new Error('Failed to hash'));
+    });
 };
 
 /**
@@ -302,26 +302,26 @@ exports.hashPassword = function(val) {
  * @return {Promise.<string, boolean>} - The decrypted value on success, false otherwise
  */
 exports.verifyPassword = function(hash, password) {
-	return new Promise(async function(resolve) {
-		// Make sure this is a string and that it is not empty
-		if (typeof hash !== 'string' || hash === '' || typeof password !== 'string' || password === '') {
-			resolve(false);
-			return;
-		}
+    return new Promise(async function(resolve) {
+        // Make sure this is a string and that it is not empty
+        if (typeof hash !== 'string' || hash === '' || typeof password !== 'string' || password === '') {
+            resolve(false);
+            return;
+        }
 
-		// Send a request to the encryption service
-		let result = false;
-		try {
-			hash = hash.padEnd(128, '\u0000');
-			result = sodium.crypto_pwhash_str_verify(Buffer.from(hash), Buffer.from(password));
-		}
- catch (e) {
-			log.error('sodium password check ' + e + __location);
-		}
-		// Return password check result
-		resolve(result);
-		return;
-	});
+        // Send a request to the encryption service
+        let result = false;
+        try {
+            hash = hash.padEnd(128, '\u0000');
+            result = sodium.crypto_pwhash_str_verify(Buffer.from(hash), Buffer.from(password));
+        }
+        catch (e) {
+            log.error('sodium password check ' + e + __location);
+        }
+        // Return password check result
+        resolve(result);
+        return;
+    });
 };
 
 // ==========================================================
@@ -337,13 +337,13 @@ exports.verifyPassword = function(hash, password) {
  * @return {mixed} - Returns null for invalid input, promise otherwise
  */
 exports.batchProcessObjectArray = function(objectArray, action, encryptedKeys) {
-	// Make sure an array was provided
-	if (!Array.isArray(objectArray) || objectArray.length === 0) {
-		return null;
-	}
+    // Make sure an array was provided
+    if (!Array.isArray(objectArray) || objectArray.length === 0) {
+        return null;
+    }
 
-	// Batch decrypt each object in the array
-	return Promise.all(objectArray.map((object) => module.exports.batchProcessObject(object, action, encryptedKeys)));
+    // Batch decrypt each object in the array
+    return Promise.all(objectArray.map((object) => module.exports.batchProcessObject(object, action, encryptedKeys)));
 };
 
 /**
@@ -356,35 +356,35 @@ exports.batchProcessObjectArray = function(objectArray, action, encryptedKeys) {
  * @return {mixed} - Returns null for invalid input, promise otherwise
  */
 exports.batchProcessObject = function(object, action, encryptedKeys) {
-	// Make sure we got valid arguments
-	if (typeof object !== 'object' || object === null) {
-		return null;
-	}
+    // Make sure we got valid arguments
+    if (typeof object !== 'object' || object === null) {
+        return null;
+    }
 
-	// Map each encrypted property to a promise that resolves once decryption is complete
-	return Promise.all(encryptedKeys.map((key) => new Promise((resolve) => {
-					// Make sure a valid action was provided
-					if (!Object.prototype.hasOwnProperty.call(module.exports, action)) {
-						resolve();
-					}
+    // Map each encrypted property to a promise that resolves once decryption is complete
+    return Promise.all(encryptedKeys.map((key) => new Promise((resolve) => {
+        // Make sure a valid action was provided
+        if (!Object.prototype.hasOwnProperty.call(module.exports, action)) {
+            resolve();
+        }
 
-					// Skip this value if its empty or doesn't exist
-					if (!Object.prototype.hasOwnProperty.call(object, key) || object[key] === null || object[key].length === 0) {
-						resolve();
-					}
+        // Skip this value if its empty or doesn't exist
+        if (!Object.prototype.hasOwnProperty.call(object, key) || object[key] === null || object[key].length === 0) {
+            resolve();
+        }
 
-					// Get the action handler and ping the encryption service
-					const handler = module.exports[action];
-					handler(object[key]).then((decryptedValue) => {
-						// Set the value if everything went smootly, null otherwise
-						if (decryptedValue) {
-							object[key] = decryptedValue;
-						}
- else {
-							object[key] = null;
-						}
+        // Get the action handler and ping the encryption service
+        const handler = module.exports[action];
+        handler(object[key]).then((decryptedValue) => {
+            // Set the value if everything went smootly, null otherwise
+            if (decryptedValue) {
+                object[key] = decryptedValue;
+            }
+            else {
+                object[key] = null;
+            }
 
-						resolve();
-					});
-				})));
+            resolve();
+        });
+    })));
 };
