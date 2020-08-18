@@ -34,7 +34,7 @@ module.exports = class DatabaseObject {
 		// Localize the properties
 		this.#constructors = c;
 		this.#table = t;
-		this.#properties = p;
+        this.#properties = p;
         tableName = t;
 		// Loop over each property
 		for (const property in this.#properties) {
@@ -631,7 +631,7 @@ module.exports = class DatabaseObject {
 		let propertyNameJson = {};
 		for (const property in this.#properties) {
             if(noNulls === true){
-                if(this[`#${property}`]){
+                if(this[`#${property}`] || this[`#${property}`] === '' || this[`#${property}`] === 0 ){
                     propertyNameJson[property] = this[`#${property}`]   
                 }
             }

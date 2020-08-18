@@ -3,9 +3,9 @@ const moment = require('moment');
 const DatabaseObject = require('./DatabaseObject.js');
 const BusinessModel = require('./Business-model.js');
 const ApplicationActivityCodesModel = require('./ApplicationActivityCodes-model.js');
-const ApplicationPolicyTypeModel = require('./ApplicationPolicyType-model.js');
+const ApplicationPolicyTypeBO = require('./ApplicationPolicyType-BO.js');
 const LegalAcceptanceModel = require('./LegalAcceptance-model.js');
-const ApplicationClaimModel =  require('./ApplicationClaim-model.js');
+const ApplicationClaimBO =  require('./ApplicationClaim-BO.js');
 
 const QuoteModel = require('./Quote-model.js');
 const taskWholesaleAppEmail = global.requireRootPath('tasksystem/task-wholesaleapplicationemail.js');
@@ -33,9 +33,25 @@ module.exports = class ApplicationModel {
         this.policies = [];
         this.questions = {};
         this.test = false;
+        this.WorkFlowSteps = {
+            'contact': 2,
+            'coverage': 3,
+            'locations': 4,
+            'owners': 5,
+            'details': 6,
+            'claims': 7,
+            'questions': 8,
+            'quotes': 9,
+            'cart': 10,
+            'bindRequest': 10,
+        };
+
+
+
+
         this.#dbTableORM = new ApplicationOrm();
     }
-
+   
 
     /**
    * Load new application JSON with optional save.
@@ -337,7 +353,7 @@ module.exports = class ApplicationModel {
    processClaimsWF(claims) {
     return new Promise(async (resolve, reject) => {
         //delete existing.
-        const applicationClaimModelDelete = new ApplicationClaimModel();
+        const applicationClaimModelDelete = new ApplicationClaimBO();
         //remove existing addresss acivity codes. we do not get ids from UI.
         await applicationClaimModelDelete.DeleteClaimsByApplicationId(this.id).catch(function(err){
             log.error("Error deleting ApplicationClaimModel " + err +  __location);
@@ -345,7 +361,7 @@ module.exports = class ApplicationModel {
         for(var i = 0; i < claims.length; i++){
             let claim = claims[i];
             claim.application = this.id;
-            const applicationClaimModel = new ApplicationClaimModel();
+            const applicationClaimModel = new ApplicationClaimBO();
             await applicationClaimModel.saveModel(claim).catch(function (err) {
                 log.error("Adding new claim error:" + err + __location);
                 reject(err);
@@ -394,7 +410,7 @@ processPolicyTypes(policyTypeArray){
 
     return new Promise(async (resolve, reject) => {
         //delete existing.
-        const applicationPolicyTypeModelDelete = new ApplicationPolicyTypeModel();
+        const applicationPolicyTypeModelDelete = new ApplicationPolicyTypeBO();
         //remove existing addresss acivity codes. we do not get ids from UI.
         await applicationPolicyTypeModelDelete.DeleteByApplicationId(this.id).catch(function(err){
             log.error("Error deleting ApplicationPolicyTypeModel " + err +  __location);
@@ -407,7 +423,7 @@ processPolicyTypes(policyTypeArray){
                 'application': this.id,
 				"policy_type": policyType
             }
-            const applicationPolicyTypeModel = new ApplicationPolicyTypeModel();
+            const applicationPolicyTypeModel = new ApplicationPolicyTypeBO();
             await applicationPolicyTypeModel.saveModel(policyTypeJSON).catch(function (err) {
                 log.error(`Adding new applicationPolicyTypeModel for Appid ${this.id} error:` + err + __location);
                 reject(err);
@@ -433,11 +449,11 @@ processQuestions(questions){
             let valueLine = '';
             if(question.type === 'text'){
                 const cleanString = question.answer.replace(/\|/g,',')
-                valueLine = `(${this.id}, ${question.id}, NULL, '${cleanString}')`
+                valueLine = `(${this.id}, ${question.id}, NULL, ${db.escape(cleanString)})`
 
             } else if (question.type === 'array'){
                 const arrayString = "|" + question.answer.join('|');
-                valueLine = `(${this.id}, ${question.id},NULL, '${arrayString}')`
+                valueLine = `(${this.id}, ${question.id},NULL, ${db.escape(arrayString)}))`
             }
             else {
                 valueLine = `(${this.id}, ${question.id}, ${question.answer}, NULL)`
@@ -630,7 +646,7 @@ processQuotes(applicationJSON){
         return new Promise(async (resolve, reject) => {
             //validate
             if (id && id > 0) {
-                await this.#dbTableORM.getById(applicationJSON.id).catch(function (err) {
+                await this.#dbTableORM.getById(id).catch(function (err) {
                     log.error("Error getting application from Database " + err + __location);
                     reject(err);
                     return;

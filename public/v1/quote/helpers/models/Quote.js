@@ -189,7 +189,7 @@ else{
 				return;
 			}
 
-			// Translate JSON
+			// Translate JSON - does not look like policy.json is used any more.
 			if(this.policy.json){
 				this.policy.json = JSON.parse(this.policy.json);
 			}
