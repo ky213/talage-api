@@ -624,6 +624,9 @@ module.exports = class CompwestWC extends Integration {
                 this.log += `--------======= Application Error =======--------<br><br>${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`;
                 log.error(`${this.insurer.name} ${this.policy.type} Integration Error(s):\n--- ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}` + __location);
                 this.reasons.push(`${status} - ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`);
+                if (res.SignonRs[0].Status[0].StatusDesc[0].Desc[0].toLowerCase().includes("experience mod")) {
+                    notifyEmodError(res);
+                }
                 return this.return_result('error');
             case 'REFERRALNEEDED':
             case 'QUOTED':
@@ -688,5 +691,11 @@ module.exports = class CompwestWC extends Integration {
 
         // Send the result of the request
         return this.return_result(status);
+    }
+
+    // error helper for Experience Mod, sends notification email
+    notifyEmodError = (res) => {
+        // TODO: gather details and send email
+        // TODO: create xml template in compwest folder, use require('jsrender').templates('./public/v1/quote/helpers/integrations/employers/wc.xmlt');
     }
 };
