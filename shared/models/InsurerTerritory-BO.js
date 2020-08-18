@@ -10,9 +10,9 @@ const moment_timezone = require('moment-timezone');
 const { debug } = require('request');
 
 
-const tableName = 'clw_talage_insurer_policy_types'
+const tableName = 'clw_talage_insurer_territories'
 const skipCheckRequired = false;
-module.exports = class InsurerPolicyTypeBO{
+module.exports = class InsurerTerritoryBO{
 
     #dbTableORM = null;
 
@@ -106,9 +106,9 @@ module.exports = class InsurerPolicyTypeBO{
                 `;
                 if(queryJSON){
                     let hasWhere = false;
-                    if(queryJSON.policy_type){
+                    if(queryJSON.territory){
                         sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` policy_type = ${db.escape(queryJSON.policy_type)} `
+                        sql += ` territory = ${db.escape(queryJSON.territory)} `
                         hasWhere = true;
                     }
                     if(queryJSON.insurer){
@@ -117,7 +117,6 @@ module.exports = class InsurerPolicyTypeBO{
                         hasWhere = true;
                     }
                 }
-                sql += ` order by territory `
                 // Run the query
                 const result = await db.query(sql).catch(function (error) {
                     // Check if this was
@@ -132,16 +131,16 @@ module.exports = class InsurerPolicyTypeBO{
                 let boList = [];
                 if(result && result.length > 0 ){
                     for(let i=0; i < result.length; i++ ){
-                        let insurerPolicyTypeBO = new InsurerPolicyTypeBO();
+                        let insurerTerritoryBO = new InsurerTerritoryBO();
                         //await insurerPolicyTypeBO.#dbTableORM.decryptFields(result[i]);
                         //await insurerPolicyTypeBO.#dbTableORM.convertJSONColumns(result[i]);
-                        const resp = await insurerPolicyTypeBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                        const resp = await insurerTerritoryBO.loadORM(result[i], skipCheckRequired).catch(function(err){
                             log.error(`getList error loading object: ` + err + __location);
                         })
                         if(!resp){
                             log.debug("Bad BO load" + __location)
                         }
-                        boList.push(insurerPolicyTypeBO);
+                        boList.push(insurerTerritoryBO);
                     }
                     resolve(boList);
                 }
@@ -231,24 +230,24 @@ const properties = {
       "dbType": "int(11) unsigned"
     },
     "insurer": {
-      "default": 0,
+      "default": null,
       "encrypted": false,
       "hashed": false,
-      "required": true,
+      "required": false,
       "rules": null,
       "type": "number",
       "dbType": "int(11) unsigned"
     },
-    "policy_type": {
+    "territory": {
       "default": "",
       "encrypted": false,
       "hashed": false,
       "required": true,
       "rules": null,
       "type": "string",
-      "dbType": "varchar(3)"
+      "dbType": "char(2)"
     },
-    "api_support": {
+    "bop": {
       "default": 0,
       "encrypted": false,
       "hashed": false,
@@ -257,7 +256,7 @@ const properties = {
       "type": "number",
       "dbType": "tinyint(1)"
     },
-    "wheelhouse_support": {
+    "gl": {
       "default": 0,
       "encrypted": false,
       "hashed": false,
@@ -266,16 +265,7 @@ const properties = {
       "type": "number",
       "dbType": "tinyint(1)"
     },
-    "slug": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "varchar(30)"
-    },
-    "acord_support": {
+    "wc": {
       "default": 0,
       "encrypted": false,
       "hashed": false,

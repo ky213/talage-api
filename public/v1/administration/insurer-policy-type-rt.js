@@ -110,16 +110,16 @@ async function update(req, res, next) {
 
 exports.registerEndpoint = (server, basePath) => {
 
-    // server.addGetAuthAdmin('Get InsurerPolicyType list', `${basePath}/insurer-policy-type`, findAll, 'administration', 'all');
-    // server.addGetAuthAdmin('Get InsurerPolicyType Object', `${basePath}/insurer-policy-type/:id`, findOne, 'administration', 'all');
-    // server.addPostAuthAdmin('Post InsurerPolicyType Object', `${basePath}/insurer-policy-type`, add, 'administration', 'all');
-    // server.addPutAuthAdmin('Put InsurerPolicyType Object', `${basePath}/insurer-policy-type/:id`, update, 'administration', 'all');
+    server.addGetAuthAdmin('Get InsurerPolicyType list', `${basePath}/insurer-policy-type`, findAll, 'administration', 'all');
+    server.addGetAuthAdmin('Get InsurerPolicyType Object', `${basePath}/insurer-policy-type/:id`, findOne, 'administration', 'all');
+    server.addPostAuthAdmin('Post InsurerPolicyType Object', `${basePath}/insurer-policy-type`, add, 'administration', 'all');
+    server.addPutAuthAdmin('Put InsurerPolicyType Object', `${basePath}/insurer-policy-type/:id`, update, 'administration', 'all');
 
 
-    server.addGet('Get InsurerPolicyType list', `${basePath}/insurer-policy-type`, findAll, 'administration', 'all');
-    server.addGet('Get InsurerPolicyType Object', `${basePath}/insurer-policy-type/:id`, findOne, 'administration', 'all');
-    server.addPost('Post InsurerPolicyType Object', `${basePath}/insurer-policy-type`, add, 'administration', 'all');
-    server.addPut('Put InsurerPolicyType Object', `${basePath}/insurer-policy-type/:id`, update, 'administration', 'all');
+    // server.addGet('Get InsurerPolicyType list', `${basePath}/insurer-policy-type`, findAll, 'administration', 'all');
+    // server.addGet('Get InsurerPolicyType Object', `${basePath}/insurer-policy-type/:id`, findOne, 'administration', 'all');
+    // server.addPost('Post InsurerPolicyType Object', `${basePath}/insurer-policy-type`, add, 'administration', 'all');
+    // server.addPut('Put InsurerPolicyType Object', `${basePath}/insurer-policy-type/:id`, update, 'administration', 'all');
 
 
 };
