@@ -12,7 +12,7 @@ const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 
 /**
- * Quotereport Task processor
+ * Agency report Task processor
  *
  * @param {string} queueMessage - message from queue
  * @returns {void}
@@ -24,7 +24,6 @@ exports.processtask = async function(queueMessage){
     var now = moment().utc();
     const messageAge = now.unix() - sentDatetime.unix();
     if(messageAge < 1800){
-        // DO STUFF
 
         await quoteReportTask().catch(err => error = err);
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err){
@@ -41,7 +40,7 @@ exports.processtask = async function(queueMessage){
         log.info('removing old Abandon Application Message from queue');
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(err => error = err)
         if(error){
-            log.error("Error quote report deleteTaskQueueItem old " + error + __location);
+            log.error("Error agency report deleteTaskQueueItem old " + error + __location);
         }
         return;
     }
@@ -69,7 +68,7 @@ var quoteReportTask = async function(){
     //S QLAgency locations
     const quoteSQL = `
     select 
-            id, name, slug, state, agency_network, created, modified, deleted 
+            id, name, slug, state, agency_network, created, modified, deleted, wholesale_agreement_signed
         from    
             clw_talage_agencies 
         where 
@@ -78,16 +77,16 @@ var quoteReportTask = async function(){
     let quoteListDBJSON = null;
 
     quoteListDBJSON = await db.query(quoteSQL).catch(function(err){
-        log.error(`Error get quote list from DB. error:  ${err}` + __location);
+        log.error(`Error get agency list from DB. error:  ${err}` + __location);
         return false;
     });
-    const cvsHeaderColumns = {
+    const dbDataColumns = {
                             "id": "Agency ID",
                             "name": "Angency Name",
-                            "slug": "state",
-                            "state": "Territory",
+                            "state": "state",
                             "agency_network": "Agency Network",
                             "created": "Created",
+                            "wholesale_agreement_signed":"Wholesale Agreement Signed",
                             "modified": "Modified",
                             "deleted": "Deleted"
                             };
@@ -99,21 +98,34 @@ var quoteReportTask = async function(){
             
             quote.created = moment_timezone(quote.created).tz('America/Los_Angeles').format('YYYY-MM-DD');
             quote.modified = moment_timezone(quote.modified).tz('America/Los_Angeles').format('YYYY-MM-DD');
-            if(quote.deleted){
+
+            if(quote.state > 0 ){
+                quote.state = "Active"
+            }
+            else{
+                quote.state = "Deleted"
+            }
+            if(quote.wholesale_agreement_signed){
+                quote.wholesale_agreement_signed = moment_timezone(quote.wholesale_agreement_signed).tz('America/Los_Angeles').format('YYYY-MM-DD');
+            }
+            if(quote.wholesale_agreement_signed < startOfMonth){
+                quote.state = "Active"
+            }
+                if(quote.deleted){
                 quote.deleted = moment_timezone(quote.deleted).tz('America/Los_Angeles').format('YYYY-MM-DD');
             }
             
         }
 
-        //Map Quote list to CSV
+        //Map list of agencies to CSV
         // eslint-disable-next-line object-property-newline
         const stringifyOptions = {
                                     "header": true,
-                                    "columns": cvsHeaderColumns
+                                    "columns": dbDataColumns
                                  };
 
         const csvData = await csvStringify(quoteListDBJSON, stringifyOptions).catch(function(err){
-            log.error("Quote Report JSON to CSV error: " + err + __location);
+            log.error("Agency Report JSON to CSV error: " + err + __location);
             return;
         });
         
@@ -138,7 +150,7 @@ var quoteReportTask = async function(){
             attachments.push(attachmentJson);
             const emailResp = await emailSvc.send(toEmail, 'Agency Report', 'Monthly report with number of agencies, active/inactive, and onboarding dates as of the 1st of that month.', {}, 'talage', 1, attachments);
             if(emailResp === false){
-                slack.send('#alerts', 'warning',`The system failed to send Quote Report email.`);
+                slack.send('#alerts', 'warning',`The system failed to send Agency Report email.`);
             }
             return;
         }
@@ -148,14 +160,24 @@ var quoteReportTask = async function(){
         }
     }
     else {
+<<<<<<< HEAD
+        log.info("Agencies Report: No Agencies to report ");
+=======
         log.info("Agency Report: No agencies to report ");
+>>>>>>> develop
         let toEmail = 'adam@talageins.com';
         if(global.settings.ENV !== 'production'){
             toEmail = 'brian@talageins.com';
         }
+<<<<<<< HEAD
+        const emailResp = await emailSvc.send(toEmail, 'Agency Report', 'Your daily agencies report: No Agencies.', {}, 'talage', 1);
+        if(emailResp === false){
+            slack.send('#alerts', 'warning',`The system failed to send Agency Report email.`);
+=======
         const emailResp = await emailSvc.send(toEmail, '"Agency Report', 'Your "Agency Report report: No Agencies.', {}, 'talage', 1);
         if(emailResp === false){
             slack.send('#alerts', 'warning',`The system failed to send "Agency Report email.`);
+>>>>>>> develop
         }
         return;
     }

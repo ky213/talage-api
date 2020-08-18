@@ -117,10 +117,16 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'administration', 'color-scheme');
     registerEndpoint(server, 'administration', 'message');
     registerEndpoint(server, 'administration', 'insurer');
+    registerEndpoint(server, 'administration', 'insurer-contact-rt');
+    registerEndpoint(server, 'administration', 'insurer-payment-plan-rt');
+    registerEndpoint(server, 'administration', 'insurer-policy-type-rt');
+    registerEndpoint(server, 'administration', 'insurer-territory-rt');
     registerEndpoint(server, 'administration', 'insurer-outage');
     registerEndpoint(server, 'administration', 'agency-network-rt');
     registerEndpoint(server, 'administration', 'agency-location-rt');
     registerEndpoint(server, 'administration', 'territory-rt');
+    registerEndpoint(server, 'administration', 'payment-plan-rt');
+    registerEndpoint(server, 'administration', 'policy-type-rt');
 
     // Server.AddGet('Uptime Check', '/', GetUptime);
     // AWS load balancers and pingdom send /uptime

@@ -353,5 +353,10 @@ exports.parseBool = function(rawString, defaultValue) {
 };
 
 exports.ucFirstLetter = function(s) {
-    return s[0].toUpperCase() + s.toLowerCase().slice(1);
+    if(s){
+        return s[0].toUpperCase() + s.toLowerCase().slice(1);
+    }
+    else {
+        return null;
+    }
 };

@@ -139,16 +139,16 @@ async function getSelectionList(req, res, next) {
 
 exports.registerEndpoint = (server, basePath) => {
 
-    // server.addGetAuthAdmin('Get Insurer list', `${basePath}/agency-location`, findAll, 'administration', 'all');
-    // server.addGetAuthAdmin('Get Insurer Object', `${basePath}/agency-location/:id`, findOne, 'administration', 'all');
-    // server.addPostAuthAdmin('Post Insurer Object', `${basePath}/insurer`, add, 'administration', 'all');
-    // server.addPutAuthAdmin('Put Insurer Object', `${basePath}/insurer/:id`, update, 'administration', 'all');
-    //server.addGetAuth('GET Insurer List for Selection', `${basePath}/insurer/selectionlist`, getSelectionList);
+    server.addGetAuthAdmin('Get Insurer list', `${basePath}/insurer`, findAll, 'administration', 'all');
+    server.addGetAuthAdmin('Get Insurer Object', `${basePath}/insurer/:id`, findOne, 'administration', 'all');
+    server.addPostAuthAdmin('Post Insurer Object', `${basePath}/insurer`, add, 'administration', 'all');
+    server.addPutAuthAdmin('Put Insurer Object', `${basePath}/insurer/:id`, update, 'administration', 'all');
+    server.addGetAuth('GET Insurer List for Selection', `${basePath}/insurer/selectionlist`, getSelectionList);
 
-    server.addGet('Get Insurer list', `${basePath}/insurer`, findAll, 'administration', 'all');
-    server.addGet('Get Insurer Object', `${basePath}/insurer/:id`, findOne, 'administration', 'all');
-    server.addPost('Post Insurer Object', `${basePath}/insurer`, add, 'administration', 'all');
-    server.addPut('Put Insurer Object', `${basePath}/insurer/:id`, update, 'administration', 'all');
-    server.addGet('GET Insurer List for Selection', `${basePath}/insurer/selectionlist`, getSelectionList);
+    // server.addGet('Get Insurer list', `${basePath}/insurer`, findAll, 'administration', 'all');
+    // server.addGet('Get Insurer Object', `${basePath}/insurer/:id`, findOne, 'administration', 'all');
+    // server.addPost('Post Insurer Object', `${basePath}/insurer`, add, 'administration', 'all');
+    // server.addPut('Put Insurer Object', `${basePath}/insurer/:id`, update, 'administration', 'all');
+    // server.addGet('GET Insurer List for Selection', `${basePath}/insurer/selectionlist`, getSelectionList);
 
 };
