@@ -10,9 +10,9 @@ const moment_timezone = require('moment-timezone');
 const { debug } = require('request');
 
 
-const tableName = 'clw_talage_payment_plans'
+const tableName = 'clw_talage_insurer_policy_types'
 const skipCheckRequired = false;
-module.exports = class PaymentPlanBO{
+module.exports = class InsurerPolicyTypeBO{
 
     #dbTableORM = null;
 
@@ -72,7 +72,7 @@ module.exports = class PaymentPlanBO{
             //validate
             this.#dbTableORM.load(this, skipCheckRequired);
             await this.#dbTableORM.save().catch(function(err){
-                reject(err); 
+                reject(err);
             });
             resolve(true);
         });
@@ -106,14 +106,19 @@ module.exports = class PaymentPlanBO{
                 `;
                 if(queryJSON){
                     let hasWhere = false;
-                    if(queryJSON.name){
+                    if(queryJSON.policy_type){
                         sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` name like ${db.escape(queryJSON.name)} `
+                        sql += ` policy_type = ${db.escape(queryJSON.policy_type)} `
+                        hasWhere = true;
+                    }
+                    if(queryJSON.insurer){
+                        sql += hasWhere ? " AND " : " WHERE ";
+                        sql += ` insurer = ${db.escape(queryJSON.insurer)} `
                         hasWhere = true;
                     }
                 }
                 // Run the query
-                //log.debug("PaymentPlanBO getlist sql: " + sql);
+                log.debug("InsurerPolicyTypeBO getlist sql: " + sql);
                 const result = await db.query(sql).catch(function (error) {
                     // Check if this was
                     
@@ -127,16 +132,18 @@ module.exports = class PaymentPlanBO{
                 let boList = [];
                 if(result && result.length > 0 ){
                     for(let i=0; i < result.length; i++ ){
-                        let paymentPlanBO = new PaymentPlanBO();
-                        await paymentPlanBO.#dbTableORM.decryptFields(result[i]);
-                        await paymentPlanBO.#dbTableORM.convertJSONColumns(result[i]);
-                        const resp = await paymentPlanBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                        log.debug("insurerPolicyTypeBO result[i]: " + JSON.stringify(result[i]))
+                        let insurerPolicyTypeBO = new InsurerPolicyTypeBO();
+                        //await insurerPolicyTypeBO.#dbTableORM.decryptFields(result[i]);
+                        //await insurerPolicyTypeBO.#dbTableORM.convertJSONColumns(result[i]);
+                        const resp = await insurerPolicyTypeBO.loadORM(result[i], skipCheckRequired).catch(function(err){
                             log.error(`getList error loading object: ` + err + __location);
                         })
                         if(!resp){
                             log.debug("Bad BO load" + __location)
                         }
-                        boList.push(paymentPlanBO);
+                        log.debug("insurerPolicyTypeBO : " + JSON.stringify(insurerPolicyTypeBO))
+                        boList.push(insurerPolicyTypeBO);
                     }
                     resolve(boList);
                 }
@@ -225,23 +232,59 @@ const properties = {
       "type": "number",
       "dbType": "int(11) unsigned"
     },
-    "name": {
+    "insurer": {
+      "default": 0,
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "number",
+      "dbType": "int(11) unsigned"
+    },
+    "policy_type": {
       "default": "",
       "encrypted": false,
       "hashed": false,
       "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "varchar(3)"
+    },
+    "api_support": {
+      "default": 0,
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "number",
+      "dbType": "tinyint(1)"
+    },
+    "wheelhouse_support": {
+      "default": 0,
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "number",
+      "dbType": "tinyint(1)"
+    },
+    "slug": {
+      "default": null,
+      "encrypted": false,
+      "hashed": false,
+      "required": false,
       "rules": null,
       "type": "string",
       "dbType": "varchar(30)"
     },
-    "description": {
-      "default": "",
+    "acord_support": {
+      "default": 0,
       "encrypted": false,
       "hashed": false,
       "required": true,
       "rules": null,
-      "type": "string",
-      "dbType": "varchar(500)"
+      "type": "number",
+      "dbType": "tinyint(1)"
     }
   }
 

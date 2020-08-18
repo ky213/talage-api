@@ -10,9 +10,9 @@ const moment_timezone = require('moment-timezone');
 const { debug } = require('request');
 
 
-const tableName = 'clw_talage_payment_plans'
+const tableName = 'clw_talage_policy_types'
 const skipCheckRequired = false;
-module.exports = class PaymentPlanBO{
+module.exports = class PolicyTypeBO{
 
     #dbTableORM = null;
 
@@ -72,7 +72,7 @@ module.exports = class PaymentPlanBO{
             //validate
             this.#dbTableORM.load(this, skipCheckRequired);
             await this.#dbTableORM.save().catch(function(err){
-                reject(err); 
+                reject(err);
             });
             resolve(true);
         });
@@ -113,7 +113,7 @@ module.exports = class PaymentPlanBO{
                     }
                 }
                 // Run the query
-                //log.debug("PaymentPlanBO getlist sql: " + sql);
+                //log.debug("PolicyTypeBO getlist sql: " + sql);
                 const result = await db.query(sql).catch(function (error) {
                     // Check if this was
                     
@@ -127,16 +127,16 @@ module.exports = class PaymentPlanBO{
                 let boList = [];
                 if(result && result.length > 0 ){
                     for(let i=0; i < result.length; i++ ){
-                        let paymentPlanBO = new PaymentPlanBO();
-                        await paymentPlanBO.#dbTableORM.decryptFields(result[i]);
-                        await paymentPlanBO.#dbTableORM.convertJSONColumns(result[i]);
-                        const resp = await paymentPlanBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                        let policyTypeBO = new PolicyTypeBO();
+                        await policyTypeBO.#dbTableORM.decryptFields(result[i]);
+                        await policyTypeBO.#dbTableORM.convertJSONColumns(result[i]);
+                        const resp = await policyTypeBO.loadORM(result[i], skipCheckRequired).catch(function(err){
                             log.error(`getList error loading object: ` + err + __location);
                         })
                         if(!resp){
                             log.debug("Bad BO load" + __location)
                         }
-                        boList.push(paymentPlanBO);
+                        boList.push(policyTypeBO);
                     }
                     resolve(boList);
                 }
@@ -216,14 +216,14 @@ module.exports = class PaymentPlanBO{
 }
 
 const properties = {
-    "id": {
-      "default": 0,
+    "abbr": {
+      "default": "",
       "encrypted": false,
       "hashed": false,
-      "required": false,
+      "required": true,
       "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
+      "type": "string",
+      "dbType": "varchar(3)"
     },
     "name": {
       "default": "",
@@ -232,7 +232,16 @@ const properties = {
       "required": true,
       "rules": null,
       "type": "string",
-      "dbType": "varchar(30)"
+      "dbType": "varchar(24)"
+    },
+    "heading": {
+      "default": "",
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "string",
+      "dbType": "varchar(50)"
     },
     "description": {
       "default": "",
@@ -241,7 +250,7 @@ const properties = {
       "required": true,
       "rules": null,
       "type": "string",
-      "dbType": "varchar(500)"
+      "dbType": "varchar(255)"
     }
   }
 
