@@ -185,16 +185,30 @@ async function getAgency(req, res, next) {
 		`;
         try {
             agency.locations = await db.query(sql);
-            for (let i = 0; i < agency.locations.length; i++) {
-                const l = agency.locations[i];
-                l.address = await crypt.decrypt(l.address);
-                if (l.address2) {
-                    l.address2 = await crypt.decrypt(l.address2);
+            if (agency.locations) {
+                for (let i = 0; i < agency.locations.length; i++) {
+                    const l = agency.locations[i];
+                    if (l) {
+                        if (l.address) {
+                            l.address = await crypt.decrypt(l.address);
+                        }
+                        if (l.address2) {
+                            l.address2 = await crypt.decrypt(l.address2);
+                        }
+                        if (l.email) {
+                            l.email = await crypt.decrypt(l.email);
+                        }
+                        if (l.phone) {
+                            l.phone = await crypt.decrypt(l.phone);
+                        }
+                        if (l.city) {
+                            l.city = stringFunctions.ucFirstLetter(l.city);
+                        }
+                        if (l.appointments) {
+                            l.appointments = l.appointments.split(',');
+                        }
+                    }
                 }
-                l.email = await crypt.decrypt(l.email);
-                l.phone = await crypt.decrypt(l.phone);
-                l.city = stringFunctions.ucFirstLetter(l.city);
-                l.appointments = l.appointments.split(',');
             }
         }
         catch (error) {
@@ -243,7 +257,7 @@ async function getAgency(req, res, next) {
             // continue (non-fatal)
         }
     }
-
+    console.log(agency);
     res.send(200, {agency: agency});
     return next();
 }

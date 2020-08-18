@@ -59,20 +59,24 @@ const requiredVariables = [
     'SQS_TASK_QUEUE'
 ];
 
-const optionalVariables = [
-    'AWS_USE_KEYS',
-    'USE_MONGO',
-    'S3_SECURE_BUCKET',
-    'MONGODB_CONNECTIONURL',
-    'MONGODB_DATABASENAME',
-    'MONGODB_CONNECTIONURLQUERY'
-]
+// Optional variables with their defaults if they are not provided
+const optionalVariables = {
+    AWS_USE_KEYS: "YES",
+    S3_SECURE_BUCKET: null,
+    USE_MONGO: "NO",
+    MONGODB_CONNECTIONURL: "",
+    MONGODB_DATABASENAME: "",
+    MONGODB_CONNECTIONURLQUERY: "",
+    DEFAULT_QUOTE_AGENCY_SLUG: "talage",
+    APPLICATION_AGE_CHECK_BYPASS: "NO",
+    JWT_TOKEN_EXPIRATION: "15h",
+    OVERRIDE_EMAIL: "NO",
+    TEST_EMAIL: null,
+    QUOTE_ONLY_INSURER: null
+}
+
 exports.load = () => {
     let variables = {};
-    variables.AWS_USE_KEYS = "YES";
-    //Default to no use mongo if there are not ENV settings for it.
-    variables.USE_MONGO = "NO";
-    variables.S3_SECURE_BUCKET = null;
 
     if (fs.existsSync('local.env')){
         // Load the variables from the aws.env file if it exists
@@ -85,16 +89,14 @@ exports.load = () => {
             return false;
         }
         if (settingsDebugOutput){
-            requiredVariables.forEach((variableName) => {
-                if (variables.hasOwnProperty(variableName)){
-                    console.log(colors.yellow(`\tSetting ${variableName}=${variables[variableName]}`));
-                }
-            });
+            for (const [variableName, variableValue] of Object.entries(variables)) {
+                console.log(colors.yellow(`\tSetting ${variableName}=${variableValue}`));
+            }
         }
         console.log(colors.green('\tCompleted'));
     }
     // Load the environment variables over the local.env variables
-    console.log('Loading settings from environment variables');
+    console.log('Loading required settings from environment variables');
     requiredVariables.forEach((variableName) => {
         if (process.env.hasOwnProperty(variableName)){
             if (settingsDebugOutput){
@@ -103,18 +105,26 @@ exports.load = () => {
             variables[variableName] = process.env[variableName];
         }
     });
+    console.log(colors.green('\tCompleted'));
     // optional array....
-    optionalVariables.forEach((variableName) => {
-        if (process.env.hasOwnProperty(variableName)){
-            if (settingsDebugOutput){
+    console.log('Loading optional settings from environment variables');
+    for (const [variableName, defaultValue] of Object.entries(optionalVariables)) {
+        if (process.env.hasOwnProperty(variableName)) {
+            // If the environment has this value, then the environment value will override the existing value
+            if (settingsDebugOutput) {
                 console.log(colors.yellow(`\t${variables.hasOwnProperty(variableName) ? 'Overriding' : 'Setting'} ${variableName}=${process.env[variableName]}`));
             }
             variables[variableName] = process.env[variableName];
         }
-    });
-
-
-    //console.log(colors.green('\tSettings Load Completed'));
+        else if (!variables.hasOwnProperty(variableName)) {
+            // If the value is not set anywhere, then set it to the default value.
+            if (settingsDebugOutput) {
+                console.log(colors.yellow(`\tSetting ${variableName}=${defaultValue} (default value)`));
+            }
+            variables[variableName] = defaultValue;
+        }
+    }
+    console.log(colors.green('\tCompleted'));
 
     // Ensure required variables exist and inject them into the global 'settings' object
     global.settings = {};
@@ -131,8 +141,7 @@ exports.load = () => {
         global.settings[requiredVariables[i]] = variables[requiredVariables[i]];
     }
 
-    // Add any other hard-coded global settings here
-    console.log('Loading hard-coded settings');
+    // Setting adjustments and special cases
 
     // ! check did not work.
     if(global.settings.S3_SECURE_BUCKET){
@@ -145,8 +154,7 @@ exports.load = () => {
         console.log(colors.red('\tMissing S3_SECURE_BUCKET'));
         return false;
     }
-    global.settings.JWT_TOKEN_EXPIRATION = '15h';
-    console.log(`\tJWT_TOKEN_EXPIRATION = ${global.settings.JWT_TOKEN_EXPIRATION}`);
+    console.log(`    JWT_TOKEN_EXPIRATION = ${global.settings.JWT_TOKEN_EXPIRATION}`);
 
     console.log(colors.green('\tSettings Load Completed'));
 
