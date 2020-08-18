@@ -10,9 +10,9 @@ const moment_timezone = require('moment-timezone');
 const { debug } = require('request');
 
 
-const tableName = 'clw_talage_outages'
+const tableName = 'clw_talage_insurers'
 const skipCheckRequired = false;
-module.exports = class InsurerOutageBO{
+module.exports = class InsurerBO{
 
     #dbTableORM = null;
 
@@ -78,7 +78,7 @@ module.exports = class InsurerOutageBO{
         });
     }
 
-    getById(id) {
+    loadFromId(id) {
         return new Promise(async (resolve, reject) => {
             //validate
             if(id && id >0 ){
@@ -89,6 +89,77 @@ module.exports = class InsurerOutageBO{
                 });
                 this.updateProperty();
                 resolve(true);
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
+    getList(queryJSON) {
+        return new Promise(async (resolve, reject) => {
+           
+                let rejected = false;
+                // Create the update query
+                let sql = `
+                    select *  from ${tableName}  
+                `;
+                if(queryJSON){
+                    let hasWhere = false;
+                    if(queryJSON.name){
+                        sql += hasWhere ? " AND " : " WHERE ";
+                        sql += ` name like ${db.escape(queryJSON.name)} `
+                        hasWhere = true;
+                    }
+                }
+                // Run the query
+                log.debug("AgencyNetworkBO getlist sql: " + sql);
+                const result = await db.query(sql).catch(function (error) {
+                    // Check if this was
+                    
+                    rejected = true;
+                    log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
+                    reject(error);
+                });
+                if (rejected) {
+                    return;
+                }
+                let boList = [];
+                if(result && result.length > 0 ){
+                    for(let i=0; i < result.length; i++ ){
+                        let insurerBO = new InsurerBO();
+                        await insurerBO.#dbTableORM.decryptFields(result[i]);
+                        await insurerBO.#dbTableORM.convertJSONColumns(result[i]);
+                        const resp = await insurerBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                            log.error(`getList error loading object: ` + err + __location);
+                        })
+                        if(!resp){
+                            log.debug("Bad BO load" + __location)
+                        }
+                        boList.push(insurerBO);
+                    }
+                    resolve(boList);
+                }
+                else {
+                    //Search so no hits ok.
+                    resolve([]);
+                }
+               
+            
+        });
+    }
+
+    getById(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id && id >0 ){
+                await this.#dbTableORM.getById(id).catch(function (err) {
+                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
+                    reject(err);
+                    return;
+                });
+                this.updateProperty();
+                resolve(this.#dbTableORM.cleanJSON());
             }
             else {
                 reject(new Error('no id supplied'))
@@ -137,52 +208,11 @@ module.exports = class InsurerOutageBO{
 	 */
     async loadORM(inputJSON){
         await this.#dbTableORM.load(inputJSON, skipCheckRequired);
+        this.updateProperty();
         return true;
     }
 
-    async saveBoth(){
-      
-        //************************** */
-        //   MYSQL Write 
-        //************************** */
-
-        // // Convert sent to Pacific timezone for mysql;
-        // const sentPST = sentDtm.tz('America/Los_Angeles').format('YYYY-MM-DD HH:mm:ss');
-        // log.debug("sentPST: " + sentPST);
-        // columns.sent = sentPST;
-        // const insertQuery = `INSERT INTO ${tableName} (${Object.keys(columns).join(',')}) VALUES (${Object.values(columns).
-        //     map(function(val) {
-        //         return db.escape(val);
-        //     }).
-        //     join(',')})`;
-        // let messagesId = null;
-        // await db.
-        //     query(insertQuery).
-        //     then(function(results) {
-        //         messagesId = results.insertId;
-        //     }).
-        //     catch(function(err) {
-        //         log.error('Unable to record email message in the database' + err + ' sql: ' + insertQuery + __location);
-        //         throw err;
-        //     });
-        
-         //************************** */
-        //   MongoDB Write 
-        // //************************** */
-        // if(global.settings.USE_MONGO === "YES"){
-        //     var Message = require('mongoose').model('Message');
-        //     var message = new Message(mongoMessageDoc);
-
-        //     //Insert a doc
-        //     await message.save().catch(function(err){
-        //         log.error('Mongo Message Save err ' + err + __location);
-        //         //log.debug("message " + JSON.stringify(message.toJSON()));
-        //     });
-           
-        // }
-
-        return true;
-    }
+    
     /*****************************
      *   For administration site
      * 
@@ -211,53 +241,6 @@ module.exports = class InsurerOutageBO{
        
     }
    
-   
-   
-   
-   
-    //  getListForAdmin(queryJSON){
-    //     return new Promise(async (resolve, reject) => {
-    //         let sql = `
-	// 			SELECT io.id, i.id as insurerId, i.name as insurerName, io.start, io.end
-	// 			FROM clw_talage_outages AS io 
-	// 				 LEFT JOIN clw_talage_insurers AS i ON i.id = io.insurer
-	// 		`;
-    //         let hasWhere = false;
-    //         if(queryJSON.insurerid){
-    //             sql +=  ` WHERE io.insurer = ${db.escape(parseInt(queryJSON.insurerid, 10))} `;
-    //             hasWhere = true;
-
-    //         }
-    //         if(queryJSON.searchdate){
-    //             sql += hasWhere ? " AND " : " WHERE ";
-    //             sql +=  ` ('${moment(queryJSON.searchdate).tz('America/Los_Angeles').format('YYYY/MM/DD HH:mm:ss')}' BETWEEN io.start AND io.end)`;
-    //         }
-    //         sql += " Order by io.start desc"
-
-    //         log.debug('Outage list sql: ' + sql);
-    //         const rows = await db.query(sql).catch(function (err) {
-    //             log.error(`Error getting  ${tableName} from Database ` + err + __location);
-    //             reject(err);
-    //             return;
-    //         });
-    //         //fix date to be UTC for front end.
-    //         if(rows.length > 0 ){
-    //             for(let i=0; i <rows.length;i++ ){
-    //                 const dbSent = moment(rows[i].start);
-    //                 const dbSentString = dbSent.utc().format('YYYY-MM-DD HH:mm:ss');
-    //                 rows[i].start = moment.tz(dbSentString, "America/Los_Angeles").utc();
-
-    //                 const dbSent2 = moment(rows[i].end);
-    //                 const dbSentString2 = dbSent2.utc().format('YYYY-MM-DD HH:mm:ss');
-    //                 rows[i].end = moment.tz(dbSentString2, "America/Los_Angeles").utc();
-                    
-    //             }
-    //         }
-    //         resolve(rows);
-           
-    //     });
-    // }
-
 }
 
 const properties = {
