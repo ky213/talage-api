@@ -385,7 +385,7 @@ module.exports = class CompwestWC extends Integration {
 
             if (this.business.dba) {
                 // <AdditionalInterest id="c2">
-                const AdditionalInterest = location.ele('additionalInterest');
+                const AdditionalInterest = location.ele('AdditionalInterest');
                     // <GeneralPartyInfo>
 
                         let GeneralPartyInfo = AdditionalInterest.ele('GeneralPartyInfo');
@@ -399,7 +399,7 @@ module.exports = class CompwestWC extends Integration {
                         //</NameInfo>
                     // </GeneralPartyInfo>
                 // <AdditionalInterestInfo>
-                    const AdditionInterestInfo = additionalInterest.ele('AdditionInterestInfo');
+                    const AdditionInterestInfo = AdditionalInterest.ele('AdditionInterestInfo');
                     // <NatureInterestCd>
 
 				        AdditionInterestInfo.ele('NatureInterestCd', 'DBA');
