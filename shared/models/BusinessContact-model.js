@@ -1,7 +1,6 @@
 'use strict';
 
 const DatabaseObject = require('./DatabaseObject.js');
-const SearchStringModel = require('./SearchStrings-model.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const crypt = global.requireShared('./services/crypt.js');
@@ -66,7 +65,6 @@ module.exports = class BusinessContactModel{
             });
             this.updateProperty();
             this.id = this.#dbTableORM.id;
-            await this.updateSearchStrings();
             resolve(true);
             
         });

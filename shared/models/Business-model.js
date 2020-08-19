@@ -3,7 +3,6 @@ const DatabaseObject = require('./DatabaseObject.js');
 const BusinessContactModel = require('./BusinessContact-model.js');
 const BusinessAddressModel = require('./BusinessAddress-model.js');
 const BusinessAddressActivityCodeModel = require('./BusinessAddressActivityCode-model.js');
-const SearchStringModel = require('./SearchStrings-model.js');
 const crypt = global.requireShared('./services/crypt.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
@@ -70,7 +69,6 @@ module.exports = class BusinessBO{
             });
             this.updateProperty();
             this.id = this.#dbTableORM['id'];
-            await this.updateSearchStrings();
 
             // //Create Contact records....
             if(businessJSON.contacts){
@@ -317,29 +315,6 @@ module.exports = class BusinessBO{
     }
 
 
-    updateSearchStrings(){
-        return new Promise(async(resolve, reject) => {
-            //validate
-            if(hashFields && hashFields.length > 0){
-                let searchStringJson = {"table" : "businesses", "item_id": this.id};
-                searchStringJson.fields = [];
-                for(var i=0;i < hashFields.length; i++){
-                    if(this[hashFields[i]]){
-                        const fieldJson = {field: hashFields[i], value: this[hashFields[i]]}
-                        searchStringJson.fields.push(fieldJson)
-                    }
-                }
-                log.debug('setup business search  ' + JSON.stringify(searchStringJson));
-                if(searchStringJson.fields.length > 0){
-                    const searchStringModel = new SearchStringModel();
-                    await searchStringModel.AddStrings(searchStringJson).catch(function(err){
-                        log.error(`Error creating search for ${searchStringJson.table} id ${searchStringJson.item_id} error: ` + err + __location)
-                    })
-                }
-            }
-            resolve(true);
-        });
-    }
     async cleanupInput(inputJSON){
         //owners
         if(inputJSON.ownersJSON){
