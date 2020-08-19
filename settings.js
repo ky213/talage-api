@@ -60,23 +60,21 @@ const requiredVariables = [
 ];
 
 // Optional variables with their defaults if they are not provided
-const optionalVariables = {
-    AWS_USE_KEYS: "YES",
-    S3_SECURE_BUCKET: null,
-    USE_MONGO: "NO",
-    MONGODB_CONNECTIONURL: "",
-    MONGODB_DATABASENAME: "",
-    MONGODB_CONNECTIONURLQUERY: "",
-    DEFAULT_QUOTE_AGENCY_SLUG: "talage",
-    APPLICATION_AGE_CHECK_BYPASS: "NO",
-    JWT_TOKEN_EXPIRATION: "15h",
-    OVERRIDE_EMAIL: "NO",
-    TEST_EMAIL: null,
-    QUOTE_ONLY_INSURER: null
-}
+const optionalVariables = [
+    'AWS_USE_KEYS',
+    'USE_MONGO',
+    'S3_SECURE_BUCKET',
+    'MONGODB_CONNECTIONURL',
+    'MONGODB_DATABASENAME',
+    'MONGODB_CONNECTIONURLQUERY'
+]
 
 exports.load = () => {
     let variables = {};
+    variables.AWS_USE_KEYS = "NO";
+    //Default to no use mongo if there are not ENV settings for it.
+    variables.USE_MONGO = "NO";
+    variables.S3_SECURE_BUCKET = null;
 
     if (fs.existsSync('local.env')){
         // Load the variables from the aws.env file if it exists
@@ -108,22 +106,14 @@ exports.load = () => {
     console.log(colors.green('\tCompleted'));
     // optional array....
     console.log('Loading optional settings from environment variables');
-    for (const [variableName, defaultValue] of Object.entries(optionalVariables)) {
+    optionalVariables.forEach((variableName) => {
         if (process.env.hasOwnProperty(variableName)) {
-            // If the environment has this value, then the environment value will override the existing value
             if (settingsDebugOutput) {
                 console.log(colors.yellow(`\t${variables.hasOwnProperty(variableName) ? 'Overriding' : 'Setting'} ${variableName}=${process.env[variableName]}`));
             }
             variables[variableName] = process.env[variableName];
         }
-        else if (!variables.hasOwnProperty(variableName)) {
-            // If the value is not set anywhere, then set it to the default value.
-            if (settingsDebugOutput) {
-                console.log(colors.yellow(`\tSetting ${variableName}=${defaultValue} (default value)`));
-            }
-            variables[variableName] = defaultValue;
-        }
-    }
+    });
     console.log(colors.green('\tCompleted'));
 
     // Ensure required variables exist and inject them into the global 'settings' object
@@ -133,28 +123,30 @@ exports.load = () => {
     global.settings = variables;
 
     // Ensure required variables exist and inject them into the global 'settings' object
-    for (let i = 0; i < requiredVariables.length; i++){
-        if (!Object.prototype.hasOwnProperty.call(variables, requiredVariables[i])){
+    for (let i = 0; i < requiredVariables.length; i++) {
+        if (!Object.prototype.hasOwnProperty.call(variables, requiredVariables[i])) {
             console.log(colors.red(`\tError: missing variable '${requiredVariables[i]}'`));
             return false;
         }
         global.settings[requiredVariables[i]] = variables[requiredVariables[i]];
     }
 
-    // Setting adjustments and special cases
+    // Add any other hard-coded global settings here
+    console.log('Loading hard-coded settings');
 
     // ! check did not work.
-    if(global.settings.S3_SECURE_BUCKET){
+    if (global.settings.S3_SECURE_BUCKET) {
         //console.log('Secure bucket set');
     }
-    else if(global.settings.ENV === 'development'){
+    else if (global.settings.ENV === 'development') {
         global.settings.S3_SECURE_BUCKET = global.settings.S3_BUCKET;
     }
     else {
         console.log(colors.red('\tMissing S3_SECURE_BUCKET'));
         return false;
     }
-    console.log(`    JWT_TOKEN_EXPIRATION = ${global.settings.JWT_TOKEN_EXPIRATION}`);
+    global.settings.JWT_TOKEN_EXPIRATION = '15h';
+    console.log(`\tJWT_TOKEN_EXPIRATION = ${global.settings.JWT_TOKEN_EXPIRATION}`);
 
     console.log(colors.green('\tSettings Load Completed'));
 

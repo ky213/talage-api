@@ -273,6 +273,12 @@ async function getAgency(req, res, next) {
         if (agency === null && global.settings.DEFAULT_QUOTE_AGENCY_SLUG) {
             agency = await getAgencyFromSlugs(global.settings.DEFAULT_QUOTE_AGENCY_SLUG, null);
         }
+
+        // If that fails, return the talage agency
+        if (agency === null) {
+            agency = await getAgencyFromSlugs('talage', null);
+        }
+
     }
     res.send(200, {agency: agency});
     return next();
