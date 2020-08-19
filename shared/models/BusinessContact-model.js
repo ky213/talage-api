@@ -188,31 +188,6 @@ module.exports = class BusinessContactModel{
        })
     }
 
-    updateSearchStrings(){
-        return new Promise(async(resolve) => {
-            //validate
-            log.debug('setup search string ' + __location)
-            if(hashFields && hashFields.length > 0){
-                log.debug('setup search string hashfields' + __location)
-                let searchStringJson = {"table" : "contacts", "item_id": this.id};
-                searchStringJson.fields = [];
-                for(var i=0;i < hashFields.length; i++){
-                    if(this[hashFields[i]]){
-                        const fieldJson = {field: hashFields[i], value: this[hashFields[i]]}
-                        searchStringJson.fields.push(fieldJson)
-                    }
-                }
-                log.debug('setup search  ' + JSON.stringify(searchStringJson));
-                if(searchStringJson.fields.length > 0){
-                    const searchStringModel = new SearchStringModel();
-                    searchStringModel.AddStrings(searchStringJson).catch(function(err){
-                        log.error(`Error creating search for ${searchStringJson.table} id ${searchStringJson.item_id} error: ` + err + __location)
-                    })
-                }
-            }
-            resolve(true);
-        });
-    }
 
     async cleanupInput(inputJSON){
 
