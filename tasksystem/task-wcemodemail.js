@@ -89,7 +89,7 @@ const sendEmodEmail = async function(applicationId) {
                 a.state,
                 b.name as businessName,
                 b.mailing_zip,
-                q.id as qouteId,
+                q.id as quoteId,
                 q.number as quoteNumber,
                 q.api_result,
                 q.amount,
@@ -148,9 +148,10 @@ const sendEmodEmail = async function(applicationId) {
             const portalLink = applications[0].agencyNetwork === 1 ? global.settings.PORTAL_URL : global.settings.DIGALENT_AGENTS_URL;
 
             let message = `
-                <p>{{Business Owner}} tried to get a quote in {{STATE}} but they were declined due to E-Mod rating issues. The quote is in your E-Link, and can be accessed by you and potentially still be bound, but you will have to verify the E-Mod information</p>
+                <p>{{Business Owner}} tried to get a quote in {{STATE}} but they were declined due to E-Mod rating issues. The quote is in your E-Link portal, and can be accessed by you and potentially still be bound, but you will have to verify the E-Mod information</p>
                 <ul>
                 <li><b>Business Name</b>: {{Business Name}}</li>
+                <li><b>Quote Number</b>: {{Quote Number}}</li>
                 <li><b>Contact Name</b>: {{Contact Name}}</li>
                 <li><b>Contact Email</b>: {{Contact Email}}</li>
                 <li><b>Contact Phone</b>: {{Contact Phone}}</li>
@@ -170,6 +171,7 @@ const sendEmodEmail = async function(applicationId) {
             // replace fields in template w/ actual values
             message = message.replace(/{{Business Owner}}/g, fullName);
             message = message.replace(/{{Business Name}}/g, applications[0].businessName);
+            message = message.replace(/{{Quote Number}}/g, applications[0].quoteId);
             message = message.replace(/{{Contact Email}}/g, applications[0].email);
             message = message.replace(/{{Contact Name}}/g, fullName);
             message = message.replace(/{{Contact Phone}}/g, customerPhone);
