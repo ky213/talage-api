@@ -17,6 +17,7 @@ const util = require('util');
 const serverHelper = require('../../../../../../server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+const wcApplicationEmail = require('../../../../../../tasksystem/task-wcapplicationemail');
 
 module.exports = class CompwestWC extends Integration {
     /**
@@ -624,8 +625,9 @@ module.exports = class CompwestWC extends Integration {
                 this.log += `--------======= Application Error =======--------<br><br>${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`;
                 log.error(`${this.insurer.name} ${this.policy.type} Integration Error(s):\n--- ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}` + __location);
                 this.reasons.push(`${status} - ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`);
+                // Send notification email if we get an E Mod error back from carrier 
                 if (res.SignonRs[0].Status[0].StatusDesc[0].Desc[0].toLowerCase().includes("experience mod")) {
-                    notifyEmodError(res);
+                    wcApplicationEmail.sendEmodEmail(this.app.id, this.app.agencyLocation);
                 }
                 return this.return_result('error');
             case 'REFERRALNEEDED':
@@ -691,11 +693,5 @@ module.exports = class CompwestWC extends Integration {
 
         // Send the result of the request
         return this.return_result(status);
-    }
-
-    // error helper for Experience Mod, sends notification email
-    notifyEmodError = (res) => {
-        // TODO: gather details and send email
-        // TODO: create xml template in compwest folder, use require('jsrender').templates('./public/v1/quote/helpers/integrations/employers/wc.xmlt');
     }
 };
