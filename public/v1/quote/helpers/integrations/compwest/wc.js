@@ -17,7 +17,7 @@ const util = require('util');
 const serverHelper = require('../../../../../../server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const wcApplicationEmail = require('../../../../../../tasksystem/task-wcapplicationemail');
+const wcApplicationEmail = require('../../../../../../tasksystem/task-wcemodemail');
 
 module.exports = class CompwestWC extends Integration {
     /**
