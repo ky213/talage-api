@@ -19,7 +19,7 @@ function parseQuoteURL(url) {
     let agencySlug = null;
     let pageSlug = null;
 
-    url = url.replace(/index\.[a-zA-Z]*\/*/, '');
+    url = url.replace(/index\.[a-zA-Z0-9]*\/*/, '');
     let quoteURL = null;
     try {
         quoteURL = new URL(url);
@@ -31,9 +31,12 @@ function parseQuoteURL(url) {
             pageSlug: pageSlug
         };
     }
+    let path = quoteURL.pathname;
+    // Replace multiple slashes with a single one
+    path = path.replace(/\/*/, '/');
+    // Split out the components
+    path = path.split('/');
 
-    // Split the path so we can extract the agency and page slug if needed
-    const path = quoteURL.pathname.split('/');
     if (quoteURL.searchParams.has('agency')) {
         // URL: http://domain/?agency=agencySlug&page=pageSlug
         agencySlug = quoteURL.searchParams.get('agency');
@@ -273,6 +276,12 @@ async function getAgency(req, res, next) {
         if (agency === null && global.settings.DEFAULT_QUOTE_AGENCY_SLUG) {
             agency = await getAgencyFromSlugs(global.settings.DEFAULT_QUOTE_AGENCY_SLUG, null);
         }
+
+        // If that fails, return the talage agency
+        if (agency === null) {
+            agency = await getAgencyFromSlugs('talage', null);
+        }
+
     }
     res.send(200, {agency: agency});
     return next();
