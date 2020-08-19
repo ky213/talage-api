@@ -72,8 +72,8 @@ exports.sendEmodEmail = async function(applicationId) {
 const sendEmodEmail = async function(applicationId) {
     if (applicationId) {
 
-        //get filter out wholesale apps.
-        // NEED insurer, quotes, codes
+        // filter out wholesale apps.
+        // NEED insurer, codes
         const appSQL = `
             SELECT
                 a.id,
@@ -131,13 +131,21 @@ const sendEmodEmail = async function(applicationId) {
 
             let agencyLocationEmail = null;
 
-            //decrypt info...
+            // decrypt info...
             if (applications[0].agencyLocationEmail) {
                 agencyLocationEmail = await crypt.decrypt(applications[0].agencyLocationEmail);
             }
             else if (applications[0].agencyEmail) {
                 agencyLocationEmail = await crypt.decrypt(applications[0].agencyEmail);
             }
+
+            // decrypt necessary application fields
+            applications[0].email = await crypt.decrypt(applications[0].email);
+            applications[0].phone = await crypt.decrypt(applications[0].phone);
+            applications[0].fname = await crypt.decrypt(applications[0].fname);
+            applications[0].lname = await crypt.decrypt(applications[0].lname);
+            applications[0].businessName = await crypt.decrypt(applications[0].businessName);
+            applications[0].agencyEmail = await crypt.decrypt(applications[0].agencyEmail);
 
             const portalLink = applications[0].agencyNetwork === 1 ? global.settings.PORTAL_URL : global.settings.DIGALENT_AGENTS_URL;
 
@@ -150,16 +158,9 @@ const sendEmodEmail = async function(applicationId) {
                 <li><b>Contact Phone</b>: {{Contact Phone}}</li>
                 </ul>
                 <p>You can see more details on this application in your {{Agency Portal}}.</p>
-                <p>-The {{Brand}} team</p>`;
+                <p>-The {{Brand}} team</p>
+            `;
             const subject = "New Customer Tried to Get a Quote but Encountered an Issue with their E-Mod";
-
-            //decrypt application fields needed.
-            applications[0].email = await crypt.decrypt(applications[0].email);
-            applications[0].phone = await crypt.decrypt(applications[0].phone);
-            applications[0].fname = await crypt.decrypt(applications[0].fname);
-            applications[0].lname = await crypt.decrypt(applications[0].lname);
-            applications[0].businessName = await crypt.decrypt(applications[0].businessName);
-            applications[0].agencyEmail = await crypt.decrypt(applications[0].agencyEmail);
 
             let customerPhone = '';
             if (applications[0].phone) {
@@ -168,6 +169,7 @@ const sendEmodEmail = async function(applicationId) {
 
             const fullName = stringFunctions.ucwords(stringFunctions.strtolower(applications[0].fname) + ' ' + stringFunctions.strtolower(applications[0].lname));
 
+            // replace fields in template w/ actual values
             message = message.replace(/{{Business Owner}}/g, fullName);
             message = message.replace(/{{Business Name}}/g, applications[0].businessName);
             message = message.replace(/{{Contact Email}}/g, applications[0].email);
@@ -178,11 +180,12 @@ const sendEmodEmail = async function(applicationId) {
 
             message = message.replace(/{{Brand}}/g, applications[0].emailBrand);
 
-            // Send the email
             const keyData = {
                 'application': applicationId,
                 'agency_location': applications[0].agencyLocation
             };
+
+            // Send the email
             if (agencyLocationEmail) {
                 const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData, applications[0].emailBrand);
                 if (emailResp === false) {
