@@ -59,6 +59,7 @@ const requiredVariables = [
     'SQS_TASK_QUEUE'
 ];
 
+// Optional variables with their defaults if they are not provided
 const optionalVariables = [
     'AWS_USE_KEYS',
     'USE_MONGO',
@@ -67,9 +68,10 @@ const optionalVariables = [
     'MONGODB_DATABASENAME',
     'MONGODB_CONNECTIONURLQUERY'
 ]
+
 exports.load = () => {
     let variables = {};
-    variables.AWS_USE_KEYS = "YES";
+    variables.AWS_USE_KEYS = "NO";
     //Default to no use mongo if there are not ENV settings for it.
     variables.USE_MONGO = "NO";
     variables.S3_SECURE_BUCKET = null;
@@ -85,16 +87,14 @@ exports.load = () => {
             return false;
         }
         if (settingsDebugOutput){
-            requiredVariables.forEach((variableName) => {
-                if (variables.hasOwnProperty(variableName)){
-                    console.log(colors.yellow(`\tSetting ${variableName}=${variables[variableName]}`));
-                }
-            });
+            for (const [variableName, variableValue] of Object.entries(variables)) {
+                console.log(colors.yellow(`\tSetting ${variableName}=${variableValue}`));
+            }
         }
         console.log(colors.green('\tCompleted'));
     }
     // Load the environment variables over the local.env variables
-    console.log('Loading settings from environment variables');
+    console.log('Loading required settings from environment variables');
     requiredVariables.forEach((variableName) => {
         if (process.env.hasOwnProperty(variableName)){
             if (settingsDebugOutput){
@@ -103,18 +103,18 @@ exports.load = () => {
             variables[variableName] = process.env[variableName];
         }
     });
+    console.log(colors.green('\tCompleted'));
     // optional array....
+    console.log('Loading optional settings from environment variables');
     optionalVariables.forEach((variableName) => {
-        if (process.env.hasOwnProperty(variableName)){
-            if (settingsDebugOutput){
+        if (process.env.hasOwnProperty(variableName)) {
+            if (settingsDebugOutput) {
                 console.log(colors.yellow(`\t${variables.hasOwnProperty(variableName) ? 'Overriding' : 'Setting'} ${variableName}=${process.env[variableName]}`));
             }
             variables[variableName] = process.env[variableName];
         }
     });
-
-
-    //console.log(colors.green('\tSettings Load Completed'));
+    console.log(colors.green('\tCompleted'));
 
     // Ensure required variables exist and inject them into the global 'settings' object
     global.settings = {};
@@ -123,8 +123,8 @@ exports.load = () => {
     global.settings = variables;
 
     // Ensure required variables exist and inject them into the global 'settings' object
-    for (let i = 0; i < requiredVariables.length; i++){
-        if (!Object.prototype.hasOwnProperty.call(variables, requiredVariables[i])){
+    for (let i = 0; i < requiredVariables.length; i++) {
+        if (!Object.prototype.hasOwnProperty.call(variables, requiredVariables[i])) {
             console.log(colors.red(`\tError: missing variable '${requiredVariables[i]}'`));
             return false;
         }
@@ -135,10 +135,10 @@ exports.load = () => {
     console.log('Loading hard-coded settings');
 
     // ! check did not work.
-    if(global.settings.S3_SECURE_BUCKET){
+    if (global.settings.S3_SECURE_BUCKET) {
         //console.log('Secure bucket set');
     }
-    else if(global.settings.ENV === 'development'){
+    else if (global.settings.ENV === 'development') {
         global.settings.S3_SECURE_BUCKET = global.settings.S3_BUCKET;
     }
     else {

@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 /**
  * Defines a single industry code
  */
@@ -7,19 +8,24 @@
 const Claim = require('./Claim.js');
 const moment = require('moment');
 const serverHelper = require('../../../../../server.js');
+//const { loggers } = require('winston');
 const validator = global.requireShared('./helpers/validator.js');
+const ApplicationClaimBO = global.requireShared('./models/ApplicationClaim-BO.js');
+
 
 module.exports = class Policy {
 
-    constructor(app) {
-        this.app = app;
+    constructor(appBusiness) {
 
         // All Policies
+        this.appBusiness = appBusiness;
         this.claims = [];
         this.effective_date = '';
         this.expiration_date = '';
+        // Does not look like the Quote App send policy.json to server anymore.
         this.insurers = [];
         this.limits = '';
+        // Does not look like the Quote App send policy.json to server anymore.
         this.json = '';
         this.type = '';
 
@@ -36,54 +42,109 @@ module.exports = class Policy {
         this.coverage_lapse = null;
     }
 
-	/**
+    /**
 	 * Populates this object with data from the request
 	 *
+     * @param {object} applicationPolicyTypeBO - The business data
+     * @param {int} applicationId - The business data
+     * @param {object} applicationBO - The business data
 	 * @param {object} data - The business data
 	 * @returns {void}
 	 */
-    load(data) {
-        Object.keys(this).forEach((property) => {
-            if (!Object.prototype.hasOwnProperty.call(data, property)) {
-                return;
-            }
+    async load(applicationPolicyTypeBO, applicationId, applicationBO) {
+        if(!applicationPolicyTypeBO){
+            log.error("Quote Policy model no applicationPolicyTypeBO supplied" + __location)
+            throw new Error("Quote Policy model no applicationPolicyTypeBO supplied");
+        }
 
-            // Trim whitespace
-            if (typeof data[property] === 'string') {
-                data[property] = data[property].trim();
-            }
+        //load property from applicationPolicyTypeBO
+        this.type = applicationPolicyTypeBO.policy_type;
 
-            switch (property) {
-                case 'claims':
-                    data[property].forEach((c) => {
-                        const claim = new Claim();
-                        claim.load(c);
-                        this.claims.push(claim);
-                    });
-                    break;
-                case 'effective_date':
-                    this[property] = moment(data[property], 'MM-DD-YYYY', true);
-                    this.expiration_date = moment(this[property]).add(1, 'years');
-                    break;
-                case 'insurers':
-                    if (Array.isArray(data[property])) {
-                        this[property] = data[property].map(function(id) {
-                            return parseInt(id, 10);
-                        });
-                    }
-                    else {
-                        // Pass through for validation
-                        this[property] = data[property];
-                    }
-                    break;
-                default:
-                    this[property] = data[property];
-                    break;
+        //load from applicationBO
+        this.coverage_lapse = Boolean(applicationBO.coverage_lapse);
+        this.coverage_lapse_non_payment = Boolean(applicationBO.coverage_lapse_non_payment);
+        this.gross_sales = applicationBO.gross_sales_amt;
+        this.deductible = applicationBO.deductible;
+        switch (this.type) {
+            case "WC":
+                this.effective_date = applicationBO.wc_effective_date;
+                this.expiration_date = applicationBO.wc_expiration_date;
+                if(applicationBO.wc_limits){
+                    this.limits = this.formatLimits(applicationBO.wc_limits);
+                }
+                else {
+                    log.error("Quote Policy model WC missing limits" + __location)
+                    throw new Error("Quote Policy model WC missing limits");
+                }
+                break;
+            case "GL":
+                this.effective_date = applicationBO.gl_effective_date;
+                this.expiration_date = applicationBO.gl_expiration_date;
+                if(applicationBO.limits){
+                    this.limits = this.formatLimits(applicationBO.limits)
+                }
+                else {
+                    log.error("Quote Policy model GL missing limits" + __location)
+                    throw new Error("Quote Policy model GL missing limits");
+                }
+                break;
+            case "BOP":
+                this.effective_date = applicationBO.bop_effective_date;
+                this.expiration_date = applicationBO.bop_expiration_date;
+                if(applicationBO.limits){
+                    this.limits = this.formatLimits(applicationBO.limits)
+                }
+                else {
+                    log.error("Quote Policy model BOP missing limits" + __location)
+                    throw new Error("Quote Policy model BOP missing limits");
+                }
+
+                break;
+            default:
+                break;
+        }
+
+        //make moment objects.
+        try{
+            this.effective_date = moment(this.effective_date);
+            this.expiration_date = moment(this.expiration_date)
+        }
+        catch(e){
+            log.error("Quote Policy error creating moment objects appId: " + applicationId + " " + e + __location)
+        }
+
+        //load claims from db
+        // Load the policy information
+        try{
+            let error = null;
+            const applicationClaimBO = new ApplicationClaimBO();
+            const claimList = await applicationClaimBO.loadFromApplicationId(applicationId, this.type).catch(function(err){
+                error = err;
+                log.error(`Unable to load list of applicationClaimBO for quoting appId: ${applicationId} PolicyType = ${applicationPolicyTypeBO.policy_type} ` + __location);
+            });
+            if (error) {
+                throw error;
             }
-        });
+            claimList.forEach((claimBO) => {
+                const claim = new Claim();
+                claim.load(claimBO);
+                this.claims.push(claim);
+            });
+        }
+        catch(e){
+            log.error(`Error loading claims appId: ${applicationId} PolicyType = ${applicationPolicyTypeBO.policy_type} error:` + e + __location)
+            throw e;
+        }
+        //log.debug("Policy object: " + JSON.stringify(this));
     }
 
-	/**
+
+    formatLimits(dbLimit) {
+        const individualLimits = dbLimit.match(/[1-9]+0*/g);
+        return individualLimits.join('/');
+    }
+
+    /**
 	 * Checks that the data supplied is valid
 	 *
 	 * @returns {Promise.<array, Error>} A promise that returns a boolean indicating whether or not this record is valid, or an Error if rejected
@@ -116,25 +177,6 @@ module.exports = class Policy {
                 return;
             }
 
-            // Validate insurers (optional, contains ID's of insurers)
-            // if (Array.isArray(this.insurers)) {
-            //     if (this.insurers.length) {
-            //         let matched_insurer_count = 0;
-            //         await this.app.insurers.forEach((insurer) => {
-            //             if (this.insurers.includes(insurer.id) && insurer.policy_types.includes(this.type)) {
-            //                 matched_insurer_count++;
-            //             }
-            //         });
-            //         if (this.insurers.length !== matched_insurer_count) {
-            //             reject(serverHelper.requestError(`Specified insurer does not support ${this.type}.`));
-            //             return;
-            //         }
-            //     }
-            // }
-            // else {
-            //     reject(serverHelper.requestError(`Insurers must be specified as an array of IDs.`));
-            //     return;
-            // }
 
             // Validate claims
             const claim_promises = [];
@@ -148,7 +190,7 @@ module.exports = class Policy {
             });
 
             // Limits: If this is a WC policy, check if further limit controls are needed
-            const territories = this.app.business.getTerritories();
+            const territories = this.appBusiness.getTerritories();
             if (this.type === 'WC') {
                 // In CA, force limits to be at least 1,000,000/1,000,000/1,000,000
                 if (territories.includes('CA')) {
@@ -241,7 +283,7 @@ module.exports = class Policy {
                     'OR',
                     'TX',
                     'UT',
-                    'WA'].includes(this.app.business.primary_territory)) {
+                    'WA'].includes(this.appBusiness.primary_territory)) {
                     if (!this.deductible) {
                         reject(serverHelper.requestError('You must supply a deductible for GL policies in AR, AZ, CA, CO, ID, NM, NV, OK, OR, TX, UT, or WA. The deductible can be 500, 1000, or 1500'));
                         return;

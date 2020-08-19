@@ -11,7 +11,7 @@ const https = require('https');
 const moment = require('moment');
 const util = require('util');
 const {v4: uuidv4} = require('uuid');
-const xmlToObj = require('xml2js').parseString;
+const xmlToObj = util.promisify(require('xml2js').parseString);
 const serverHelper = require('../../../../../server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
@@ -19,7 +19,7 @@ const {getQuoteAggregatedStatus} = global.requireShared('./helpers/status.js');
 
 module.exports = class Integration {
 
-	/**
+    /**
 	 * Constructor for each integration
 	 *
 	 * @param {Application} app - An object containing all of the application information
@@ -74,7 +74,7 @@ module.exports = class Integration {
         }
     }
 
-	/**
+    /**
 	 * An entry point for binding a quote that conducts some necessary pre-processing before calling the insurer_bind function.
 	 *
 	 * @returns {Promise.<string, ServerError>} A promise that returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a ServerError if rejected
@@ -107,7 +107,7 @@ module.exports = class Integration {
         });
     }
 
-	/**
+    /**
 	 * Returns an object that includes Claims information based on policy years for up to the past 5 years
 	 *
 	 * @returns {object} - Claims information lumped together by policy year
@@ -158,7 +158,7 @@ module.exports = class Integration {
         return claims;
     }
 
-	/**
+    /**
 	 * Uses the activity codes from a single location combined with the insurer's specific NCCI codes to detect and combine any duplicates.
 	 *
 	 * @param {object} location - A single Location object
@@ -184,7 +184,7 @@ module.exports = class Integration {
         return returnCodes;
     }
 
-	/**
+    /**
 	 * Determines the governing activity code for an application and returns the result.
 	 * The governing class code is determined by taking the activity code with the highest payroll. If there are two, the first code is used.
 	 * If the highest payroll code is our clerical code, it is ignored and the next highest is taken.
@@ -220,7 +220,7 @@ module.exports = class Integration {
         return this.grouped_activity_codes[0];
     }
 
-	/**
+    /**
 	 * Determines the proper answer to send to the insurer based on the question type. Return false if the question should be skipped.
 	 *
 	 * @param {object} question - A question object
@@ -288,7 +288,7 @@ module.exports = class Integration {
         return answer;
     }
 
-	/**
+    /**
 	 * Retrieves the relationship between questions and activity codes
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an object indexed on territory + activity code (e.g. AZ908252) each with an array of corresponding question ideas if resolved, or an Error if rejected
@@ -335,7 +335,7 @@ module.exports = class Integration {
         });
     }
 
-	/**
+    /**
 	 * Determines the best limits available from the carrier. If no limits are suitable, returns false.
 	 *
 	 * @param {array} carrierLimits - A list of limits supported by the carrier
@@ -361,7 +361,7 @@ module.exports = class Integration {
         return higherLimit;
     }
 
-	/**
+    /**
 	 * Returns the key (property) of an object based on the value of that property
 	 *
 	 * @param {object} obj - The object to search
@@ -372,7 +372,7 @@ module.exports = class Integration {
         return Object.keys(obj).find((key) => obj[key] === val);
     }
 
-	/**
+    /**
 	 * Returns a description of the operations of the company based on the class codes they selected
 	 *
 	 * @returns {string} - The description of the business
@@ -381,7 +381,7 @@ module.exports = class Integration {
         return `${this.app.business.name} is a(n) ${this.app.business.industry_code_description.replace('&', 'and')} company with operations primarily located in ${this.app.business.locations[0].city}, ${this.app.business.locations[0].territory}.`;
     }
 
-	/**
+    /**
 	 * Gets the number of unique activity codes were included in this application
 	 *
 	 * @returns {int} - The number of activity codes
@@ -394,7 +394,7 @@ module.exports = class Integration {
         return this.grouped_activity_codes.length;
     }
 
-	/**
+    /**
 	 * Returns the number of claims that were within the number of years specified
 	 *
 	 * @param {int} number_of_years - The number of years of claims to total
@@ -418,7 +418,7 @@ module.exports = class Integration {
         return num_claims;
     }
 
-	/**
+    /**
 	 * Gets the details for each question for the current insurer. These details include the attributes, identifier, and whether or not the question is universal
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing objects indexed on the Talage Question ID with question information specific to this insurer if resolved, or an Error if rejected
@@ -456,7 +456,7 @@ module.exports = class Integration {
         });
     }
 
-	/**
+    /**
 	 * Retrieves the question that matches the identifier specified, returns false if none
 	 *
 	 * @param {string} identifier - The insurer identifier for the question
@@ -474,13 +474,13 @@ module.exports = class Integration {
         return false;
     }
 
-	/**
+    /**
 	 * Gets the identifiers for each question for the current insurer
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing question information if resolved, or an Error if rejected
 	 */
     get_question_identifiers() {
-        log.info('get_question_identifiers FUNCTION IS DEPRECATED AND WILL BE REMOVED. USE get_question_details() INSTEAD WHICH RETURNS MORE DATA IN ONE QUERY');
+        // log.info('get_question_identifiers FUNCTION IS DEPRECATED AND WILL BE REMOVED. USE get_question_details() INSTEAD WHICH RETURNS MORE DATA IN ONE QUERY');
         return new Promise(async(fulfill, reject) => {
             // Build an array of question IDs to retrieve
             const question_ids = Object.keys(this.questions);
@@ -509,7 +509,7 @@ module.exports = class Integration {
         });
     }
 
-	/**
+    /**
 	 * Splits a limits string into an array and coverts the values to integers
 	 *
 	 * @param {string} limits - A limits string
@@ -521,7 +521,7 @@ module.exports = class Integration {
         });
     }
 
-	/**
+    /**
 	 * Returns the total incurred (paid + reserved) on claims that were within the number of years specified
 	 *
 	 * @param {int} number_of_years - The number of years of claims to total
@@ -546,7 +546,7 @@ module.exports = class Integration {
         return total;
     }
 
-	/**
+    /**
 	 * Returns the total number of employees associated with this application
 	 *
 	 * @returns {int} - The total number of employees as an integer
@@ -560,7 +560,7 @@ module.exports = class Integration {
         return total;
     }
 
-	/**
+    /**
 	 * Returns the total number of full-time employees associated with this application
 	 *
 	 * @returns {int} - The total number of full-time employees as an integer
@@ -573,7 +573,7 @@ module.exports = class Integration {
         return total;
     }
 
-	/**
+    /**
 	 * Returns the total number of part-time employees associated with this application
 	 *
 	 * @returns {int} - The total number of part-time employees as an integer
@@ -586,7 +586,7 @@ module.exports = class Integration {
         return total;
     }
 
-	/**
+    /**
 	 * Returns the total payroll associated with this application
 	 *
 	 * @returns {int} - The total payroll as an integer
@@ -601,7 +601,7 @@ module.exports = class Integration {
         return total;
     }
 
-	/**
+    /**
 	 * Returns the total square footage of locations associated with this application
 	 *
 	 * @returns {int} - The total square footage as an integer
@@ -614,7 +614,7 @@ module.exports = class Integration {
         return total;
     }
 
-	/**
+    /**
 	 * Returns the number of years this business has operated
 	 *
 	 * @returns {int} - The total number of years in business
@@ -623,7 +623,7 @@ module.exports = class Integration {
         return moment().diff(this.app.business.founded, 'years');
     }
 
-	/**
+    /**
 	 * Returns the years since the last claim was filed. If claims were never filed, returns 999
 	 *
 	 * @returns {int} - The total number of years
@@ -643,7 +643,7 @@ module.exports = class Integration {
         return years_ago;
     }
 
-	/**
+    /**
 	 * Generates and returns a Version 4 UUID
 	 * Note: Version 4 UUIDs are completely random where Version 5 are not.
 	 *
@@ -653,7 +653,7 @@ module.exports = class Integration {
         return uuidv4();
     }
 
-	/**
+    /**
 	 * Finds every activity code in an application and groups them together, adding their payrolls. Stores the result locally for later use.
 	 *
 	 * @returns {object} - An object with keys that are activity code ids, and values that are combined payrolls.
@@ -695,7 +695,7 @@ module.exports = class Integration {
         return activity_codes;
     }
 
-	/**
+    /**
 	 * An entry point for getting quotes that conducts some necessary pre-processing before calling the insurer_quote function.
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
@@ -706,6 +706,12 @@ module.exports = class Integration {
             // Get the credentials ready for use
             this.password = await this.insurer.get_password();
             this.username = await this.insurer.get_username();
+
+            // Make sure expiration_date is set
+            if (this.policy && (!this.policy.expiration_date || !this.policy.expiration_date.isValid())) {
+                log.warn(`Application ${this.app.id} policy had an invalid effective date. Setting it to 1 years after effective date. ${__location}`);
+                this.policy.expiration_date = this.policy.effective_date.clone().add(1, 'years');
+            }
 
             // Make sure the insurer_quote() function exists
             if (typeof this._insurer_quote === 'undefined') {
@@ -794,7 +800,7 @@ module.exports = class Integration {
         });
     }
 
-	/**
+    /**
 	 * Records this quote in the database so we know it happened
 	 *
 	 * @param {int} amount - The amount of the quote
@@ -806,18 +812,22 @@ module.exports = class Integration {
             log.error('Unable to encrypt log. Proceeding anyway. ' + err + __location);
         });
 
-        const columns = ['application',
+        const columns = [
+            'application',
             'insurer',
             'log',
             'policy_type',
             'seconds',
-            'created'];
-        const values = [this.app.id,
-        this.insurer.id,
-        encrypted_log ? encrypted_log : '',
-        this.policy.type,
-        this.seconds,
-        moment().format('YYYY-MM-DD HH:mm:ss')];
+            'created'
+        ];
+        const values = [
+            this.app.id,
+            this.insurer.id,
+            encrypted_log ? encrypted_log : '',
+            this.policy.type,
+            this.seconds,
+            moment().format('YYYY-MM-DD HH:mm:ss')
+        ];
 
         // Amount
         if (amount) {
@@ -861,7 +871,8 @@ module.exports = class Integration {
             // Store the quote letter in our cloud storage
             try {
                 // Store the quote letter in our cloud storage
-                const result = await fileSvc.PutFile(`secure/quote-letters/${fileName}`, this.quote_letter.data);
+                // TODO Secure
+                const result = await fileSvc.PutFileSecure(`secure/quote-letters/${fileName}`, this.quote_letter.data);
                 // The file was successfully saved, store the file name in the database
                 if (result && Object.prototype.hasOwnProperty.call(result, 'code') && result.code === 'Success') {
                     columns.push('quote_letter');
@@ -898,7 +909,7 @@ module.exports = class Integration {
         return quoteID;
     }
 
-	/**
+    /**
 	 * Generates and returns the proper structure for returning a quote from an integration
 	 *
 	 * @param {int} amount - The amount of the quote as a whole number
@@ -909,7 +920,7 @@ module.exports = class Integration {
         return result;
     }
 
-	/**
+    /**
 	 * Generates and returns the proper structure for returning an indication from an integration
 	 *
 	 * @param {int} amount - The amount of the indication as a whole number
@@ -920,7 +931,7 @@ module.exports = class Integration {
         return result;
     }
 
-	/**
+    /**
 	 * Generates and returns the proper structure for returning an error from an integration
 	 *
 	 * @param {string} type - The type of error
@@ -928,7 +939,7 @@ module.exports = class Integration {
 	 * @returns {object} - An error object
 	 */
     async return_error(type, message) {
-        log.info(`${this.insurer.name} returned an error of type ${type} for a ${this.policy.type} policy: ${message}`);
+        log.info(`${this.insurer.name} returned an error of type ${type} for a ${this.policy.type} policy: ${message}` + __location);
 
         // If there were reasons, make sure we write them to the log
         if (this.reasons.length > 0) {
@@ -942,7 +953,7 @@ module.exports = class Integration {
         return result;
     }
 
-	/**
+    /**
 	 * Returns an object of the limits for this policy with the propery as the limit description and the value as the amount
 	 *
 	 * @returns {object} - The limit information
@@ -968,7 +979,7 @@ module.exports = class Integration {
         return rtn;
     }
 
-	/**
+    /**
 	 * Determines which response should be sent, and sends it. This should be called by every insurer integration.
 	 *
 	 * @param {string} result - The result of the integration. Must be 'declined', 'quoted', 'referred', or 'referred_with_price'
@@ -1103,7 +1114,7 @@ module.exports = class Integration {
         }
     }
 
-	/**
+    /**
 	 * Sends a request to an insurer over HTTPS
 	 *
 	 * @param {string} host - The host name we are sending to (minus the protocol)
@@ -1124,9 +1135,11 @@ module.exports = class Integration {
             }
 
             // Check that we have a valid method
-            if (!['GET',
+            if (![
+                'GET',
                 'POST',
-                'PUT'].includes(method)) {
+                'PUT'
+            ].includes(method)) {
                 const error = new Error('Invalid method provided to send_request()');
                 log.error(error.message + __location);
                 reject(error);
@@ -1220,7 +1233,7 @@ module.exports = class Integration {
         });
     }
 
-	/**
+    /**
 	 * Sends an JSON request to this insurer
 	 *
 	 * @param {string} host - The host name we are sending to (minus the protocol)
@@ -1255,7 +1268,7 @@ module.exports = class Integration {
         });
     }
 
-	/**
+    /**
 	 * Sends an XML request to this insurer
 	 *
 	 * @param {string} host - The host name we are sending to (minus the protocol)
@@ -1264,50 +1277,51 @@ module.exports = class Integration {
 	 * @param {object} additional_headers (optional) - Additional headers to be sent with the request
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
 	 */
-    send_xml_request(host, path, xml, additional_headers) {
-        return new Promise(async(fulfill, reject) => {
-            // If we don't have additional headers, start an object to append
-            if (!additional_headers) {
-                additional_headers = {};
-            }
+    async send_xml_request(host, path, xml, additional_headers) {
+        // return new Promise(async(fulfill, reject) => {
+        // If we don't have additional headers, start an object to append
+        if (!additional_headers) {
+            additional_headers = {};
+        }
 
-            // Add in the content length header
-            additional_headers['Content-Length'] = Buffer.byteLength(xml);
+        // Add in the content length header
+        additional_headers['Content-Length'] = Buffer.byteLength(xml);
 
-            // Add in the XML specific headers
-            if (!Object.prototype.hasOwnProperty.call(additional_headers, 'Content-Type')) {
-                additional_headers['Content-Type'] = 'text/xml';
-            }
+        // Add in the XML specific headers
+        if (!Object.prototype.hasOwnProperty.call(additional_headers, 'Content-Type')) {
+            additional_headers['Content-Type'] = 'text/xml';
+        }
 
-            // Send the request
-            await this.send_request(host, path, xml, additional_headers, 'POST').
-                then((raw_data) => {
-                    // Convert the data to a string
-                    const str_data = raw_data.toString();
+        // Send the request
+        let raw_data = null;
+        try {
+            raw_data = await this.send_request(host, path, xml, additional_headers, 'POST');
+        }
+        catch (error) {
+            log.error(`Integration send_request error: ${error}` + __location);
+            // reject(error);
+            throw error;
+        }
+        // Convert the data to a string
+        const str_data = raw_data.toString();
 
-                    // Convert the response to XML
-                    xmlToObj(str_data, (err, result) => {
-                        if (err) {
-                            const errData = {
-                                // eslint-disable-line prefer-promise-reject-errors
-                                message: 'Response from API was not XML',
-                                raw: str_data
-                            }
-                            reject(new Error(JSON.stringify(errData)));
-                            return;
-                        }
-
-                        fulfill(result);
-                    });
-                }).
-                catch((error) => {
-                    log.error(`Integration send_request error: ${error}` + __location)
-                    reject(error);
-                });
-        });
+        // Convert the response to XML
+        let result = null;
+        try {
+            result = xmlToObj(str_data);
+        }
+        catch (error) {
+            const errData = {
+                // eslint-disable-line prefer-promise-reject-errors
+                message: 'Response from API was not XML',
+                raw: str_data
+            };
+            throw new Error(JSON.stringify(errData));
+        }
+        return result;
     }
 
-	/**
+    /**
 	 * Determines whether or not this insurer supports all class codes in this application
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an true or an object containing error information on success
@@ -1347,7 +1361,8 @@ module.exports = class Integration {
                 LEFT JOIN clw_talage_activity_code_associations AS aca ON ac.id = aca.code
                 LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON aca.insurer_code = inc.id
             WHERE inc.insurer = ${this.insurer.id} AND (${whereCombinations.join(' OR ')});
-			`;
+            `;
+            //log.debug("_insurer_supports_activity_codes sql: " + sql);
             const codes = await db.query(sql).catch((error) => {
                 log.error(error + __location);
                 this.reasons.push('System Error: insurer_supports_activity_codes() failed to get codes.');
@@ -1355,7 +1370,7 @@ module.exports = class Integration {
             });
 
             if (!codes.length) {
-                log.warn(`autodeclined: no codes  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location)
+                log.warn(`autodeclined: no codes  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
                 this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code');
                 fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 return;
@@ -1363,7 +1378,7 @@ module.exports = class Integration {
 
             // Make sure the number of codes matched (otherwise there were codes unsupported by this insurer)
             if (Object.keys(wcCodes).length !== codes.length) {
-                log.warn(`autodeclined: Code length do not match  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location)
+                log.warn(`autodeclined: Code length do not match  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
                 this.reasons.push('Out of Appetite: The insurer does not support one or more of the selected activity codes');
                 fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 return;
@@ -1372,7 +1387,7 @@ module.exports = class Integration {
             // Load the codes locally
             codes.forEach((code) => {
                 if (code.result === 0) {
-                    log.warn(`autodeclined: Code length do not match  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location)
+                    log.warn(`autodeclined: Code length do not match  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
                     this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code');
                     fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                     hadError = true;
@@ -1382,7 +1397,7 @@ module.exports = class Integration {
                     this.insurer_wc_codes[code.territory + code.id] = code.code + (code.sub ? code.sub : '');
                     return;
                 }
-                log.warn(`autodeclined: this.insurer_wc_codes ${this.insurer_wc_codes} insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location)
+                log.warn(`autodeclined: this.insurer_wc_codes ${this.insurer_wc_codes} insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
                 this.reasons.push('Out of Appetite: The insurer does not support one or more of the selected activity codes');
                 fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 hadError = true;
@@ -1396,7 +1411,7 @@ module.exports = class Integration {
         });
     }
 
-	/**
+    /**
 	 * Determines whether or not this insurer supports all industry codes in this application
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an true or an object containing error information on success
@@ -1409,12 +1424,13 @@ module.exports = class Integration {
                             LEFT JOIN  clw_talage_insurer_industry_codes AS iic ON ((iic.type = 'i' AND iic.code = ic.iso) OR (iic.type = 'c' AND iic.code = ic.cgl) OR (iic.type = 'n' AND iic.code = ic.naics) OR (iic.type = 's' AND iic.code = ic.sic)) 
                                                                                     AND  iic.insurer = ${this.insurer.id} AND iic.territory = '${this.app.business.primary_territory}'
                         WHERE  ic.id = ${this.app.business.industry_code}  LIMIT 1;`;
+            // log.debug("_insurer_supports_industry_codes sql: " + sql);
             const result = await db.query(sql).catch((err) => {
-                log.error(`Integration: _insurer_supports_industry_codes query error ${err} ` + __location)
+                log.error(`Integration: _insurer_supports_industry_codes query error ${err} ` + __location);
                 fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
             });
             if (!result || !result.length) {
-                log.warn(`autodeclined: no database result insurer: ${this.insurer.id} ${this.app.business.primary_territory} ic.id = ${this.app.business.industry_code} ` + __location)
+                log.warn(`autodeclined: no database result insurer: ${this.insurer.id} ${this.app.business.primary_territory} ic.id = ${this.app.business.industry_code} ` + __location);
                 this.reasons.push('Out of Appetite: The insurer does not support the industry code selected');
                 fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 return;
@@ -1428,6 +1444,7 @@ module.exports = class Integration {
             }
             else {
                 this.industry_code.attributes = '';
+                log.warn(`No Industry_code attributes:  ${this.insurer.id} and ${this.app.business.primary_territory}` + __location);
             }
 
             fulfill(true);
