@@ -1,7 +1,6 @@
 'use strict';
 
 const DatabaseObject = require('./DatabaseObject.js');
-const SearchStringModel = require('./SearchStrings-model.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const crypt = global.requireShared('./services/crypt.js');
@@ -38,6 +37,13 @@ module.exports = class BusinessContactModel{
             //have id load businessContact data.
             //let businessContactDBJSON = {};
             
+            //Populate Clear version of encrypted fields.
+            for(var i=0;i < hashFields.length; i++){
+                if(businessContactJSON[hashFields[i]]){
+                    businessContactJSON[hashFields[i] + "_clear"] = businessContactJSON[hashFields[i]]
+                }
+            }
+
             if(businessContactJSON.id){
                 await this.#dbTableORM.getById(businessContactJSON.id).catch(function (err) {
                     log.error("Error getting businessContact from Database " + err + __location);
@@ -51,13 +57,14 @@ module.exports = class BusinessContactModel{
                 this.#dbTableORM.load(businessContactJSON);
             }
 
+             
+
             //save
             await this.#dbTableORM.save().catch(function(err){
                 reject(err);
             });
             this.updateProperty();
             this.id = this.#dbTableORM.id;
-            await this.updateSearchStrings();
             resolve(true);
             
         });
@@ -291,6 +298,15 @@ const properties ={
       "type": "string",
       "dbType": "blob"
     },
+    "email_clear": {
+        "default": "",
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(150)"
+      },
     "email_hash": {
       "default": "",
       "encrypted": false,
