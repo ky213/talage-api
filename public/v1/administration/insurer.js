@@ -143,7 +143,7 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGetAuthAdmin('Get Insurer Object', `${basePath}/insurer/:id`, findOne, 'administration', 'all');
     server.addPostAuthAdmin('Post Insurer Object', `${basePath}/insurer`, add, 'administration', 'all');
     server.addPutAuthAdmin('Put Insurer Object', `${basePath}/insurer/:id`, update, 'administration', 'all');
-    server.addGetAuth('GET Insurer List for Selection', `${basePath}/insurer/selectionlist`, getSelectionList);
+    server.addGetAuthAdmin('GET Insurer List for Selection', `${basePath}/insurer/selectionlist`, getSelectionList, 'administration', 'all');
 
     // server.addGet('Get Insurer list', `${basePath}/insurer`, findAll, 'administration', 'all');
     // server.addGet('Get Insurer Object', `${basePath}/insurer/:id`, findOne, 'administration', 'all');
