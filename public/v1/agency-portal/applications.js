@@ -419,18 +419,10 @@ async function getApplications(req, res, next){
 
     // ================================================================================
     // Build the SQL search query
-    let join = '';
+
     // Add a text search clause if requested
     if (req.params.searchText.length > 0){
         req.params.searchText = req.params.searchText.toLowerCase();
-        // The search_strings table has partials stored as sha1 hashes
-        const searchTextHash = sha1(req.params.searchText + salt);
-        // // Left join the search_strings table, only looking at table=businesses and field=name rows
-        // join += `
-		// 		LEFT JOIN ${db.quoteName('#__search_strings', 'ss')} ON ${db.quoteName('ss.item_id')} = ${db.quoteName('a.business')}
-		// 			AND ${db.quoteName('ss.table')} = ${db.escape('businesses')}
-		// 			AND ${db.quoteName('ss.field')} = ${db.escape('name')}
-		// 	`;
         // Search the description (industry), city, territory (state), and business name columns
         where += `
 				AND (
@@ -465,7 +457,6 @@ async function getApplications(req, res, next){
 			LEFT JOIN ${db.quoteName('#__industry_codes', 'ic')} ON ${db.quoteName('ic.id')} = ${db.quoteName('a.industry_code')}
 			LEFT JOIN ${db.quoteName('#__zip_codes', 'zc')} ON ${db.quoteName('zc.zip')} = ${db.quoteName('a.zip')}
 			LEFT JOIN ${db.quoteName('#__agencies', 'ag')} ON ${db.quoteName('a.agency')} = ${db.quoteName('ag.id')}
-			${join}
 			WHERE ${db.quoteName('a.created')} BETWEEN CAST(${db.escape(startDateSQL)} AS DATETIME) AND CAST(${db.escape(endDateSQL)} AS DATETIME)
 				AND ${where}
 		`;
