@@ -708,7 +708,7 @@ module.exports = class Integration {
             this.username = await this.insurer.get_username();
 
             // Make sure expiration_date is set
-            if (this.policy && !this.policy.expiration_date || !this.policy.expiration_date.isValid()) {
+            if (this.policy && (!this.policy.expiration_date || !this.policy.expiration_date.isValid())) {
                 log.warn(`Application ${this.app.id} policy had an invalid effective date. Setting it to 1 years after effective date. ${__location}`);
                 this.policy.expiration_date = this.policy.effective_date.clone().add(1, 'years');
             }
