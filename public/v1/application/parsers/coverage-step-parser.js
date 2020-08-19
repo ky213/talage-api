@@ -22,10 +22,17 @@ exports.process = async function(requestJSON) {
         const pType = policy_typesJSON[i].toLowerCase();
         if(questionsJSON[pType]){
             const typeQuestionJSON = questionsJSON[pType];
+
             const effective_dateStr = typeQuestionJSON.effective_date;
             const effective_date = moment(effective_dateStr, 'MM/DD/YYYY');
-            const fieldName = pType + '_effective_date';
-            requestJSON[fieldName] = effective_date.format(db.dbTimeFormat());
+            const effective_fieldName = pType + '_effective_date';
+            requestJSON[effective_fieldName] = effective_date.format(db.dbTimeFormat());
+
+            // Expiration date is 1 years past the effective date
+            const expiration_date = effective_date.clone().add(1, 'years');
+            const expiration_fieldName = pType + '_expiration_date';
+            requestJSON[expiration_fieldName] = expiration_date.format(db.dbTimeFormat());
+
             if(pType === 'bop' || pType === 'gl'){
                 //requestJSON.limits = typeQuestionJSON.limits.replace(/[-[\]{}()*+?.,\\/^$|#\s]/g,"").replace("/[^0-9]/", '');
                 requestJSON.limits = stringFunctions.santizeNumber(typeQuestionJSON.limits);
@@ -35,7 +42,7 @@ exports.process = async function(requestJSON) {
                     const num_of_ownersStr = typeQuestionJSON.num_owners.replace("/[^0-9]/", '');
                     try{
                         const num_of_owner = parseInt(num_of_ownersStr, 10);
-                    requestJSON.businessInfo = {"num_owners": num_of_owner};
+                        requestJSON.businessInfo = {"num_owners": num_of_owner};
                     }
                     catch(e){
                         log.error("coverage parse error number of owners: " + e);
