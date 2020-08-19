@@ -17,7 +17,7 @@ const util = require('util');
 const serverHelper = require('../../../../../../server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const wcApplicationEmail = require('../../../../../../tasksystem/task-wcemodemail');
+const wcEmodEmail = require('../../../../../../tasksystem/task-wcemodemail');
 
 module.exports = class CompwestWC extends Integration {
     /**
@@ -627,7 +627,7 @@ module.exports = class CompwestWC extends Integration {
                 this.reasons.push(`${status} - ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`);
                 // Send notification email if we get an E Mod error back from carrier 
                 if (res.SignonRs[0].Status[0].StatusDesc[0].Desc[0].toLowerCase().includes("experience mod")) {
-                    wcApplicationEmail.sendEmodEmail(this.app.id, this.app.agencyLocation);
+                    wcEmodEmail.sendEmodEmail(this.app.id);
                 }
                 return this.return_result('error');
             case 'REFERRALNEEDED':

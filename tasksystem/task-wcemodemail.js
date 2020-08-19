@@ -54,9 +54,9 @@ exports.processtask = async function(queueMessage) {
  * @param {string} quoteId - quoteId
  * @returns {void}
  */
-exports.sendEmodEmail = async function(applicationId, quoteId) {
+exports.sendEmodEmail = async function(applicationId) {
     let error = null;
-    await sendEmodEmail(applicationId, quoteId).catch(err => error = err);
+    await sendEmodEmail(applicationId).catch(err => error = err);
     if (error) {
         log.error('sendEmodEmail external: ' + error);
     }
