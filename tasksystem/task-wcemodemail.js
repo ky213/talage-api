@@ -7,8 +7,6 @@ const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
-const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
-
 /**
  * Task processor
  *
@@ -28,21 +26,21 @@ exports.processtask = async function(queueMessage) {
             await sendEmodEmail(queueMessage.body.applicationId).catch(err => error = err);
         }
         else {
-            log.error("Error emailbindagency missing applicationId " + __location);
+            log.error("Error sendEmodEmail missing applicationId " + __location);
         }
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err) {
             error = err;
         });
         if (error) {
-            log.error("Error emailbindagency deleteTaskQueueItem " + error);
+            log.error("Error sendEmodEmail deleteTaskQueueItem " + error);
         }
         return;
     }
     else {
-        log.info('removing old emailbindagency Message from queue');
+        log.info('removing old sendEmodEmail Message from queue');
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(err => error = err)
         if (error) {
-            log.error("Error emailbindagency deleteTaskQueueItem old " + error);
+            log.error("Error sendEmodEmail deleteTaskQueueItem old " + error);
         }
         return;
     }
@@ -193,17 +191,17 @@ const sendEmodEmail = async function(applicationId) {
                 }
             }
             else {
-                log.error("emailbindagency no email address for data: " + JSON.stringify(keyData) + __location);
+                log.error("sendEmodEmail no email address for data: " + JSON.stringify(keyData) + __location);
             }
             return true;
         }
         else {
-            log.error('emailbindagency No application quotes pulled from database applicationId or quoteId: ' + applicationId + ":" + quoteId + " SQL: \n" + appSQL + '\n' + __location);
+            log.error('sendEmodEmail No application quotes pulled from database applicationId or quoteId: ' + applicationId + ":" + quoteId + " SQL: \n" + appSQL + '\n' + __location);
             return false;
         }
     }
     else {
-        log.error('emailbindagency missing applicationId or quoteId: ' + applicationId + ":" + quoteId + __location);
+        log.error('sendEmodEmail missing applicationId or quoteId: ' + applicationId + ":" + quoteId + __location);
         return false;
     }
 
