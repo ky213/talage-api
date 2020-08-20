@@ -14,10 +14,10 @@ const Integration = require('../Integration.js');
 const builder = require('xmlbuilder');
 const moment = require('moment');
 const util = require('util');
-const serverHelper = require('../../../../../../server.js');
+const serverHelper = requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const wcEmodEmail = require('../../../../../../tasksystem/task-wcemodemail');
+const wcEmodEmail = requireRootPath('./tasksystem/task-wcemodemail');
 
 module.exports = class CompwestWC extends Integration {
     /**
