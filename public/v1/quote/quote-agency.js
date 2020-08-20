@@ -54,6 +54,10 @@ function parseQuoteURL(url) {
     else if (global.settings.DEFAULT_QUOTE_AGENCY_SLUG) {
         agencySlug = global.settings.DEFAULT_QUOTE_AGENCY_SLUG;
     }
+    else {
+        // Default to "talage"
+        agencySlug = "talage";
+    }
     return {
         agencySlug: agencySlug,
         pageSlug: pageSlug
