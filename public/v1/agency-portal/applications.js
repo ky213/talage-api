@@ -18,22 +18,22 @@ const salt = '3h42kize0loh16ke3otxfebkq5rqp91y6uj9jmg751r9ees97l61ycodwbw74o3o';
  */
 function validateParameters(parent, expectedParameters){
     if (!parent){
-        log.info('Bad Request: Missing all parameters');
+        log.error('Bad Request: Missing all parameters' + __location);
         return false;
     }
     for (let i = 0; i < expectedParameters.length; i++){
         const expectedParameter = expectedParameters[i];
-        if (!Object.prototype.hasOwnProperty.call(parent, expectedParameter.name) || typeof parent[expectedParameter.name] !== expectedParameter.type){
-            log.info(`Bad Request: Missing ${expectedParameter.name} parameter (${expectedParameter.type})`);
+        if (!Object.prototype.hasOwnProperty.call(parent, expectedParameter.name) || typeof parent[expectedParameter.name] !== expectedParameter.type && expectedParameters[i].optional !== true){
+            log.error(`Bad Request: Missing ${expectedParameter.name} parameter (${expectedParameter.type})` + __location);
             return false;
         }
         const parameterValue = parent[expectedParameter.name];
         if (Object.prototype.hasOwnProperty.call(expectedParameter, 'values') && !expectedParameter.values.includes(parameterValue)){
-            log.info(`Bad Request: Invalid value for ${expectedParameters[i].name} parameter (${parameterValue})`);
+            log.error(`Bad Request: Invalid value for ${expectedParameters[i].name} parameter (${parameterValue})` + __location);
             return false;
         }
-        if (expectedParameters[i].verifyDate && !moment(parameterValue).isValid()){
-            log.info(`Bad Request: Invalid date value for ${expectedParameters[i].name} parameter (${parameterValue})`);
+        if (expectedParameters[i].verifyDate && parameterValue && !moment(parameterValue).isValid()){
+            log.error(`Bad Request: Invalid date value for ${expectedParameters[i].name} parameter (${parameterValue})` + __location);
             return false;
         }
     }
@@ -359,14 +359,26 @@ async function getApplications(req, res, next){
         {
             "name": 'startDate',
             "type": 'string',
-            "verifyDate": true
+            "verifyDate": true,
+            "optional": true
         },
         {
             "name": 'endDate',
             "type": 'string',
-            "verifyDate": true
+            "verifyDate": true,
+            "optional": true
         }
     ];
+    //Fix bad dates coming in.
+    if(!req.params.startDate || (req.params.startDate && req.params.startDate.startsWith('T00:00:00.000'))){
+        req.params.startDate = moment('2020-01-2010').toISOString();
+    }
+
+    if(!req.params.endDate || (req.params.endDate &&req.params.endDate.startsWith('T23:59:59.999'))){
+        // now....
+        req.params.endDate = moment().toISOString();
+    }
+
 
     // Validate the parameters
     if (!validateParameters(req.params, expectedParameters)){
@@ -413,7 +425,7 @@ async function getApplications(req, res, next){
         applicationsTotalCount = (await db.query(applicationsTotalCountSQL))[0].count;
     }
     catch (err){
-        log.error(err.message);
+        log.error(err.message + __location);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     }
 
@@ -451,15 +463,22 @@ async function getApplications(req, res, next){
     // ================================================================================
     // Build the common SQL between the total count and paginated results
 
-    const commonSQL = `
+    let commonSQL = `
 			FROM ${db.quoteName('#__applications', 'a')}
 			LEFT JOIN ${db.quoteName('#__businesses', 'b')} ON ${db.quoteName('b.id')} = ${db.quoteName('a.business')}
 			LEFT JOIN ${db.quoteName('#__industry_codes', 'ic')} ON ${db.quoteName('ic.id')} = ${db.quoteName('a.industry_code')}
 			LEFT JOIN ${db.quoteName('#__zip_codes', 'zc')} ON ${db.quoteName('zc.zip')} = ${db.quoteName('a.zip')}
 			LEFT JOIN ${db.quoteName('#__agencies', 'ag')} ON ${db.quoteName('a.agency')} = ${db.quoteName('ag.id')}
-			WHERE ${db.quoteName('a.created')} BETWEEN CAST(${db.escape(startDateSQL)} AS DATETIME) AND CAST(${db.escape(endDateSQL)} AS DATETIME)
-				AND ${where}
-		`;
+        `;
+
+    if(startDateSQL && endDateSQL){
+        commonSQL += `WHERE ${db.quoteName('a.created')} BETWEEN CAST(${db.escape(startDateSQL)} AS DATETIME) AND CAST(${db.escape(endDateSQL)} AS DATETIME)  
+             AND  ${where}`;
+    }
+    else {
+        commonSQL += `WHERE ${where}`;
+    }
+
 
     // ================================================================================
     // Get the number of total applications in the query. This can change between requests as applications are added so it needs to be calculated
@@ -473,7 +492,7 @@ async function getApplications(req, res, next){
         applicationsSearchCount = (await db.query(applicationsSearchCountSQL))[0].count;
     }
     catch (err){
-        log.error(err.message);
+        log.error(err.message + __location);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     }
 
@@ -488,7 +507,7 @@ async function getApplications(req, res, next){
 				${db.quoteName('a.solepro')},
 				${db.quoteName('a.wholesale')},
 				${db.quoteName('ag.name', 'agencyName')},
-				${db.quoteName('b.name', 'business')},
+				${db.quoteName('b.name_clear', 'business')},
 				${db.quoteName('a.last_step', 'lastStep')},
 				${db.quoteName('ic.description', 'industry')},
 				CONCAT(LOWER(${db.quoteName('zc.city')}), ', ', ${db.quoteName('zc.territory')}) AS ${db.quoteName('location')}
@@ -503,7 +522,7 @@ async function getApplications(req, res, next){
         applications = await db.query(applicationsSQL);
     }
     catch (err){
-        log.error(err.message);
+        log.error(err.message + __location);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     }
 
@@ -517,15 +536,19 @@ async function getApplications(req, res, next){
         return next();
     }
 
-    // Decrypt the business names
-    await crypt.batchProcessObjectArray(applications, 'decrypt', ['business']);
+    if(applications && applications.length > 0){
+        // Decrypt the business names
+        // using name_clear
+        //await crypt.batchProcessObjectArray(applications, 'decrypt', ['business']);
 
-    // Get all quotes for each application
-    const getQuotesPromises = [];
-    applications.forEach((application) => {
-        getQuotesPromises.push(getQuotes(application));
-    });
-    await Promise.all(getQuotesPromises);
+        // Get all quotes for each application
+        const getQuotesPromises = [];
+
+        applications.forEach((application) => {
+            getQuotesPromises.push(getQuotes(application));
+        });
+        await Promise.all(getQuotesPromises);
+    }
 
     // Build the response
     const response = {
