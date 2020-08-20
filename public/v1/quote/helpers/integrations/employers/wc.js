@@ -143,7 +143,7 @@ module.exports = class EmployersWC extends Integration {
 
             // Determine which URL to use
             let host = '';
-            if (this.insurer.useSandbox || global.settings.ENV !== 'production') {
+            if (this.insurer.useSandbox) {
                 host = 'api-qa.employers.com';
             }
             else {
