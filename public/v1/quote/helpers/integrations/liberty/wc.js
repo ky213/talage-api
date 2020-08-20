@@ -131,7 +131,7 @@ module.exports = class LibertyWC extends Integration {
 
             // <ProducerInfo>
             const ProducerInfo = Producer.ele('ProducerInfo');
-            ProducerInfo.ele('ContractNumber', process.env.NODE_ENV === 'production' ? this.app.agencyLocation.insurers[this.insurer.id].agency_id : '4689905').att('SourceSystemRef', 'Talage');
+            ProducerInfo.ele('ContractNumber', !this.insurer.useSandbox ? this.app.agencyLocation.insurers[this.insurer.id].agency_id : '4689905').att('SourceSystemRef', 'Talage');
             // </ProducerInfo>
             // </Producer>
 
