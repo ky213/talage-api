@@ -186,7 +186,7 @@ var processAbandonApp = async function(applicationId){
                 agencyPhone = formatPhone(appDBJSON[0].agencyPhone);
             }
 
-            const brandurl = appDBJSON[0].agency_network === 2 ? global.settings.DIGALENT_SITE_URL : global.settings.SITE_URL;
+            const brandurl = appDBJSON[0].agency_network === 2 ? global.settings.DIGALENT_SITE_URL : global.settings.APPLICATION_URL;
             const agencyLandingPage = `${brandurl}/${appDBJSON[0].slug}`;
 
             let message = emailContentJSON.customerMessage;
