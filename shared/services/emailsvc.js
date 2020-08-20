@@ -241,46 +241,6 @@ exports.send = async function(recipients, subject, content, keys = {}, brand = '
     return sendGridResp;
 };
 
-// var saveEmailToDb = async function(columns, recipients, attachments) {
-//     const insertQuery = `INSERT INTO clw_talage_messages (${Object.keys(columns).join(',')}) VALUES (${Object.values(columns).
-//         map(function(val) {
-//             return db.escape(val);
-//         }).
-//         join(',')})`;
-//     let messagesId = null;
-//     await db.
-//         query(insertQuery).
-//         then(function(results) {
-//             messagesId = results.insertId;
-//         }).
-//         catch(function(err) {
-//             log.error('Unable to record email message in the database' + err + ' sql: ' + insertQuery + __location);
-//             throw err;
-//         });
-//     if (messagesId) {
-//         if (global.settings.ENV === 'development' || global.settings.ENV === 'awsdev') {
-//             log.debug('recipients:' + recipients + __location);
-//         }
-//         //write to message_recipents table  clw_talage_message_recipients
-//         const recipientsList = recipients.split(',');
-//         let error = null;
-//         for (let i = 0; i < recipientsList.length; i++) {
-//             const encryptRecipent = await crypt.encrypt(recipientsList[i]);
-//             const hashRecipent = await crypt.hash(recipientsList[i]);
-//             const insertQuery2 = `Insert INTO clw_talage_message_recipients (message,recipient,email_hash ) VALUES (${messagesId}, '${encryptRecipent}', '${hashRecipent}' )`;
-//             // eslint-disable-next-line no-loop-func
-//             await db.query(insertQuery2).catch(function(errDb) {
-//                 log.error('Unable to record email messager ecipient in the database' + errDb + ' sql: ' + insertQuery2 + __location);
-//                 error = errDb;
-//             });
-//         }
-//         if (error) {
-//             throw error;
-//         }
-//     }
-//     return true;
-// };
-
 var sendUsingSendGrid = async function(emailJSON) {
     // Set the Sendgrid API key
     Sendgrid.setApiKey(global.settings.SENDGRID_API_KEY);
