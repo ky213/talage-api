@@ -161,13 +161,12 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
 				al.open_time as openTime,
 				al.phone,
 				al.primary,
-				al.zip,
-				z.city,
-				z.territory,
+				al.city,
+                al.state_abbr as territory,
+                al.zipcode as zip,
 				GROUP_CONCAT(alt.territory) AS appointments
 			FROM clw_talage_agency_locations AS al
 			LEFT JOIN clw_talage_agency_location_territories AS alt ON al.id = alt.agency_location
-			LEFT JOIN clw_talage_zip_codes AS z ON al.zip = z.zip
 			WHERE
 				agency = ${agency.id}
 				AND state = 1

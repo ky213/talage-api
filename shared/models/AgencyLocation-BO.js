@@ -189,9 +189,9 @@ module.exports = class AgencyLocationBO{
                     l.phone,
                     l.address,
                     l.address2,
-                    z.city,
-                    z.territory,
-                    LPAD(CONVERT(l.zip,char), 5, '0') AS zip,
+                    l.city,
+                    l.state_abbr,
+                    l.zipcode,
                     l.open_time as openTime,
                     l.close_time as closeTime,
                     l.primary
