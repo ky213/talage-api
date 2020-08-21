@@ -605,6 +605,9 @@ module.exports = class DatabaseObject {
             // if from database ignore required rules.
             if (this.#properties[property].encrypted === true && Object.prototype.hasOwnProperty.call(data, property) && data[property]) {
                 data[property] = await crypt.decrypt(data[property]);
+                if(data[property] === false){
+                    data[property] = null;
+                }
             }
         }
         return 
