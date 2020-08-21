@@ -66,8 +66,8 @@ async function deleteAgency(req, res, next) {
         return next(serverHelper.forbiddenError('You are not authorized to delete this agency'));
     }
 
-	// Update the Agency (we set the state to -2 to signify that the Agency is deleted)
-	const updateSQL = `
+    // Update the Agency (we set the state to -2 to signify that the Agency is deleted)
+    const updateSQL = `
 			UPDATE clw_talage_agencies
 			SET
 				state = -2
@@ -168,7 +168,7 @@ async function getAgency(req, res, next) {
 				${db.quoteName('id')},
 				IF(${db.quoteName('state')} >= 1, 'Active', 'Inactive') AS ${db.quoteName('state')},
 				${db.quoteName('name')},
-				${db.quoteName('ca_license_number', 'californiaLicenseNumber')},
+				${db.quoteName('ca_license_number', 'caLicenseNumber')},
 				${db.quoteName('email')},
 				${db.quoteName('fname')},
 				${db.quoteName('lname')},
@@ -277,27 +277,27 @@ async function getAgency(req, res, next) {
 			WHERE \`apu\`.\`agency\` = ${agent} AND state > 0;
 		`;
 
-	// Query the database
-	const allTerritories = await db.query(allTerritoriesSQL).catch(function(err){
-		log.error('DB query failed: ' + err.message + __location);
-		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-	});
-	const locations = await db.query(locationsSQL).catch(function(err){
-		log.error('DB query failed: ' + err.message + __location);
-		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-	});
-	const networkInsurers = await db.query(networkInsurersSQL).catch(function(err){
-		log.error('DB query failed: ' + err.message + __location);
-		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-	});
-	const pages = await db.query(pagesSQL).catch(function(err){
-		log.error('DB query failed: ' + err.message + __location);
-		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-	});
-	const users = await db.query(userSQL).catch(function(err){
-		log.error('DB query failed: ' + err.message + __location);
-		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-	});
+    // Query the database
+    const allTerritories = await db.query(allTerritoriesSQL).catch(function(err){
+        log.error('DB query failed: ' + err.message + __location);
+        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+    });
+    const locations = await db.query(locationsSQL).catch(function(err){
+        log.error('DB query failed: ' + err.message + __location);
+        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+    });
+    const networkInsurers = await db.query(networkInsurersSQL).catch(function(err){
+        log.error('DB query failed: ' + err.message + __location);
+        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+    });
+    const pages = await db.query(pagesSQL).catch(function(err){
+        log.error('DB query failed: ' + err.message + __location);
+        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+    });
+    const users = await db.query(userSQL).catch(function(err){
+        log.error('DB query failed: ' + err.message + __location);
+        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+    });
 
     // Separate out location IDs and define some variables
     const locationIDs = locations.map((location) => location.id);
@@ -425,30 +425,30 @@ async function getAgency(req, res, next) {
         networkInsurer.territories = networkInsurer.territories.split(',');
         return networkInsurer;
     });
-	// For each network insurer grab the policy_types
-	for (let i = 0; i < networkInsurers.length; i++) {
-		const insurer = networkInsurers[i];
-		// Grab all of the policy type and accord support for a given insurer
-		const policyTypeSql = `
+    // For each network insurer grab the policy_types
+    for (let i = 0; i < networkInsurers.length; i++) {
+        const insurer = networkInsurers[i];
+        // Grab all of the policy type and accord support for a given insurer
+        const policyTypeSql = `
 			SELECT policy_type, acord_support
 			FROM clw_talage_insurer_policy_types
 			WHERE
 				insurer = ${insurer.id}
 		`
-		let policyTypesResults = null;
-		try {
-			policyTypesResults = await db.query(policyTypeSql);
-		}
- catch (error) {
-			log.error(`Could not retrieve policy and accord_support for insurer ${insurer} :  ${error}  ${__location}`);
-			return next(serverHelper.internalError('Internal Error'));
-		}
-		// Push policy types and accord support for said policy type into an array
-		insurer.policyTypes = [];
-		policyTypesResults.forEach((policyType) => {
-			insurer.policyTypes.push(policyType);
-		});
-	}
+        let policyTypesResults = null;
+        try {
+            policyTypesResults = await db.query(policyTypeSql);
+        }
+        catch (error) {
+            log.error(`Could not retrieve policy and accord_support for insurer ${insurer} :  ${error}  ${__location}`);
+            return next(serverHelper.internalError('Internal Error'));
+        }
+        // Push policy types and accord support for said policy type into an array
+        insurer.policyTypes = [];
+        policyTypesResults.forEach((policyType) => {
+            insurer.policyTypes.push(policyType);
+        });
+    }
     // Build the response
     const response = {
         ...agency,
