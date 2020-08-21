@@ -480,6 +480,33 @@ const properties = {
       "type": "number",
       "dbType": "mediumint(5) unsigned"
     },
+    "city": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(60)"
+    },
+    "state_abbr": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(2)"
+    },
+    "zipcode": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(10)"
+    },
     "created": {
       "default": null,
       "encrypted": false,
