@@ -112,7 +112,7 @@ async function createAgencyLocation(req, res, next) {
     req.body.id = 0;
     //correct legacy properties
     await legacyFieldUpdate(req.body)
-    log.debug("update legacy " + JSON.stringify(req.body))
+    //log.debug("update legacy " + JSON.stringify(req.body))
 
     // Initialize an agency object
     const location = new AgencyLocationModel();
@@ -372,7 +372,7 @@ async function updateAgencyLocation(req, res, next) {
 
     //correct legacy properties
     await legacyFieldUpdate(req.body)
-    log.debug("update legacy " + JSON.stringify(req.body))
+   // log.debug("update legacy " + JSON.stringify(req.body))
 
 
     // Initialize an agency object
