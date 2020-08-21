@@ -312,9 +312,8 @@ module.exports = class AgencyLocationBO{
 
         return new Promise(async (resolve, reject) => {
             let sql = `
-                select al.id as agencyLocationid, al.address, al.zip, z.city, z.territory, a.name from clw_talage_agencies a
+                select al.id as agencyLocationid, al.address, al.zipcode, al.city, al.state_abbr, a.name from clw_talage_agencies a
                     inner join clw_talage_agency_locations al on a.id = al.agency
-                    left join clw_talage_zip_codes z on z.zip = al.zip
                     where al.state > 0 AND a.state > 0 
             `;
             log.debug
@@ -343,10 +342,10 @@ module.exports = class AgencyLocationBO{
                     }
                     if(rows[i].address){
                         rows[i].address = await crypt.decrypt(rows[i].address);
-                        rows[i].displayString = `${rows[i].name}: ${rows[i].address}, ${rows[i].city}, ${rows[i].territory} ${rows[i].zip}`;
+                        rows[i].displayString = `${rows[i].name}: ${rows[i].address}, ${rows[i].city}, ${rows[i].state_abbr} ${rows[i].zipcode}`;
                     }
                     else if(rows[i].zip){
-                        rows[i].displayString = `${rows[i].name}: ${rows[i].city}, ${rows[i].territory} ${rows[i].zip}`
+                        rows[i].displayString = `${rows[i].name}: ${rows[i].city}, ${rows[i].state_abbr} ${rows[i].zipcode}`
                     }
                     else {
                         rows[i].displayString = `${rows[i].name}: no address`
