@@ -116,34 +116,7 @@ const properties = {
 		],
 		'type': 'string'
     },
-    "city": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(60)"
-      },
-      "state_abbr": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(2)"
-      },
-      "zipcode": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(10)"
-      },
-      "additionalInfo": {
+    "additionalInfo": {
         "default": null,
         "encrypted": false,
         "hashed": false,
