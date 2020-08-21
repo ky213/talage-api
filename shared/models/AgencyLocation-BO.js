@@ -178,21 +178,7 @@ module.exports = class AgencyLocationBO{
             let rejected = false;
                 
             //what agencyportal client expects.
-            const sql = `SELECT
-                    l.id,
-                    l.state,
-                    l.email,
-                    l.fname,
-                    l.lname,
-                    l.phone,
-                    l.address,
-                    l.address2,
-                    l.city,
-                    l.state_abbr,
-                    l.zipcode,
-                    l.open_time as openTime,
-                    l.close_time as closeTime,
-                    l.primary
+            const sql = `SELECT *
                 FROM clw_talage_agency_locations l
                 WHERE l.id = ? AND l.agency in (?) AND l.state > 0;`
 
@@ -206,18 +192,16 @@ module.exports = class AgencyLocationBO{
             if(result && result.length>0) {
                 let locationJSON = result[0];
                 if (!rejected && result && result.length >0) {
+                    let agencyLocationBO = new AgencyLocationBO();
+                    await agencyLocationBO.#dbTableORM.decryptFields(locationJSON);
+                    await agencyLocationBO.#dbTableORM.convertJSONColumns(locationJSON);
+                    const resp = await agencyLocationBO.loadORM(locationJSON, skipCheckRequired).catch(function(err){
+                        log.error(`getList error loading object: ` + err + __location);
+                    })
                     //created encrypt and format
                     let location = locationJSON;
-                    location.address = await crypt.decrypt(location.address);
-                    if(location.address2){
-                        location.address2 = await crypt.decrypt(location.address2);
-                    }
-                    
-                    location.email = await crypt.decrypt(location.email);
-                    location.fname = await crypt.decrypt(location.fname);
-                    location.lname = await crypt.decrypt(location.lname);
-                    location.phone = await crypt.decrypt(location.phone);
-                    
+                    location.openTime = location.open_time;
+                    location.closeTime = location.close_time
                     if(children === true ){
                         const agencyLocationInsurer = new AgencyLocationInsurer
                         const insurerList = await agencyLocationInsurer.getListByAgencyLoationForAgencyPortal(id).catch(function (error) {
@@ -275,16 +259,14 @@ module.exports = class AgencyLocationBO{
                 let locationJSON = result[0];
                 if (!rejected && result && result.length >0) {
                     //created encrypt and format
+                    let agencyLocationBO = new AgencyLocationBO();
+                    await agencyLocationBO.#dbTableORM.decryptFields(locationJSON);
+                    await agencyLocationBO.#dbTableORM.convertJSONColumns(locationJSON);
+                    const resp = await agencyLocationBO.loadORM(locationJSON, skipCheckRequired).catch(function(err){
+                        log.error(`getList error loading object: ` + err + __location);
+                    })
                     
-                    let location = locationJSON;
-                    location.address = await crypt.decrypt(location.address);
-                    if(location.address2){
-                        location.address2 = await crypt.decrypt(location.address2);
-                    }
-                    
-                    location.email = await crypt.decrypt(location.email);
-                    location.fname = await crypt.decrypt(location.fname);
-                    location.phone = await crypt.decrypt(location.phone);    
+                    locationJSON;
                     
                     if(children === true ){
 
@@ -303,6 +285,22 @@ module.exports = class AgencyLocationBO{
             throw new Error("No id or agency id");
         }
     }
+
+     /**
+	 * Load new business JSON into ORM. can be used to filter JSON to busines properties
+     *
+	 * @param {object} inputJSON - business JSON
+	 * @returns {void} 
+	 */
+    async loadORM(inputJSON){
+        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
+        this.updateProperty();
+        return true;
+    }
+
+    cleanJSON(noNulls = true){
+		return this.#dbTableORM.cleanJSON(noNulls);
+	}
 
     /*****************************
      *   For administration site
