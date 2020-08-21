@@ -115,7 +115,43 @@ const properties = {
 			validator.website
 		],
 		'type': 'string'
-	}
+    },
+    "city": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(60)"
+      },
+      "state_abbr": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(2)"
+      },
+      "zipcode": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(10)"
+      },
+      "additionalInfo": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "json",
+        "dbType": "json"
+      }
 };
 
 module.exports = class Agency extends DatabaseObject{
@@ -254,7 +290,7 @@ module.exports = class Agency extends DatabaseObject{
 					this.logo = fileName;
 				}
 			}
-else if(this.id){
+            else if(this.id){
 				// The logo was unset, remove it
 				await this.removeLogo().catch(function(error){
 					rejected = true;

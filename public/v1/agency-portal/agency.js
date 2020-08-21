@@ -175,7 +175,7 @@ async function getAgency(req, res, next) {
 				${db.quoteName('phone')},
 				${db.quoteName('logo')},
 				${db.quoteName('website')},
-				${db.quoteName('slug')},
+                ${db.quoteName('slug')},
 				${db.quoteName('enable_optout', 'enableOptout')}
 			FROM ${db.quoteName('#__agencies')}
 			WHERE ${db.quoteName('id')} = ${agent}
@@ -219,15 +219,14 @@ async function getAgency(req, res, next) {
 				${db.quoteName('l.lname')},
 				${db.quoteName('l.phone')},
 				${db.quoteName('l.address')},
-				${db.quoteName('l.address2')},
-				${db.quoteName('z.city')},
-				${db.quoteName('z.territory')},
-				LPAD(CONVERT(${db.quoteName('l.zip')},char), 5, '0') AS zip,
+                ${db.quoteName('l.address2')},
+                ${db.quoteName('l.city')},
+                ${db.quoteName('l.state_abbr')},
+                ${db.quoteName('l.zipcode')},
 				${db.quoteName('l.open_time', 'openTime')},
 				${db.quoteName('l.close_time', 'closeTime')},
 				${db.quoteName('l.primary')}
 			FROM ${db.quoteName('#__agency_locations', 'l')}
-			LEFT JOIN ${db.quoteName('#__zip_codes', 'z')} ON z.zip = l.zip
 			WHERE ${db.quoteName('l.agency')} = ${agent} AND l.state > 0;
 		`;
     const networkInsurersSQL = `
@@ -363,7 +362,7 @@ async function getAgency(req, res, next) {
     }
 
     // Decrypt data from all the queries so far
-    const agencyDecrypt = crypt.batchProcessObject(agency, 'decrypt', ['californiaLicenseNumber',
+    const agencyDecrypt = crypt.batchProcessObject(agency, 'decrypt', ['caLicenseNumber',
         'email',
         'fname',
         'lname',
@@ -439,8 +438,8 @@ async function getAgency(req, res, next) {
         try {
             policyTypesResults = await db.query(policyTypeSql);
         }
-        catch (error) {
-            log.error(`Could not retrieve policy and accord_support for insurer ${insurer} :  ${error}  ${__location}`);
+        catch (err) {
+            log.error(`Could not retrieve policy and accord_support for insurer ${insurer} :  ${err}  ${__location}`);
             return next(serverHelper.internalError('Internal Error'));
         }
         // Push policy types and accord support for said policy type into an array
