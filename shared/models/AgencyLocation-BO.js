@@ -142,10 +142,8 @@ module.exports = class AgencyLocationBO{
             let rejected = false;
                 let responseLandingPageJSON = {};
                 let reject  = false;
-                const sql = `select al.id, al.address, z.city, z.territory, al.zip  
+                const sql = `select al.id, al.address, al.city, al.ca_abbr, al.zipcode 
                     from clw_talage_agency_locations al
-                    left outer join clw_talage_zip_codes z on z.zip = al.zip
-                
                     where agency = ${agencyId}`
                 const result = await db.query(sql).catch(function (error) {
                     // Check if this was
@@ -157,7 +155,7 @@ module.exports = class AgencyLocationBO{
                     for(var i = 0; i < result.length; i++){
                         let location = result[i];
                         location.address = await crypt.decrypt(location.address);
-                        location.address = location.address + " " + location.city + " " + location.territory + " " +  location.zip;
+                        location.address = location.address + " " + location.city + " " + location.ca_abbr + " " +  location.zipcode;
                     }
                     return result;
                 }
@@ -196,7 +194,6 @@ module.exports = class AgencyLocationBO{
                     l.close_time as closeTime,
                     l.primary
                 FROM clw_talage_agency_locations l
-                LEFT OUTER JOIN clw_talage_zip_codes z ON z.zip = l.zip
                 WHERE l.id = ? AND l.agency in (?) AND l.state > 0;`
 
             //WHERE l.id = ${id} AND l.agency = ${agencyId} AND l.state > 0;`
