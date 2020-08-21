@@ -18,7 +18,6 @@ function parseQuoteURL(url) {
     // Parse the agency slug
     let agencySlug = null;
     let pageSlug = null;
-
     url = url.replace(/index\.[a-zA-Z0-9]*\/*/, '');
     let quoteURL = null;
     try {
@@ -91,7 +90,8 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
 				alp.industry_code as industryCode,
 				alp.intro_heading as introHeading,
 				alp.intro_text as introText,
-				alp.show_industry_section as showIndustrySection,
+                alp.show_industry_section as showIndustrySection,
+                alp.additionalInfo as landingPageAdditionalInfo,
 				icc.name as industryCodeCategory,
 				alp.meta,
 				ag.id,
@@ -115,7 +115,7 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
 				AND ag.state = 1
 				AND alp.state = 1
 				AND ${pageSlug ? 'alp.slug = ' + db.escape(pageSlug) : 'alp.primary = 1'}
-		`;
+        `;
     try {
         const result = await db.query(sql);
         agency = result[0];
@@ -143,6 +143,13 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
         }
         if (agency.website) {
             agency.website = await crypt.decrypt(agency.website);
+        }
+        agency.showIntroText = false;
+        if(agency.landingPageAdditionalInfo){
+            agency.landingPageAdditionalInfo = JSON.parse(agency.landingPageAdditionalInfo);
+            if(agency.landingPageAdditionalInfo.showIntroText){
+                agency.showIntroText = agency.landingPageAdditionalInfo.showIntroText;
+            }
         }
     }
     catch (error) {
