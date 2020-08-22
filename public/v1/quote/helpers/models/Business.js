@@ -177,7 +177,6 @@ module.exports = class Business {
         catch (e) {
             log.error('populating business from db error: ' + e + __location)
         }
-
         this.owners_included = Boolean(applicationBO.owners_covered);
         this.years_of_exp = applicationBO.years_of_exp;
         //Zipcode processing
@@ -209,6 +208,7 @@ module.exports = class Business {
         if (error) {
             throw error;
         }
+
         if (addressList && addressList.length > 0) {
             for (let i = 0; i < addressList.length; i++) {
                 const location = new Location();
@@ -218,8 +218,13 @@ module.exports = class Business {
                 addressList[i].activity_codes = await addressList[i].getActivityCode().catch(function(err) {
                     log.error("Unable to get address activity codes for quoting appId: " + businessId + err + __location);
                 })
-
-                await location.load(addressList[i]);
+                try {
+                    await location.load(addressList[i]);
+                }
+                catch (err) {
+                    log.error(`Unable to load location ${addressList[i].id}: ${err} ${__location}`);
+                    throw err;
+                }
                 location.business_entity_type = businessBO.entity_type;
                 location.identification_number = addressList[i].ein ? addressList[i].ein : businessBO.ein;
                 //location.identification_number
