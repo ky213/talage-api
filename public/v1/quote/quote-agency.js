@@ -132,8 +132,8 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
         if (agency.landingPageContent) {
             agency.landingPageContent = JSON.parse(agency.landingPageContent);
         }
-        if (agency.defaultLandingPageContent) {
-            agency.defaultLandingPageContent = JSON.parse(agency.defaultLandingPageContent);
+        else if (agency.defaultLandingPageContent) {
+            agency.landingPageContent = JSON.parse(agency.defaultLandingPageContent);
         }
         if (agency.meta) {
             agency.meta = JSON.parse(agency.meta);
@@ -153,10 +153,9 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
         }
     }
     catch (error) {
-        log.error(`Could not parse landingPageContent/defaultLandingPageContent/meta in agency ${agencySlug}: ${error} ${__location}`);
+        log.error(`Could not parse landingPageContent/meta in agency ${agencySlug}: ${error} ${__location}`);
         return null;
     }
-
     // Get the locations
     sql = `
 			SELECT
