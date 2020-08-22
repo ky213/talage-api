@@ -105,7 +105,7 @@ var quoteReportTask = async function(){
     });
     const cvsHeaderColumns = {
         "application": "App ID",
-        "quoteDate": "Date (UTC)",
+        "quoteDate": "Date",
         "policy_type": "Type",
         "name": "Insurer",
         "network": "Agency Network",
