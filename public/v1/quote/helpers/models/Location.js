@@ -13,7 +13,7 @@ const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
 module.exports = class Location {
 
     constructor() {
-       // set by from parent business
+        // set by from parent business
         this.appPolicyTypeList = [];
         this.business_entity_type = '';
 
@@ -34,7 +34,7 @@ module.exports = class Location {
         this.unemployment_number = 0;
     }
 
-	/**
+    /**
 	 * Populates this object with data from the request
 	 *
 	 * @param {object} data - The business data
@@ -57,28 +57,30 @@ module.exports = class Location {
                     this[property] = data.ein;
                     break;
                 case 'activity_codes':
-                    data[property].forEach((c) => {
-                        // Check if we have already seen this activity code
-                        let match = false;
-                        const tmp_id = parseInt(c.id, 10);
-                        this.activity_codes.forEach(function(code) {
-                            if (tmp_id === code.id) {
-                                match = true;
+                    if (data.activity_codes) {
+                        data.activity_codes.forEach((c) => {
+                            // Check if we have already seen this activity code
+                            let match = false;
+                            const tmp_id = parseInt(c.id, 10);
+                            this.activity_codes.forEach(function(code) {
+                                if (tmp_id === code.id) {
+                                    match = true;
 
-                                // Seems convoluted, but we need to sanitize this payroll value
-                                const tmp_payroll = code.payroll;
-                                code.load(c);
-                                code.payroll += tmp_payroll;
+                                    // Seems convoluted, but we need to sanitize this payroll value
+                                    const tmp_payroll = code.payroll;
+                                    code.load(c);
+                                    code.payroll += tmp_payroll;
+                                }
+                            });
+
+                            // If the activity code is new, add it
+                            if (!match) {
+                                const activity_code = new ActivityCode();
+                                activity_code.load(c);
+                                this.activity_codes.push(activity_code);
                             }
                         });
-
-                        // If the activity code is new, add it
-                        if (!match) {
-                            const activity_code = new ActivityCode();
-                            activity_code.load(c);
-                            this.activity_codes.push(activity_code);
-                        }
-                    });
+                    }
                     break;
                 case 'full_time_employees':
                 case 'part_time_employees':
@@ -116,7 +118,7 @@ module.exports = class Location {
 
     }
 
-	/**
+    /**
 	 * Checks that the data supplied is valid
 	 *
 	 * @returns {Promise.<array, Error>} A promise that returns a boolean indicating whether or not this record is valid, or an Error if rejected
@@ -183,7 +185,7 @@ module.exports = class Location {
                 return;
             }
 
-			/**
+            /**
 			 * Full-Time Employees
 			 * - Integer (enforced with parseInt() on load())
 			 * - >= 0
@@ -194,7 +196,7 @@ module.exports = class Location {
                 return;
             }
 
-			/**
+            /**
 			 * Part-Time Employees
 			 * - Integer (enforced with parseInt() on load())
 			 * - >= 0
