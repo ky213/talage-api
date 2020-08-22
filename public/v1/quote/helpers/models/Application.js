@@ -76,7 +76,6 @@ module.exports = class Application {
             log.warn(`Attempt to update an old application. appid ${this.id}` + __location);
             throw new Error("Data Error: Application may not be updated do to age.");
         }
-
         //log.debug("applicationBO: " + JSON.stringify(applicationBO));
 
         // Load the business information
@@ -85,6 +84,7 @@ module.exports = class Application {
             await this.business.load(applicationBO.business, applicationBO);
         }
         catch (err) {
+            log.error(`Unable to load the business for application ${this.id}: ${err} ${__location}`);
             throw err;
         }
 
