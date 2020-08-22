@@ -326,7 +326,7 @@ async function createLandingPage(req, res, next) {
     }
 
     // Validate the request and get back the data
-    let data = await validate(req, next).catch(function(err) {
+    const data = await validate(req, next).catch(function(err) {
         error = err.message;
     });
     if (error) {
@@ -649,10 +649,10 @@ async function updateLandingPage(req, res, next) {
     }
 
     // showIntroText update additional_info json
-    if(req.body.additionalInfo && req.body.showIntroText){
+    if(req.body.additionalInfo && typeof req.body.showIntroText === "boolean"){
         req.body.additionalInfo.showIntroText = req.body.showIntroText;
     }
-    else if (req.body.showIntroText){
+    else if (typeof req.body.showIntroText === "boolean"){
         req.body.additionalInfo = {};
         req.body.additionalInfo.showIntroText = req.body.showIntroText;
     }
