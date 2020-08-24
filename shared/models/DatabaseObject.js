@@ -23,6 +23,7 @@ module.exports = class DatabaseObject {
 	#table = '';
 	#properties = {};
 
+    doNotSnakeCase = [];
 	/**
 	 * Constructor
 	 *
@@ -405,7 +406,13 @@ module.exports = class DatabaseObject {
 
                     // Store the column and value
                     if(this.hasValue(value)){
-                        columns.push(`\`${property.toSnakeCase()}\``);
+                        if(this.doNotSnakeCase.includes(property)){
+                            columns.push(`\`${property}\``);
+                        }   
+                        else {
+                            columns.push(`\`${property.toSnakeCase()}\``);
+                        }
+                        
 					    values.push(`${db.escape(value)}`);
                     }
 					
@@ -510,7 +517,13 @@ module.exports = class DatabaseObject {
                     
                     if(this.hasValue(value)){
                         // Write the set statement for this value
-					    setStatements.push(`\`${property.toSnakeCase()}\` = ${db.escape(value)}`);
+                        if(this.doNotSnakeCase.includes(property)){
+                            setStatements.push(`\`${property}\` = ${db.escape(value)}`);
+                        }
+                        else {
+                            setStatements.push(`\`${property.toSnakeCase()}\` = ${db.escape(value)}`);
+                        }
+					    
                     }
 					
 				}

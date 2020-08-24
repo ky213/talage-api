@@ -15,11 +15,12 @@ const skipCheckRequired = false;
 module.exports = class AgencyLandingPageBO{
 
     #dbTableORM = null;
-
+    doNotSnakeCase = ['additionalInfo'];
+    
 	constructor(){
         this.id = 0;
         this.#dbTableORM = new DbTableOrm(tableName);
-    }
+        this.#dbTableORM.doNotSnakeCase = this.doNotSnakeCase;
 
 
     /**

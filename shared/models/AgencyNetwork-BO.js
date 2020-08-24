@@ -11,11 +11,12 @@ const skipCheckRequired = false;
 module.exports = class AgencyNetworkBO{
 
     #dbTableORM = null;
-
+    doNotSnakeCase = ['additionalInfo'];
 	constructor(){
         this.id = 0;
         this.#dbTableORM = new DbTableOrm(tableName);
-    }
+        this.#dbTableORM.doNotSnakeCase = this.doNotSnakeCase;
+    }   
 
 
     /**
@@ -125,7 +126,7 @@ module.exports = class AgencyNetworkBO{
                     }
                 }
                 // Run the query
-                log.debug("AgencyNetworkBO getlist sql: " + sql);
+                //log.debug("AgencyNetworkBO getlist sql: " + sql);
                 const result = await db.query(sql).catch(function (error) {
                     // Check if this was
                     
@@ -477,6 +478,15 @@ const properties = {
       "type": "json",
       "dbType": "json"
     },
+    "additionalInfo": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "json",
+        "dbType": "json"
+     },
     "created": {
       "default": null,
       "encrypted": false,
