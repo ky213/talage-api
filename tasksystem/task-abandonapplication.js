@@ -2,10 +2,12 @@
 
 const moment = require('moment');
 const crypt = global.requireShared('./services/crypt.js');
-const email = global.requireShared('./services/emailsvc.js');
+const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 // const outreachsvc = global.requireShared('./services/outreachsvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
+
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 
 /**
  * AbandonApplication Task processor
@@ -51,7 +53,7 @@ exports.taskProcessorExternal = async function(){
     let error = null;
     await abandonAppTask().catch(err => error = err);
     if(error){
-        log.error('abandonAppTask external: ' + error +  __location);
+        log.error('abandonAppTask external: ' + error + __location);
     }
     return;
 };
@@ -81,7 +83,7 @@ var abandonAppTask = async function(){
         appIds = await db.query(appIdSQL);
     }
     catch(err){
-		log.error("abandonAppTask getting appid list error " + err +  __location);
+		log.error("abandonAppTask getting appid list error " + err + __location);
 		throw err;
 	}
     //process list.....
@@ -102,7 +104,7 @@ var abandonAppTask = async function(){
 
             if(error === null && succesfulProcess === true){
                 await markApplicationProcess(appIdDbRec.applicationId).catch(function(err){
-                    log.error(`Error marking abandon app in DB for ${appIdDbRec.applicationId} error:  ${err}` +  __location);
+                    log.error(`Error marking abandon app in DB for ${appIdDbRec.applicationId} error:  ${err}` + __location);
                     error = err;
                 });
             }
@@ -148,7 +150,7 @@ var processAbandonApp = async function(applicationId){
     let appDBJSON = null;
 
     appDBJSON = await db.query(appSQL).catch(function(err){
-        log.error(`Error get abandon applications from DB for ${applicationId} error:  ${err}` +  __location);
+        log.error(`Error get abandon applications from DB for ${applicationId} error:  ${err}` + __location);
         // Do not throw error other abandon applications may need to be processed.
         return false;
     });
@@ -157,51 +159,38 @@ var processAbandonApp = async function(applicationId){
 
         const agencyNetwork = appDBJSON[0].agency_network;
         //Get email content
-        const emailContentSQL = `
-            SELECT
-                JSON_EXTRACT(custom_emails, '$.abandoned_applications_customer') AS agencyEmailData,
-                JSON_EXTRACT(custom_emails, '$.abandoned_applications_customer') AS customerEmailData,
-                (SELECT JSON_EXTRACT(custom_emails, '$.abandoned_applications_customer')  FROM  clw_talage_agency_networks WHERE id = 1 ) AS defaultAgencyEmailData,
-                (SELECT JSON_EXTRACT(custom_emails, '$.abandoned_applications_customer')  FROM  clw_talage_agency_networks WHERE id = 1 ) AS defaultCustomerEmailData
-            FROM clw_talage_agency_networks
-            WHERE id = ${db.escape(agencyNetwork)}
-        `;
-
+        // TODO only uses customer...
         let error = null;
-        const emailContentResultArray = await db.query(emailContentSQL).catch(function(err){
-            log.error(`DB Error Unable to get email content for abandon application. appid: ${applicationId}.  error: ${err}` +  __location);
+        const agencyNetworkBO = new AgencyNetworkBO();
+        const emailContentJSON = await agencyNetworkBO.getEmailContentAgencyAndCustomer(agencyNetwork, "abandoned_applications_customer", "abandoned_applications_customer").catch(function(err){
+            log.error(`Email content Error Unable to get email content for abandon application. appid: ${applicationId}.  error: ${err}` + __location);
             error = true;
         });
         if(error){
             return false;
         }
 
-        if(emailContentResultArray && emailContentResultArray.length > 0){
-            const emailContentResult = emailContentResultArray[0];
+
+        if(emailContentJSON && emailContentJSON.customerMessage && emailContentJSON.customerSubject){
+
             //decrypt info...
             appDBJSON[0].email = await crypt.decrypt(appDBJSON[0].email);
             appDBJSON[0].agencyEmail = await crypt.decrypt(appDBJSON[0].agencyEmail);
             appDBJSON[0].agencyPhone = await crypt.decrypt(appDBJSON[0].agencyPhone);
             appDBJSON[0].agencyWebsite = await crypt.decrypt(appDBJSON[0].agencyWebsite);
 
-            const customerEmailData = emailContentResult.customerEmailData ? JSON.parse(emailContentResult.customerEmailData) : null;
-            const defaultCustomerEmailData = emailContentResult.defaultCustomerEmailData ? JSON.parse(emailContentResult.defaultCustomerEmailData) : null;
 
-            //let agencyName = appDBJSON[0].agencyName
             let agencyPhone = '';
-            //let brand = appDBJSON[0].emailBrand === 'wheelhouse' ? 'agency' : appDBJSON[0].emailBrand.agency;
+
             if(appDBJSON[0].agencyPhone){
                 agencyPhone = formatPhone(appDBJSON[0].agencyPhone);
             }
-            // let phone = null;
-            // if(appDBJSON[0].phone){
-            //     phone = formatPhone(appDBJSON[0].phone);
-            // }
-            const brandurl = appDBJSON[0].agency_network === 2 ? global.settings.DIGALENT_SITE_URL : global.settings.SITE_URL;
+
+            const brandurl = appDBJSON[0].agency_network === 2 ? global.settings.DIGALENT_SITE_URL : global.settings.APPLICATION_URL;
             const agencyLandingPage = `${brandurl}/${appDBJSON[0].slug}`;
 
-            let message = customerEmailData && customerEmailData.message ? customerEmailData.message : defaultCustomerEmailData.message;
-            const subject = customerEmailData && customerEmailData.subject ? customerEmailData.subject : defaultCustomerEmailData.subject;
+            let message = emailContentJSON.customerMessage;
+            const subject = emailContentJSON.customerSubject;
 
             // Perform content replacements
             message = message.replace(/{{Agency}}/g, appDBJSON[0].agencyName);
@@ -210,8 +199,6 @@ var processAbandonApp = async function(applicationId){
             message = message.replace(/{{Agency Phone}}/g, agencyPhone);
             message = message.replace(/{{Agency Website}}/g, `<a href="${appDBJSON[0].agencyWebsite}" rel="noopener noreferrer" target="_blank">${appDBJSON[0].agencyWebsite}</a>`);
 
-            // log.debug('Insured subject: ' + subject)
-            // log.debug('Insured message: ' + message)
 
             //send email:
             // Send the email
@@ -219,7 +206,7 @@ var processAbandonApp = async function(applicationId){
                     'application': applicationId,
                     'agency_location': appDBJSON[0].agencyLocation
                 };
-            const emailResp = await email.send(appDBJSON[0].email, subject, message, keys , appDBJSON[0].emailBrand, appDBJSON[0].agency);
+            const emailResp = await emailSvc.send(appDBJSON[0].email, subject, message, keys , appDBJSON[0].emailBrand, appDBJSON[0].agency);
             //log.debug("emailResp = " + emailResp);
             if(emailResp === false){
                slack.send('#alerts', 'warning',`The system failed to remind the insured to revisit their application ${applicationId}. Please follow-up manually.`, {'application_id': applicationId});
@@ -245,7 +232,7 @@ var markApplicationProcess = async function(applicationId){
 
     // Update application record
 	await db.query(updateSQL).catch(function(e){
-		log.error('Abandon Application flag update error: ' + e.message +  __location);
+		log.error('Abandon Application flag update error: ' + e.message + __location);
 		throw e;
 	});
 };

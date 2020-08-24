@@ -10,6 +10,8 @@
 const Integration = require('../Integration.js');
 const moment = require('moment');
 const util = require('util');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 module.exports = class BtisGL extends Integration {
 
@@ -33,7 +35,7 @@ module.exports = class BtisGL extends Integration {
 		return new Promise(async(fulfill) => {
 			// Determine which URL to use
 			let host = '';
-			if (this.insurer.test_mode) {
+			if (this.insurer.useSandbox) {
 				host = 'api-sandbox.btisinc.com';
 			}
  else {
@@ -57,12 +59,7 @@ module.exports = class BtisGL extends Integration {
 			}
 
 			// Verify that we got back what we expected
-			if (
-				!Object.prototype.hasOwnProperty.call(token_response, 'success') ||
-				token_response.success !== true ||
-				!Object.prototype.hasOwnProperty.call(token_response, 'token') ||
-				!token_response.token
-			) {
+			if (!Object.prototype.hasOwnProperty.call(token_response, 'success') || token_response.success !== true || !Object.prototype.hasOwnProperty.call(token_response, 'token') || !token_response.token) {
 				fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 				return;
 			}
@@ -88,7 +85,7 @@ module.exports = class BtisGL extends Integration {
 'TX',
 'UT',
 'WA'].includes(this.app.business.primary_territory)) {
-				switch (this.policy.deductble) {
+				switch (this.policy.deductible) {
 					case 500:
 						deductible_id = 2000500;
 						break;
@@ -109,10 +106,7 @@ module.exports = class BtisGL extends Integration {
 			data.ProvideSpanishInspection = false;
 
 			// Determine the limits ID
-			const carrierLimits = await this.send_json_request(host,
-				`/GL/v1/gateway/lookup/limits/?stateName=${this.app.business.primary_territory}&effectiveDate=${this.policy.effective_date.format('YYYY-MM-DD')}`,
-				null,
-				{'x-access-token': token}).catch((error) => {
+			const carrierLimits = await this.send_json_request(host, `/GL/v1/gateway/lookup/limits/?stateName=${this.app.business.primary_territory}&effectiveDate=${this.policy.effective_date.format('YYYY-MM-DD')}`, null, {'x-access-token': token}).catch((error) => {
 				log.error(error.message + __location);
 				fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 			});
@@ -122,6 +116,7 @@ module.exports = class BtisGL extends Integration {
 					return carrierLimit.text.replace(/,/g, '');
 				}));
 			if (!limits) {
+                log.warn(`autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location)
 				this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
 				fulfill(this.return_result('autodeclined'));
 				return;
@@ -130,11 +125,7 @@ module.exports = class BtisGL extends Integration {
 			// Determine the limits ID
 			let limitsId = 0;
 			carrierLimits.forEach((limit) => {
-				if (
-					parseInt(limit.limits.occurrence.replace(/,/g, ''), 10) === limits[0] &&
-					parseInt(limit.limits.aggregate.replace(/,/g, ''), 10) === limits[1] &&
-					parseInt(limit.limits.perproject.replace(/,/g, ''), 10) === limits[2]
-				) {
+				if (parseInt(limit.limits.occurrence.replace(/,/g, ''), 10) === limits[0] && parseInt(limit.limits.aggregate.replace(/,/g, ''), 10) === limits[1] && parseInt(limit.limits.perproject.replace(/,/g, ''), 10) === limits[2]) {
 					limitsId = limit.limitId;
 				}
 			});
@@ -200,8 +191,14 @@ module.exports = class BtisGL extends Integration {
 			}
 
 			// The applicant has not completed any work involving apartment conversions, construction work involving condominiums, town homes or time shares in the past 10 years, nor does the applicant plan to in the future.
-			data.BusinessInformation.PerformNewResidentialWork = !this.questions['948'].get_answer_as_boolean();
-			data.BusinessInformation.DescriptionOfOperations = this.get_operation_description();
+            if(this.questions['948']){
+                data.BusinessInformation.PerformNewResidentialWork = !this.questions['948'].get_answer_as_boolean();
+            }
+            else {
+                log.error("BTIS GL missing this.questions['948'] appId: " + this.app.id + __location);
+            }
+
+            data.BusinessInformation.DescriptionOfOperations = this.get_operation_description();
 
 			// Primary Address
 			data.BusinessInformation.PrimaryAddress = {};

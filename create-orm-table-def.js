@@ -12,6 +12,9 @@ const logger = require('./shared/services/logger.js');
 const db = require('./shared/services/db.js');
 const globalSettings = require('./settings.js');
 const version = require('./version.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
+global.tracker = tracker;
 
 // Inject the tracker code
 //require('./tracker.js');
@@ -116,6 +119,9 @@ async function main(){
             if(fieldDef.Type.indexOf(numberFieldTypeList[j]) > -1){
                 ormFieldDef.type = "number";
             }
+        }
+        if(fieldDef.Type === "json"){
+            ormFieldDef.type = fieldDef.Type;
         }
         if(fieldDef.Type === "blob"){
             ormFieldDef.encrypted = true;

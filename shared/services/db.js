@@ -12,28 +12,29 @@ let conn = null;
 
 exports.connect = async() => {
 
-	console.log(`Connecting to database ${colors.cyan(global.settings.DATABASE_HOST)}`); // eslint-disable-line no-console
+    console.log(`Connecting to database ${colors.cyan(global.settings.DATABASE_HOST)}`); // eslint-disable-line no-console
 
-	// Connect to the database
-	conn = mysql.createPool({
-		'connectionLimit': 100,
-		'database': global.settings.DATABASE_NAME,
-		'host': global.settings.DATABASE_HOST,
-		'password': global.settings.DATABASE_PASSWORD,
-		'user': global.settings.DATABASE_USER
-	});
+    // Connect to the database set client to assume db datetimes are in UTC.
+    conn = mysql.createPool({
+        'connectionLimit': 100,
+        'database': global.settings.DATABASE_NAME,
+        'host': global.settings.DATABASE_HOST,
+        'password': global.settings.DATABASE_PASSWORD,
+        'user': global.settings.DATABASE_USER,
+        'timezone': 'Z'
+    });
 
-	// Try to connect to the database to ensure it is reachable.
-	try{
-		const connection = await util.promisify(conn.getConnection).call(conn);
-		connection.release();
-	}
-catch(error){
-		console.log(colors.red(`\tERROR: ${error.toString()}`)); // eslint-disable-line no-console
-		return false;
-	}
-	console.log(colors.green('\tConnected')); // eslint-disable-line no-console
-	return true;
+    // Try to connect to the database to ensure it is reachable.
+    try{
+        const connection = await util.promisify(conn.getConnection).call(conn);
+        connection.release();
+    }
+    catch(error){
+        console.log(colors.red(`\tERROR: ${error.toString()}`)); // eslint-disable-line no-console
+        return false;
+    }
+    console.log(colors.green('\tConnected')); // eslint-disable-line no-console
+    return true;
 };
 
 /**
@@ -42,23 +43,23 @@ catch(error){
  * @returns {Promise} - The database connection
  */
 exports.beginTransaction = function(){
-	return new Promise(function(fulfill, reject){
-		// Get a single database connection from the pool. All queries in this same transaction will use this same connection.
-		conn.getConnection(function(err, connection){
-			if(err){
-				log.error('Unable to establish single connection to database' +  __location);
-				reject(new Error('Database connection failed'));
-				return;
-			}
+    return new Promise(function(fulfill, reject){
+        // Get a single database connection from the pool. All queries in this same transaction will use this same connection.
+        conn.getConnection(function(err, connection){
+            if(err){
+                log.error('Unable to establish single connection to database' + __location);
+                reject(new Error('Database connection failed'));
+                return;
+            }
 
-			// Begin the transaction
-			connection.beginTransaction();
-			log.info('Beginning database transaction');
+            // Begin the transaction
+            connection.beginTransaction();
+            log.info('Beginning database transaction');
 
-			// Return the connection object
-			fulfill(connection);
-		});
-	});
+            // Return the connection object
+            fulfill(connection);
+        });
+    });
 };
 
 /**
@@ -69,17 +70,17 @@ exports.beginTransaction = function(){
  * @returns {void}
  */
 exports.commit = function(connection){
-	if(!connection){
-		log.error('Parameter missing. db.commit() requires a database connection as a parameter' +  __location);
-		return;
-	}
+    if(!connection){
+        log.error('Parameter missing. db.commit() requires a database connection as a parameter' + __location);
+        return;
+    }
 
-	// Commit the transaction
-	connection.commit();
+    // Commit the transaction
+    connection.commit();
 
-	// Release the connection
-	connection.release();
-	log.info('Database transaction committed');
+    // Release the connection
+    connection.release();
+    log.info('Database transaction committed');
 };
 
 /**
@@ -90,7 +91,7 @@ exports.commit = function(connection){
  * @returns {string} The escaped string
  */
 exports.escape = function(str){
-	return mysql.escape(str);
+    return mysql.escape(str);
 };
 
 /**
@@ -101,13 +102,13 @@ exports.escape = function(str){
  * @returns {string} - The prepared query
  */
 exports.prepareQuery = function(sql){
-	// Force SQL queries to end in a semicolon for security
-	if(sql.slice(-1) !== ';'){
-		sql += ';';
-	}
+    // Force SQL queries to end in a semicolon for security
+    if(sql.slice(-1) !== ';'){
+        sql += ';';
+    }
 
-	// Replace the prefix placeholder
-	return sql.replace(/#__/g, process.env.DATABASE_PREFIX);
+    // Replace the prefix placeholder
+    return sql.replace(/#__/g, process.env.DATABASE_PREFIX);
 };
 
 /**
@@ -118,29 +119,55 @@ exports.prepareQuery = function(sql){
  * @returns {Promise.<array, Error>} A promise that returns an array of database results if resolved, or an Error if rejected
  */
 exports.query = function(sql){
-	return new Promise(function(fulfill, reject){
-		// Force SQL queries to end in a semicolon for security
-		if(sql.slice(-1) !== ';'){
-			sql += ';';
-		}
+    return new Promise(function(fulfill, reject){
+        // Force SQL queries to end in a semicolon for security
+        if(sql.slice(-1) !== ';'){
+            sql += ';';
+        }
 
-		// Replace the prefix placeholder
-		sql = sql.replace(/#__/g, global.settings.DATABASE_PREFIX);
+        // Replace the prefix placeholder
+        sql = sql.replace(/#__/g, global.settings.DATABASE_PREFIX);
 
-		// Run the query on the database
-		conn.query(sql, function(err, rows){
-			if(err){
-				log.error('db query error: ' + err +  __location);
-				log.info('sql: ' + sql);
-				// Docs-api had 'reject(new Error(err));'
-				reject(err);
-				return;
-			}
+        // Run the query on the database
+        conn.query(sql, function(err, rows){
+            if(err){
+                log.error('db query error: ' + err + __location);
+                log.info('sql: ' + sql);
+                // Docs-api had 'reject(new Error(err));'
+                reject(err);
+                return;
+            }
 
-			// Question-api had 'fulfill(JSON.parse(JSON.stringify(rows)));'
-			fulfill(rows);
-		});
-	});
+            // Question-api had 'fulfill(JSON.parse(JSON.stringify(rows)));'
+            fulfill(rows);
+        });
+    });
+};
+
+exports.queryParam = function(sql, params){
+    return new Promise(function(fulfill, reject){
+        // Force SQL queries to end in a semicolon for security
+        if(sql.slice(-1) !== ';'){
+            sql += ';';
+        }
+
+        // Replace the prefix placeholder
+        sql = sql.replace(/#__/g, global.settings.DATABASE_PREFIX);
+
+        // Run the query on the database
+        conn.query(sql, params, function(err, rows){
+            if(err){
+                log.error('db query error: ' + err + __location);
+                log.info('sql: ' + sql);
+                // Docs-api had 'reject(new Error(err));'
+                reject(err);
+                return;
+            }
+
+            // Question-api had 'fulfill(JSON.parse(JSON.stringify(rows)));'
+            fulfill(rows);
+        });
+    });
 };
 
 /**
@@ -152,28 +179,28 @@ exports.query = function(sql){
  * @returns {string} The quoted name
  */
 exports.quoteName = function(name, alias = null){
-	let quotedName = null;
+    let quotedName = null;
 
-	// Check if the name is prepended with an alias
-	if(name.includes('.')){
-		// Split the alias from the name
-		const parts = name.split('.');
+    // Check if the name is prepended with an alias
+    if(name.includes('.')){
+        // Split the alias from the name
+        const parts = name.split('.');
 
-		// Return alias and name quoted separately
-		quotedName = `\`${parts[0]}\`.\`${parts[1]}\``;
-	}
-else{
-		// Otherwise quote the name directly
-		quotedName = `\`${name}\``;
-	}
+        // Return alias and name quoted separately
+        quotedName = `\`${parts[0]}\`.\`${parts[1]}\``;
+    }
+    else{
+        // Otherwise quote the name directly
+        quotedName = `\`${name}\``;
+    }
 
-	// If the alias param was included, add the AS statement
-	if(alias !== null){
-		return `${quotedName} AS \`${alias}\``;
-	}
+    // If the alias param was included, add the AS statement
+    if(alias !== null){
+        return `${quotedName} AS \`${alias}\``;
+    }
 
-	// Otherwise quoted name directly
-	return quotedName;
+    // Otherwise quoted name directly
+    return quotedName;
 };
 
 /**
@@ -184,21 +211,21 @@ else{
  * @returns {void}
  */
 exports.rollback = function(connection){
-	if(!connection){
-		log.error('Parameter missing. db.rollback() requires a database connection as a parameter' +  __location);
-		return;
-	}
+    if(!connection){
+        log.error('Parameter missing. db.rollback() requires a database connection as a parameter' + __location);
+        return;
+    }
 
-	// Rollback the transaction
-	connection.rollback();
+    // Rollback the transaction
+    connection.rollback();
 
-	// Release the connection
-	connection.release();
-	log.info('Database transaction rolledback');
+    // Release the connection
+    connection.release();
+    log.info('Database transaction rolledback');
 };
 
 exports.dbTimeFormat = function(){
-	return 'YYYY-MM-DD hh:mm:ss';
+    return 'YYYY-MM-DD HH:mm:ss';
 };
 
 /**
@@ -207,7 +234,7 @@ exports.dbTimeFormat = function(){
  */
 // eslint-disable-next-line no-extend-native
 Object.defineProperty(String.prototype, 'toSnakeCase', {'value': function(){
-	return this.split(/(?=[A-Z])/).join('_').toLowerCase();
+    return this.split(/(?=[A-Z])/).join('_').toLowerCase();
 }});
 
 /**
@@ -216,5 +243,5 @@ Object.defineProperty(String.prototype, 'toSnakeCase', {'value': function(){
  */
 // eslint-disable-next-line no-extend-native
 Object.defineProperty(String.prototype, 'toCamelCase', {'value': function(){
-	return this.toLowerCase().replace(/[^a-zA-Z0-9]+(.)/g, (m, chr) => chr.toUpperCase());
+    return this.toLowerCase().replace(/[^a-zA-Z0-9]+(.)/g, (m, chr) => chr.toUpperCase());
 }});

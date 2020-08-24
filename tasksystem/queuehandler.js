@@ -10,7 +10,7 @@ let sqs = null; // Will be set later
 /**
  * Read queue item.
  *
- * @returns json for {success:  true/false, message: data, error: errorMessage} mssage.
+ * @returns json for {success:  true/false, message: data, error: errorMessage} message.
  */
 exports.getTaskQueueItem = async function(){
 	const params = {
@@ -33,8 +33,6 @@ exports.getTaskQueueItem = async function(){
 		};
 	}
 	else if(data){
-		// log.debug('Queue data:')
-		// log.debug(JSON.stringify(data));
 		if(data.Messages === null){
 			return {
 				'success': false,
@@ -63,7 +61,7 @@ exports.deleteTaskQueueItem = async function(messageReceiptHandle){
     let errorMessage = null;
 	await sqs.deleteMessage(params, function(err){
 		if (err){
-            log.error("delete queueitem error: " + err+ __location);
+            log.error("delete queueitem error: " + err + __location);
 			errorMessage = err;
 		}
 	}).promise();
@@ -77,11 +75,16 @@ exports.deleteTaskQueueItem = async function(messageReceiptHandle){
 exports.initialize = async function(){
 
     // AWS Setup
-	AWS.config.update({
-		'accessKeyId': global.settings.AWS_KEY,
-		'secretAccessKey': global.settings.AWS_SECRET,
-		'region': global.settings.AWS_REGION
-	});
+    if(global.settings.AWS_USE_KEYS === "YES"){
+        AWS.config.update({
+            'accessKeyId': global.settings.AWS_KEY,
+            'secretAccessKey': global.settings.AWS_SECRET,
+            'region': global.settings.AWS_REGION
+        });
+    }
+    else {
+        AWS.config.update({'region': global.settings.AWS_REGION});
+    }
 
     sqs = new AWS.SQS({'apiVersion': global.settings.awsApiVersion});
     return true;

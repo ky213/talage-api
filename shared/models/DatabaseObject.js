@@ -2,7 +2,7 @@
 // We will need to update in order for it to recognize the ECMAscript extension for private properties. -SF
 
 /**
- * Defines a single Agency
+ * Defines a single record
  */
 
 'use strict';
@@ -14,11 +14,16 @@ const tracker = global.requireShared('./helpers/tracker.js');
 const validator = global.requireShared('./helpers/validator.js');
 //usable in catches from promises.  (this not available)
 let tableName = '';
+// do not update or insert into database
+const doNotInsertColoumns = ['id','created', 'created_by', 'modified', 'deleted'];
+const doNotUpdateColoumns = ['id','uuid','created', 'created_by', 'modified', 'deleted'];
+
 module.exports = class DatabaseObject {
 	#constructors = {};
 	#table = '';
 	#properties = {};
 
+    doNotSnakeCase = [];
 	/**
 	 * Constructor
 	 *
@@ -30,7 +35,7 @@ module.exports = class DatabaseObject {
 		// Localize the properties
 		this.#constructors = c;
 		this.#table = t;
-		this.#properties = p;
+        this.#properties = p;
         tableName = t;
 		// Loop over each property
 		for (const property in this.#properties) {
@@ -49,7 +54,7 @@ module.exports = class DatabaseObject {
 
                     let expectedDataType = this.#properties[property].type;
                    
-					if(value || value === '' || value === 0){
+					if(this.hasValue(value)){
 
 						// Verify the data type
                         // Special timestamp and Date processing
@@ -136,6 +141,13 @@ module.exports = class DatabaseObject {
                             // correct input.
                             
                         }
+                        else if (expectedDataType === "json"  && typeof value === 'object' ){
+                            //log.debug('Load() Processing JSON column');
+                        }
+                        else if (expectedDataType === "json"  && typeof value === 'string' ){
+                            //log.debug('Load() Processing JSON column convert string');
+                            value = JSON.parse(value)
+                        }
 						else {
                             if (expectedDataType !== typeof value) {
                                 const badType = typeof value;
@@ -200,7 +212,7 @@ module.exports = class DatabaseObject {
 			for (const property in this.#properties) {
 				// Only set properties that were provided in the data
 				// if from database ignore required rules.
-				if (isObjLoad === true  && (!Object.prototype.hasOwnProperty.call(data, property) || !data[property])) {
+				if (isObjLoad === true  && (!Object.prototype.hasOwnProperty.call(data, property) || !this.hasValue(data[property]))) {
 					// Enforce required fields
 					if (this.#properties[property].required) {
 						log.error(`${this.#table}.${property} is required` + __location)
@@ -209,7 +221,7 @@ module.exports = class DatabaseObject {
 
 						rejectError = new Error(`${this.#table}.${property} is required`)
 					}
-					continue;
+					//continue;
 				}
 
 				// If this property belongs to another class, create an instance of that class and load the data into it
@@ -240,10 +252,10 @@ module.exports = class DatabaseObject {
 					break;
 				}
 
-				// Store the value of the property in this object
+                // Store the value of the property in this object
 				try {
                     //skip nulls
-					if(data[property] || data[property] == '' || data[property] === 0 ){
+					if(this.hasValue(data[property]) ){
 						this[property] = data[property];
                     }
 				} catch (error) {
@@ -301,6 +313,7 @@ module.exports = class DatabaseObject {
 					try {
 						await this[this.#properties[property].saveHandler]();
 					} catch (error) {
+                        log.error(this.#properties[property] + " Save error " + error + __location );
 						rejected = true;
 						reject(error);
 						break;
@@ -368,22 +381,38 @@ module.exports = class DatabaseObject {
 				// Skip the ID column
 				if (property === 'id') {
 					continue;
-				}
+                }
+                if(doNotInsertColoumns.includes(property)){
+                    continue;
+                }
 				if(this[property] || this[property] == '' || this[property] === 0 ){
 					// Localize the data value
 					let value = this[property];
 
 					// Check if we need to encrypt this value, and if so, encrypt
 					if (this.#properties[property].encrypted && (value  || value === "")) {
-						value = await crypt.encrypt(value);
+                        value = await crypt.encrypt(value);
+                        if(value === false){
+                            value = "";
+                        }
                     }
                     if(this.#properties[property].type === "timestamp" || this.#properties[property].type === "date" || this.#properties[property].type === "datetime"){
 						value = this.dbDateTimeString(value);
+                    }
+                    
+                    if(this.#properties[property].type === "json"){
+						value = JSON.stringify(value);
 					}
 
                     // Store the column and value
-                    if(value || value === '' || value === 0){
-                        columns.push(`\`${property.toSnakeCase()}\``);
+                    if(this.hasValue(value)){
+                        if(this.doNotSnakeCase.includes(property)){
+                            columns.push(`\`${property}\``);
+                        }   
+                        else {
+                            columns.push(`\`${property.toSnakeCase()}\``);
+                        }
+                        
 					    values.push(`${db.escape(value)}`);
                     }
 					
@@ -462,9 +491,18 @@ module.exports = class DatabaseObject {
 				) {
 					continue;
 				}
+                
+                // Skip the ID column
+				if (property === 'id') {
+					continue;
+                }
+
+                if(doNotUpdateColoumns.includes(property)){
+                    continue;
+                }
 
 				// Localize the data value
-				let value = this[property];
+                let value = this[property];
 				if(this[property] || this[property] == '' || this[property] === 0 ){
 					// Check if we need to encrypt this value, and if so, encrypt
 					if (this.#properties[property].encrypted && value) {
@@ -472,10 +510,20 @@ module.exports = class DatabaseObject {
 					}
 					if(this.#properties[property].type === "timestamp" || this.#properties[property].type === "date" || this.#properties[property].type === "datetime"){
 						value = this.dbDateTimeString(value);
-					}
-                    if(value || value === '' || value === 0){
+                    }
+                    if(this.#properties[property].type === "json"){
+						value = JSON.stringify(value);
+                    }
+                    
+                    if(this.hasValue(value)){
                         // Write the set statement for this value
-					    setStatements.push(`\`${property.toSnakeCase()}\` = ${db.escape(value)}`);
+                        if(this.doNotSnakeCase.includes(property)){
+                            setStatements.push(`\`${property}\` = ${db.escape(value)}`);
+                        }
+                        else {
+                            setStatements.push(`\`${property.toSnakeCase()}\` = ${db.escape(value)}`);
+                        }
+					    
                     }
 					
 				}
@@ -491,7 +539,6 @@ module.exports = class DatabaseObject {
 					\`id\` = ${db.escape(this.id)}
 				LIMIT 1;
 			`;
-
             // Run the query
             // usable in catch
 			const result = await db.query(sql).catch(function (error) {
@@ -553,6 +600,7 @@ module.exports = class DatabaseObject {
 			if(result && result.length === 1){
                 //Decrypt encrypted fields.
                 await this.decryptFields(result[0]);
+                await this.convertJSONColumns(result[0]);
 
 				this.load(result[0], false).catch(function(err){
 					log.error(`getById error loading object: ` + err);
@@ -561,6 +609,7 @@ module.exports = class DatabaseObject {
 				})
 			}
 			else {
+                log.debug("not found getbyId: " + sql);
 				reject(new Error("not found"));
 				return
 			}
@@ -573,15 +622,43 @@ module.exports = class DatabaseObject {
             // if from database ignore required rules.
             if (this.#properties[property].encrypted === true && Object.prototype.hasOwnProperty.call(data, property) && data[property]) {
                 data[property] = await crypt.decrypt(data[property]);
+                if(data[property] === false){
+                    data[property] = null;
+                }
             }
         }
         return 
     }
 
-	cleanJSON(){
+    async convertJSONColumns(data){
+        for (const property in this.#properties) {
+            // Only set properties that were provided in the data
+            // if from database ignore required rules.
+            if (this.#properties[property].type === 'json' && Object.prototype.hasOwnProperty.call(data, property) && data[property]) {
+                try{
+                    data[property] = JSON.parse(data[property]);
+                }
+                catch(e){
+                    log.error("json parse error " + e + __location)
+                }
+                
+            }
+        }
+        return 
+    }
+
+	cleanJSON(noNulls = true){
 		let propertyNameJson = {};
 		for (const property in this.#properties) {
-			propertyNameJson[property] = this[`#${property}`]
+            if(noNulls === true){
+                if(this.hasValue(this[`#${property}`]) ){
+                    propertyNameJson[property] = this[`#${property}`]   
+                }
+            }
+            else {
+                propertyNameJson[property] = this[`#${property}`]
+            }
+			
 		}
 		return propertyNameJson;
 	}
@@ -603,5 +680,9 @@ module.exports = class DatabaseObject {
 
         return returnValue;
 	
-	}
+    }
+    
+    hasValue(testValue){
+        return (testValue || testValue === '' || testValue === 0);
+    }
 };

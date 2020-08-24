@@ -1,5 +1,6 @@
 /**
- * Defines a single Agency
+ * Defines a single Agency  = limited fields and functionality for Agency-Portal save.
+ *  Use Agency-BO.js 
  */
 
 'use strict';
@@ -13,6 +14,8 @@ const serverHelper = global.requireRootPath('server.js');
 const{'v4': uuidv4} = require('uuid');
 const validator = global.requireShared('./helpers/validator.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 const constructors = {'AgencyLocation': AgencyLocation};
 
@@ -112,7 +115,16 @@ const properties = {
 			validator.website
 		],
 		'type': 'string'
-	}
+    },
+    "additionalInfo": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "json",
+        "dbType": "json"
+      }
 };
 
 module.exports = class Agency extends DatabaseObject{
@@ -147,11 +159,11 @@ module.exports = class Agency extends DatabaseObject{
 				LIMIT 1;
 			`;
 
-			// Run the query
+            // Run the query
 			let rejected = false;
-			const pathResult = await db.query(pathSQL).catch(function(){
+			const pathResult = await db.query(pathSQL).catch(function(err){
 				rejected = true;
-				log.error('Unable to get path of existing agency logo');
+				log.error('Unable to get path of existing agency logo ' + err + __location);
 				reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 			});
 			if(rejected){
@@ -251,7 +263,7 @@ module.exports = class Agency extends DatabaseObject{
 					this.logo = fileName;
 				}
 			}
-else if(this.id){
+            else if(this.id){
 				// The logo was unset, remove it
 				await this.removeLogo().catch(function(error){
 					rejected = true;

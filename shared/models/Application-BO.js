@@ -1,9 +1,12 @@
 'use strict';
-
+const moment = require('moment');
 const DatabaseObject = require('./DatabaseObject.js');
 const BusinessModel = require('./Business-model.js');
-const ApplicationClaimModel = require('./ApplicationClaim-model.js');
+const ApplicationActivityCodesModel = require('./ApplicationActivityCodes-model.js');
+const ApplicationPolicyTypeBO = require('./ApplicationPolicyType-BO.js');
 const LegalAcceptanceModel = require('./LegalAcceptance-model.js');
+const ApplicationClaimBO =  require('./ApplicationClaim-BO.js');
+
 const QuoteModel = require('./Quote-model.js');
 const taskWholesaleAppEmail = global.requireRootPath('tasksystem/task-wholesaleapplicationemail.js');
 const taskSoleProAppEmail = global.requireRootPath('tasksystem/task-soleproapplicationemail.js');
@@ -13,16 +16,11 @@ const taskEmailBindAgency = global.requireRootPath('tasksystem/task-emailbindage
 const { 'v4': uuidv4 } = require('uuid');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-// const util = require('util');
-// const email = global.requireShared('./services/emailsvc.js');
-// const slack = global.requireShared('./services/slacksvc.js');
-// const formatPhone = global.requireShared('./helpers/formatPhone.js');
-// const get_questions = global.requireShared('./helpers/getQuestions.js');
 
-//const validator = global.requireShared('./helpers/validator.js');
 
 const convertToIntFields = [];
 
+const  QUOTE_STEP_NUMBER = 9;
 module.exports = class ApplicationModel {
 
     #dbTableORM = null;
@@ -35,9 +33,25 @@ module.exports = class ApplicationModel {
         this.policies = [];
         this.questions = {};
         this.test = false;
+        this.WorkFlowSteps = {
+            'contact': 2,
+            'coverage': 3,
+            'locations': 4,
+            'owners': 5,
+            'details': 6,
+            'claims': 7,
+            'questions': 8,
+            'quotes': 9,
+            'cart': 10,
+            'bindRequest': 10,
+        };
+
+
+
+
         this.#dbTableORM = new ApplicationOrm();
     }
-
+   
 
     /**
    * Load new application JSON with optional save.
@@ -52,12 +66,34 @@ module.exports = class ApplicationModel {
                 reject(new Error("empty application object given"));
                 return;
             }
+
+            const stepMap = {
+                'contact': 2,
+                'coverage': 3,
+                'locations': 4,
+                'owners': 5,
+                'details': 6,
+                'claims': 7,
+                'questions': 8,
+                'quotes': 9,
+                'cart': 10,
+                'bindRequest': 10,
+            };
+
+            if(!stepMap[workflowStep]){
+                reject(new Error("Unknown Application Workflow Step"))
+                return;   
+            }
+
+            const stepNumber = stepMap[workflowStep];
+            log.debug('workflowStep: ' + workflowStep + ' stepNumber: ' +  stepNumber);
+
             if (!applicationJSON.id && applicationJSON.step !== "contact") {
                 log.error('saveApplicationStep missing application id ' + __location)
                 reject(new Error("missing application id"));
                 return;
             }
-            if (applicationJSON.id && applicationJSON.step !== "contact") {
+            if (applicationJSON.id) {
                 //load application from database.
                 await this.#dbTableORM.getById(applicationJSON.id).catch(function (err) {
                     log.error("Error getting application from Database " + err + __location);
@@ -65,13 +101,67 @@ module.exports = class ApplicationModel {
                     return;
                 });
                 this.updateProperty();
+                //Check that is still updateable.
+                if(this.state > 15  && this.state === 0){
+                    log.warn(`Attempt to update a finished or deleted application. appid ${applicationJSON.id}`  + __location);
+                    reject(new Error("Data Error:Application may not be updated."));
+                    return;
+                }
+                // //Check that it is too old (1 hours) from creation
+                if(this.created){
+                    const dbCreated = moment(this.created);
+                    const nowTime = moment().utc();;
+                    const ageInMinutes = nowTime.diff(dbCreated, 'minutes');
+                    log.debug('Application age in minutes ' + ageInMinutes);
+                    if(ageInMinutes > 60){
+                        log.warn(`Attempt to update an old application. appid ${applicationJSON.id}`  + __location);
+                        reject(new Error("Data Error:Application may not be updated."));
+                        return;
+                    }
+                }
+                else {
+                    log.warn(`Application missing created value. appid ${applicationJSON.id}`  + __location);
+                }
+                // if Application has been Quoted and this is an earlier step
+                if(this.last_step >= QUOTE_STEP_NUMBER && stepNumber < QUOTE_STEP_NUMBER){
+                    log.warn(`Attempt to update a Quoted application. appid ${applicationJSON.id}`  + __location);
+                    reject(new Error("Data Error:Application may not be updated."));
+                    return;
+                }
+                //check for 
 
             }
+            else {
+                //set uuid on new application
+                applicationJSON.uuid = uuidv4().toString();
+                //Agency Defaults
+                if(applicationJSON.agency_id && !applicationJSON.agency){
+                    applicationJSON.agency = applicationJSON.agency_id
+                }
+                if(!applicationJSON.agency){
+                    applicationJSON.agency = 1
+                }
+                if(applicationJSON.agency === 0 && applicationJSON.agency === "0"){
+                    applicationJSON.agency = 1
+                }
+                //agency location defaults
+                if(applicationJSON.agencylocation_id && !applicationJSON.agency_location){
+                    applicationJSON.agency_location = applicationJSON.agencylocation_id   
+                }
+                if(!applicationJSON.agency_location){
+                    applicationJSON.agency_location = 1
+                }
+                if(applicationJSON.agency_location === 0 || applicationJSON.agency_location === "0"){
+                    applicationJSON.agency_location = 1
+                }
+            }
+
             //log.debug("applicationJSON: " + JSON.stringify(applicationJSON));
             let error = null;
             let updateBusiness = false;
             switch (workflowStep) {
                 case "contact":
+                    
                     //setup business special case need new business ID back.
                     if (applicationJSON.businessInfo) {
                         //load business
@@ -96,15 +186,28 @@ module.exports = class ApplicationModel {
                         return;
                     }
 
-                    if (!applicationJSON.uuid) {
-                        applicationJSON.uuid = uuidv4().toString();
-                    }
                     break;
                 case 'locations':
                     // update business data
+                    if(applicationJSON.total_payroll){
+                        await this.processActivityCodes(applicationJSON.total_payroll).catch(function(err){
+                            log.error('Adding claims error:' + err + __location);
+                            reject(err);
+                        });
+                    }
+                    else {
+                        log.warn("Application missing total_payroll appID " + this.id + __location )
+                    }
                     updateBusiness = true;
                     break;
                 case 'coverage':
+                     //processPolicyTypes
+                     if(applicationJSON.policy_types){
+                        await this.processPolicyTypes(applicationJSON.policy_types).catch(function(err){
+                            log.error('Adding claims error:' + err + __location);
+                            reject(err);
+                        });
+                    }
                     // update business data
                     updateBusiness = true;
                     break;
@@ -188,20 +291,7 @@ module.exports = class ApplicationModel {
                 }
             }
 
-            const stepMap = {
-                'contact': 2,
-                'coverage': 3,
-                'locations': 4,
-                'owners': 5,
-                'details': 6,
-                'claims': 7,
-                'questions': 8,
-                'quotes': 9,
-                'cart': 10,
-                'bindRequest': 10,
-            };
-            const stepNumber = stepMap[workflowStep];
-            log.debug('workflowStep: ' + workflowStep + ' stepNumber: ' +  stepNumber);
+            
             if (!this.#dbTableORM.last_step) {
                 this.#dbTableORM.last_step = stepNumber;
             }
@@ -215,7 +305,7 @@ module.exports = class ApplicationModel {
             this.#dbTableORM.load(applicationJSON, false).catch(function (err) {
                 log.error("Error loading application orm " + err + __location);
             });
-            if (this.#dbTableORM.uuid) {
+            if (!this.#dbTableORM.uuid) {
                 this.#dbTableORM.uuid = applicationJSON.uuid;
             }
             //save
@@ -263,15 +353,15 @@ module.exports = class ApplicationModel {
    processClaimsWF(claims) {
     return new Promise(async (resolve, reject) => {
         //delete existing.
-        const applicationClaimModelDelete = new ApplicationClaimModel();
+        const applicationClaimModelDelete = new ApplicationClaimBO();
         //remove existing addresss acivity codes. we do not get ids from UI.
         await applicationClaimModelDelete.DeleteClaimsByApplicationId(this.id).catch(function(err){
-            
+            log.error("Error deleting ApplicationClaimModel " + err +  __location);
         });
         for(var i = 0; i < claims.length; i++){
             let claim = claims[i];
             claim.application = this.id;
-            const applicationClaimModel = new ApplicationClaimModel();
+            const applicationClaimModel = new ApplicationClaimBO();
             await applicationClaimModel.saveModel(claim).catch(function (err) {
                 log.error("Adding new claim error:" + err + __location);
                 reject(err);
@@ -282,6 +372,71 @@ module.exports = class ApplicationModel {
 
     });
 }
+
+processActivityCodes(activtyListJSON){
+
+    return new Promise(async (resolve, reject) => {
+        //delete existing.
+        const applicationActivityCodesModelDelete = new ApplicationActivityCodesModel();
+        //remove existing addresss acivity codes. we do not get ids from UI.
+        await applicationActivityCodesModelDelete.DeleteByApplicationId(this.id).catch(function(err){
+            log.error("Error deleting ApplicationActivityCodesModel " + err +  __location);
+        });
+
+        for (const activity in activtyListJSON) {
+        //for(var i=0; i < total_payrollJSON.length;i++){
+            //activityPayrollJSON = total_payrollJSON[i];
+            const activityCodeJSON = {
+                'application': this.id,
+				"ncci_code": activity,
+                "payroll": activtyListJSON[activity]
+            }
+            const applicationActivityCodesModel = new ApplicationActivityCodesModel();
+            await applicationActivityCodesModel.saveModel(activityCodeJSON).catch(function (err) {
+                log.error(`Adding new applicationActivityCodesModel for Appid ${this.id} error:` + err + __location);
+                reject(err);
+                return;
+            });
+        }
+        
+        resolve(true);
+
+    });
+
+}
+
+
+processPolicyTypes(policyTypeArray){
+
+    return new Promise(async (resolve, reject) => {
+        //delete existing.
+        const applicationPolicyTypeModelDelete = new ApplicationPolicyTypeBO();
+        //remove existing addresss acivity codes. we do not get ids from UI.
+        await applicationPolicyTypeModelDelete.DeleteByApplicationId(this.id).catch(function(err){
+            log.error("Error deleting ApplicationPolicyTypeModel " + err +  __location);
+        });
+       
+       
+        for(var i=0; i < policyTypeArray.length;i++){
+            const policyType = policyTypeArray[i];
+            const policyTypeJSON = {
+                'application': this.id,
+				"policy_type": policyType
+            }
+            const applicationPolicyTypeModel = new ApplicationPolicyTypeBO();
+            await applicationPolicyTypeModel.saveModel(policyTypeJSON).catch(function (err) {
+                log.error(`Adding new applicationPolicyTypeModel for Appid ${this.id} error:` + err + __location);
+                reject(err);
+                return;
+            });
+        }
+        
+        resolve(true);
+
+    });
+
+}
+
 
 processQuestions(questions){
 
@@ -294,11 +449,11 @@ processQuestions(questions){
             let valueLine = '';
             if(question.type === 'text'){
                 const cleanString = question.answer.replace(/\|/g,',')
-                valueLine = `(${this.id}, ${question.id}, NULL, '${cleanString}')`
+                valueLine = `(${this.id}, ${question.id}, NULL, ${db.escape(cleanString)})`
 
             } else if (question.type === 'array'){
                 const arrayString = "|" + question.answer.join('|');
-                valueLine = `(${this.id}, ${question.id},NULL, '${arrayString}', NULL)`
+                valueLine = `(${this.id}, ${question.id},NULL, ${db.escape(arrayString)}))`
             }
             else {
                 valueLine = `(${this.id}, ${question.id}, ${question.answer}, NULL)`
@@ -437,6 +592,48 @@ processQuotes(applicationJSON){
    * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved application , or an Error if rejected
    */
 
+    /**
+    * Load new application JSON with optional save.
+    *
+    * @param {object} applicationJSON - application JSON
+    * @param {boolean} save - Saves application if true
+    * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved application , or an Error if rejected
+    */
+    // saveApplicationFullObject(applicationJSON) {
+    //     return new Promise(async (resolve, reject) => {
+    //         if (!applicationJSON) {
+    //             reject(new Error("empty application object given"));
+    //             return;
+    //         }
+    //         //load existing record if give ID.
+    //         if (applicationJSON.id && applicationJSON.step !== "contact") {
+    //             //load application from database.
+    //             await this.#dbTableORM.getById(applicationJSON.id).catch(function (err) {
+    //                 log.error("Error getting application from Database " + err + __location);
+    //                 reject(err);
+    //                 return;
+    //             });
+    //             this.updateProperty();
+
+    //         }
+
+
+    //         //Save Business (Application record is child of business)
+            
+    //         if (applicationJSON.businessInfo) {
+    //             applicationJSON.businessInfo.id = this.business;
+    //             await this.processBusiness(applicationJSON.businessInfo).catch(function (err) {
+    //                 log.error("updating business error:" + err + __location);
+    //                 reject(err);
+    //             });
+    //             delete applicationJSON.businessInfo
+    //         }
+    //         //Save Application
+
+    //         //Save Application children if provided.
+    //         resolve(true);
+    //     });
+    // }
     save(asNew = false) {
         return new Promise(async (resolve, reject) => {
             //validate
@@ -449,7 +646,7 @@ processQuotes(applicationJSON){
         return new Promise(async (resolve, reject) => {
             //validate
             if (id && id > 0) {
-                await this.#dbTableORM.getById(applicationJSON.id).catch(function (err) {
+                await this.#dbTableORM.getById(id).catch(function (err) {
                     log.error("Error getting application from Database " + err + __location);
                     reject(err);
                     return;
@@ -487,11 +684,20 @@ processQuotes(applicationJSON){
         }
     }
 
-    updateProperty() {
-        const dbJSON = this.#dbTableORM.cleanJSON()
+    updateProperty(noNulls = false) {
+        const dbJSON = this.#dbTableORM.cleanJSON(noNulls)
         // eslint-disable-next-line guard-for-in
         for (const property in properties) {
-            this[property] = dbJSON[property];
+            if(noNulls === true){
+                if(dbJSON[property]){
+                  this[property] = dbJSON[property];
+                } else if(this[property]){
+                    delete this[property];
+                }
+            }
+            else {
+              this[property] = dbJSON[property];
+            }
         }
     }
 }
@@ -871,6 +1077,33 @@ const properties = {
         "rules": null,
         "type": "number",
         "dbType": "mediumint(5) unsigned"
+    },
+    "city": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(60)"
+    },
+    "state_abbr": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(2)"
+    },
+    "zipcode": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(10)"
     },
     "created": {
         "default": null,

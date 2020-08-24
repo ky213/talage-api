@@ -3,6 +3,11 @@
 const util = require('util');
 const sendOnboardingEmail = require('./helpers/send-onboarding-email.js');
 const serverHelper = require('../../../server.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
+const AgencyBO = global.requireShared('models/Agency-BO.js');
+
+
 
 /**
  * Resends the onboarding email
@@ -25,31 +30,58 @@ async function postResendOnboardingEmail(req, res, next){
 
 	// Make sure all information is present
 	if (!Object.prototype.hasOwnProperty.call(req.body, 'firstName') || typeof req.body.firstName !== 'string' || !req.body.firstName){
-		log.warn('firstName is required');
+		log.warn('firstName is required' + __location);
 		return next(serverHelper.requestError('You must enter an the First Name of the agent'));
 	}
 	if (!Object.prototype.hasOwnProperty.call(req.body, 'lastName') || typeof req.body.lastName !== 'string' || !req.body.lastName){
-		log.warn('lastName is required');
+		log.warn('lastName is required' + __location);
 		return next(serverHelper.requestError('You must enter an the Last Name of the agent'));
 	}
 	if (!Object.prototype.hasOwnProperty.call(req.body, 'agencyName') || typeof req.body.agencyName !== 'string' || !req.body.agencyName){
-		log.warn('agencyName is required');
+		log.warn('agencyName is required' + __location);
 		return next(serverHelper.requestError('You must enter an Agency Name'));
 	}
 	if (!Object.prototype.hasOwnProperty.call(req.body, 'userEmail') || typeof req.body.userEmail !== 'string' || !req.body.userEmail){
-		log.warn('userEmail is required');
+		log.warn('userEmail is required' + __location);
 		return next(serverHelper.requestError('You must enter a User Email Address'));
 	}
 	if (!Object.prototype.hasOwnProperty.call(req.body, 'slug') || typeof req.body.slug !== 'string' || !req.body.slug){
-		log.warn('slug is required');
+		log.warn('slug is required' + __location);
 		return next(serverHelper.requestError('You must enter a slug'));
 	}
 	if (!Object.prototype.hasOwnProperty.call(req.body, 'userID') || typeof req.body.userID !== 'number' || !req.body.userID){
-		log.warn('userID is required');
+		log.warn('userID is required' + __location);
 		return next(serverHelper.requestError('You must enter a UserID'));
 	}
 
-	const onboardingEmailResponse = await sendOnboardingEmail(req.authentication.agencyNetwork,
+
+    // Need AgencyNetworkId for sendOnboardingEmail. - broken before 7/12/2020.
+    // sendOnboardEmail would only get Wheelhouse's emailcontent for an Agency user
+    //  previous bad SQL logic allowed this vs an Error  when sending false as agencyNetwork
+    // and the beauty of non Type languages.
+
+    let agencyNetwork = req.authentication.agencyNetwork;
+    if(agencyNetwork === false || agencyNetwork === "false"){
+        //get agency to get agencyNetwork.
+        const reqAgency = req.authentication.agents[0];
+        let error = null;
+        const agencyModel = new AgencyBO();
+        await agencyModel.loadFromId(reqAgency).catch(function(err) {
+            log.error(`Loading agency in resend-onboarding-mail error:` + err + __location);
+            agencyNetwork = 1;
+            error = err;
+        });
+        if(!error){
+            agencyNetwork = agencyModel.agency_network;
+            if(!agencyNetwork){
+                agencyNetwork = 1;
+            }
+        }
+    }
+    // req.authentication.agencyNetwork = false for Agency user.
+    //const onboardingEmailResponse = await sendOnboardingEmail(req.authentication.agencyNetwork,
+
+	const onboardingEmailResponse = await sendOnboardingEmail(agencyNetwork,
 		req.body.userID,
 		req.body.firstName,
 		req.body.lastName,

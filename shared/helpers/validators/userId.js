@@ -1,6 +1,8 @@
 'use strict';
 
 const validator = global.requireShared('./helpers/validator.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 module.exports = async function(val, agency, agencyNetwork){
 	if(!validator.id(val) || agency && !validator.id(agency)){
@@ -29,7 +31,8 @@ else{
 
 	// Run the query
 	let error = false;
-	const result = await db.query(sql).catch(function(){
+	const result = await db.query(sql).catch(function(err){
+        log.error('__agency_portal_users error ' + err + __location);
 		error = true;
 	});
 	if(error){

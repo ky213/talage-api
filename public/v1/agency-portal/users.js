@@ -2,6 +2,8 @@
 const auth = require('./helpers/auth.js');
 const crypt = require('../../../shared/services/crypt.js');
 const serverHelper = require('../../../server.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 /**
  * Responds to get requests for the users endpoint
@@ -45,8 +47,10 @@ async function getUsers(req, res, next){
 			WHERE \`state\` > 0 ${where}
 		`;
 
-	// Get the users from the database
-	const users = await db.query(usersSQL).catch(function(){
+    // Get the users from the database
+    // TODO Fix catch logic
+	const users = await db.query(usersSQL).catch(function(err){
+        log.error('__agency_portal_users error ' + err + __location);
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});
 
@@ -68,7 +72,8 @@ async function getUsers(req, res, next){
 			WHERE \`id\` != 3;
 		`;
 
-	const userGroups = await db.query(userGroupsSQL).catch(function(){
+	const userGroups = await db.query(userGroupsSQL).catch(function(err){
+        log.error('__agency_portal_user_group error ' + err + __location);
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});
 

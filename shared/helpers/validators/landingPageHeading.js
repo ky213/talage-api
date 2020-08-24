@@ -1,5 +1,5 @@
 'use strict';
-const headingRegEx = /^[a-zA-Z\-\'!?,& ]*$/;
+const headingRegEx = /^[a-zA-Z0-9\-\'!?,& ]*$/;
 
 module.exports = function(val){
 	// Make sure the value is the type of data we are expecting

@@ -10,6 +10,8 @@ const DatabaseObject = require('./DatabaseObject.js');
 const serverHelper = global.requireRootPath('server.js');
 const validator = global.requireShared('./helpers/validator.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 const constructors = {'AgencyLocationInsurers': AgencyLocationInsurers};
 
@@ -41,7 +43,7 @@ const properties = {
 			validator.id
 		],
 		'type': 'number'
-	},
+    },
 	'closeTime': {
 		'default': 5,
 		'encrypted': false,
@@ -138,7 +140,34 @@ const properties = {
 		'saveHandler': 'associateTerritories',
 		'type': 'object'
 
-	},
+    },
+    "city": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(60)"
+    },
+    "state_abbr": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(2)"
+    },
+    "zipcode": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(10)"
+    },
 	'zip': {
 		'default': null,
 		'encrypted': false,
@@ -187,7 +216,8 @@ module.exports = class AgencyLocation extends DatabaseObject{
 			`;
 
 			// Run the query
-			await db.query(deleteSQL).catch(function(){
+			await db.query(deleteSQL).catch(function(err){
+                log.error("clw_talage_agency_location_territories delete error: " + err + __location);
 				rejected = true;
 				reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 			});
@@ -203,8 +233,9 @@ module.exports = class AgencyLocation extends DatabaseObject{
 			`;
 
 			// Run the query
-			await db.query(associateSQL).catch(function(){
-				rejected = true;
+			await db.query(associateSQL).catch(function(err){
+                rejected = true;
+                log.error("clw_talage_agency_location_territories insert error: " + err + __location);
 				reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
 			});
 			if(rejected){

@@ -19,8 +19,11 @@ const builder = require('xmlbuilder');
 const moment = require('moment');
 const moment_timezone = require('moment-timezone');
 const Integration = require('../Integration.js');
+// eslint-disable-next-line no-unused-vars
+const tracker = global.requireShared('./helpers/tracker.js');
 
 module.exports = class AcuityWC extends Integration {
+
 	/**
 	 * Requests a quote from Acuity and returns. This request is not intended to be called directly.
 	 *
@@ -28,7 +31,10 @@ module.exports = class AcuityWC extends Integration {
 	 */
 	_insurer_quote() {
 		// These are the limits supported by Acuity
-		const carrierLimits = ['100000/500000/100000', '500000/500000/500000', '500000/1000000/500000', '1000000/1000000/1000000'];
+		const carrierLimits = ['100000/500000/100000',
+'500000/500000/500000',
+'500000/1000000/500000',
+'1000000/1000000/1000000'];
 
 		// Define how corporation types are mapped for Acuity
 		const corporationTypeMatrix = {
@@ -52,7 +58,7 @@ module.exports = class AcuityWC extends Integration {
 		const skipQuestions = [1036, 1037];
 
 		// Build the Promise
-		return new Promise(async (fulfill) => {
+		return new Promise(async(fulfill) => {
 			// Check Industry Code Support
 			if (!this.industry_code.cgl) {
 				log.error(`${this.insurer.name} ${this.policy.type} Integration File: CGL not set for Industry Code ${this.industry_code.id} ` + __location);
@@ -63,6 +69,7 @@ module.exports = class AcuityWC extends Integration {
 			// Prepare limits
 			const limits = this.getBestLimits(carrierLimits);
 			if (!limits) {
+                log.warn(`autodeclined: no limits  ${this.insurer.name} ${this.policy.type} ${this.industry_code.id} ` + __location)
 				this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
 				fulfill(this.return_result('autodeclined'));
 				return;
@@ -313,7 +320,8 @@ module.exports = class AcuityWC extends Integration {
 					let answer = '';
 					try {
 						answer = this.determine_question_answer(question);
-					} catch (error) {
+					}
+ catch (error) {
 						fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 						return;
 					}
@@ -330,9 +338,11 @@ module.exports = class AcuityWC extends Integration {
 					// Determine how to send the answer
 					if (question.type === 'Yes/No') {
 						QuestionAnswer.ele('YesNoCd', question.get_answer_as_boolean() ? 'YES' : 'NO');
-					} else if (/^\d+$/.test(answer)) {
+					}
+ else if (/^\d+$/.test(answer)) {
 						QuestionAnswer.ele('Num', answer);
-					} else {
+					}
+ else {
 						QuestionAnswer.ele('Explanation', answer);
 					}
 				}
@@ -600,13 +610,14 @@ module.exports = class AcuityWC extends Integration {
 			// </ACORD>
 
 			// Get the XML structure as a string
-			const xml = ACORD.end({ pretty: true });
+			const xml = ACORD.end({pretty: true});
 
 			// Determine which URL to use
 			let host = '';
-			if (this.insurer.test_mode) {
+			if (this.insurer.useSandbox) {
 				host = 'tptest.acuity.com';
-			} else {
+			}
+ else {
 				host = 'www.acuity.com';
 			}
 			const path = '/ws/partner/public/irate/rating/RatingService/Talage';
@@ -615,8 +626,8 @@ module.exports = class AcuityWC extends Integration {
 			await this.send_xml_request(host, path, xml, {
 				'X-IBM-Client-Id': this.username,
 				'X-IBM-Client-Secret': this.password
-			})
-				.then((result) => {
+			}).
+				then((result) => {
 					let res = result;
 
 					// Check if there was an error
@@ -725,7 +736,8 @@ module.exports = class AcuityWC extends Integration {
 									// Get the amount of the quote
 									try {
 										amount = parseInt(res.PolicySummaryInfo[0].FullTermAmt[0].Amt[0], 10);
-									} catch (e) {
+									}
+ catch (e) {
 										log.error(`${this.insurer.name} Integration Error: Quote structure changed. Unable to quote amount.` + __location);
 										this.reasons.push('A quote was generated, but our API was unable to isolate it.');
 										fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
@@ -750,12 +762,14 @@ module.exports = class AcuityWC extends Integration {
 													break;
 											}
 										});
-									} catch (e) {
+									}
+ catch (e) {
 										log.warn(`${this.insurer.name} Integration Error: Quote structure changed. Unable to find limits. ` + __location);
 									}
 
 									// Grab the file info
 									try {
+
 										/*
 
 This section needs to be updated. The policy_info field below is no longer valid. In this case, the insurer returns a URL instead of PDF data.
@@ -765,7 +779,8 @@ it will remain available? The data and file information needs to be stored in th
 									policy_info.files[0].url = res.FileAttachmentInfo[0].WebsiteURL[0];
 
 */
-									} catch (e) {
+									}
+ catch (e) {
 										log.warn(`${this.insurer.name} Integration Error: Quote structure changed. Unable to quote letter.` + __location);
 									}
 
@@ -798,8 +813,8 @@ it will remain available? The data and file information needs to be stored in th
 							this.reasons.push(`Unknown status of '${status_code}' recieved from API`);
 							fulfill(this.return_error('error', 'We are currently unable to connect to this insurer'));
 					}
-				})
-				.catch((error) => {
+				}).
+				catch((error) => {
 					log.error(error.message + __location);
 					this.reasons.push('Problem connecting to insurer');
 					fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));

@@ -8,7 +8,7 @@
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-const { raw } = require('mysql');
+// const {raw} = require('mysql');
 
 var sanitizer = require('sanitize')();
 
@@ -18,10 +18,10 @@ var sanitizer = require('sanitize')();
  * @param {string} str - The string
  * @return {string} - The upper-cased string
  */
-exports.ucwords = function(str){
-	return String(str).replace(/^([a-z])|\s+([a-z])/g, function($1){
-		return $1.toUpperCase();
-	});
+exports.ucwords = function(str) {
+    return String(str).replace(/^([a-z])|\s+([a-z])/g, function($1) {
+        return $1.toUpperCase();
+    });
 };
 
 /**
@@ -30,8 +30,8 @@ exports.ucwords = function(str){
  * @param {string} str - The string
  * @return {string} The lower-case string
  */
-exports.strtolower = function(str){
-	return String(str).toLowerCase();
+exports.strtolower = function(str) {
+    return String(str).toLowerCase();
 };
 
 /**
@@ -43,36 +43,35 @@ exports.strtolower = function(str){
  * @param {string} thousands_sep - The character used to separate groups of thousands digits
  * @return {string} - The formatted number
  */
-exports.number_format = function(number, decimals, dec_point, thousands_sep){
-	// Strip all characters but numerical ones.
-	number = String(number).replace(/[^0-9+\-Ee.]/g, '');
-	const n = !isFinite(Number(number)) ? 0 : Number(number);
-	const prec = !isFinite(Number(decimals)) ? 0 : Math.abs(decimals);
-	const sep = typeof thousands_sep === 'undefined' ? ',' : thousands_sep;
-	const dec = typeof dec_point === 'undefined' ? '.' : dec_point;
-	let s = '';
-	const toFixedFix = function(n2, prec2){
-		const k = Math.pow(10, prec2);
-		return String(Math.round(n2 * k) / k);
-	};
-	// Fix for IE parseFloat(0.55).toFixed(0) = 0;
-	s = (prec ? toFixedFix(n, prec) : String(Math.round(n))).split('.');
-	if (s[0].length > 3){
-		s[0] = s[0].replace(/\B(?=(?:\d{3})+(?!\d))/g, sep);
-	}
-	if ((s[1] || '').length < prec){
-		s[1] = s[1] || '';
-		s[1] += new Array(prec - s[1].length + 1).join('0');
-	}
-	return s.join(dec);
+exports.number_format = function(number, decimals, dec_point, thousands_sep) {
+    // Strip all characters but numerical ones.
+    number = String(number).replace(/[^0-9+\-Ee.]/g, '');
+    const n = !isFinite(Number(number)) ? 0 : Number(number);
+    const prec = !isFinite(Number(decimals)) ? 0 : Math.abs(decimals);
+    const sep = typeof thousands_sep === 'undefined' ? ',' : thousands_sep;
+    const dec = typeof dec_point === 'undefined' ? '.' : dec_point;
+    let s = '';
+    const toFixedFix = function(n2, prec2) {
+        const k = Math.pow(10, prec2);
+        return String(Math.round(n2 * k) / k);
+    };
+    // Fix for IE parseFloat(0.55).toFixed(0) = 0;
+    s = (prec ? toFixedFix(n, prec) : String(Math.round(n))).split('.');
+    if (s[0].length > 3) {
+        s[0] = s[0].replace(/\B(?=(?:\d{3})+(?!\d))/g, sep);
+    }
+    if ((s[1] || '').length < prec) {
+        s[1] = s[1] || '';
+        s[1] += new Array(prec - s[1].length + 1).join('0');
+    }
+    return s.join(dec);
 };
 
 exports.remove_array_duplicates = function(arr) {
     const s = new Set(arr);
     const it = s.values();
     return Array.from(it);
-}
-
+};
 
 exports.htmlspecialchars_decode = function(string, quote_style) {
     // Convert special HTML entities back to characters
@@ -91,7 +90,10 @@ exports.htmlspecialchars_decode = function(string, quote_style) {
     // -    depends on: get_html_translation_table
     // *     example 1: htmlspecialchars_decode("<p>this -&gt; &quot;</p>", 'ENT_NOQUOTES');
     // *     returns 1: '<p>this -> &quot;</p>'
-    var histogram = {}, symbol = '', tmp_str = '', entity = '';
+    var histogram = {},
+        symbol = '',
+        tmp_str = '',
+        entity = '';
     tmp_str = string.toString();
 
     if (false === (histogram = this.get_html_translation_table('HTML_SPECIALCHARS', quote_style))) {
@@ -108,7 +110,7 @@ exports.htmlspecialchars_decode = function(string, quote_style) {
     }
 
     return tmp_str;
-}
+};
 
 exports.get_html_translation_table = function(table, quote_style) {
     // Returns the internal translation table used by htmlspecialchars and htmlentities
@@ -128,9 +130,14 @@ exports.get_html_translation_table = function(table, quote_style) {
     // *     example 1: get_html_translation_table('HTML_SPECIALCHARS');
     // *     returns 1: {'"': '&quot;', '&': '&amp;', '<': '&lt;', '>': '&gt;'}
 
-    var entities = {}, histogram = {}, decimal = 0, symbol = '';
-    var constMappingTable = {}, constMappingQuoteStyle = {};
-    var useTable = {}, useQuoteStyle = {};
+    var entities = {},
+        histogram = {},
+        decimal = 0,
+        symbol = '';
+    var constMappingTable = {},
+        constMappingQuoteStyle = {};
+    var useTable = {},
+        useQuoteStyle = {};
 
     useTable = table ? table.toUpperCase() : 'HTML_SPECIALCHARS';
     useQuoteStyle = quote_style ? quote_style.toUpperCase() : 'ENT_COMPAT';
@@ -266,8 +273,8 @@ exports.get_html_translation_table = function(table, quote_style) {
         entities['254'] = '&thorn;';
         entities['255'] = '&yuml;';
     }
- else {
-        throw Error("Table: " + useTable + ' not supported');
+    else {
+        throw Error('Table: ' + useTable + ' not supported');
         //return false;
     }
 
@@ -278,49 +285,49 @@ exports.get_html_translation_table = function(table, quote_style) {
     }
 
     return histogram;
-}
+};
 
-exports.santizeString = function(rawString){
-    if(rawString && "string" === typeof rawString){
-        let cleanString = "";
-        try{
+exports.santizeString = function(rawString) {
+    if (rawString && 'string' === typeof rawString) {
+        let cleanString = '';
+        try {
             cleanString = sanitizer.my.str(rawString);
         }
-        catch(e){
-            log.error("Error sanitizing " + rawString + " error: " + e + __location);
+        catch (e) {
+            log.error('Error sanitizing ' + rawString + ' error: ' + e + __location);
         }
-        return cleanString
+        return cleanString;
     }
     else {
         return null;
     }
-}
-exports.santizeNumber = function(rawString,makeInt){
+};
+exports.santizeNumber = function(rawString, makeInt) {
     let returnInt = false;
-    if(makeInt){
+    if (makeInt) {
         returnInt = makeInt;
     }
 
-    if(rawString && "string" === typeof rawString){
+    if (rawString && 'string' === typeof rawString) {
         let cleanString = null;
-        try{
-            cleanString = rawString.replace(/[-[\]{}()*+?.,\\/^$|#\s]/g,"").replace("/[^0-9]/", '');
-            if(returnInt === true){
+        try {
+            cleanString = rawString.replace(/[-[\]{}()*+?.,\\/^$|#\s]/g, '').replace('/[^0-9]/', '');
+            if (returnInt === true) {
                 cleanString = parseInt(cleanString, 10);
             }
         }
-        catch(e){
-            log.error("Error sanitizing " + rawString + " error: " + e + __location);
+        catch (e) {
+            log.error('Error sanitizing ' + rawString + ' error: ' + e + __location);
         }
-        return cleanString
+        return cleanString;
     }
-    else if(rawString && "number" === typeof rawString){
-            return rawString;
+    else if (rawString && 'number' === typeof rawString) {
+        return rawString;
     }
     else {
         return null;
     }
-}
+};
 
 /**
  * Converts a string to boolean
@@ -328,19 +335,28 @@ exports.santizeNumber = function(rawString,makeInt){
  * @param {string} defaultValue - boolean value used if error or null input
  * @return {boolean} boolean, if error or null input defaultValue
  */
-exports.parseBool = function(rawString, defaultValue){
-    if(rawString && "string" === typeof rawString){
+exports.parseBool = function(rawString, defaultValue) {
+    if (rawString && 'string' === typeof rawString) {
         let newBool = defaultValue;
-        try{
+        try {
             const lowerString = String(rawString).toLowerCase().trim();
-            newBool = (lowerString === "true");
+            newBool = lowerString === 'true';
         }
-        catch(e){
-            log.error("Error converting to Boolean " + rawString + " error: " + e + __location);
+        catch (e) {
+            log.error('Error converting to Boolean ' + rawString + ' error: ' + e + __location);
         }
-        return newBool
+        return newBool;
     }
     else {
         return defaultValue;
     }
-}
+};
+
+exports.ucFirstLetter = function(s) {
+    if(s){
+        return s[0].toUpperCase() + s.toLowerCase().slice(1);
+    }
+    else {
+        return null;
+    }
+};

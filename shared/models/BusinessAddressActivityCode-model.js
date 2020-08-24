@@ -1,7 +1,6 @@
 'use strict';
 
 const DatabaseObject = require('./DatabaseObject.js');
-const SearchStringModel = require('./SearchStrings-model.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
@@ -137,6 +136,17 @@ module.exports = class BusinessAddressModel{
             this[property] = dbJSON[property];
         }
       }
+
+     /**
+	 * Load new object JSON into ORM. can be used to filter JSON to object properties
+     *
+	 * @param {object} inputJSON - input JSON
+	 * @returns {void} 
+	 */
+    async loadORM(inputJSON){
+        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
+        return true;
+    }
 
 }
 

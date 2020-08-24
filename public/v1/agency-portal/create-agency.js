@@ -31,10 +31,13 @@ async function createAgency(req, res, next){
 
 		// Build a query for getting all insurers with their territories
 		const insurersSQL = `
-				SELECT \`i\`.\`id\`, \`i\`.\`logo\`, \`i\`.\`name\`, GROUP_CONCAT(\`it\`.\`territory\`) AS 'territories'
+				SELECT \`i\`.\`id\`, \`i\`.\`logo\`, \`i\`.\`name\`, \`i\`.agency_id_label, \`i\`.agent_id_label, \`i\`.enable_agent_id, GROUP_CONCAT(\`it\`.\`territory\`) AS 'territories'
 				FROM \`#__insurers\` AS \`i\`
 				LEFT JOIN \`#__insurer_territories\` AS \`it\` ON \`it\`.\`insurer\` = \`i\`.\`id\`
-				WHERE \`i\`.\`id\` IN (${req.authentication.insurers.join(',')}) AND \`i\`.\`state\` > 0
+				LEFT JOIN \`#__insurer_policy_types\` AS \`pti\` ON \`i\`.\`id\` = \`pti\`.\`insurer\`
+				WHERE 
+					\`i\`.\`id\` IN (${req.authentication.insurers.join(',')}) AND \`i\`.\`state\` > 0 AND
+					\`pti\`.\`wheelhouse_support\` = 1
 				GROUP BY \`i\`.\`id\`
 				ORDER BY \`i\`.\`name\` ASC;
 			`;
