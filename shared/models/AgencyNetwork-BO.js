@@ -3,6 +3,10 @@
 const DatabaseObject = require('./DatabaseObject.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+const fileSvc = global.requireShared('services/filesvc.js');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+
+const { 'v4': uuidv4 } = require('uuid');
 
 
 
@@ -44,6 +48,36 @@ module.exports = class AgencyNetworkBO{
                 this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
             }
             this.#dbTableORM.state = 1;
+
+            //logo processing
+            if(newObjectJSON.headerLogoContent){
+                const newFileName = await this.saveLogofiles(newObjectJSON.headerLogoContent, newObjectJSON.newHeaderFileName ).catch(function(err){
+                    reject(err)
+                })
+                if(newFileName){
+                    this.#dbTableORM.logo = newFileName;
+                }
+                else 
+                {
+                    log.error("No files name for S3 logo " + __location)
+                }
+                
+            }
+            if(newObjectJSON.footerLogoContent){
+                const newFileName = await this.saveLogofiles(newObjectJSON.footerLogoContent, newObjectJSON.newFooterFileName, false ).catch(function(err){
+                    reject(err)
+                })
+                if(newFileName){
+                    this.#dbTableORM.footer_logo = newFileName;
+                }
+                else 
+                {
+                    log.error("No files name for S3 logo " + __location)
+                }
+            }
+
+
+
             //save
             await this.#dbTableORM.save().catch(function(err){
                 reject(err);
@@ -51,10 +85,33 @@ module.exports = class AgencyNetworkBO{
             this.updateProperty();
             this.id = this.#dbTableORM.id;
 
-
+           
+            
+            
             resolve(true);
 
         });
+    }
+
+    async saveLogofiles(newLogoContent64, newFileName, isHeader = true){
+        
+        const logoData =newLogoContent64.substring(newLogoContent64.indexOf(',') + 1);
+
+        const baseS3Path = 'public/agency-network-logos/';
+        //clean name 
+        let fileName = stringFunctions.santizeFilename(this.name);
+        fileName += isHeader ? "-header-" : "-footer-"
+        fileName += uuidv4().toString();
+        fileName += `-${stringFunctions.santizeFilename(newFileName)}` 
+        const s3Path = baseS3Path + fileName;
+        await fileSvc.PutFile(s3Path, logoData).then(function(data){
+            return fileName;   
+    
+        }).catch(function(err){
+            log.error("File Service HTTP Put: " + err + __location);
+            throw err
+        });
+        return fileName;   
     }
 
     /**
@@ -404,7 +461,7 @@ const properties = {
       "required": false,
       "rules": null,
       "type": "string",
-      "dbType": "varchar(40)"
+      "dbType": "varchar(250)"
     },
     "fname": {
       "default": null,
@@ -449,7 +506,7 @@ const properties = {
       "required": false,
       "rules": null,
       "type": "string",
-      "dbType": "varchar(40)"
+      "dbType": "varchar(250)"
     },
     "name": {
       "default": "",
