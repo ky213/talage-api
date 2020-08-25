@@ -370,7 +370,7 @@ async function getAgencySocialMetadata(req, res, next) {
     res.send(200, {
         metaTitle: agency.name,
         metaDescription: agency.landingPageContent.bannerHeadingDefault ? agency.landingPageContent.bannerHeadingDefault : agency.defaultLandingPageContent.bannerHeadingDefault,
-        metaImage: `https://${global.settings.S3_BUCKET}.s3-us-west-1.amazonaws.com/public/agency-logos/${agency.logo}`
+        metaImage: `global.settings.IMAGE_URL}/public/agency-logos/${agency.logo}`
     });
     return next();
 }
