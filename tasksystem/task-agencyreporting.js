@@ -158,26 +158,17 @@ var quoteReportTask = async function(){
             log.error("Agency Report JSON to CSV error: csvData empty file: " + __location);
             return;
         }
+        
     }
     else {
-<<<<<<< HEAD
-        log.info("Agencies Report: No Agencies to report ");
-=======
         log.info("Agency Report: No agencies to report ");
->>>>>>> develop
         let toEmail = 'adam@talageins.com';
         if(global.settings.ENV !== 'production'){
             toEmail = 'brian@talageins.com';
         }
-<<<<<<< HEAD
-        const emailResp = await emailSvc.send(toEmail, 'Agency Report', 'Your daily agencies report: No Agencies.', {}, 'talage', 1);
-        if(emailResp === false){
-            slack.send('#alerts', 'warning',`The system failed to send Agency Report email.`);
-=======
-        const emailResp = await emailSvc.send(toEmail, '"Agency Report', 'Your "Agency Report report: No Agencies.', {}, 'talage', 1);
+        const emailResp = await emailSvc.send(toEmail, 'Agency Report', 'Your "Agency Report report: No Agencies.', {}, 'talage', 1);
         if(emailResp === false){
             slack.send('#alerts', 'warning',`The system failed to send "Agency Report email.`);
->>>>>>> develop
         }
         return;
     }
