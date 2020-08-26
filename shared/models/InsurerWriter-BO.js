@@ -2,17 +2,17 @@
 
 
 const DatabaseObject = require('./DatabaseObject.js');
-const crypt = requireShared('./services/crypt.js');
+//const crypt = requireShared('./services/crypt.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const moment = require('moment');
-const moment_timezone = require('moment-timezone');
-const { debug } = require('request');
+//const moment = require('moment');
+//const moment_timezone = require('moment-timezone');
 
 
-const tableName = 'clw_talage_insurer_policy_types'
+
+const tableName = 'clw_talage_insurer_writers'
 const skipCheckRequired = false;
-module.exports = class InsurerPolicyTypeBO{
+module.exports = class InsurerWriterBO{
 
     #dbTableORM = null;
 
@@ -106,9 +106,9 @@ module.exports = class InsurerPolicyTypeBO{
                 `;
                 if(queryJSON){
                     let hasWhere = false;
-                    if(queryJSON.policy_type){
+                    if(queryJSON.naic){
                         sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` policy_type = ${db.escape(queryJSON.policy_type)} `
+                        sql += ` naic = ${db.escape(queryJSON.policy_type)} `
                         hasWhere = true;
                     }
                     if(queryJSON.insurer){
@@ -116,8 +116,13 @@ module.exports = class InsurerPolicyTypeBO{
                         sql += ` insurer = ${db.escape(queryJSON.insurer)} `
                         hasWhere = true;
                     }
+                    if(queryJSON.name){
+                        sql += hasWhere ? " AND " : " WHERE ";
+                        sql += ` name like ${db.escape(queryJSON.name)} `
+                        hasWhere = true;
+                    }
                 }
-                sql += ` order by insurer `
+                sql += ` order by name `
                 // Run the query
                 const result = await db.query(sql).catch(function (error) {
                     // Check if this was
@@ -132,16 +137,15 @@ module.exports = class InsurerPolicyTypeBO{
                 let boList = [];
                 if(result && result.length > 0 ){
                     for(let i=0; i < result.length; i++ ){
-                        let insurerPolicyTypeBO = new InsurerPolicyTypeBO();
-                        //await insurerPolicyTypeBO.#dbTableORM.decryptFields(result[i]);
-                        //await insurerPolicyTypeBO.#dbTableORM.convertJSONColumns(result[i]);
-                        const resp = await insurerPolicyTypeBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                        let insurerWriterBO = new InsurerWriterBO();
+                        //await insurerWriterBO.#dbTableORM.convertJSONColumns(result[i]);
+                        const resp = await insurerWriterBO.loadORM(result[i], skipCheckRequired).catch(function(err){
                             log.error(`getList error loading object: ` + err + __location);
                         })
                         if(!resp){
                             log.debug("Bad BO load" + __location)
                         }
-                        boList.push(insurerPolicyTypeBO);
+                        boList.push(insurerWriterBO);
                     }
                     resolve(boList);
                 }
@@ -230,6 +234,15 @@ const properties = {
       "type": "number",
       "dbType": "int(11) unsigned"
     },
+    "state": {
+      "default": "1",
+      "encrypted": false,
+      "hashed": false,
+      "required": true,
+      "rules": null,
+      "type": "number",
+      "dbType": "tinyint(1)"
+    },
     "insurer": {
       "default": 0,
       "encrypted": false,
@@ -239,50 +252,77 @@ const properties = {
       "type": "number",
       "dbType": "int(11) unsigned"
     },
-    "policy_type": {
+    "name": {
       "default": "",
       "encrypted": false,
       "hashed": false,
       "required": true,
       "rules": null,
       "type": "string",
-      "dbType": "varchar(3)"
+      "dbType": "varchar(60)"
     },
-    "api_support": {
+    "naic": {
       "default": 0,
       "encrypted": false,
       "hashed": false,
       "required": true,
       "rules": null,
       "type": "number",
-      "dbType": "tinyint(1)"
+      "dbType": "mediumint(5) unsigned"
     },
-    "wheelhouse_support": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "number",
-      "dbType": "tinyint(1)"
-    },
-    "slug": {
+    "created": {
       "default": null,
       "encrypted": false,
       "hashed": false,
       "required": false,
       "rules": null,
-      "type": "string",
-      "dbType": "varchar(30)"
+      "type": "timestamp",
+      "dbType": "timestamp"
     },
-    "acord_support": {
-      "default": 0,
+    "created_by": {
+      "default": null,
       "encrypted": false,
       "hashed": false,
-      "required": true,
+      "required": false,
       "rules": null,
       "type": "number",
-      "dbType": "tinyint(1)"
+      "dbType": "int(11) unsigned"
+    },
+    "modified": {
+      "default": null,
+      "encrypted": false,
+      "hashed": false,
+      "required": false,
+      "rules": null,
+      "type": "timestamp",
+      "dbType": "timestamp"
+    },
+    "modified_by": {
+      "default": null,
+      "encrypted": false,
+      "hashed": false,
+      "required": false,
+      "rules": null,
+      "type": "number",
+      "dbType": "int(11) unsigned"
+    },
+    "deleted": {
+      "default": null,
+      "encrypted": false,
+      "hashed": false,
+      "required": false,
+      "rules": null,
+      "type": "timestamp",
+      "dbType": "timestamp"
+    },
+    "deleted_by": {
+      "default": null,
+      "encrypted": false,
+      "hashed": false,
+      "required": false,
+      "rules": null,
+      "type": "number",
+      "dbType": "int(11) unsigned"
     }
   }
 
