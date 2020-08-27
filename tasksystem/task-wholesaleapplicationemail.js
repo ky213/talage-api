@@ -75,12 +75,10 @@ var wholesaleApplicationEmailTask = async function(applicationId) {
             a.agency_location AS agencyLocation,
             ag.email AS agencyEmail,
             ag.agency_network,
-            al.email AS agencyLocationEmail,
-            an.email_brand AS emailBrand
+            al.email AS agencyLocationEmail
         FROM clw_talage_applications AS a
             INNER JOIN clw_talage_agency_locations AS al ON a.agency_location = al.id
             INNER JOIN clw_talage_agencies AS ag ON al.agency = ag.id
-            INNER JOIN clw_talage_agency_networks AS an ON ag.agency_network = an.id
         WHERE 
         a.id =  ${applicationId}
         AND a.wholesale = 1
@@ -100,6 +98,7 @@ var wholesaleApplicationEmailTask = async function(applicationId) {
 
         let agencyLocationEmail = null;
 
+        const agencyNetworkBO = new AgencyNetworkBO();
         //decrypt info...
         if (applications[0].agencyLocationEmail) {
             agencyLocationEmail = await crypt.decrypt(applications[0].agencyLocationEmail);
@@ -112,7 +111,7 @@ var wholesaleApplicationEmailTask = async function(applicationId) {
         const agencyNetwork = applications[0].agency_network;
 
         let error = null;
-        const agencyNetworkBO = new AgencyNetworkBO();
+
         const emailContentJSON = await agencyNetworkBO.getEmailContent(agencyNetwork, "talage_wholesale").catch(function(err){
             log.error(`Unable to get email content for Talage WholeSale application. agency_network: ${agencyNetwork}.  error: ${err}` + __location);
             error = true;
@@ -126,8 +125,8 @@ var wholesaleApplicationEmailTask = async function(applicationId) {
             let message = emailContentJSON.message;
             let subject = emailContentJSON.subject;
 
-            message = message.replace(/{{Brand}}/g, applications[0].emailBrand);
-            subject = subject.replace(/{{Brand}}/g, applications[0].emailBrand);
+            message = message.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
+            subject = subject.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
 
             // Send the email
             const keyData2 = {
@@ -135,7 +134,7 @@ var wholesaleApplicationEmailTask = async function(applicationId) {
                 'agency_location': applications[0].agencyLocation
             };
             if (agencyLocationEmail) {
-                const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData2, applications[0].emailBrand);
+                const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData2,applications[0].agency_network, emailContentJSON.emailBrand);
                 if (emailResp === false) {
                     slack.send('#alerts', 'warning', `The system failed to inform an agency of the wholesaleApplicationEmailTask for application ${applicationId}. Please follow-up manually.`);
                 }
@@ -152,6 +151,7 @@ var wholesaleApplicationEmailTask = async function(applicationId) {
         }
     }
     else {
+        log.error('wholesaleApplicationEmailTask new record returned for appid: ' + applicationId + "SQL: " + appSQL + __location);
         return false;
     }
 

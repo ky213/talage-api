@@ -35,14 +35,14 @@ const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
  * @return {boolean} - True if successful; false otherwise
  */
 
-exports.send = async function(recipients, subject, content, keys = {}, agencyNetworkId = 1 , brandOverride = 'talage', agencyId = 1, attachments) {
+exports.send = async function(recipients, subject, content, keys = {}, agencyNetworkId = 1 , brandOverride = '', agencyId = 1, attachments) {
     // If we are in the test environment, don't send and just return true
     if(global.settings.ENV === 'test'){
         return true;
     }
-    // log.debug("EmailSvc: agencyNetworkId:  " + agencyNetworkId);
-    // log.debug("EmailSvc: brandOverride:  " + brandOverride);
-    // log.debug("EmailSvc: agencyId:  " + agencyId);
+    log.debug("EmailSvc: agencyNetworkId:  " + agencyNetworkId);
+    log.debug("EmailSvc: brandOverride:  " + brandOverride);
+    log.debug("EmailSvc: agencyId:  " + agencyId);
     //check agencyNetworkId is number
     try{
         agencyNetworkId = parseInt(agencyNetworkId,10);
