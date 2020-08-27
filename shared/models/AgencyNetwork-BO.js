@@ -282,7 +282,9 @@ module.exports = class AgencyNetworkBO{
         
         const emailContentSQL = `
         SELECT
+            name as brandName,
             email_brand AS emailBrand,
+            additionalInfo,
             JSON_EXTRACT(custom_emails, '$.${agencyContentProperty}') AS agencyEmailData,
             JSON_EXTRACT(custom_emails, '$.${customerContentProperty}') AS customerEmailData,
             (SELECT JSON_EXTRACT(custom_emails, '$.${agencyContentProperty}')  FROM  clw_talage_agency_networks WHERE id = 1 ) AS defaultAgencyEmailData,
@@ -319,12 +321,20 @@ module.exports = class AgencyNetworkBO{
                 const agencySubject = agencyEmailData && agencyEmailData.subject ? agencyEmailData.subject : defaultAgencyEmailData.subject;
 
                 emailTemplateJSON = { 
-                        "emailBrand": emailContentResult.emailBrand,
-                        "customerMessage": customermessage, 
-                        "customerSubject": customersubject,
-                        "agencyMessage": agencyMessage, 
-                        "agencySubject": agencySubject
-                    }
+                    "brandName": emailContentResult.brandName,
+                    "emailBrand": emailContentResult.emailBrand,
+                    "customerMessage": customermessage, 
+                    "customerSubject": customersubject,
+                    "agencyMessage": agencyMessage, 
+                    "agencySubject": agencySubject
+                }
+                
+                const environmentSettings = this.getEnvSettingFromJSON(emailContentResult.additionalInfo, agencyNetworkId)
+                if(typeof environmentSettings === "object"){
+                    for (var property in environmentSettings) {
+                        emailTemplateJSON[property]  = environmentSettings[property];
+                    };
+                }
                 
             }
             catch(err) {
@@ -354,7 +364,9 @@ module.exports = class AgencyNetworkBO{
         
         const emailContentSQL = `
         SELECT
+            name as brandName,
             email_brand AS emailBrand,
+            additionalInfo,
             JSON_EXTRACT(custom_emails, '$.${contentProperty}') AS emailData,
             (SELECT JSON_EXTRACT(custom_emails, '$.${contentProperty}')  FROM  clw_talage_agency_networks WHERE id = 1 ) AS defaultEmailData
         FROM clw_talage_agency_networks
@@ -385,11 +397,19 @@ module.exports = class AgencyNetworkBO{
 
 
                 emailTemplateJSON = { 
+                        
                         "emailBrand": emailContentResult.emailBrand,
                         "message": message, 
                         "subject": subject
                     }
-                
+              
+                const environmentSettings = this.getEnvSettingFromJSON(emailContentResult.additionalInfo, agencyNetworkId)
+                if(typeof environmentSettings === "object"){
+                    for (var property in environmentSettings) {
+                        emailTemplateJSON[property]  = environmentSettings[property];
+                    };
+                }
+                   
             }
             catch(err) {
                 log.error("getEmailContentAgencyAndCustomer error: " + err + __location);
@@ -406,6 +426,79 @@ module.exports = class AgencyNetworkBO{
         }
         
     }
+    async getEnvSettingbyId(agencyNetworkId){
+         let error = null;
+         const agencyNetworkJSON = await this.getById(agencyNetworkId).catch(err => error);
+         if(error){
+             log.error("Error getting AgencyNetwork for env settings " + error + __location);
+             return null;
+         }
+        if(agencyNetworkJSON && agencyNetworkJSON.additionalInfo){
+            let envSetting = this.getEnvSettingFromJSON(agencyNetworkJSON.additionalInfo,agencyNetworkId );
+            envSetting.brandName = agencyNetworkJSON.name;
+            envSetting.emailBrand = agencyNetworkJSON.email_brand;
+            return envSetting;
+        }
+        else {
+            log.error(`AgencyNetwork ${agencyNetworkId} does not have additional ` + __location);
+            return null;
+        }
+    }
+    getEnvSettingFromJSON(additionalInfoJSON, agencyNetworkId){
+        if(!additionalInfoJSON){
+            log.error(`AgencyNetwork ${agencyNetworkId} is missing additionalInfoJSON.environmentSettings for ${env} ` + __location)
+            return {};
+        }
+        if(typeof additionalInfoJSON === 'string'){
+            additionalInfoJSON = JSON.parse(additionalInfoJSON);
+        }
+        const env = global.settings.ENV
+        if(additionalInfoJSON && additionalInfoJSON.environmentSettings && additionalInfoJSON.environmentSettings[env]){
+            return additionalInfoJSON.environmentSettings[env];
+        }
+        else {
+            log.error(`AgencyNetwork ${agencyNetworkId} is missing additionalInfoJSON.environmentSettings for ${env} ` + __location)
+            return {};
+        }
+    }
+    getIdToNameMap(){
+        return new Promise(async (resolve, reject) => {
+            let map = {};
+            let rejected = false;
+            // Create the update query
+            let sql = `
+                select *  from ${tableName}  
+            `;
+            
+            // Run the query
+            //log.debug("AgencyNetworkBO getlist sql: " + sql);
+            const result = await db.query(sql).catch(function (error) {
+                // Check if this was
+                
+                rejected = true;
+                log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
+                reject(error);
+            });
+            if (rejected) {
+                return;
+            }
+            let boList = [];
+            if(result && result.length > 0 ){
+                for(let i=0; i < result.length; i++ ){
+                   map[result[i].id] = result[i].name ;
+                }
+                resolve(map);
+            }
+            else {
+                //Search so no hits ok.
+                resolve(map);
+            }
+           
+        
+    });
+        
+    }
+   
 }
 
 const properties = {

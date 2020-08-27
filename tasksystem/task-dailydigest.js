@@ -74,9 +74,7 @@ var dailyDigestTask = async function(){
         al.agency,
         al.email AS agencyLocationEmail,
         ag.email AS agencyEmail,
-        an.name AS agencyNetorkName,
-        an.id as agency_network,
-        an.email_brand AS emailBrand
+        ag.agency_network as agency_network
     FROM clw_talage_agency_locations AS al
         INNER JOIN clw_talage_agencies AS ag ON al.agency = ag.id
         INNER JOIN clw_talage_agency_networks AS an ON ag.agency_network = an.id
@@ -90,7 +88,7 @@ var dailyDigestTask = async function(){
         log.error(`Error get agency location list from DB. error:  ${err}` + __location);
         return false;
     });
-
+    // TODO Load list of AgencyNetworks.  create brandMap [agencyNetworkId, brandName];
     // Loop locations
     if(alDBJSON && alDBJSON.length > 0){
         for(let i = 0; i < alDBJSON.length; i++){
@@ -154,8 +152,8 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
 
         let error = null;
         const agencyNetworkBO = new AgencyNetworkBO();
-        const emailContentJSON = await agencyNetworkBO.getEmailContent(agencyLocationDB.agency_network, "daily_digest").catch(function(err){
-            log.error(`Unable to get email content for Daily Digest. agency_network: ${db.escape(agencyLocationDB.agency_network)}.  error: ${err}` + __location);
+        const emailContentJSON = await agencyNetworkBO.getEmailContent(agencyNetwork, "daily_digest").catch(function(err){
+            log.error(`Unable to get email content for Daily Digest. agency_network: ${db.escape(agencyNetwork)}.  error: ${err}` + __location);
             error = true;
         });
         if(error){
@@ -176,7 +174,7 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
                 return false;
             }
             // Link setup.
-            const portalLink = agencyNetwork === 1 ? global.settings.PORTAL_URL : global.settings.DIGALENT_AGENTS_URL;
+            const portalLink = emailContentJSON.PORTAL_URL;
 
             let applicationList = '<br><table border="1" cellspacing="0" cellpadding="4" width="100%"><thead><tr><th>Business Name</th><th>Contact Name</th><th>Contact Email</th><th>Contact Phone</th><th>Wholesale</th></tr></thead><tbody>';
 
@@ -205,9 +203,9 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
             try{
                 message = message.replace(/{{Application List}}/g, applicationList);
                 message = message.replace(/{{Agency Portal Link}}/g, `<a href="${portalLink}" rel="noopener noreferrer" target="_blank">Agency Portal</a>`);
-                message = message.replace(/{{Brand}}/g, stringFunctions.ucwords(agencyLocationDB.emailBrand));
+                message = message.replace(/{{Brand}}/g, stringFunctions.ucwords(emailContentJSON.emailBrand));
                 message = message.replace(/{{Number of Users}}/g, appCount + ' ' + (appCount > 1 ? 'users' : 'user'));
-                subject = subject.replace(/{{Brand}}/g, stringFunctions.ucwords(agencyLocationDB.emailBrand), subject);
+                subject = subject.replace(/{{Brand}}/g, stringFunctions.ucwords(emailContentJSON.emailBrand), subject);
             }
             catch(e){
                 log.error(`Daily Digest email content creation error: ${e}` + __location);
@@ -227,7 +225,7 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
             if(agencyLocationEmail){
                 const keyData = {'agency_location': agencyLocationDB.alid};
                 // send email
-                const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData, agencyLocationDB.emailBrand);
+                const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData,agencyLocationDB.agency_network,"");
                 if(emailResp === false){
                     slack.send('#alerts', 'warning',`The system failed to send daily digest email for Agency Location  #${agencyLocationDB.alid}.`);
                 }
