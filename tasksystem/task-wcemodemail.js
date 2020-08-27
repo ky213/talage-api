@@ -6,6 +6,7 @@ const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 
 /**
  * Task processor
@@ -97,13 +98,11 @@ const sendEmodEmail = async function(applicationId) {
                 i.name as insurer_name,
                 i.logo as insurer_logo,
                 ic.description as codeDescription,
-                an.email_brand AS emailBrand,
                 t.name AS territory_state
             FROM clw_talage_applications AS a
                 INNER JOIN clw_talage_quotes AS q ON a.id = q.application
                 INNER JOIN clw_talage_agency_locations AS al ON a.agency_location = al.id
                 INNER JOIN clw_talage_agencies AS ag ON al.agency = ag.id
-                INNER JOIN clw_talage_agency_networks AS an ON ag.agency_network = an.id
                 INNER JOIN clw_talage_industry_codes AS ic  ON ic.id = a.industry_code
                 INNER JOIN clw_talage_insurers AS i  ON i.id = q.insurer
                 INNER JOIN clw_talage_businesses AS b ON b.id = a.business
@@ -111,8 +110,7 @@ const sendEmodEmail = async function(applicationId) {
                 INNER JOIN clw_talage_zip_codes AS z ON b.mailing_zip = z.zip
                 INNER JOIN clw_talage_territories AS t ON z.territory = t.abbr
             WHERE 
-            a.id = 11248
-            AND a.wholesale = 0
+            a.id = ${applicationId}
         `;
 
         let applications = null;
@@ -128,6 +126,20 @@ const sendEmodEmail = async function(applicationId) {
         if (applications && applications.length > 0) {
 
             let agencyLocationEmail = null;
+            //Get AgencyNetworkBO settings
+            let error = null;
+            const agencyNetworkBO = new AgencyNetworkBO();
+            const agencyNetworkEnvSettings = await agencyNetworkBO.getEnvSettingbyId(applications[0].agency_network).catch(function(err){
+                log.error(`Unable to get env settings for New Agency Portal User. agency_network: ${applications[0].agency_network}.  error: ${err}` + __location);
+                error = true;
+            });
+            if(error){
+                return false;
+            }
+            if(!agencyNetworkEnvSettings || !agencyNetworkEnvSettings.PORTAL_URL){
+                log.error(`Unable to get env settings for New Agency Portal User. agency_network: ${applications[0].agency_network}.  missing additionalInfo ` + __location);
+                return false;
+            }
 
             // decrypt info...
             if (applications[0].agencyLocationEmail) {
@@ -145,7 +157,8 @@ const sendEmodEmail = async function(applicationId) {
             applications[0].businessName = await crypt.decrypt(applications[0].businessName);
             applications[0].agencyEmail = await crypt.decrypt(applications[0].agencyEmail);
 
-            const portalLink = applications[0].agencyNetwork === 1 ? global.settings.PORTAL_URL : global.settings.DIGALENT_AGENTS_URL;
+            // Get AgencyNetwork's portal url
+            const portalLink = agencyNetworkEnvSettings.PORTAL_URL;
 
             let message = `
                 <p>{{Business Owner}} tried to get a quote in {{STATE}} but they were declined due to E-Mod rating issues. The quote is in your E-Link portal, and can be accessed by you and potentially still be bound, but you will have to verify the E-Mod information.</p>
@@ -187,7 +200,7 @@ const sendEmodEmail = async function(applicationId) {
 
             // Send the email
             if (agencyLocationEmail) {
-                const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData, applications[0].emailBrand);
+                const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData, applications[0].agency_network,"");
                 if (emailResp === false) {
                     slack.send('#alerts', 'warning', `The system failed to inform an agency of the sendEmodEmail for application ${applicationId}. Please follow-up manually.`);
                 }
@@ -198,12 +211,12 @@ const sendEmodEmail = async function(applicationId) {
             return true;
         }
         else {
-            log.error('sendEmodEmail No application quotes pulled from database applicationId or quoteId: ' + applicationId + ":" + quoteId + " SQL: \n" + appSQL + '\n' + __location);
+            log.error('sendEmodEmail No application quotes pulled from database applicationId : ' + applicationId + "  SQL: \n" + appSQL + '\n' + __location);
             return false;
         }
     }
     else {
-        log.error('sendEmodEmail missing applicationId or quoteId: ' + applicationId + ":" + quoteId + __location);
+        log.error('sendEmodEmail missing applicationId: ' + applicationId + " " + __location);
         return false;
     }
 
