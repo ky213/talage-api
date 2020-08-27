@@ -13,6 +13,8 @@ const talageEvent = require('./shared/services/talageeventemitter.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 global.tracker = tracker;
+global.WHEELHOUSE_AGENCYNETWORK_ID = 1;
+global.DIGALENT_AGENCYNETWORK_ID = 2;
 
 const colors = require('colors');
 
@@ -165,7 +167,7 @@ async function startQueueProcessing() {
     // local development of tasks run one of the task.
     if(global.settings.ENV === 'development' && global.settings.RUN_LOCAL_TASK && global.settings.RUN_LOCAL_TASK === 'YES'){
         log.debug('Auto Running Task');
-        const taskJson = {"taskname": "quotereportaf"};
+        const taskJson = {"taskname": "abandonquote"};
         const messageTS = moment().utc().valueOf();
         const messageAtributes = {"SentTimestamp": messageTS};
         const testMessage = {
