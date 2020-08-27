@@ -2,10 +2,11 @@
 
 const crypt = global.requireShared('./services/crypt.js');
 const jwt = require('jsonwebtoken');
-const request = require('request');
+//const request = require('request');
 const serverHelper = require('../../../server.js');
 const emailsvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 
 /**
  * Returns a limited life JWT for restting a user's password
@@ -36,11 +37,11 @@ async function PostResetPassword(req, res, next){
     const emailHash = await crypt.hash(req.body.email);
     const sql = `
 			SELECT
-				\`apu\`.\`id\`,
-				IFNULL(\`a\`.\`agency_network\`, \`an\`.\`id\`) AS \`agency_network\`
+				apu.id,
+				a.agency_network AS agency_network
 			FROM \`#__agency_portal_users\` AS \`apu\`
 			LEFT JOIN \`#__agencies\` AS \`a\` ON \`a\`.\`id\` = \`apu\`.\`agency\`
-			LEFT JOIN \`#__agency_networks\` AS \`an\` ON \`an\`.\`id\` = \`apu\`.\`agency_network\`
+			
 			WHERE \`email_hash\` = ${db.escape(emailHash)} LIMIT 1;
 		`;
     const result = await db.query(sql).catch(function(e){
@@ -58,21 +59,28 @@ async function PostResetPassword(req, res, next){
 
         // Create a limited life JWT
         const token = jwt.sign({'userID': result[0].id}, global.settings.AUTH_SECRET_KEY, {'expiresIn': '15m'});
-
-        let brandRaw = global.settings.BRAND.toLowerCase();
-        let portalurl = global.settings.PORTAL_URL;
-        if(result[0].agency_network === 2){
-            brandRaw = 'Digalent';
-            portalurl = global.settings.DIGALENT_AGENTS_URL;
+        //load AgencyNetworkBO
+        const agencyNetworkBO = new AgencyNetworkBO();
+        //just so getEmailContent works.
+        const agencyNetworkEnvSettings = await agencyNetworkBO.getEnvSettingbyId(result[0].agency_network).catch(function(err){
+            log.error(`Unable to get email content for New Agency Portal User. agency_network: ${result[0].agency_network}.  error: ${err}` + __location);
+            error = true;
+        });
+        if(error){
+            return false;
         }
+        let brand = agencyNetworkEnvSettings.emailBrand.toLowerCase();
+        brand = `${brand.charAt(0).toUpperCase() + brand.slice(1)}`;
+        const portalurl = agencyNetworkEnvSettings.PORTAL_URL;
+
 
         const emailData = {
             'html': `<p style="text-align:center;">A request to reset your password has been recieved. To continue the reset process, please click the button below within 15 minutes.</p><br><p style="text-align: center;"><a href="${portalurl}/reset-password/${token}" style="background-color:#ED7D31;border-radius:0.25rem;color:#FFF;font-size:1.3rem;padding-bottom:0.75rem;padding-left:1.5rem;padding-top:0.75rem;padding-right:1.5rem;text-decoration:none;text-transform:uppercase;">Reset Password</a></p>`,
-            'subject': `Reset Your ${brandRaw.charAt(0).toUpperCase() + brandRaw.substr(1).toLowerCase()} Password`,
+            'subject': `Reset Your ${brand} Password`,
             'to': req.body.email
         };
 
-        const emailResp = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, brandRaw);
+        const emailResp = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {},result[0].agency_network, "");
         if(emailResp === false){
             log.error(`Failed to send the password reset email to ${req.body.email}. Please contact the user.`);
             slack.send('#alerts', 'warning',`Failed to send the password reset email to ${req.body.email}. Please contact the user.`);

@@ -434,7 +434,10 @@ module.exports = class AgencyNetworkBO{
              return null;
          }
         if(agencyNetworkJSON && agencyNetworkJSON.additionalInfo){
-            return this.getEnvSettingFromJSON(agencyNetworkJSON.additionalInfo,agencyNetworkId );
+            let envSetting = this.getEnvSettingFromJSON(agencyNetworkJSON.additionalInfo,agencyNetworkId );
+            envSetting.brandName = agencyNetworkJSON.name;
+            envSetting.emailBrand = agencyNetworkJSON.email_brand;
+            return envSetting;
         }
         else {
             log.error(`AgencyNetwork ${agencyNetworkId} does not have additional ` + __location);
