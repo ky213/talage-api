@@ -567,7 +567,7 @@ module.exports = class Integration {
 	 */
     get_total_full_time_employees() {
         let total = 0;
-        this.app.business.locations.forEach(function(loc) {
+        this.app.business.locations.forEach(loc => {
             total += loc.full_time_employees;
         });
         return total;
@@ -580,7 +580,7 @@ module.exports = class Integration {
 	 */
     get_total_part_time_employees() {
         let total = 0;
-        this.app.business.locations.forEach(function(loc) {
+        this.app.business.locations.forEach(loc => {
             total += loc.part_time_employees;
         });
         return total;
@@ -593,8 +593,8 @@ module.exports = class Integration {
 	 */
     get_total_payroll() {
         let total = 0;
-        this.app.business.locations.forEach(function(loc) {
-            loc.activity_codes.forEach(function(wc_code) {
+        this.app.business.locations.forEach(loc => {
+            loc.activity_codes.forEach(wc_code => {
                 total += wc_code.payroll;
             });
         });
