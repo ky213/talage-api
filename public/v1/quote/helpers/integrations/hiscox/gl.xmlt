@@ -73,7 +73,7 @@
 						<County>{{:primaryLocation.county.substring(0,60)}}</County>
 						{{/if}}
 						<StateOrProvCd>{{:primaryLocation.territory}}</StateOrProvCd>
-						<PostalCode>{{:primaryLocation.zip.substring(0,5)}}</PostalCode>
+						<PostalCode>{{:primaryLocation.zip}}</PostalCode>
 						<Country>US</Country>
 					</AddrInfo>
 				</Primary>
@@ -86,11 +86,11 @@
 						<Addr2>{{:~location.address2.substring(0,40)}}</Addr2>
 						{{/if}}
 						<City>{{:~ucwords(~location.city).substring(0,30)}}</City>
-						{{if location.county}}
+						{{if ~location.county}}
 						<County>{{:~location.county.substring(0,60)}} County</County>
 						{{/if}}
 						<StateOrProvCd>{{:~location.territory}}</StateOrProvCd>
-						<PostalCode>{{:~location.zip.substring(0,5)}}</PostalCode>
+						<PostalCode>{{:~location.zip}}</PostalCode>
 						<Country>US</Country>
 					</AddrInfo>
 					{{/for}}

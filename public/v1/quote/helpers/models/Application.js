@@ -60,19 +60,23 @@ module.exports = class Application {
             throw error;
         }
         //LastStep check.
+        const devAllowRequote = global.settings.ENV === 'development' && global.settings.APPLICATION_ALLOW_REQUOTE === 'YES';
+        if (devAllowRequote) {
+            log.info("###### APPLICATION_ALLOW_REQUOTE is enabled. Bypassing application age and finished checks ######");
+        }
+
         // this.state > 15, 16 is finished.
-        if(applicationBO.state > 15){
+        if(!devAllowRequote && applicationBO.state > 15){
             log.warn("An attempt to quote application that is finished.")
             throw new Error("Finished Application cannot be quoted")
 
         }
         //age check - TODO add override Age parameter to allow requoting.
-        const bypassAgeCheck = global.settings.ENV === 'development' && global.settings.APPLICATION_AGE_CHECK_BYPASS === 'YES';
         const dbCreated = moment(applicationBO.created);
         const nowTime = moment().utc();
         const ageInMinutes = nowTime.diff(dbCreated, 'minutes');
         log.debug('Application age in minutes ' + ageInMinutes);
-        if(!bypassAgeCheck && ageInMinutes > 60){
+        if(!devAllowRequote && ageInMinutes > 60){
             log.warn(`Attempt to update an old application. appid ${this.id}` + __location);
             throw new Error("Data Error: Application may not be updated do to age.");
         }
@@ -223,7 +227,6 @@ module.exports = class Application {
                 // Only use the insurers supported by this agent
                 desired_insurers = Object.keys(this.agencyLocation.insurers);
             }
-
             // Loop through each desired insurer
             let insurers = [];
             const insurer_promises = [];
@@ -297,7 +300,7 @@ module.exports = class Application {
         if (global.settings.QUOTE_ONLY_INSURER) {
             requestedInsurer = global.settings.QUOTE_ONLY_INSURER;
             log.info('================================================================================');
-            log.info(`QUOTE_ONLY_INSURER is set. Running quotes again '${requestedInsurer}'`);
+            log.info(`QUOTE_ONLY_INSURER is set. Running quotes against '${requestedInsurer}'`);
             log.info('================================================================================');
         }
 
@@ -310,6 +313,30 @@ module.exports = class Application {
                 }
                 // Check that the given policy type is enabled for this insurer
                 if (insurer.policy_types.indexOf(policy.type) >= 0) {
+                    if (global.settings.ENV === 'development' && insurer.id === 23) {
+                        console.log("##########################################################################################################");
+                        console.log("##########################################################################################################");
+                        console.log("Hack for hiscox development. If you see this, Scott messed up and committed it. Yell at him.");
+                        console.log("##########################################################################################################");
+                        console.log("##########################################################################################################");
+                        this.agencyLocation.insurers[insurer.id].policy_type_info = {
+                            "GL": {
+                                "enabled": true,
+                                "useAcord": false,
+                                "acordInfo": {"sendToEmail": ""}
+                            },
+                            "WC": {
+                                "enabled": false,
+                                "useAcord": false,
+                                "acordInfo": {"sendToEmail": ""}
+                            },
+                            "BOP": {
+                                "enabled": false,
+                                "useAcord": false,
+                                "acordInfo": {"sendToEmail": ""}
+                            }
+                        }
+                    }
                     // Get the agency_location_insurer data for this insurer from the agency location
                     if (this.agencyLocation.insurers[insurer.id].policy_type_info) {
                         //Retrieve the data for this policy type

@@ -1,8 +1,8 @@
-'use strict';
+"use strict";
 
-const jwt = require('jsonwebtoken');
-const serverHelper = require('../../../server.js');
-const fileSvc = global.requireShared('./services/filesvc.js');
+const jwt = require("jsonwebtoken");
+const serverHelper = require("../../../server.js");
+const fileSvc = global.requireShared("./services/filesvc.js");
 
 /**
  * Execute a query and log an error if it fails (testing a pattern)
@@ -16,8 +16,7 @@ async function queryDB(sql, queryDescription) {
     let result = null;
     try {
         result = await db.query(sql);
-    }
-    catch (error) {
+    } catch (error) {
         log.error(`ERROR: ${queryDescription}: ${error} ${__location}`);
         return null;
     }
@@ -49,22 +48,22 @@ async function createQuoteSummary(quoteID) {
     const insurer = result[0];
 
     switch (quote.aggregated_status) {
-        case 'declined':
+        case "declined":
             return {
                 id: quote.id,
                 policy_type: quote.policy_type,
-                status: 'declined',
+                status: "declined",
                 message: `${insurer.name} has declined to offer you coverage at this time`,
                 insurer: {
                     id: insurer.id,
-                    logo: global.settings.SITE_URL + '/' + insurer.logo,
+                    logo: global.settings.SITE_URL + "/" + insurer.logo,
                     name: insurer.name,
                     rating: insurer.rating
                 }
             };
-        case 'quoted_referred':
-        case 'quoted':
-            const instantBuy = quote.aggregated_status === 'quoted';
+        case "quoted_referred":
+        case "quoted":
+            const instantBuy = quote.aggregated_status === "quoted";
 
             // Get the limits for the quote
             sql = `
@@ -115,7 +114,7 @@ async function createQuoteSummary(quoteID) {
                 }
             });
 
-            let quoteLetterContent = '';
+            let quoteLetterContent = "";
             const quoteLetterName = quote.quote_letter;
 
             // If we have a quote letter then retrieve the file from our cloud storage service
@@ -123,20 +122,19 @@ async function createQuoteSummary(quoteID) {
                 // Get the file from our cloud storage service
                 // TODO Secure
                 let error = null;
-                const data = await fileSvc.GetFileSecure(`secure/quote-letters/${quoteLetterName}`).catch(function(err) {
-                    log.error('file get error: ' + err.message + __location);
+                const data = await fileSvc.GetFileSecure(`secure/quote-letters/${quoteLetterName}`).catch(function (err) {
+                    log.error("file get error: " + err.message + __location);
                     error = err;
                 });
-                if(error){
+                if (error) {
                     return null;
                 }
 
                 // Return the response
                 if (data && data.Body) {
                     quoteLetterContent = data.Body;
-                }
-                else {
-                    log.error('file get error: no file content' + __location);
+                } else {
+                    log.error("file get error: no file content" + __location);
                 }
             }
             // Return the quote summary
@@ -148,7 +146,7 @@ async function createQuoteSummary(quoteID) {
                 letter: quoteLetterContent,
                 insurer: {
                     id: insurer.id,
-                    logo: 'https://img.talageins.com/' + insurer.logo,
+                    logo: "https://img.talageins.com/" + insurer.logo,
                     name: insurer.name,
                     rating: insurer.rating
                 },
@@ -175,15 +173,14 @@ async function getQuotes(req, res, next) {
     // Validate JWT
     if (!req.query.token) {
         // Missing token
-        return next(serverHelper.requestError('Missing parameters.'));
+        return next(serverHelper.requestError("Missing parameters."));
     }
     let tokenPayload = null;
     try {
         tokenPayload = jwt.verify(req.query.token, global.settings.AUTH_SECRET_KEY);
-    }
-    catch (error) {
+    } catch (error) {
         // Expired token
-        return next(serverHelper.invalidCredentialsError('Expired token.'));
+        return next(serverHelper.invalidCredentialsError("Expired token."));
     }
 
     // Set the last quote ID retrieved
@@ -200,9 +197,9 @@ async function getQuotes(req, res, next) {
 		`;
     let result = await queryDB(sql, `retrieving quote progress for application ${tokenPayload.applicationID}`);
     if (result === null || result.length === 0) {
-        return next(serverHelper.internalError('Error retrieving quote progress'));
+        return next(serverHelper.internalError("Error retrieving quote progress"));
     }
-    const complete = result[0].progress !== 'quoting';
+    const complete = result[0].progress !== "quoting";
 
     // Retrieve quotes newer than the last quote ID
     sql = `
@@ -215,7 +212,7 @@ async function getQuotes(req, res, next) {
 	`;
     result = await queryDB(sql, `retrieving quotes for application ${tokenPayload.applicationID}`);
     if (result === null) {
-        return next(serverHelper.internalError('Error retrieving quotes'));
+        return next(serverHelper.internalError("Error retrieving quotes"));
     }
     const quotes = [];
     if (result.length > 0) {
@@ -236,5 +233,5 @@ async function getQuotes(req, res, next) {
 }
 
 exports.registerEndpoint = (server, basePath) => {
-    server.addGet('Get quotes ', `${basePath}/quotes`, getQuotes);
+    server.addGet("Get quotes ", `${basePath}/quotes`, getQuotes);
 };

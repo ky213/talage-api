@@ -54,8 +54,15 @@ module.exports = class AgencyLocation {
             const where = `a.id = ${this.id}`
 
             // SQL for getting agency / location details
+            console.log("========================================================================");
+            console.log("========================================================================");
+            console.log("AgencyLocation.js changed agency phone query");
+            console.log("========================================================================");
+            console.log("========================================================================");
+
+            // SELECT ag.id, ag.agency_network, an.email_brand, a.email, a.fname, a.lname, ag.name, ag.phone, ag.website, ag.wholesale
             queries.push(`
-				SELECT ag.id, ag.agency_network, an.email_brand, a.email, a.fname, a.lname, ag.name, ag.phone, ag.website, ag.wholesale
+				SELECT ag.id, ag.agency_network, an.email_brand, a.email, a.fname, a.lname, ag.name, a.phone, ag.website, ag.wholesale
 				FROM clw_talage_agency_locations a
 				LEFT JOIN clw_talage_agencies ag ON a.agency = ag.id
 				INNER JOIN clw_talage_agency_networks an ON ag.agency_network = an.id

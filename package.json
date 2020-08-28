@@ -5,7 +5,7 @@
     "main": "index.js",
     "scripts": {
         "serve": "node index.js",
-        "dev": "nodemon --ext js,env,json index.js",
+        "dev": "nodemon --ext js,env,json,xmlt,jsont index.js",
         "lint": "eslint ./private/ ./public/ ./uptime/ ./shared/ *.js",
         "test": "mocha --reporter mochawesome",
         "testnyc": "nyc --reporter html mocha",
@@ -120,10 +120,7 @@
             "array-bracket-spacing": "error",
             "array-callback-return": "error",
             "array-element-newline": [
-                "error",
-                {
-                    "minItems": 3
-                }
+                "off"
             ],
             "arrow-body-style": "error",
             "arrow-parens": "off",
@@ -135,7 +132,7 @@
             ],
             "brace-style": [
                 "error",
-                "stroustrup",
+                "1tbs",
                 {
                     "allowSingleLine": true
                 }
@@ -156,11 +153,14 @@
                 "all"
             ],
             "default-case": "error",
-            "dot-location": "error",
+            "dot-location": [
+                "error",
+                "property"
+            ],
             "dot-notation": "error",
             "eol-last": [
                 "error",
-                "never"
+                "always"
             ],
             "eqeqeq": "error",
             "for-direction": "error",
@@ -170,10 +170,7 @@
                 "off",
                 "declaration"
             ],
-            "function-paren-newline": [
-                "error",
-                "never"
-            ],
+            "function-paren-newline": 0,
             "generator-star-spacing": "error",
             "getter-return": "error",
             "guard-for-in": "error",
@@ -223,7 +220,7 @@
                     }
                 }
             ],
-            "lines-around-comment": "error",
+            "lines-around-comment": 0,
             "lines-between-class-members": "error",
             "max-statements-per-line": "error",
             "multiline-comment-style": [
@@ -271,7 +268,13 @@
             "no-extra-bind": "error",
             "no-extra-boolean-cast": "error",
             "no-extra-label": "error",
-            "no-extra-parens": "error",
+            "no-extra-parens": [
+                "error",
+                "all",
+                {
+                    "nestedBinaryExpressions": false
+                }
+            ],
             "no-extra-semi": "error",
             "no-fallthrough": "error",
             "no-floating-decimal": "error",
@@ -359,7 +362,10 @@
                     "minProperties": 2
                 }
             ],
-            "object-curly-spacing": "error",
+            "object-curly-spacing": [
+                "error",
+                "always"
+            ],
             "object-property-newline": "error",
             "object-shorthand": [
                 "error",
@@ -407,10 +413,7 @@
                 "off",
                 "never"
             ],
-            "space-before-function-paren": [
-                "error",
-                "never"
-            ],
+            "space-before-function-paren": 0,
             "space-in-parens": "error",
             "space-infix-ops": "error",
             "space-unary-ops": "error",
