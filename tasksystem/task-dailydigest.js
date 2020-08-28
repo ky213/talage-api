@@ -77,7 +77,6 @@ var dailyDigestTask = async function(){
         ag.agency_network as agency_network
     FROM clw_talage_agency_locations AS al
         INNER JOIN clw_talage_agencies AS ag ON al.agency = ag.id
-        INNER JOIN clw_talage_agency_networks AS an ON ag.agency_network = an.id
     WHERE 
         al.state = 1
     `;
