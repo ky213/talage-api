@@ -6,6 +6,7 @@
 
 const crypt = global.requireShared('./services/crypt.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 
 /**
  * Parses the quote app request URL and extracts the agency and page slugs
@@ -98,16 +99,12 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
 				ag.ca_license_number as californiaLicense,
 				ag.name as agencyName,
 				ag.agency_network as agencyNetwork,
-				an.landing_page_content as landingPageContent,
-				an.footer_logo,
 				ag.logo,
 				ag.enable_optout,
 				ag.website,
-				ag.wholesale,
-				(SELECT landing_page_content FROM clw_talage_agency_networks WHERE id = 1) AS defaultLandingPageContent
+				ag.wholesale
 			FROM clw_talage_agency_landing_pages as alp
 			LEFT JOIN clw_talage_agencies AS ag ON alp.agency = ag.id
-			LEFT JOIN clw_talage_agency_networks AS an ON ag.agency_network = an.id
 			LEFT JOIN clw_talage_industry_code_categories AS icc ON alp.industry_code_category = icc.id
 			LEFT JOIN clw_talage_color_schemes AS cs ON cs.id = alp.color_scheme
 			WHERE
@@ -129,12 +126,35 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
         return null;
     }
     try {
-        if (agency.landingPageContent) {
-            agency.landingPageContent = JSON.parse(agency.landingPageContent);
+        //Get AgencyNetworkBO  If missing landing page content get AgnencyNetwork = 1 for it.
+        const agencyNetworkBO = new AgencyNetworkBO();
+        let error = null;
+        const agencyNetworkJSON = await agencyNetworkBO.getById(agency.agencyNetwork).catch(function(err){
+            error = err;
+            log.error("Get AgencyNetwork Error " + err + __location);
+        })
+        if(agencyNetworkJSON && agencyNetworkJSON.footer_logo){
+            agency.footer_logo = agencyNetworkJSON.footer_logo
         }
-        else if (agency.defaultLandingPageContent) {
-            agency.landingPageContent = JSON.parse(agency.defaultLandingPageContent);
+        if(agencyNetworkJSON && agencyNetworkJSON.landing_page_content){
+            agency.landingPageContent = agencyNetworkJSON.landing_page_content;
         }
+        else {
+            //get from default AgencyNetwork
+            log.debug(`AgencyNetwork ${agency.agencyNetwork} using default landingpage`)
+            const agencyNetworkJSONDefault = await agencyNetworkBO.getById(1).catch(function(err){
+                error = err;
+                log.error("Get AgencyNetwork 1 Error " + err + __location);
+            });
+
+            if(agencyNetworkJSONDefault && agencyNetworkJSONDefault.landing_page_content){
+                agency.landingPageContent = agencyNetworkJSONDefault.landing_page_content;
+                if(!agency.footer_logo){
+                    agency.footer_logo = agencyNetworkJSONDefault.footer_logo;
+                }
+            }
+        }
+
         if (agency.meta) {
             agency.meta = JSON.parse(agency.meta);
         }
