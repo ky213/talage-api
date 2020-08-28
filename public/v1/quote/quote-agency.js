@@ -128,11 +128,19 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
     try {
         //Get AgencyNetworkBO  If missing landing page content get AgnencyNetwork = 1 for it.
         const agencyNetworkBO = new AgencyNetworkBO();
+        // eslint-disable-next-line no-unused-vars
         let error = null;
         const agencyNetworkJSON = await agencyNetworkBO.getById(agency.agencyNetwork).catch(function(err){
             error = err;
             log.error("Get AgencyNetwork Error " + err + __location);
         })
+        //Check featurer - optout
+        if(agencyNetworkJSON && agencyNetworkJSON.feature_json
+            && agencyNetworkJSON.feature_json.applicationOptOut === false
+        ){
+            agency.enable_optout = 0
+        }
+
         if(agencyNetworkJSON && agencyNetworkJSON.footer_logo){
             agency.footer_logo = agencyNetworkJSON.footer_logo
         }
@@ -372,6 +380,7 @@ async function getAgencySocialMetadata(req, res, next) {
     }
     try {
         const agencyNetworkBO = new AgencyNetworkBO();
+        // eslint-disable-next-line no-unused-vars
         let error = null;
         // TODO refactor into BO function with list of default fields to use.
         const agencyNetworkJSON = await agencyNetworkBO.getById(agency.agencyNetwork).catch(function(err){
