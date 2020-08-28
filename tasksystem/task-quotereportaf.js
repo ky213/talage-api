@@ -85,7 +85,6 @@ var quoteReportTask = async function(){
         LEFT JOIN clw_talage_insurers AS i ON q.insurer = i.id
         LEFT JOIN clw_talage_applications AS a ON a.id = q.application
         LEFT JOIN clw_talage_agencies AS ag ON a.agency = ag.id
-        LEFT JOIN clw_talage_agency_networks AS an ON ag.agency_network = an.id
         LEFT JOIN clw_talage_application_activity_codes as acc on a.id = acc.application
         LEFT JOIN clw_talage_activity_codes as ac on acc.ncci_code = ac.id
     WHERE 
