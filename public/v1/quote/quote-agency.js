@@ -341,13 +341,12 @@ async function getAgencySocialMetadata(req, res, next) {
     // Retrieve the information needed to create the social media sharing metadata
     const sql = `
 		SELECT
-			ag.name,
-			an.landing_page_content as landingPageContent,
+            ag.agency_network as agencyNetwork,
+            ag.name as agencyName,
 			ag.logo,
-			(SELECT landing_page_content FROM clw_talage_agency_networks WHERE id = 1) AS defaultLandingPageContent
+			ag.website
 		FROM clw_talage_agency_landing_pages as alp
 		LEFT JOIN clw_talage_agencies AS ag ON alp.agency = ag.id
-		LEFT JOIN clw_talage_agency_networks AS an ON ag.agency_network = an.id
 		WHERE
 			ag.slug = ${db.escape(agencySlug)}
 			AND ag.state = 1
@@ -372,12 +371,35 @@ async function getAgencySocialMetadata(req, res, next) {
         return next();
     }
     try {
-        if (agency.landingPageContent) {
-            agency.landingPageContent = JSON.parse(agency.landingPageContent);
+        const agencyNetworkBO = new AgencyNetworkBO();
+        let error = null;
+        // TODO refactor into BO function with list of default fields to use.
+        const agencyNetworkJSON = await agencyNetworkBO.getById(agency.agencyNetwork).catch(function(err){
+            error = err;
+            log.error("Get AgencyNetwork Error " + err + __location);
+        })
+        if(agencyNetworkJSON && agencyNetworkJSON.footer_logo){
+            agency.footer_logo = agencyNetworkJSON.footer_logo
         }
-        if (agency.defaultLandingPageContent) {
-            agency.defaultLandingPageContent = JSON.parse(agency.defaultLandingPageContent);
+        if(agencyNetworkJSON && agencyNetworkJSON.landing_page_content){
+            agency.landingPageContent = agencyNetworkJSON.landing_page_content;
         }
+        else {
+            //get from default AgencyNetwork
+            log.debug(`AgencyNetwork ${agency.agencyNetwork} using default landingpage`)
+            const agencyNetworkJSONDefault = await agencyNetworkBO.getById(1).catch(function(err){
+                error = err;
+                log.error("Get AgencyNetwork 1 Error " + err + __location);
+            });
+
+            if(agencyNetworkJSONDefault && agencyNetworkJSONDefault.landing_page_content){
+                agency.landingPageContent = agencyNetworkJSONDefault.landing_page_content;
+                if(!agency.footer_logo){
+                    agency.footer_logo = agencyNetworkJSONDefault.footer_logo;
+                }
+            }
+        }
+
         if (agency.website) {
             agency.website = await crypt.decrypt(agency.website);
         }
