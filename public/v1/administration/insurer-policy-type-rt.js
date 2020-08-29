@@ -52,7 +52,7 @@ async function findOne(req, res, next) {
         log.error("insurerPolicyTypeBO load error " + err + __location);
         error = err;
     });
-    if (error) {
+    if (error && error.message !== "not found") {
         return next(error);
     }
     // Send back a success response
@@ -108,12 +108,32 @@ async function update(req, res, next) {
 
 }
 
+async function deleteObject(req, res, next) {
+    const id = stringFunctions.santizeNumber(req.params.id, true);
+    if (!id) {
+        return next(new Error("bad parameter"));
+    }
+    let error = null;
+    const insurerPolicyTypeBO = new InsurerPolicyTypeBO();
+    await insurerPolicyTypeBO.deleteById(id).catch(function(err) {
+        log.error("Location load error " + err + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+    res.send(200, {"success": true});
+    return next();
+
+}
+
 exports.registerEndpoint = (server, basePath) => {
 
     server.addGetAuthAdmin('Get InsurerPolicyType list', `${basePath}/insurer-policy-type`, findAll, 'administration', 'all');
     server.addGetAuthAdmin('Get InsurerPolicyType Object', `${basePath}/insurer-policy-type/:id`, findOne, 'administration', 'all');
     server.addPostAuthAdmin('Post InsurerPolicyType Object', `${basePath}/insurer-policy-type`, add, 'administration', 'all');
     server.addPutAuthAdmin('Put InsurerPolicyType Object', `${basePath}/insurer-policy-type/:id`, update, 'administration', 'all');
+    server.addDeleteAuthAdmin('Delete InsurerPolicyType  Object', `${basePath}/insurer-policy-type/:id`, deleteObject, 'administration', 'all');
 
 
     // server.addGet('Get InsurerPolicyType list', `${basePath}/insurer-policy-type`, findAll, 'administration', 'all');

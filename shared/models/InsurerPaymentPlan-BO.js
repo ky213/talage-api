@@ -159,7 +159,9 @@ module.exports = class InsurerPaymentPlanBO{
             //validate
             if(id && id >0 ){
                 await this.#dbTableORM.getById(id).catch(function (err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
+                    if(err !== "Error: not found"){
+                        log.error(`Error getting  ${tableName} from Database ` + err + __location);
+                    }
                     reject(err);
                     return;
                 });
@@ -171,6 +173,34 @@ module.exports = class InsurerPaymentPlanBO{
             }
         });
     }
+    deleteById(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id && id >0 ){
+              
+                //Remove old records.
+                const sql =`DELETE FROM ${tableName} 
+                        WHERE id = ${id}
+                `;
+                let rejected = false;
+                const result = await db.query(sql).catch(function (error) {
+                    // Check if this was
+                    log.error("Database Object ${tableName} DELETE  error :" + error + __location);
+                    rejected = true;
+                    reject(error);
+                });
+                if (rejected) {
+                    return false;
+                }
+                resolve(true);
+              
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
 
     cleanJSON(noNulls = true){
 		return this.#dbTableORM.cleanJSON(noNulls);

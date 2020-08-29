@@ -105,7 +105,7 @@ async function add(req, res, next) {
     // }
     const insurerOutageBO = new InsurerOutageBO();
     let error = null;
-     await insurerOutageBO.saveModel(req.body).catch(function(err) {
+    await insurerOutageBO.saveModel(req.body).catch(function(err) {
         log.error("Location load error " + err + __location);
         error = err;
     });
@@ -143,7 +143,7 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGetAuthAdmin('Get Insurer Outage list', `${basePath}/insurer-outage`, findAll, 'administration', 'all');
     server.addGetAuthAdmin('GET Insurer Outage  Object', `${basePath}/insurer-outage/:id`, findOne, 'administration', 'all');
     server.addPostAuthAdmin('Get Insurer Outage list', `${basePath}/insurer-outage`, add, 'administration', 'all');
-    server.addDeleteAuthAdmin('GET Insurer Outage  Object', `${basePath}/insurer-outage/:id`, deleteObject, 'administration', 'all');
+    server.addDeleteAuthAdmin('Delete Insurer Outage  Object', `${basePath}/insurer-outage/:id`, deleteObject, 'administration', 'all');
 
     // server.addGet('Get Insurer Outage list', `${basePath}/insurer-outage`, findAll, 'administration', 'all');
     //server.addGet('GET Insurer Outage  Object', `${basePath}/insurer-outage/:id`, findOne, 'administration', 'all');
