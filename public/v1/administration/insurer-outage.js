@@ -139,15 +139,9 @@ async function deleteObject(req, res, next) {
 
 
 exports.registerEndpoint = (server, basePath) => {
-    // We require the 'administration.read' permission
     server.addGetAuthAdmin('Get Insurer Outage list', `${basePath}/insurer-outage`, findAll, 'administration', 'all');
     server.addGetAuthAdmin('GET Insurer Outage  Object', `${basePath}/insurer-outage/:id`, findOne, 'administration', 'all');
     server.addPostAuthAdmin('Get Insurer Outage list', `${basePath}/insurer-outage`, add, 'administration', 'all');
     server.addDeleteAuthAdmin('Delete Insurer Outage  Object', `${basePath}/insurer-outage/:id`, deleteObject, 'administration', 'all');
-
-    // server.addGet('Get Insurer Outage list', `${basePath}/insurer-outage`, findAll, 'administration', 'all');
-    //server.addGet('GET Insurer Outage  Object', `${basePath}/insurer-outage/:id`, findOne, 'administration', 'all');
-    // server.addPost('Add Insurer Outage', `${basePath}/insurer-outage`, add, 'administration', 'all');
-    //server.addDelete('DELETE Insurer Outage  Object', `${basePath}/insurer-outage/:id`, deleteObject, 'administration', 'all');
 
 };

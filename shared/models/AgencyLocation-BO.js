@@ -1,7 +1,7 @@
 'use strict';
 
 const DatabaseObject = require('./DatabaseObject.js');
-const AgencyLocationInsurer = require('./AgencyLocationInsurer-BO.js');
+const AgencyLocationInsurerBO = require('./AgencyLocationInsurer-BO.js');
 const AgencyLocationTerritory = require('./AgencyLocationTerritory-BO.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
@@ -205,7 +205,7 @@ module.exports = class AgencyLocationBO{
                     location.openTime = location.open_time;
                     location.closeTime = location.close_time
                     if(children === true ){
-                        const agencyLocationInsurer = new AgencyLocationInsurer
+                        const agencyLocationInsurer = new AgencyLocationInsurerBO
                         const insurerList = await agencyLocationInsurer.getListByAgencyLoationForAgencyPortal(id).catch(function (error) {
                             // Check if this was
                             rejected = true;
