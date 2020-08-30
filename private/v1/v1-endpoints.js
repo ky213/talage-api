@@ -25,7 +25,7 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'email', 'email');
     registerEndpoint(server, 'encryption', 'decrypt');
     registerEndpoint(server, 'encryption', 'encrypt');
-    registerEndpoint(server, 'encryption', 'verify-password');
+    //registerEndpoint(server, 'encryption', 'verify-password');
     //registerEndpoint(server, 'encryption', 'hash');
     registerEndpoint(server, 'encryption', 'hash-password');
     registerEndpoint(server, 'file', 'file');
