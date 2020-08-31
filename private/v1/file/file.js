@@ -206,6 +206,65 @@ function GetFileSecure(req, res, next){
     });
 }
 
+/**
+ * Responds to PUT requests to add a single file to our cloud storage
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+function PutFileSecure(req, res, next){
+
+    // Sanitize the file path
+    let path = '';
+    if(req.body && Object.prototype.hasOwnProperty.call(req.body, 'path')){
+        path = req.body.path.replace(/[^a-zA-Z0-9-_/.]/g, '');
+    }
+
+    // Make sure a file path was provided
+    if(!path){
+        const errorMsg = 'You must specify a file path';
+        log.warn("File Service PUT: " + errorMsg + __location);
+        return next(serverHelper.requestError(errorMsg));
+    }
+
+    // Make sure file data was provided
+    if(!Object.prototype.hasOwnProperty.call(req.body, 'data')){
+        const errorMsg = 'You must provide file data';
+        log.warn("File Service PUT: " + errorMsg + __location);
+        return next(serverHelper.requestError(errorMsg));
+    }
+
+    if(Buffer.from(req.body.data, 'base64').toString('base64') !== req.body.data){
+        //convert to base64
+        const buff = Buffer.from(req.body.data);
+        req.body.data = buff.toString('base64');
+    }
+
+
+    // Conver to base64
+    const fileBuffer = Buffer.from(req.body.data, 'base64');
+
+    // Make sure the data is valid
+    if(fileBuffer.toString('base64') !== req.body.data){
+        const errorMsg = 'The data you supplied is not valid. It must be base64 encoded';
+        log.warn("File Service PUT: " + errorMsg + __location);
+        return next(serverHelper.requestError(errorMsg));
+    }
+
+    fileSvc.PutFileSecure(path, req.body.data).then(function(data){
+        res.send(200, data);
+        next();
+
+    }).catch(function(err){
+        log.error("File Service HTTP Put: " + err + __location);
+        res.send(400, "");
+        next(serverHelper.requestError("file get error: " + err.message));
+    });
+}
+
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
     server.addGet('File', `${basePath}/file`, GetFile);
@@ -217,4 +276,5 @@ exports.registerEndpoint = (server, basePath) => {
 
     //Secure
     server.addGet('File (depr)', `${basePath}/filesecure`, GetFileSecure);
+    server.addPut('File (depr)', `${basePath}/filesecure`, PutFileSecure);
 };
