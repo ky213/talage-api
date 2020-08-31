@@ -416,6 +416,15 @@ const properties = {
       "type": "number",
       "dbType": "int(11) unsigned"
     },
+    "timezone_name": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(100)"
+      },
     "created": {
       "default": null,
       "encrypted": false,
