@@ -10,7 +10,7 @@ let sqs = null; // Will be set later
 /**
  * Read queue item.
  *
- * @returns json for {success:  true/false, message: data, error: errorMessage} mssage.
+ * @returns json for {success:  true/false, message: data, error: errorMessage} message.
  */
 exports.getTaskQueueItem = async function(){
 	const params = {
@@ -33,8 +33,6 @@ exports.getTaskQueueItem = async function(){
 		};
 	}
 	else if(data){
-		// log.debug('Queue data:')
-		// log.debug(JSON.stringify(data));
 		if(data.Messages === null){
 			return {
 				'success': false,

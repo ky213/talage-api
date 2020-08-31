@@ -51,7 +51,7 @@ async function findOne(req, res, next) {
         log.error("Location load error " + err + __location);
         error = err;
     });
-    if (error) {
+    if (error && error.message !== "not found") {
         return next(error);
     }
     // Send back a success response
@@ -87,7 +87,7 @@ async function add(req, res, next) {
 
 //update
 async function update(req, res, next) {
-
+    log.debug("AgencyNetwork PUT:  " + JSON.stringify(req.body))
     const id = stringFunctions.santizeNumber(req.params.id, true);
     if (!id) {
         return next(new Error("bad parameter"));

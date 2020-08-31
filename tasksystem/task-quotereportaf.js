@@ -1,7 +1,8 @@
 /* eslint-disable curly */
 'use strict';
-
+//*** Accident Fund and CompWest quote only report */
 const moment = require('moment');
+const moment_timezone = require('moment-timezone');
 const util = require("util");
 const csvStringify = util.promisify(require("csv-stringify"));
 // eslint-disable-next-line no-unused-vars
@@ -9,6 +10,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 
 /**
  * Quotereport Task processor
@@ -30,14 +32,14 @@ exports.processtask = async function(queueMessage){
             error = err;
         });
         if(error){
-            log.error("Error quotereportauto deleteTaskQueueItem " + error + __location);
+            log.error("Error quotereportaf deleteTaskQueueItem " + error + __location);
         }
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle);
 
         return;
     }
     else {
-        log.info('removing old quotereportauto Message from queue');
+        log.info('removing old quotereportaf Message from queue');
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(err => error = err)
         if(error){
             log.error("Error quote report deleteTaskQueueItem old " + error + __location);
@@ -55,14 +57,14 @@ exports.taskProcessorExternal = async function(){
     let error = null;
     await quoteReportTask().catch(err => error = err);
     if(error){
-        log.error('quotereportauto Task external: ' + error + __location);
+        log.error('quotereportaf Task external: ' + error + __location);
     }
     return;
 }
 
 var quoteReportTask = async function(){
 
-    const yesterdayBegin = moment.tz("America/Los_Angeles").subtract(1,'d').startOf('day');
+    const sevenDaysAgoBegin = moment.tz("America/Los_Angeles").subtract(7,'d').startOf('day');
     const yesterdayEnd = moment.tz("America/Los_Angeles").subtract(1,'d').endOf('day');
 
     //S QLAgency locations
@@ -71,26 +73,27 @@ var quoteReportTask = async function(){
     q.application as application,
     q.policy_type as policy_type,
     i.name as name,
-    z.territory as territory,
+    a.state_abbr as territory,
     q.api_result as api_result,
     q.reasons as reasons,
     q.seconds as seconds,
     q.insurer,
-     IFNULL(an.name, "Talage") AS network,
+    q.created,
+    ag.agency_network as agencyNetworkId,
     GROUP_CONCAT(DISTINCT ac.description) AS activity_codes
     FROM clw_talage_quotes AS q
         LEFT JOIN clw_talage_insurers AS i ON q.insurer = i.id
         LEFT JOIN clw_talage_applications AS a ON a.id = q.application
-        LEFT JOIN clw_talage_zip_codes as z on a.zip = z.zip
         LEFT JOIN clw_talage_agencies AS ag ON a.agency = ag.id
-        LEFT JOIN clw_talage_agency_networks AS an ON ag.agency_network = an.id
         LEFT JOIN clw_talage_application_activity_codes as acc on a.id = acc.application
         LEFT JOIN clw_talage_activity_codes as ac on acc.ncci_code = ac.id
     WHERE 
-        q.created BETWEEN  '${yesterdayBegin.utc().format()}' AND '${yesterdayEnd.utc().format()}' 
+        q.created BETWEEN  '${sevenDaysAgoBegin.utc().format()}' AND '${yesterdayEnd.utc().format()}' 
         AND q.insurer IN (12,15)
     GROUP BY
         q.id
+    Order by
+        q.application
     `;
     //log.debug(quoteSQL);
     let quoteListDBJSON = null;
@@ -100,23 +103,41 @@ var quoteReportTask = async function(){
         return false;
     });
     const cvsHeaderColumns = {
-                            "application": "App ID",
-                            "policy_type": "Type",
-                            "name": "Insurer",
-                            "network": "Agency Network",
-                            "territory": "Territory",
-                            "api_result": "Result",
-                            "reasons": "Reasons",
-                            "seconds": "Seconds",
-                            "activitycode1": "Activity Code 1",
-                            "activitycode2": "Activity Code 2",
-                            "activitycode3": "Activity Code 3"
-                            };
+        "application": "App ID",
+        "quoteDate": "Date",
+        "policy_type": "Type",
+        "name": "Insurer",
+        "network": "Agency Network",
+        "territory": "Territory",
+        "api_result": "Result",
+        "reasons": "Reasons",
+        "seconds": "Seconds",
+        "activitycode1": "Activity Code 1",
+        "activitycode2": "Activity Code 2",
+        "activitycode3": "Activity Code 3"
+    };
 
     // Loop locations setting up activity codes.
     if(quoteListDBJSON && quoteListDBJSON.length > 0){
+        //Load AgencyNetwork Map
+        const agencyNetworkBO = new AgencyNetworkBO();
+        let agencyNetworkNameMapJSON = {};
+        agencyNetworkNameMapJSON = await agencyNetworkBO.getIdToNameMap().catch(function(err){
+            log.error("Could not get agency network id to name map " + err + __location);
+        })
+
+
         for(let i = 0; i < quoteListDBJSON.length; i++){
+ 
+
+
             const quote = quoteListDBJSON[i];
+
+            // get AgencyNetwork name from map
+            if(agencyNetworkNameMapJSON[quoteListDBJSON[i].agencyNetworkId]){
+                quoteListDBJSON[i].network = agencyNetworkNameMapJSON[quoteListDBJSON[i].agencyNetworkId];
+            }
+
             //split activity_codes
             if(quote.activity_codes){
                 const activityCodeList = quote.activity_codes.split(",")
@@ -124,14 +145,25 @@ var quoteReportTask = async function(){
                 if (activityCodeList.length > 1) quote.activitycode2 = activityCodeList[1];
                 if (activityCodeList.length > 2) quote.activitycode3 = activityCodeList[2];
             }
+            if(quote.created){
+                try{
+                    // DB is in Pacific time
+                    const dbQuoteCreated = moment(quote.created);
+                    const dbQuoteCreatedString = dbQuoteCreated.utc().format('YYYY-MM-DD HH:mm:ss');
+                    quote.quoteDate = moment.tz(dbQuoteCreatedString, "America/Los_Angeles").format('YYYY-MM-DD HH:mm zz')
+                }
+                catch(e){
+                    log.error(`Error creating Quote Date ${quote.created} error: ` + e + __location)
+                }
+            }
         }
 
         //Map Quote list to CSV.
         // eslint-disable-next-line object-property-newline
         const stringifyOptions = {
-                                    "header": true,
-                                    "columns": cvsHeaderColumns
-                                 };
+            "header": true,
+            "columns": cvsHeaderColumns
+        };
 
         const csvData = await csvStringify(quoteListDBJSON, stringifyOptions).catch(function(err){
             log.error("Quote Report JSON to CSV error: " + err + __location);
@@ -157,14 +189,14 @@ var quoteReportTask = async function(){
             };
             const attachments = [];
             attachments.push(attachmentJson);
-            const emailResp = await emailSvc.send(toEmail, 'Quote Report', 'Your daily quote report is attached.', {}, 'talage', 1, attachments);
+            const emailResp = await emailSvc.send(toEmail, 'Weekly Quote Report', 'Your weekly quote report is attached.', {}, global.WHEELHOUSE_AGENCYNETWORK_ID, 'talage', 1, attachments);
             if(emailResp === false){
-                slack.send('#alerts', 'warning',`The system failed to send Quote Report email.`);
+                slack.send('#alerts', 'warning',`The system failed to send AF Weekly Quote Report email.`);
             }
             return;
         }
         else {
-            log.error("Quote Report JSON to CSV error: csvData empty file: " + __location);
+            log.error("AF Quote Report JSON to CSV error: csvData empty file: " + __location);
             return;
         }
     }
@@ -174,9 +206,9 @@ var quoteReportTask = async function(){
         if(global.settings.ENV !== 'production'){
             toEmail = 'brian@talageins.com';
         }
-        const emailResp = await emailSvc.send(toEmail, 'Quote Report', 'Your daily quote report: No Quotes.', {}, 'talage', 1);
+        const emailResp = await emailSvc.send(toEmail, 'Weekly Quote Report', 'Your weekly quote report: No Quotes.', {}, global.WHEELHOUSE_AGENCYNETWORK_ID, 'talage', 1);
         if(emailResp === false){
-            slack.send('#alerts', 'warning',`The system failed to send Quote Report email.`);
+            slack.send('#alerts', 'warning',`The system failed to send AF Weekly Quote Report email.`);
         }
         return;
     }

@@ -1,7 +1,6 @@
 'use strict';
 
 const DatabaseObject = require('./DatabaseObject.js');
-const SearchStringModel = require('./SearchStrings-model.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const crypt = global.requireShared('./services/crypt.js');
@@ -38,6 +37,13 @@ module.exports = class BusinessContactModel{
             //have id load businessContact data.
             //let businessContactDBJSON = {};
             
+            //Populate Clear version of encrypted fields.
+            for(var i=0;i < hashFields.length; i++){
+                if(businessContactJSON[hashFields[i]]){
+                    businessContactJSON[hashFields[i] + "_clear"] = businessContactJSON[hashFields[i]]
+                }
+            }
+
             if(businessContactJSON.id){
                 await this.#dbTableORM.getById(businessContactJSON.id).catch(function (err) {
                     log.error("Error getting businessContact from Database " + err + __location);
@@ -51,13 +57,14 @@ module.exports = class BusinessContactModel{
                 this.#dbTableORM.load(businessContactJSON);
             }
 
+             
+
             //save
             await this.#dbTableORM.save().catch(function(err){
                 reject(err);
             });
             this.updateProperty();
             this.id = this.#dbTableORM.id;
-            await this.updateSearchStrings();
             resolve(true);
             
         });
@@ -181,31 +188,6 @@ module.exports = class BusinessContactModel{
        })
     }
 
-    updateSearchStrings(){
-        return new Promise(async(resolve) => {
-            //validate
-            log.debug('setup search string ' + __location)
-            if(hashFields && hashFields.length > 0){
-                log.debug('setup search string hashfields' + __location)
-                let searchStringJson = {"table" : "contacts", "item_id": this.id};
-                searchStringJson.fields = [];
-                for(var i=0;i < hashFields.length; i++){
-                    if(this[hashFields[i]]){
-                        const fieldJson = {field: hashFields[i], value: this[hashFields[i]]}
-                        searchStringJson.fields.push(fieldJson)
-                    }
-                }
-                log.debug('setup search  ' + JSON.stringify(searchStringJson));
-                if(searchStringJson.fields.length > 0){
-                    const searchStringModel = new SearchStringModel();
-                    searchStringModel.AddStrings(searchStringJson).catch(function(err){
-                        log.error(`Error creating search for ${searchStringJson.table} id ${searchStringJson.item_id} error: ` + err + __location)
-                    })
-                }
-            }
-            resolve(true);
-        });
-    }
 
     async cleanupInput(inputJSON){
 
@@ -291,6 +273,15 @@ const properties ={
       "type": "string",
       "dbType": "blob"
     },
+    "email_clear": {
+        "default": "",
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(150)"
+      },
     "email_hash": {
       "default": "",
       "encrypted": false,
