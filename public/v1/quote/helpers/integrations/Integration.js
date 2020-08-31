@@ -19,7 +19,7 @@ const {getQuoteAggregatedStatus} = global.requireShared('./helpers/status.js');
 
 module.exports = class Integration {
 
-	/**
+    /**
 	 * Constructor for each integration
 	 *
 	 * @param {Application} app - An object containing all of the application information
@@ -74,7 +74,7 @@ module.exports = class Integration {
         }
     }
 
-	/**
+    /**
 	 * An entry point for binding a quote that conducts some necessary pre-processing before calling the insurer_bind function.
 	 *
 	 * @returns {Promise.<string, ServerError>} A promise that returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a ServerError if rejected
@@ -107,7 +107,7 @@ module.exports = class Integration {
         });
     }
 
-	/**
+    /**
 	 * Returns an object that includes Claims information based on policy years for up to the past 5 years
 	 *
 	 * @returns {object} - Claims information lumped together by policy year
@@ -158,7 +158,7 @@ module.exports = class Integration {
         return claims;
     }
 
-	/**
+    /**
 	 * Uses the activity codes from a single location combined with the insurer's specific NCCI codes to detect and combine any duplicates.
 	 *
 	 * @param {object} location - A single Location object
@@ -184,7 +184,7 @@ module.exports = class Integration {
         return returnCodes;
     }
 
-	/**
+    /**
 	 * Determines the governing activity code for an application and returns the result.
 	 * The governing class code is determined by taking the activity code with the highest payroll. If there are two, the first code is used.
 	 * If the highest payroll code is our clerical code, it is ignored and the next highest is taken.
@@ -220,7 +220,7 @@ module.exports = class Integration {
         return this.grouped_activity_codes[0];
     }
 
-	/**
+    /**
 	 * Determines the proper answer to send to the insurer based on the question type. Return false if the question should be skipped.
 	 *
 	 * @param {object} question - A question object
@@ -288,7 +288,7 @@ module.exports = class Integration {
         return answer;
     }
 
-	/**
+    /**
 	 * Retrieves the relationship between questions and activity codes
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an object indexed on territory + activity code (e.g. AZ908252) each with an array of corresponding question ideas if resolved, or an Error if rejected
@@ -335,7 +335,7 @@ module.exports = class Integration {
         });
     }
 
-	/**
+    /**
 	 * Determines the best limits available from the carrier. If no limits are suitable, returns false.
 	 *
 	 * @param {array} carrierLimits - A list of limits supported by the carrier
@@ -361,7 +361,7 @@ module.exports = class Integration {
         return higherLimit;
     }
 
-	/**
+    /**
 	 * Returns the key (property) of an object based on the value of that property
 	 *
 	 * @param {object} obj - The object to search
@@ -372,7 +372,7 @@ module.exports = class Integration {
         return Object.keys(obj).find((key) => obj[key] === val);
     }
 
-	/**
+    /**
 	 * Returns a description of the operations of the company based on the class codes they selected
 	 *
 	 * @returns {string} - The description of the business
@@ -381,7 +381,7 @@ module.exports = class Integration {
         return `${this.app.business.name} is a(n) ${this.app.business.industry_code_description.replace('&', 'and')} company with operations primarily located in ${this.app.business.locations[0].city}, ${this.app.business.locations[0].territory}.`;
     }
 
-	/**
+    /**
 	 * Gets the number of unique activity codes were included in this application
 	 *
 	 * @returns {int} - The number of activity codes
@@ -394,7 +394,7 @@ module.exports = class Integration {
         return this.grouped_activity_codes.length;
     }
 
-	/**
+    /**
 	 * Returns the number of claims that were within the number of years specified
 	 *
 	 * @param {int} number_of_years - The number of years of claims to total
@@ -418,7 +418,7 @@ module.exports = class Integration {
         return num_claims;
     }
 
-	/**
+    /**
 	 * Gets the details for each question for the current insurer. These details include the attributes, identifier, and whether or not the question is universal
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing objects indexed on the Talage Question ID with question information specific to this insurer if resolved, or an Error if rejected
@@ -456,7 +456,7 @@ module.exports = class Integration {
         });
     }
 
-	/**
+    /**
 	 * Retrieves the question that matches the identifier specified, returns false if none
 	 *
 	 * @param {string} identifier - The insurer identifier for the question
@@ -474,7 +474,7 @@ module.exports = class Integration {
         return false;
     }
 
-	/**
+    /**
 	 * Gets the identifiers for each question for the current insurer
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing question information if resolved, or an Error if rejected
@@ -509,7 +509,7 @@ module.exports = class Integration {
         });
     }
 
-	/**
+    /**
 	 * Splits a limits string into an array and coverts the values to integers
 	 *
 	 * @param {string} limits - A limits string
@@ -521,7 +521,7 @@ module.exports = class Integration {
         });
     }
 
-	/**
+    /**
 	 * Returns the total incurred (paid + reserved) on claims that were within the number of years specified
 	 *
 	 * @param {int} number_of_years - The number of years of claims to total
@@ -546,7 +546,7 @@ module.exports = class Integration {
         return total;
     }
 
-	/**
+    /**
 	 * Returns the total number of employees associated with this application
 	 *
 	 * @returns {int} - The total number of employees as an integer
@@ -560,7 +560,7 @@ module.exports = class Integration {
         return total;
     }
 
-	/**
+    /**
 	 * Returns the total number of full-time employees associated with this application
 	 *
 	 * @returns {int} - The total number of full-time employees as an integer
@@ -573,7 +573,7 @@ module.exports = class Integration {
         return total;
     }
 
-	/**
+    /**
 	 * Returns the total number of part-time employees associated with this application
 	 *
 	 * @returns {int} - The total number of part-time employees as an integer
@@ -586,7 +586,7 @@ module.exports = class Integration {
         return total;
     }
 
-	/**
+    /**
 	 * Returns the total payroll associated with this application
 	 *
 	 * @returns {int} - The total payroll as an integer
@@ -601,7 +601,7 @@ module.exports = class Integration {
         return total;
     }
 
-	/**
+    /**
 	 * Returns the total square footage of locations associated with this application
 	 *
 	 * @returns {int} - The total square footage as an integer
@@ -614,7 +614,7 @@ module.exports = class Integration {
         return total;
     }
 
-	/**
+    /**
 	 * Returns the number of years this business has operated
 	 *
 	 * @returns {int} - The total number of years in business
@@ -623,7 +623,7 @@ module.exports = class Integration {
         return moment().diff(this.app.business.founded, 'years');
     }
 
-	/**
+    /**
 	 * Returns the years since the last claim was filed. If claims were never filed, returns 999
 	 *
 	 * @returns {int} - The total number of years
@@ -643,7 +643,7 @@ module.exports = class Integration {
         return years_ago;
     }
 
-	/**
+    /**
 	 * Generates and returns a Version 4 UUID
 	 * Note: Version 4 UUIDs are completely random where Version 5 are not.
 	 *
@@ -653,7 +653,7 @@ module.exports = class Integration {
         return uuidv4();
     }
 
-	/**
+    /**
 	 * Finds every activity code in an application and groups them together, adding their payrolls. Stores the result locally for later use.
 	 *
 	 * @returns {object} - An object with keys that are activity code ids, and values that are combined payrolls.
@@ -695,7 +695,7 @@ module.exports = class Integration {
         return activity_codes;
     }
 
-	/**
+    /**
 	 * An entry point for getting quotes that conducts some necessary pre-processing before calling the insurer_quote function.
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
@@ -794,7 +794,7 @@ module.exports = class Integration {
         });
     }
 
-	/**
+    /**
 	 * Records this quote in the database so we know it happened
 	 *
 	 * @param {int} amount - The amount of the quote
@@ -903,7 +903,7 @@ module.exports = class Integration {
         return quoteID;
     }
 
-	/**
+    /**
 	 * Generates and returns the proper structure for returning a quote from an integration
 	 *
 	 * @param {int} amount - The amount of the quote as a whole number
@@ -914,7 +914,7 @@ module.exports = class Integration {
         return result;
     }
 
-	/**
+    /**
 	 * Generates and returns the proper structure for returning an indication from an integration
 	 *
 	 * @param {int} amount - The amount of the indication as a whole number
@@ -925,7 +925,7 @@ module.exports = class Integration {
         return result;
     }
 
-	/**
+    /**
 	 * Generates and returns the proper structure for returning an error from an integration
 	 *
 	 * @param {string} type - The type of error
@@ -947,7 +947,7 @@ module.exports = class Integration {
         return result;
     }
 
-	/**
+    /**
 	 * Returns an object of the limits for this policy with the propery as the limit description and the value as the amount
 	 *
 	 * @returns {object} - The limit information
@@ -973,7 +973,7 @@ module.exports = class Integration {
         return rtn;
     }
 
-	/**
+    /**
 	 * Determines which response should be sent, and sends it. This should be called by every insurer integration.
 	 *
 	 * @param {string} result - The result of the integration. Must be 'declined', 'quoted', 'referred', or 'referred_with_price'
@@ -1108,7 +1108,7 @@ module.exports = class Integration {
         }
     }
 
-	/**
+    /**
 	 * Sends a request to an insurer over HTTPS
 	 *
 	 * @param {string} host - The host name we are sending to (minus the protocol)
@@ -1227,7 +1227,7 @@ module.exports = class Integration {
         });
     }
 
-	/**
+    /**
 	 * Sends an JSON request to this insurer
 	 *
 	 * @param {string} host - The host name we are sending to (minus the protocol)
@@ -1262,7 +1262,7 @@ module.exports = class Integration {
         });
     }
 
-	/**
+    /**
 	 * Sends an XML request to this insurer
 	 *
 	 * @param {string} host - The host name we are sending to (minus the protocol)
@@ -1315,7 +1315,7 @@ module.exports = class Integration {
         return result;
     }
 
-	/**
+    /**
 	 * Determines whether or not this insurer supports all class codes in this application
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an true or an object containing error information on success
@@ -1405,7 +1405,7 @@ module.exports = class Integration {
         });
     }
 
-	/**
+    /**
 	 * Determines whether or not this insurer supports all industry codes in this application
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an true or an object containing error information on success
@@ -1418,7 +1418,7 @@ module.exports = class Integration {
                             LEFT JOIN  clw_talage_insurer_industry_codes AS iic ON ((iic.type = 'i' AND iic.code = ic.iso) OR (iic.type = 'c' AND iic.code = ic.cgl) OR (iic.type = 'n' AND iic.code = ic.naics) OR (iic.type = 's' AND iic.code = ic.sic)) 
                                                                                     AND  iic.insurer = ${this.insurer.id} AND iic.territory = '${this.app.business.primary_territory}'
                         WHERE  ic.id = ${this.app.business.industry_code}  LIMIT 1;`;
-           // log.debug("_insurer_supports_industry_codes sql: " + sql);
+            // log.debug("_insurer_supports_industry_codes sql: " + sql);
             const result = await db.query(sql).catch((err) => {
                 log.error(`Integration: _insurer_supports_industry_codes query error ${err} ` + __location);
                 fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
