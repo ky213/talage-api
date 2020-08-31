@@ -25,13 +25,13 @@ exports.processtask = async function(queueMessage){
     if(messageAge < 30){
 
         // DO STUFF
-            await abandonAppTask().catch(err => error = err);
-            await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err){
-                error = err;
-            });
-            if(error){
-                log.error("Error abandonAppTask deleteTaskQueueItem " + error + __location);
-            }
+        await abandonAppTask().catch(err => error = err);
+        await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err){
+            error = err;
+        });
+        if(error){
+            log.error("Error abandonAppTask deleteTaskQueueItem " + error + __location);
+        }
         return;
     }
     else {
@@ -60,11 +60,11 @@ exports.taskProcessorExternal = async function(){
 
 var abandonAppTask = async function(){
 
-     const oneHourAgo = moment().subtract(1,'h');
-     const twoHourAgo = moment().subtract(2,'h');
-     //get list....
-     // We need an agency to look email templates in the database
-     // Agency cannot be NULL or zero.
+    const oneHourAgo = moment().subtract(1,'h');
+    const twoHourAgo = moment().subtract(2,'h');
+    //get list....
+    // We need an agency to look email templates in the database
+    // Agency cannot be NULL or zero.
     const appIdSQL = `
             SELECT DISTINCT
                 a.id as 'applicationId' 
@@ -77,15 +77,15 @@ var abandonAppTask = async function(){
                 AND a.opted_out_online = 0
                 AND a.state  = 1
     `;
-   // log.debug(appIdSQL)
-	let appIds = null;
-	try{
+    //log.debug(appIdSQL)
+    let appIds = null;
+    try{
         appIds = await db.query(appIdSQL);
     }
     catch(err){
-		log.error("abandonAppTask getting appid list error " + err + __location);
-		throw err;
-	}
+        log.error("abandonAppTask getting appid list error " + err + __location);
+        throw err;
+    }
     //process list.....
     if(appIds && appIds.length > 0){
         for(let i = 0; i < appIds.length; i++){
@@ -136,12 +136,10 @@ var processAbandonApp = async function(applicationId){
             c.email,
             c.fname,
             c.lname,
-            c.phone,
-            an.email_brand AS emailBrand
+            c.phone
         FROM clw_talage_applications AS a
             LEFT JOIN clw_talage_agencies AS ag ON a.agency = ag.id
             LEFT JOIN clw_talage_agency_locations AS al ON a.agency_location = al.id
-            LEFT JOIN clw_talage_agency_networks AS an ON ag.agency_network = an.id
             LEFT JOIN clw_talage_contacts AS c ON a.business = c.business
         WHERE 
             a.id =  ${applicationId}
@@ -156,6 +154,8 @@ var processAbandonApp = async function(applicationId){
     });
 
     if(appDBJSON && appDBJSON.length > 0){
+
+         // TODO Load AgencyNetwork
 
         const agencyNetwork = appDBJSON[0].agency_network;
         //Get email content
@@ -185,8 +185,8 @@ var processAbandonApp = async function(applicationId){
             if(appDBJSON[0].agencyPhone){
                 agencyPhone = formatPhone(appDBJSON[0].agencyPhone);
             }
-
-            const brandurl = appDBJSON[0].agency_network === 2 ? global.settings.DIGALENT_SITE_URL : global.settings.SITE_URL;
+            // TODO get from AgencyNetwork BO
+            const brandurl = emailContentJSON.APPLICATION_URL;
             const agencyLandingPage = `${brandurl}/${appDBJSON[0].slug}`;
 
             let message = emailContentJSON.customerMessage;
@@ -203,13 +203,13 @@ var processAbandonApp = async function(applicationId){
             //send email:
             // Send the email
             const keys = {
-                    'application': applicationId,
-                    'agency_location': appDBJSON[0].agencyLocation
-                };
-            const emailResp = await emailSvc.send(appDBJSON[0].email, subject, message, keys , appDBJSON[0].emailBrand, appDBJSON[0].agency);
+                'application': applicationId,
+                'agency_location': appDBJSON[0].agencyLocation
+            };
+            const emailResp = await emailSvc.send(appDBJSON[0].email, subject, message, keys ,agencyNetwork, appDBJSON[0].emailBrand, appDBJSON[0].agency);
             //log.debug("emailResp = " + emailResp);
             if(emailResp === false){
-               slack.send('#alerts', 'warning',`The system failed to remind the insured to revisit their application ${applicationId}. Please follow-up manually.`, {'application_id': applicationId});
+                slack.send('#alerts', 'warning',`The system failed to remind the insured to revisit their application ${applicationId}. Please follow-up manually.`, {'application_id': applicationId});
             }
             return true;
         }
@@ -231,8 +231,8 @@ var markApplicationProcess = async function(applicationId){
 	                   where id = ${applicationId} `;
 
     // Update application record
-	await db.query(updateSQL).catch(function(e){
-		log.error('Abandon Application flag update error: ' + e.message + __location);
-		throw e;
-	});
+    await db.query(updateSQL).catch(function(e){
+        log.error('Abandon Application flag update error: ' + e.message + __location);
+        throw e;
+    });
 };

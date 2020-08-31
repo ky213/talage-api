@@ -76,7 +76,6 @@ module.exports = class Application {
             log.warn(`Attempt to update an old application. appid ${this.id}` + __location);
             throw new Error("Data Error: Application may not be updated do to age.");
         }
-
         //log.debug("applicationBO: " + JSON.stringify(applicationBO));
 
         // Load the business information
@@ -85,6 +84,7 @@ module.exports = class Application {
             await this.business.load(applicationBO.business, applicationBO);
         }
         catch (err) {
+            log.error(`Unable to load the business for application ${this.id}: ${err} ${__location}`);
             throw err;
         }
 
@@ -466,6 +466,7 @@ module.exports = class Application {
                         agencyLocation: this.agencyLocation.id,
                         application: this.id
                     },
+                    this.agencyLocation.agencyNetwork,
                     brand,
                     this.agencyLocation.agencyId);
 
@@ -474,19 +475,7 @@ module.exports = class Application {
                 // Do not send if this is Talage
                 if (this.agencyLocation.agencyId > 2) {
                     // Determine the portal login link
-                    let portalLink = '';
-                    switch (global.settings.ENV) {
-                        case 'development':
-                            portalLink = global.settings.PORTAL_URL;
-                            break;
-                        case 'test':
-                        case 'staging':
-                        case 'demo':
-                        case 'production':
-                        default:
-                            portalLink = this.agencyLocation.agencyNetwork === 2 ? global.settings.DIGALENT_AGENTS_URL : global.settings.TALAGE_AGENTS_URL;
-                            break;
-                    }
+                    let portalLink = emailContentJSON.PORTAL_URL;
 
                     message = emailContentJSON.agencyMessage;
                     subject = emailContentJSON.agencySubject;
@@ -515,6 +504,7 @@ module.exports = class Application {
                             agencyLocation: this.agencyLocation.id,
                             application: this.id
                         },
+                        this.agencyLocation.agencyNetwork,
                         emailContentJSON.emailBrand,
                         this.agencyLocation.agencyId);
                 }

@@ -178,15 +178,15 @@ async function validate(request, next) {
         data.banner = request.body.banner;
     }
 
-	// check if there is custom color scheme info
-	// if scheme exists then upadate the custom color info
-	// else just set the color_scheme to the one the user provided color scheme (a.k.a Theme)
-	//
+    // check if there is custom color scheme info
+    // if scheme exists then upadate the custom color info
+    // else just set the color_scheme to the one the user provided color scheme (a.k.a Theme)
+    //
     if (Object.prototype.hasOwnProperty.call(request.body, 'customColorScheme') && request.body.customColorScheme) {
         data.colorScheme = await retrieveCustomColorScheme(request.body.customColorScheme, next);
 
     }
- else if (Object.prototype.hasOwnProperty.call(request.body, 'colorScheme') && request.body.colorScheme) {
+    else if (Object.prototype.hasOwnProperty.call(request.body, 'colorScheme') && request.body.colorScheme) {
         data.colorScheme = request.body.colorScheme;
     }
 
@@ -334,6 +334,20 @@ async function createLandingPage(req, res, next) {
         return next(serverHelper.requestError(error));
     }
 
+    // showIntroText update additional_info json
+    if(req.body.additionalInfo && req.body.showIntroText){
+        req.body.additionalInfo.showIntroText = req.body.showIntroText;
+    }
+    else if (req.body.showIntroText){
+        req.body.additionalInfo = {};
+        req.body.additionalInfo.showIntroText = req.body.showIntroText;
+    }
+    data.additionalInfo = req.body.additionalInfo;
+    if(!data.additionalInfo) {
+        data.additionalInfo = {};
+    }
+    data.additionalInfo = JSON.stringify(data.additionalInfo);
+
     // Define the data to be inserted, column: value
     const insertData = {
         about: data.about,
@@ -348,7 +362,8 @@ async function createLandingPage(req, res, next) {
         intro_text: data.introText,
         name: data.name,
         show_industry_section: data.showIndustrySection,
-        slug: data.slug
+        slug: data.slug,
+        additionalInfo: data.additionalInfo
     };
 
     if(!insertData.agency_location_id){
@@ -358,11 +373,11 @@ async function createLandingPage(req, res, next) {
     // Create the SQL to insert this item into the database
     const sql = `
 			INSERT INTO \`#__agency_landing_pages\` (${Object.keys(insertData).
-            map((key) => `\`${key}\``).
-            join(',')})
+        map((key) => `\`${key}\``).
+        join(',')})
 			VALUES (${Object.values(insertData).
-            map((key) => db.escape(key)).
-            join(',')});
+        map((key) => db.escape(key)).
+        join(',')});
 		`;
 
     // Commit this update to the database
@@ -509,28 +524,30 @@ async function getLandingPage(req, res, next) {
 
     // Build a query that will return all of the landing pages
     const landingPageSQL = `
-			SELECT
-                \`id\`,
+            SELECT
+                id,
                 agency_location_id as agencyLocationId,
-				\`about\`,
-				\`banner\`,
-				\`color_scheme\` AS 'colorScheme',
-				\`industry_code\` AS 'industryCode',
-				\`industry_code_category\` AS 'industryCodeCategory',
-				\`intro_heading\` AS 'introHeading',
-				\`intro_text\` AS 'introText',
-				\`name\`,
-				\`show_industry_section\` AS 'showIndustrySection',
-				\`slug\`,
-				\`primary\`,
-				\`heading\`
-			FROM \`#__agency_landing_pages\`
-			WHERE \`agency\` = ${parseInt(agency, 10)} AND \`state\` > 0 AND \`id\` = ${parseInt(req.query.id, 10)}
-			LIMIT 1;
+                about,
+                banner,
+                color_scheme AS 'colorScheme',
+                industry_code AS 'industryCode',
+                industry_code_category AS 'industryCodeCategory',
+                intro_heading AS 'introHeading',
+                intro_text AS 'introText',
+                name,
+                show_industry_section AS 'showIndustrySection',
+                slug,
+                \`primary\`,
+                heading,
+                additionalInfo
+            FROM clw_talage_agency_landing_pages
+            WHERE agency = ${parseInt(agency, 10)} AND state > 0 AND id = ${parseInt(req.query.id, 10)}
+            LIMIT 1;
 		`;
 
     // Run the query
-    const landingPage = await db.query(landingPageSQL).catch(function(err) {
+    // eslint-disable-next-line prefer-const
+    let landingPage = await db.query(landingPageSQL).catch(function(err) {
         log.error(err.message + __location);
         res.send(500, {});
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
@@ -541,6 +558,15 @@ async function getLandingPage(req, res, next) {
         log.warn('Page not found' + __location);
         res.send(500, {});
         return next(serverHelper.requestError('Page not found'));
+    }
+    // Pull showIntroText from additional_info json
+    landingPage[0].showIntroText = false;
+
+    if(landingPage[0].additionalInfo){
+        landingPage[0].additionalInfo = JSON.parse(landingPage[0].additionalInfo)
+        if(landingPage[0].additionalInfo.showIntroText){
+            landingPage[0].showIntroText = landingPage[0].additionalInfo.showIntroText;
+        }
     }
 
     // Convert the showIndustrySection value to a boolean
@@ -591,6 +617,7 @@ async function updateLandingPage(req, res, next) {
     log.debug("update landing page " + JSON.stringify(req.body));
     let error = false;
     // Determine the agency ID
+    log.debug('req.authentication.agents ' + req.authentication.agents);
     const agency = req.authentication.agents[0];
 
     // Check that at least some post parameters were received
@@ -621,6 +648,19 @@ async function updateLandingPage(req, res, next) {
         data.agencyLocationId = 0;
     }
 
+    // showIntroText update additional_info json
+    if(req.body.additionalInfo && typeof req.body.showIntroText === "boolean"){
+        req.body.additionalInfo.showIntroText = req.body.showIntroText;
+    }
+    else if (typeof req.body.showIntroText === "boolean"){
+        req.body.additionalInfo = {};
+        req.body.additionalInfo.showIntroText = req.body.showIntroText;
+    }
+    data.additionalInfo = req.body.additionalInfo;
+    if(!data.additionalInfo) {
+        data.additionalInfo = {};
+    }
+
     // Commit this update to the database
     const sql = `
 			UPDATE \`#__agency_landing_pages\`
@@ -635,11 +675,12 @@ async function updateLandingPage(req, res, next) {
 				\`intro_text\` = ${db.escape(data.introText)},
 				\`name\` = ${db.escape(data.name)},
 				\`show_industry_section\` = ${db.escape(data.showIndustrySection)},
-				\`slug\` = ${db.escape(data.slug)}
+                \`slug\` = ${db.escape(data.slug)},
+                \`additionalInfo\` = ${db.escape(JSON.stringify(data.additionalInfo))}
 			WHERE \`id\` = ${db.escape(data.id)} AND \`agency\` = ${db.escape(agency)}
 			LIMIT 1;
 		`;
-
+    log.debug(sql);
     // Run the query
     let result = null;
     try {

@@ -9,3 +9,4 @@ coverage/
 mochawesome-report/
 /localfunctiontest.js
 /loadmessagesinmongo.js
+/datafix-populate-clear-fields.js

@@ -14,9 +14,10 @@ const Integration = require('../Integration.js');
 const builder = require('xmlbuilder');
 const moment = require('moment');
 const util = require('util');
-const serverHelper = require('../../../../../../server.js');
+const serverHelper = requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+const wcEmodEmail = requireRootPath('./tasksystem/task-wcemodemail');
 
 module.exports = class CompwestWC extends Integration {
     /**
@@ -624,6 +625,10 @@ module.exports = class CompwestWC extends Integration {
                 this.log += `--------======= Application Error =======--------<br><br>${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`;
                 log.error(`${this.insurer.name} ${this.policy.type} Integration Error(s):\n--- ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}` + __location);
                 this.reasons.push(`${status} - ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`);
+                // Send notification email if we get an E Mod error back from carrier 
+                if (res.SignonRs[0].Status[0].StatusDesc[0].Desc[0].toLowerCase().includes("experience mod")) {
+                    wcEmodEmail.sendEmodEmail(this.app.id);
+                }
                 return this.return_result('error');
             case 'REFERRALNEEDED':
             case 'QUOTED':

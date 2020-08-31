@@ -71,11 +71,16 @@ function validateCognitoJWT(options) {
         let jwtToken = req.headers.authorization || (req.body && req.body.access_token) || (req.query && req.query.access_token) || req.headers.token;
         if(jwtToken){
             jwtToken = jwtToken.replace("Bearer ","");
-           // log.debug("jwtToken: " + jwtToken);
+            // log.debug("jwtToken: " + jwtToken);
             //check Cognito if the Token is good and get groups.
             cognitoSvc.getUserByToken(jwtToken, function(err, cognitoUser){
                 if(err){
-                    log.error(`Error returned by cognitoSvc.getUserByToken ${err}` + __location)
+                    if(err.includes("NotAuthorizedException")){
+                        log.info(`NotAuthorizedException returned by cognitoSvc.getUserByToken ${err}` + __location)
+                    }
+                    else {
+                        log.error(`Error returned by cognitoSvc.getUserByToken ${err}` + __location)
+                    }
                     return next(new RestifyError.ForbiddenError("access denied"));
                 }
                 else {
@@ -89,7 +94,7 @@ function validateCognitoJWT(options) {
                         }
                         if(hasAccess){
                             req.user = cognitoUser;
-                          //  log.debug("cognitoUser " + JSON.stringify(cognitoUser))
+                            //  log.debug("cognitoUser " + JSON.stringify(cognitoUser))
                             options.handler(req, res, next);
                         }
                         else {
@@ -144,7 +149,7 @@ class AbstractedHTTPServer {
             name: name,
             path: path
         },
-            handlerWrapper(path, handler));
+        handlerWrapper(path, handler));
     }
 
     addPostAuth(name, path, handler, permission = null, permissionType = null) {
@@ -153,13 +158,13 @@ class AbstractedHTTPServer {
             name: name,
             path: path
         },
-            processJWT(),
-            validateJWT({
-                handler: handlerWrapper(path, handler),
-                permission: permission,
-                permissionType: permissionType,
-                agencyPortal: true
-            }));
+        processJWT(),
+        validateJWT({
+            handler: handlerWrapper(path, handler),
+            permission: permission,
+            permissionType: permissionType,
+            agencyPortal: true
+        }));
     }
 
     addPostAuthAppWF(name, path, handler, permission = null, permissionType = null) {
@@ -168,13 +173,13 @@ class AbstractedHTTPServer {
             name: name,
             path: path
         },
-            processJWT(),
-            validateJWT({
-                handler: handlerWrapper(path, handler),
-                permission: permission,
-                permissionType: permissionType,
-                agencyPortal: false
-            }));
+        processJWT(),
+        validateJWT({
+            handler: handlerWrapper(path, handler),
+            permission: permission,
+            permissionType: permissionType,
+            agencyPortal: false
+        }));
     }
 
     addGetAuthAppWF(name, path, handler, permission = null, permissionType = null) {
@@ -183,13 +188,13 @@ class AbstractedHTTPServer {
             name: name,
             path: path
         },
-            processJWT(),
-            validateJWT({
-                handler: handlerWrapper(path, handler),
-                permission: permission,
-                permissionType: permissionType,
-                agencyPortal: false
-            }));
+        processJWT(),
+        validateJWT({
+            handler: handlerWrapper(path, handler),
+            permission: permission,
+            permissionType: permissionType,
+            agencyPortal: false
+        }));
     }
 
     addGet(name, path, handler) {
@@ -197,7 +202,7 @@ class AbstractedHTTPServer {
             name: name,
             path: path
         },
-            handlerWrapper(path, handler));
+        handlerWrapper(path, handler));
     }
 
     addGetAuth(name, path, handler, permission = null, permissionType = null) {
@@ -206,13 +211,13 @@ class AbstractedHTTPServer {
             name: name,
             path: path
         },
-            processJWT(),
-            validateJWT({
-                handler: handlerWrapper(path, handler),
-                permission: permission,
-                permissionType: permissionType,
-                agencyPortal: true
-            }));
+        processJWT(),
+        validateJWT({
+            handler: handlerWrapper(path, handler),
+            permission: permission,
+            permissionType: permissionType,
+            agencyPortal: true
+        }));
     }
 
     addPut(name, path, handler) {
@@ -220,8 +225,8 @@ class AbstractedHTTPServer {
             name: name,
             path: path
         },
-            processJWT(),
-            handlerWrapper(path, handler));
+        processJWT(),
+        handlerWrapper(path, handler));
     }
 
     addPutAuth(name, path, handler, permission = null, permissionType = null) {
@@ -230,13 +235,13 @@ class AbstractedHTTPServer {
             name: name,
             path: path
         },
-            processJWT(),
-            validateJWT({
-                handler: handlerWrapper(path, handler),
-                permission: permission,
-                permissionType: permissionType,
-                agencyPortal: true
-            }));
+        processJWT(),
+        validateJWT({
+            handler: handlerWrapper(path, handler),
+            permission: permission,
+            permissionType: permissionType,
+            agencyPortal: true
+        }));
     }
 
     addDelete(name, path, handler) {
@@ -244,7 +249,7 @@ class AbstractedHTTPServer {
             name: name,
             path: path
         },
-            handlerWrapper(path, handler));
+        handlerWrapper(path, handler));
     }
 
     addDeleteAuth(name, path, handler, permission = null, permissionType = null) {
@@ -253,13 +258,13 @@ class AbstractedHTTPServer {
             name: name,
             path: path
         },
-            processJWT(),
-            validateJWT({
-                handler: handlerWrapper(path, handler),
-                permission: permission,
-                permissionType: permissionType,
-                agencyPortal: true
-            }));
+        processJWT(),
+        validateJWT({
+            handler: handlerWrapper(path, handler),
+            permission: permission,
+            permissionType: permissionType,
+            agencyPortal: true
+        }));
     }
 
     addSocket(name, path, connectHandler) {
@@ -298,12 +303,12 @@ class AbstractedHTTPServer {
             name: name,
             path: path
         },
-            processJWT(),
-            validateCognitoJWT({
-                handler: handlerWrapper(path, handler),
-                permission: permission,
-                permissionType: permissionType
-            }));
+        processJWT(),
+        validateCognitoJWT({
+            handler: handlerWrapper(path, handler),
+            permission: permission,
+            permissionType: permissionType
+        }));
     }
 
     addPostAuthAdmin(name, path, handler, permission = null, permissionType = null) {
@@ -312,12 +317,12 @@ class AbstractedHTTPServer {
             name: name,
             path: path
         },
-            processJWT(),
-            validateCognitoJWT({
-                handler: handlerWrapper(path, handler),
-                permission: permission,
-                permissionType: permissionType
-            }));
+        processJWT(),
+        validateCognitoJWT({
+            handler: handlerWrapper(path, handler),
+            permission: permission,
+            permissionType: permissionType
+        }));
     }
 
     addPutAuthAdmin(name, path, handler, permission = null, permissionType = null) {
@@ -326,12 +331,12 @@ class AbstractedHTTPServer {
             name: name,
             path: path
         },
-            processJWT(),
-            validateCognitoJWT({
-                handler: handlerWrapper(path, handler),
-                permission: permission,
-                permissionType: permissionType
-            }));
+        processJWT(),
+        validateCognitoJWT({
+            handler: handlerWrapper(path, handler),
+            permission: permission,
+            permissionType: permissionType
+        }));
     }
 
     addDeleteAuthAdmin(name, path, handler, permission = null, permissionType = null) {
@@ -340,12 +345,12 @@ class AbstractedHTTPServer {
             name: name,
             path: path
         },
-            processJWT(),
-            validateCognitoJWT({
-                handler: handlerWrapper(path, handler),
-                permission: permission,
-                permissionType: permissionType
-            }));
+        processJWT(),
+        validateCognitoJWT({
+            handler: handlerWrapper(path, handler),
+            permission: permission,
+            permissionType: permissionType
+        }));
     }
 }
 

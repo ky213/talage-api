@@ -453,7 +453,7 @@ processQuestions(questions){
 
             } else if (question.type === 'array'){
                 const arrayString = "|" + question.answer.join('|');
-                valueLine = `(${this.id}, ${question.id},NULL, ${db.escape(arrayString)}))`
+                valueLine = `(${this.id}, ${question.id},NULL, ${db.escape(arrayString)})`
             }
             else {
                 valueLine = `(${this.id}, ${question.id}, ${question.answer}, NULL)`
@@ -1077,6 +1077,33 @@ const properties = {
         "rules": null,
         "type": "number",
         "dbType": "mediumint(5) unsigned"
+    },
+    "city": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(60)"
+    },
+    "state_abbr": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(2)"
+    },
+    "zipcode": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(10)"
     },
     "created": {
         "default": null,

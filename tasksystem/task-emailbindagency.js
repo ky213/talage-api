@@ -97,13 +97,11 @@ var emailbindagency = async function(applicationId, quoteId) {
                 i.agent_login,
                 i.name as insurer_name,
                 i.logo as insurer_logo,
-                ic.description as codeDescription,
-                an.email_brand AS emailBrand
+                ic.description as codeDescription
             FROM clw_talage_applications AS a
                 INNER JOIN clw_talage_quotes AS q ON a.id = q.application
                 INNER JOIN clw_talage_agency_locations AS al ON a.agency_location = al.id
                 INNER JOIN clw_talage_agencies AS ag ON al.agency = ag.id
-                INNER JOIN clw_talage_agency_networks AS an ON ag.agency_network = an.id
                 INNER JOIN clw_talage_industry_codes AS ic  ON ic.id = a.industry_code
                 INNER JOIN clw_talage_insurers AS i  ON i.id = q.insurer
                 INNER JOIN clw_talage_businesses AS b ON b.id = a.business
@@ -127,6 +125,7 @@ var emailbindagency = async function(applicationId, quoteId) {
         if (applications && applications.length > 0) {
 
             let agencyLocationEmail = null;
+  
 
             //decrypt info...
             if (applications[0].agencyLocationEmail) {
@@ -172,7 +171,6 @@ var emailbindagency = async function(applicationId, quoteId) {
                     agencyPhone = formatPhone(applications[0].agencyLocationPhone);
                 }
 
-                //const quoteResult = strpos($quote['api_result'], '_') ? substr(ucwords($quote['api_result']), 0, strpos($quote['api_result'], '_')) : ucwords($quote['api_result']);
                 let quoteResult = stringFunctions.ucwords(applications[0].api_result);
                 if (quoteResult.indexOf('_') > 0) {
                     quoteResult = quoteResult.substring(0, quoteResult.indexOf('_'));
@@ -192,8 +190,8 @@ var emailbindagency = async function(applicationId, quoteId) {
                 message = message.replace(/{{Quote Result}}/g, quoteResult);
 
 
-                message = message.replace(/{{Brand}}/g, applications[0].emailBrand);
-                subject = subject.replace(/{{Brand}}/g, applications[0].emailBrand);
+                message = message.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
+                subject = subject.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
 
                 // Send the email
                 const keyData = {
@@ -201,7 +199,7 @@ var emailbindagency = async function(applicationId, quoteId) {
                     'agency_location': applications[0].agencyLocation
                 };
                 if (agencyLocationEmail) {
-                    const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData, applications[0].emailBrand);
+                    const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData, agencyNetwork, "Networkdefault");
                     if (emailResp === false) {
                         slack.send('#alerts', 'warning', `The system failed to inform an agency of the emailbindagency for application ${applicationId}. Please follow-up manually.`);
                     }
@@ -225,8 +223,8 @@ var emailbindagency = async function(applicationId, quoteId) {
                     subject = subject.replace(/{{Agency}}/g, applications[0].agencyName);
 
                     //log.debug("sending customer email " + __location);
-                    const brand = applications[0].emailBrand === 'wheelhouse' ? 'agency' : `${applications[0].emailBrand}-agency`
-                    const emailResp2 = await emailSvc.send(applications[0].email, subject, message, keyData, brand, applications[0].agencyId);
+                    const brand = emailContentJSON.emailBrand === 'wheelhouse' ? 'agency' : `${emailContentJSON.emailBrand}-agency`
+                    const emailResp2 = await emailSvc.send(applications[0].email, subject, message, keyData, agencyNetwork, brand, applications[0].agencyId);
                     // log.debug("emailResp = " + emailResp);
                     if (emailResp2 === false) {
                         slack.send('#alerts', 'warning', `Failed to send Policy Bind Email to Insured application #${applicationId} and quote ${quoteId}. Please follow-up manually.`);

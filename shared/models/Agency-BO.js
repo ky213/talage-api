@@ -11,10 +11,12 @@ const skipCheckRequired = false;
 module.exports = class AgencyBO{
 
     #dbTableORM = null;
-
+    doNotSnakeCase = ['additionalInfo'];
+    
 	constructor(){
         this.id = 0;
         this.#dbTableORM = new DbTableOrm(tableName);
+        this.#dbTableORM.doNotSnakeCase = this.doNotSnakeCase;
     }
 
 
@@ -255,6 +257,15 @@ const properties = {
       "type": "number",
       "dbType": "tinyint(1)"
     },
+    "additionalInfo": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "json",
+        "dbType": "json"
+     },
     "created": {
       "default": null,
       "encrypted": false,
