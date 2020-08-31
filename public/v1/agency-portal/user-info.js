@@ -26,9 +26,8 @@ async function GetUserInfo(req, res, next){
         userInfoSQL = `
             SELECT
                 au.agency_network AS agencyNetwork,
-                t.tz
+                au.timezone_name as tz
             FROM clw_talage_agency_portal_users AS au 
-                LEFT JOIN clw_talage_timezones AS t ON au.timezone = t.id
             WHERE au.id = ${parseInt(req.authentication.userID, 10)}
             LIMIT 1;
 			`;
@@ -42,10 +41,9 @@ async function GetUserInfo(req, res, next){
                     a.name,
                     a.slug,
                     a.wholesale,
-                    t.tz
+                    au.timezone_name as tz
                 FROM clw_talage_agencies AS a
                     LEFT JOIN clw_talage_agency_portal_users AS au ON au.agency =a.id
-                    LEFT JOIN clw_talage_timezones AS t ON au.timezone = t.id
                 WHERE au.id = ${parseInt(req.authentication.userID, 10)}
                 LIMIT 1;
 			`;
