@@ -1,6 +1,7 @@
 node_modules
 local.env
 *.env
+.DS_store
 
 # Coverage and Unit Test Reports #
 ####################
