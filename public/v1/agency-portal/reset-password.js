@@ -38,10 +38,10 @@ async function PostResetPassword(req, res, next){
     const sql = `
 			SELECT
 				apu.id,
-				a.agency_network AS agency_network
+                IFNULL(\`a\`.\`agency_network\`, \`an\`.\`id\`) AS \`agency_network\`
 			FROM \`#__agency_portal_users\` AS \`apu\`
 			LEFT JOIN \`#__agencies\` AS \`a\` ON \`a\`.\`id\` = \`apu\`.\`agency\`
-			
+			LEFT JOIN \`#__agency_networks\` AS \`an\` ON \`an\`.\`id\` = \`apu\`.\`agency_network\`
 			WHERE \`email_hash\` = ${db.escape(emailHash)} LIMIT 1;
 		`;
     const result = await db.query(sql).catch(function(e){
@@ -51,7 +51,7 @@ async function PostResetPassword(req, res, next){
     });
     if(error){
         return next(false);
-    }
+    } 
 
     // Make sure we found a result before doing more processing
     if(result && result.length){
