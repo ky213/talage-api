@@ -43,6 +43,8 @@ const requiredVariables = [
     'AWS_REGION',
     // S3
     'S3_BUCKET',
+    'S3_SECURE_BUCKET',
+    'IMAGE_URL',
     // Database
     'DATABASE_NAME',
     'DATABASE_HOST',
@@ -63,7 +65,6 @@ const requiredVariables = [
 const optionalVariables = [
     'AWS_USE_KEYS',
     'USE_MONGO',
-    'S3_SECURE_BUCKET',
     'MONGODB_CONNECTIONURL',
     'MONGODB_DATABASENAME',
     'MONGODB_CONNECTIONURLQUERY'
@@ -74,7 +75,7 @@ exports.load = () => {
     variables.AWS_USE_KEYS = "NO";
     //Default to no use mongo if there are not ENV settings for it.
     variables.USE_MONGO = "NO";
-    variables.S3_SECURE_BUCKET = null;
+
 
     if (fs.existsSync('local.env')){
         // Load the variables from the aws.env file if it exists

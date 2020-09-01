@@ -19,8 +19,6 @@ exports.processtask = async function (queueMessage){
         log.debug(JSON.stringify(messageBody));
         log.debug('sent at: ' + sentDatetime.toString())
         
-        //DO STUFF
-
         //if proccessed ok
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle)
         return;

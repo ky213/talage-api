@@ -48,7 +48,7 @@ async function findOne(req, res, next) {
         log.error("Location load error " + err + __location);
         error = err;
     });
-    if (error) {
+    if (error && error.message !== "not found") {
         return next(error);
     }
     // Send back a success response

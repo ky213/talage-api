@@ -112,7 +112,7 @@ async function createAgencyLocation(req, res, next) {
     req.body.id = 0;
     //correct legacy properties
     await legacyFieldUpdate(req.body)
-    log.debug("update legacy " + JSON.stringify(req.body))
+    //log.debug("update legacy " + JSON.stringify(req.body))
 
     // Initialize an agency object
     const location = new AgencyLocationModel();
@@ -372,7 +372,7 @@ async function updateAgencyLocation(req, res, next) {
 
     //correct legacy properties
     await legacyFieldUpdate(req.body)
-    log.debug("update legacy " + JSON.stringify(req.body))
+    // log.debug("update legacy " + JSON.stringify(req.body))
 
 
     // Initialize an agency object
@@ -462,14 +462,14 @@ async function legacyFieldUpdate(requestALJSON) {
             if (insurer.policy_type_info) {
                 for (let j = 0; j < policyTypeList.length; j++) {
                     const policyType = policyTypeList[j];
-                    log.debug("policyType " + policyType);
+                    //log.debug("policyType " + policyType);
                     if (insurer.policy_type_info[policyType] && insurer.policy_type_info[policyType].enabled) {
                         insurer[policyType.toLowerCase()] = insurer.policy_type_info[policyType].enabled ? 1 : 0;
                     }
                     else {
                         insurer[policyType.toLowerCase()] = 0;
                     }
-                    log.debug(`Set ${policyType.toLowerCase()} to ` + insurer[policyType.toLowerCase()])
+                    // log.debug(`Set ${policyType.toLowerCase()} to ` + insurer[policyType.toLowerCase()])
                 }
             }
             //log.debug("insurer: " + JSON.stringify(insurer))

@@ -6,6 +6,7 @@ const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 
 /**
  * AbandonQuote Task processor
@@ -134,14 +135,12 @@ var processOptOutEmail = async function(applicationId) {
             c.email,
             c.fname,
             c.lname,
-            c.phone,
-            an.email_brand AS emailBrand
+            c.phone
         FROM clw_talage_applications AS a
             LEFT JOIN clw_talage_businesses AS b ON b.id = a.business
             LEFT JOIN clw_talage_contacts AS c ON a.business = c.business
             LEFT JOIN clw_talage_agency_locations AS al ON a.agency_location = al.id
             LEFT JOIN clw_talage_agencies AS ag ON al.agency = ag.id
-            LEFT JOIN clw_talage_agency_networks AS an ON ag.agency_network = an.id
         WHERE 
         a.id =  ${applicationId}
     `;
@@ -157,7 +156,6 @@ var processOptOutEmail = async function(applicationId) {
     }
 
     if (applications && applications.length > 0) {
-
 
         let agencyLocationEmail = null;
 
@@ -202,18 +200,32 @@ var processOptOutEmail = async function(applicationId) {
         if (applications[0].phone) {
             phone = formatPhone(applications[0].phone);
         }
+        //Get AgencyNetworkBO settings
+        let error = null;
+        const agencyNetworkBO = new AgencyNetworkBO();
+        const agencyNetworkEnvSettings = await agencyNetworkBO.getEnvSettingbyId(applications[0].agency_network).catch(function(err) {
+            log.error(`Unable to get env settings for OptOut email. agency_network: ${applications[0].agency_network}.  error: ${err}` + __location);
+            error = true;
+        });
+        if (error) {
+            return false;
+        }
+        if (!agencyNetworkEnvSettings || !agencyNetworkEnvSettings.PORTAL_URL) {
+            log.error(`Unable to get env settings for  OptOut email. agency_network: ${applications[0].agency_network}.  missing additionalInfo ` + __location);
+            return false;
+        }
 
         //  // Perform content message.replacements
-        message = message.replace(/{{Brand}}/g, stringFunctions.ucwords(applications[0].emailBrand));
+        message = message.replace(/{{Brand}}/g, stringFunctions.ucwords(agencyNetworkEnvSettings.emailBrand));
         message = message.replace(/{{BusinessName}}/g, applications[0].businessName);
         message = message.replace(/{{Contact Email}}/g, applications[0].email);
         message = message.replace(/{{Contact Name}}/g, fullName);
         message = message.replace(/{{Contact Phone}}/g, phone);
-        message = message.replace(/{{BrandName}}/g, stringFunctions.ucwords(applications[0].emailBrand));
+        message = message.replace(/{{BrandName}}/g, stringFunctions.ucwords(agencyNetworkEnvSettings.emailBrand));
 
         //message = message.replace(/{{Industry}}/g, applications[0].industryCode);
 
-        subject = subject.replace(/{{BrandName}}/g, stringFunctions.ucwords(applications[0].emailBrand));
+        subject = subject.replace(/{{BrandName}}/g, stringFunctions.ucwords(agencyNetworkEnvSettings.emailBrand));
 
         // Send the email
         const keyData2 = {
@@ -221,7 +233,7 @@ var processOptOutEmail = async function(applicationId) {
             'agency_location': applications[0].agencyLocation
         };
         if (agencyLocationEmail) {
-            const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData2, applications[0].emailBrand);
+            const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData2, applications[0].agency_network, "");
             if (emailResp === false) {
                 slack.send('#alerts', 'warning', `The system failed to inform an agency of the Opt Out Email for application ${applicationId}. Please follow-up manually.`);
             }

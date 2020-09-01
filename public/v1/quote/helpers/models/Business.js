@@ -309,42 +309,6 @@ module.exports = class Business {
     validate() {
         return new Promise(async(fulfill, reject) => {
 
-            /**
-			 * Zip Code (required)
-			 * - Must be a string composed of 5 numeric digits
-			 * - Must exist in our database
-			 */
-
-            // // TODO Consistent return ERROR type - currently mixed
-            // if (this.zip) {
-            //     // Check formatting
-            //     if (!validator.isZip(this.zip)) {
-            //         reject(serverHelper.requestError('Invalid formatting for property: zip. Expected 5 digit format'));
-            //         return;
-            //     }
-
-            //     // Make sure we have a primary state
-            //     const rows = await db.query(`SELECT territory FROM clw_talage_zip_codes WHERE zip = ${this.zip} LIMIT 1;`).catch(function(db_error) {
-            //         log.error(db_error + __location);
-            //         const error = new Error(db_error);
-            //         error.code = 500;
-            //         // TODO Consistent return ERROR type - currently mixed
-            //         reject(error);
-
-            //     });
-
-            //     if (!rows || rows.length !== 1 || !Object.prototype.hasOwnProperty.call(rows[0], 'territory')) {
-            //         reject(serverHelper.requestError('The zip code you entered is not valid'));
-            //         return;
-            //     }
-
-            //     this.primary_territory = rows[0].territory;
-
-            // }
-            // else {
-            //     reject(serverHelper.requestError('Missing required field: zip'));
-            //     return;
-            // }
 
             /**
 			 * Association (optional)

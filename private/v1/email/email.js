@@ -22,26 +22,35 @@ const validator = global.requireShared('./helpers/validator.js');
  */
 async function PostEmail(req, res, next){
 
-	// Check for data
-	if(!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0){
-		log.warn('Email Service PostEmail: No data was received' + __location);
-		return next(serverHelper.requestError('No data was received'));
-	}
+    // Check for data
+    if(!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0){
+        log.warn('Email Service PostEmail: No data was received' + __location);
+        return next(serverHelper.requestError('No data was received'));
+    }
 
-	// Define systems with their sending email address - Only to Check inputs
-	const systems = {
-		'agency': 'no-reply@insurancewheelhouse.com',
-		'digalent': 'no-reply@digalent.com',
-		'digalent-agency': 'no-reply@digalent.com',
-		'talage': 'info@talageins.com',
-		'wheelhouse': 'info@insurancewheelhouse.com'
-	};
+    // Define systems with their sending email address - Only to Check inputs
+    const systems = {
+        'agency': 'no-reply@insurancewheelhouse.com',
+        'digalent': 'no-reply@digalent.com',
+        'digalent-agency': 'no-reply@digalent.com',
+        'talage': 'info@talageins.com',
+        'wheelhouse': 'info@insurancewheelhouse.com'
+    };
+
+    const agencyNetworkIdMap = {
+        'agency': 1,
+        'digalent': 2,
+        'digalent-agency': 2,
+        'talage': 1,
+        'wheelhouse': 1
+    };
+
 
     let systemBrand = '';
     // Validate the brand parameter
     if(!Object.prototype.hasOwnProperty.call(req.body, 'brand') || typeof req.body.brand !== 'string' || !Object.keys(systems).includes(req.body.brand.toLowerCase())){
         // from  - backwards compatibility
-		if(!Object.prototype.hasOwnProperty.call(req.body, 'from') || typeof req.body.from !== 'string' || !Object.keys(systems).includes(req.body.from.toLowerCase())){
+        if(!Object.prototype.hasOwnProperty.call(req.body, 'from') || typeof req.body.from !== 'string' || !Object.keys(systems).includes(req.body.from.toLowerCase())){
             const message = `Invalid 'brand' parameter. Must be one of: ${Object.keys(systems).join(', ')}`;
             log.warn("Email Service PostEmail: " + message + __location);
             return next(serverHelper.requestError(message));
@@ -53,64 +62,65 @@ async function PostEmail(req, res, next){
     else {
         systemBrand = req.body.brand.toLowerCase();
     }
-    
 
-	// Validate the html parameter
-	if(!Object.prototype.hasOwnProperty.call(req.body, 'html') || typeof req.body.html !== 'string'){
-		const message = `Invalid 'html' parameter. Must be a string.`;
-		log.warn("Email Service PostEmail: " + message + __location);
-		return next(serverHelper.requestError(message));
-	}
+    const agencyNetworkId = agencyNetworkIdMap[systemBrand];
 
-	// If this is an agency, make sure we have an agency ID in the payload
-	if(systemBrand === 'agency' || systemBrand === 'digalent-agency'){
-		if(!Object.prototype.hasOwnProperty.call(req.body, 'agency') || !/^\d*$/.test(req.body.agency)){
-			const message = `You must specify an agency when sending from '${systemBrand}'`;
-			log.warn("Email Service PostEmail: " + message + __location);
-			return next(serverHelper.requestError(message));
-		}
+    // Validate the html parameter
+    if(!Object.prototype.hasOwnProperty.call(req.body, 'html') || typeof req.body.html !== 'string'){
+        const message = `Invalid 'html' parameter. Must be a string.`;
+        log.warn("Email Service PostEmail: " + message + __location);
+        return next(serverHelper.requestError(message));
+    }
 
-		req.body.agency = parseInt(req.body.agency, 10);
+    // If this is an agency, make sure we have an agency ID in the payload
+    if(systemBrand === 'agency' || systemBrand === 'digalent-agency'){
+        if(!Object.prototype.hasOwnProperty.call(req.body, 'agency') || !/^\d*$/.test(req.body.agency)){
+            const message = `You must specify an agency when sending from '${systemBrand}'`;
+            log.warn("Email Service PostEmail: " + message + __location);
+            return next(serverHelper.requestError(message));
+        }
 
-		// Validate the agency
-		if(!await validator.agency(req.body.agency)){
-			const message = 'The agency specified is not valid';
-			log.warn("Email Service PostEmail: " + message + __location);
-			return next(serverHelper.requestError(message));
-		}
-	}
+        req.body.agency = parseInt(req.body.agency, 10);
 
-	if(!Object.prototype.hasOwnProperty.call(req.body, 'to') || typeof req.body.to !== 'string'){
-		const message = `Invalid 'to' parameter. `;
-		log.warn("Email Service PostEmail: " + message + __location);
-		return next(serverHelper.requestError(message));
-	}
+        // Validate the agency
+        if(!await validator.agency(req.body.agency)){
+            const message = 'The agency specified is not valid';
+            log.warn("Email Service PostEmail: " + message + __location);
+            return next(serverHelper.requestError(message));
+        }
+    }
 
-	if(!Object.prototype.hasOwnProperty.call(req.body, 'subject') || typeof req.body.subject !== 'string'){
-		const message = `Invalid 'subject' parameter. `;
-		log.warn("Email Service PostEmail: " + message + __location);
-		return next(serverHelper.requestError(message));
-	}
+    if(!Object.prototype.hasOwnProperty.call(req.body, 'to') || typeof req.body.to !== 'string'){
+        const message = `Invalid 'to' parameter. `;
+        log.warn("Email Service PostEmail: " + message + __location);
+        return next(serverHelper.requestError(message));
+    }
+
+    if(!Object.prototype.hasOwnProperty.call(req.body, 'subject') || typeof req.body.subject !== 'string'){
+        const message = `Invalid 'subject' parameter. `;
+        log.warn("Email Service PostEmail: " + message + __location);
+        return next(serverHelper.requestError(message));
+    }
 
 
-	//call email service
-	const respSendEmail = await emailSvc.send(req.body.to, req.body.subject, req.body.html, req.body.keys, systemBrand, req.body.agency, req.body.attachments).catch(function(err){
-		log.error("Send email error: " + err + __location);
-		return res.send(serverHelper.internalError("SendEmail Error"));
-	});
-	if(respSendEmail === false){
-		log.error("Send email error response was false: " + __location);
-		return res.send(serverHelper.internalError("SendEmail Error"));
-	}
-	res.send(200, {
-		'message': 'Email sent',
-		'status': 'success'
-	});
-	return next();
+    //call email service
+    const respSendEmail = await emailSvc.send(req.body.to, req.body.subject, req.body.html, req.body.keys, agencyNetworkId, systemBrand, req.body.agency, req.body.attachments).catch(function(err){
+        log.error("Send email error: " + err + __location);
+        return res.send(serverHelper.internalError("SendEmail Error"));
+    });
+    if(respSendEmail === false){
+        log.error("Send email error response was false: " + __location);
+        return res.send(serverHelper.internalError("SendEmail Error"));
+    }
+    res.send(200, {
+        'message': 'Email sent',
+        'status': 'success'
+    });
+    return next();
 }
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-	server.addPost('Post Email', `${basePath}/email`, PostEmail);
-	server.addPost('Post Email (depr)', `${basePath}/`, PostEmail);
+    server.addPost('Post Email', `${basePath}/email`, PostEmail);
+    server.addPost('Post Email (depr)', `${basePath}/`, PostEmail);
 };

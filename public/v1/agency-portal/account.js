@@ -3,6 +3,7 @@
 const crypt = global.requireShared('./services/crypt.js');
 const validator = global.requireShared('./helpers/validator.js');
 const serverHelper = require('../../../server.js');
+const {SharedIniFileCredentials} = require('aws-sdk');
 
 /**
  * Responds to GET requests for account information
@@ -64,6 +65,9 @@ async function put_account(req, res, next){
     let email = '';
     let password = '';
     let timezone = 0;
+    let timezone_name = null;
+
+    let error = null;
 
     // If an email was provided, validate it and encrypt
     if(Object.prototype.hasOwnProperty.call(req.body, 'email')){
@@ -91,7 +95,6 @@ async function put_account(req, res, next){
 
     if(Object.prototype.hasOwnProperty.call(req.body, 'timezone')){
         if(validator.timezone(req.body.timezone)){
-            // Hash the password
             timezone = req.body.timezone;
         }
         else{
@@ -100,8 +103,35 @@ async function put_account(req, res, next){
         }
     }
 
+    //Todo Add validator for TimeZone name
+    if(Object.prototype.hasOwnProperty.call(req.body, 'timezone_name')){
+        timezone_name = req.body.timezone_name;
+    }
+    else if(Object.prototype.hasOwnProperty.call(req.body, 'timezoneName')){
+        timezone_name = req.body.timezoneName;
+    }
+    else if(timezone > 0){
+        //look up timezone from db and get
+        const sqlTz = `select * from clw_talage_timezones where id ${db.escape(timezone)}`
+        const results = await db.query(sqlTz).catch(function(err){
+            log.error(err.message + __location);
+            error = err;
+        });
+        if(error){
+            return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+        }
+        if(results && results.length > 0){
+            timezone_name = results[0].tz;
+        }
+        else {
+            return next(serverHelper.requestError('Timezone ID could not found'));
+        }
+
+
+    }
+
     // Do we have something to update?
-    if(!email && !password && !timezone){
+    if(!email && !password && !timezone && !timezone_name){
         log.warn('There is nothing to update');
         return next(serverHelper.requestError('There is nothing to update. Please check the documentation.'));
     }
@@ -118,13 +148,20 @@ async function put_account(req, res, next){
     if(timezone){
         set_statements.push(`\`timezone\`=${db.escape(timezone)}`);
     }
+    if(timezone_name){
+        set_statements.push(`\`timezone_name\`=${db.escape(timezone_name)}`);
+    }
 
     // Create and run the UPDATE query
+
     const sql = `UPDATE \`#__agency_portal_users\` SET ${set_statements.join(', ')} WHERE id = ${db.escape(req.authentication.userID)} LIMIT 1;`;
     await db.query(sql).catch(function(err){
-        log.error(err.message);
-        return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+        log.error(err.message + __location);
+        error = err;
     });
+    if(error){
+        return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+    }
 
     // Everything went okay, send a success response
     res.send(200, 'Account Updated');
