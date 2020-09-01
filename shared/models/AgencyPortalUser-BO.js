@@ -123,6 +123,11 @@ module.exports = class AgencyPortalUserBO{
                         sql += ` agency_network = ${db.escape(queryJSON.agencynetworkid)} `
                         hasWhere = true;
                     }
+                    if(queryJSON.agency_network){
+                        sql += hasWhere ? " AND " : " WHERE ";
+                        sql += ` agency_network = ${db.escape(queryJSON.agency_network)} `
+                        hasWhere = true;
+                    }
                     if(queryJSON.agencyid){
                         sql += hasWhere ? " AND " : " WHERE ";
                         sql += ` agency = ${db.escape(queryJSON.agencyid)} `
@@ -184,6 +189,9 @@ module.exports = class AgencyPortalUserBO{
             
         });
     }
+
+
+    
 
 
     getById(id) {
@@ -286,6 +294,45 @@ module.exports = class AgencyPortalUserBO{
         await this.#dbTableORM.load(inputJSON, skipCheckRequired);
         this.updateProperty();
         return true;
+    }
+
+
+
+    getGroupList() {
+        return new Promise(async (resolve, reject) => {
+                let rejected = false;
+                // Create the update query
+                let sql = `
+                    select *  from clw_talage_agency_portal_user_groups  
+                `;
+
+                // Run the query
+                const result = await db.query(sql).catch(function (error) {
+                    // Check if this was
+                    
+                    rejected = true;
+                    log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
+                    reject(error);
+                });
+                if (rejected) {
+                    return;
+                }
+                if(result && result.length > 0 ){
+                    for(let i=0; i < result.length; i++ ){
+                        if(result[i].permissions){
+                            result[i].permissions = JSON.parse(result[i].permissions)
+                        }
+                         
+                     }
+                    resolve(result);
+                }
+                else {
+                    //Search so no hits ok.
+                    resolve([]);
+                }
+               
+            
+        });
     }
 }
 
