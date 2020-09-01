@@ -107,7 +107,7 @@ async function getReports(req, res, next) {
     const queries = {
         funnel: `
         SELECT
-        COUNT(a.id)  AS started,
+        COUNT(DISTINCT a.id)  AS started,
                 SUM(IF(a.last_step >= 8  AND a.state > 12, 1, 0)) AS completed,
                 SUM((SELECT 1 FROM clw_talage_quotes AS q WHERE q.application = a.id AND a.last_step >= 8 AND a.state > 12 AND (q.bound = 1 OR q.status = 'bind_requested' OR q.api_result = 'quoted' OR q.api_result = 'referred_with_price') LIMIT 1)) AS quoted,
                 SUM((SELECT 1 FROM clw_talage_quotes AS q WHERE q.application = a.id AND a.last_step >= 8 AND a.state > 12 AND (q.bound = 1 OR q.status = 'bind_requested') LIMIT 1)) AS bound
@@ -115,7 +115,7 @@ async function getReports(req, res, next) {
             INNER JOIN clw_talage_agencies AS ag ON a.agency = ag.id
 				WHERE
 					${where} AND
-					${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate}
+                    ${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate}
 				LIMIT 1;`,
 
         geography: `
@@ -135,20 +135,20 @@ async function getReports(req, res, next) {
 				SELECT IF(COUNT(${db.quoteName('a.id')}), 1, 0) AS ${db.quoteName('hasApplications')}
 				FROM ${db.quoteName('#__applications', 'a')}
 				INNER JOIN \`#__agencies\` AS \`ag\` ON \`a\`.\`agency\` = \`ag\`.\`id\`
-				WHERE ${where}
+                WHERE ${where}
 				LIMIT 1;
 			`,
         industries: `
 				SELECT
 					${db.quoteName('icc.name')},
 					COUNT(${db.quoteName('icc.name')}) AS ${db.quoteName('count')}
-				FROM ${db.quoteName('#__industry_code_categories', 'icc')}
-				LEFT JOIN ${db.quoteName('#__industry_codes', 'ic')} ON ${db.quoteName('ic.category')} = ${db.quoteName('icc.id')}
-				LEFT JOIN ${db.quoteName('#__applications', 'a')} ON ${db.quoteName('a.industry_code')} = ${db.quoteName('ic.id')}
-				INNER JOIN \`#__agencies\` AS \`ag\` ON \`a\`.\`agency\` = \`ag\`.\`id\`
+                FROM ${db.quoteName('#__industry_code_categories', 'icc')}
+                INNER JOIN ${db.quoteName('#__industry_codes', 'ic')} ON ${db.quoteName('ic.category')} = ${db.quoteName('icc.id')}
+                INNER JOIN ${db.quoteName('#__applications', 'a')} ON ${db.quoteName('a.industry_code')} = ${db.quoteName('ic.id')}
+                INNER JOIN \`#__agencies\` AS \`ag\` ON \`a\`.\`agency\` = \`ag\`.\`id\`
 				WHERE
 					${where} AND
-					${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate}
+                    ${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate}
 				GROUP BY ${db.quoteName('icc.name')} ORDER BY ${db.quoteName('count')} DESC;
 			`,
 
@@ -157,7 +157,7 @@ async function getReports(req, res, next) {
 				SELECT ${db.quoteName('a.created')} AS ${db.quoteName('minDate')}
 				FROM ${db.quoteName('#__applications', 'a')}
 				INNER JOIN \`#__agencies\` AS \`ag\` ON \`a\`.\`agency\` = \`ag\`.\`id\`
-				WHERE ${where}
+                WHERE ${where}
 				ORDER BY ${db.quoteName('a.created')} ASC
 				LIMIT 1;
 			`,
@@ -169,7 +169,7 @@ async function getReports(req, res, next) {
 			INNER JOIN \`#__agencies\` AS \`ag\` ON \`a\`.\`agency\` = \`ag\`.\`id\`
 			WHERE
                 ${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate} AND
-				${where}
+                ${where}
 			GROUP BY YEAR(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')), MONTH(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')), MONTHNAME(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}'))
 			ORDER BY YEAR(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')), MONTH(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')), MONTHNAME(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}'));
 			`,
@@ -187,8 +187,8 @@ async function getReports(req, res, next) {
 				INNER JOIN \`#__agencies\` AS \`ag\` ON \`a\`.\`agency\` = \`ag\`.\`id\`
 				WHERE
                     ${where} AND
-                    a.last_step > 8 AND   a.state > 12 AND
-					${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate} AND
+                    a.last_step > 8 AND   a.state > 12 
+					AND ${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate} AND
                     (q.bound = 1 OR q.status = 'bind_requested' OR q.api_result = 'quoted' OR q.api_result = 'referred_with_price')
 				LIMIT 1;
 			`
