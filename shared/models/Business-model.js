@@ -543,6 +543,33 @@ const properties = {
       "type": "number",
       "dbType": "mediumint(5) unsigned"
     },
+    "mailing_city": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(60)"
+    },
+    "mailing_state_abbr": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(2)"
+    },
+    "mailing_zipcode": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(10)"
+    },
     "name": {
       "default": "",
       "encrypted": true,

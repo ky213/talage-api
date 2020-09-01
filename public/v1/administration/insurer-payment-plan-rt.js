@@ -52,7 +52,7 @@ async function findOne(req, res, next) {
         log.error("insurerPaymentPlanBO load error " + err + __location);
         error = err;
     });
-    if (error) {
+    if (error && error.message !== "not found") {
         return next(error);
     }
     // Send back a success response
@@ -108,18 +108,38 @@ async function update(req, res, next) {
 
 }
 
+async function deleteObject(req, res, next) {
+    const id = stringFunctions.santizeNumber(req.params.id, true);
+    if (!id) {
+        return next(new Error("bad parameter"));
+    }
+    let error = null;
+    const insurerPaymentPlanBO = new InsurerPaymentPlanBO();
+    await insurerPaymentPlanBO.deleteById(id).catch(function(err) {
+        log.error("Location load error " + err + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+    res.send(200, {"success": true});
+    return next();
+
+}
+
 exports.registerEndpoint = (server, basePath) => {
 
     server.addGetAuthAdmin('Get InsurerPaymentPlan list', `${basePath}/insurer-payment-plan`, findAll, 'administration', 'all');
     server.addGetAuthAdmin('Get InsurerPaymentPlan Object', `${basePath}/insurer-payment-plan/:id`, findOne, 'administration', 'all');
     server.addPostAuthAdmin('Post InsurerPaymentPlan Object', `${basePath}/insurer-payment-plan`, add, 'administration', 'all');
     server.addPutAuthAdmin('Put InsurerPaymentPlan Object', `${basePath}/insurer-payment-plan/:id`, update, 'administration', 'all');
-
+    server.addDeleteAuthAdmin('Delete InsurerPaymentPlan  Object', `${basePath}/insurer-payment-plan/:id`, deleteObject, 'administration', 'all');
 
     // server.addGet('Get InsurerPaymentPlan list', `${basePath}/insurer-payment-plan`, findAll, 'administration', 'all');
     // server.addGet('Get InsurerPaymentPlan Object', `${basePath}/insurer-payment-plan/:id`, findOne, 'administration', 'all');
     // server.addPost('Post InsurerPaymentPlan Object', `${basePath}/insurer-payment-plan`, add, 'administration', 'all');
     // server.addPut('Put InsurerPaymentPlan Object', `${basePath}/insurer-payment-plan/:id`, update, 'administration', 'all');
+    // server.addDelete('Delete InsurerPaymentPlan  Object', `${basePath}/insurer-payment-plan/:id`, deleteObject, 'administration', 'all');
 
 
 };

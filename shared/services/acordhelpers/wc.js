@@ -44,9 +44,9 @@ exports.createWC = async function(application_id, insurer_id){
 					app.wc_limits AS limits,
 					agency.name AS agencyName,
 					al.address AS mailing_address,
-					al.zip AS mailing_zip,
-					LOWER(agent_zip.city) AS agencyCity,
-					agent_zip.territory AS agencyTerritory,
+                    al.zip AS mailing_zip,
+                    al.city AS agencyCity,
+                    al.state_abbr as agencyTerritory,
 					al.fname AS producerFName,
 					al.lname AS producerLName,
 					al.phone AS agencyPhone,
@@ -69,7 +69,6 @@ exports.createWC = async function(application_id, insurer_id){
 					LEFT JOIN clw_talage_addresses AS a ON a.business = b.id
 					LEFT JOIN clw_talage_agencies AS agency ON agency.id = IFNULL(app.agency, 1)
 					LEFT JOIN clw_talage_agency_locations AS al ON al.agency = agency.id AND al.primary = 1
-					LEFT JOIN clw_talage_zip_codes AS agent_zip ON al.zip = agent_zip.zip
 					LEFT JOIN clw_talage_zip_codes AS insured_zip ON a.zip = insured_zip.zip
 					LEFT JOIN clw_talage_contacts AS c ON c.business = b.id
 					LEFT JOIN clw_talage_industry_codes AS i_code ON b.industry_code = i_code.id

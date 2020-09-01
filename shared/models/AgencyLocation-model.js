@@ -140,7 +140,34 @@ const properties = {
 		'saveHandler': 'associateTerritories',
 		'type': 'object'
 
-	},
+    },
+    "city": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(60)"
+    },
+    "state_abbr": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(2)"
+    },
+    "zipcode": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(10)"
+    },
 	'zip': {
 		'default': null,
 		'encrypted': false,
