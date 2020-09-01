@@ -144,7 +144,7 @@ module.exports = class AgencyLocationBO{
             let rejected = false;
                 let responseLandingPageJSON = {};
                 let reject  = false;
-                const sql = `select al.id, al.address, al.city, al.ca_abbr, al.zipcode 
+                const sql = `select al.id, al.address, al.city, al.state_abbr, al.zipcode 
                     from clw_talage_agency_locations al
                     where agency = ${agencyId}`
                 const result = await db.query(sql).catch(function (error) {
