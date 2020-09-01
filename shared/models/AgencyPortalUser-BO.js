@@ -123,6 +123,11 @@ module.exports = class AgencyPortalUserBO{
                         sql += ` agency_network = ${db.escape(queryJSON.agencynetworkid)} `
                         hasWhere = true;
                     }
+                    if(queryJSON.agency_network){
+                        sql += hasWhere ? " AND " : " WHERE ";
+                        sql += ` agency_network = ${db.escape(queryJSON.agency_network)} `
+                        hasWhere = true;
+                    }
                     if(queryJSON.agencyid){
                         sql += hasWhere ? " AND " : " WHERE ";
                         sql += ` agency = ${db.escape(queryJSON.agencyid)} `
