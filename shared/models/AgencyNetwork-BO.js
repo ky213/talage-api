@@ -440,7 +440,7 @@ module.exports = class AgencyNetworkBO{
             return envSetting;
         }
         else {
-            log.error(`AgencyNetwork ${agencyNetworkId} does not have additional ` + __location);
+            log.error(`AgencyNetwork ${agencyNetworkId} does not have additionalInfo ` + __location);
             return null;
         }
     }

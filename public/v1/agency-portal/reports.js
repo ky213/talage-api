@@ -88,7 +88,7 @@ async function getReports(req, res, next) {
     const agencyNetwork = parseInt(req.authentication.agencyNetwork, 10);
 
     // Begin by only allowing applications that are not deleted from agencies that are also not deleted
-    let where = `${db.quoteName('a.state')} > 0 AND ${db.quoteName('ag.state')} > 0`;
+    let where = `${db.quoteName('a.state')} > 0 AND ${db.quoteName('ag.state')} > 0 `;
 
     // If this is AF Group, filter out agency 42
     if(agencyNetwork === 2){
@@ -106,50 +106,49 @@ async function getReports(req, res, next) {
     // List of accepted parameters to query from the database
     const queries = {
         funnel: `
-				SELECT
-					COUNT(\`a\`.\`id\`)  AS \`started\`,
-					SUM(IF(\`a\`.\`last_step\` >= 8, 1, 0)) AS \`completed\`,
-					SUM((SELECT 1 FROM \`clw_talage_quotes\` AS \`q\` WHERE \`q\`.\`application\` = \`a\`.\`id\` AND (\`q\`.\`bound\` = 1 OR \`q\`.\`status\` = 'bind_requested' OR \`q\`.\`api_result\` = 'quoted' OR \`q\`.\`api_result\` = 'referred_with_price') LIMIT 1)) AS \`quoted\`,
-					SUM((SELECT 1 FROM \`clw_talage_quotes\` AS \`q\` WHERE \`q\`.\`application\` = \`a\`.\`id\` AND (\`q\`.\`bound\` = 1 OR \`q\`.\`status\` = 'bind_requested') LIMIT 1)) AS \`bound\`
-				FROM \`#__applications\` AS \`a\`
-				INNER JOIN \`#__agencies\` AS \`ag\` ON \`a\`.\`agency\` = \`ag\`.\`id\`
+        SELECT
+        COUNT(DISTINCT a.id)  AS started,
+                SUM(IF(a.last_step >= 8  AND a.state > 12, 1, 0)) AS completed,
+                SUM((SELECT 1 FROM clw_talage_quotes AS q WHERE q.application = a.id AND a.last_step >= 8 AND a.state > 12 AND (q.bound = 1 OR q.status = 'bind_requested' OR q.api_result = 'quoted' OR q.api_result = 'referred_with_price') LIMIT 1)) AS quoted,
+                SUM((SELECT 1 FROM clw_talage_quotes AS q WHERE q.application = a.id AND a.last_step >= 8 AND a.state > 12 AND (q.bound = 1 OR q.status = 'bind_requested') LIMIT 1)) AS bound
+            FROM clw_talage_applications AS a
+            INNER JOIN clw_talage_agencies AS ag ON a.agency = ag.id
 				WHERE
 					${where} AND
-					${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate}
+                    ${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate}
 				LIMIT 1;`,
 
         geography: `
 				SELECT
-					${db.quoteName('t.name')},
-					COUNT(${db.quoteName('t.name')}) AS ${db.quoteName('count')}
-				FROM ${db.quoteName('#__zip_codes', 'z')}
-				LEFT JOIN ${db.quoteName('#__territories', 't')} ON ${db.quoteName('z.territory')} = ${db.quoteName('t.abbr')}
-				LEFT JOIN ${db.quoteName('#__applications', 'a')} ON ${db.quoteName('a.zip')} = ${db.quoteName('z.zip')}
-				INNER JOIN \`#__agencies\` AS \`ag\` ON \`a\`.\`agency\` = \`ag\`.\`id\`
+					t.name,
+					COUNT(a.id) AS count
+				FROM clw_talage_applications as a 
+                INNER JOIN clw_talage_agencies AS ag ON a.agency = ag.id
+                INNER JOIN clw_talage_territories as t ON t.abbr = a.state_abbr
 				WHERE
 					${where} AND
-					${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate}
-				GROUP BY ${db.quoteName('z.territory')};
+					a.created BETWEEN ${startDate} AND ${endDate}
+				GROUP BY t.name;
 			`,
         // Get total number of applications
         hasApplications: `
 				SELECT IF(COUNT(${db.quoteName('a.id')}), 1, 0) AS ${db.quoteName('hasApplications')}
 				FROM ${db.quoteName('#__applications', 'a')}
 				INNER JOIN \`#__agencies\` AS \`ag\` ON \`a\`.\`agency\` = \`ag\`.\`id\`
-				WHERE ${where}
+                WHERE ${where}
 				LIMIT 1;
 			`,
         industries: `
 				SELECT
 					${db.quoteName('icc.name')},
 					COUNT(${db.quoteName('icc.name')}) AS ${db.quoteName('count')}
-				FROM ${db.quoteName('#__industry_code_categories', 'icc')}
-				LEFT JOIN ${db.quoteName('#__industry_codes', 'ic')} ON ${db.quoteName('ic.category')} = ${db.quoteName('icc.id')}
-				LEFT JOIN ${db.quoteName('#__applications', 'a')} ON ${db.quoteName('a.industry_code')} = ${db.quoteName('ic.id')}
-				INNER JOIN \`#__agencies\` AS \`ag\` ON \`a\`.\`agency\` = \`ag\`.\`id\`
+                FROM ${db.quoteName('#__industry_code_categories', 'icc')}
+                INNER JOIN ${db.quoteName('#__industry_codes', 'ic')} ON ${db.quoteName('ic.category')} = ${db.quoteName('icc.id')}
+                INNER JOIN ${db.quoteName('#__applications', 'a')} ON ${db.quoteName('a.industry_code')} = ${db.quoteName('ic.id')}
+                INNER JOIN \`#__agencies\` AS \`ag\` ON \`a\`.\`agency\` = \`ag\`.\`id\`
 				WHERE
 					${where} AND
-					${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate}
+                    ${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate}
 				GROUP BY ${db.quoteName('icc.name')} ORDER BY ${db.quoteName('count')} DESC;
 			`,
 
@@ -158,7 +157,7 @@ async function getReports(req, res, next) {
 				SELECT ${db.quoteName('a.created')} AS ${db.quoteName('minDate')}
 				FROM ${db.quoteName('#__applications', 'a')}
 				INNER JOIN \`#__agencies\` AS \`ag\` ON \`a\`.\`agency\` = \`ag\`.\`id\`
-				WHERE ${where}
+                WHERE ${where}
 				ORDER BY ${db.quoteName('a.created')} ASC
 				LIMIT 1;
 			`,
@@ -170,7 +169,7 @@ async function getReports(req, res, next) {
 			INNER JOIN \`#__agencies\` AS \`ag\` ON \`a\`.\`agency\` = \`ag\`.\`id\`
 			WHERE
                 ${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate} AND
-				${where}
+                ${where}
 			GROUP BY YEAR(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')), MONTH(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')), MONTHNAME(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}'))
 			ORDER BY YEAR(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')), MONTH(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')), MONTHNAME(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}'));
 			`,
@@ -188,12 +187,13 @@ async function getReports(req, res, next) {
 				INNER JOIN \`#__agencies\` AS \`ag\` ON \`a\`.\`agency\` = \`ag\`.\`id\`
 				WHERE
                     ${where} AND
-                    a.last_step > 8 AND   a.state > 12 AND
-					${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate} AND
-					${db.quoteName('q.amount')} IS NOT NULL
+                    a.last_step > 8 AND   a.state > 12 
+					AND ${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate} AND
+                    (q.bound = 1 OR q.status = 'bind_requested' OR q.api_result = 'quoted' OR q.api_result = 'referred_with_price')
 				LIMIT 1;
 			`
     };
+    //${db.quoteName('q.amount')} IS NOT NULL
     //log.debug(queries['monthlyTrends']);
     // Define a list of queries to be executed based on the request type
     const selectedQueries = initialRequest ? ['minDate', 'hasApplications'] : ['funnel',
