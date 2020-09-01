@@ -61,7 +61,7 @@ const BTIS_DEDUCTIBLE_IDS = {
 
 /*
  * As of 08/2020
- * Specially handled questions. BTIS requires subcontractor costs and whether or not the applicant performs new residential work
+ * Specially handled questions. BTIS requires whether or not the applicant performs new residential work
  * The question ids in our system are set below in case they change in the future
  */
 const NEW_RESIDENTIAL_WORK = 948;
@@ -73,8 +73,7 @@ const NEW_RESIDENTIAL_WORK = 948;
  * AUTH_URL: None
  * LIMITS_URL:  STATE_NAME - to be replaced with business primary territory
  * 				EFFECTIVE_DATE - to be replaced with policy effective date in YYYY-MM-DD format
- * VALIDATE_URL: None
- * SUBMIT_URL: None
+ * QUOTE_URL: None
  */
 const AUTH_URL = '/v1/authentication/connect/token';
 const LIMITS_URL = '/GL/Common/v1/gateway/api/lookup/dropdowns/limits/state/STATE_NAME/effective/EFFECTIVE_DATE/';
@@ -117,7 +116,7 @@ module.exports = class BtisGL extends Integration {
             }
             catch(error){
                 log.error('Failed to retrieve auth from BTIS: ' + error.message + __location);
-                fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+                fulfill(this.return_result('error'));
                 return;
             }
 
@@ -128,7 +127,7 @@ module.exports = class BtisGL extends Integration {
                     errorMessage += ': ' + token_response.message;
                 }
                 log.error(errorMessage + __location);
-                fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+                fulfill(this.return_result('error'));
                 return;
             }
 
@@ -166,7 +165,6 @@ module.exports = class BtisGL extends Integration {
 
             let carrierLimitsList = null;
             let btisLimitsId = null;
-            let bestLimit = null;
 
             try{
                 carrierLimitsList = await this.send_json_request(host, limitsURL, null, token);
@@ -182,7 +180,7 @@ module.exports = class BtisGL extends Integration {
                 carrierLimitsList = carrierLimitsList.filter(limit => limit.carrier === 'victory')
 
                 // Get the limit that most closely fits the user's request that the carrier supports
-                bestLimit = this.getBestLimits(carrierLimitsList.map(function(limit) {
+                const bestLimit = this.getBestLimits(carrierLimitsList.map(function(limit) {
                     return limit.value.replace(/,/g, '');
                 }));
 
@@ -203,11 +201,12 @@ module.exports = class BtisGL extends Integration {
 
             /*
 			 * BUSINESS ENTITY
-			 * Check to make sure BTIS supports the applicant's entity type, if not, return
+			 * Check to make sure BTIS supports the applicant's entity type, if not autodecline
 			 */
             if (!(this.app.business.entity_type in BUSINESS_ENTITIES)) {
                 log.error(`BTIS GL Integration File: BTIS does not support ${this.app.business.entity_type}` + __location);
-                fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));
+                this.reasons.push(`BTIS does not support business entity type: ${this.app.business.entity_type}`);
+                fulfill(this.return_result('autodeclined'));
                 return;
             }
 
@@ -221,7 +220,6 @@ module.exports = class BtisGL extends Integration {
 			 * 3 = 3 years in business
 			 * 4 = 4 years in business
 			 * 5 = 5+ years in business
-			 * NOTE: For some reason, 0 is not allowed
 			 */
 
             let businessHistoryId = moment().diff(this.app.business.founded, 'years');
@@ -246,16 +244,19 @@ module.exports = class BtisGL extends Integration {
             }
             catch(error){
                 log.error(`BTIS GL is unable to get question identifiers. ${error}` + __location);
-                fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+                this.reasons.push('Unable to get BTIS question identifiers required for application submission');
+                fulfill(this.return_result('error'));
             }
 
             // Loop through and process each BTIS qualifying statement/question
             let subcontractorCosts = 0;
             let constructionExperience = 0;
             const qualifyingStatements = [];
+
             for (const question_id in this.questions) {
                 if(this.questions[question_id]){
                     const question = this.questions[question_id];
+                    // Make sure we have a BTIS qualifying statement ID
                     if (question_identifiers[question.id]) {
                         // If the question is a special case handle it, otherwise push it onto the qualifying statements
                         switch(question_identifiers[question.id]){
@@ -263,7 +264,7 @@ module.exports = class BtisGL extends Integration {
                             case '1000':
                                 subcontractorCosts = question.answer ? question.answer : 0;
                                 break;
-                                // How many years of construction experience do you have?
+                            // How many years of construction experience do you have?
                             case '1001':
                                 constructionExperience = question.answer ? question.answer : 0;
                                 break;
@@ -295,7 +296,7 @@ module.exports = class BtisGL extends Integration {
             /*
 			 * GROSS RECEIPTS
 			 * BTIS qulaifying statement id 1 asks: Are your gross receipts below $1,500,000 in each of the past 2 years?
-			 * We ask for and store gross sales in the applicaiton so the question needs to be processed separately
+			 * We ask for and store gross sales in the applicaiton so this qualifying statement needs to be processed separately
 			 */
             qualifyingStatements.push({
                 QuestionId: 1,
@@ -305,7 +306,6 @@ module.exports = class BtisGL extends Integration {
             /*
 			 * BTIS APPLICAITON
 			 * Build the expected data object for BTIS
-			 * Anything commented out is information that we do not collect AND is not required for submission
 			 */
             const data = {
                 ProposedEffectiveDate: this.policy.effective_date.format('YYYY-MM-DD'),
@@ -324,7 +324,6 @@ module.exports = class BtisGL extends Integration {
                 BusinessInformation:{
                     DBA: this.app.business.dba ? this.app.business.dba : this.app.business.name,
                     BusinessEntityTypeId: BUSINESS_ENTITIES[this.app.business.entity_type],
-                    PartnerNames: '',
                     BusinessExperienceId: businessHistoryId,
                     ConstructionExperienceId: constructionExperience,
                     BusinessHistoryId: businessHistoryId,
@@ -360,10 +359,11 @@ module.exports = class BtisGL extends Integration {
                         }
                     ],
 
-                    InsuranceHistory: []
+                    InsuranceHistory: [],
+                    ConstructionZones: [],
+                    ConstructionTypes: null,
+                    PartnerNames: null
                 },
-
-                OptionalCoverages: [],
 
                 Classifications: [
                     {
@@ -372,6 +372,7 @@ module.exports = class BtisGL extends Integration {
                     }
                 ],
 
+                OptionalCoverages: [],
                 QualifyingStatements: qualifyingStatements
             }
 
@@ -383,7 +384,7 @@ module.exports = class BtisGL extends Integration {
             catch(error){
                 log.error(`BTIS Submit Endpoint Returned Error ${util.inspect(error, false, null)}` + __location);
                 this.reasons.push('Problem connecting to insurer');
-                fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));
+                fulfill(this.return_result('error'));
             }
 
             // The result can be under either clearspring or victory, checking for success
@@ -398,7 +399,7 @@ module.exports = class BtisGL extends Integration {
                 catch (error) {
                     log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to retrieve quote amount.` + __location);
                     this.reasons.push('A quote was generated, but our API was unable to isolate it.');
-                    fulfill(this.return_error('error', "Our bad. Something went wrong, but we're on it. Expect to hear from us"));
+                    fulfill(this.return_result('error'));
                     return;
                 }
 
