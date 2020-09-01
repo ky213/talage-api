@@ -39,6 +39,27 @@ async function findAll(req, res, next) {
     }
 }
 
+async function findGroupAll(req, res, next) {
+
+    let error = null;
+    const agencyPortalUserBO = new AgencyPortalUserBO();
+    const rows = await agencyPortalUserBO.getGroupList(req.query).catch(function(err) {
+        error = err;
+    })
+    if (error) {
+        return next(error);
+    }
+    if (rows) {
+
+        res.send(200, rows);
+        return next();
+    }
+    else {
+        res.send(404);
+        return next(serverHelper.notFoundError('Agency Location not found'));
+    }
+}
+
 async function findOne(req, res, next) {
     const id = stringFunctions.santizeNumber(req.params.id, true);
     if (!id) {
@@ -210,5 +231,6 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPutAuthAdmin('PUT Agency Network User', `${basePath}/agency-network-user/:id`, update, 'administration', 'all');
     server.addPostAuthAdmin('POST Agency Network User', `${basePath}/agency-network-user`, add, 'administration', 'all');
     server.addDeleteAuthAdmin('Delete Agency Network User', `${basePath}/agency-network-user/:id`, deleteObject, 'administration', 'all');
+    server.addGetAuthAdmin('Get Agency Network User Groups list', `${basePath}/agency-network-user/groups`, findGroupAll, 'administration', 'all');
 
 };
