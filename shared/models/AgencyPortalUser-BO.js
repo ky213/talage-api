@@ -145,7 +145,7 @@ module.exports = class AgencyPortalUserBO{
                     }
                     if(queryJSON.group){
                         sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` can_sign = ${db.escape(queryJSON.group)} `
+                        sql += ` group = ${db.escape(queryJSON.group)} `
                         hasWhere = true;
                     }
                 }

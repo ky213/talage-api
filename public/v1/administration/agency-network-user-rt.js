@@ -172,6 +172,7 @@ async function update(req, res, next) {
         'group',
         'require_set',
         'reset_required',
+        'can_sign',
         'timezone']
     let updateJSON = {id: id}
     let needToUpdate = false;
