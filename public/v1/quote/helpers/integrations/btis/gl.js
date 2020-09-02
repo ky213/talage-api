@@ -10,6 +10,7 @@
 const Integration = require('../Integration.js');
 const moment = require('moment');
 const util = require('util');
+const { Console } = require('console');
 
 /*
  * As of 08/2020
@@ -131,11 +132,11 @@ module.exports = class BtisGL extends Integration {
         const token = {'x-access-token': token_response.token};
 
         /*
-            * DEDUCTIBLE
-            * Set a default for the deductible to $500 (available for all territories)
-            * Then check to see if higher deductibles are offered, if they are find an exact match
-            * or default to $1500
-            */
+         * DEDUCTIBLE
+         * Set a default for the deductible to $500 (available for all territories)
+         * Then check to see if higher deductibles are offered, if they are find an exact match
+         * or default to $1500
+         */
         let deductibleId = BTIS_DEDUCTIBLE_IDS[500];
 
         // If deductibles other than $500 are allowed, check the deductible and return the appropriate BTIS ID
@@ -150,11 +151,11 @@ module.exports = class BtisGL extends Integration {
         }
 
         /*
-            * LIMITS
-            * BTIS allows submission without a limits id, so log a warning an keep going if the limits couldn't be retrieved
-            * As of 08/2020, their system defaults a submission without a limits ID to:
-            * $1M Occurrence, $2M Aggregate
-            */
+         * LIMITS
+         * BTIS allows submission without a limits id, so log a warning an keep going if the limits couldn't be retrieved
+         * As of 08/2020, their system defaults a submission without a limits ID to:
+         * $1M Occurrence, $2M Aggregate
+         */
 
         // Prep limits URL arguments
         const limitsURL = LIMITS_URL.replace('STATE_NAME', this.app.business.primary_territory).replace('EFFECTIVE_DATE', this.policy.effective_date.format('YYYY-MM-DD'));
@@ -187,18 +188,18 @@ module.exports = class BtisGL extends Integration {
         }
 
         /*
-            * INSURED INFORMATION
-            * Retreive the insured information and format it to BTIS specs
-            */
+         * INSURED INFORMATION
+         * Retreive the insured information and format it to BTIS specs
+         */
         const insuredInformation = this.app.business.contacts[0];
         let insuredPhoneNumber = insuredInformation.phone.toString();
         // Format phone number to: (xxx)xxx-xxxx
         insuredPhoneNumber = `(${insuredPhoneNumber.substring(0, 3)})${insuredPhoneNumber.substring(3, 6)}-${insuredPhoneNumber.substring(insuredPhoneNumber.length - 4)}`;
 
         /*
-            * BUSINESS ENTITY
-            * Check to make sure BTIS supports the applicant's entity type, if not autodecline
-            */
+         * BUSINESS ENTITY
+         * Check to make sure BTIS supports the applicant's entity type, if not autodecline
+         */
         if (!(this.app.business.entity_type in BUSINESS_ENTITIES)) {
             log.error(`BTIS GL Integration File: BTIS does not support ${this.app.business.entity_type}` + __location);
             this.reasons.push(`BTIS does not support business entity type: ${this.app.business.entity_type}`);
@@ -206,36 +207,37 @@ module.exports = class BtisGL extends Integration {
         }
 
         /*
-            * BUSINESS HISTORY
-            * BTIS Lookup here: /GL/Common/v1/gateway/api/lookup/dropdowns/businesshistory/
-            * As of 08/2020
-            * 0 = New in business
-            * 1 = 1 year in business
-            * 2 = 2 years in business
-            * 3 = 3 years in business
-            * 4 = 4 years in business
-            * 5 = 5+ years in business
-            */
-
+         * BUSINESS HISTORY
+         * BTIS Lookup here: /GL/Common/v1/gateway/api/lookup/dropdowns/businesshistory/
+         * As of 08/2020
+         * 0 = New in business
+         * 1 = 1 year in business
+         * 2 = 2 years in business
+         * 3 = 3 years in business
+         * 4 = 4 years in business
+         * 5 = 5+ years in business
+         */
         let businessHistoryId = moment().diff(this.app.business.founded, 'years');
         if(businessHistoryId > 5){
             businessHistoryId = 5;
         }
 
         /*
-            * PRIMARY ADDRESS
-            * Retrieve the business' primary address. Primary address is always stored in the first element of locations.
-            */
+         * PRIMARY ADDRESS
+         * Retrieve the business' primary address. Primary address is always stored in the first element of locations.
+         */
         const primaryAddress = this.app.business.locations[0];
 
         /*
-            * BTIS QUALIFYING STATEMENTS
-            * Retrieve the BTIS qualifying statement ids and map them to our ids, if unsuccessful we have
-            * to quit as they are required for BTIS
-            */
-        let question_identifiers = null;
+         * BTIS QUALIFYING STATEMENTS
+         * Retrieve the BTIS qualifying statement ids and map them to our ids, if unsuccessful we have
+         * to quit as they are required for BTIS.
+         * questionIdsObject: key - talage ID
+         *                    value - BTIS ID
+         */
+        let questionIdsObject = null;
         try{
-            question_identifiers = await this.get_question_identifiers();
+            questionIdsObject = await this.get_question_identifiers();
         }
         catch(error){
             log.error(`BTIS GL is unable to get question identifiers. ${error}` + __location);
@@ -252,9 +254,10 @@ module.exports = class BtisGL extends Integration {
             if(this.questions[question_id]){
                 const question = this.questions[question_id];
                 // Make sure we have a BTIS qualifying statement ID
-                if (question_identifiers[question.id]) {
-                    // If the question is a special case handle it, otherwise push it onto the qualifying statements
-                    switch(question_identifiers[question.id]){
+                if (questionIdsObject[question.id]) {
+                    // If the question is a special case (manually added in the question importer) handle it,
+                    // otherwise push it onto the qualifying statements
+                    switch(questionIdsObject[question.id]){
                         // What is your annual cost of sub-contracted labor?
                         case '1000':
                             subcontractorCosts = question.answer ? question.answer : 0;
@@ -265,7 +268,7 @@ module.exports = class BtisGL extends Integration {
                             break;
                         default:
                             qualifyingStatements.push({
-                                QuestionId: parseInt(question_identifiers[question.id], 10),
+                                QuestionId: parseInt(questionIdsObject[question.id], 10),
                                 Answer: question.get_answer_as_boolean()
                             });
                     }
@@ -274,18 +277,23 @@ module.exports = class BtisGL extends Integration {
         }
 
         /*
-            * PERFORM NEW RESIDENTIAL WORK
-            * Question text: Can you confirm that you haven't done any work involving apartment conversions,
-            * construction work involving condominiums, town homes, or time shares in the past 10 years?
-            * NOTE: Because of the negative in the question text, we have to flip the user's answer because
-            * why would we make this simple BTIS, why you gotta put negatives in your questions
-            */
+         * PERFORM NEW RESIDENTIAL WORK
+         * Question text: Can you confirm that you haven't done any work involving apartment conversions,
+         * construction work involving condominiums, town homes, or time shares in the past 10 years?
+         * NOTE: Because of the negative in the question text, we have to flip the user's answer because
+         * why would we make this simple BTIS, why you gotta put negatives in your questions
+         * ADDITIONAL NOTE: BTIS asks for this info in the body of their application AS WELL as in their
+         * qualifying statements so we need to isolate this answer from the qualifying statements separately
+         */
+
+        // Get the talage ID of BTIS qualifying statement number 2
+        const talageIdNewResidentialWork = Object.keys(questionIdsObject).find(talageId => questionIdsObject[talageId] === '2');
         let performNewResidentialWork = false;
-        if(this.questions[NEW_RESIDENTIAL_WORK]){
-            performNewResidentialWork = !this.questions[NEW_RESIDENTIAL_WORK].get_answer_as_boolean();
+        if(this.questions[talageIdNewResidentialWork]){
+            performNewResidentialWork = !this.questions[talageIdNewResidentialWork].get_answer_as_boolean();
         }
         else {
-            log.warn(`BTIS GL missing question ${NEW_RESIDENTIAL_WORK} appId: ` + this.app.id + __location);
+            log.warn(`BTIS GL missing question ${talageIdNewResidentialWork} appId: ` + this.app.id + __location);
         }
 
         /*
