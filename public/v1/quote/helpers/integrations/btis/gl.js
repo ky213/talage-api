@@ -10,7 +10,6 @@
 const Integration = require('../Integration.js');
 const moment = require('moment');
 const util = require('util');
-const { Console } = require('console');
 
 /*
  * As of 08/2020
@@ -59,13 +58,6 @@ const BTIS_DEDUCTIBLE_IDS = {
     1000: 2001000,
     1500: 2001500
 }
-
-/*
- * As of 08/2020
- * Specially handled questions. BTIS requires whether or not the applicant performs new residential work
- * The question ids in our system are set below in case they change in the future
- */
-const NEW_RESIDENTIAL_WORK = 948;
 
 /*
  * As of 08/2020
@@ -297,19 +289,19 @@ module.exports = class BtisGL extends Integration {
         }
 
         /*
-            * GROSS RECEIPTS
-            * BTIS qulaifying statement id 1 asks: Are your gross receipts below $1,500,000 in each of the past 2 years?
-            * We ask for and store gross sales in the applicaiton so this qualifying statement needs to be processed separately
-            */
+         * GROSS RECEIPTS
+         * BTIS qulaifying statement id 1 asks: Are your gross receipts below $1,500,000 in each of the past 2 years?
+         * We ask for and store gross sales in the applicaiton so this qualifying statement needs to be processed separately
+         */
         qualifyingStatements.push({
             QuestionId: 1,
             Answer: this.policy.gross_sales < 1500000
         });
 
         /*
-            * BTIS APPLICAITON
-            * Build the expected data object for BTIS
-            */
+         * BTIS APPLICAITON
+         * Build the expected data object for BTIS
+         */
         const data = {
             ProposedEffectiveDate: this.policy.effective_date.format('YYYY-MM-DD'),
             DeductibleId: deductibleId,
