@@ -662,6 +662,23 @@ processQuotes(applicationJSON){
         });
     }
 
+    getById(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id && id >0 ){
+                await this.#dbTableORM.getById(id).catch(function (err) {
+                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
+                    reject(err);
+                    return;
+                });
+                this.updateProperty();
+                resolve(this.#dbTableORM.cleanJSON());
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
 
     deleteSoftById(id) {
         return new Promise(async (resolve, reject) => {
@@ -671,7 +688,7 @@ processQuotes(applicationJSON){
                 //Remove old records.
                 const sql =`Update ${tableName} 
                         SET state = -2
-                        WHERE id = ${id}
+                        WHERE id = ${db.escape(id)}
                 `;
                 let rejected = false;
                 const result = await db.query(sql).catch(function (error) {
@@ -692,6 +709,32 @@ processQuotes(applicationJSON){
         });
     }
 
+    async getAgencyNewtorkIdById(id){
+        return new Promise(async (resolve, reject) => {
+           
+            let rejected = false;
+
+            let sql = `
+            select agency_network from clw_talage_applications a
+            inner join clw_talage_agencies ag on ag.id = a.agency
+            where a.id = ${db.escape(id)}
+            `;
+            const result = await db.query(sql).catch(function (error) {
+                rejected = true;
+                log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
+                reject(error);
+            });
+            if (rejected) {
+                return;
+            }
+            if(result && result.length >0){
+                resolve(result[0].agency_network)
+            }
+            else {
+                rejected(new Error("Not Found"));
+            }
+        });
+    }
 
 
     async cleanupInput(inputJSON) {
