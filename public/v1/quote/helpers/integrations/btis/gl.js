@@ -393,35 +393,29 @@ module.exports = class BtisGL extends Integration {
                 const product = quoteResult.clearspring ? 'clearspring' : 'victory';
                 const quoteInfo = quoteResult[product];
 
-                try {
+                // Get the quote amount
+                if(quoteInfo.quote && quoteInfo.quote.results && quoteInfo.quote.results.total_premium){
                     this.amount = quoteInfo.quote.results.total_premium;
                 }
-                catch (error) {
-                    log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to retrieve quote amount.` + __location);
-                    this.reasons.push('A quote was generated, but our API was unable to isolate it.');
+                else{
+                    log.error('BTIS GL Integration Error: Quote structure chaned. Unable to get quote amount from insurer. ' + __location);
+                    this.reasons.push('A quote was generated but our API was unable to isolate it.');
                     fulfill(this.return_result('error'));
                     return;
                 }
 
-                // Grab the limits info
-                try {
-                    let limits_string = quoteInfo.quote.criteria.limits;
-
-                    // Remove the commas
-                    limits_string = limits_string.replace(/,/g, '');
-
-                    // Break the limits into an array
-                    const policy_limits = limits_string.split('/');
-
-                    // Build out the limits how our system expects to see them
+                // Get the quote limits
+                if(quoteInfo.quote.criteria && quoteInfo.quote.criteria.limits){
+                    const limitsString = quoteInfo.quote.criteria.limits.replace(/,/g, '');
+                    const limitsArray = limitsString.split('/');
                     this.limits = {
-                        '4': policy_limits[0],
-                        '8': policy_limits[1],
-                        '9': policy_limits[2]
-                    };
+                        '4': limitsArray[0],
+                        '8': limitsArray[1],
+                        '9': limitsArray[2]
+                    }
                 }
-                catch (e) {
-                    log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find limits.` + __location);
+                else{
+                    log.error('BTIS GL Integration Error: Quote structure changed. Unable to find limits. ' + __location);
                 }
 
                 // Return the quote
