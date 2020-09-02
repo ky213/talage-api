@@ -177,7 +177,8 @@ async function update(req, res, next) {
     let updateJSON = {id: id}
     let needToUpdate = false;
     for(let i = 0; i < allowedPropsUpdate.length; i++) {
-        if(req.body[allowedPropsUpdate[i]]){
+        let value = req.body[allowedPropsUpdate[i]]
+        if(value || value === '' || value === 0){
             updateJSON[allowedPropsUpdate[i]] = req.body[allowedPropsUpdate[i]];
             needToUpdate = true
         }
