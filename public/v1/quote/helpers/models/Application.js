@@ -310,6 +310,13 @@ module.exports = class Application {
                 }
                 // Check that the given policy type is enabled for this insurer
                 if (insurer.policy_types.indexOf(policy.type) >= 0) {
+                    if(insurer.slug === 'acuity'){
+                        this.agencyLocation.insurers[10].policy_type_info = {
+                            GL: { 'enabled': true, useAcord: false, acordInfo: { sendToEmail: '' } },
+                            WC: { 'enabled': true, useAcord: false, acordInfo: { sendToEmail: '' } },
+                            BOP: { 'enabled': true, useAcord: false, acordInfo: { sendToEmail: '' } }
+                        }
+                    }
                     // Get the agency_location_insurer data for this insurer from the agency location
                     if (this.agencyLocation.insurers[insurer.id].policy_type_info) {
                         //Retrieve the data for this policy type
