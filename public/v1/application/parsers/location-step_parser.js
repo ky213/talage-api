@@ -103,8 +103,12 @@ exports.process = async function(requestJSON) {
         //application info
 
         //Only include it if exists. b/c of how the model works.
-        if(agency_location){
+        if(agency_location > 0){
+            log.debug("location parse setting agency location to " + agency_location);
             requestJSON.agency_location = agency_location
+        }
+        else if (requestJSON.agency_location) {
+            delete requestJSON.agency_location
         }
         requestJSON.territories = territories;
         requestJSON.total_payroll = total_payroll;
