@@ -49,20 +49,25 @@ module.exports = class AgencyLocation {
 
             // Array for tracking queries
             const queries = [];
-
+            //fix zero or null agency_location id in application
+            // eslint-disable-next-line space-in-parens
+            // eslint-disable-next-line no-extra-parens
+            if((this.id > 0) === false){
+                this.id = 1;
+            }
+            const agencyLocationId = this.id;
             // Define the where clause
             // const where = `a.id = ${db.escape(parseInt(this.id, 10))}`;
             const where = `a.id = ${this.id}`
 
             // SQL for getting agency / location details
             queries.push(`
-				SELECT ag.id, ag.agency_network, a.email, a.fname, a.lname, ag.name, ag.phone, ag.website, ag.wholesale
-				FROM clw_talage_agency_locations a
-				LEFT JOIN clw_talage_agencies ag ON a.agency = ag.id
-				
-				WHERE ${where} LIMIT 1;
-			`);
-
+                SELECT ag.id, ag.agency_network, a.email, a.fname, a.lname, ag.name, ag.phone, ag.website, ag.wholesale
+                FROM clw_talage_agency_locations a
+                LEFT JOIN clw_talage_agencies ag ON a.agency = ag.id
+                
+                WHERE ${where} LIMIT 1;
+            `);
             // SQL for getting agency insurers
             queries.push(`
 				SELECT ai.insurer id, ai.agency_id, i.agent_login, ai.agent_id, ai.policy_type_info, ai.bop, ai.gl, ai.wc, i.enable_agent_id
@@ -97,10 +102,11 @@ module.exports = class AgencyLocation {
             const insurers = results[1];
             const territories = results[2];
 
+            const agency_network = agencyInfo.agency_network;
             const agencyNetworkBO = new AgencyNetworkBO();
-            const agencyNetworkJSON = await agencyNetworkBO.getById(agencyInfo.agency_network).catch(function(err){
+            const agencyNetworkJSON = await agencyNetworkBO.getById(agencyInfo[0].agency_network).catch(function(err){
                 //error = err;
-                log.error(`Get AgencyNetwork ${agencyInfo.agency_network} Error ` + err + __location);
+                log.error(`Get AgencyNetwork ${agency_network} AgencyLocation ${agencyLocationId} Error ` + err + __location);
             })
             if(agencyNetworkJSON){
                 this.emailBrand = agencyNetworkJSON.email_brand;
