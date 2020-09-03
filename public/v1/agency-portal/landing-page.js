@@ -147,22 +147,20 @@ async function retrieveAuthenticatedAgency( req, data, next){
         // Get the agencies that we are permitted to manage
         const agencies = await auth.getAgents(req).catch(function(e) {
             error = e;
-        });
+		});
         if (error) {
             return next(error);
         }
-
         // Validate the Agency ID
         if (!Object.prototype.hasOwnProperty.call(data, 'agency')) {
             return next(serverHelper.requestError('Agency missing'));
-        }
+		}
         if (!await validator.agent(data.agency)) {
             return next(serverHelper.requestError('Agency is invalid'));
-        }
+		}
         if (!agencies.includes(parseInt(data.agency, 10))) {
             return next(serverHelper.requestError('Agency is invalid'));
         }
-
         agency =  data.agency;
     }
     else {
@@ -353,10 +351,8 @@ async function validate(request, next, agency) {
  */
 async function createLandingPage(req, res, next) {
     let error = false;
-
     // Determine the agency ID
-    const agency = req.authentication.agents[0];
-
+	const agency = await retrieveAuthenticatedAgency(req, req.body, next);
     // Check that at least some post parameters were received
     if (!req.body || typeof req.body.landingPage !== 'object' || Object.keys(req.body.landingPage).length === 0) {
         log.info('Bad Request: Parameters missing');
