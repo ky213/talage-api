@@ -24,6 +24,13 @@ exports.connect = async() => {
         'timezone': 'Z'
     });
 
+    conn.on('connection', function(connection) {
+        if(global.settings.USING_AURORA_CLUSTER === "YES"){
+            connection.query(`set @@aurora_replica_read_consistency = 'session';`)
+            log.info("Set aurora_replica_read_consistency")
+        }
+    });
+
     // Try to connect to the database to ensure it is reachable.
     try{
         const connection = await util.promisify(conn.getConnection).call(conn);
