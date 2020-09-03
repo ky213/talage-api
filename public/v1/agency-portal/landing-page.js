@@ -194,8 +194,9 @@ async function validate(request, next, agency) {
         customColorScheme: null
     };
 	
-    // Validate each parameter
-	const landingPage = request.body.landingPage;
+	// Validate each parameter
+	// HACK: Adding backward compatibility so if typeof request.body.landingPage === 'undefined' old ui use case else updated UI
+	const landingPage = typeof request.body.landingPage === 'undefined' ? request.body : request.body.landingPage;
 
     // About (optional)
     if (Object.prototype.hasOwnProperty.call( landingPage, 'about') && landingPage.about) {
@@ -353,8 +354,10 @@ async function createLandingPage(req, res, next) {
     let error = false;
     // Determine the agency ID
 	const agency = await retrieveAuthenticatedAgency(req, req.body, next);
+	// HACK: Adding backward compatibility so if typeof request.body.landingPage === 'undefined' old ui use case else updated UI
+	const landingPage = typeof req.body.landingPage === 'undefined' ? req.body : req.body.landingPage;
     // Check that at least some post parameters were received
-    if (!req.body || typeof req.body.landingPage !== 'object' || Object.keys(req.body.landingPage).length === 0) {
+    if (!req.body || typeof landingPage !== 'object' || Object.keys(landingPage).length === 0) {
         log.info('Bad Request: Parameters missing');
         return next(serverHelper.requestError('Parameters missing'));
     }
@@ -368,7 +371,8 @@ async function createLandingPage(req, res, next) {
         log.warn(`Error: ${error} ${__location}`);
         return next(serverHelper.requestError(error));
 	}
-	const landingPage = req.body.landingPage;
+	
+
     // showIntroText update additional_info json
     if(landingPage.additionalInfo && landingPage.showIntroText){
         landingPage.additionalInfo.showIntroText = landingPage.showIntroText;
@@ -613,8 +617,10 @@ async function updateLandingPage(req, res, next) {
     let error = false;
     // Determine the agency ID
 	const agency = await retrieveAuthenticatedAgency(req, req.body, next);
+	// HACK: Adding backward compatibility so if typeof request.body.landingPage === 'undefined' old ui use case else updated UI
+	const landingPage = typeof req.body.landingPage === 'undefined' ? req.body : req.body.landingPage;
     // Check that at least some post parameters were received
-    if (!req.body || typeof req.body.landingPage !== 'object' || Object.keys(req.body.landingPage).length === 0) {
+    if (!req.body || typeof landingPage !== 'object' || Object.keys(landingPage).length === 0) {
         log.info('Bad Request: Parameters missing' + __location);
         return next(serverHelper.requestError('Parameters missing'));
     }
@@ -627,7 +633,8 @@ async function updateLandingPage(req, res, next) {
         log.warn(`Error: ${error} ${__location}`);
         return next(serverHelper.requestError(error));
     }
-	const landingPage = req.body.landingPage;
+
+
     // Validate the ID
     if (!Object.prototype.hasOwnProperty.call(landingPage, 'id')) {
         throw new Error('ID missing');
