@@ -172,11 +172,13 @@ async function update(req, res, next) {
         'group',
         'require_set',
         'reset_required',
+        'can_sign',
         'timezone']
     let updateJSON = {id: id}
     let needToUpdate = false;
     for(let i = 0; i < allowedPropsUpdate.length; i++) {
-        if(req.body[allowedPropsUpdate[i]]){
+        let value = req.body[allowedPropsUpdate[i]]
+        if(value || value === '' || value === 0){
             updateJSON[allowedPropsUpdate[i]] = req.body[allowedPropsUpdate[i]];
             needToUpdate = true
         }

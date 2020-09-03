@@ -76,7 +76,6 @@ async function GetUserInfo(req, res, next){
             userInfo[0].helpText = agencyNetworkJSON.help_text
         }
     }
-    log.debug(JSON.stringify(userInfo[0]));
     // Send the user's data back
     res.send(200, userInfo[0]);
     return next();

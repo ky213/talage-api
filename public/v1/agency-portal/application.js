@@ -1,8 +1,11 @@
+/* eslint-disable require-jsdoc */
 'use strict';
 const crypt = global.requireShared('./services/crypt.js');
 const validator = global.requireShared('./helpers/validator.js');
 const auth = require('./helpers/auth.js');
 const serverHelper = require('../../../server.js');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+const ApplicationBO = global.requireShared('models/Application-BO.js');
 
 /**
  * Responds to get requests for the certificate endpoint
@@ -14,44 +17,44 @@ const serverHelper = require('../../../server.js');
  * @returns {void}
  */
 async function getApplication(req, res, next){
-	let error = false;
+    let error = false;
 
-	// Check for data
-	if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
-		log.error('Bad Request: No data received ' + __location);
-		return next(serverHelper.requestError('Bad Request: No data received'));
-	}
+    // Check for data
+    if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
+        log.error('Bad Request: No data received ' + __location);
+        return next(serverHelper.requestError('Bad Request: No data received'));
+    }
 
-	// Get the agents that we are permitted to view
-	const agents = await auth.getAgents(req).catch(function(e){
-		error = e;
-	});
-	if (error){
-		log.error('Error get application getAgents ' + error + __location);
-		return next(error);
-	}
+    // Get the agents that we are permitted to view
+    const agents = await auth.getAgents(req).catch(function(e){
+        error = e;
+    });
+    if (error){
+        log.error('Error get application getAgents ' + error + __location);
+        return next(error);
+    }
 
-	// Make sure basic elements are present
-	if (!req.query.id){
-		log.error('Bad Request: Missing ID ' + __location);
-		return next(serverHelper.requestError('Bad Request: You must supply an ID'));
-	}
+    // Make sure basic elements are present
+    if (!req.query.id){
+        log.error('Bad Request: Missing ID ' + __location);
+        return next(serverHelper.requestError('Bad Request: You must supply an ID'));
+    }
 
-	// Validate the application ID
-	if (!await validator.is_valid_id(req.query.id)){
-		log.error('Bad Request: Invalid id ' + __location);
-		return next(serverHelper.requestError('Invalid id'));
-	}
+    // Validate the application ID
+    if (!await validator.is_valid_id(req.query.id)){
+        log.error('Bad Request: Invalid id ' + __location);
+        return next(serverHelper.requestError('Invalid id'));
+    }
 
-	// Check if this is Solepro and grant them special access
-	let where = `${db.quoteName('a.agency')} IN (${agents.join(',')})`;
-	if (agents.length === 1 && agents[0] === 12){
-		// This is Solepro (no restriction on agency ID, just applications tagged to them)
-		where = `${db.quoteName('a.solepro')} = 1`;
-	}
+    // Check if this is Solepro and grant them special access
+    let where = `${db.quoteName('a.agency')} IN (${agents.join(',')})`;
+    if (agents.length === 1 && agents[0] === 12){
+        // This is Solepro (no restriction on agency ID, just applications tagged to them)
+        where = `${db.quoteName('a.solepro')} = 1`;
+    }
 
-	// Define a query for retrieving basic application information
-	const sql = `
+    // Define a query for retrieving basic application information
+    const sql = `
 			SELECT
 				${db.quoteName('a.additional_insured', 'additionalInsured')},
 				${db.quoteName('a.agency')},
@@ -107,39 +110,39 @@ async function getApplication(req, res, next){
 			LIMIT 1;
 		`;
 
-	// Query the database
-	const applicationData = await db.query(sql).catch(function(err){
-		log.error('Error get application database query ' + err.message + __location);
-		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-	});
+    // Query the database
+    const applicationData = await db.query(sql).catch(function(err){
+        log.error('Error get application database query ' + err.message + __location);
+        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+    });
 
-	// Make sure an application was found
-	if (applicationData.length !== 1){
-		log.error('Error get application, application not found sql: ' + sql + __location);
-		return next(serverHelper.notFoundError('The application could not be found.'));
-	}
+    // Make sure an application was found
+    if (applicationData.length !== 1){
+        log.error('Error get application, application not found sql: ' + sql + __location);
+        return next(serverHelper.notFoundError('The application could not be found.'));
+    }
 
-	// Get the application from the response
-	const application = applicationData[0];
+    // Get the application from the response
+    const application = applicationData[0];
 
-	// Decrypt any necessary fields
-	await crypt.batchProcessObject(application, 'decrypt', ['address',
-'address2',
-'businessName',
-'dba',
-'ein',
-'email',
-'fname',
-'lname',
-'owners',
-'phone',
-'website']);
+    // Decrypt any necessary fields
+    await crypt.batchProcessObject(application, 'decrypt', ['address',
+        'address2',
+        'businessName',
+        'dba',
+        'ein',
+        'email',
+        'fname',
+        'lname',
+        'owners',
+        'phone',
+        'website']);
 
-	// Decode the owners
-	application.owners = JSON.parse(application.owners);
+    // Decode the owners
+    application.owners = JSON.parse(application.owners);
 
-	// Get all addresses for this business
-	const addressSQL = `
+    // Get all addresses for this business
+    const addressSQL = `
 			SELECT
 				${db.quoteName('a.id')},
 				${db.quoteName('a.address')},
@@ -158,22 +161,22 @@ async function getApplication(req, res, next){
 			WHERE ${db.quoteName('a.business')} = ${application.businessID};
 		`;
 
-	// Query the database
-	const addressData = await db.query(addressSQL).catch(function(err){
-		log.error(err.message);
-		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-	});
+    // Query the database
+    const addressData = await db.query(addressSQL).catch(function(err){
+        log.error(err.message);
+        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+    });
 
-	// Decrypt the encrypted fields
-	await crypt.batchProcessObjectArray(addressData, 'decrypt', ['address',
-'address2',
-'ein']);
+    // Decrypt the encrypted fields
+    await crypt.batchProcessObjectArray(addressData, 'decrypt', ['address',
+        'address2',
+        'ein']);
 
-	// Only process addresses if some were returned
-	application.locations = [];
-	if (addressData.length > 0){
-		// Get the activity codes for all addresses
-		const codesSQL = `
+    // Only process addresses if some were returned
+    application.locations = [];
+    if (addressData.length > 0){
+        // Get the activity codes for all addresses
+        const codesSQL = `
 				SELECT
 					${db.quoteName('aac.address')},
 					${db.quoteName('ac.description')},
@@ -181,35 +184,35 @@ async function getApplication(req, res, next){
 				FROM ${db.quoteName('#__address_activity_codes', 'aac')}
 				LEFT JOIN ${db.quoteName('#__activity_codes', 'ac')} ON ${db.quoteName('ac.id')} = ${db.quoteName('aac.ncci_code')}
 				WHERE ${db.quoteName('aac.address')} IN (${addressData.map(function(address){
-			return address.id;
-		})});
+    return address.id;
+})});
 			`;
 
-		// Query the database
-		const codesData = await db.query(codesSQL).catch(function(err){
-			log.error(err.message);
-			return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-		});
+        // Query the database
+        const codesData = await db.query(codesSQL).catch(function(err){
+            log.error(err.message);
+            return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+        });
 
-		// Loop over each address and do a bit more work
-		addressData.forEach(function(address){
-			// Get all codes that are associated with this address and add them
-			address.activityCodes = [];
-			if (codesData.length > 0){
-				codesData.forEach(function(code){
-					if (code.address === address.id){
-						address.activityCodes.push(code);
-					}
-				});
-			}
+        // Loop over each address and do a bit more work
+        addressData.forEach(function(address){
+            // Get all codes that are associated with this address and add them
+            address.activityCodes = [];
+            if (codesData.length > 0){
+                codesData.forEach(function(code){
+                    if (code.address === address.id){
+                        address.activityCodes.push(code);
+                    }
+                });
+            }
 
-			// Add this address to the application object
-			application.locations.push(address);
-		});
-	}
+            // Add this address to the application object
+            application.locations.push(address);
+        });
+    }
 
-	// Get the quotes from the database
-	const quotesSQL = `
+    // Get the quotes from the database
+    const quotesSQL = `
 			SELECT
 				${db.quoteName('q.api_result')},
 				${db.quoteName('q.policy_type')},
@@ -232,20 +235,20 @@ async function getApplication(req, res, next){
 			WHERE ${db.quoteName('q.application')} = ${req.query.id} AND ${db.quoteName('q.state')} = 1;
 		`;
 
-	const quotes = await db.query(quotesSQL).catch(function(err){
-		log.error(err.message);
-		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-	});
+    const quotes = await db.query(quotesSQL).catch(function(err){
+        log.error(err.message);
+        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+    });
 
-	// Add the quotes to the return object and determine the application status
-	application.quotes = [];
-	if (quotes.length > 0){
-		// Add the quotes to the response
-		application.quotes = quotes;
-	}
+    // Add the quotes to the return object and determine the application status
+    application.quotes = [];
+    if (quotes.length > 0){
+        // Add the quotes to the response
+        application.quotes = quotes;
+    }
 
-	// Get any existing claims for the application from the data base
-	const claimsSQL = `
+    // Get any existing claims for the application from the data base
+    const claimsSQL = `
 			SELECT
 				${db.quoteName('c.amount_paid', 'amountPaid')},
 				${db.quoteName('c.amount_reserved', 'amountReserved')},
@@ -258,25 +261,71 @@ async function getApplication(req, res, next){
 			WHERE ${db.quoteName('c.application')} = ${req.query.id};
 		`;
 
-	// Run query for claims
-	const claims = await db.query(claimsSQL).catch(function(err){
-		log.error('Error get application database query (claims) ' + err.message + __location);
-		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-	});
+    // Run query for claims
+    const claims = await db.query(claimsSQL).catch(function(err){
+        log.error('Error get application database query (claims) ' + err.message + __location);
+        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+    });
 
-	application.claims = [];
-	if (claims.length > 0){
-		// Add the claims to the response if they exist
-		application.claims = claims;
-	}
+    application.claims = [];
+    if (claims.length > 0){
+        // Add the claims to the response if they exist
+        application.claims = claims;
+    }
 
-	// TO DO: Should questions be moved to this same endpoint? Probably.
+    // TO DO: Should questions be moved to this same endpoint? Probably.
 
-	// Return the response
-	res.send(200, application);
-	return next();
+    // Return the response
+    res.send(200, application);
+    return next();
 }
 
+
+async function deleteObject(req, res, next) {
+    const id = stringFunctions.santizeNumber(req.params.id, true);
+    if (!id) {
+        return next(new Error("bad parameter"));
+    }
+    //Deletes only by AgencyNetwork Users.
+
+    const agencyNetwork = req.authentication.agencyNetwork;
+    if (!agencyNetwork) {
+        log.warn('App Delete not agency network user ' + __location)
+        res.send(403);
+        return next(serverHelper.forbiddenError('Do Not have Permissions'));
+    }
+    //check that application is agency network.
+    let error = null;
+    const applicationBO = new ApplicationBO();
+    // Load the request data into it
+    const appAgencyNetworkId = await applicationBO.getAgencyNewtorkIdById(id).catch(function(err) {
+        log.error("Getting  appAgencyNetworkId error " + err + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+    if(appAgencyNetworkId !== agencyNetwork){
+        log.warn("Application Delete agencynetowrk miss match")
+        res.send(403);
+        return next(serverHelper.forbiddenError('Do Not have Permissions'));
+    }
+
+
+    await applicationBO.deleteSoftById(id).catch(function(err) {
+        log.error("Location load error " + err + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+    res.send(200, {"success": true});
+    return next();
+
+}
+
+
 exports.registerEndpoint = (server, basePath) => {
-	server.addGetAuth('Get application', `${basePath}/application`, getApplication, 'applications', 'view');
+    server.addGetAuth('Get application', `${basePath}/application`, getApplication, 'applications', 'view');
+    server.addDeleteAuth('DELETE application', `${basePath}/application/:id`, deleteObject, 'applications', 'manage');
 };
