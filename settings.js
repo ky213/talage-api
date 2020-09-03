@@ -67,7 +67,8 @@ const optionalVariables = [
     'USE_MONGO',
     'MONGODB_CONNECTIONURL',
     'MONGODB_DATABASENAME',
-    'MONGODB_CONNECTIONURLQUERY'
+    'MONGODB_CONNECTIONURLQUERY',
+    'USING_AURORA_CLUSTER'
 ]
 
 exports.load = () => {
