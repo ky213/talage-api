@@ -390,7 +390,7 @@ async function createLandingPage(req, res, next) {
         banner: data.banner,
         color_scheme: data.colorScheme,
         heading: data.heading,
-        agency_location_id: req.body.agencyLocationId,
+        agency_location_id: landingPage.agencyLocationId,
         industry_code: data.industryCode,
         industry_code_category: data.industryCodeCategory,
         intro_heading: data.introHeading,
@@ -612,46 +612,44 @@ async function updateLandingPage(req, res, next) {
     log.debug("update landing page " + JSON.stringify(req.body));
     let error = false;
     // Determine the agency ID
-    log.debug('req.authentication.agents ' + req.authentication.agents);
-    const agency = req.authentication.agents[0];
-
+	const agency = await retrieveAuthenticatedAgency(req, req.body, next);
     // Check that at least some post parameters were received
-    if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
+    if (!req.body || typeof req.body.landingPage !== 'object' || Object.keys(req.body.landingPage).length === 0) {
         log.info('Bad Request: Parameters missing' + __location);
         return next(serverHelper.requestError('Parameters missing'));
     }
 
     // Validate the request and get back the data
-    const data = await validate(req, next).catch(function(err) {
+    const data = await validate(req, next, agency).catch(function(err) {
         error = err.message;
     });
     if (error) {
-        log.warn(error + __location);
+        log.warn(`Error: ${error} ${__location}`);
         return next(serverHelper.requestError(error));
     }
-
+	const landingPage = req.body.landingPage;
     // Validate the ID
-    if (!Object.prototype.hasOwnProperty.call(req.body, 'id')) {
+    if (!Object.prototype.hasOwnProperty.call(landingPage, 'id')) {
         throw new Error('ID missing');
     }
-    if (!await validator.landingPageId(req.body.id)) {
+    if (!await validator.landingPageId(landingPage.id)) {
         throw new Error('ID is invalid');
     }
-    data.id = req.body.id;
-    data.agencyLocationId = req.body.agencyLocationId;
+    data.id = landingPage.id;
+    data.agencyLocationId = landingPage.agencyLocationId;
     if(!data.agencyLocationId){
         data.agencyLocationId = 0;
     }
 
     // showIntroText update additional_info json
-    if(req.body.additionalInfo && typeof req.body.showIntroText === "boolean"){
-        req.body.additionalInfo.showIntroText = req.body.showIntroText;
+    if(landingPage.additionalInfo && typeof landingPage.showIntroText === "boolean"){
+        landingPage.additionalInfo.showIntroText = landingPage.showIntroText;
     }
-    else if (typeof req.body.showIntroText === "boolean"){
-        req.body.additionalInfo = {};
-        req.body.additionalInfo.showIntroText = req.body.showIntroText;
+    else if (typeof landingPage.showIntroText === "boolean"){
+        landingPage.additionalInfo = {};
+        landingPage.additionalInfo.showIntroText = landingPage.showIntroText;
     }
-    data.additionalInfo = req.body.additionalInfo;
+    data.additionalInfo = landingPage.additionalInfo;
     if(!data.additionalInfo) {
         data.additionalInfo = {};
     }
