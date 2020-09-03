@@ -440,7 +440,6 @@ async function createLandingPage(req, res, next) {
  * @returns {void}
  */
 async function deleteLandingPage(req, res, next) {
-    let agency = null;
     let error = false;
 	
 	// Check that query parameters were received
@@ -448,44 +447,7 @@ async function deleteLandingPage(req, res, next) {
 		log.info('Bad Request: Query parameters missing');
 		return next(serverHelper.requestError('Query parameters missing'));
 	}
-	///8 88888888
-    // Make sure the authentication payload has everything we are expecting
-    // FIXME: conditional permissions handling. May need a separate endpiont between networks and agencies -SF
-    const jwtErrorMessage = await auth.validateJWT(req, req.authentication.agencyNetwork ? 'agencies' : 'pages', 'manage');
-    if (jwtErrorMessage) {
-        return next(serverHelper.forbiddenError(jwtErrorMessage));
-    }
-
-    // Determine the agency ID
-    if (req.authentication.agencyNetwork) {
-        // This is an agency network user, they can only modify agencies in their network
-
-        // Get the agencies that we are permitted to manage
-        const agencies = await auth.getAgents(req).catch(function(e) {
-            error = e;
-        });
-        if (error) {
-            return next(error);
-        }
-
-        // Validate the Agency ID
-        if (!Object.prototype.hasOwnProperty.call(req.query, 'agency')) {
-            return next(serverHelper.requestError('Agency missing'));
-        }
-        if (!await validator.agent(req.query.agency)) {
-            return next(serverHelper.requestError('Agency is invalid'));
-        }
-        if (!agencies.includes(parseInt(req.query.agency, 10))) {
-            return next(serverHelper.requestError('Agency is invalid'));
-        }
-
-        agency = req.query.agency;
-    }
-    else {
-        // This is an agency user, they can only handle their own agency
-        agency = req.authentication.agents[0];
-    }
-//8888888
+	const agency = await retrieveAuthenticatedAgency(req, req.query, next);
     // Validate the Landing Page ID
     if (!Object.prototype.hasOwnProperty.call(req.query, 'id')) {
         return next(serverHelper.requestError('ID missing'));
