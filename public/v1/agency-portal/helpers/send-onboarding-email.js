@@ -31,20 +31,15 @@ module.exports = async function(agencyNetwork, userID, firstName, lastName, agen
         const token = jwt.sign({'userID': userID}, global.settings.AUTH_SECRET_KEY, {'expiresIn': '7d'});
 
         // Format the brand
-        let brandraw = global.settings.BRAND.toLowerCase();
-        let portalurl = global.settings.PORTAL_URL;
-        let appurl = global.settings.APPLICATION_URL;
-        if (agencyNetwork === 2) {
-            brandraw = 'Digalent';
-            portalurl = global.settings.DIGALENT_AGENTS_URL;
-            appurl = global.settings.DIGALENT_SITE_URL;
-        }
+        const brandraw = emailContentJSON.emailBrand.toLowerCase();
+        const portalurl = emailContentJSON.PORTAL_URL;
+        const appurl = emailContentJSON.APPLICATION_URL;
         let brand = brandraw.toLowerCase();
         brand = `${brand.charAt(0).toUpperCase() + brand.slice(1)}`;
 
         // Prepare the email to send to the user
         const emailData = {
-            'from': brandraw,
+            'brand': brandraw,
             'html': emailMessage.
                 replace(/{{Agent First Name}}/g, firstName).
                 replace(/{{Agent Last Name}}/g, lastName).
@@ -60,7 +55,7 @@ module.exports = async function(agencyNetwork, userID, firstName, lastName, agen
         // Format the brand
         // Let brand = global.settings.BRAND.toLowerCase();
         // Brand = `${brand.charAt(0).toUpperCase() + brand.slice(1)}`;
-        const emailResp = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, emailData.from);
+        const emailResp = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, agencyNetwork, emailData.brand);
         if (emailResp === false) {
             const errorStr = `Failed to send the onboarding email to ${userEmail} during the creation of the agency ${agencyName}. Please send manually.`;
             log.error(errorStr + __location);

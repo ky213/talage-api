@@ -15,26 +15,26 @@ const tracker = global.requireShared('./helpers/tracker.js');
  * @returns {void}
  */
 async function getUsers(req, res, next){
-	let error = false;
+    let error = false;
 
-	let where = ``;
-	if (req.authentication.agencyNetwork){
-		where = `AND \`apu\`.\`agency_network\`= ${parseInt(req.authentication.agencyNetwork, 10)}`;
-	}
- else {
-		// Get the agents that we are permitted to view
-		const agents = await auth.getAgents(req).catch(function(e){
-			error = e;
-		});
-		if (error){
-			return next(error);
-		}
+    let where = ``;
+    if (req.authentication.agencyNetwork){
+        where = `AND \`apu\`.\`agency_network\`= ${parseInt(req.authentication.agencyNetwork, 10)}`;
+    }
+    else {
+        // Get the agents that we are permitted to view
+        const agents = await auth.getAgents(req).catch(function(e){
+            error = e;
+        });
+        if (error){
+            return next(error);
+        }
 
-		where = `AND \`apu\`.\`agency\` = ${parseInt(agents[0], 10)}`;
-	}
+        where = `AND \`apu\`.\`agency\` = ${parseInt(agents[0], 10)}`;
+    }
 
-	// Define a query to get a list of users
-	const usersSQL = `
+    // Define a query to get a list of users
+    const usersSQL = `
 			SELECT
 				\`apu\`.\`id\`,
 				\`apu\`.\`email\`,
@@ -49,21 +49,21 @@ async function getUsers(req, res, next){
 
     // Get the users from the database
     // TODO Fix catch logic
-	const users = await db.query(usersSQL).catch(function(err){
+    const users = await db.query(usersSQL).catch(function(err){
         log.error('__agency_portal_users error ' + err + __location);
-		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-	});
+        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+    });
 
-	// Decrypt everything we need
-	await crypt.batchProcessObjectArray(users, 'decrypt', ['email']);
+    // Decrypt everything we need
+    await crypt.batchProcessObjectArray(users, 'decrypt', ['email']);
 
-	// Sort the list by email address
-	users.sort(function(a, b){
-		return a.email > b.email ? 1 : -1;
-	});
+    // Sort the list by email address
+    users.sort(function(a, b){
+        return a.email > b.email ? 1 : -1;
+    });
 
-	// Excluding 'Administrator' for now as this permission is currently unused. It will be added soon.
-	const userGroupsSQL = `
+    // Excluding 'Administrator' for now as this permission is currently unused. It will be added soon.
+    const userGroupsSQL = `
 			SELECT
 				\`id\`,
 				\`name\`,
@@ -72,19 +72,19 @@ async function getUsers(req, res, next){
 			WHERE \`id\` != 3;
 		`;
 
-	const userGroups = await db.query(userGroupsSQL).catch(function(err){
+    const userGroups = await db.query(userGroupsSQL).catch(function(err){
         log.error('__agency_portal_user_group error ' + err + __location);
-		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-	});
+        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+    });
 
-	// Return the response
-	res.send(200, {
-		"userGroups": userGroups,
-		"users": users
-	});
-	return next();
+    // Return the response
+    res.send(200, {
+        "userGroups": userGroups,
+        "users": users
+    });
+    return next();
 }
 
 exports.registerEndpoint = (server, basePath) => {
-	server.addGetAuth('Get users', `${basePath}/users`, getUsers, 'users', 'view');
+    server.addGetAuth('Get users', `${basePath}/users`, getUsers, 'users', 'view');
 };

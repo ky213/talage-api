@@ -470,7 +470,7 @@ async function AgencyEmail(req, res, next){
                 message = message + '<p style="text-align:left;margin-top:10px;">"' + messageText + '"</p>';
                 message += `<p style="text-align:right;">-Your Wheelhouse Team</p>`;
                 //call email service
-                const respSendEmail = await emailSvc.send(agencyEmail, 'A Wheelhouse user wants to get in touch with you', message, messageKeys, 'wheelhouse').catch(function(err){
+                const respSendEmail = await emailSvc.send(agencyEmail, 'A Wheelhouse user wants to get in touch with you', message, messageKeys, global.WHEELHOUSE_AGENCYNETWORK_ID, 'wheelhouse',0).catch(function(err){
                     log.error("Send email error: " + err + __location);
                     return res.send(serverHelper.internalError("SendEmail Error"));
                 });

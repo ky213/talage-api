@@ -190,7 +190,7 @@ var decryptInternal = async function(val) {
 
     // Check if decryption was successful, if not, return
     if (!val) {
-        return false;
+        return null;
     }
 
     // Convert the buffer back to a string

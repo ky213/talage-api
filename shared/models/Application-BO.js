@@ -20,6 +20,8 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 const convertToIntFields = [];
 
+const tableName = 'clw_talage_applications';
+
 const  QUOTE_STEP_NUMBER = 9;
 module.exports = class ApplicationModel {
 
@@ -660,6 +662,79 @@ processQuotes(applicationJSON){
         });
     }
 
+    getById(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id && id >0 ){
+                await this.#dbTableORM.getById(id).catch(function (err) {
+                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
+                    reject(err);
+                    return;
+                });
+                this.updateProperty();
+                resolve(this.#dbTableORM.cleanJSON());
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
+    deleteSoftById(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id && id >0 ){
+              
+                //Remove old records.
+                const sql =`Update ${tableName} 
+                        SET state = -2
+                        WHERE id = ${db.escape(id)}
+                `;
+                let rejected = false;
+                const result = await db.query(sql).catch(function (error) {
+                    // Check if this was
+                    log.error("Database Object ${tableName} UPDATE State error :" + error + __location);
+                    rejected = true;
+                    reject(error);
+                });
+                if (rejected) {
+                    return false;
+                }
+                resolve(true);
+              
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
+    async getAgencyNewtorkIdById(id){
+        return new Promise(async (resolve, reject) => {
+           
+            let rejected = false;
+
+            let sql = `
+            select agency_network from clw_talage_applications a
+            inner join clw_talage_agencies ag on ag.id = a.agency
+            where a.id = ${db.escape(id)}
+            `;
+            const result = await db.query(sql).catch(function (error) {
+                rejected = true;
+                log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
+                reject(error);
+            });
+            if (rejected) {
+                return;
+            }
+            if(result && result.length >0){
+                resolve(result[0].agency_network)
+            }
+            else {
+                rejected(new Error("Not Found"));
+            }
+        });
+    }
 
 
     async cleanupInput(inputJSON) {
@@ -1077,6 +1152,33 @@ const properties = {
         "rules": null,
         "type": "number",
         "dbType": "mediumint(5) unsigned"
+    },
+    "city": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(60)"
+    },
+    "state_abbr": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(2)"
+    },
+    "zipcode": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(10)"
     },
     "created": {
         "default": null,

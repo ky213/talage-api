@@ -3,6 +3,10 @@
 const DatabaseObject = require('./DatabaseObject.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+const fileSvc = global.requireShared('services/filesvc.js');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+
+const { 'v4': uuidv4 } = require('uuid');
 
 
 
@@ -11,11 +15,12 @@ const skipCheckRequired = false;
 module.exports = class AgencyNetworkBO{
 
     #dbTableORM = null;
-
+    doNotSnakeCase = ['additionalInfo'];
 	constructor(){
         this.id = 0;
         this.#dbTableORM = new DbTableOrm(tableName);
-    }
+        this.#dbTableORM.doNotSnakeCase = this.doNotSnakeCase;
+    }   
 
 
     /**
@@ -43,6 +48,36 @@ module.exports = class AgencyNetworkBO{
                 this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
             }
             this.#dbTableORM.state = 1;
+
+            //logo processing
+            if(newObjectJSON.headerLogoContent){
+                const newFileName = await this.saveLogofiles(newObjectJSON.headerLogoContent, newObjectJSON.newHeaderFileName ).catch(function(err){
+                    reject(err)
+                })
+                if(newFileName){
+                    this.#dbTableORM.logo = newFileName;
+                }
+                else 
+                {
+                    log.error("No files name for S3 logo " + __location)
+                }
+                
+            }
+            if(newObjectJSON.footerLogoContent){
+                const newFileName = await this.saveLogofiles(newObjectJSON.footerLogoContent, newObjectJSON.newFooterFileName, false ).catch(function(err){
+                    reject(err)
+                })
+                if(newFileName){
+                    this.#dbTableORM.footer_logo = newFileName;
+                }
+                else 
+                {
+                    log.error("No files name for S3 logo " + __location)
+                }
+            }
+
+
+
             //save
             await this.#dbTableORM.save().catch(function(err){
                 reject(err);
@@ -50,10 +85,33 @@ module.exports = class AgencyNetworkBO{
             this.updateProperty();
             this.id = this.#dbTableORM.id;
 
-
+           
+            
+            
             resolve(true);
 
         });
+    }
+
+    async saveLogofiles(newLogoContent64, newFileName, isHeader = true){
+        
+        const logoData =newLogoContent64.substring(newLogoContent64.indexOf(',') + 1);
+
+        const baseS3Path = 'public/agency-network-logos/';
+        //clean name 
+        let fileName = stringFunctions.santizeFilename(this.name);
+        fileName += isHeader ? "-header-" : "-footer-"
+        fileName += uuidv4().toString();
+        fileName += `-${stringFunctions.santizeFilename(newFileName)}` 
+        const s3Path = baseS3Path + fileName;
+        await fileSvc.PutFile(s3Path, logoData).then(function(data){
+            return fileName;   
+    
+        }).catch(function(err){
+            log.error("File Service HTTP Put: " + err + __location);
+            throw err
+        });
+        return fileName;   
     }
 
     /**
@@ -125,7 +183,7 @@ module.exports = class AgencyNetworkBO{
                     }
                 }
                 // Run the query
-                log.debug("AgencyNetworkBO getlist sql: " + sql);
+                //log.debug("AgencyNetworkBO getlist sql: " + sql);
                 const result = await db.query(sql).catch(function (error) {
                     // Check if this was
                     
@@ -224,7 +282,9 @@ module.exports = class AgencyNetworkBO{
         
         const emailContentSQL = `
         SELECT
+            name as brandName,
             email_brand AS emailBrand,
+            additionalInfo,
             JSON_EXTRACT(custom_emails, '$.${agencyContentProperty}') AS agencyEmailData,
             JSON_EXTRACT(custom_emails, '$.${customerContentProperty}') AS customerEmailData,
             (SELECT JSON_EXTRACT(custom_emails, '$.${agencyContentProperty}')  FROM  clw_talage_agency_networks WHERE id = 1 ) AS defaultAgencyEmailData,
@@ -261,12 +321,20 @@ module.exports = class AgencyNetworkBO{
                 const agencySubject = agencyEmailData && agencyEmailData.subject ? agencyEmailData.subject : defaultAgencyEmailData.subject;
 
                 emailTemplateJSON = { 
-                        "emailBrand": emailContentResult.emailBrand,
-                        "customerMessage": customermessage, 
-                        "customerSubject": customersubject,
-                        "agencyMessage": agencyMessage, 
-                        "agencySubject": agencySubject
-                    }
+                    "brandName": emailContentResult.brandName,
+                    "emailBrand": emailContentResult.emailBrand,
+                    "customerMessage": customermessage, 
+                    "customerSubject": customersubject,
+                    "agencyMessage": agencyMessage, 
+                    "agencySubject": agencySubject
+                }
+                
+                const environmentSettings = this.getEnvSettingFromJSON(emailContentResult.additionalInfo, agencyNetworkId)
+                if(typeof environmentSettings === "object"){
+                    for (var property in environmentSettings) {
+                        emailTemplateJSON[property]  = environmentSettings[property];
+                    };
+                }
                 
             }
             catch(err) {
@@ -296,7 +364,9 @@ module.exports = class AgencyNetworkBO{
         
         const emailContentSQL = `
         SELECT
+            name as brandName,
             email_brand AS emailBrand,
+            additionalInfo,
             JSON_EXTRACT(custom_emails, '$.${contentProperty}') AS emailData,
             (SELECT JSON_EXTRACT(custom_emails, '$.${contentProperty}')  FROM  clw_talage_agency_networks WHERE id = 1 ) AS defaultEmailData
         FROM clw_talage_agency_networks
@@ -327,11 +397,19 @@ module.exports = class AgencyNetworkBO{
 
 
                 emailTemplateJSON = { 
+                        
                         "emailBrand": emailContentResult.emailBrand,
                         "message": message, 
                         "subject": subject
                     }
-                
+              
+                const environmentSettings = this.getEnvSettingFromJSON(emailContentResult.additionalInfo, agencyNetworkId)
+                if(typeof environmentSettings === "object"){
+                    for (var property in environmentSettings) {
+                        emailTemplateJSON[property]  = environmentSettings[property];
+                    };
+                }
+                   
             }
             catch(err) {
                 log.error("getEmailContentAgencyAndCustomer error: " + err + __location);
@@ -348,6 +426,79 @@ module.exports = class AgencyNetworkBO{
         }
         
     }
+    async getEnvSettingbyId(agencyNetworkId){
+         let error = null;
+         const agencyNetworkJSON = await this.getById(agencyNetworkId).catch(err => error);
+         if(error){
+             log.error("Error getting AgencyNetwork for env settings " + error + __location);
+             return null;
+         }
+        if(agencyNetworkJSON && agencyNetworkJSON.additionalInfo){
+            let envSetting = this.getEnvSettingFromJSON(agencyNetworkJSON.additionalInfo,agencyNetworkId );
+            envSetting.brandName = agencyNetworkJSON.name;
+            envSetting.emailBrand = agencyNetworkJSON.email_brand;
+            return envSetting;
+        }
+        else {
+            log.error(`AgencyNetwork ${agencyNetworkId} does not have additionalInfo ` + __location);
+            return null;
+        }
+    }
+    getEnvSettingFromJSON(additionalInfoJSON, agencyNetworkId){
+        if(!additionalInfoJSON){
+            log.error(`AgencyNetwork ${agencyNetworkId} is missing additionalInfoJSON.environmentSettings for ${env} ` + __location)
+            return {};
+        }
+        if(typeof additionalInfoJSON === 'string'){
+            additionalInfoJSON = JSON.parse(additionalInfoJSON);
+        }
+        const env = global.settings.ENV
+        if(additionalInfoJSON && additionalInfoJSON.environmentSettings && additionalInfoJSON.environmentSettings[env]){
+            return additionalInfoJSON.environmentSettings[env];
+        }
+        else {
+            log.error(`AgencyNetwork ${agencyNetworkId} is missing additionalInfoJSON.environmentSettings for ${env} ` + __location)
+            return {};
+        }
+    }
+    getIdToNameMap(){
+        return new Promise(async (resolve, reject) => {
+            let map = {};
+            let rejected = false;
+            // Create the update query
+            let sql = `
+                select *  from ${tableName}  
+            `;
+            
+            // Run the query
+            //log.debug("AgencyNetworkBO getlist sql: " + sql);
+            const result = await db.query(sql).catch(function (error) {
+                // Check if this was
+                
+                rejected = true;
+                log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
+                reject(error);
+            });
+            if (rejected) {
+                return;
+            }
+            let boList = [];
+            if(result && result.length > 0 ){
+                for(let i=0; i < result.length; i++ ){
+                   map[result[i].id] = result[i].name ;
+                }
+                resolve(map);
+            }
+            else {
+                //Search so no hits ok.
+                resolve(map);
+            }
+           
+        
+    });
+        
+    }
+   
 }
 
 const properties = {
@@ -403,7 +554,7 @@ const properties = {
       "required": false,
       "rules": null,
       "type": "string",
-      "dbType": "varchar(40)"
+      "dbType": "varchar(250)"
     },
     "fname": {
       "default": null,
@@ -448,7 +599,7 @@ const properties = {
       "required": false,
       "rules": null,
       "type": "string",
-      "dbType": "varchar(40)"
+      "dbType": "varchar(250)"
     },
     "name": {
       "default": "",
@@ -477,6 +628,15 @@ const properties = {
       "type": "json",
       "dbType": "json"
     },
+    "additionalInfo": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "json",
+        "dbType": "json"
+     },
     "created": {
       "default": null,
       "encrypted": false,

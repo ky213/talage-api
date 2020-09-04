@@ -44,7 +44,6 @@ module.exports = class Application {
 	 */
     async load(data) {
         log.verbose('Loading data into Application');
-
         // ID
         this.id = parseInt(data.id, 10);
 
@@ -104,7 +103,7 @@ module.exports = class Application {
         for (let i = 0; i < policyTypeList.length; i++) {
             const policyTypeBO = policyTypeList[i];
             const p = new Policy(this.business);
-            await p.load(policyTypeBO, this.id, applicationBO, data.policies);
+            await p.load(policyTypeBO, this.id, applicationBO);
             this.policies.push(p);
             appPolicyTypeList.push(policyTypeBO.policy_type);
         }
@@ -120,8 +119,8 @@ module.exports = class Application {
         // Agent
         this.agencyLocation = new AgencyLocation(this.business, this.policies);
         // Note: The front-end is sending in 'agent' but this is really a reference to the 'agency location'
-        if (data.agent) {
-            await this.agencyLocation.load({id: data.agent});
+        if (applicationBO.agency_location) {
+            await this.agencyLocation.load({id: applicationBO.agency_location});
         }
         else {
             await this.agencyLocation.load({id: 1}); // This is Talage's agency location record
@@ -466,6 +465,7 @@ module.exports = class Application {
                         agencyLocation: this.agencyLocation.id,
                         application: this.id
                     },
+                    this.agencyLocation.agencyNetwork,
                     brand,
                     this.agencyLocation.agencyId);
 
@@ -474,19 +474,7 @@ module.exports = class Application {
                 // Do not send if this is Talage
                 if (this.agencyLocation.agencyId > 2) {
                     // Determine the portal login link
-                    let portalLink = '';
-                    switch (global.settings.ENV) {
-                        case 'development':
-                            portalLink = global.settings.PORTAL_URL;
-                            break;
-                        case 'test':
-                        case 'staging':
-                        case 'demo':
-                        case 'production':
-                        default:
-                            portalLink = this.agencyLocation.agencyNetwork === 2 ? global.settings.DIGALENT_AGENTS_URL : global.settings.TALAGE_AGENTS_URL;
-                            break;
-                    }
+                    let portalLink = emailContentJSON.PORTAL_URL;
 
                     message = emailContentJSON.agencyMessage;
                     subject = emailContentJSON.agencySubject;
@@ -515,6 +503,7 @@ module.exports = class Application {
                             agencyLocation: this.agencyLocation.id,
                             application: this.id
                         },
+                        this.agencyLocation.agencyNetwork,
                         emailContentJSON.emailBrand,
                         this.agencyLocation.agencyId);
                 }

@@ -11,6 +11,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 // const {raw} = require('mysql');
 
 var sanitizer = require('sanitize')();
+var sanitizeFile = require("sanitize-filename");
 
 /**
  * Converts first letter of each word in a string to upper case
@@ -328,6 +329,18 @@ exports.santizeNumber = function(rawString, makeInt) {
         return null;
     }
 };
+
+exports.santizeFilename = function(rawString){
+    let cleanFileName = "";
+    try{
+        cleanFileName = sanitizeFile(rawString);
+    }
+    catch(e){
+        log.error('Error santizeFilename ' + rawString + ' error: ' + e + __location);
+    }
+    return cleanFileName;
+
+}
 
 /**
  * Converts a string to boolean

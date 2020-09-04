@@ -144,7 +144,8 @@ exports.GetFileList = async function(s3Prefix) {
             // Reduce down to just the part we care about
             try {
                 data = data.Contents.map(function(item) {
-                    return `https://${global.settings.S3_BUCKET}.s3-us-west-1.amazonaws.com/${item.Key}`;
+                    //return `https://${global.settings.S3_BUCKET}.s3-us-west-1.amazonaws.com/${item.Key}`;
+                    return `${global.settings.IMAGE_URL}/${item.Key}`;
                 });
             }
             catch (err2) {

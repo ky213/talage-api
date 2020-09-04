@@ -10,6 +10,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 
 /**
  * Agency report Task processor
@@ -25,19 +26,19 @@ exports.processtask = async function(queueMessage){
     const messageAge = now.unix() - sentDatetime.unix();
     if(messageAge < 1800){
 
-        await quoteReportTask().catch(err => error = err);
+        await agencyReportTask().catch(err => error = err);
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err){
             error = err;
         });
         if(error){
-            log.error("Error abandonquotetask deleteTaskQueueItem " + error + __location);
+            log.error("Error Agency Report deleteTaskQueueItem " + error + __location);
         }
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle);
 
         return;
     }
     else {
-        log.info('removing old Abandon Application Message from queue');
+        log.info('removing old Agency Report Message from queue');
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(err => error = err)
         if(error){
             log.error("Error agency report deleteTaskQueueItem old " + error + __location);
@@ -47,88 +48,98 @@ exports.processtask = async function(queueMessage){
 }
 
 /**
- * Exposes QuotereportTask for testing
+ * Exposes Agency Report for testing
  *
  * @returns {void}
  */
 exports.taskProcessorExternal = async function(){
     let error = null;
-    await quoteReportTask().catch(err => error = err);
+    await agencyReportTask().catch(err => error = err);
     if(error){
         log.error('quotereportTask external: ' + error + __location);
     }
     return;
 }
 
-var quoteReportTask = async function(){
-    
-    const startOfMonth = moment().subtract(4, 'month');
-    const currentDate = moment().utc().format(db.dbTimeFormat())
+var agencyReportTask = async function(){
+
+    const startOfMonth = moment().tz("America/Los_Angeles").startOf('month');
+    //const currentDate = moment().utc().format(db.dbTimeFormat())
 
     //S QLAgency locations
     const quoteSQL = `
     select 
-            id, name, slug, state, agency_network, created, modified, deleted, wholesale_agreement_signed
+            id, name, slug, agency_network, created, modified, deleted, wholesale_agreement_signed
         from    
             clw_talage_agencies 
         where 
-            state = 1
-            AND created BETWEEN '${startOfMonth.utc().format(db.dbTimeFormat())}' AND '${currentDate}'`;
-    let quoteListDBJSON = null;
+            state = 1;`
 
-    quoteListDBJSON = await db.query(quoteSQL).catch(function(err){
+    // AND created BETWEEN '${startOfMonth.utc().format(db.dbTimeFormat())}' AND '${currentDate}'`;
+
+    let agencyListDBJSON = null;
+
+    agencyListDBJSON = await db.query(quoteSQL).catch(function(err){
         log.error(`Error get agency list from DB. error:  ${err}` + __location);
         return false;
     });
     const dbDataColumns = {
-                            "id": "Agency ID",
-                            "name": "Angency Name",
-                            "state": "state",
-                            "agency_network": "Agency Network",
-                            "created": "Created",
-                            "wholesale_agreement_signed":"Wholesale Agreement Signed",
-                            "modified": "Modified",
-                            "deleted": "Deleted"
-                            };
+        "id": "Agency ID",
+        "name": "Angency Name",
+        "state": "Active",
+        "networkName": "Agency Network",
+        "created": "Created",
+        "wholesale_agreement_signed":"Wholesale Agreement Signed",
+        "modified": "Modified",
+        "deleted": "Deleted"
+    };
 
     // Loop locations setting up activity codes.
-    if(quoteListDBJSON && quoteListDBJSON.length > 0){
-        for(let i = 0; i < quoteListDBJSON.length; i++){
-            const quote = quoteListDBJSON[i];
-            
+    if(agencyListDBJSON && agencyListDBJSON.length > 0){
+        //Load AgencyNetwork Map
+        const agencyNetworkBO = new AgencyNetworkBO();
+        let agencyNetworkNameMapJSON = {};
+        agencyNetworkNameMapJSON = await agencyNetworkBO.getIdToNameMap().catch(function(err){
+            log.error("Could not get agency network id to name map " + err + __location);
+        })
+
+        for(let i = 0; i < agencyListDBJSON.length; i++){
+            const quote = agencyListDBJSON[i];
+
             quote.created = moment_timezone(quote.created).tz('America/Los_Angeles').format('YYYY-MM-DD');
             quote.modified = moment_timezone(quote.modified).tz('America/Los_Angeles').format('YYYY-MM-DD');
 
-            if(quote.state > 0 ){
-                quote.state = "Active"
-            }
-            else{
-                quote.state = "Deleted"
-            }
+
+            quote.state = ""
             if(quote.wholesale_agreement_signed){
-                quote.wholesale_agreement_signed = moment_timezone(quote.wholesale_agreement_signed).tz('America/Los_Angeles').format('YYYY-MM-DD');
+                const signedDtm = moment_timezone(quote.wholesale_agreement_signed).tz('America/Los_Angeles')
+                quote.wholesale_agreement_signed = signedDtm.format('YYYY-MM-DD');
+                if(signedDtm < startOfMonth){
+                    quote.state = "Active"
+                }
             }
-            if(quote.wholesale_agreement_signed < startOfMonth){
-                quote.state = "Active"
-            }
-                if(quote.deleted){
+
+            if(quote.deleted){
                 quote.deleted = moment_timezone(quote.deleted).tz('America/Los_Angeles').format('YYYY-MM-DD');
             }
-            
+            // get AgencyNetwork name from map
+            if(agencyNetworkNameMapJSON[agencyListDBJSON[i].agency_network]){
+                agencyListDBJSON[i].networkName = agencyNetworkNameMapJSON[agencyListDBJSON[i].agency_network];
+            }
+
         }
 
         //Map list of agencies to CSV
         // eslint-disable-next-line object-property-newline
         const stringifyOptions = {
-                                    "header": true,
-                                    "columns": dbDataColumns
-                                 };
-
-        const csvData = await csvStringify(quoteListDBJSON, stringifyOptions).catch(function(err){
+            "header": true,
+            "columns": dbDataColumns
+        };
+        const csvData = await csvStringify(agencyListDBJSON, stringifyOptions).catch(function(err){
             log.error("Agency Report JSON to CSV error: " + err + __location);
             return;
         });
-        
+
 
         if(csvData){
             var b = Buffer.from(csvData);
@@ -148,7 +159,7 @@ var quoteReportTask = async function(){
             };
             const attachments = [];
             attachments.push(attachmentJson);
-            const emailResp = await emailSvc.send(toEmail, 'Agency Report', 'Monthly report with number of agencies, active/inactive, and onboarding dates as of the 1st of that month.', {}, 'talage', 1, attachments);
+            const emailResp = await emailSvc.send(toEmail, 'Agency Report', 'Monthly report with number of agencies, active/inactive, and onboarding dates as of the 1st of that month.', {}, global.WHEELHOUSE_AGENCYNETWORK_ID, 'talage', 1, attachments);
             if(emailResp === false){
                 slack.send('#alerts', 'warning',`The system failed to send Agency Report email.`);
             }
@@ -158,26 +169,17 @@ var quoteReportTask = async function(){
             log.error("Agency Report JSON to CSV error: csvData empty file: " + __location);
             return;
         }
+
     }
     else {
-<<<<<<< HEAD
-        log.info("Agencies Report: No Agencies to report ");
-=======
         log.info("Agency Report: No agencies to report ");
->>>>>>> develop
         let toEmail = 'adam@talageins.com';
         if(global.settings.ENV !== 'production'){
             toEmail = 'brian@talageins.com';
         }
-<<<<<<< HEAD
-        const emailResp = await emailSvc.send(toEmail, 'Agency Report', 'Your daily agencies report: No Agencies.', {}, 'talage', 1);
-        if(emailResp === false){
-            slack.send('#alerts', 'warning',`The system failed to send Agency Report email.`);
-=======
-        const emailResp = await emailSvc.send(toEmail, '"Agency Report', 'Your "Agency Report report: No Agencies.', {}, 'talage', 1);
+        const emailResp = await emailSvc.send(toEmail, 'Agency Report', 'Your "Agency Report report: No Agencies.', {}, global.WHEELHOUSE_AGENCYNETWORK_ID , 'talage', 1);
         if(emailResp === false){
             slack.send('#alerts', 'warning',`The system failed to send "Agency Report email.`);
->>>>>>> develop
         }
         return;
     }

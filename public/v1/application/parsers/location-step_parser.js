@@ -20,6 +20,8 @@ exports.process = async function(requestJSON) {
         let total_payroll = {};
         let locationsList = [];
         let zip = null;
+        let city = null;
+        let state_abbr = null;
         const makeInt = true;
         for (var i = 0; i < locationsJSON.length; i++) {
             // eslint-disable-next-line prefer-const
@@ -34,10 +36,14 @@ exports.process = async function(requestJSON) {
             // locationJSON.part_time_employees = stringFunctions.santizeNumber(locationJSON.part_time_employees, makeInt);
             //locationJSON.square_footage = stringFunctions.santizeNumber(locationJSON.square_footage);
             locationJSON.unemployment_num = stringFunctions.santizeNumber(locationJSON.unemployment_num);
-            locationJSON.zip = stringFunctions.santizeNumber(locationJSON.zip, makeInt);
+            locationJSON.zip = stringFunctions.santizeString(locationJSON.zip);
             if(i === 0){
-                zip = locationJSON.zip
+                zip = locationJSON.zip;
+                city = locationJSON.city;
+                state_abbr = locationJSON.territory;
             }
+            locationJSON.zipcode = locationJSON.zip;
+            locationJSON.state_abbr = locationJSON.territory;
 
             const territory = stringFunctions.santizeString(locationJSON.territory);
             territories.push(territory);
@@ -75,31 +81,44 @@ exports.process = async function(requestJSON) {
         const mailing = JSON.parse(requestJSON.mailing);
         const mailing_address = stringFunctions.santizeString(mailing.mailing_address);
         const mailing_address2 = stringFunctions.santizeString(mailing.mailing_address2);
-        const mailing_zip = stringFunctions.santizeNumber(mailing.mailing_zip, makeInt);
+        const mailing_city = stringFunctions.santizeString(mailing.mailing_city);
+        const mailing_state_abbr = stringFunctions.santizeString(mailing.mailing_territory);
+        const mailing_zip = stringFunctions.santizeString(mailing.mailing_zip);
 
         const agency_location = stringFunctions.santizeNumber(requestJSON.agency_location, makeInt);
 
         requestJSON.businessInfo = {
             'mailing_address': mailing_address,
-			'mailing_address2': mailing_address2,
-			'mailing_zip': mailing_zip,
-			'zip': zip
-         };
-         requestJSON.businessInfo.locations = locationsList;
-         requestJSON.businessInfo.territories = territories;
-         //application info
+            'mailing_address2': mailing_address2,
+            'mailing_city': mailing_city,
+            'mailing_state_abbr': mailing_state_abbr,
+            'mailing_zip': mailing_zip,
+            'mailing_zipcode': mailing_zip,
+            'zip': zip,
+            'city': city,
+            'state_abbr': state_abbr
+        };
+        requestJSON.businessInfo.locations = locationsList;
+        requestJSON.businessInfo.territories = territories;
+        //application info
 
-         //Only include it if exists. b/c of how the model works.
-         if(agency_location){
+        //Only include it if exists. b/c of how the model works.
+        if(agency_location > 0){
+            log.debug("location parse setting agency location to " + agency_location);
             requestJSON.agency_location = agency_location
-         }
-         requestJSON.territories = territories;
-         requestJSON.total_payroll = total_payroll;
-         requestJSON.zip = zip;
+        }
+        else if (requestJSON.agency_location) {
+            delete requestJSON.agency_location
+        }
+        requestJSON.territories = territories;
+        requestJSON.total_payroll = total_payroll;
+        requestJSON.city = city;
+        requestJSON.state_abbr = state_abbr;
+        requestJSON.zip = zip;
 
         delete requestJSON.mailing;
         delete requestJSON.locations;
-        //log.debug("Location Parser requestJSON: " + JSON.stringify(requestJSON));
+        log.debug("Location Parser requestJSON: " + JSON.stringify(requestJSON));
     }
     else {
         log.error("No locations provided in location step" + __location)
