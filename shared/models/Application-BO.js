@@ -104,7 +104,7 @@ module.exports = class ApplicationModel {
                 });
                 this.updateProperty();
                 //Check that is still updateable.
-                if(this.state > 15  && this.state === 0){
+                if(this.state > 15  && this.state < 1){
                     log.warn(`Attempt to update a finished or deleted application. appid ${applicationJSON.id}`  + __location);
                     reject(new Error("Data Error:Application may not be updated."));
                     return;
