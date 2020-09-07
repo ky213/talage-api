@@ -84,39 +84,39 @@ function generateCSV(agents, agencyNetwork){
 
         // Prepare to get all application data
         let sql = `
-			SELECT
-				\`a\`.\`status\`,
-				\`ad\`.\`address\`,
-				\`ad\`.\`address2\`,
-				\`ad\`.\`zip\`,
-				\`ag\`.\`name\` AS \`agency\`,
-				\`b\`.\`dba\`,
-				\`b\`.\`ein\`,
-				\`b\`.\`entity_type\`,
-				\`b\`.\`name\`,
-				\`b\`.\`website\`,
-				\`c\`.\`email\`,
-				\`c\`.\`fname\`,
-				\`c\`.\`lname\`,
-				\`c\`.\`phone\`,
-				\`pa\`.\`address\` AS \`primaryAddress\`,
-				\`pa\`.\`address2\` AS \`primaryAddress2\`,
-				\`pa\`.\`zip\` AS \`primaryZip\`,
-				\`z\`.\`city\`,
-				\`z\`.\`territory\`,
-				\`z2\`.\`city\` AS \`primaryCity\`,
-				\`z2\`.\`territory\` AS \`primaryTerritory\`
-			FROM \`#__applications\` AS \`a\`
-			LEFT JOIN \`#__agencies\` AS \`ag\` ON \`a\`.\`agency\` = \`ag\`.\`id\`
-			LEFT JOIN \`#__addresses\` AS \`ad\` ON \`a\`.\`business\` = \`ad\`.\`business\` AND \`ad\`.\`billing\` = 1
-			LEFT JOIN (SELECT * FROM \`#__addresses\` AS \`ad2\` GROUP BY \`ad2\`.\`business\`) AS \`pa\` ON \`a\`.\`business\` = \`pa\`.\`business\`
-			LEFT JOIN \`#__businesses\` AS \`b\` ON \`a\`.\`business\` = \`b\`.\`id\`
-			LEFT JOIN \`#__contacts\` AS \`c\` ON \`a\`.\`business\` = \`c\`.\`business\` AND \`c\`.\`primary\` = 1
-			LEFT JOIN \`#__zip_codes\` AS \`z\` ON \`ad\`.\`zip\` = \`z\`.\`zip\`
-			LEFT JOIN \`#__zip_codes\` AS \`z2\` ON \`pa\`.\`zip\` = \`z2\`.\`zip\`
-			WHERE
-				\`a\`.\`state\` > 0
-				AND \`ag\`.\`state\` > 0
+            SELECT
+                a.status,
+                ad.address,
+                ad.address2,
+                ad.zip,
+                ag.name AS agency,
+                b.dba,
+                b.ein,
+                b.entity_type,
+                b.name,
+                b.website,
+                c.email,
+                c.fname,
+                c.lname,
+                c.phone,
+                pa.address AS primaryAddress,
+                pa.address2 AS primaryAddress2,
+                pa.zip AS primaryZip,
+                z.city,
+                z.territory,
+                z2.city AS primaryCity,
+                z2.territory AS primaryTerritory
+            FROM clw_talage_applications AS a
+            LEFT JOIN clw_talage_agencies AS ag ON a.agency = ag.id
+            LEFT JOIN clw_talage_addresses AS ad ON a.business = ad.business AND ad.billing = 1
+            LEFT JOIN (SELECT * FROM clw_talage_addresses AS ad2 GROUP BY ad2.business) AS pa ON a.business = pa.business
+            LEFT JOIN clw_talage_businesses AS b ON a.business = b.id
+            LEFT JOIN clw_talage_contacts AS c ON a.business = c.business AND c.primary = 1
+            LEFT JOIN clw_talage_zip_codes AS z ON ad.zip = z.zip
+            LEFT JOIN clw_talage_zip_codes AS z2 ON pa.zip = z2.zip
+            WHERE
+                a.state > 0
+                AND ag.state > 0
 		`;
 
         // If this is an AF Group Agency Network user, exclude Agency 42 from the output
