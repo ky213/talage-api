@@ -38,7 +38,7 @@ module.exports = class Business {
         this.mailing_address2 = '';
         this.mailing_city = '';
         this.mailing_territory = '';
-        this.mailing_zip = 0;
+        this.mailing_zipcode = '';
         this.name = '';
         this.num_owners = NaN;
         this.phone = 0;
@@ -141,10 +141,6 @@ module.exports = class Business {
                         //database has it as int, downstream expects string.
                         this.industry_code = data2.industry_code.toString();
                         break;
-                    case "zip":
-                        //database has it as int, downstream expects string.
-                        this.zip = data2.zip.toString();
-                        break;
                     case 'website':
                         this[property] = data2[property] ? data2[property].toLowerCase() : '';
                         break;
@@ -173,6 +169,10 @@ module.exports = class Business {
                         break;
                 }
             });
+
+            //backward compatible for integration code.
+            this.zip = this.mailing_zipcode;
+            this.mailing_territory = this.mailing_state_abbr;
         }
         catch (e) {
             log.error('populating business from db error: ' + e + __location)
@@ -541,28 +541,16 @@ module.exports = class Business {
 			 * Mailing Zip (required)
 			 * - Must be a 5 digit string
 			 */
-            if (this.mailing_zip) {
-                if (!validator.isZip(this.mailing_zip)) {
-                    reject(serverHelper.requestError('Invalid formatting for property: mailing_zip. Expected 5 digit format'));
+            if (this.mailing_zipcode) {
+                if (!validator.isZip(this.mailing_zipcode)) {
+                    log.error('Invalid formatting for business: mailing_zip. Expected 5 digit format. actual zip: ' + this.mailing_zipcode + __location)
+                    reject(serverHelper.requestError('Invalid formatting for business: mailing_zip. Expected 5 digit format ' + this.mailing_zipcode ));
                     return;
                 }
-
-                // Make sure we have match in our database
-                await db.query(`SELECT \`city\`, \`territory\` FROM \`#__zip_codes\` WHERE \`zip\` = ${this.mailing_zip} LIMIT 1;`).then((row) => {
-                    if (row) {
-                        this.mailing_city = row[0].city;
-                        this.mailing_territory = row[0].territory;
-                    }
-                    else {
-                        reject(serverHelper.requestError('The mailing_zip code you entered is not valid'));
-                    }
-                }).catch(function(error) {
-                    log.warn("DB mailing_zip code error: " + error + __location);
-                    reject(serverHelper.requestError('The mailing_zip code you entered is not valid'));
-                });
             }
             else {
-                reject(serverHelper.requestError('Missing required field: mailing_zip'));
+                log.error('Missing required field: business mailing_zip' + __location);
+                reject(serverHelper.requestError('Missing required field:  business mailing_zip'));
                 return;
             }
 
