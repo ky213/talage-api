@@ -6,6 +6,7 @@ const ApplicationActivityCodesModel = require('./ApplicationActivityCodes-model.
 const ApplicationPolicyTypeBO = require('./ApplicationPolicyType-BO.js');
 const LegalAcceptanceModel = require('./LegalAcceptance-model.js');
 const ApplicationClaimBO =  require('./ApplicationClaim-BO.js');
+const status = global.requireShared('./models/application-businesslogic/status.js');
 
 const QuoteModel = require('./Quote-model.js');
 const taskWholesaleAppEmail = global.requireRootPath('tasksystem/task-wholesaleapplicationemail.js');
@@ -50,8 +51,9 @@ module.exports = class ApplicationModel {
 
 
 
-
+        doNotSnakeCase = ['appStatusId'];
         this.#dbTableORM = new ApplicationOrm();
+        this.#dbTableORM.doNotSnakeCase = this.doNotSnakeCase;
     }
    
 
@@ -91,6 +93,9 @@ module.exports = class ApplicationModel {
             log.debug('workflowStep: ' + workflowStep + ' stepNumber: ' +  stepNumber);
 
             if (!applicationJSON.id && applicationJSON.step !== "contact") {
+                applicationJSON.progress = 'incomplete';
+                applicationJSON.status = 'incomplete';
+                applicationJSON.appStatusId = 0;
                 log.error('saveApplicationStep missing application id ' + __location)
                 reject(new Error("missing application id"));
                 return;
@@ -238,6 +243,8 @@ module.exports = class ApplicationModel {
                         log.error('Adding Legal Acceptance error:' + err + __location);
                         reject(err);
                     });
+                    //applicationJSON.status = 'incomplete';
+                    //applicationJSON.appStatusId = 10;
                     if(applicationJSON.wholesale === 1 || applicationJSON.solepro === 1 ){
                         //save the app for the email.
                         this.#dbTableORM.load(applicationJSON, false).catch(function (err) {
@@ -802,6 +809,14 @@ const properties = {
         "type": "string",
         "dbType": "varchar(32)"
     },
+    "appStatusId": {
+        "default": null,
+        "encrypted": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
+    },
     "abandoned_email": {
         "default": 0,
         "encrypted": false,
@@ -1052,6 +1067,13 @@ const properties = {
         "required": false,
         "rules": null,
         "type": "number"
+    },
+    "progress": {
+        "default": "unknown",
+        "encrypted": false,
+        "required": false,
+        "rules": null,
+        "type": "string"
     },
     "referrer": {
         "default": "unknown",
