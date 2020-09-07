@@ -246,11 +246,9 @@ module.exports = class AgencyLocationBO{
             //santize id.
             
             let rejected  = false;
-            //what agencyportal client expects.
-            //TODO parameterize query....
-            const sql = `select *
+            let sql = `select *
                 from clw_talage_agency_locations 
-                where agency = ${agencyId} and l.id = ${id} AND state > 0`
+                where agency = ${db.escape(agencyId)} and id = ${db.escape(id)} AND state > 0`
 
             const result = await db.query(sql).catch(function (error) {
                 // Check if this was
@@ -267,21 +265,60 @@ module.exports = class AgencyLocationBO{
                     const resp = await agencyLocationBO.loadORM(locationJSON, skipCheckRequired).catch(function(err){
                         log.error(`getList error loading object: ` + err + __location);
                     })
-                    
-                    locationJSON;
-                    
-                    if(children === true ){
-
-                    }
-                    return result;
+                    // if(children === true ){
+                    //     //TODO
+                    // }
+                    return locationJSON;
                 }
                 else {
-                    return locationJSON;
+                    return null;
                 }
             }
             else {
                 return null;
             }
+        }
+        else {
+            throw new Error("No id or agency id");
+        }
+    }
+
+
+
+    async getByAgencyPrimary(agencyId){
+        
+        if(agencyId){
+            agencyId = stringFunctions.santizeNumber(agencyId, true);
+            let rejected  = false;
+            let sql = `select *
+                from clw_talage_agency_locations 
+                where agency = ${db.escape(agencyId)} and \`primary\` = 1 AND state > 0`
+
+            
+            const result = await db.query(sql).catch(function (error) {
+                // Check if this was
+                rejected = true;
+                log.error(`clw_talage_agency_locations error on select ` + error + __location);
+            });
+
+            if (!rejected && result && result.length >0) {
+                let locationJSON = result[0];
+                //created encrypt and format
+                let agencyLocationBO = new AgencyLocationBO();
+                await agencyLocationBO.#dbTableORM.decryptFields(locationJSON);
+                await agencyLocationBO.#dbTableORM.convertJSONColumns(locationJSON);
+                // const resp = await agencyLocationBO.loadORM(locationJSON, skipCheckRequired).catch(function(err){
+                //     log.error(`getList error loading object: ` + err + __location);
+                // })
+                // if(children === true ){
+                //     //TODO
+                // }
+                return locationJSON;
+            }
+            else {
+                return null;
+            }
+           
         }
         else {
             throw new Error("No id or agency id");
