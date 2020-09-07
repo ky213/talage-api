@@ -6,6 +6,7 @@ const ApplicationActivityCodesModel = require('./ApplicationActivityCodes-model.
 const ApplicationPolicyTypeBO = require('./ApplicationPolicyType-BO.js');
 const LegalAcceptanceModel = require('./LegalAcceptance-model.js');
 const ApplicationClaimBO =  require('./ApplicationClaim-BO.js');
+const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 
 const QuoteModel = require('./Quote-model.js');
 const taskWholesaleAppEmail = global.requireRootPath('tasksystem/task-wholesaleapplicationemail.js');
@@ -68,6 +69,8 @@ module.exports = class ApplicationModel {
                 reject(new Error("empty application object given"));
                 return;
             }
+
+            //log.debug("Beginning applicationJSON: " + JSON.stringify(applicationJSON));
 
             const stepMap = {
                 'contact': 2,
@@ -142,20 +145,40 @@ module.exports = class ApplicationModel {
                 }
                 if(!applicationJSON.agency){
                     applicationJSON.agency = 1
+                    applicationJSON.agency_location = 1
                 }
                 if(applicationJSON.agency === 0 && applicationJSON.agency === "0"){
                     applicationJSON.agency = 1
+                    applicationJSON.agency_location = 1
+                }
+                if(applicationJSON.agencylocation_id === null){
+                    delete applicationJSON.agencylocation_id
+                }
+                if(applicationJSON.agency_location === null){
+                    delete applicationJSON.agency_location
                 }
                 //agency location defaults
                 if(applicationJSON.agencylocation_id && !applicationJSON.agency_location){
-                    applicationJSON.agency_location = applicationJSON.agencylocation_id   
+                    applicationJSON.agency_location = applicationJSON.agencylocation_id  
+                    delete applicationJSON.agencylocation_id 
                 }
-                if(!applicationJSON.agency_location){
-                    applicationJSON.agency_location = 1
+                //set to Agencylocation to Agency's primary if not set by request
+                if(typeof applicationJSON.agency_location !== 'number' && typeof applicationJSON.agency_location !== 'string'){
+                    log.info(`Setting App agency location to primary ${applicationJSON.uuid }` + __location)
+                    let agencyLocationBO = new AgencyLocationBO();
+                    const locationPrimaryJSON = await agencyLocationBO.getByAgencyPrimary(applicationJSON.agency).catch(function(err){
+                        log.error("Error getting Agency Primary Location ${applicationJSON.uuid} " + err + __location);
+                    });
+                    if(locationPrimaryJSON && locationPrimaryJSON.id ){
+                        applicationJSON.agency_location = locationPrimaryJSON.id
+                        log.info(`Set App agency location to primary for ${applicationJSON.uuid } agency ${applicationJSON.agency} Location ${applicationJSON.agency_location}` + __location)
+                    }
+                    else {
+                        log.warn(`Data problem prevented setting App agency location to primary for ${applicationJSON.uuid } agency ${applicationJSON.agency} Location ${applicationJSON.agency_location}` + __location)
+                    }
+                    
                 }
-                if(applicationJSON.agency_location === 0 || applicationJSON.agency_location === "0"){
-                    applicationJSON.agency_location = 1
-                }
+                
             }
 
             //log.debug("applicationJSON: " + JSON.stringify(applicationJSON));
@@ -163,7 +186,6 @@ module.exports = class ApplicationModel {
             let updateBusiness = false;
             switch (workflowStep) {
                 case "contact":
-                    
                     //setup business special case need new business ID back.
                     if (applicationJSON.businessInfo) {
                         //load business
