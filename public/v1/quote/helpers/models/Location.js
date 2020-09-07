@@ -32,6 +32,7 @@ module.exports = class Location {
         this.state_abbr = '';
 
         // WC Only
+        this.unemployment_num = 0;
         this.unemployment_number = 0;
     }
 
@@ -99,6 +100,8 @@ module.exports = class Location {
         //backward compatible for integration code.
         this.zip = this.zipcode;
         this.territory = this.state_abbr;
+        this.unemployment_number = this.unemployment_num;
+        //log.debug("Location finished load " + JSON.stringify(this));
     }
 
     setPolicyTypeList(appPolicyTypeList){
@@ -237,9 +240,10 @@ module.exports = class Location {
                 ];
 
                 // Check if an unemployment number is required
-                if (unemployment_number_states.includes(this.territory)) {
+                if (unemployment_number_states.includes(this.state_abbr)) {
+                    log.debug("this.unemployment_number " + this.unemployment_number + __location)
                     if (this.unemployment_number === 0) {
-                        reject(serverHelper.requestError(`Unemployment Number is required for all locations in ${unemployment_number_states.join(', ')}`));
+                        reject(serverHelper.requestError(`Unemployment Number is required for all locations in ${unemployment_number_states.join(', ')}` + __location));
                         return;
                     }
                     if (!Number.isInteger(this.unemployment_number)) {
