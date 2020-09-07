@@ -38,6 +38,7 @@ module.exports = class Business {
         this.mailing_address2 = '';
         this.mailing_city = '';
         this.mailing_territory = '';
+        this.mailing_state_abbr = '';
         this.mailing_zipcode = '';
         this.name = '';
         this.num_owners = NaN;
@@ -64,8 +65,8 @@ module.exports = class Business {
         const territories = [];
 
         this.locations.forEach(function(loc) {
-            if (!territories.includes(loc.territory)) {
-                territories.push(loc.territory);
+            if (!territories.includes(loc.state_abbr)) {
+                territories.push(loc.state_abbr);
             }
         });
 
@@ -172,6 +173,7 @@ module.exports = class Business {
 
             //backward compatible for integration code.
             this.zip = this.mailing_zipcode;
+            this.mailing_zip = this.mailing_zipcode;
             this.mailing_territory = this.mailing_state_abbr;
         }
         catch (e) {
@@ -180,16 +182,17 @@ module.exports = class Business {
         this.owners_included = Boolean(applicationBO.owners_covered);
         this.years_of_exp = applicationBO.years_of_exp;
         //Zipcode processing
-        let zipCodeBO = new ZipCodeBO();
-        await zipCodeBO.loadByZipCode(this.zip).catch(function(err) {
-            error = err;
-            log.error("Unable to get ZipCode records for quoting appId: " + businessId + __location);
-        });
-        if (error) {
-            throw error;
-        }
+        // let zipCodeBO = new ZipCodeBO();
+        // await zipCodeBO.loadByZipCode(this.zip).catch(function(err) {
+        //     error = err;
+        //     log.error("Unable to get ZipCode records for quoting appId: " + businessId + __location);
+        // });
+        // if (error) {
+        //     throw error;
+        // }
         //Assign primary territory
-        this.primary_territory = zipCodeBO.territory
+        //this.primary_territory = zipCodeBO.territory
+        this.primary_territory = this.mailing_state_abbr
 
         if (contactList && contactList.length > 0) {
             this.phone = contactList[0].phone;
@@ -234,6 +237,7 @@ module.exports = class Business {
                 else {
                     location.identification_number = `${location.identification_number.substr(0, 3)}-${location.identification_number.substr(3, 2)}-${location.identification_number.substr(5, 4)}`;
                 }
+               // log.debug('business location adding ' + JSON.stringify(location));
                 this.locations.push(location);
             }
         }
