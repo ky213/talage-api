@@ -511,7 +511,7 @@ module.exports = class Application {
         }
 
         // Only send Slack messages on Talage applications
-        if (this.agencyLocation.agencyId <= 2) {
+        if (this.agencyLocation.agencyId <= 2 || this.agencyLocation.notifiyTalage === true) {
             // Build out the 'attachment' for the Slack message
             const attachment = {
                 application_id: this.id,
@@ -533,11 +533,7 @@ module.exports = class Application {
                     join(' and ')}`
             };
 
-            if (global.settings.ENV === 'development') {
-                log.info('!!! Skipping sending notification slack due to development environment. !!!');
-                return;
-            }
-
+            // sending controlled in slacksvc by env SLACK_DO_NOT_SEND
             // Send a message to Slack
             if (all_had_quotes) {
                 slack.send('customer_success', 'ok', 'Application completed and the user received ALL quotes', attachment);
