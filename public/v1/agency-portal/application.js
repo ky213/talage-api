@@ -57,7 +57,8 @@ async function getApplication(req, res, next){
     const sql = `
 			SELECT
 				${db.quoteName('a.additional_insured', 'additionalInsured')},
-				${db.quoteName('a.agency')},
+                ${db.quoteName('a.agency')},
+                ${db.quoteName('a.agency_location')},
 				${db.quoteName('a.id')},
 				${db.quoteName('a.last_step', 'lastStep')},
 				${db.quoteName('a.solepro')},
