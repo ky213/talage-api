@@ -12,3 +12,4 @@ mochawesome-report/
 /datafix-populate-clear-fields.js
 /loadagencynetworkadditionalInfo.js
 /loadtestmysql.js
+/setAgencyNotifyTalage.js

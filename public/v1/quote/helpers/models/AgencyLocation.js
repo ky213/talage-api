@@ -29,6 +29,10 @@ module.exports = class AgencyLocation {
         this.last_name = '';
         this.territories = [];
         this.wholesale = false;
+        this.additionalInfo = {};
+        //Slack message to Talage for this Agency's applications.
+        // Parter channel that is really Talage Agency business.
+        this.notifiyTalage = false;
     }
 
     /**
@@ -62,7 +66,7 @@ module.exports = class AgencyLocation {
 
             // SQL for getting agency / location details
             queries.push(`
-                SELECT ag.id, ag.agency_network, a.email, a.fname, a.lname, ag.name, ag.phone, ag.website, ag.wholesale
+                SELECT ag.id, ag.agency_network, a.email, a.fname, a.lname, ag.name, ag.phone, ag.website, ag.wholesale, ag.additionalInfo
                 FROM clw_talage_agency_locations a
                 LEFT JOIN clw_talage_agencies ag ON a.agency = ag.id
                 
@@ -123,6 +127,13 @@ module.exports = class AgencyLocation {
             this.first_name = await crypt.decrypt(agencyInfo[0].fname);
             this.last_name = await crypt.decrypt(agencyInfo[0].lname);
             this.wholesale = Boolean(agencyInfo[0].wholesale);
+            // Notification: Parter channel that is really Talage Agency business.
+            if(agencyInfo[0].additionalInfo){
+                this.additionalInfo = JSON.parse(agencyInfo[0].additionalInfo);
+                if(this.additionalInfo && typeof this.additionalInfo.notifiyTalage === 'boolean'){
+                    this.notifiyTalage = this.additionalInfo.notifiyTalage;
+                }
+            }
 
             // Extract the insurer info
             for (const insurerId in insurers) {
