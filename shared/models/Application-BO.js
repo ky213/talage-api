@@ -28,6 +28,7 @@ const  QUOTE_STEP_NUMBER = 9;
 module.exports = class ApplicationModel {
 
     #dbTableORM = null;
+    doNotSnakeCase = ['appStatusId'];
 
     constructor() {
         this.agencyLocation = null;
@@ -52,7 +53,7 @@ module.exports = class ApplicationModel {
 
 
 
-        this.doNotSnakeCase = ['appStatusId'];
+        
         this.#dbTableORM = new ApplicationOrm();
         this.#dbTableORM.doNotSnakeCase = this.doNotSnakeCase;
     }
