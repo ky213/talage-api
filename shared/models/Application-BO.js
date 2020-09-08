@@ -52,7 +52,7 @@ module.exports = class ApplicationModel {
 
 
 
-        doNotSnakeCase = ['appStatusId'];
+        this.doNotSnakeCase = ['appStatusId'];
         this.#dbTableORM = new ApplicationOrm();
         this.#dbTableORM.doNotSnakeCase = this.doNotSnakeCase;
     }

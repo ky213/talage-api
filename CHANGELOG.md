@@ -1,7 +1,7 @@
-<a name="1.5.2"></a>
-## 1.5.2 (04/30/20)
+<a name="1.6.0"></a>
+## 1.6.0 (09/10/20)
 
 #### Enhancement
-* Initial unified API
+* latest changes
 
 
