@@ -89,9 +89,11 @@ async function findOne(req, res, next) {
 
 async function add(req, res, next) {
 
-    if (req.body.agencynetworkid) {
-        req.body.agency_network = req.body.agencynetworkid;
-        delete req.body.agencynetworkid
+    if (req.body.agencynetworkid || req.body.agency_network) {
+        if(req.body.agencynetworkid){
+            req.body.agency_network = req.body.agencynetworkid;
+            delete req.body.agencynetworkid
+        }
     }
     else {
         return next(serverHelper.requestError('Missing agencynetworkid'))
