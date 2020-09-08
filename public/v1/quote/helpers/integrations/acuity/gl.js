@@ -14,14 +14,14 @@ const Integration = require('../Integration.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-module.exports = class AcuityWC extends Integration {
-
+module.exports = class AcuityGL extends Integration {
 	/**
 	 * Requests a quote from Acuity and returns. This request is not intended to be called directly.
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
 	_insurer_quote() {
+
 		// These are the limits supported by Acuity
 		const carrierLimits = ['100000/500000/100000',
 '500000/500000/500000',
