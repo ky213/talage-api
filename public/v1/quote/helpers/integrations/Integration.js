@@ -15,7 +15,7 @@ const xmlToObj = util.promisify(require('xml2js').parseString);
 const serverHelper = require('../../../../../server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const {getQuoteAggregatedStatus} = global.requireShared('./helpers/status.js');
+const {getQuoteAggregatedStatus} = global.requireShared('./models/application-businesslogic/status.js');
 
 module.exports = class Integration {
 

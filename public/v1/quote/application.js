@@ -7,7 +7,7 @@
 const Application = require('./helpers/models/Application.js');
 const serverHelper = require('../../../server.js');
 const jwt = require('jsonwebtoken');
-const status = global.requireShared('./helpers/status.js');
+const status = global.requireShared('./models/application-businesslogic/status.js');
 
 /**
  *
