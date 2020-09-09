@@ -97,9 +97,6 @@ module.exports = class ApplicationModel {
             log.debug('workflowStep: ' + workflowStep + ' stepNumber: ' +  stepNumber);
 
             if (!applicationJSON.id && applicationJSON.step !== "contact") {
-                applicationJSON.progress = 'incomplete';
-                applicationJSON.status = 'incomplete';
-                applicationJSON.appStatusId = 0;
                 log.error('saveApplicationStep missing application id ' + __location)
                 reject(new Error("missing application id"));
                 return;
@@ -192,6 +189,9 @@ module.exports = class ApplicationModel {
             let updateBusiness = false;
             switch (workflowStep) {
                 case "contact":
+                    applicationJSON.progress = 'incomplete';
+                    applicationJSON.status = 'incomplete';
+                    applicationJSON.appStatusId = 0;
                     //setup business special case need new business ID back.
                     if (applicationJSON.businessInfo) {
                         //load business
