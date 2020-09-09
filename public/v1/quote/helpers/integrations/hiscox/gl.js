@@ -105,9 +105,6 @@ module.exports = class HiscoxGL extends Integration {
             "Sole Proprietorship": "Individual/sole proprietor"
         };
 
-        // These are the limits supported by Employers
-
-        // Build the Promise that will be returned
         // Determine which URL to use
         let host = "";
         if (this.insurer.useSandbox) {
@@ -120,7 +117,7 @@ module.exports = class HiscoxGL extends Integration {
         // Bring the version number into the local scope so it is available in the template
         this.version = version;
 
-        console.log(this.app);
+        console.log(JSON.stringify(this.app, null, 4));
 
         // Hiscox has us define our own Request ID
         this.request_id = this.generate_uuid();
@@ -192,11 +189,9 @@ module.exports = class HiscoxGL extends Integration {
         }
 
         // Determine the primary and secondary locations
-        this.primaryLocation = locations[0];
-        this.secondaryLocations = false;
-        if (this.app.business.locations.length > 1) {
-            this.secondaryLocations = locations.shift();
-        }
+        this.primaryLocation = locations.shift();
+        this.secondaryLocations = locations;
+        this.secondaryLocationsCount = this.secondaryLocations.length >= 5 ? "5+" : this.secondaryLocations.length.toString();
 
         // Get a token from their auth server
         const tokenRequestData = {
@@ -209,31 +204,20 @@ module.exports = class HiscoxGL extends Integration {
                 "Content-Type": "application/x-www-form-urlencoded"
             });
         } catch (error) {
-            log.error(
-                `${this.insurer.name} ${this.policy.type} Unable to obtain authentication token. API returned error: ${error.message}` +
-                    __location
-            );
-            return this.return_error(
-                "error",
-                "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch."
-            );
+            log.error(`${this.insurer.name} ${this.policy.type} Unable to obtain authentication token. API returned error: ${error.message}` + __location);
+            return this.return_error("error", "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.");
         }
         const responseObject = JSON.parse(tokenResponse);
 
         // Verify that we got back what we expected
         if (responseObject.status !== "approved" || !responseObject.access_token) {
             log.error(`${this.insurer.name} ${this.policy.type} Unable to authenticate with API.` + __location);
-            return this.return_error(
-                "error",
-                "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch."
-            );
+            return this.return_error("error", "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.");
         }
         const token = responseObject.access_token;
 
         // Render the template into XML and remove any empty lines (artifacts of control blocks)
-        const xml = hiscoxGLTemplate
-            .render(this, { ucwords: (val) => stringFunctions.ucwords(val.toLowerCase()) })
-            .replace(/\n\s*\n/g, "\n");
+        const xml = hiscoxGLTemplate.render(this, { ucwords: (val) => stringFunctions.ucwords(val.toLowerCase()) }).replace(/\n\s*\n/g, "\n");
 
         console.log("request", xml);
 
@@ -303,9 +287,8 @@ module.exports = class HiscoxGL extends Integration {
                                 log.error(
                                     `${this.insurer.name} ${
                                         this.policy.type
-                                    } Integration Error: API returned validation errors, but not as an array as expected. ${JSON.stringify(
-                                        validationError
-                                    )}` + __location
+                                    } Integration Error: API returned validation errors, but not as an array as expected. ${JSON.stringify(validationError)}` +
+                                        __location
                                 );
                                 this.reasons.push(
                                     `API returned an error that could not be parsed. Validation object missing one of the following: DataItem, Status, XPath`
@@ -385,8 +368,7 @@ module.exports = class HiscoxGL extends Integration {
             } else {
                 // There is no response from the API server to help us understand the error
                 log.error(
-                    `${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer. An unknown error was encountered.` +
-                        __location
+                    `${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer. An unknown error was encountered.` + __location
                 );
                 this.reasons.push("Unable to connect to insurer. An unknown error was encountered.");
                 return this.return_result("error");
@@ -400,10 +382,9 @@ module.exports = class HiscoxGL extends Integration {
             result.InsuranceSvcRs.QuoteRs.length !== 1
         ) {
             log.error(
-                `${this.insurer.name} ${
-                    this.policy.type
-                } Integration Error: API did not return an error, but it also did not return a quote. ${JSON.stringify(result)}` +
-                    __location
+                `${this.insurer.name} ${this.policy.type} Integration Error: API did not return an error, but it also did not return a quote. ${JSON.stringify(
+                    result
+                )}` + __location
             );
             this.reasons.push("API did not return an error, but it also did not return a quote.");
             return this.return_result("error");
@@ -416,10 +397,7 @@ module.exports = class HiscoxGL extends Integration {
         if (Object.prototype.hasOwnProperty.call(quoteRs, "RqUID") && Array.isArray(quoteRs.RqUID) && quoteRs.RqUID.length === 1) {
             this.request_id = quoteRs.RqUID[0];
         } else {
-            log.error(
-                `${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find request ID.` +
-                    __location
-            );
+            log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find request ID.` + __location);
             // Even though an error occurred, we may still be able to get a quote, so processing will continue to try and provide a good user experience
         }
 
@@ -427,10 +405,7 @@ module.exports = class HiscoxGL extends Integration {
         if (Object.prototype.hasOwnProperty.call(quoteRs, "QuoteID") && Array.isArray(quoteRs.QuoteID) && quoteRs.QuoteID.length === 1) {
             this.number = quoteRs.QuoteID[0];
         } else {
-            log.error(
-                `${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.` +
-                    __location
-            );
+            log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.` + __location);
             // Even though an error occurred, we may still be able to get a quote, so processing will continue to try and provide a good user experience
         }
 
@@ -444,9 +419,9 @@ module.exports = class HiscoxGL extends Integration {
             quoteRs.ProductQuoteRs[0].GeneralLiabilityQuoteRs.length !== 1
         ) {
             log.error(
-                `${this.insurer.name} ${
-                    this.policy.type
-                } Integration Error: API returned some quote information, but no actual quote. ${JSON.stringify(result)}` + __location
+                `${this.insurer.name} ${this.policy.type} Integration Error: API returned some quote information, but no actual quote. ${JSON.stringify(
+                    result
+                )}` + __location
             );
             this.reasons.push("API returned some quote information, but no actual quote.");
             return this.return_result("error");
@@ -466,10 +441,7 @@ module.exports = class HiscoxGL extends Integration {
         ) {
             this.amount = generalLiabilityQuoteRs.Premium[0].Annual[0];
         } else {
-            log.error(
-                `${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find premium amount.` +
-                    __location
-            );
+            log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find premium amount.` + __location);
             // A quote with a zero amount is handled in return_result(), so processing should continue beyond this point
         }
 
@@ -487,8 +459,7 @@ module.exports = class HiscoxGL extends Integration {
                 this.limits[4] = parseInt(limits.LOI[0], 10);
             } else {
                 log.error(
-                    `${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find each occurance limit.` +
-                        __location
+                    `${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find each occurance limit.` + __location
                 );
             }
 
@@ -497,15 +468,11 @@ module.exports = class HiscoxGL extends Integration {
                 this.limits[8] = parseInt(limits.AggLOI[0], 10);
             } else {
                 log.error(
-                    `${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find general aggregate limit.` +
-                        __location
+                    `${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find general aggregate limit.` + __location
                 );
             }
         } else {
-            log.error(
-                `${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find any limits.` +
-                    __location
-            );
+            log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find any limits.` + __location);
             // Even though an error occurred, we may still be able to get a quote, so processing will continue to try and provide a good user experience
         }
 

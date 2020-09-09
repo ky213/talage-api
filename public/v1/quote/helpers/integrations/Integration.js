@@ -243,15 +243,9 @@ module.exports = class Integration {
         }
 
         // If this question has a parent that belongs to a different insurer it should have a default
-        if (
-            question.parent &&
-            !Object.prototype.hasOwnProperty.call(this.questions, question.parent) &&
-            question.answer_id === 0 &&
-            question.answer === null
-        ) {
+        if (question.parent && !Object.prototype.hasOwnProperty.call(this.questions, question.parent) && question.answer_id === 0 && question.answer === null) {
             log.error(
-                `Question ${question.id} is missing a default answer. Defaulted to 'No' for this application. May cause quoting inaccuracies!` +
-                    __location
+                `Question ${question.id} is missing a default answer. Defaulted to 'No' for this application. May cause quoting inaccuracies!` + __location
             );
             return "No";
         }
@@ -326,10 +320,9 @@ module.exports = class Integration {
                         `(inc.\`code\` = '${this.insurer_wc_codes[location.territory + activity_code.id].substring(
                             0,
                             4
-                        )}' AND inc.sub = '${this.insurer_wc_codes[location.territory + activity_code.id].substring(
-                            4,
-                            6
-                        )}' AND inc.territory = '${location.territory}')`
+                        )}' AND inc.sub = '${this.insurer_wc_codes[location.territory + activity_code.id].substring(4, 6)}' AND inc.territory = '${
+                            location.territory
+                        }')`
                     );
                 });
             });
@@ -439,9 +432,7 @@ module.exports = class Integration {
         return `${this.app.business.name} is a(n) ${this.app.business.industry_code_description.replace(
             "&",
             "and"
-        )} company with operations primarily located in ${this.app.business.locations[0].city}, ${
-            this.app.business.locations[0].territory
-        }.`;
+        )} company with operations primarily located in ${this.app.business.locations[0].city}, ${this.app.business.locations[0].territory}.`;
     }
 
     /**
@@ -774,9 +765,7 @@ module.exports = class Integration {
 
             // Make sure expiration_date is set
             if (this.policy && (!this.policy.expiration_date || !this.policy.expiration_date.isValid())) {
-                log.warn(
-                    `Application ${this.app.id} policy had an invalid effective date. Setting it to 1 years after effective date. ${__location}`
-                );
+                log.warn(`Application ${this.app.id} policy had an invalid effective date. Setting it to 1 years after effective date. ${__location}`);
                 this.policy.expiration_date = this.policy.effective_date.clone().add(1, "years");
             }
 
@@ -785,12 +774,7 @@ module.exports = class Integration {
                 const error_message = "Integration file must include the insurer_quote() function";
                 log.error(error_message + __location);
                 this.reasons.push(error_message);
-                fulfill(
-                    this.return_error(
-                        "error",
-                        "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch."
-                    )
-                );
+                fulfill(this.return_error("error", "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch."));
                 return;
             }
 
@@ -818,8 +802,7 @@ module.exports = class Integration {
                     are_codes_supported = await this._insurer_supports_activity_codes();
                     if (this.insurer.id === 10) {
                         // Acuity requires CGL for WC also
-                        are_codes_supported =
-                            are_codes_supported === true ? await this._insurer_supports_industry_codes() : are_codes_supported;
+                        are_codes_supported = are_codes_supported === true ? await this._insurer_supports_industry_codes() : are_codes_supported;
                     }
                     if (are_codes_supported !== true) {
                         fulfill(are_codes_supported);
@@ -828,12 +811,7 @@ module.exports = class Integration {
                     break;
                 default:
                     log.error(`Unexpected policy type of ${this.policy.type} in Integration` + __location);
-                    fulfill(
-                        this.return_error(
-                            "error",
-                            "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch."
-                        )
-                    );
+                    fulfill(this.return_error("error", "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch."));
                     return;
             }
 
@@ -974,9 +952,7 @@ module.exports = class Integration {
                     limitValues.push(`(${quoteID}, ${limitId}, ${this.limits[limitId]})`);
                 }
             }
-            db.query(`INSERT INTO \`#__quote_limits\` (\`quote\`, \`limit\`, \`amount\`) VALUES ${limitValues.join(",")};`).catch(function (
-                err
-            ) {
+            db.query(`INSERT INTO \`#__quote_limits\` (\`quote\`, \`limit\`, \`amount\`) VALUES ${limitValues.join(",")};`).catch(function (err) {
                 log.error(err + __location);
             });
         }
@@ -1078,10 +1054,7 @@ module.exports = class Integration {
             const error_message = `${this.insurer.name} ${this.policy.type} Integration Error: Missing argument for return_result(). Must pass in a valid value for result.`;
             log.error(error_message + __location);
             this.reasons.push(error_message);
-            return this.return_error(
-                "error",
-                "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch."
-            );
+            return this.return_error("error", "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.");
         }
 
         // Make sure the result is one of the ones we are expecting
@@ -1093,10 +1066,7 @@ module.exports = class Integration {
                 const error_message = `${this.insurer.name} ${this.policy.type} Integration Error: Invalid value of '${result}' for result passed to return_result(). Result not specified in the insurer integration.`;
                 log.error(error_message + __location);
                 this.reasons.push(error_message);
-                return this.return_error(
-                    "error",
-                    "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch."
-                );
+                return this.return_error("error", "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.");
             }
 
             // Double check: Is the result now what we are expecting
@@ -1104,10 +1074,7 @@ module.exports = class Integration {
                 const error_message = `${this.insurer.name} ${this.policy.type} Integration Error: Invalid value of '${result}' for result passed to return_result(). Must be a valid value as defined in return_result().`;
                 log.error(error_message + __location);
                 this.reasons.push(error_message);
-                return this.return_error(
-                    "error",
-                    "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch."
-                );
+                return this.return_error("error", "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.");
             }
         }
 
@@ -1118,12 +1085,8 @@ module.exports = class Integration {
 
         // If this was quoted, make sure we have an amount
         if ((result === "quoted" || result === "referred_with_price") && !this.amount) {
-            log.error(
-                `${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote amount. Response structure may have changed.`
-            );
-            this.reasons.push(
-                `${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote amount. Response structure may have changed.`
-            );
+            log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote amount. Response structure may have changed.`);
+            this.reasons.push(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote amount. Response structure may have changed.`);
             if (result === "quoted") {
                 result = "error";
             } else {
@@ -1133,10 +1096,7 @@ module.exports = class Integration {
 
         // If this was quoted, make sure we have limits
         if ((result === "quoted" || result === "referred_with_price") && !Object.keys(this.limits).length) {
-            log.error(
-                `${this.insurer.name} ${this.policy.type} Integration Error: Unable to find limits. Response structure may have changed.` +
-                    __location
-            );
+            log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to find limits. Response structure may have changed.` + __location);
         }
 
         // Start the log message
@@ -1149,9 +1109,7 @@ module.exports = class Integration {
 
         // Log the reasons
         if (this.reasons.length > 0) {
-            this.log += `The insurer returned the following reasons for why they made this decision:<ul><li>${this.reasons.join(
-                "</li><li>"
-            )}</li></ul>`;
+            this.log += `The insurer returned the following reasons for why they made this decision:<ul><li>${this.reasons.join("</li><li>")}</li></ul>`;
         }
 
         // Take the appropriate action
@@ -1175,10 +1133,7 @@ module.exports = class Integration {
                         log.info(reason);
                     });
                 }
-                return this.return_error(
-                    "error",
-                    "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch."
-                );
+                return this.return_error("error", "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.");
 
             case "outage":
                 log.warn(`${this.insurer.name} ${this.policy.type} Experienced A System Outage At The Time of Quote` + __location);
@@ -1187,10 +1142,7 @@ module.exports = class Integration {
                         log.verbose(reason);
                     });
                 }
-                return this.return_error(
-                    "error",
-                    "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch."
-                );
+                return this.return_error("error", "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.");
 
             case "quoted":
                 log.info(`${this.insurer.name} ${this.policy.type} Returned Quote(s)`);
@@ -1297,10 +1249,7 @@ module.exports = class Integration {
 
                     if (res.statusCode >= 200 && res.statusCode <= 299) {
                         // Strip AF Group's Quote Letter out of the log
-                        let filteredData = rawData.replace(
-                            /<com\.afg_Base64PDF>(.*)<\/com\.afg_Base64PDF>/,
-                            "<com.afg_Base64PDF>...</com.afg_Base64PDF>"
-                        );
+                        let filteredData = rawData.replace(/<com\.afg_Base64PDF>(.*)<\/com\.afg_Base64PDF>/, "<com.afg_Base64PDF>...</com.afg_Base64PDF>");
 
                         // Strip Employer's Quote Letter out of the log
                         filteredData = filteredData.replace(/<BinData>(.*)<\/BinData>/, "<BinData>...</BinData>");
@@ -1462,12 +1411,7 @@ module.exports = class Integration {
             const codes = await db.query(sql).catch((error) => {
                 log.error(error + __location);
                 this.reasons.push("System Error: insurer_supports_activity_codes() failed to get codes.");
-                fulfill(
-                    this.return_error(
-                        "error",
-                        "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch."
-                    )
-                );
+                fulfill(this.return_error("error", "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch."));
             });
 
             if (!codes.length) {
@@ -1479,10 +1423,7 @@ module.exports = class Integration {
 
             // Make sure the number of codes matched (otherwise there were codes unsupported by this insurer)
             if (Object.keys(wcCodes).length !== codes.length) {
-                log.warn(
-                    `autodeclined: Code length do not match  insurer: ${this.insurer.id}  where ${whereCombinations.join(" OR ")}` +
-                        __location
-                );
+                log.warn(`autodeclined: Code length do not match  insurer: ${this.insurer.id}  where ${whereCombinations.join(" OR ")}` + __location);
                 this.reasons.push("Out of Appetite: The insurer does not support one or more of the selected activity codes");
                 fulfill(this.return_error("autodeclined", "This insurer will decline to offer you coverage at this time"));
                 return;
@@ -1491,13 +1432,8 @@ module.exports = class Integration {
             // Load the codes locally
             codes.forEach((code) => {
                 if (code.result === 0) {
-                    log.warn(
-                        `autodeclined: Code length do not match  insurer: ${this.insurer.id}  where ${whereCombinations.join(" OR ")}` +
-                            __location
-                    );
-                    this.reasons.push(
-                        "Out of Appetite: The insurer reports that they will not write a policy with the selected activity code"
-                    );
+                    log.warn(`autodeclined: Code length do not match  insurer: ${this.insurer.id}  where ${whereCombinations.join(" OR ")}` + __location);
+                    this.reasons.push("Out of Appetite: The insurer reports that they will not write a policy with the selected activity code");
                     fulfill(this.return_error("autodeclined", "This insurer will decline to offer you coverage at this time"));
                     hadError = true;
                     return;
@@ -1507,9 +1443,8 @@ module.exports = class Integration {
                     return;
                 }
                 log.warn(
-                    `autodeclined: this.insurer_wc_codes ${this.insurer_wc_codes} insurer: ${
-                        this.insurer.id
-                    }  where ${whereCombinations.join(" OR ")}` + __location
+                    `autodeclined: this.insurer_wc_codes ${this.insurer_wc_codes} insurer: ${this.insurer.id}  where ${whereCombinations.join(" OR ")}` +
+                        __location
                 );
                 this.reasons.push("Out of Appetite: The insurer does not support one or more of the selected activity codes");
                 fulfill(this.return_error("autodeclined", "This insurer will decline to offer you coverage at this time"));
@@ -1595,7 +1530,7 @@ module.exports = class Integration {
                     (
                         (iic.type = 'i' AND iic.code = ic.iso) 
                         OR (iic.type = 'c' AND iic.code = ic.cgl) 
-                        OR (iic.type = 'i' AND iic.code = ic.hiscox) 
+                        OR (iic.type = 'h' AND iic.code = ic.hiscox) 
                         OR (iic.type = 'n' AND iic.code = ic.naics) 
                         OR (iic.type = 's' AND iic.code = ic.sic)
                     )
@@ -1607,12 +1542,7 @@ module.exports = class Integration {
             // log.debug("_insurer_supports_industry_codes sql: " + sql);
             const result = await db.query(sql).catch((err) => {
                 log.error(`Integration: _insurer_supports_industry_codes query error ${err} ` + __location);
-                fulfill(
-                    this.return_error(
-                        "error",
-                        "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch."
-                    )
-                );
+                fulfill(this.return_error("error", "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch."));
             });
             if (!result || !result.length) {
                 log.warn(
