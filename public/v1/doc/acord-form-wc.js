@@ -89,17 +89,17 @@ async function GetACORDFormWC(req, res, next){
                 'Content-Type': 'application/pdf'
             });
             res.end(ending);
-            log.info('Certificate Sent in Response');
+            log.info('Acord Sent in Response');
         });
     }
 
     doc.end();
-    log.info('Accord Generated!');
+    log.info('Acord Generated!');
 
     return next();
 }
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-    server.addGet('Get Certificate', `${basePath}/acord-form-wc`, GetACORDFormWC);
+    server.addGet('Get Acord', `${basePath}/acord-form-wc`, GetACORDFormWC);
 };
