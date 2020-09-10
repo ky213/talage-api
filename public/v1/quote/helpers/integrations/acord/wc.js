@@ -69,7 +69,7 @@ module.exports = class ACORDWC extends Integration {
             // Email it
             const emailResp = await emailsvc.send(acord_email, email_subject, email_body, email_keys,this.app.agencyLocation.agencyNetwork, this.app.agencyLocation.email_brand, this.app.agencyLocation.agencyId, attachments);
             if(emailResp === false){
-                log.error(`Unable to send accord for applicationId ${this.app.id}` + __location)
+                log.error(`Unable to send acord for applicationId ${this.app.id}` + __location)
             }
             //  if(emailResp === true){
             //     self.return_result('referred');
@@ -119,7 +119,7 @@ module.exports = class ACORDWC extends Integration {
             email_address = policyTypeInfoJSON.GL.acordInfo.sendToEmail;
         }
         catch (e) {
-            log.error(`Missing accord email address WC agency location id ${this.app.agencyLocation.id} ` + __location)
+            log.error(`Missing acord email address WC agency location id ${this.app.agencyLocation.id} ` + __location)
         }
 
         //Check the email was found

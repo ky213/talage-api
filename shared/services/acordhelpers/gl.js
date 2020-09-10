@@ -1,3 +1,4 @@
+/* eslint-disable require-jsdoc */
 'use strict';
 
 const PdfPrinter = require('pdfmake');
@@ -89,7 +90,8 @@ exports.createGL = async function(application_id, insurer_id){
 					DATE_FORMAT(a.gl_effective_date, "%m/%d/%Y") AS effective_date,
 					a.limits,
 					b.name,
-					apt.policy_type,
+                    apt.policy_type,
+                    a.last_step,
 					ac.description
 				FROM clw_talage_applications AS a
 				INNER JOIN clw_talage_agencies AS ag ON a.agency = ag.id
@@ -103,32 +105,36 @@ exports.createGL = async function(application_id, insurer_id){
 				WHERE a.id = ${application_id};`;
 
     // Run the query
-    const application_data = await db.query(application_sql).catch(function(error){
+    const application_data_List = await db.query(application_sql).catch(function(error){
         message = 'ACORD form generation failed due to database error.';
         log.error(message + error + __location);
         return {'error': message};
     });
 
     // Check the number of rows returned
-    if(application_data.length === 0){
+    if(application_data_List.length === 0){
         message = 'ACORD form generation failed. Invalid Application ID '
         log.error(message + __location);
         return {'error': message};
     }
 
     // Replace any null values with an empty string
-    application_data.forEach(row => Object.values(row).map(element => element === null ? '' : element))
+    application_data_List.forEach(row => Object.values(row).map(element => element === null ? '' : element))
 
     // Check that the applicant applied for GL
-    const gl_check = application_data.find(entry => entry.policy_type === 'GL');
+    let gl_check = application_data_List.find(entry => entry.policy_type === 'GL');
 
-    if(!gl_check){
+    if(!gl_check && application_data_List.last_step > 2){
         message = 'The requested application is not for General Liability';
         log.error(message + __location);
         return {'error': message};
     }
+    else if (!gl_check) {
+        //needs to be defined object
+        gl_check = application_data_List[0];
+    }
 
-    const general = gl_check;
+    const applicationRow = gl_check;
 
     // Retrieve insurer name if an insurer id was given
 
@@ -142,88 +148,106 @@ exports.createGL = async function(application_id, insurer_id){
             log.error(message + error + __location);
             return {'error': message};
         });
+        if(insurer_data[0]){
+            applicationRow.carrier = insurer_data[0].name;
+        }
 
-        general.carrier = insurer_data[0].name;
     }
 
     // Create array of unique activity code descriptions (only up to 3 since thats all that can fit on the form)
-    const activity_codes = [... new Set(application_data.map(row => row.description))].slice(0,2);
+    const activity_codes = [... new Set(application_data_List.map(row => row.description))].slice(0,2);
 
     // PREP PAGE 1 DATA
 
     // Check for a business name
     let applicant_name = '';
-    if(general.name && general.name.byteLength){
-        applicant_name = await crypt.decrypt(general.name);
+    if(applicationRow.name && applicationRow.name.byteLength){
+        applicant_name = await crypt.decrypt(applicationRow.name);
     }
-    else{
-        message = 'ACORD form generation failed. Business name missing for application.';
-        log.error(message + __location);
-        return {'error': message};
-    }
+    // else if (application_data.last_step > 2){
+    //     message = 'ACORD form generation failed. Business name missing for application.';
+    //     log.error(message + __location);
+    //     return {'error': message};
+    // }
 
     // Separate the limits
-    general.limits = general.limits.match(/[1-9]+0+/g);
+    if(applicationRow.limits){
+        applicationRow.limits = applicationRow.limits.match(/[1-9]+0+/g);
+    }
+    else {
+        applicationRow.limits = ['',''];
+    }
+
 
     // ADD PAGE 1 DATA
-    docDefinition.content = docDefinition.content.concat([
-        {
-            'absolutePosition': pos.date,
-            'text': moment().format('L')
-        },
-        {
-            'text': general.agency,
-            'absolutePosition': pos.agency
-        },
-        {
-            'text': general.carrier ? general.carrier : '',
-            'absolutePosition': pos.carrier
-        },
-        {
-            'text': general.naic_code,
-            'absolutePosition': pos.naic_code,
-            'style': styles.naic_code
-        },
-        {
-            'text': general.effective_date === '0000-00-00' ? '' : general.effective_date,
-            'absolutePosition': pos.effective_date
-        },
-        {
-            'text': applicant_name,
-            'absolutePosition': pos.name
-        },
-        {
-            'text': 'X',
-            'absolutePosition': pos.commercial_gl
-        },
-        {
-            'text': general.limits[1],
-            'absolutePosition': pos.general_aggregate
-        },
-        {
-            'text': 'X',
-            'absolutePosition': pos.per_policy
-        },
-        {
-            'text': general.limits[1],
-            'absolutePosition': pos.pco_aggregate
-        },
-        {
-            'text': general.limits[0],
-            'absolutePosition': pos.each_occurence
+    if(docDefinition.content){
+        try{
+            docDefinition.content = docDefinition.content.concat([
+                {
+                    'absolutePosition': pos.date,
+                    'text': moment().format('L')
+                },
+                {
+                    'text': applicationRow.agency,
+                    'absolutePosition': pos.agency
+                },
+                {
+                    'text': applicationRow.carrier ? applicationRow.carrier : '',
+                    'absolutePosition': pos.carrier
+                },
+                {
+                    'text': applicationRow.naic_code,
+                    'absolutePosition': pos.naic_code,
+                    'style': styles.naic_code
+                },
+                {
+                    'text': applicationRow.effective_date === '0000-00-00' ? '' : applicationRow.effective_date,
+                    'absolutePosition': pos.effective_date
+                },
+                {
+                    'text': applicant_name,
+                    'absolutePosition': pos.name
+                },
+                {
+                    'text': 'X',
+                    'absolutePosition': pos.commercial_gl
+                },
+                {
+                    'text': applicationRow.limits[1],
+                    'absolutePosition': pos.general_aggregate
+                },
+                {
+                    'text': 'X',
+                    'absolutePosition': pos.per_policy
+                },
+                {
+                    'text': applicationRow.limits[1],
+                    'absolutePosition': pos.pco_aggregate
+                },
+                {
+                    'text': applicationRow.limits[0],
+                    'absolutePosition': pos.each_occurence
+                }
+            ])
         }
-    ])
+        catch(e){
+            log.error("page content error " + e + __location)
+        }
+    }
 
-    // Classification descriptions
-    activity_codes.forEach((code, index) => {
-        docDefinition.content.push({
-            'text': code,
-            'absolutePosition': {
-                'x': pos.classification_description.x,
-                'y': pos.classification_description.y + index * 73
-            }
+    try{
+        // Classification descriptions
+        activity_codes.forEach((code, index) => {
+            docDefinition.content.push({
+                'text': code,
+                'absolutePosition': {
+                    'x': pos.classification_description.x,
+                    'y': pos.classification_description.y + index * 73
+                }
+            })
         })
-    })
+    }
+    catch(e){}
 
     // Claims made
     for(let index = 0; index <= 4; index++){
@@ -263,6 +287,7 @@ exports.createGL = async function(application_id, insurer_id){
         }
     }
 
+
     const question_sql = `SELECT 
 								q.id,
 								q.question,
@@ -275,34 +300,37 @@ exports.createGL = async function(application_id, insurer_id){
 							INNER JOIN clw_talage_question_answers AS qa ON qa.id = aq.answer
 							WHERE aq.application = ${application_id}`
 
+
     const question_data = await db.query(question_sql).catch(function(error){
         message = 'ACORD form generation failed due to database error.';
         log.error(message + error + __location);
-        return {'error': message};
+        //return {'error': message};
     });
-
-    const question_ids = question_data.reduce((acc, el, i) => {
-        acc[el.id] = i;
-        return acc;
-    }, {});
-
     const question_tree = [];
+    try{
+        const question_ids = question_data.reduce((acc, el, i) => {
+            acc[el.id] = i;
+            return acc;
+        }, {});
 
-    question_data.forEach(question => {
-        if(question.parent === null){
-            question_tree.push(question);
-            return
-        }
-        const parent_question = question_data[question_ids[question.parent]];
 
-        if(parent_question){
-            parent_question.children = [...parent_question.children || [], question];
-        }
-        else{
-            question_tree.push(question);
-        }
+        question_data.forEach(question => {
+            if(question.parent === null){
+                question_tree.push(question);
+                return
+            }
+            const parent_question = question_data[question_ids[question.parent]];
 
-    });
+            if(parent_question){
+                parent_question.children = [...parent_question.children || [], question];
+            }
+            else{
+                question_tree.push(question);
+            }
+
+        });
+    }
+    catch(e){}
 
     // PAGE 3
     docDefinition.content.push({

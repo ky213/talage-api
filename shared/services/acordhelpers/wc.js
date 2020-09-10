@@ -39,7 +39,8 @@ exports.createWC = async function(application_id, insurer_id){
 					app.owners_covered,
 					app.has_ein,
 					app.waiver_subrogation,
-					app.additional_insured,
+                    app.additional_insured,
+                    app.last_step,
 					IFNULL(app.agency, 1) AS agent,
 					app.wc_limits AS limits,
 					agency.name AS agencyName,
@@ -100,7 +101,7 @@ exports.createWC = async function(application_id, insurer_id){
     // Check that the applicant applied for WC
     const wc_check = application_data.find(entry => entry.policy_type === 'WC');
 
-    if(!wc_check){
+    if(!wc_check && application_data.last_step > 2){
         message = 'The requested application is not for Workers\' Compensation';
         log.error(message + __location);
         return {'error': message};
@@ -112,11 +113,11 @@ exports.createWC = async function(application_id, insurer_id){
         const name = await crypt.decrypt(application_data[0].name);
         applicant_name += `${name}\n`;
     }
-    else{
-        message = 'ACORD form generation failed. Business name missing for application.';
-        log.error(message + __location);
-        return {'error': message};
-    }
+    // else{
+    //     message = 'ACORD form generation failed. Business name missing for application.';
+    //     log.error(message + __location);
+    //     return {'error': message};
+    // }
 
     // Missing data array
     const missing_data = [];
@@ -533,11 +534,11 @@ exports.createWC = async function(application_id, insurer_id){
     sql_ncci = sql_ncci.concat(')');
 
     // Make sure the mailing address was found at some point
-    if(!found_mailing_address){
-        message = 'ACORD form generation failed. Mailing address missing for application.';
-        log.error(message + __location);
-        return {'error': message};
-    }
+    // if(!found_mailing_address){
+    //     message = 'ACORD form generation failed. Mailing address missing for application.';
+    //     log.error(message + __location);
+    //     return {'error': message};
+    // }
 
     // Add list of territories
     docDefinition.content.push({
@@ -728,7 +729,7 @@ exports.createWC = async function(application_id, insurer_id){
         ncci_data = await db.query(sql_ncci).catch(function(error){
             message = 'ACORD form generation failed. Database error: ' + error;
             log.error(message + __location);
-            return {'error': message};
+            //return {'error': message};
         });
     }
 
@@ -871,7 +872,7 @@ exports.createWC = async function(application_id, insurer_id){
     const question_data = await db.query(sql_questions).catch(function(error){
         message = 'ACORD form generation failed. Database error: ' + error;
         log.error(message + __location);
-        return {'error': message};
+        //return {'error': message};
     });
 
     // Replace any null values with an empty string
