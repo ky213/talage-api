@@ -300,6 +300,7 @@ module.exports = class ApplicationModel {
                     break;
                 case 'bindRequest':
                     if(applicationJSON.quotes){
+                        applicationJSON.appStatusId = this.appStatusId;
                         await this.processQuotes(applicationJSON).catch(function(err){
                             log.error('Processing Quotes error:' + err + __location);
                             reject(err);
@@ -547,8 +548,8 @@ processQuotes(applicationJSON){
         if(applicationJSON.quotes){
             for(var i=0;i<applicationJSON.quotes.length; i++){
                 const quote = applicationJSON.quotes[i];
-                log.debug("quote: " + JSON.stringify(quote))
-                log.debug("Sending Bind Agency email for AppId " + this.id + " quote " + quote.quote);
+                log.debug("quote: " + JSON.stringify(quote) + __location)
+                log.debug("Sending Bind Agency email for AppId " + this.id + " quote " + quote.quote + __location);
                 //no need to await.
                 taskEmailBindAgency.emailbindagency(this.id, quote.quote);
 
@@ -571,12 +572,19 @@ processQuotes(applicationJSON){
                     
                 });                  
 
-                // TODO order of quotes may reduce the state
                 applicationJSON.state = quote['api_result'] === 'referred_with_price' ? 12 : 16;
-                // will get saved later afte this returns.
-                
-               
+                if( applicationJSON.state === 12 && applicationJSON.appStatusId < 80){
+                    applicationJSON.status = 'request_to_bind_referred';
+                    applicationJSON.appStatusId = 80;
+                }
+                else  if( applicationJSON.state === 16 && applicationJSON.appStatusId < 70){
+                    applicationJSON.status = 'request_to_bind';
+                    applicationJSON.appStatusId = 70;
+                }
             }
+        }
+        else {
+            log.error("in AppBO Process quote, but no quotes included in JSON " + JSON.stringify(applicationJSON) +__location)
         }
         resolve(true);
 
