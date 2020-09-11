@@ -437,6 +437,7 @@ module.exports = class AgencyNetworkBO{
             let envSetting = this.getEnvSettingFromJSON(agencyNetworkJSON.additionalInfo,agencyNetworkId );
             envSetting.brandName = agencyNetworkJSON.name;
             envSetting.emailBrand = agencyNetworkJSON.email_brand;
+            envSetting.brand = agencyNetworkJSON.additionalInfo.brand
             return envSetting;
         }
         else {
