@@ -342,22 +342,30 @@ module.exports = class Integration {
 	 * @returns {array|boolean} - An array containing limit values as integers, or false if none apply
 	 */
     getBestLimits(carrierLimits) {
+
         let higherLimit = false;
 
         // Take the requested limits and prepare them for processing
         const requestedLimits = this.getSplitLimits(this.policy.limits);
 
+        // Prepare carrier limits for processing
+        let splitCarrierLimitArray = carrierLimits.map(limit => this.getSplitLimits(limit));
+
+        // Sort the limits by 1st, 2nd, then 3rd figure ascending to get the correct ordering
+        splitCarrierLimitArray.sort((limit1, limit2) => limit1[0] - limit2[0]);
+        splitCarrierLimitArray.sort((limit1, limit2) => limit1[1] - limit2[1]);
+        splitCarrierLimitArray.sort((limit1, limit2) => limit1[2] - limit2[2]);
+
         // Loop through all supported limits
-        carrierLimits.forEach((limitSet) => {
-            // Split the limits up and prepare them for processing
-            const limitSetParts = this.getSplitLimits(limitSet);
+        splitCarrierLimitArray.forEach((limitSet) => {
 
             // Check if the supported limits are higher than or equal to the requested limits
-            if (limitSetParts[0] >= requestedLimits[0] && limitSetParts[1] >= requestedLimits[1] && limitSetParts[2] >= requestedLimits[2]) {
+            if (limitSet[0] >= requestedLimits[0] && limitSet[1] >= requestedLimits[1] && limitSet[2] >= requestedLimits[2]) {
                 // Return the first result found
-                higherLimit = higherLimit ? higherLimit : limitSetParts;
+                higherLimit = higherLimit ? higherLimit : limitSet;
             }
         });
+
         return higherLimit;
     }
 
