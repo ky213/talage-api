@@ -301,4 +301,25 @@ module.exports = class AgencyLocation {
             fulfill(true);
         });
     }
+
+    shouldNotifyTalage(insureId){
+        let notifiyTalage = false;
+        if(this.insurers && this.insurers.length > 0){
+            for(let i = 0; i < this.insurers.length; i++){
+                if(insureId === this.insurers[i].id && this.insurers[i].policy_type_info){
+                    try{
+                        if(this.insurers[i].policy_type_info.notifiyTalage === true){
+                            notifiyTalage = true;
+                        }
+                    }
+                    catch(e){
+                        log.error(`Error getting notifyTalage from agencyLocation ${this.id} insureid ${insureId} ` + e + __location);
+                    }
+                }
+            }
+        }
+        return notifiyTalage;
+
+
+    }
 };
