@@ -235,6 +235,11 @@ module.exports = class Quote{
                 'application_id': this.app.id,
                 'fields': [
                     {
+                        short: false,
+                        title: 'Agency Name',
+                        value: this.app.agencyLocation.agency
+                    },
+                    {
                         'short': false,
                         'title': 'Business Name',
                         'value': this.app.business.name + (this.app.business.dba ? ` (dba. ${this.app.business.dba})` : '')
