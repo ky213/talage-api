@@ -413,12 +413,19 @@ module.exports = class Application {
         // Determine which message will be sent
         let all_had_quotes = true;
         let some_quotes = false;
+        let notifiyTalage = false
         quotes.forEach((quote) => {
             if (quote.aggregated_status === 'quoted' || quote.aggregated_status === 'quoted_referred') {
                 some_quotes = true;
             }
             else {
                 all_had_quotes = false;
+            }
+            //Notify Talage logic Agencylocation ->insures
+            const notifiyTalageTest = this.app.agencyLocation.shouldNotifyTalage(quote.insurer.id);
+            //We only need one AL insure to be set to notifyTalage to send it to Slack.
+            if(notifiyTalageTest === true){
+                notifiyTalage = notifiyTalageTest;
             }
         });
 
@@ -511,7 +518,7 @@ module.exports = class Application {
         }
 
         // Only send Slack messages on Talage applications
-        if (this.agencyLocation.agencyId <= 2 || this.agencyLocation.notifiyTalage === true) {
+        if (this.agencyLocation.agencyId <= 2 || notifiyTalage === true) {
             // Build out the 'attachment' for the Slack message
             const attachment = {
                 application_id: this.id,
