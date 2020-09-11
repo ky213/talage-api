@@ -530,12 +530,17 @@ module.exports = class Application {
             }
         }
 
-        // Only send Slack messages on Talage applications
+        // Only send Slack messages on Talage applications  this.agencyLocation.agency
         if (this.agencyLocation.agencyId <= 2 || notifiyTalage === true) {
             // Build out the 'attachment' for the Slack message
             const attachment = {
                 application_id: this.id,
                 fields: [
+                    {
+                        short: false,
+                        title: 'Agency Name',
+                        value: this.agencyLocation.agency
+                    },
                     {
                         short: false,
                         title: 'Business Name',
