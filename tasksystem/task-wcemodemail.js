@@ -87,9 +87,8 @@ const sendEmodEmail = async function(applicationId) {
                 c.fname,
                 c.lname,
                 c.phone,
-                a.state,
                 b.name as businessName,
-                b.mailing_zip,
+                b.mailing_zipcode,
                 q.id as quoteId,
                 q.number as quoteNumber,
                 q.api_result,
@@ -98,7 +97,7 @@ const sendEmodEmail = async function(applicationId) {
                 i.name as insurer_name,
                 i.logo as insurer_logo,
                 ic.description as codeDescription,
-                t.name AS territory_state
+                b.mailing_state_abbr AS territory_state
             FROM clw_talage_applications AS a
                 INNER JOIN clw_talage_quotes AS q ON a.id = q.application
                 INNER JOIN clw_talage_agency_locations AS al ON a.agency_location = al.id
@@ -107,8 +106,6 @@ const sendEmodEmail = async function(applicationId) {
                 INNER JOIN clw_talage_insurers AS i  ON i.id = q.insurer
                 INNER JOIN clw_talage_businesses AS b ON b.id = a.business
                 INNER JOIN clw_talage_contacts AS c ON a.business = c.business
-                INNER JOIN clw_talage_zip_codes AS z ON b.mailing_zip = z.zip
-                INNER JOIN clw_talage_territories AS t ON z.territory = t.abbr
             WHERE 
             a.id = ${applicationId}
         `;
@@ -140,7 +137,7 @@ const sendEmodEmail = async function(applicationId) {
                 log.error(`Unable to get env settings for New Agency Portal User. agency_network: ${applications[0].agency_network}.  missing additionalInfo ` + __location);
                 return false;
             }
-
+            log.debug("agencyNetworkEnvSettings: " + JSON.stringify(agencyNetworkEnvSettings))
             // decrypt info...
             if (applications[0].agencyLocationEmail) {
                 agencyLocationEmail = await crypt.decrypt(applications[0].agencyLocationEmail);
@@ -191,7 +188,7 @@ const sendEmodEmail = async function(applicationId) {
             message = message.replace(/{{Agency Portal}}/g, `<a href=\"${portalLink}\" rel=\"noopener noreferrer\" target=\"_blank\">Agency Portal</a>`);
             message = message.replace(/{{STATE}}/g, applications[0].territory_state);
 
-            message = message.replace(/{{Brand}}/g, applications[0].emailBrand);
+            message = message.replace(/{{Brand}}/g, agencyNetworkEnvSettings.brandName);
 
             const keyData = {
                 'application': applicationId,
