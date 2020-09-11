@@ -250,7 +250,6 @@ module.exports = class AgencyLocation {
         return new Promise((fulfill, reject) => {
             // Territories
             this.business.locations.forEach((location) => {
-                log.debug('supports_application business location ' + JSON.stringify(location))
                 if (!this.territories.includes(location.state_abbr)) {
                     log.error(`Agent does not have ${location.state_abbr} enabled` + __location);
                     reject(serverHelper.requestError(`The specified agent is not setup to support this application in territory ${location.state_abbr}.`));
@@ -300,5 +299,32 @@ module.exports = class AgencyLocation {
 
             fulfill(true);
         });
+    }
+
+
+    shouldNotifyTalage(insureId){
+        //  const insurerIdTest = insureId.toString;
+        let notifyTalage = false;
+        if(this.insurers){
+            if(this.insurers[insureId] && this.insurers[insureId].policy_type_info){
+                try{
+                    if(this.insurers[insureId].policy_type_info.notifyTalage === true){
+                        notifyTalage = true;
+                    }
+                }
+                catch(e){
+                    log.error(`Error getting notifyTalage from agencyLocation ${this.id} insureid ${insureId} ` + e + __location);
+                }
+            }
+            else if(this.insurers[insureId] && !this.insurers[insureId].policy_type_info){
+                log.error(`Quote Agency Location no policy_type_info for insurer ${insureId} in shouldNotifyTalage ` + __location);
+            }
+        }
+        else {
+            log.error("Quote Agency Location no insurers in shouldNotifyTalage " + __location);
+        }
+        return notifyTalage;
+
+
     }
 };
