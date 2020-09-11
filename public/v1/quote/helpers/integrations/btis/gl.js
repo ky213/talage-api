@@ -377,9 +377,9 @@ module.exports = class BtisGL extends Integration {
             quoteResult = await this.send_json_request(host, QUOTE_URL, JSON.stringify(data), token)
         }
         catch(error){
-            log.error(`BTIS Submit Endpoint Returned Error ${util.inspect(error, false, null)}` + __location);
+            log.warn(`BTIS Submit Endpoint Returned Error ${util.inspect(error, false, null)}` + __location);
             this.reasons.push('Problem connecting to insurer');
-            return this.return_result('error');
+            return this.return_result('autodeclined');
         }
 
         // The result can be under either clearspring or victory, checking for success
