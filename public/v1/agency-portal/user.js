@@ -114,9 +114,10 @@ exports.hasOtherSigningAuthority = hasOtherSigningAuthority;
  * Validates a user and returns a clean data object
  *
  * @param {object} req - HTTP request object
+ * @param {object} user - User Object
  * @return {object} Object containing user information
  */
-async function validate(req) {
+async function validate(req, user) {
     // Establish default values
     const data = {
         canSign: 0,
@@ -127,28 +128,28 @@ async function validate(req) {
     // Validate each parameter
 
     // Can Sign? (optional)
-    if (Object.prototype.hasOwnProperty.call(req.body, 'canSign') && req.body.canSign !== true && req.body.canSign !== false) {
+    if (Object.prototype.hasOwnProperty.call(user, 'canSign') && user.canSign !== true && user.canSign !== false) {
         throw new Error('Invalid canSign value. Please contact us.');
     }
-    data.canSign = req.body.canSign ? 1 : null;
+    data.canSign = user.canSign ? 1 : null;
 
     // Email
-    if (!Object.prototype.hasOwnProperty.call(req.body, 'email') || !req.body.email) {
+    if (!Object.prototype.hasOwnProperty.call(user, 'email') || !user.email) {
         throw new Error('You must enter an email address');
     }
-    if (!validator.email(req.body.email)) {
+    if (!validator.email(user.email)) {
         throw new Error('Email address is invalid');
     }
-    data.email = req.body.email;
+    data.email = user.email;
 
     // Group (optional)
-    if (Object.prototype.hasOwnProperty.call(req.body, 'group') && !validator.userGroup(req.body.group)) {
+    if (Object.prototype.hasOwnProperty.call(user, 'group') && !validator.userGroup(user.group)) {
         throw new Error('User group (role) is invalid');
     }
-    data.group = req.body.group;
+    data.group = user.group;
 
     // Prepare the email hash
-    const emailHash = await crypt.hash(req.body.email);
+    const emailHash = await crypt.hash(user.email);
 
     // Check for duplicate email address
     const duplicateSQL = `
@@ -156,7 +157,7 @@ async function validate(req) {
 			FROM \`#__agency_portal_users\`
 			WHERE \`email_hash\` = ${db.escape(emailHash)}
 				AND \`state\` > -2
-				${req.body.id ? `AND \`id\` != ${db.escape(req.body.id)}` : ''}
+				${user.id ? `AND \`id\` != ${db.escape(user.id)}` : ''}
 			;
 		`;
     const duplicateResult = await db.query(duplicateSQL).catch(function(err) {
@@ -189,7 +190,7 @@ async function createUser(req, res, next) {
     }
 
     // Validate the request and get back the data
-    const data = await validate(req).catch(function(err) {
+    const data = await validate(req, req.body.user).catch(function(err) {
         error = err.message;
     });
     if (error) {
@@ -199,9 +200,11 @@ async function createUser(req, res, next) {
 
     // Determine if this is an agency or agency network
     let where = ``;
-    if (req.authentication.agencyNetwork) {
-        where = `\`agency_network\`= ${parseInt(req.authentication.agencyNetwork, 10)}`;
-    }
+    if (req.authentication.agencyNetwork && req.body.agency) {
+        where = `\`agency\`= ${parseInt(req.body.agency, 10)}`;
+    }else if (req.authentication.agencyNetwork){
+		where = `\`agency_network\`= ${parseInt(req.authentication.agencyNetwork, 10)}`;
+	}
     else {
         // Get the agents that we are permitted to view
         const agents = await auth.getAgents(req).catch(function(e) {
@@ -275,8 +278,12 @@ async function createUser(req, res, next) {
 
     // Add this user to the database
     let controlColumn = '';
-    let controlValue = '';
-    if (req.authentication.agencyNetwork) {
+	let controlValue = '';
+    if (req.authentication.agencyNetwork && req.body.agency) {
+        controlColumn = 'agency';
+        controlValue = req.body.agency;
+    }
+    else if (req.authentication.agencyNetwork) {
         controlColumn = 'agency_network';
         controlValue = req.authentication.agencyNetwork;
     }
@@ -329,7 +336,7 @@ async function createUser(req, res, next) {
 
     // Check if this is an agency network
     let agencyNetwork = req.authentication.agencyNetwork;
-    if (!agencyNetwork) {
+    if (!agencyNetwork ) {
         // Determine the agency network of this agency
         const agencyNetworkSQL = `
 				SELECT
@@ -354,8 +361,14 @@ async function createUser(req, res, next) {
     // Get the content of the new user email
     //Refactor to use AgencyNetworkBO
     log.debug("req.authentication.agencyNetwork: " + req.authentication.agencyNetwork);
-
-    const jsonEmailProp = req.authentication.agencyNetwork ? 'new_agency_network_user' : 'new_agency_user';
+	let jsonEmailProp = '';
+	if(req.authentication.agencyNetwork && req.body.agency){
+		jsonEmailProp =  'new_agency_user';
+	}else if (req.authentication.agencyNetwork){
+		jsonEmailProp = 'new_agency_network_user';
+	}else {
+		jsonEmailProp =  'new_agency_user';
+	}
     log.debug("jsonEmailProp: " + jsonEmailProp);
     error = null;
     const agencyNetworkBO = new AgencyNetworkBO();
