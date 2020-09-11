@@ -15,7 +15,7 @@ const xmlToObj = util.promisify(require('xml2js').parseString);
 const serverHelper = require('../../../../../server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const {getQuoteAggregatedStatus} = global.requireShared('./helpers/status.js');
+const {getQuoteAggregatedStatus} = global.requireShared('./models/application-businesslogic/status.js');
 
 module.exports = class Integration {
 
@@ -84,14 +84,14 @@ module.exports = class Integration {
         return new Promise(async(fulfill, reject) => {
             // Make sure the _bind() function exists
             if (typeof this._bind === 'undefined') {
-                log.warn(`${this.insurer} ${this.policy.type} integration does not support binding quotes` + __location);
+                log.warn(`${this.insurer.name} ${this.policy.type} integration does not support binding quotes` + __location);
                 reject(serverHelper.notFoundError('Insurer integration does not support binding quotes at this time'));
                 return;
             }
 
             // Check for an outage
             if (this.insurer.outage) {
-                log.warn(`${this.insurer} is currently unavailable due to scheduled maintenance` + __location);
+                log.warn(`${this.insurer.name} is currently unavailable due to scheduled maintenance` + __location);
                 reject(serverHelper.serviceUnavailableError('Insurer is currently unavailable due to scheduled maintance'));
                 return;
             }
@@ -567,7 +567,7 @@ module.exports = class Integration {
 	 */
     get_total_full_time_employees() {
         let total = 0;
-        this.app.business.locations.forEach(function(loc) {
+        this.app.business.locations.forEach(loc => {
             total += loc.full_time_employees;
         });
         return total;
@@ -580,7 +580,7 @@ module.exports = class Integration {
 	 */
     get_total_part_time_employees() {
         let total = 0;
-        this.app.business.locations.forEach(function(loc) {
+        this.app.business.locations.forEach(loc => {
             total += loc.part_time_employees;
         });
         return total;
@@ -593,8 +593,8 @@ module.exports = class Integration {
 	 */
     get_total_payroll() {
         let total = 0;
-        this.app.business.locations.forEach(function(loc) {
-            loc.activity_codes.forEach(function(wc_code) {
+        this.app.business.locations.forEach(loc => {
+            loc.activity_codes.forEach(wc_code => {
                 total += wc_code.payroll;
             });
         });

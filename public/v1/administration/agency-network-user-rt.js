@@ -39,6 +39,27 @@ async function findAll(req, res, next) {
     }
 }
 
+async function findGroupAll(req, res, next) {
+
+    let error = null;
+    const agencyPortalUserBO = new AgencyPortalUserBO();
+    const rows = await agencyPortalUserBO.getGroupList(req.query).catch(function(err) {
+        error = err;
+    })
+    if (error) {
+        return next(error);
+    }
+    if (rows) {
+
+        res.send(200, rows);
+        return next();
+    }
+    else {
+        res.send(404);
+        return next(serverHelper.notFoundError('Agency Location not found'));
+    }
+}
+
 async function findOne(req, res, next) {
     const id = stringFunctions.santizeNumber(req.params.id, true);
     if (!id) {
@@ -68,9 +89,11 @@ async function findOne(req, res, next) {
 
 async function add(req, res, next) {
 
-    if (req.body.agencynetworkid) {
-        req.body.agency_network = req.body.agencynetworkid;
-        delete req.body.agencynetworkid
+    if (req.body.agencynetworkid || req.body.agency_network) {
+        if(req.body.agencynetworkid){
+            req.body.agency_network = req.body.agencynetworkid;
+            delete req.body.agencynetworkid
+        }
     }
     else {
         return next(serverHelper.requestError('Missing agencynetworkid'))
@@ -151,11 +174,13 @@ async function update(req, res, next) {
         'group',
         'require_set',
         'reset_required',
+        'can_sign',
         'timezone']
     let updateJSON = {id: id}
     let needToUpdate = false;
     for(let i = 0; i < allowedPropsUpdate.length; i++) {
-        if(req.body[allowedPropsUpdate[i]]){
+        let value = req.body[allowedPropsUpdate[i]]
+        if(value || value === '' || value === 0){
             updateJSON[allowedPropsUpdate[i]] = req.body[allowedPropsUpdate[i]];
             needToUpdate = true
         }
@@ -210,5 +235,6 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPutAuthAdmin('PUT Agency Network User', `${basePath}/agency-network-user/:id`, update, 'administration', 'all');
     server.addPostAuthAdmin('POST Agency Network User', `${basePath}/agency-network-user`, add, 'administration', 'all');
     server.addDeleteAuthAdmin('Delete Agency Network User', `${basePath}/agency-network-user/:id`, deleteObject, 'administration', 'all');
+    server.addGetAuthAdmin('Get Agency Network User Groups list', `${basePath}/agency-network-user/groups`, findGroupAll, 'administration', 'all');
 
 };

@@ -103,14 +103,20 @@ exports.process = async function(requestJSON) {
         //application info
 
         //Only include it if exists. b/c of how the model works.
-        if(agency_location){
+        if(agency_location > 0){
+            log.debug("location parse setting agency location to " + agency_location);
             requestJSON.agency_location = agency_location
+        }
+        else if (requestJSON.agency_location || requestJSON.agency_location === null) {
+            delete requestJSON.agency_location
+            //ApplicationBO will lookup primary location on save if necessary.
         }
         requestJSON.territories = territories;
         requestJSON.total_payroll = total_payroll;
         requestJSON.city = city;
         requestJSON.state_abbr = state_abbr;
         requestJSON.zip = zip;
+        requestJSON.zipcode = zip;
 
         delete requestJSON.mailing;
         delete requestJSON.locations;

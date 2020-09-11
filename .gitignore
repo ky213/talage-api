@@ -10,3 +10,6 @@ mochawesome-report/
 /localfunctiontest.js
 /loadmessagesinmongo.js
 /datafix-populate-clear-fields.js
+/loadagencynetworkadditionalInfo.js
+/loadtestmysql.js
+/setAgencyNotifyTalage.js

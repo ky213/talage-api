@@ -44,7 +44,6 @@ module.exports = class Application {
 	 */
     async load(data) {
         log.verbose('Loading data into Application');
-
         // ID
         this.id = parseInt(data.id, 10);
 
@@ -104,7 +103,7 @@ module.exports = class Application {
         for (let i = 0; i < policyTypeList.length; i++) {
             const policyTypeBO = policyTypeList[i];
             const p = new Policy(this.business);
-            await p.load(policyTypeBO, this.id, applicationBO, data.policies);
+            await p.load(policyTypeBO, this.id, applicationBO);
             this.policies.push(p);
             appPolicyTypeList.push(policyTypeBO.policy_type);
         }
@@ -120,8 +119,8 @@ module.exports = class Application {
         // Agent
         this.agencyLocation = new AgencyLocation(this.business, this.policies);
         // Note: The front-end is sending in 'agent' but this is really a reference to the 'agency location'
-        if (data.agent) {
-            await this.agencyLocation.load({id: data.agent});
+        if (applicationBO.agency_location) {
+            await this.agencyLocation.load({id: applicationBO.agency_location});
         }
         else {
             await this.agencyLocation.load({id: 1}); // This is Talage's agency location record
@@ -383,9 +382,9 @@ module.exports = class Application {
 			FROM clw_talage_quotes
 			WHERE id IN (${quoteIDs.join(',')});
 		`;
-        let quotes = null;
+        let quotesRecordSet = null;
         try {
-            quotes = await db.query(sql);
+            quotesRecordSet = await db.query(sql);
         }
         catch (error) {
             log.error(`Could not retrieve quotes from the database for application ${this.id} ${__location}`);
@@ -393,7 +392,7 @@ module.exports = class Application {
         }
 
         // Determine the type of policy quoted for the application state
-        quotes.forEach((quote) => {
+        quotesRecordSet.forEach((quote) => {
             // Determine the result of this quote
             if (Object.prototype.hasOwnProperty.call(quote, 'amount') && quote.amount) {
                 // Quote
@@ -408,27 +407,47 @@ module.exports = class Application {
         await this.updateApplicationState(this.policies.length, Object.keys(policyTypeQuoted).length, Object.keys(policyTypeReferred).length);
 
         // Send a notification to Slack about this application
-        await this.send_notifications(quotes);
+        try{
+            await this.send_notifications(quotesRecordSet);
+        }
+        catch(err){
+            log.error(`Quote Application ${this.id} error sending notifications ` + err + __location);
+        }
+
     }
 
     /**
 	 * Sends a email and slack notifications based on the quotes returned
 	 *
-	 * @param {array} quotes - An array of quote objects
+	 * @param {array} quotesRecordSet - An array of quote objects
 	 * @returns {void}
 	 */
-    async send_notifications(quotes) {
+    async send_notifications(quotesRecordSet) {
         // Determine which message will be sent
         let all_had_quotes = true;
         let some_quotes = false;
-        quotes.forEach((quote) => {
-            if (quote.aggregated_status === 'quoted' || quote.aggregated_status === 'quoted_referred') {
+        let notifiyTalage = false
+        quotesRecordSet.forEach((quoteRecord) => {
+            if (quoteRecord.aggregated_status === 'quoted' || quoteRecord.aggregated_status === 'quoted_referred') {
                 some_quotes = true;
             }
             else {
                 all_had_quotes = false;
             }
+            //Notify Talage logic Agencylocation ->insures
+            try{
+                const notifiyTalageTest = this.agencyLocation.shouldNotifyTalage(quoteRecord.insurer);
+                //We only need one AL insure to be set to notifyTalage to send it to Slack.
+                if(notifiyTalageTest === true){
+                    notifiyTalage = notifiyTalageTest;
+                    log.info(`Quote Application ${this.id} sending notification to Talage ` + __location)
+                }
+            }
+            catch(err){
+                log.error(`Quote Application ${this.id} Error get notifyTalage ` + err + __location);
+            }
         });
+        log.info(`Quote Application ${this.id} Sending Notification to Talage is ${notifiyTalage}` + __location)
 
         // Send an emails if there were no quotes generated
         if (!some_quotes) {
@@ -491,7 +510,7 @@ module.exports = class Application {
                     const capitalizedBrand = emailContentJSON.emailBrand.charAt(0).toUpperCase() + emailContentJSON.emailBrand.substring(1);
                     message = message.replace(/{{Agency Portal}}/g, `<a href="${portalLink}" target="_blank" rel="noopener noreferrer">${capitalizedBrand} Agency Portal</a>`);
                     message = message.replace(/{{Agency}}/g, this.agencyLocation.agency);
-                    message = message.replace(/{{Agent Login URL}}/g, this.agencyLocation.insurers[quotes[0].insurer].agent_login);
+                    message = message.replace(/{{Agent Login URL}}/g, this.agencyLocation.insurers[quotesRecordSet[0].insurer].agent_login);
                     message = message.replace(/{{Brand}}/g, capitalizedBrand);
                     message = message.replace(/{{Business Name}}/g, this.business.name);
                     message = message.replace(/{{Contact Email}}/g, this.business.contacts[0].email);
@@ -499,8 +518,8 @@ module.exports = class Application {
                     message = message.replace(/{{Contact Phone}}/g, formatPhone(this.business.contacts[0].phone));
                     message = message.replace(/{{Industry}}/g, this.business.industry_code_description);
 
-                    if (quotes[0].status) {
-                        message = message.replace(/{{Quote Result}}/g, quotes[0].status.charAt(0).toUpperCase() + quotes[0].status.substring(1));
+                    if (quotesRecordSet[0].status) {
+                        message = message.replace(/{{Quote Result}}/g, quotesRecordSet[0].status.charAt(0).toUpperCase() + quotesRecordSet[0].status.substring(1));
                     }
                     log.debug('sending agency email');
                     // Send the email message - development should email. change local config to get the email.
@@ -518,12 +537,17 @@ module.exports = class Application {
             }
         }
 
-        // Only send Slack messages on Talage applications
-        if (this.agencyLocation.agencyId <= 2) {
+        // Only send Slack messages on Talage applications  this.agencyLocation.agency
+        if (this.agencyLocation.agencyId <= 2 || notifiyTalage === true) {
             // Build out the 'attachment' for the Slack message
             const attachment = {
                 application_id: this.id,
                 fields: [
+                    {
+                        short: false,
+                        title: 'Agency Name',
+                        value: this.agencyLocation.agency
+                    },
                     {
                         short: false,
                         title: 'Business Name',
@@ -541,11 +565,7 @@ module.exports = class Application {
                     join(' and ')}`
             };
 
-            if (global.settings.ENV === 'development') {
-                log.info('!!! Skipping sending notification slack due to development environment. !!!');
-                return;
-            }
-
+            // sending controlled in slacksvc by env SLACK_DO_NOT_SEND
             // Send a message to Slack
             if (all_had_quotes) {
                 slack.send('customer_success', 'ok', 'Application completed and the user received ALL quotes', attachment);

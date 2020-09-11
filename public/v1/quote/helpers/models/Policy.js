@@ -48,7 +48,6 @@ module.exports = class Policy {
      * @param {object} applicationPolicyTypeBO - The business data
      * @param {int} applicationId - The business data
      * @param {object} applicationBO - The business data
-	 * @param {object} data - The business data
 	 * @returns {void}
 	 */
     async load(applicationPolicyTypeBO, applicationId, applicationBO) {
