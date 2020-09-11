@@ -93,6 +93,9 @@ module.exports = class AgencyLocationBO{
             }
         });
     }
+
+
+
     getById(id) {
         return new Promise(async (resolve, reject) => {
             //validate
@@ -206,19 +209,19 @@ module.exports = class AgencyLocationBO{
                     location.closeTime = location.close_time
                     if(children === true ){
                         const agencyLocationInsurer = new AgencyLocationInsurerBO
-                        const insurerList = await agencyLocationInsurer.getListByAgencyLoationForAgencyPortal(id).catch(function (error) {
+                        const insurerList = await agencyLocationInsurer.getListByAgencyLocationForAgencyPortal(id).catch(function (error) {
                             // Check if this was
                             rejected = true;
-                            log.error(`agencyLocationInsurer.getListByAgencyLoationForAgencyPortal error on select ` + error + __location);
+                            log.error(`agencyLocationInsurer.getListByAgencyLocationForAgencyPortal error on select ` + error + __location);
                         });
                         location.insurers = insurerList;
 
                         // Territories 
                         const agencyLocationTerritory = new AgencyLocationTerritory
-                        const territoryList = await agencyLocationTerritory.getListByAgencyLoationForAgencyPortal(id).catch(function (error) {
+                        const territoryList = await agencyLocationTerritory.getListByAgencyLocationForAgencyPortal(id).catch(function (error) {
                             // Check if this was
                             rejected = true;
-                            log.error(`agencyLocationTerritory.getListByAgencyLoationForAgencyPortal error on select ` + error + __location);
+                            log.error(`agencyLocationTerritory.getListByAgencyLocationForAgencyPortal error on select ` + error + __location);
                         });
                         location.territories = territoryList;
 
@@ -324,6 +327,7 @@ module.exports = class AgencyLocationBO{
             throw new Error("No id or agency id");
         }
     }
+
 
      /**
 	 * Load new business JSON into ORM. can be used to filter JSON to busines properties
