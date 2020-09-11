@@ -304,12 +304,12 @@ module.exports = class AgencyLocation {
 
     shouldNotifyTalage(insureId){
         //  const insurerIdTest = insureId.toString;
-        let notifiyTalage = false;
+        let notifyTalage = false;
         if(this.insurers){
             if(this.insurers[insureId] && this.insurers[insureId].policy_type_info){
                 try{
-                    if(this.insurers[insureId].policy_type_info.notifiyTalage === true){
-                        notifiyTalage = true;
+                    if(this.insurers[insureId].policy_type_info.notifyTalage === true){
+                        notifyTalage = true;
                     }
                 }
                 catch(e){
@@ -323,7 +323,7 @@ module.exports = class AgencyLocation {
         else {
             log.error("Quote Agency Location no insurers in shouldNotifyTalage " + __location);
         }
-        return notifiyTalage;
+        return notifyTalage;
 
 
     }
