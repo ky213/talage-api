@@ -84,14 +84,14 @@ module.exports = class Integration {
         return new Promise(async(fulfill, reject) => {
             // Make sure the _bind() function exists
             if (typeof this._bind === 'undefined') {
-                log.warn(`${this.insurer} ${this.policy.type} integration does not support binding quotes` + __location);
+                log.warn(`${this.insurer.name} ${this.policy.type} integration does not support binding quotes` + __location);
                 reject(serverHelper.notFoundError('Insurer integration does not support binding quotes at this time'));
                 return;
             }
 
             // Check for an outage
             if (this.insurer.outage) {
-                log.warn(`${this.insurer} is currently unavailable due to scheduled maintenance` + __location);
+                log.warn(`${this.insurer.name} is currently unavailable due to scheduled maintenance` + __location);
                 reject(serverHelper.serviceUnavailableError('Insurer is currently unavailable due to scheduled maintance'));
                 return;
             }
