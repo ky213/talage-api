@@ -62,7 +62,6 @@ module.exports = class Quote{
                 // Create an instance of the Integration class
                 const IntegrationClass = require(path);
                 const integration = new IntegrationClass(this.app, this.insurer, this.policy);
-
                 // Begin the binding process
                 await integration.bind().then((result) => {
                     this.send_slack_notification(result.toLowerCase());
@@ -214,7 +213,6 @@ module.exports = class Quote{
             if(had_error){
                 return;
             }
-
             fulfill();
         });
     }
@@ -226,11 +224,10 @@ module.exports = class Quote{
 	 * @return {void}
 	 */
     send_slack_notification(type){
-        // Only send a Slack notification if the agent is Talage or if Agency is marked to notify Talage (channel partners)
 
+        // Only send a Slack notification if the agent is Talage or if Agency is marked to notify Talage (channel partners)
         //Determine if notifyTalage is enabled for this AgencyLocation Insurer.
         const notifiyTalage = this.app.agencyLocation.shouldNotifyTalage(this.insurer.id);
-
         // notifyTalage force a hard match on true. in case something beside a boolan got in there
         if(this.app.agencyLocation.agencyId <= 2 || notifiyTalage === true){
             // Build out the 'attachment' for the Slack message
