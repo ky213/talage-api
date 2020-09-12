@@ -545,7 +545,8 @@ module.exports = class Application {
                         short: false,
                         title: 'Business Name',
                         value: this.business.name + (this.business.dba ? ` (dba. ${this.business.dba})` : '')
-                    }, {
+                    },
+                    {
                         short: false,
                         title: 'Industry',
                         value: this.business.industry_code_description
