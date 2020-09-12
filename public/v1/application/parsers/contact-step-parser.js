@@ -52,10 +52,6 @@ exports.process = function(requestJSON) {
     }
     businessInfo.contacts.push(contact);
 
-    requestJSON.demo = false;
-    if (requestJSON.name.toLowerCase().startsWith('talage')) {
-        requestJSON.demo = true;
-    }
 
     return true;
 }
