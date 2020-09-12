@@ -377,9 +377,9 @@ module.exports = class BtisGL extends Integration {
             quoteResult = await this.send_json_request(host, QUOTE_URL, JSON.stringify(data), token)
         }
         catch(error){
-            log.error(`BTIS Submit Endpoint Returned Error ${util.inspect(error, false, null)}` + __location);
-            this.reasons.push('Problem connecting to insurer');
-            return this.return_result('error');
+            log.warn(`BTIS Submit Endpoint Returned Error ${util.inspect(error, false, null)}` + __location);
+            this.reasons.push('Problem connecting to insurer BTIS');
+            return this.return_result('autodeclined');
         }
 
         // The result can be under either clearspring or victory, checking for success
@@ -393,7 +393,7 @@ module.exports = class BtisGL extends Integration {
                 this.amount = quoteInfo.quote.results.total_premium;
             }
             else{
-                log.error('BTIS GL Integration Error: Quote structure chaned. Unable to get quote amount from insurer. ' + __location);
+                log.error('BTIS GL Integration Error: Quote structure changed. Unable to get quote amount from insurer. ' + __location);
                 this.reasons.push('A quote was generated but our API was unable to isolate it.');
                 return this.return_result('error');
             }
