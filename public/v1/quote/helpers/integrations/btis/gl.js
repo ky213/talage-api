@@ -378,7 +378,7 @@ module.exports = class BtisGL extends Integration {
         }
         catch(error){
             log.warn(`BTIS Submit Endpoint Returned Error ${util.inspect(error, false, null)}` + __location);
-            this.reasons.push('Problem connecting to insurer');
+            this.reasons.push('Problem connecting to insurer BTIS');
             return this.return_result('autodeclined');
         }
 
@@ -393,7 +393,7 @@ module.exports = class BtisGL extends Integration {
                 this.amount = quoteInfo.quote.results.total_premium;
             }
             else{
-                log.error('BTIS GL Integration Error: Quote structure chaned. Unable to get quote amount from insurer. ' + __location);
+                log.error('BTIS GL Integration Error: Quote structure changed. Unable to get quote amount from insurer. ' + __location);
                 this.reasons.push('A quote was generated but our API was unable to isolate it.');
                 return this.return_result('error');
             }
