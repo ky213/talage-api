@@ -1,3 +1,5 @@
+/* eslint-disable brace-style */
+/* eslint-disable array-element-newline */
 /* eslint indent: 0 */
 /* eslint multiline-comment-style: 0 */
 /* eslint no-unreachable: 0 */
@@ -14,154 +16,155 @@ const Integration = require('../Integration.js');
 const builder = require('xmlbuilder');
 const moment = require('moment');
 const util = require('util');
-const serverHelper = requireRootPath('server.js');
+//const serverHelper = global.requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const wcEmodEmail = requireRootPath('./tasksystem/task-wcemodemail');
+const wcEmodEmail = global.requireRootPath('./tasksystem/task-wcemodemail');
 
 module.exports = class CompwestWC extends Integration {
+
     /**
      * Makes a request to Accident Fund to bind a policy.  This method is not intended to be called directly
      *
      * @returns {Promise.<string, ServerError>} A promise that returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a ServerError if rejected
      */
-    async _bind() {
-        // May payment plans
-        const payment_plans = {
-            '1': 'D1', // Annual
-            '2': 'D2', // Semi-Annual
-            '3': 'D4', // Quarterly
-            '4': 'D9' // 10 Pay
-        };
-
+   // async _bind() {
         // Temporarily turn off bind
-        throw serverHelper.internalError('Bind is currently disabled for this insurer');
+        // throw serverHelper.internalError('Bind is currently disabled for this insurer');
+
+        // // May payment plans
+        // const payment_plans = {
+        //     '1': 'D1', // Annual
+        //     '2': 'D2', // Semi-Annual
+        //     '3': 'D4', // Quarterly
+        //     '4': 'D9' // 10 Pay
+        // };
 
         // CompWest has us define our own Request ID
-        this.request_id = this.generate_uuid();
+        // this.request_id = this.generate_uuid();
 
-        // Build the XML Request
+        // // Build the XML Request
 
-        // <ACORD>
-        const ACORD = builder.create('ACORD');
-        ACORD.att('xsi:noNamespaceSchemaLocation', 'WorkCompPolicyAddRqXSD.xsd');
-        ACORD.att('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance');
+        // // <ACORD>
+        // const ACORD = builder.create('ACORD');
+        // ACORD.att('xsi:noNamespaceSchemaLocation', 'WorkCompPolicyAddRqXSD.xsd');
+        // ACORD.att('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance');
 
-        // <InsuranceSvcRq>
-        const InsuranceSvcRq = ACORD.ele('InsuranceSvcRq');
-        InsuranceSvcRq.ele('RqUID', this.request_id);
+        // // <InsuranceSvcRq>
+        // const InsuranceSvcRq = ACORD.ele('InsuranceSvcRq');
+        // InsuranceSvcRq.ele('RqUID', this.request_id);
 
-        // <WorkCompPolicyAddRq>
-        const WorkCompPolicyAddRq = InsuranceSvcRq.ele('WorkCompPolicyAddRq');
+        // // <WorkCompPolicyAddRq>
+        // const WorkCompPolicyAddRq = InsuranceSvcRq.ele('WorkCompPolicyAddRq');
 
-        // <Producer>
-        const Producer = WorkCompPolicyAddRq.ele('Producer');
+        // // <Producer>
+        // const Producer = WorkCompPolicyAddRq.ele('Producer');
 
-        // <ItemIdInfo>
-        const ItemIdInfo = Producer.ele('ItemIdInfo');
-        ItemIdInfo.ele('AgencyId', this.app.agencyLocation.insurers[this.insurer.id].agency_id);
-        // </ItemIdInfo>
+        // // <ItemIdInfo>
+        // const ItemIdInfo = Producer.ele('ItemIdInfo');
+        // ItemIdInfo.ele('AgencyId', this.app.agencyLocation.insurers[this.insurer.id].agency_id);
+        // // </ItemIdInfo>
 
-        // <GeneralPartyInfo>
-        let GeneralPartyInfo = Producer.ele('GeneralPartyInfo');
+        // // <GeneralPartyInfo>
+        // let GeneralPartyInfo = Producer.ele('GeneralPartyInfo');
 
-        // <NameInfo>
-        let NameInfo = GeneralPartyInfo.ele('NameInfo');
-        NameInfo.att('id', 'ProducerName');
+        // // <NameInfo>
+        // let NameInfo = GeneralPartyInfo.ele('NameInfo');
+        // NameInfo.att('id', 'ProducerName');
 
-        // <PersonName>
-        const PersonName = NameInfo.ele('PersonName');
-        PersonName.ele('Surname', this.app.agencyLocation.last_name);
-        PersonName.ele('GivenName', this.app.agencyLocation.first_name);
-        // </PersonName>
-        // </NameInfo>
-        // </GeneralPartyInfo>
-        // </Producer>
+        // // <PersonName>
+        // const PersonName = NameInfo.ele('PersonName');
+        // PersonName.ele('Surname', this.app.agencyLocation.last_name);
+        // PersonName.ele('GivenName', this.app.agencyLocation.first_name);
+        // // </PersonName>
+        // // </NameInfo>
+        // // </GeneralPartyInfo>
+        // // </Producer>
 
-        // <InsuredOrPrincipal>
-        const InsuredOrPrincipal = WorkCompPolicyAddRq.ele('InsuredOrPrincipal');
-        InsuredOrPrincipal.att('id', 'n0');
+        // // <InsuredOrPrincipal>
+        // const InsuredOrPrincipal = WorkCompPolicyAddRq.ele('InsuredOrPrincipal');
+        // InsuredOrPrincipal.att('id', 'n0');
 
-        // <GeneralPartyInfo>
-        GeneralPartyInfo = InsuredOrPrincipal.ele('GeneralPartyInfo');
+        // // <GeneralPartyInfo>
+        // GeneralPartyInfo = InsuredOrPrincipal.ele('GeneralPartyInfo');
 
-        // <NameInfo>
-        NameInfo = GeneralPartyInfo.ele('NameInfo');
+        // // <NameInfo>
+        // NameInfo = GeneralPartyInfo.ele('NameInfo');
 
-        // <CommlName>
-        const CommlName = NameInfo.ele('CommlName');
-        CommlName.ele('CommercialName', this.app.business.name.replace('’', "'").replace('+', '').replace('|', ''));
-        // </CommlName>
-        // </NameInfo>
-        // </GeneralPartyInfo>
-        // </InsureredOrPrincipal>
+        // // <CommlName>
+        // const CommlName = NameInfo.ele('CommlName');
+        // CommlName.ele('CommercialName', this.app.business.name.replace('’', "'").replace('+', '').replace('|', ''));
+        // // </CommlName>
+        // // </NameInfo>
+        // // </GeneralPartyInfo>
+        // // </InsureredOrPrincipal>
 
-        // <CommlPolicy>
-        const CommlPolicy = WorkCompPolicyAddRq.ele('CommlPolicy');
-        CommlPolicy.ele('PolicyNumber', this.policy.json.number);
+        // // <CommlPolicy>
+        // const CommlPolicy = WorkCompPolicyAddRq.ele('CommlPolicy');
+        // CommlPolicy.ele('PolicyNumber', this.policy.json.number);
 
-        // <PaymentOption>
-        const PaymentOption = CommlPolicy.ele('PaymentOption');
-        PaymentOption.ele('PaymentPlanCd', payment_plans[226]);
-        // </PaymentOption>
-        // </CommlPolicy>
+        // // <PaymentOption>
+        // const PaymentOption = CommlPolicy.ele('PaymentOption');
+        // PaymentOption.ele('PaymentPlanCd', payment_plans[226]);
+        // // </PaymentOption>
+        // // </CommlPolicy>
 
-        log.debug('Add additional insureds here');
+        // log.debug('Add additional insureds here');
 
-        // Get the XML structure as a string
-        const xml = ACORD.end({ pretty: true });
+        // // Get the XML structure as a string
+        // const xml = ACORD.end({ pretty: true });
 
-        // Determine which URL to use
-        let host = '';
-        if (this.insurer.useSandbox) {
-            host = 'npsv.afgroup.com';
-        } else {
-            log.error(`${this.insurer.name} ERROR: Binding not supported in production`);
-            throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-        }
-        const path = '/TEST_DigitalAq/rest/getbindworkcompquote'; // Send the XML to the insurer
+        // // Determine which URL to use
+        // let host = '';
+        // if (this.insurer.useSandbox) {
+        //     host = 'npsv.afgroup.com';
+        // } else {
+        //     log.error(`${this.insurer.name} ERROR: Binding not supported in production`);
+        //     throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+        // }
+        // const path = '/TEST_DigitalAq/rest/getbindworkcompquote'; // Send the XML to the insurer
 
-        let result = null;
-        try {
-            result = await this.send_xml_request(host, path, xml, {
-                Authorization: `Basic ${Buffer.from(`${this.username}:${this.password}`).toString('base64')}`,
-                'Content-Type': 'application/xml'
-            });
-        } catch (error) {
-            log.error(util.inspect(error) + __location);
-            log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.` + __location);
-            throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-        }
-        // Begin reducing the response
-        const res = result.ACORD;
-        let message_type = '';
+        // let result = null;
+        // try {
+        //     result = await this.send_xml_request(host, path, xml, {
+        //         Authorization: `Basic ${Buffer.from(`${this.username}:${this.password}`).toString('base64')}`,
+        //         'Content-Type': 'application/xml'
+        //     });
+        // } catch (error) {
+        //     log.error(util.inspect(error) + __location);
+        //     log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.` + __location);
+        //     throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+        // }
+        // // Begin reducing the response
+        // const res = result.ACORD;
+        // let message_type = '';
 
-        const status = res.SignonRs[0].Status[0].StatusCd[0];
-        switch (status) {
-            case 'BOUND':
-            case 'REFERRED':
-                message_type = status + status.slice(1).toLowerCase();
-                this.log += `--------======= Quote ${message_type} =======--------`;
-                log.info(`${this.insurer.name} ${this.policy.type} Quote ${message_type}`);
-                return message_type;
-            case 'ERRORED':
-            case 'SMARTEDITS':
-                this.log += `--------======= Bind Error =======--------<br><br>${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`;
-                log.error(`${this.insurer.name} ${this.policy.type} Bind Integration Error(s):\n--- ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}` + __location);
-                throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-            case 'UNAUTHENTICATED':
-            case 'UNAUTHORIZED':
-                message_type = status === 'UNAUTHENTICATED' ? 'Incorrect' : 'Locked';
-                this.log += `--------======= ${message_type} Agency ID =======--------<br><br>We attempted to process a bind request, but the Agency ID set for the agent was ${message_type.toLowerCase()} and no quote could be processed.`;
-                log.error(`${this.insurer.name} ${this.policy.type} Bind ${message_type} Agency ID` + __location);
-                throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-            default:
-                this.log += '--------======= Unexpected API Response =======--------';
-                this.log += util.inspect(res, false, null);
-                log.error(`${this.insurer.name} ${status} Bind - Unexpected response code by API ` + __location);
-                throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-        }
-    }
+        // const status = res.SignonRs[0].Status[0].StatusCd[0];
+        // switch (status) {
+        //     case 'BOUND':
+        //     case 'REFERRED':
+        //         message_type = status + status.slice(1).toLowerCase();
+        //         this.log += `--------======= Quote ${message_type} =======--------`;
+        //         log.info(`${this.insurer.name} ${this.policy.type} Quote ${message_type}`);
+        //         return message_type;
+        //     case 'ERRORED':
+        //     case 'SMARTEDITS':
+        //         this.log += `--------======= Bind Error =======--------<br><br>${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`;
+        //         log.error(`${this.insurer.name} ${this.policy.type} Bind Integration Error(s):\n--- ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}` + __location);
+        //         throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+        //     case 'UNAUTHENTICATED':
+        //     case 'UNAUTHORIZED':
+        //         message_type = status === 'UNAUTHENTICATED' ? 'Incorrect' : 'Locked';
+        //         this.log += `--------======= ${message_type} Agency ID =======--------<br><br>We attempted to process a bind request, but the Agency ID set for the agent was ${message_type.toLowerCase()} and no quote could be processed.`;
+        //         log.error(`${this.insurer.name} ${this.policy.type} Bind ${message_type} Agency ID` + __location);
+        //         throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+        //     default:
+        //         this.log += '--------======= Unexpected API Response =======--------';
+        //         this.log += util.inspect(res, false, null);
+        //         log.error(`${this.insurer.name} ${status} Bind - Unexpected response code by API ` + __location);
+        //         throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+        // }
+   // }
 
     /**
      * Requests a quote from CompWest and returns. This method is not intended to be called directly.
@@ -459,7 +462,8 @@ module.exports = class CompwestWC extends Integration {
                                 // Determine how to send the answer
                                 if (question.type === 'Yes/No') {
                                     ClassCodeQuestion.ele('ResponseInd', question.get_answer_as_boolean() ? 'Y' : 'N');
-                                } else {
+                                }
+                                else {
                                     ClassCodeQuestion.ele('ResponseInd', question.answer);
                                 }
                                 // </ClassCodeQuestion>
@@ -578,7 +582,7 @@ module.exports = class CompwestWC extends Integration {
         // </ACORD>
 
         // Get the XML structure as a string
-        const xml = ACORD.end({ pretty: true });
+        const xml = ACORD.end({pretty: true});
 
         // Determine which URL to use
         let host = '';
@@ -586,7 +590,8 @@ module.exports = class CompwestWC extends Integration {
         if (this.insurer.useSandbox) {
             host = 'npsv.afgroup.com';
             path = '/TEST_DigitalAq/rest/getworkcompquote';
-        } else {
+        }
+        else {
             host = 'psv.afgroup.com';
             path = '/DigitalAq/rest/getworkcompquote';
         }
@@ -598,7 +603,8 @@ module.exports = class CompwestWC extends Integration {
                 Authorization: `Basic ${Buffer.from(`${this.username}:${this.password}`).toString('base64')}`,
                 'Content-Type': 'application/xml'
             });
-        } catch (error) {
+        }
+        catch (error) {
             log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: ${error}` + __location);
             return this.return_result('error');
         }
