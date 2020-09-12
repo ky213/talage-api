@@ -14,7 +14,7 @@ const slack = global.requireShared('./services/slacksvc.js');
 const serverHelper = require('../../../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
 
-module.exports = class Quote{
+module.exports = class QuoteBind{
 
     constructor(){
         this.amount = 0;
