@@ -47,15 +47,15 @@ module.exports = class MarkelWC extends Integration {
         // Prepare limits
         const limits = this.getBestLimits(carrierLimits);
         if (!limits) {
-            log.warn(`Markel WC autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location);
-            this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
+            log.warn(`Appid: ${this.app.id} Markel WC autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location);
+            this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} does not support the requested liability limits`);
             return this.return_result('autodeclined');
         }
 
         // Check the number of claims
         if (excessive_loss_states.indexOf(this.app.business.primary_territory) !== -1) {
             if (this.policy.claims.length > 2) {
-                log.info(`autodeclined: ${this.insurer.name} Too many claims ` + __location);
+                log.info(`Appid: ${this.app.id} autodeclined: ${this.insurer.name} Too many claims ` + __location);
                 this.reasons.push(`Too many past claims`);
                 return this.return_result('autodeclined');
             }
@@ -64,7 +64,7 @@ module.exports = class MarkelWC extends Integration {
         // Check for excessive losses in South Dakota
         if (this.app.business.primary_territory === 'SD') {
             if (this.policy.claims.length > 4) {
-                log.info(`autodeclined: ${this.insurer.name} Too many claims ` + __location);
+                log.info(`Appid: ${this.app.id} autodeclined: ${this.insurer.name} Too many claims ` + __location);
                 this.reasons.push(`Too many past claims`);
                 return this.return_result('autodeclined');
             }
@@ -316,7 +316,7 @@ module.exports = class MarkelWC extends Integration {
                     answer = this.determine_question_answer(question);
                 }
                 catch (error) {
-                    log.error(`Markel WC: Unable to determine answer for question ${question.id}. error: ${error} ` + __location);
+                    log.error(`Appid: ${this.app.id} Markel WC: Unable to determine answer for question ${question.id}. error: ${error} ` + __location);
                     this.reasons.push(`Unable to determine answer for question ${question.id}`);
                     return this.return_result('error');
                 }
@@ -348,7 +348,7 @@ module.exports = class MarkelWC extends Integration {
                         }
                     }
                     else {
-                        log.error(`Markel WC: User provided an invalid percentage for the subcontractors question (not numeric) ` + __location);
+                        log.error(`Appid: ${this.app.id} Markel WC: User provided an invalid percentage for the subcontractors question (not numeric) ` + __location);
                         this.reasons.push('User provided an invalid percentage for the subcontractors question (not numeric)');
                         return this.return_result('error');
                     }
@@ -1289,7 +1289,7 @@ module.exports = class MarkelWC extends Integration {
             result = await this.send_xml_request(host, path, xml);
         }
         catch (error) {
-            log.error(`${this.insurer.name} ${this.policy.type} Integration Error: ${error} ${__location}`);
+            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: ${error} ${__location}`);
             return this.return_result('error');
         }
         // Parse the various status codes and take the appropriate action
@@ -1298,15 +1298,15 @@ module.exports = class MarkelWC extends Integration {
         let status = parseInt(res.Status[0].StatusCd[0], 10);
         switch (status) {
             case 1740:
-                log.error(`Markel WC: Error 1740: Authentication Failed ` + __location);
+                log.error(`Appid: ${this.app.id} Markel WC: Error 1740: Authentication Failed ` + __location);
                 this.reasons.push('Error 1740: Authentication Failed');
                 return this.return_result('error');
             case 1980:
-                log.error(`Markel WC: Error 1980: Unsupported Application ID ` + __location);
+                log.error(`Appid: ${this.app.id} Markel WC: Error 1980: Unsupported Application ID ` + __location);
                 this.reasons.push('Error 1980: Unsupported Application ID');
-                return this.return_result('error');
+                return this.return_result('declined');
             case 400:
-                log.error(`Markel WC: Error 400: ${res.Status[0].StatusDesc[0]} ` + __location);
+                log.error(`Appid: ${this.app.id} Markel WC: Error 400: ${res.Status[0].StatusDesc[0]} ` + __location);
                 this.reasons.push(`Error 400: ${res.Status[0].StatusDesc[0]}`);
                 return this.return_result('error');
             case 0:
@@ -1335,7 +1335,7 @@ module.exports = class MarkelWC extends Integration {
                     this.amount = parseInt(res.PolicySummaryInfo[0].FullTermAmt[0].Amt[0], 10);
                 }
                 catch (error) {
-                    log.error(`Markel WC: Error getting amount ${error}` + __location);
+                    log.error(`Appid: ${this.app.id} Markel WC: Error getting amount ${error}` + __location);
                     return this.return_result('error');
                 }
 
@@ -1355,7 +1355,7 @@ module.exports = class MarkelWC extends Integration {
                                         this.limits[3] = limit.FormatInteger[0];
                                         break;
                                     default:
-                                        log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response` + __location);
+                                        log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response` + __location);
                                         break;
                                 }
                             });
@@ -1363,7 +1363,7 @@ module.exports = class MarkelWC extends Integration {
                     });
                 }
                 catch (e) {
-                    log.error(`Markel WC: Error getting limits ${e} ` + __location);
+                    log.error(`Appid: ${this.app.id} Markel WC: Error getting limits ${e} ` + __location);
                     return this.return_result('error');
                 }
 
