@@ -113,11 +113,10 @@ exports.hasOtherSigningAuthority = hasOtherSigningAuthority;
 /**
  * Validates a user and returns a clean data object
  *
- * @param {object} req - HTTP request object
  * @param {object} user - User Object
  * @return {object} Object containing user information
  */
-async function validate(req, user) {
+async function validate(user) {
     // Establish default values
     const data = {
         canSign: 0,
@@ -182,6 +181,8 @@ async function validate(req, user) {
  */
 async function createUser(req, res, next) {
     let error = false;
+	// HACK: Adding backward compatibility so if typeof req.body.user === 'undefined' old ui use case else updated UI
+	const userObj = typeof req.body.user === 'undefined' ? req.body : req.body.user;
 
     // Check that at least some post parameters were received
     if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
@@ -190,7 +191,7 @@ async function createUser(req, res, next) {
     }
 
     // Validate the request and get back the data
-    const data = await validate(req, req.body.user).catch(function(err) {
+    const data = await validate(userObj).catch(function(err) {
         error = err.message;
     });
     if (error) {
@@ -588,6 +589,9 @@ async function getUser(req, res, next) {
 async function updateUser(req, res, next) {
     let error = false;
 
+	// HACK: Adding backward compatibility so if typeof req.body.user === 'undefined' old ui use case else updated UI
+	 const userObj = typeof req.body.user === 'undefined' ? req.body : req.body.user;
+
     // Check that at least some post parameters were received
     if (!req.body || typeof req.body !== 'object' || Object.keys(req.body).length === 0) {
         log.info('Bad Request: Parameters missing');
@@ -595,7 +599,7 @@ async function updateUser(req, res, next) {
     }
 
     // Validate the request and get back the data
-    const data = await validate(req, req.body.user).catch(function(err) {
+    const data = await validate(userObj).catch(function(err) {
         log.warn(`${err.message}  ${__location}`);
         error = serverHelper.requestError(err.message);
     });
@@ -630,13 +634,13 @@ async function updateUser(req, res, next) {
 	// Since agency network can update an agency user determine, if this is an agency network but also has sent an agency (agencyId) then set this to false else let the authentication determine the agencyNetwork truthiness
 	const  isThisAgencyNetwork = req.authentication.agencyNetwork && req.body.agency ? false : req.authentication.agencyNetwork;
 
-    if (!Object.prototype.hasOwnProperty.call(req.body.user, 'id')) {
+    if (!Object.prototype.hasOwnProperty.call(userObj, 'id')) {
         return next(serverHelper.requestError('ID missing'));
     }
-    if (!await validator.userId(req.body.user.id, agencyOrNetworkID, isThisAgencyNetwork)) {
+    if (!await validator.userId(userObj.id, agencyOrNetworkID, isThisAgencyNetwork)) {
         return next(serverHelper.requestError('ID is invalid'));
     }
-    data.id = req.body.user.id;
+    data.id = userObj.id;
 
     // Begin a database transaction
     const connection = await db.beginTransaction().catch(function(err) {
