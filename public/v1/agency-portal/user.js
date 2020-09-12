@@ -588,8 +588,8 @@ async function updateUser(req, res, next) {
     }
 
     // Validate the request and get back the data
-    const data = await validate(req).catch(function(err) {
-        log.warn(err.message);
+    const data = await validate(req, req.body.user).catch(function(err) {
+        log.warn(`${err.message}  ${__location}`);
         error = serverHelper.requestError(err.message);
     });
     if (error) {
@@ -598,8 +598,12 @@ async function updateUser(req, res, next) {
 
     // Determine if this is an agency or agency network
     let agencyOrNetworkID = 0;
-    let where = ``;
-    if (req.authentication.agencyNetwork) {
+	let where = ``;
+	if(req.authentication.agencyNetwork && req.body.agency){
+		agencyOrNetworkID = parseInt(req.body.agency, 10);
+		where = ` \`agency\` = ${agencyOrNetworkID}`;
+	}
+    else if (req.authentication.agencyNetwork) {
         agencyOrNetworkID = parseInt(req.authentication.agencyNetwork, 10);
         where = `\`agency_network\`= ${agencyOrNetworkID}`;
     }
@@ -615,14 +619,17 @@ async function updateUser(req, res, next) {
         where = ` \`agency\` = ${agencyOrNetworkID}`;
     }
 
-    // Validate the ID
-    if (!Object.prototype.hasOwnProperty.call(req.body, 'id')) {
+	// Validate the ID
+	// Since agency network can update an agency user determine, if this is an agency network but also has sent an agency (agencyId) then set this to false else let the authentication determine the agencyNetwork truthiness
+	const  isThisAgencyNetwork = req.authentication.agencyNetwork && req.body.agency ? false : req.authentication.agencyNetwork;
+
+    if (!Object.prototype.hasOwnProperty.call(req.body.user, 'id')) {
         return next(serverHelper.requestError('ID missing'));
     }
-    if (!await validator.userId(req.body.id, agencyOrNetworkID, req.authentication.agencyNetwork)) {
+    if (!await validator.userId(req.body.user.id, agencyOrNetworkID, isThisAgencyNetwork)) {
         return next(serverHelper.requestError('ID is invalid'));
     }
-    data.id = req.body.id;
+    data.id = req.body.user.id;
 
     // Begin a database transaction
     const connection = await db.beginTransaction().catch(function(err) {
@@ -633,6 +640,7 @@ async function updateUser(req, res, next) {
         return next(error);
     }
 
+	
     // If this user is to be set as owner, remove the current owner (they will become a super administrator)
     if (data.group === 1) {
         const removeOwnerSQL = `
@@ -657,7 +665,7 @@ async function updateUser(req, res, next) {
 
         // Make sure there is an owner for this agency (we are not removing the last owner)
     }
-    else if (!await hasOtherOwner(agencyOrNetworkID, data.id, req.authentication.agencyNetwork)) {
+    else if (!await hasOtherOwner(agencyOrNetworkID, data.id, isThisAgencyNetwork)) {
         // Rollback the transaction
         db.rollback(connection);
 
@@ -666,8 +674,9 @@ async function updateUser(req, res, next) {
         return next(serverHelper.requestError('This user must be an owner as no other owners exist. Create a new owner first.'));
     }
 
-    // If the user is being set as the signing authority, remove the current signing authority (this setting does not apply to agency networks)
-    if (!req.authentication.agencyNetwork) {
+	// If the user is being set as the signing authority, remove the current signing authority (this setting does not apply to agency networks)
+	// However adding functionality to update user from agency network so also need to make sure no agency id was sent in the req.body
+    if (!req.authentication.agencyNetwork && !req.body.agency) {
         if (data.canSign) {
             const removeCanSignSQL = `
 					UPDATE
@@ -689,7 +698,7 @@ async function updateUser(req, res, next) {
 
             // Make sure there is another signing authority (we are not removing the last one)
         }
-        else if (!await hasOtherSigningAuthority(agencyOrNetworkID, data.id, req.authentication.agencyNetwork)) {
+        else if (!await hasOtherSigningAuthority(agencyOrNetworkID, data.id)) {
             // Rollback the transaction
             db.rollback(connection);
 
