@@ -80,18 +80,18 @@ module.exports = class Integration {
 	 * @returns {Promise.<string, ServerError>} A promise that returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a ServerError if rejected
 	 */
     bind() {
-        log.info(`${this.insurer.name} ${this.policy.type} Bind Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
+        log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Bind Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
         return new Promise(async(fulfill, reject) => {
             // Make sure the _bind() function exists
             if (typeof this._bind === 'undefined') {
-                log.warn(`${this.insurer.name} ${this.policy.type} integration does not support binding quotes` + __location);
+                log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} integration does not support binding quotes` + __location);
                 reject(serverHelper.notFoundError('Insurer integration does not support binding quotes at this time'));
                 return;
             }
 
             // Check for an outage
             if (this.insurer.outage) {
-                log.warn(`${this.insurer.name} is currently unavailable due to scheduled maintenance` + __location);
+                log.warn(`Appid: ${this.app.id} ${this.insurer.name} is currently unavailable due to scheduled maintenance` + __location);
                 reject(serverHelper.serviceUnavailableError('Insurer is currently unavailable due to scheduled maintance'));
                 return;
             }
@@ -240,7 +240,7 @@ module.exports = class Integration {
 
         // If this question has a parent that belongs to a different insurer it should have a default
         if (question.parent && !Object.prototype.hasOwnProperty.call(this.questions, question.parent) && question.answer_id === 0 && question.answer === null) {
-            log.error(`Question ${question.id} is missing a default answer. Defaulted to 'No' for this application. May cause quoting inaccuracies!` + __location);
+            log.error(`Appid: ${this.app.id} Question ${question.id} is missing a default answer. Defaulted to 'No' for this application. May cause quoting inaccuracies!` + __location);
             return 'No';
         }
 
@@ -253,10 +253,10 @@ module.exports = class Integration {
                 // Make sure the answer is permitted
                 if (!Object.prototype.hasOwnProperty.call(question.possible_answers, answer_id)) {
                     // This shouldn't have happened, throw an error
-                    log.error(`${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible. This should have been caught in the validation stage.` + __location);
-                    log.verbose('The question is as follows:');
+                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible. This should have been caught in the validation stage.` + __location);
+                    log.verbose(`Appid: ${this.app.id} The question is as follows:`);
                     log.verbose(util.inspect(question, false, null));
-                    throw new Error(`${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible`);
+                    throw new Error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible`);
                 }
 
                 // Add the answer to the answers array
@@ -272,10 +272,10 @@ module.exports = class Integration {
             // Determine the answer based on the Answer ID stored in our database
             if (!Object.prototype.hasOwnProperty.call(question.possible_answers, question.answer_id)) {
                 // This shouldn't have happened, throw an error
-                log.error(`${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible. This should have been caught in the validation stage.` + __location);
-                log.verbose('The question is as follows:');
+                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible. This should have been caught in the validation stage.` + __location);
+                log.verbose(`Appid: ${this.app.id} The question is as follows:`);
                 log.verbose(util.inspect(question, false, null));
-                throw new Error(`${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible`);
+                throw new Error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible`);
             }
 
             answer = question.possible_answers[question.answer_id].answer;
@@ -349,6 +349,7 @@ module.exports = class Integration {
         const requestedLimits = this.getSplitLimits(this.policy.limits);
 
         // Prepare carrier limits for processing
+        // eslint-disable-next-line prefer-const
         let splitCarrierLimitArray = carrierLimits.map(limit => this.getSplitLimits(limit));
 
         // Sort the limits by 1st, 2nd, then 3rd figure ascending to get the correct ordering
@@ -709,7 +710,7 @@ module.exports = class Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
     quote() {
-        log.info(`${this.insurer.name} ${this.policy.type} Quote Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
+        log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Quote Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
         return new Promise(async(fulfill, reject) => {
             // Get the credentials ready for use
             this.password = await this.insurer.get_password();
@@ -717,13 +718,13 @@ module.exports = class Integration {
 
             // Make sure expiration_date is set
             if (this.policy && (!this.policy.expiration_date || !this.policy.expiration_date.isValid())) {
-                log.warn(`Application ${this.app.id} policy had an invalid effective date. Setting it to 1 years after effective date. ${__location}`);
+                log.warn(`Appid: ${this.app.id} Application ${this.app.id} policy had an invalid effective date. Setting it to 1 years after effective date. ${__location}`);
                 this.policy.expiration_date = this.policy.effective_date.clone().add(1, 'years');
             }
 
             // Make sure the insurer_quote() function exists
             if (typeof this._insurer_quote === 'undefined') {
-                const error_message = 'Integration file must include the insurer_quote() function';
+                const error_message = `Appid: ${this.app.id} Integration file must include the insurer_quote() function`;
                 log.error(error_message + __location);
                 this.reasons.push(error_message);
                 fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
@@ -732,7 +733,7 @@ module.exports = class Integration {
 
             // Check for outage - "outages" in Insurer class and database SQL
             if (this.insurer.outage) {
-                const error_message = `${this.insurer.name} is currently unavailable`;
+                const error_message = `Appid: ${this.app.id} ${this.insurer.name} is currently unavailable`;
                 this.reasons.push(error_message);
                 fulfill(this.return_error('outage'));
                 return;
@@ -762,7 +763,7 @@ module.exports = class Integration {
                     }
                     break;
                 default:
-                    log.error(`Unexpected policy type of ${this.policy.type} in Integration` + __location);
+                    log.error(`Appid: ${this.app.id} Unexpected policy type of ${this.policy.type} in Integration` + __location);
                     fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
                     return;
             }
@@ -780,14 +781,14 @@ module.exports = class Integration {
             // Get the insurer question identifiers
             let stop = false;
             this.question_details = await this.get_question_details().catch((error) => {
-                const error_message = `${this.insurer.name} ${this.policy.type} is unable to get question details. ${error}`;
+                const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get question details. ${error}`;
                 log.error(error_message + __location);
                 this.reasons.push(error_message);
                 reject(this.return_error('error', "We have no idea what went wrong, but we're on it"));
                 stop = true;
             });
             this.question_identifiers = await this.get_question_identifiers().catch((error) => {
-                const error_message = `${this.insurer.name} ${this.policy.type} is unable to get question identifiers. ${error}`;
+                const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get question identifiers. ${error}`;
                 log.error(error_message + __location);
                 this.reasons.push(error_message);
                 reject(this.return_error('error', "We have no idea what went wrong, but we're on it"));
@@ -888,7 +889,7 @@ module.exports = class Integration {
                 }
             }
             catch (err) {
-                log.error(`S3 error Storing Quote letter : ${fileName} error: ` + err + __location);
+                log.error(`Appid: ${this.app.id} S3 error Storing Quote letter : ${fileName} error: ` + err + __location);
             }
         }
 
@@ -947,7 +948,7 @@ module.exports = class Integration {
 	 * @returns {object} - An error object
 	 */
     async return_error(type, message) {
-        log.info(`${this.insurer.name} returned an error of type ${type} for a ${this.policy.type} policy: ${message}` + __location);
+        log.info(`Appid: ${this.app.id} ${this.insurer.name} returned an error of type ${type} for a ${this.policy.type} policy: ${message}` + __location);
 
         // If there were reasons, make sure we write them to the log
         if (this.reasons.length > 0) {
@@ -1007,7 +1008,7 @@ module.exports = class Integration {
 
         // Make sure we have a result
         if (!result) {
-            const error_message = `${this.insurer.name} ${this.policy.type} Integration Error: Missing argument for return_result(). Must pass in a valid value for result.`;
+            const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Missing argument for return_result(). Must pass in a valid value for result.`;
             log.error(error_message + __location);
             this.reasons.push(error_message);
             return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
@@ -1020,7 +1021,7 @@ module.exports = class Integration {
                 result = this.possible_api_responses[result];
             }
             else {
-                const error_message = `${this.insurer.name} ${this.policy.type} Integration Error: Invalid value of '${result}' for result passed to return_result(). Result not specified in the insurer integration.`;
+                const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Invalid value of '${result}' for result passed to return_result(). Result not specified in the insurer integration.`;
                 log.error(error_message + __location);
                 this.reasons.push(error_message);
                 return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
@@ -1028,7 +1029,7 @@ module.exports = class Integration {
 
             // Double check: Is the result now what we are expecting
             if (!Object.keys(log_messages).includes(result)) {
-                const error_message = `${this.insurer.name} ${this.policy.type} Integration Error: Invalid value of '${result}' for result passed to return_result(). Must be a valid value as defined in return_result().`;
+                const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Invalid value of '${result}' for result passed to return_result(). Must be a valid value as defined in return_result().`;
                 log.error(error_message + __location);
                 this.reasons.push(error_message);
                 return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
@@ -1042,7 +1043,7 @@ module.exports = class Integration {
 
         // If this was quoted, make sure we have an amount
         if ((result === 'quoted' || result === 'referred_with_price') && !this.amount) {
-            log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote amount. Response structure may have changed.`);
+            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote amount. Response structure may have changed.`);
             this.reasons.push(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote amount. Response structure may have changed.`);
             if (result === 'quoted') {
                 result = 'error';
@@ -1054,7 +1055,7 @@ module.exports = class Integration {
 
         // If this was quoted, make sure we have limits
         if ((result === 'quoted' || result === 'referred_with_price') && !Object.keys(this.limits).length) {
-            log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to find limits. Response structure may have changed.` + __location);
+            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to find limits. Response structure may have changed.` + __location);
         }
 
         // Start the log message
@@ -1085,16 +1086,17 @@ module.exports = class Integration {
                 return this.return_error('declined', `${this.insurer.name} has declined to offer you coverage at this time`);
 
             case 'error':
-                log.error(`${this.insurer.name} ${this.policy.type} Integration Encountered An Error` + __location);
+                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Encountered An Error` + __location);
                 if (this.reasons) {
-                    this.reasons.forEach(function(reason) {
-                        log.info(reason);
-                    });
+                    //this.reasons.forEach(function(reason) {
+                    for(let i = 0; i < this.reasons.length; i++){
+                        log.error(`Appid: ${this.app.id} ` + this.reasons[i]);
+                    }
                 }
                 return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 
             case 'outage':
-                log.warn(`${this.insurer.name} ${this.policy.type} Experienced A System Outage At The Time of Quote` + __location);
+                log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Experienced A System Outage At The Time of Quote` + __location);
                 if (this.reasons) {
                     this.reasons.forEach(function(reason) {
                         log.verbose(reason);
@@ -1103,7 +1105,7 @@ module.exports = class Integration {
                 return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 
             case 'quoted':
-                log.info(`${this.insurer.name} ${this.policy.type} Returned Quote(s)`);
+                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Returned Quote(s)`);
                 return this.return_quote(this.amount);
 
             case 'referred':
@@ -1112,10 +1114,10 @@ module.exports = class Integration {
                         log.verbose(reason);
                     });
                 }
-                return this.return_error('referred', `${this.insurer.name} needs a little more time to make a decision`);
+                return this.return_error('referred', `Appid: ${this.app.id} ${this.insurer.name} needs a little more time to make a decision`);
 
             case 'referred_with_price':
-                log.info(`${this.insurer.name} ${this.policy.type} Referred To Underwriting, But Provided An Indication`);
+                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Referred To Underwriting, But Provided An Indication`);
                 return this.return_indication(this.amount);
 
             default:
@@ -1133,7 +1135,7 @@ module.exports = class Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
 	 */
     send_request(host, path, data, additional_headers, method) {
-        log.info(`${this.insurer.name} ${this.policy.type} Sending To ${path}`);
+        log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Sending To ${path}`);
         const start_time = process.hrtime();
 
         return new Promise((fulfill, reject) => {
@@ -1148,7 +1150,7 @@ module.exports = class Integration {
                 'POST',
                 'PUT'
             ].includes(method)) {
-                const error = new Error('Invalid method provided to send_request()');
+                const error = new Error(`Appid: ${this.app.id} Invalid method provided to send_request()`);
                 log.error(error.message + __location);
                 reject(error);
                 return;
@@ -1174,7 +1176,7 @@ module.exports = class Integration {
                 }
             }
             if (!content_type_found) {
-                const error = new Error('No Content-Type header found. The Content-Type header is required for calls to send_request()');
+                const error = new Error(`Appid: ${this.app.id} No Content-Type header found. The Content-Type header is required for calls to send_request()`);
                 log.error(error.message + __location);
                 reject(error);
                 return;
@@ -1214,16 +1216,16 @@ module.exports = class Integration {
                         // Strip Employer's Quote Letter out of the log
                         filteredData = filteredData.replace(/<BinData>(.*)<\/BinData>/, '<BinData>...</BinData>');
 
-                        this.log += `--------======= Response =======--------<br><br><pre>${filteredData}</pre><br><br>`;
+                        this.log += `--------======= Response Appid: ${this.app.id}  =======--------<br><br><pre>${filteredData}</pre><br><br>`;
                         fulfill(rawData);
                     }
                     else {
-                        const error = new Error(`Insurer request encountered a ${res.statusCode} error`);
+                        const error = new Error(`Appid: ${this.app.id} insurer request encountered a ${res.statusCode} error`);
                         log.error(error.message + __location);
                         log.verbose(rawData);
                         error.httpStatusCode = res.statusCode;
                         error.response = rawData;
-                        this.log += `--------======= Error =======--------<br><br>Status Code: ${res.statusCode}<br><pre>${rawData}</pre><br><br>`;
+                        this.log += `--------======= Error Appid: ${this.app.id}  =======--------<br><br>Status Code: ${res.statusCode}<br><pre>${rawData}</pre><br><br>`;
                         reject(error);
                     }
                 });
@@ -1231,7 +1233,7 @@ module.exports = class Integration {
 
             req.on('error', () => {
                 this.log += `Connection to ${this.insurer.name} timedout.`;
-                reject(new Error(`Connection to ${this.insurer.name} timedout.`));
+                reject(new Error(`Appid: ${this.app.id} Connection to ${this.insurer.name} timedout.`));
             });
 
             if (data) {
@@ -1306,7 +1308,7 @@ module.exports = class Integration {
             raw_data = await this.send_request(host, path, xml, additional_headers, 'POST');
         }
         catch (error) {
-            log.error(`Integration send_request error: ${error}` + __location);
+            log.error(`Appid: ${this.app.id} Integration send_request error: ${error}` + __location);
             // reject(error);
             throw error;
         }
@@ -1371,14 +1373,16 @@ module.exports = class Integration {
             WHERE inc.insurer = ${this.insurer.id} AND (${whereCombinations.join(' OR ')});
             `;
             //log.debug("_insurer_supports_activity_codes sql: " + sql);
+            const appId = this.app.id;
+            const insurerId = this.insurer.id;
             const codes = await db.query(sql).catch((error) => {
-                log.error(error + __location);
+                log.error(`AppId: ${appId} InsurerId: ${insurerId} ` + error + __location);
                 this.reasons.push('System Error: insurer_supports_activity_codes() failed to get codes.');
                 fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
             });
 
             if (!codes.length) {
-                log.warn(`autodeclined: no codes  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
+                log.error(`Appid: ${this.app.id} autodeclined: no codes  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
                 this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code');
                 fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 return;
@@ -1386,7 +1390,7 @@ module.exports = class Integration {
 
             // Make sure the number of codes matched (otherwise there were codes unsupported by this insurer)
             if (Object.keys(wcCodes).length !== codes.length) {
-                log.warn(`autodeclined: Code length do not match  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
+                log.error(`Appid: ${this.app.id} autodeclined: Code length do not match  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
                 this.reasons.push('Out of Appetite: The insurer does not support one or more of the selected activity codes');
                 fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 return;
@@ -1395,7 +1399,7 @@ module.exports = class Integration {
             // Load the codes locally
             codes.forEach((code) => {
                 if (code.result === 0) {
-                    log.warn(`autodeclined: Code length do not match  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
+                    log.error(`Appid: ${this.app.id} autodeclined: Code length do not match  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
                     this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code');
                     fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                     hadError = true;
@@ -1405,7 +1409,7 @@ module.exports = class Integration {
                     this.insurer_wc_codes[code.territory + code.id] = code.code + (code.sub ? code.sub : '');
                     return;
                 }
-                log.warn(`autodeclined: this.insurer_wc_codes ${this.insurer_wc_codes} insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
+                log.error(`Appid: ${this.app.id} autodeclined: this.insurer_wc_codes ${this.insurer_wc_codes} insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
                 this.reasons.push('Out of Appetite: The insurer does not support one or more of the selected activity codes');
                 fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 hadError = true;
@@ -1438,7 +1442,7 @@ module.exports = class Integration {
                 fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
             });
             if (!result || !result.length) {
-                log.warn(`autodeclined: no database result insurer: ${this.insurer.id} ${this.app.business.primary_territory} ic.id = ${this.app.business.industry_code} ` + __location);
+                log.error(`Appid: ${this.app.id} autodeclined: no database result insurer: ${this.insurer.id} ${this.app.business.primary_territory} ic.id = ${this.app.business.industry_code} ` + __location);
                 this.reasons.push('Out of Appetite: The insurer does not support the industry code selected');
                 fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 return;
@@ -1452,7 +1456,7 @@ module.exports = class Integration {
             }
             else {
                 this.industry_code.attributes = '';
-                log.warn(`No Industry_code attributes:  ${this.insurer.id} and ${this.app.business.primary_territory}` + __location);
+                log.warn(`Appid: ${this.app.id} No Industry_code attributes:  ${this.insurer.id} and ${this.app.business.primary_territory}` + __location);
             }
 
             fulfill(true);

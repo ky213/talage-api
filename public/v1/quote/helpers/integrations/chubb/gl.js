@@ -1,3 +1,6 @@
+/* eslint-disable object-curly-spacing */
+/* eslint-disable function-paren-newline */
+/* eslint-disable brace-style */
 /* eslint indent: 0 */
 /* eslint multiline-comment-style: 0 */
 
@@ -14,6 +17,7 @@ const Integration = require('../Integration.js');
 const tracker = global.requireShared('./helpers/tracker.js');
 
 module.exports = class ChubbGL extends Integration {
+
 	/**
 	 * Requests a quote from Chubb and returns. This request is not intended to be called directly.
 	 *
@@ -43,32 +47,32 @@ module.exports = class ChubbGL extends Integration {
 
 		// Check Industry Code Support
 		if (!this.industry_code.cgl) {
-			log.error(`Chubb GL: CGL not set for Industry Code ${this.industry_code.id} ` + __location);
+			log.error(`Appid: ${this.app.id} Chubb GL: CGL not set for Industry Code ${this.industry_code.id} ` + __location);
 			this.reasons.push(`CGL not set for Industry Code ${this.industry_code.id}`);
 			return this.return_result('error');
 		}
 		if (!this.industry_code.iso) {
-			log.error(`Chubb GL:  ISO not set for Industry Code ${this.industry_code.id} ` + __location);
+			log.error(`Appid: ${this.app.id} Chubb GL:  ISO not set for Industry Code ${this.industry_code.id} ` + __location);
 			this.reasons.push(`ISO not set for Industry Code ${this.industry_code.id}`);
 			return this.return_result('error');
 		}
 		if (!this.industry_code.attributes) {
-			log.error(`Chubb GL: Missing Attributes for Industry Code ${this.industry_code.id} ` + __location);
+			log.error(`Appid: ${this.app.id} Chubb GL: Missing Attributes for Industry Code ${this.industry_code.id} ` + __location);
 			this.reasons.push(`Missing Attributes for Industry Code ${this.industry_code.id}`);
 			return this.return_result('error');
 		}
 		if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'class_code_id')) {
-			log.error(`Chubb GL: Missing required attribute 'class_code_id' for Industry Code ${this.industry_code.id} ` + __location);
+			log.error(`Appid: ${this.app.id} Chubb GL: Missing required attribute 'class_code_id' for Industry Code ${this.industry_code.id} ` + __location);
 			this.reasons.push(`Missing required attribute 'class_code_id' for Industry Code ${this.industry_code.id}`);
 			return this.return_result('error');
 		}
 		if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'segment')) {
-			log.error(`Chubb GL: Missing required attribute 'segment' for Industry Code ${this.industry_code.id} ` + __location);
+			log.error(`Appid: ${this.app.id} Chubb GL: Missing required attribute 'segment' for Industry Code ${this.industry_code.id} ` + __location);
 			this.reasons.push(`Missing required attribute 'segment' for Industry Code ${this.industry_code.id}`);
 			return this.return_result('error');
 		}
 		if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'exposure')) {
-			log.error(`Chubb GL: Missing required attribute 'exposure' for Industry Code ${this.industry_code.id} ` + __location);
+			log.error(`Appid: ${this.app.id} Chubb GL: Missing required attribute 'exposure' for Industry Code ${this.industry_code.id} ` + __location);
 			this.reasons.push(`Missing required attribute 'exposure' for Industry Code ${this.industry_code.id}`);
 			return this.return_result('error');
 		}
@@ -610,7 +614,7 @@ module.exports = class ChubbGL extends Integration {
 		try {
 			result = await this.send_xml_request(host, '/api/v1/quotes', xml, headers);
 		} catch (error) {
-			log.error(`${this.insurer.name} ${this.policy.type} Integration Error: ${error} ${__location}`);
+			log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: ${error} ${__location}`);
 			return this.return_result('error');
 		}
 		// Parse the various status codes and take the appropriate action
@@ -620,11 +624,11 @@ module.exports = class ChubbGL extends Integration {
 		// Determine what happened
 		switch (res.Status[0].StatusCd[0]) {
 			case 'DC-100':
-				log.error(`Chubb GL: Error DC-100: The data we sent was invalid ` + __location);
+				log.error(`Appid: ${this.app.id} Chubb GL: Error DC-100: The data we sent was invalid ` + __location);
 				this.reasons.push('Error DC-100: The data we sent was invalid');
 				return this.return_result('error');
 			case '400':
-				log.error(`Chubb GL: Error 400: ${res.Status[0].StatusDesc[0]} ` + __location);
+				log.error(`Appid: ${this.app.id} Chubb GL: Error 400: ${res.Status[0].StatusDesc[0]} ` + __location);
 				this.reasons.push(`Error 400: ${res.Status[0].StatusDesc[0]}`);
 				return this.return_result('error');
 			case '0':
@@ -638,9 +642,9 @@ module.exports = class ChubbGL extends Integration {
 				if (status !== 'Success') {
 					try {
 						const error_message = res.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0];
-						log.error(`${this.insurer.name} ${this.policy.type} Error Returned by Carrier: ${error_message} ${__location}`);
+						log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Error Returned by Carrier: ${error_message} ${__location}`);
 					} catch (e) {
-						log.error(`${this.insurer.name} ${this.policy.type} Error Returned by Carrier: Quote structure changed. Unable to find error message. ${__location}`);
+						log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Error Returned by Carrier: Quote structure changed. Unable to find error message. ${__location}`);
 					}
 					return this.return_result('error');
 				}
@@ -649,7 +653,7 @@ module.exports = class ChubbGL extends Integration {
 				try {
 					this.request_id = res.CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0];
 				} catch (e) {
-					log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.`);
+					log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.`);
 					return this.return_result('error');
 				}
 
@@ -657,7 +661,7 @@ module.exports = class ChubbGL extends Integration {
 				try {
 					this.amount = parseInt(res.CommlPolicy[0].SilverTotalPremium[0], 10);
 				} catch (e) {
-					log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote ${this.id} amount/premium.`);
+					log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote ${this.id} amount/premium.`);
 					return this.return_result('error');
 				}
 
@@ -665,7 +669,7 @@ module.exports = class ChubbGL extends Integration {
 				try {
 					this.writer = res.CommlPolicy[0].WritingCompany[0];
 				} catch (e) {
-					log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company. ${__location}`);
+					log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company. ${__location}`);
 					return this.return_result('error');
 				}
 
@@ -680,7 +684,7 @@ module.exports = class ChubbGL extends Integration {
 								this.limits[4] = coverage.Limit[0].FormatInteger[0];
 								break;
 							default:
-								log.warn(`${this.insurer.name} GL Integration Error: Unexpected limit found in response`);
+								log.warn(`Appid: ${this.app.id} ${this.insurer.name} GL Integration Error: Unexpected limit found in response`);
 								break;
 						}
 
@@ -697,7 +701,7 @@ module.exports = class ChubbGL extends Integration {
 				return this.return_result(status);
 
 			default:
-				log.error(`${this.insurer.name} ${this.policy.type} API returned unknown status code of ${res.Status[0].StatusCd[0]} ${__location}`);
+				log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} API returned unknown status code of ${res.Status[0].StatusCd[0]} ${__location}`);
 				this.reasons.push(`API returned unknown status code of ${res.Status[0].StatusCd[0]}`);
 				return this.return_result('error');
 		}

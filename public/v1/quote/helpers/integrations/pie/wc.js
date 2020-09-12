@@ -1,3 +1,4 @@
+/* eslint-disable brace-style */
 /* eslint indent: 0 */
 /* eslint multiline-comment-style: 0 */
 
@@ -59,14 +60,14 @@ module.exports = class PieWC extends Integration {
         // Prepare limits
         const limits = this.getBestLimits(carrierLimits);
         if (!limits) {
-            log.warn(`autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location)
-            this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
+            log.warn(`Appid: ${this.app.id} autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location)
+            this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} does not support the requested liability limits`);
             return this.return_result('autodeclined');
         }
 
         // If the user want's owners included, Pie cannot write it
         if (this.app.business.owners_included) {
-            log.info(`autodeclined: Pie does not support owners being included in a WC policy at this time. ` + __location)
+            log.info(`Appid: ${this.app.id} autodeclined: Pie does not support owners being included in a WC policy at this time. ` + __location)
             this.reasons.push(`Pie does not support owners being included in a WC policy at this time.`);
             return this.return_result('autodeclined');
         }
@@ -83,7 +84,7 @@ module.exports = class PieWC extends Integration {
         try {
             token_response = await this.send_request(host, '/connect/token', token_request_data, {'Content-Type': 'application/x-www-form-urlencoded'});
         } catch (error) {
-            log.error(`Pie WC: to get token error ${error}` + __location)
+            log.error(`Appid: ${this.app.id} Pie WC: to get token error ${error}` + __location)
             return this.return_result('error');
         }
 
@@ -294,7 +295,7 @@ module.exports = class PieWC extends Integration {
         try {
             res = await this.send_json_request(host, '/api/v1/Quotes', JSON.stringify(data), {Authorization: token});
         } catch (error) {
-            log.error(`Pie WC: Error  ${error} ` + __location)
+            log.error(`Appid: ${this.app.id} Pie WC: Error  ${error} ` + __location)
             return this.return_result('error');
         }
 
@@ -305,14 +306,14 @@ module.exports = class PieWC extends Integration {
         try {
             this.request_id = res.id;
         } catch (e) {
-            log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.` + __location);
+            log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.` + __location);
         }
 
         // Attempt to get the amount of the quote
         try {
             this.amount = parseInt(res.premiumDetails.totalEstimatedPremium, 10);
         } catch (error) {
-            log.error(`Pie WC: Error getting amount ${error} ` + __location)
+            log.error(`Appid: ${this.app.id} Pie WC: Error getting amount ${error} ` + __location)
             return this.return_result('error');
         }
 
@@ -333,13 +334,13 @@ module.exports = class PieWC extends Integration {
                             this.limits[3] = limit;
                             break;
                         default:
-                            log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response` + __location);
+                            log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response` + __location);
                             return this.return_result('error');
                     }
                 }
             }
         } catch (e) {
-            log.error(`Pie WC: Error getting limit ${e} ` + __location)
+            log.error(`Appid: ${this.app.id} Pie WC: Error getting limit ${e} ` + __location)
             return this.return_result('error');
         }
 
@@ -347,7 +348,7 @@ module.exports = class PieWC extends Integration {
         try {
             this.writer = res.insuranceCompany;
         } catch (e) {
-            log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.` + __location);
+            log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.` + __location);
         }
 
         // Dirty? (Indicates a Valen outage)
