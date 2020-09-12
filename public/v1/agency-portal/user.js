@@ -427,12 +427,17 @@ async function deleteUser(req, res, next) {
     let error = false;
 
     // Determine if this is an agency or agency network
-    let agencyOrNetworkID = 0;
-    let where = ``;
-    if (req.authentication.agencyNetwork) {
+	let agencyOrNetworkID = 0;
+
+	let where = ``;
+	
+    if (req.authentication.agencyNetwork && req.query.agency) {
+        agencyOrNetworkID = parseInt(req.query.agency);
+        where = ` \`agency\` = ${agencyOrNetworkID}`;
+    }else if (req.authentication.agencyNetwork ) {
         agencyOrNetworkID = parseInt(req.authentication.agencyNetwork, 10);
         where = `\`agency_network\`= ${agencyOrNetworkID}`;
-    }
+	}
     else {
         // Get the agents that we are permitted to view
         const agents = await auth.getAgents(req).catch(function(e) {
@@ -451,17 +456,19 @@ async function deleteUser(req, res, next) {
         return next(serverHelper.requestError('Query parameters missing'));
     }
 
-    // Validate the ID
+	// Validate the ID
+	// Since agency network can update an agency user determine, if this is an agency network but also has sent an agency (agencyId) then set this to false else let the authentication determine the agencyNetwork truthiness
+	const  isThisAgencyNetwork = req.authentication.agencyNetwork && req.query.agency ? false : req.authentication.agencyNetwork;
     if (!Object.prototype.hasOwnProperty.call(req.query, 'id')) {
         return next(serverHelper.requestError('ID missing'));
     }
-    if (!await validator.userId(req.query.id, agencyOrNetworkID, req.authentication.agencyNetwork)) {
+    if (!await validator.userId(req.query.id, agencyOrNetworkID, isThisAgencyNetwork)) {
         return next(serverHelper.requestError('ID is invalid'));
     }
     const id = req.query.id;
 
     // Make sure there is an owner for this agency (we are not removing the last owner)
-    if (!await hasOtherOwner(agencyOrNetworkID, id, req.authentication.agencyNetwork)) {
+    if (!await hasOtherOwner(agencyOrNetworkID, id, isThisAgencyNetwork)) {
         // Log a warning and return an error
         log.warn('This user is the account owner. You must assign ownership to another user before deleting this account.');
         return next(serverHelper.requestError('This user is the account owner. You must assign ownership to another user before deleting this account.'));
