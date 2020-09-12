@@ -15,6 +15,7 @@ const Integration = require('../Integration.js');
 const tracker = global.requireShared('./helpers/tracker.js');
 
 module.exports = class AcuityGL extends Integration {
+
 	/**
 	 * Requests a quote from Acuity and returns. This request is not intended to be called directly.
 	 *
@@ -50,198 +51,205 @@ module.exports = class AcuityGL extends Integration {
 		const skipQuestions = [1036, 1037];
 
 		// Build the Promise
-		return new Promise(async(fulfill) => {
-			// Check Industry Code Support
-			if (!this.industry_code.cgl) {
-				log.error(`${this.insurer.name} ${this.policy.type} Integration File: CGL not set for Industry Code ${this.industry_code.id} ` + __location);
-				fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-				return;
-			}
+        return new Promise(async(fulfill) => {
+            // Check Industry Code Support
+            if (!this.industry_code.cgl) {
+                log.error(`${this.insurer.name} ${this.policy.type} Integration File: CGL not set for Industry Code ${this.industry_code.id} ` + __location);
+                fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+                return;
+            }
 
-			// Prepare limits
-			const limits = this.getBestLimits(carrierLimits);
-			if (!limits) {
+            // Prepare limits
+            const limits = this.getBestLimits(carrierLimits);
+            if (!limits) {
                 log.warn(`autodeclined: no limits  ${this.insurer.name} ${this.policy.type} ${this.industry_code.id} ` + __location)
-				this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
-				fulfill(this.return_result('autodeclined'));
-				return;
-			}
+                this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
+                fulfill(this.return_result('autodeclined'));
+                return;
+            }
 
-			// Acuity has us define our own Request ID
-			this.request_id = this.generate_uuid();
+            // Acuity has us define our own Request ID
+            this.request_id = this.generate_uuid();
 
-			// Get the current time in the Pacific timezone
-			const now = moment_timezone.tz('America/Los_Angeles');
+            // Get the current time in the Pacific timezone
+            const now = moment_timezone.tz('America/Los_Angeles');
 
-			// Build the XML Request
+            // Build the XML Request
 
-			// <ACORD>
-			const ACORD = builder.create('ACORD');
+            // <ACORD>
+            const ACORD = builder.create('ACORD');
 
-			// <SignonRq>
-			const SignonRq = ACORD.ele('SignonRq');
+            // <SignonRq>
+            const SignonRq = ACORD.ele('SignonRq');
 
-			// <SignonTransport>
-			const SignonTransport = SignonRq.ele('SignonTransport');
-			SignonTransport.ele('SignonRoleCd', 'Customer');
+            // <SignonTransport>
+            const SignonTransport = SignonRq.ele('SignonTransport');
+            SignonTransport.ele('SignonRoleCd', 'Customer');
 
-			// <CustId>
-			const CustId = SignonTransport.ele('CustId');
-			CustId.ele('SPName', 'com.talage');
-			CustId.ele('CustLoginId', 'talage');
-			// </CustId>
+            // <CustId>
+            const CustId = SignonTransport.ele('CustId');
+            CustId.ele('SPName', 'com.talage');
+            CustId.ele('CustLoginId', 'talage');
+            // </CustId>
 
-			// </SignonTransport>
+            // </SignonTransport>
 
-			SignonRq.ele('CustLangPref', 'EN-US');
+            SignonRq.ele('CustLangPref', 'EN-US');
 
-			// <ClientApp>
-			const ClientApp = SignonRq.ele('ClientApp');
-			ClientApp.ele('Org', 'Talage Insurance');
-			ClientApp.ele('Name', 'Talage');
-			ClientApp.ele('Version', '2.0');
-			// </ClientApp>
+            // <ClientApp>
+            const ClientApp = SignonRq.ele('ClientApp');
+            ClientApp.ele('Org', 'Talage Insurance');
+            ClientApp.ele('Name', 'Talage');
+            ClientApp.ele('Version', '2.0');
+            // </ClientApp>
 
-			// </SignonRq>
+            // </SignonRq>
 
-			// <InsuranceSvcRq>
-			const InsuranceSvcRq = ACORD.ele('InsuranceSvcRq');
-			InsuranceSvcRq.ele('RqUID', this.request_id);
+            // <InsuranceSvcRq>
+            const InsuranceSvcRq = ACORD.ele('InsuranceSvcRq');
+            InsuranceSvcRq.ele('RqUID', this.request_id);
 
-			// <GeneralLiabilityPolicyQuoteInqRq>
-			const GeneralLiabilityPolicyQuoteInqRq = InsuranceSvcRq.ele('GeneralLiabilityPolicyQuoteInqRq');
-			GeneralLiabilityPolicyQuoteInqRq.ele('RqUID', this.request_id);
-			GeneralLiabilityPolicyQuoteInqRq.ele('TransactionRequestDt', now.format('YYYY-MM-DDTHH:mm:ss'));
-			GeneralLiabilityPolicyQuoteInqRq.ele('TransactionEffectiveDt', now.format('YYYY-MM-DD'));
-			GeneralLiabilityPolicyQuoteInqRq.ele('CurCd', 'USD');
+            // <GeneralLiabilityPolicyQuoteInqRq>
+            const GeneralLiabilityPolicyQuoteInqRq = InsuranceSvcRq.ele('GeneralLiabilityPolicyQuoteInqRq');
+            GeneralLiabilityPolicyQuoteInqRq.ele('RqUID', this.request_id);
+            GeneralLiabilityPolicyQuoteInqRq.ele('TransactionRequestDt', now.format('YYYY-MM-DDTHH:mm:ss'));
+            GeneralLiabilityPolicyQuoteInqRq.ele('TransactionEffectiveDt', now.format('YYYY-MM-DD'));
+            GeneralLiabilityPolicyQuoteInqRq.ele('CurCd', 'USD');
 
-			// <Producer>
-			const Producer = GeneralLiabilityPolicyQuoteInqRq.ele('Producer');
+            // <Producer>
+            const Producer = GeneralLiabilityPolicyQuoteInqRq.ele('Producer');
 
-			// <GeneralPartyInfo>
-			let GeneralPartyInfo = Producer.ele('GeneralPartyInfo');
+            // <GeneralPartyInfo>
+            let GeneralPartyInfo = Producer.ele('GeneralPartyInfo');
 
-			// <NameInfo>
-			let NameInfo = GeneralPartyInfo.ele('NameInfo');
+            // <NameInfo>
+            let NameInfo = GeneralPartyInfo.ele('NameInfo');
 
-			// <CommlName>
-			NameInfo.ele('CommlName').ele('CommercialName', 'Talage Insurance');
-			// </CommlName>
-			// </NameInfo>
+            // <CommlName>
+            NameInfo.ele('CommlName').ele('CommercialName', 'Talage Insurance');
+            // </CommlName>
+            // </NameInfo>
 
-			// <Addr>
-			let Addr = GeneralPartyInfo.ele('Addr');
-			Addr.ele('Addr1', '300 South Wells Ave., Suite 4');
-			Addr.ele('City', 'Reno');
-			Addr.ele('StateProvCd', 'NV');
-			Addr.ele('PostalCode', 89502);
-			// </Addr>
+            // <Addr>
+            let Addr = GeneralPartyInfo.ele('Addr');
+            Addr.ele('Addr1', '300 South Wells Ave., Suite 4');
+            Addr.ele('City', 'Reno');
+            Addr.ele('StateProvCd', 'NV');
+            Addr.ele('PostalCode', 89502);
+            // </Addr>
 
-			// <Communications>
-			let Communications = GeneralPartyInfo.ele('Communications');
+            // <Communications>
+            let Communications = GeneralPartyInfo.ele('Communications');
 
-			// <PhoneInfo>
-			let PhoneInfo = Communications.ele('PhoneInfo');
-			PhoneInfo.ele('PhoneTypeCd', 'Phone');
-			PhoneInfo.ele('PhoneNumber', '+1-833-4825243');
-			// </PhoneInfo>
+            // <PhoneInfo>
+            let PhoneInfo = Communications.ele('PhoneInfo');
+            PhoneInfo.ele('PhoneTypeCd', 'Phone');
+            PhoneInfo.ele('PhoneNumber', '+1-833-4825243');
+            // </PhoneInfo>
 
-			// </Communications>
+            // </Communications>
 
-			// </GeneralPartyInfo>
+            // </GeneralPartyInfo>
 
-			// <ProducerInfo>
-			const ProducerInfo = Producer.ele('ProducerInfo');
-			ProducerInfo.ele('ContractNumber', '8843');
-			ProducerInfo.ele('ProducerSubCode', 'AA');
-			// </ProducerInfo>
+            // <ProducerInfo>
+            const ProducerInfo = Producer.ele('ProducerInfo');
+            ProducerInfo.ele('ContractNumber', '8843');
+            ProducerInfo.ele('ProducerSubCode', 'AA');
+            // </ProducerInfo>
 
-			// </Producer>
+            // </Producer>
 
-			// <InsuredOrPrincipal>
-			let InsuredOrPrincipal = GeneralLiabilityPolicyQuoteInqRq.ele('InsuredOrPrincipal');
+            // <InsuredOrPrincipal>
+            let InsuredOrPrincipal = GeneralLiabilityPolicyQuoteInqRq.ele('InsuredOrPrincipal');
 
-			// <GeneralPartyInfo>
-			GeneralPartyInfo = InsuredOrPrincipal.ele('GeneralPartyInfo');
+            // <GeneralPartyInfo>
+            GeneralPartyInfo = InsuredOrPrincipal.ele('GeneralPartyInfo');
 
-			// <NameInfo>
-			NameInfo = GeneralPartyInfo.ele('NameInfo');
+            // <NameInfo>
+            NameInfo = GeneralPartyInfo.ele('NameInfo');
 
-			// <CommlName>
-			NameInfo.ele('CommlName').ele('CommercialName', this.app.business.name);
-			// </CommlName>
+            // <CommlName>
+            NameInfo.ele('CommlName').ele('CommercialName', this.app.business.name);
+            // </CommlName>
 
-			if (!(this.app.business.entity_type in entityMatrix)) {
-				log.error(`${this.insurer.name} WC Integration File: Invalid Entity Type ` + __location);
-				fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));
-				return;
-			}
-			NameInfo.ele('LegalEntityCd', entityMatrix[this.app.business.entity_type]);
+            if (!(this.app.business.entity_type in entityMatrix)) {
+                log.error(`${this.insurer.name} WC Integration File: Invalid Entity Type ` + __location);
+                fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));
+                return;
+            }
+            NameInfo.ele('LegalEntityCd', entityMatrix[this.app.business.entity_type]);
 
-			// <TaxIdentity>
-			const TaxIdentity = NameInfo.ele('TaxIdentity');
-			TaxIdentity.ele('TaxIdTypeCd', 'FEIN');
-			TaxIdentity.ele('TaxId', this.app.business.locations[0].identification_number);
-			// </TaxIdentity>
+            // <TaxIdentity>
+            const TaxIdentity = NameInfo.ele('TaxIdentity');
+            TaxIdentity.ele('TaxIdTypeCd', 'FEIN');
+            TaxIdentity.ele('TaxId', this.app.business.locations[0].identification_number);
+            // </TaxIdentity>
 
-			if (this.app.business.dba) {
-				// <SupplementaryNameInfo>
-				const SupplementaryNameInfo = NameInfo.ele('SupplementaryNameInfo');
-				SupplementaryNameInfo.ele('SupplementaryNameCd', 'DBA');
-				SupplementaryNameInfo.ele('SupplementaryName', this.app.business.dba);
-				// </SupplementaryNameInfo>
-			}
+            if (this.app.business.dba) {
+                // <SupplementaryNameInfo>
+                const SupplementaryNameInfo = NameInfo.ele('SupplementaryNameInfo');
+                SupplementaryNameInfo.ele('SupplementaryNameCd', 'DBA');
+                SupplementaryNameInfo.ele('SupplementaryName', this.app.business.dba);
+                // </SupplementaryNameInfo>
+            }
 
-			// </NameInfo>
+            // </NameInfo>
 
-			// <Addr>
-			Addr = GeneralPartyInfo.ele('Addr');
-			Addr.ele('AddrTypeCd', 'MailingAddress');
-			Addr.ele('Addr1', this.app.business.mailing_address);
-			if (this.app.business.mailing_address2) {
-				Addr.ele('Addr2', this.app.business.mailing_address2);
-			}
-			Addr.ele('City', this.app.business.mailing_city);
-			Addr.ele('StateProvCd', this.app.business.mailing_territory);
-			Addr.ele('PostalCode', this.app.business.mailing_zip);
-			// </Addr>
+            // <Addr>
+            Addr = GeneralPartyInfo.ele('Addr');
+            Addr.ele('AddrTypeCd', 'MailingAddress');
+            Addr.ele('Addr1', this.app.business.mailing_address);
+            if (this.app.business.mailing_address2) {
+                Addr.ele('Addr2', this.app.business.mailing_address2);
+            }
+            Addr.ele('City', this.app.business.mailing_city);
+            Addr.ele('StateProvCd', this.app.business.mailing_territory);
+            Addr.ele('PostalCode', this.app.business.mailing_zip);
+            // </Addr>
 
-			// <Communications>
-			Communications = GeneralPartyInfo.ele('Communications');
+            // <Communications>
+            Communications = GeneralPartyInfo.ele('Communications');
 
-			// <PhoneInfo>
-			PhoneInfo = Communications.ele('PhoneInfo');
-			PhoneInfo.ele('PhoneTypeCd', 'Phone');
-			PhoneInfo.ele('CommunicationUseCd', 'Day');
-			const phone = this.app.business.contacts[0].phone.toString();
-			PhoneInfo.ele('PhoneNumber', `+1-${phone.substring(0, 3)}-${phone.substring(phone.length - 7)} `);
-			// </PhoneInfo>
+            // <PhoneInfo>
+            PhoneInfo = Communications.ele('PhoneInfo');
+            PhoneInfo.ele('PhoneTypeCd', 'Phone');
+            PhoneInfo.ele('CommunicationUseCd', 'Day');
+            const phone = this.app.business.contacts[0].phone.toString();
+            PhoneInfo.ele('PhoneNumber', `+1-${phone.substring(0, 3)}-${phone.substring(phone.length - 7)} `);
+            // </PhoneInfo>
 
-			// <EmailInfo>
-			const EmailInfo = Communications.ele('EmailInfo');
-			EmailInfo.ele('EmailAddr', this.app.business.contacts[0].email);
-			// </EmailInfo>
+            // <EmailInfo>
+            const EmailInfo = Communications.ele('EmailInfo');
+            EmailInfo.ele('EmailAddr', this.app.business.contacts[0].email);
+            // </EmailInfo>
 
-			if (this.app.business.website) {
-				// <WebsiteInfo>
-				const WebsiteInfo = Communications.ele('WebsiteInfo');
-				WebsiteInfo.ele('WebsiteURL', this.app.business.website);
-				// </WebsiteInfo>
-			}
+            if (this.app.business.website) {
+                // <WebsiteInfo>
+                const WebsiteInfo = Communications.ele('WebsiteInfo');
+                WebsiteInfo.ele('WebsiteURL', this.app.business.website);
+                // </WebsiteInfo>
+            }
 
-			// </Communications>
-			// </GeneralPartyInfo>
+            // </Communications>
+            // </GeneralPartyInfo>
 
-			// <InsuredOrPrincipalInfo>
-			const InsuredOrPrincipalInfo = InsuredOrPrincipal.ele('InsuredOrPrincipalInfo');
-			InsuredOrPrincipalInfo.ele('InsuredOrPrincipalRoleCd', 'Insured');
+            // <InsuredOrPrincipalInfo>
+            const InsuredOrPrincipalInfo = InsuredOrPrincipal.ele('InsuredOrPrincipalInfo');
+            InsuredOrPrincipalInfo.ele('InsuredOrPrincipalRoleCd', 'Insured');
 
-			// <BusinessInfo>
-			const BusinessInfo = InsuredOrPrincipalInfo.ele('BusinessInfo');
+            if (!this.industry_code.attributes.acuityNAICSCode) {
+                log.warn(`Acuity: Could not find ACUITYNAICSCode for CGL code ${this.industry_code.cgl}`);
+                fulfill(this.return_result('autodeclined'));
+                return;
+            }
+            // <BusinessInfo>
+            const BusinessInfo = InsuredOrPrincipalInfo.ele('BusinessInfo');
+			BusinessInfo.ele('NAICSCd', this.industry_code.attributes.acuityNAICSCode);
+            BusinessInfo.ele('BusinessStartDt', this.app.business.founded.format('YYYY-MM-DD'));
+            const operationsDescription = this.app.business.locations[0].activity_codes[0].description ? this.app.business.locations[0].activity_codes[0].description : this.app.business.industry_code_description;
+            BusinessInfo.ele('OperationsDesc', operationsDescription);
 			BusinessInfo.ele('NumOwners', this.app.business.num_owners);
-			BusinessInfo.ele('NumEmployeesFullTime', this.get_total_full_time_employees());
-			BusinessInfo.ele('NumEmployeesPartTime', this.get_total_part_time_employees());
-			BusinessInfo.ele('NumMembersMangers', this.get_total_members_managers());
+			BusinessInfo.ele('NumEmployees', this.get_total_employees());
 			// </BusinessInfo>
 			// </InsuredOrPrincipalInfo>
 			// </InsuredOrPrincipal>
@@ -275,25 +283,8 @@ module.exports = class AcuityGL extends Integration {
 			ContractTerm.ele('ExpirationDt', this.policy.expiration_date.format('YYYY-MM-DD'));
 			// </ContractTerm>
 
-			// <CommlPolicySupplement>
-			const CommlPolicySupplement = CommlPolicy.ele('CommlPolicySupplement');
-			CommlPolicySupplement.ele('BusinessStartDt', this.app.business.founded.format('YYYY-MM-DD'));
-			CommlPolicySupplement.ele('OperationsDesc', this.app.business.locations[0].activity_codes[0].description);
-			CommlPolicySupplement.ele('GeneralLiabilityCd', this.industry_code.cgl);
-			CommlPolicySupplement.ele('NatureBusinessCd', this.industry_code.attributes.nature_of_business_code);
-			CommlPolicySupplement.ele('NumEmployees', this.get_total_employees());
-
-			// <LengthTimeInBusiness> They want this in months
-			const LengthTimeInBusiness = CommlPolicySupplement.ele('LengthTimeInBusiness');
-			LengthTimeInBusiness.ele('NumUnits', moment().diff(this.app.business.founded, 'months'));
-			LengthTimeInBusiness.ele('UnitMeasurementCd', 'MON');
-			// </LengthTimeInBusiness>
-
-			// <CommlPolicySupplement>
-
-			/* ---=== Begin Questions ===--- */
-
-			let QuestionAnswer = null;
+            // Questions
+            let QuestionAnswer = null;
 
 			const question_identifiers = await this.get_question_identifiers().catch((error) => {
 				log.error(`${this.insurer.name} WC is unable to get question identifiers.${error}` + __location);
@@ -316,7 +307,7 @@ module.exports = class AcuityGL extends Integration {
 					try {
 						answer = this.determine_question_answer(question);
 					}
- catch (error) {
+                    catch (error) {
 						fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 						return;
 					}
@@ -334,99 +325,14 @@ module.exports = class AcuityGL extends Integration {
 					if (question.type === 'Yes/No') {
 						QuestionAnswer.ele('YesNoCd', question.get_answer_as_boolean() ? 'YES' : 'NO');
 					}
- else if (/^\d+$/.test(answer)) {
+                    else if (/^\d+$/.test(answer)) {
 						QuestionAnswer.ele('Num', answer);
 					}
- else {
+                    else {
 						QuestionAnswer.ele('Explanation', answer);
 					}
 				}
 			}
-
-			/* ---=== Handle some special questions ===--- */
-
-			const CGL04_answered = false;
-			const CGL05_answered = false;
-
-			/*
-							If(Object.prototype.hasOwnProperty.call(this.questions, '1036') && this.questions[1036].answer_id){
-
-								// Make sure we have an explanation
-								if(!Object.prototype.hasOwnProperty.call(this.questions, '1037') || !this.questions['1037'].answer){
-									log.error('Acutiy WC was unable to send leased employee information. No explanation present, although required.');
-									fulfill(this.return_error('error', 'We have no idea what went wrong, but we\'re on it'));
-									return;
-								}
-
-								if(this.questions['1036'].answer_id === 2603 || this.questions['1036'].answer_id === 2605){
-									// <QuestionAnswer> Do you lease or borrow employees from other businesses?
-									QuestionAnswer = CommlPolicy.ele('QuestionAnswer');
-										QuestionAnswer.ele('QuestionCd', 'CGL05');
-										QuestionAnswer.ele('YesNoCd', 'YES');
-										QuestionAnswer.ele('Explanation', this.questions['1037'].answer);
-									// </QuestionAnswer>
-									CGL05_answered = true;
-								}
-
-								if(this.questions['1036'].answer_id === 2604 || this.questions['1036'].answer_id === 2605){
-									// <QuestionAnswer> Lease or lend employees to other businesses?
-									QuestionAnswer = CommlPolicy.ele('QuestionAnswer');
-										QuestionAnswer.ele('QuestionCd', 'CGL04');
-										QuestionAnswer.ele('YesNoCd', 'YES');
-										QuestionAnswer.ele('Explanation', this.questions['1037'].answer);
-									// </QuestionAnswer>
-									CGL04_answered = true;
-								}
-							}
-							*/
-
-			if (!CGL04_answered) {
-				// <QuestionAnswer> Lease or lend employees to other businesses?
-				QuestionAnswer = CommlPolicy.ele('QuestionAnswer');
-				QuestionAnswer.ele('QuestionCd', 'CGL04');
-				QuestionAnswer.ele('YesNoCd', 'NO');
-				// </QuestionAnswer>
-			}
-
-			if (!CGL05_answered) {
-				// <QuestionAnswer> Do you lease or borrow employees from other businesses?
-				QuestionAnswer = CommlPolicy.ele('QuestionAnswer');
-				QuestionAnswer.ele('QuestionCd', 'CGL05');
-				QuestionAnswer.ele('YesNoCd', 'NO');
-				// </QuestionAnswer>
-			}
-
-			/* ---=== Default some questions ===--- */
-
-			// <QuestionAnswer> Any bankruptcies, tax, or credit liens in the past 5 years?
-			QuestionAnswer = CommlPolicy.ele('QuestionAnswer');
-			QuestionAnswer.ele('QuestionCd', 'com.acuity_999990013');
-			QuestionAnswer.ele('YesNoCd', 'NO');
-			// </QuestionAnswer>
-
-			// <QuestionAnswer> Insured handles, treats, stores or transports hazardous material
-			QuestionAnswer = CommlPolicy.ele('QuestionAnswer');
-			QuestionAnswer.ele('QuestionCd', 'WORK16');
-			QuestionAnswer.ele('YesNoCd', 'NO');
-			// </QuestionAnswer>
-
-			// <QuestionAnswer> Up to how many stories does the insured work?
-			QuestionAnswer = CommlPolicy.ele('QuestionAnswer');
-			QuestionAnswer.ele('QuestionCd', 'com.acuity_999990041');
-			QuestionAnswer.ele('Num', 1);
-			// </QuestionAnswer>
-
-			// <QuestionAnswer> Any employees work underground?
-			QuestionAnswer = CommlPolicy.ele('QuestionAnswer');
-			QuestionAnswer.ele('QuestionCd', 'com.acuity_999990042');
-			QuestionAnswer.ele('YesNoCd', 'NO');
-			// </QuestionAnswer>
-
-			// <QuestionAnswer> Gaming devices on premises
-			QuestionAnswer = CommlPolicy.ele('QuestionAnswer');
-			QuestionAnswer.ele('QuestionCd', 'com.acuity_999990050');
-			QuestionAnswer.ele('YesNoCd', 'NO');
-			// </QuestionAnswer>
 
 			// <QuestionAnswer> Insurer operates any business not insured by Acuity
 			QuestionAnswer = CommlPolicy.ele('QuestionAnswer');
@@ -434,9 +340,13 @@ module.exports = class AcuityGL extends Integration {
 			QuestionAnswer.ele('YesNoCd', 'NO');
 			// </QuestionAnswer>
 
-			/* ---=== Special Cases ===--- */
+            // <QuestionAnswer> Other business operated under separate LLC or Corporation
+			QuestionAnswer = CommlPolicy.ele('QuestionAnswer');
+			QuestionAnswer.ele('QuestionCd', 'com.acuity_999990015');
+			QuestionAnswer.ele('YesNoCd', 'NO');
+			// </QuestionAnswer>
 
-			// MT specific (only applies to LLCs in Montana)
+			// MT/VA LLCs
 			if (this.app.business.management_structure) {
 				// <QuestionAnswer> Is this a legal liability company that is member managed?
 				QuestionAnswer = CommlPolicy.ele('QuestionAnswer');
@@ -450,21 +360,12 @@ module.exports = class AcuityGL extends Integration {
 				QuestionAnswer.ele('YesNoCd', this.app.business.management_structure === 'manager' ? 'YES' : 'NO');
 				// </QuestionAnswer>
 			}
-
-			// PA specific (only applies to Corporations in Pensylvania that are exlcuding owners)
-			if (this.app.business.corporation_type) {
-				// <QuestionAnswer> Type of corporate structure
-				QuestionAnswer = CommlPolicy.ele('QuestionAnswer');
-				QuestionAnswer.ele('QuestionCd', 'com.acuity_WORK209');
-				QuestionAnswer.ele('Explanation', corporationTypeMatrix[this.app.business.corporation_type]);
-				// </QuestionAnswer>
-			}
 			// </CommlPolicy>
 
-			// <Location>
+            // <Location>
 			this.app.business.locations.forEach((location, index) => {
 				const Location = GeneralLiabilityPolicyQuoteInqRq.ele('Location');
-				Location.att('id', `L${index + 1} `);
+				Location.att('id', `L${index + 1}`);
 
 				// TO DO: Ask Adam: The RiskLocationCd is used to indicate if an address is within city limits (IN) or outside city limits (OUT).  I believe this only comes into play for the state of KY when more detailed location info is needed for tax purposes.  For the Rating API, if this information is not provided, the default is to assume the address IS within city limits.
 				// <RiskLocationCd>IN</RiskLocationCd>
@@ -480,17 +381,6 @@ module.exports = class AcuityGL extends Integration {
 				Addr.ele('StateProvCd', location.territory);
 				Addr.ele('PostalCode', location.zip);
 				// </Addr>
-
-				/* TO DO: That is the method for indicating multiple buildings (sublocations) that exist on the same premises (location).  The ACORD standard is a little repetitive in the case where there is only 1 building per premises, which is probably the majority of cases.
-							<SubLocation id="L1S1">
-								<Addr>
-									<Addr1>326 S 7TH ST</Addr1>
-									<City>SPRINGFIELD</City>
-									<StateProvCd>IL</StateProvCd>
-									<PostalCode>62701</PostalCode>
-								</Addr>
-							</SubLocation>
-*/
 			});
 
 			// <GeneralLiabilityLineBusiness>
@@ -501,105 +391,62 @@ module.exports = class AcuityGL extends Integration {
 			const claims_by_year = this.claims_to_policy_years();
 
 			// Loop through all four years and send claims data
-			for (let i = 1; i <= 3; i++) {
-				// <WorkCompLossOrPriorPolicy>
-				const WorkCompLossOrPriorPolicy = GeneralLiabilityLineBusiness.ele('WorkCompLossOrPriorPolicy');
-				WorkCompLossOrPriorPolicy.ele('EffectiveDt', claims_by_year[i].effective_date.format('YYYY-MM-DD'));
-				WorkCompLossOrPriorPolicy.ele('ExpirationDt', claims_by_year[i].expiration_date.format('YYYY-MM-DD'));
+            for (let i = 1; i <= 3; i++) {
+                if (claims_by_year[i].count) {
+                    // <WorkCompLossOrPriorPolicy>
+                    const WorkCompLossOrPriorPolicy = GeneralLiabilityLineBusiness.ele('WorkCompLossOrPriorPolicy');
+                    WorkCompLossOrPriorPolicy.ele('EffectiveDt', claims_by_year[i].effective_date.format('YYYY-MM-DD'));
+                    WorkCompLossOrPriorPolicy.ele('ExpirationDt', claims_by_year[i].expiration_date.format('YYYY-MM-DD'));
 
-				// <PaidTotalAmt>
-				const PaidTotalAmt = WorkCompLossOrPriorPolicy.ele('TotalIncurredAmt');
-				PaidTotalAmt.ele('Amt', claims_by_year[i].amountPaid + claims_by_year[i].amountReserved);
-				// </PaidTotalAmt>
+                    // <PaidTotalAmt>
+                    const PaidTotalAmt = WorkCompLossOrPriorPolicy.ele('TotalIncurredAmt');
+                    PaidTotalAmt.ele('Amt', claims_by_year[i].amountPaid + claims_by_year[i].amountReserved);
+                    // </PaidTotalAmt>
 
-				WorkCompLossOrPriorPolicy.ele('NumClaims', claims_by_year[i].count);
-				// </WorkCompLossOrPriorPolicy>
+                    WorkCompLossOrPriorPolicy.ele('NumClaims', claims_by_year[i].count);
+                    // </WorkCompLossOrPriorPolicy>
+                }
 			}
 
-			// <WorkCompIndividuals>
-			const WorkCompIndividuals = GeneralLiabilityLineBusiness.ele('WorkCompIndividuals');
-			WorkCompIndividuals.ele('IncludedExcludedCd', this.app.business.owners_included ? 'I' : 'E');
-
-			/*
-								<NameInfo>
-									<PersonName>
-										<Surname>Doe</Surname>
-										<GivenName>John</GivenName>
-									</PersonName>
-								</NameInfo>
-								<QuestionAnswer>
-									<QuestionCd>com.acuity_WORK215</QuestionCd>
-									<QuestionText>Status</QuestionText>
-									<Explanation>Active</Explanation>
-								</QuestionAnswer>
-								*/
-			// </WorkCompIndividuals>
-
-			// <WorkCompRateState>
-			const WorkCompRateState = GeneralLiabilityLineBusiness.ele('WorkCompRateState');
-			WorkCompRateState.ele('StateProvCd', this.app.business.primary_territory);
-
-			// NCCI or File Number
-			if (this.app.business.bureau_number) {
-				WorkCompRateState.ele('RiskID', this.app.business.bureau_number);
-			}
-
-			if (this.app.business.experience_modifier !== 1.0) {
-				// <CreditOrSurcharge>
-				const CreditOrSurcharge = WorkCompRateState.ele('CreditOrSurcharge');
-				CreditOrSurcharge.ele('CreditSurchargeCd', 'EXP');
-				CreditOrSurcharge.ele('CreditSurchargeAmtDesc', 'Experience Modification Factor');
-
-				// <NumericValue>
-				const NumericValue = CreditOrSurcharge.ele('NumericValue');
-				NumericValue.ele('FormatModFactor', this.app.business.experience_modifier);
-				// </NumericValue>
-				// </CreditOrSurcharge>
-			}
-
-			this.app.business.locations.forEach((location, index) => {
-				// <WorkCompLocInfo>
-				const WorkCompLocInfo = WorkCompRateState.ele('WorkCompLocInfo');
-				WorkCompLocInfo.att('LocationRef', `L${index + 1}`);
-
-				// Add class code information
-				location.activity_codes.forEach((activity_code) => {
-					// <WorkCompRateClass>
-					const WorkCompRateClass = WorkCompLocInfo.ele('WorkCompRateClass');
-					WorkCompRateClass.ele('RatingClassificationCd', this.insurer_wc_codes[location.territory + activity_code.id]);
-					WorkCompRateClass.ele('Exposure', activity_code.payroll);
-					WorkCompRateClass.ele('RatingClassificationDesc', activity_code.description);
-					// </WorkCompRateClass>
-				});
-				// </WorkCompLocInfo>
-			});
-			// </WorkCompRateState>
 			// <LiabilityInfo>
 			const LiabilityInfo = GeneralLiabilityLineBusiness.ele('LiabilityInfo');
 			// <CommlCoverage>
-			const CommlCoverage = LiabilityInfo.ele('CommlCoverage');
-			CommlCoverage.ele('CoverageCd', 'WCEL');
-			CommlCoverage.ele('CoverageDesc', 'Policy');
-
+			let CommlCoverage = LiabilityInfo.ele('CommlCoverage');
+			CommlCoverage.ele('CoverageCd', 'EAOCC');
+			CommlCoverage.ele('CoverageDesc', 'Liability - Each Occurrence');
 			// <Limit>
 			let Limit = CommlCoverage.ele('Limit');
 			Limit.ele('FormatInteger', limits[0]);
-			Limit.ele('LimitAppliesToCd', 'PerAcc');
 			// </Limit>
+            // </CommlCoverage>
 
+			// <CommlCoverage>
+			CommlCoverage = LiabilityInfo.ele('CommlCoverage');
+			CommlCoverage.ele('CoverageCd', 'GENAG');
+			CommlCoverage.ele('CoverageDesc', 'Liability - General Aggregate');
 			// <Limit>
 			Limit = CommlCoverage.ele('Limit');
 			Limit.ele('FormatInteger', limits[1]);
-			Limit.ele('LimitAppliesToCd', 'DisPol');
 			// </Limit>
+            // </CommlCoverage>
 
+            // <CommlCoverage>
+			CommlCoverage = LiabilityInfo.ele('CommlCoverage');
+			CommlCoverage.ele('CoverageCd', 'PRDCO');
+			CommlCoverage.ele('CoverageDesc', 'Products&Completed Operations');
 			// <Limit>
 			Limit = CommlCoverage.ele('Limit');
 			Limit.ele('FormatInteger', limits[2]);
-			Limit.ele('LimitAppliesToCd', 'DisEachEmpl');
 			// </Limit>
+            // </CommlCoverage>
 
-			// </CommlCoverage>
+            const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification');
+            GeneralLiabilityClassification.att('LocationRef', 'L1');
+            GeneralLiabilityClassification.ele('ClassCd', this.industry_code.cgl);
+            GeneralLiabilityClassification.ele('ClassCdDesc', this.industry_code.description);
+            GeneralLiabilityClassification.ele('Exposure', this.get_total_payroll());
+            GeneralLiabilityClassification.ele('PremiumBasisCd', 'PAYRL');
+
 			// </GeneralLiabilityLineBusiness>
 			// </GeneralLiabilityPolicyQuoteInqRq>
 			// </InsuranceSvcRq>
@@ -613,10 +460,189 @@ module.exports = class AcuityGL extends Integration {
 			if (this.insurer.useSandbox) {
 				host = 'tptest.acuity.com';
 			}
- else {
+            else {
 				host = 'www.acuity.com';
 			}
 			const path = '/ws/partner/public/irate/rating/RatingService/Talage';
+
+            // console.log(xml);
+
+//             const xml2 = `
+// <ACORD>
+//     <SignonRq>
+//         <SignonTransport>
+//             <SignonRoleCd>Customer</SignonRoleCd>
+//             <CustId>
+//                 <SPName>com.talage</SPName>
+//                 <CustLoginId>talage</CustLoginId>
+//             </CustId>
+//         </SignonTransport>
+//         <CustLangPref>EN-US</CustLangPref>
+//         <ClientApp>
+//             <Org>Talage Insurance</Org>
+//             <Name>Talage</Name>
+//             <Version>2.0</Version>
+//         </ClientApp>
+//     </SignonRq>
+//     <InsuranceSvcRq>
+//         <RqUID>853e17f1-acd6-4575-b084-e3cb2f184fda</RqUID>
+//         <GeneralLiabilityPolicyQuoteInqRq>
+//             <RqUID>853e17f1-acd6-4575-b084-e3cb2f184fda</RqUID>
+//             <TransactionRequestDt>2020-09-11T18:40:31</TransactionRequestDt>
+//             <TransactionEffectiveDt>2020-09-11</TransactionEffectiveDt>
+//             <CurCd>USD</CurCd>
+//             <Producer>
+//                 <GeneralPartyInfo>
+//                     <NameInfo>
+//                         <CommlName>
+//                             <CommercialName>Talage Insurance</CommercialName>
+//                         </CommlName>
+//                     </NameInfo>
+//                     <Addr>
+//                         <Addr1>300 South Wells Ave., Suite 4</Addr1>
+//                         <City>Reno</City>
+//                         <StateProvCd>NV</StateProvCd>
+//                         <PostalCode>89502</PostalCode>
+//                     </Addr>
+//                     <Communications>
+//                         <PhoneInfo>
+//                             <PhoneTypeCd>Phone</PhoneTypeCd>
+//                             <PhoneNumber>+1-833-4825243</PhoneNumber>
+//                         </PhoneInfo>
+//                     </Communications>
+//                 </GeneralPartyInfo>
+//                 <ProducerInfo>
+//                     <ContractNumber>8843</ContractNumber>
+//                     <ProducerSubCode>AA</ProducerSubCode>
+//                 </ProducerInfo>
+//             </Producer>
+//             <InsuredOrPrincipal>
+//                 <GeneralPartyInfo>
+//                     <NameInfo>
+//                         <CommlName>
+//                             <CommercialName>Scotty's Transmissions</CommercialName>
+//                         </CommlName>
+//                         <LegalEntityCd>LLC</LegalEntityCd>
+//                         <TaxIdentity>
+//                             <TaxIdTypeCd>FEIN</TaxIdTypeCd>
+//                             <TaxId>339494949</TaxId>
+//                         </TaxIdentity>
+//                     </NameInfo>
+//                     <Addr>
+//                         <AddrTypeCd>MailingAddress</AddrTypeCd>
+//                         <Addr1>1510 Glendale Ave</Addr1>
+//                         <City>Sparks</City>
+//                         <StateProvCd>NV</StateProvCd>
+//                         <PostalCode>89431</PostalCode>
+//                     </Addr>
+//                     <Communications>
+//                         <PhoneInfo>
+//                             <PhoneTypeCd>Phone</PhoneTypeCd>
+//                             <CommunicationUseCd>Day</CommunicationUseCd>
+//                             <PhoneNumber>+1-775-3597676 </PhoneNumber>
+//                         </PhoneInfo>
+//                         <EmailInfo>
+//                             <EmailAddr>scott@talageins.com</EmailAddr>
+//                         </EmailInfo>
+//                         <WebsiteInfo>
+//                             <WebsiteURL>https://www.rpmautomotiveinc.com/</WebsiteURL>
+//                         </WebsiteInfo>
+//                     </Communications>
+//                 </GeneralPartyInfo>
+//                 <InsuredOrPrincipalInfo>
+//                     <InsuredOrPrincipalRoleCd>Insured</InsuredOrPrincipalRoleCd>
+//                     <BusinessInfo>
+//                         <NAICSCd>812111-000</NAICSCd>
+//                         <BusinessStartDt>2000-01-01</BusinessStartDt>
+//                         <OperationsDesc>Barber Shop</OperationsDesc>
+//                         <NumOwners>1</NumOwners>
+//                         <NumEmployees>1</NumEmployees>
+//                     </BusinessInfo>
+//                 </InsuredOrPrincipalInfo>
+//             </InsuredOrPrincipal>
+//             <InsuredOrPrincipal>
+//                 <GeneralPartyInfo>
+//                     <NameInfo>
+//                         <PersonName>
+//                             <GivenName>Scott</GivenName>
+//                             <Surname>Fritzinger</Surname>
+//                         </PersonName>
+//                     </NameInfo>
+//                 </GeneralPartyInfo>
+//             </InsuredOrPrincipal>
+//             <CommlPolicy>
+//                 <LOBCd>CGL</LOBCd>
+//                 <ControllingStateProvCd>NV</ControllingStateProvCd>
+//                 <ContractTerm>
+//                     <EffectiveDt>2020-09-30</EffectiveDt>
+//                     <ExpirationDt>2021-09-30</ExpirationDt>
+//                 </ContractTerm>
+//             </CommlPolicy>
+//             <Location id="L1">
+//                 <Addr>
+//                     <Addr1>1510 Glendale Ave</Addr1>
+//                     <City>Sparks</City>
+//                     <StateProvCd>NV</StateProvCd>
+//                     <PostalCode>89431</PostalCode>
+//                 </Addr>
+//             </Location>
+// 			<GeneralLiabilityLineBusiness>
+// 				<LOBCd>CGL</LOBCd>
+// 				<LiabilityInfo>
+// 					<CommlCoverage>
+// 						<CoverageCd>EAOCC</CoverageCd>
+// 						<CoverageDesc>Liability - Each Occurrence</CoverageDesc>
+// 						<Limit>
+// 							<FormatInteger>1000000</FormatInteger>
+// 						</Limit>
+// 					</CommlCoverage>
+// 					<CommlCoverage>
+// 						<CoverageCd>GENAG</CoverageCd>
+// 						<CoverageDesc>Liability - General Aggregate</CoverageDesc>
+// 						<Limit>
+// 							<FormatInteger>2000000</FormatInteger>
+// 						</Limit>
+// 					</CommlCoverage>
+// 					<CommlCoverage>
+// 						<CoverageCd>MEDEX</CoverageCd>
+// 						<CoverageDesc>Medical Expense</CoverageDesc>
+// 						<Limit>
+// 							<FormatInteger>5000</FormatInteger>
+// 						</Limit>
+// 					</CommlCoverage>
+// 					<CommlCoverage>
+// 						<CoverageCd>PRDCO</CoverageCd>
+// 						<CoverageDesc>Products&#47;Completed Operations</CoverageDesc>
+// 						<Limit>
+// 							<FormatInteger>2000000</FormatInteger>
+// 						</Limit>
+// 					</CommlCoverage>
+// 					<CommlCoverage>
+// 						<CoverageCd>PIADV</CoverageCd>
+// 						<CoverageDesc>Personal and Advertising Injury Liability</CoverageDesc>
+// 						<Limit>
+// 							<FormatInteger>1000000</FormatInteger>
+// 						</Limit>
+// 					</CommlCoverage>
+// 					<CommlCoverage>
+// 						<CoverageCd>FIRDM</CoverageCd>
+// 						<CoverageDesc>Damage to Rented Premises</CoverageDesc>
+// 						<Limit>
+// 							<FormatInteger>100000</FormatInteger>
+// 						</Limit>
+// 					</CommlCoverage>
+// 					<GeneralLiabilityClassification LocationRef="L1" SubLocationRef="L1S1">
+// 						<ClassCd>10113</ClassCd>
+// 						<ClassCdDesc>Barber Shops</ClassCdDesc>
+// 						<Exposure>250000</Exposure>
+// 						<PremiumBasisCd>PAYRL</PremiumBasisCd>
+// 					</GeneralLiabilityClassification>
+// 				</LiabilityInfo>
+//             </GeneralLiabilityLineBusiness>
+//         </GeneralLiabilityPolicyQuoteInqRq>
+//     </InsuranceSvcRq>
+// </ACORD>
+//             `;
 
 			// Send the XML to the insurer
 			await this.send_xml_request(host, path, xml, {
@@ -625,7 +651,7 @@ module.exports = class AcuityGL extends Integration {
 			}).
 				then((result) => {
 					let res = result;
-
+                    // console.log(JSON.stringify(result, null, 4));
 					// Check if there was an error
 					if (Object.prototype.hasOwnProperty.call(res, 'errorResponse')) {
 						const error_code = parseInt(res.errorResponse.httpCode, 10);

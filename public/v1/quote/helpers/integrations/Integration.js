@@ -342,7 +342,7 @@ module.exports = class Integration {
 	 * @returns {array|boolean} - An array containing limit values as integers, or false if none apply
 	 */
     getBestLimits(carrierLimits) {
-        let higherLimit = false;
+        let higherLimit = null;
 
         // Take the requested limits and prepare them for processing
         const requestedLimits = this.getSplitLimits(this.policy.limits);
@@ -355,7 +355,13 @@ module.exports = class Integration {
             // Check if the supported limits are higher than or equal to the requested limits
             if (limitSetParts[0] >= requestedLimits[0] && limitSetParts[1] >= requestedLimits[1] && limitSetParts[2] >= requestedLimits[2]) {
                 // Return the first result found
-                higherLimit = higherLimit ? higherLimit : limitSetParts;
+                higherLimit = limitSetParts;
+            }
+            else if (!higherLimit && limitSetParts[0] >= requestedLimits[0] && limitSetParts[1] >= requestedLimits[1]) {
+                higherLimit = limitSetParts;
+            }
+            else if (!higherLimit && limitSetParts[0] >= requestedLimits[0]) {
+                higherLimit = limitSetParts;
             }
         });
         return higherLimit;
