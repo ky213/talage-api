@@ -1089,9 +1089,9 @@ module.exports = class Integration {
                 log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Encountered An Error` + __location);
                 if (this.reasons) {
                     //this.reasons.forEach(function(reason) {
-                    for(let i=0;i < this.reasons.length; i++ ){
+                    for(let i = 0; i < this.reasons.length; i++){
                         log.error(`Appid: ${this.app.id} ` + this.reasons[i]);
-                    });
+                    }
                 }
                 return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 
@@ -1373,8 +1373,8 @@ module.exports = class Integration {
             WHERE inc.insurer = ${this.insurer.id} AND (${whereCombinations.join(' OR ')});
             `;
             //log.debug("_insurer_supports_activity_codes sql: " + sql);
-            const appId =this.app.id;
-            const insurerId  = this.insurer.id;
+            const appId = this.app.id;
+            const insurerId = this.insurer.id;
             const codes = await db.query(sql).catch((error) => {
                 log.error(`AppId: ${appId} InsurerId: ${insurerId} ` + error + __location);
                 this.reasons.push('System Error: insurer_supports_activity_codes() failed to get codes.');
