@@ -1,3 +1,4 @@
+/* eslint-disable no-extra-parens */
 'use strict';
 const auth = require('./helpers/auth.js');
 const crypt = global.requireShared('./services/crypt.js');
@@ -5,10 +6,7 @@ const csvStringify = require('csv-stringify');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const moment = require('moment');
 const serverHelper = require('../../../server.js');
-const sha1 = require('sha1');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
-
-const salt = '3h42kize0loh16ke3otxfebkq5rqp91y6uj9jmg751r9ees97l61ycodwbw74o3o';
 
 /**
  * Validates the parameters for the applications call
@@ -374,7 +372,7 @@ async function getApplications(req, res, next){
         req.params.startDate = moment('2020-01-2010').toISOString();
     }
 
-    if(!req.params.endDate || (req.params.endDate &&req.params.endDate.startsWith('T23:59:59.999'))){
+    if(!req.params.endDate || (req.params.endDate && req.params.endDate.startsWith('T23:59:59.999'))){
         // now....
         req.params.endDate = moment().toISOString();
     }
