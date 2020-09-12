@@ -292,7 +292,7 @@ module.exports = class CompwestWC extends Integration {
         // </CommlName>
 
         if (!(this.app.business.entity_type in entityMatrix)) {
-            log.error(`${this.insurer.name} WC Integration File: Invalid Entity Type` + __location);
+            log.error(`Appid: ${this.app.id} ${this.insurer.name} WC Integration File: Invalid Entity Type` + __location);
             this.reasons.push(`${this.insurer.name} WC Integration File: Invalid Entity Type`);
             return this.return_result('error');
         }
@@ -514,7 +514,8 @@ module.exports = class CompwestWC extends Integration {
                     // Make sure we have the attributes we are expecting
                     if (Object.prototype.hasOwnProperty.call(questionAttributes, 'xml_section') && Object.prototype.hasOwnProperty.call(questionAttributes, 'code')) {
                         embeddedQuestions[`${questionAttributes.xml_section}-${questionAttributes.code}`] = this.questions[questionId];
-                    } else {
+                    }
+                    else {
                         log.error(`The AF Group embedded question "${this.question_details[questionId].identifier}" has invalid attributes.` + __location);
                     }
                 }
@@ -598,7 +599,7 @@ module.exports = class CompwestWC extends Integration {
                 'Content-Type': 'application/xml'
             });
         } catch (error) {
-            log.error(`${this.insurer.name} ${this.policy.type} Integration Error: ${error}` + __location);
+            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: ${error}` + __location);
             return this.return_result('error');
         }
         // Begin reducing the response
@@ -609,40 +610,48 @@ module.exports = class CompwestWC extends Integration {
         const status = res.SignonRs[0].Status[0].StatusCd[0];
         switch (status) {
             case 'DECLINE':
-                this.log += `--------======= Application Declined =======--------<br><br>${this.insurer.name} declined to write this business`;
+                this.log += `--------======= Application Declined =======--------<br><br>Appid: ${this.app.id}  ${this.insurer.name} declined to write this business`;
                 this.reasons.push(`${status} - ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`);
                 return this.return_result(status);
             case 'UNAUTHENTICATED':
             case 'UNAUTHORIZED':
                 message_type = status === 'UNAUTHENTICATED' ? 'Incorrect' : 'Locked';
                 this.log += `--------======= ${message_type} Agency ID =======--------<br><br>We attempted to process a quote, but the Agency ID set for the agent was ${message_type.toLowerCase()} and no quote could be processed.`;
-                log.error(`${this.insurer.name} ${this.policy.type} ${message_type} Agency ID` + __location);
+                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} ${message_type} Agency ID` + __location);
                 // This was a misconfiguration on the Agent's part, pick it up under the Talage agency for a better user experience
                 this.reasons.push(`${status} - ${message_type} Agency ID`);
                 return this.return_result('error');
             case 'ERRORED':
+                    this.log += `--------======= Application error =======--------<br><br> ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`;
+                    log.error(`Appid: ${this.app.id}  ${this.insurer.name} ${this.policy.type} Integration Error(s):\n--- ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}` + __location);
+                    this.reasons.push(`${status} - ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`);
+                    // Send notification email if we get an E Mod error back from carrier
+                    if (res.SignonRs[0].Status[0].StatusDesc[0].Desc[0].toLowerCase().includes("experience mod")) {
+                        wcEmodEmail.sendEmodEmail(this.app.id);
+                    }
+                    return this.return_result('error');
             case 'SMARTEDITS':
-                this.log += `--------======= Application Error =======--------<br><br>${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`;
-                log.error(`${this.insurer.name} ${this.policy.type} Integration Error(s):\n--- ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}` + __location);
+                this.log += `--------======= Application SMARTEDITS =======--------<br><br>${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`;
+                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Carrier returned SMARTEDITS :\n--- ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}` + __location);
                 this.reasons.push(`${status} - ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`);
-                // Send notification email if we get an E Mod error back from carrier 
+                // Send notification email if we get an E Mod error back from carrier
                 if (res.SignonRs[0].Status[0].StatusDesc[0].Desc[0].toLowerCase().includes("experience mod")) {
                     wcEmodEmail.sendEmodEmail(this.app.id);
                 }
-                return this.return_result('error');
+                return this.return_result('referred');
             case 'REFERRALNEEDED':
             case 'QUOTED':
                 // This is desired, do nothing
                 break;
             case 'RESERVED':
                 this.log += `--------======= Application Blocked =======--------<br><br>Another agency has already quotetd this business.`;
-                log.info(`${this.insurer.name} ${this.policy.type} Application Blocked (business already quoted by another agency)`);
+                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Application Blocked (business already quoted by another agency)`);
                 this.reasons.push(`${status} (blocked) - Another agency has already quoted this business.`);
-                return this.return_result('error');
+                return this.return_result('declined');
             default:
                 this.log += '--------======= Unexpected API Response =======--------';
                 this.log += util.inspect(res, false, null);
-                log.error(`${this.insurer.name} ${status} - Unexpected response code by API `);
+                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${status} - Unexpected response code by API `);
                 this.reasons.push(`${status} - Unexpected response code returned by API.`);
                 return this.return_result('error');
         }
@@ -660,7 +669,7 @@ module.exports = class CompwestWC extends Integration {
                     length: res['com.afg_Base64PDF'][0].length
                 };
             } catch (err) {
-                log.error(`${this.insurer.name} integration error: could not locate quote letter attachments. ${__location}`);
+                log.error(`Appid: ${this.app.id} ${this.insurer.name} integration error: could not locate quote letter attachments. ${__location}`);
                 return this.return_result('error');
             }
         }
@@ -672,7 +681,7 @@ module.exports = class CompwestWC extends Integration {
         try {
             this.number = res.PolicyNumber[0];
         } catch (e) {
-            log.error(`${this.insurer.name} integration error: could not locate policy number ${__location}`);
+            log.error(`Appid: ${this.app.id} ${this.insurer.name} integration error: could not locate policy number ${__location}`);
             return this.return_result('error');
         }
 
@@ -681,7 +690,7 @@ module.exports = class CompwestWC extends Integration {
             try {
                 this.amount = parseInt(res.CurrentTermAmt[0].Amt[0], 10);
             } catch (e) {
-                log.error(`${this.insurer.name} Integration Error: Quote structure changed. Unable to quote amount. `);
+                log.error(`Appid: ${this.app.id} ${this.insurer.name} Integration Error: Quote structure changed. Unable to quote amount. `);
                 return this.return_result('error');
             }
         }
