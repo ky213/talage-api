@@ -119,7 +119,7 @@ module.exports = class CompwestWC extends Integration {
         // if (this.insurer.useSandbox) {
         //     host = 'npsv.afgroup.com';
         // } else {
-        //     log.error(`${this.insurer.name} ERROR: Binding not supported in production`);
+        //     log.error(`Appid: ${this.app.id} ${this.insurer.name} ERROR: Binding not supported in production`);
         //     throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
         // }
         // const path = '/TEST_DigitalAq/rest/getbindworkcompquote'; // Send the XML to the insurer
@@ -132,7 +132,7 @@ module.exports = class CompwestWC extends Integration {
         //     });
         // } catch (error) {
         //     log.error(util.inspect(error) + __location);
-        //     log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.` + __location);
+        //     log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.` + __location);
         //     throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
         // }
         // // Begin reducing the response
@@ -145,23 +145,23 @@ module.exports = class CompwestWC extends Integration {
         //     case 'REFERRED':
         //         message_type = status + status.slice(1).toLowerCase();
         //         this.log += `--------======= Quote ${message_type} =======--------`;
-        //         log.info(`${this.insurer.name} ${this.policy.type} Quote ${message_type}`);
+        //         log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Quote ${message_type}`);
         //         return message_type;
         //     case 'ERRORED':
         //     case 'SMARTEDITS':
         //         this.log += `--------======= Bind Error =======--------<br><br>${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`;
-        //         log.error(`${this.insurer.name} ${this.policy.type} Bind Integration Error(s):\n--- ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}` + __location);
+        //         log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Bind Integration Error(s):\n--- ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}` + __location);
         //         throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
         //     case 'UNAUTHENTICATED':
         //     case 'UNAUTHORIZED':
         //         message_type = status === 'UNAUTHENTICATED' ? 'Incorrect' : 'Locked';
         //         this.log += `--------======= ${message_type} Agency ID =======--------<br><br>We attempted to process a bind request, but the Agency ID set for the agent was ${message_type.toLowerCase()} and no quote could be processed.`;
-        //         log.error(`${this.insurer.name} ${this.policy.type} Bind ${message_type} Agency ID` + __location);
+        //         log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Bind ${message_type} Agency ID` + __location);
         //         throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
         //     default:
         //         this.log += '--------======= Unexpected API Response =======--------';
         //         this.log += util.inspect(res, false, null);
-        //         log.error(`${this.insurer.name} ${status} Bind - Unexpected response code by API ` + __location);
+        //         log.error(`Appid: ${this.app.id} ${this.insurer.name} ${status} Bind - Unexpected response code by API ` + __location);
         //         throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
         // }
    // }
@@ -205,11 +205,11 @@ module.exports = class CompwestWC extends Integration {
         if (!afCoreStates.includes(this.app.business.primary_territory) && !cwCoreStates.includes(this.app.business.primary_territory)) {
             // If this wasn't the Talage agency, start over as the Talage agency
             if (this.app.agencyLocation.agencyId !== 1) {
-                log.info(`TO DO: As this business could not be written by ${this.insurer.name}, we can wholesale it.`);
+                log.info(`TO DO: Appid: ${this.app.id}  As this business could not be written by ${this.insurer.name}, we can wholesale it.`);
             }
 
             // For now, just auto decline
-            log.warn(`autodeclined: Non-Core State:  ${this.insurer.name} will not write policies where the primary territory is ${this.app.business.primary_territory} ` + __location);
+            log.warn(`Appid: ${this.app.id} autodeclined: Non-Core State:  ${this.insurer.name} will not write policies where the primary territory is ${this.app.business.primary_territory} ` + __location);
             this.reasons.push(`Non-Core State: ${this.insurer.name} will not write policies where the primary territory is ${this.app.business.primary_territory}`);
             return this.return_result('autodeclined');
         }
@@ -217,8 +217,8 @@ module.exports = class CompwestWC extends Integration {
         // Prepare limits
         const limits = this.getBestLimits(carrierLimits);
         if (!limits) {
-            log.warn(`autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location);
-            this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
+            log.warn(`Appid: ${this.app.id} autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location);
+            this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} does not support the requested liability limits`);
             return this.return_result('autodeclined');
         }
 
@@ -296,7 +296,7 @@ module.exports = class CompwestWC extends Integration {
 
         if (!(this.app.business.entity_type in entityMatrix)) {
             log.error(`Appid: ${this.app.id} ${this.insurer.name} WC Integration File: Invalid Entity Type` + __location);
-            this.reasons.push(`${this.insurer.name} WC Integration File: Invalid Entity Type`);
+            this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} WC Integration File: Invalid Entity Type`);
             return this.return_result('error');
         }
         NameInfo.ele('LegalEntityCd', entityMatrix[this.app.business.entity_type]);
@@ -410,7 +410,7 @@ module.exports = class CompwestWC extends Integration {
         territories.forEach((territory) => {
             // <WorkCompRateState>
             const WorkCompRateState = WorkCompLineBusiness.ele('WorkCompRateState');
-            log.info('TO DO: Determine what we are doing on <com.afg_WorkSafeCredit> - Michigan Only - AF needs to get these rules to us');
+            log.info(`TO DO: Appid: ${this.app.id}  Determine what we are doing on <com.afg_WorkSafeCredit> - Michigan Only - AF needs to get these rules to us`);
 
             this.app.business.locations.forEach((location, index) => {
                 // Make sure this location is in the current territory, if not, skip it
@@ -520,7 +520,7 @@ module.exports = class CompwestWC extends Integration {
                         embeddedQuestions[`${questionAttributes.xml_section}-${questionAttributes.code}`] = this.questions[questionId];
                     }
                     else {
-                        log.error(`The AF Group embedded question "${this.question_details[questionId].identifier}" has invalid attributes.` + __location);
+                        log.error(`Appid: ${this.app.id} The AF Group embedded question "${this.question_details[questionId].identifier}" has invalid attributes.` + __location);
                     }
                 }
             }
