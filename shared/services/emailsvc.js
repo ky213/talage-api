@@ -51,7 +51,7 @@ exports.send = async function(recipients, subject, content, keys = {}, agencyNet
 
         return false;
     }
-    
+
     //load AgencyNetworkBO
     const agencyNetworkBO = new AgencyNetworkBO();
     let error = null;
@@ -132,7 +132,7 @@ exports.send = async function(recipients, subject, content, keys = {}, agencyNet
     else if (brandOverride === 'talage'){
         emailJSON.from = 'info@talageins.com';
     }
-   // log.debug("emailJSON.from: " + emailJSON.from);
+    // log.debug("emailJSON.from: " + emailJSON.from);
     emailJSON.subject = subject;
 
     // ******  Template processing ************/
@@ -228,6 +228,11 @@ exports.send = async function(recipients, subject, content, keys = {}, agencyNet
     // Scheduled tasks and db restores may lead to applications or agencies with "real" emails
     // in dev databases.
     if (global.settings.ENV === 'development' || global.settings.ENV === 'awsdev') {
+        // Hard disable
+        if (global.settings.DISABLE_EMAIL && global.settings.DISABLE_EMAIL === 'YES') {
+            log.debug('Disabling email: ' + emailJSON.to);
+            return true;
+        }
         // Hard override
         if (global.settings.OVERRIDE_EMAIL && global.settings.OVERRIDE_EMAIL === 'YES' && global.settings.TEST_EMAIL) {
             emailJSON.to = global.settings.TEST_EMAIL;
