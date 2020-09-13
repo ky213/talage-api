@@ -108,6 +108,26 @@ module.exports = class Integration {
     }
 
     /**
+	 * Returns an XML node child from parsed XML data. It will iterate down the node children, getting element 0 of each node's child.
+	 *
+     * @param {object} node - top-level parent node
+     * @param {Array} children - Array of child node names
+     * @param {bool} returnRawLastNode - true if the returned child should be raw (NOT element zero of its node). Good if you want to iterate on the child node.
+	 * @returns {object} - Claims information lumped together by policy year
+	 */
+    get_xml_child(node, children, returnRawLastNode = false) {
+        let rawNode = node;
+        for (const child of children) {
+            if (!node[child] || !node[child].length) {
+                return null;
+            }
+            rawNode = node[child];
+            node = rawNode[0];
+        }
+        return returnRawLastNode ? rawNode : node;
+    }
+
+    /**
 	 * Returns an object that includes Claims information based on policy years for up to the past 5 years
 	 *
 	 * @returns {object} - Claims information lumped together by policy year
@@ -342,8 +362,7 @@ module.exports = class Integration {
 	 * @returns {array|boolean} - An array containing limit values as integers, or false if none apply
 	 */
     getBestLimits(carrierLimits) {
-
-        let higherLimit = false;
+        let higherLimit = null;
 
         // Take the requested limits and prepare them for processing
         const requestedLimits = this.getSplitLimits(this.policy.limits);
@@ -357,13 +376,23 @@ module.exports = class Integration {
         splitCarrierLimitArray.sort((limit1, limit2) => limit1[1] - limit2[1]);
         splitCarrierLimitArray.sort((limit1, limit2) => limit1[2] - limit2[2]);
 
+        // Some carriers support fewer than 3 limites. So we keep track of the "best" for 1, 2, or 3 limits
+        // to allow fallback.
+        let matchCount = 0;
+
         // Loop through all supported limits
         splitCarrierLimitArray.forEach((limitSet) => {
-
-            // Check if the supported limits are higher than or equal to the requested limits
-            if (limitSet[0] >= requestedLimits[0] && limitSet[1] >= requestedLimits[1] && limitSet[2] >= requestedLimits[2]) {
-                // Return the first result found
-                higherLimit = higherLimit ? higherLimit : limitSet;
+            if (limitSet[0] >= requestedLimits[0] && limitSet[1] >= requestedLimits[1] && limitSet[2] >= requestedLimits[2] && matchCount < 3) {
+                higherLimit = limitSet;
+                matchCount = 3;
+            }
+            else if (limitSet[0] >= requestedLimits[0] && limitSet[1] >= requestedLimits[1] & matchCount < 2) {
+                higherLimit = limitSet;
+                matchCount = 2;
+            }
+            else if (limitSet[0] >= requestedLimits[0] && matchCount < 1) {
+                higherLimit = limitSet;
+                matchCount = 1;
             }
         });
 
