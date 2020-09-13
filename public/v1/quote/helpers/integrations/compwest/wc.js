@@ -1,3 +1,5 @@
+/* eslint-disable brace-style */
+/* eslint-disable array-element-newline */
 /* eslint indent: 0 */
 /* eslint multiline-comment-style: 0 */
 /* eslint no-unreachable: 0 */
@@ -14,154 +16,155 @@ const Integration = require('../Integration.js');
 const builder = require('xmlbuilder');
 const moment = require('moment');
 const util = require('util');
-const serverHelper = requireRootPath('server.js');
+//const serverHelper = global.requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const wcEmodEmail = requireRootPath('./tasksystem/task-wcemodemail');
+const wcEmodEmail = global.requireRootPath('./tasksystem/task-wcemodemail');
 
 module.exports = class CompwestWC extends Integration {
+
     /**
      * Makes a request to Accident Fund to bind a policy.  This method is not intended to be called directly
      *
      * @returns {Promise.<string, ServerError>} A promise that returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a ServerError if rejected
      */
-    async _bind() {
-        // May payment plans
-        const payment_plans = {
-            '1': 'D1', // Annual
-            '2': 'D2', // Semi-Annual
-            '3': 'D4', // Quarterly
-            '4': 'D9' // 10 Pay
-        };
-
+   // async _bind() {
         // Temporarily turn off bind
-        throw serverHelper.internalError('Bind is currently disabled for this insurer');
+        // throw serverHelper.internalError('Bind is currently disabled for this insurer');
+
+        // // May payment plans
+        // const payment_plans = {
+        //     '1': 'D1', // Annual
+        //     '2': 'D2', // Semi-Annual
+        //     '3': 'D4', // Quarterly
+        //     '4': 'D9' // 10 Pay
+        // };
 
         // CompWest has us define our own Request ID
-        this.request_id = this.generate_uuid();
+        // this.request_id = this.generate_uuid();
 
-        // Build the XML Request
+        // // Build the XML Request
 
-        // <ACORD>
-        const ACORD = builder.create('ACORD');
-        ACORD.att('xsi:noNamespaceSchemaLocation', 'WorkCompPolicyAddRqXSD.xsd');
-        ACORD.att('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance');
+        // // <ACORD>
+        // const ACORD = builder.create('ACORD');
+        // ACORD.att('xsi:noNamespaceSchemaLocation', 'WorkCompPolicyAddRqXSD.xsd');
+        // ACORD.att('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance');
 
-        // <InsuranceSvcRq>
-        const InsuranceSvcRq = ACORD.ele('InsuranceSvcRq');
-        InsuranceSvcRq.ele('RqUID', this.request_id);
+        // // <InsuranceSvcRq>
+        // const InsuranceSvcRq = ACORD.ele('InsuranceSvcRq');
+        // InsuranceSvcRq.ele('RqUID', this.request_id);
 
-        // <WorkCompPolicyAddRq>
-        const WorkCompPolicyAddRq = InsuranceSvcRq.ele('WorkCompPolicyAddRq');
+        // // <WorkCompPolicyAddRq>
+        // const WorkCompPolicyAddRq = InsuranceSvcRq.ele('WorkCompPolicyAddRq');
 
-        // <Producer>
-        const Producer = WorkCompPolicyAddRq.ele('Producer');
+        // // <Producer>
+        // const Producer = WorkCompPolicyAddRq.ele('Producer');
 
-        // <ItemIdInfo>
-        const ItemIdInfo = Producer.ele('ItemIdInfo');
-        ItemIdInfo.ele('AgencyId', this.app.agencyLocation.insurers[this.insurer.id].agency_id);
-        // </ItemIdInfo>
+        // // <ItemIdInfo>
+        // const ItemIdInfo = Producer.ele('ItemIdInfo');
+        // ItemIdInfo.ele('AgencyId', this.app.agencyLocation.insurers[this.insurer.id].agency_id);
+        // // </ItemIdInfo>
 
-        // <GeneralPartyInfo>
-        let GeneralPartyInfo = Producer.ele('GeneralPartyInfo');
+        // // <GeneralPartyInfo>
+        // let GeneralPartyInfo = Producer.ele('GeneralPartyInfo');
 
-        // <NameInfo>
-        let NameInfo = GeneralPartyInfo.ele('NameInfo');
-        NameInfo.att('id', 'ProducerName');
+        // // <NameInfo>
+        // let NameInfo = GeneralPartyInfo.ele('NameInfo');
+        // NameInfo.att('id', 'ProducerName');
 
-        // <PersonName>
-        const PersonName = NameInfo.ele('PersonName');
-        PersonName.ele('Surname', this.app.agencyLocation.last_name);
-        PersonName.ele('GivenName', this.app.agencyLocation.first_name);
-        // </PersonName>
-        // </NameInfo>
-        // </GeneralPartyInfo>
-        // </Producer>
+        // // <PersonName>
+        // const PersonName = NameInfo.ele('PersonName');
+        // PersonName.ele('Surname', this.app.agencyLocation.last_name);
+        // PersonName.ele('GivenName', this.app.agencyLocation.first_name);
+        // // </PersonName>
+        // // </NameInfo>
+        // // </GeneralPartyInfo>
+        // // </Producer>
 
-        // <InsuredOrPrincipal>
-        const InsuredOrPrincipal = WorkCompPolicyAddRq.ele('InsuredOrPrincipal');
-        InsuredOrPrincipal.att('id', 'n0');
+        // // <InsuredOrPrincipal>
+        // const InsuredOrPrincipal = WorkCompPolicyAddRq.ele('InsuredOrPrincipal');
+        // InsuredOrPrincipal.att('id', 'n0');
 
-        // <GeneralPartyInfo>
-        GeneralPartyInfo = InsuredOrPrincipal.ele('GeneralPartyInfo');
+        // // <GeneralPartyInfo>
+        // GeneralPartyInfo = InsuredOrPrincipal.ele('GeneralPartyInfo');
 
-        // <NameInfo>
-        NameInfo = GeneralPartyInfo.ele('NameInfo');
+        // // <NameInfo>
+        // NameInfo = GeneralPartyInfo.ele('NameInfo');
 
-        // <CommlName>
-        const CommlName = NameInfo.ele('CommlName');
-        CommlName.ele('CommercialName', this.app.business.name.replace('’', "'").replace('+', '').replace('|', ''));
-        // </CommlName>
-        // </NameInfo>
-        // </GeneralPartyInfo>
-        // </InsureredOrPrincipal>
+        // // <CommlName>
+        // const CommlName = NameInfo.ele('CommlName');
+        // CommlName.ele('CommercialName', this.app.business.name.replace('’', "'").replace('+', '').replace('|', ''));
+        // // </CommlName>
+        // // </NameInfo>
+        // // </GeneralPartyInfo>
+        // // </InsureredOrPrincipal>
 
-        // <CommlPolicy>
-        const CommlPolicy = WorkCompPolicyAddRq.ele('CommlPolicy');
-        CommlPolicy.ele('PolicyNumber', this.policy.json.number);
+        // // <CommlPolicy>
+        // const CommlPolicy = WorkCompPolicyAddRq.ele('CommlPolicy');
+        // CommlPolicy.ele('PolicyNumber', this.policy.json.number);
 
-        // <PaymentOption>
-        const PaymentOption = CommlPolicy.ele('PaymentOption');
-        PaymentOption.ele('PaymentPlanCd', payment_plans[226]);
-        // </PaymentOption>
-        // </CommlPolicy>
+        // // <PaymentOption>
+        // const PaymentOption = CommlPolicy.ele('PaymentOption');
+        // PaymentOption.ele('PaymentPlanCd', payment_plans[226]);
+        // // </PaymentOption>
+        // // </CommlPolicy>
 
-        log.debug('Add additional insureds here');
+        // log.debug('Add additional insureds here');
 
-        // Get the XML structure as a string
-        const xml = ACORD.end({ pretty: true });
+        // // Get the XML structure as a string
+        // const xml = ACORD.end({ pretty: true });
 
-        // Determine which URL to use
-        let host = '';
-        if (this.insurer.useSandbox) {
-            host = 'npsv.afgroup.com';
-        } else {
-            log.error(`${this.insurer.name} ERROR: Binding not supported in production`);
-            throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-        }
-        const path = '/TEST_DigitalAq/rest/getbindworkcompquote'; // Send the XML to the insurer
+        // // Determine which URL to use
+        // let host = '';
+        // if (this.insurer.useSandbox) {
+        //     host = 'npsv.afgroup.com';
+        // } else {
+        //     log.error(`Appid: ${this.app.id} ${this.insurer.name} ERROR: Binding not supported in production`);
+        //     throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+        // }
+        // const path = '/TEST_DigitalAq/rest/getbindworkcompquote'; // Send the XML to the insurer
 
-        let result = null;
-        try {
-            result = await this.send_xml_request(host, path, xml, {
-                Authorization: `Basic ${Buffer.from(`${this.username}:${this.password}`).toString('base64')}`,
-                'Content-Type': 'application/xml'
-            });
-        } catch (error) {
-            log.error(util.inspect(error) + __location);
-            log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.` + __location);
-            throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-        }
-        // Begin reducing the response
-        const res = result.ACORD;
-        let message_type = '';
+        // let result = null;
+        // try {
+        //     result = await this.send_xml_request(host, path, xml, {
+        //         Authorization: `Basic ${Buffer.from(`${this.username}:${this.password}`).toString('base64')}`,
+        //         'Content-Type': 'application/xml'
+        //     });
+        // } catch (error) {
+        //     log.error(util.inspect(error) + __location);
+        //     log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.` + __location);
+        //     throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+        // }
+        // // Begin reducing the response
+        // const res = result.ACORD;
+        // let message_type = '';
 
-        const status = res.SignonRs[0].Status[0].StatusCd[0];
-        switch (status) {
-            case 'BOUND':
-            case 'REFERRED':
-                message_type = status + status.slice(1).toLowerCase();
-                this.log += `--------======= Quote ${message_type} =======--------`;
-                log.info(`${this.insurer.name} ${this.policy.type} Quote ${message_type}`);
-                return message_type;
-            case 'ERRORED':
-            case 'SMARTEDITS':
-                this.log += `--------======= Bind Error =======--------<br><br>${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`;
-                log.error(`${this.insurer.name} ${this.policy.type} Bind Integration Error(s):\n--- ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}` + __location);
-                throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-            case 'UNAUTHENTICATED':
-            case 'UNAUTHORIZED':
-                message_type = status === 'UNAUTHENTICATED' ? 'Incorrect' : 'Locked';
-                this.log += `--------======= ${message_type} Agency ID =======--------<br><br>We attempted to process a bind request, but the Agency ID set for the agent was ${message_type.toLowerCase()} and no quote could be processed.`;
-                log.error(`${this.insurer.name} ${this.policy.type} Bind ${message_type} Agency ID` + __location);
-                throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-            default:
-                this.log += '--------======= Unexpected API Response =======--------';
-                this.log += util.inspect(res, false, null);
-                log.error(`${this.insurer.name} ${status} Bind - Unexpected response code by API ` + __location);
-                throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-        }
-    }
+        // const status = res.SignonRs[0].Status[0].StatusCd[0];
+        // switch (status) {
+        //     case 'BOUND':
+        //     case 'REFERRED':
+        //         message_type = status + status.slice(1).toLowerCase();
+        //         this.log += `--------======= Quote ${message_type} =======--------`;
+        //         log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Quote ${message_type}`);
+        //         return message_type;
+        //     case 'ERRORED':
+        //     case 'SMARTEDITS':
+        //         this.log += `--------======= Bind Error =======--------<br><br>${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`;
+        //         log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Bind Integration Error(s):\n--- ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}` + __location);
+        //         throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+        //     case 'UNAUTHENTICATED':
+        //     case 'UNAUTHORIZED':
+        //         message_type = status === 'UNAUTHENTICATED' ? 'Incorrect' : 'Locked';
+        //         this.log += `--------======= ${message_type} Agency ID =======--------<br><br>We attempted to process a bind request, but the Agency ID set for the agent was ${message_type.toLowerCase()} and no quote could be processed.`;
+        //         log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Bind ${message_type} Agency ID` + __location);
+        //         throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+        //     default:
+        //         this.log += '--------======= Unexpected API Response =======--------';
+        //         this.log += util.inspect(res, false, null);
+        //         log.error(`Appid: ${this.app.id} ${this.insurer.name} ${status} Bind - Unexpected response code by API ` + __location);
+        //         throw serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+        // }
+   // }
 
     /**
      * Requests a quote from CompWest and returns. This method is not intended to be called directly.
@@ -202,11 +205,11 @@ module.exports = class CompwestWC extends Integration {
         if (!afCoreStates.includes(this.app.business.primary_territory) && !cwCoreStates.includes(this.app.business.primary_territory)) {
             // If this wasn't the Talage agency, start over as the Talage agency
             if (this.app.agencyLocation.agencyId !== 1) {
-                log.info(`TO DO: As this business could not be written by ${this.insurer.name}, we can wholesale it.`);
+                log.info(`TO DO: Appid: ${this.app.id}  As this business could not be written by ${this.insurer.name}, we can wholesale it.`);
             }
 
             // For now, just auto decline
-            log.warn(`autodeclined: Non-Core State:  ${this.insurer.name} will not write policies where the primary territory is ${this.app.business.primary_territory} ` + __location);
+            log.warn(`Appid: ${this.app.id} autodeclined: Non-Core State:  ${this.insurer.name} will not write policies where the primary territory is ${this.app.business.primary_territory} ` + __location);
             this.reasons.push(`Non-Core State: ${this.insurer.name} will not write policies where the primary territory is ${this.app.business.primary_territory}`);
             return this.return_result('autodeclined');
         }
@@ -214,8 +217,8 @@ module.exports = class CompwestWC extends Integration {
         // Prepare limits
         const limits = this.getBestLimits(carrierLimits);
         if (!limits) {
-            log.warn(`autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location);
-            this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
+            log.warn(`Appid: ${this.app.id} autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location);
+            this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} does not support the requested liability limits`);
             return this.return_result('autodeclined');
         }
 
@@ -292,8 +295,8 @@ module.exports = class CompwestWC extends Integration {
         // </CommlName>
 
         if (!(this.app.business.entity_type in entityMatrix)) {
-            log.error(`${this.insurer.name} WC Integration File: Invalid Entity Type` + __location);
-            this.reasons.push(`${this.insurer.name} WC Integration File: Invalid Entity Type`);
+            log.error(`Appid: ${this.app.id} ${this.insurer.name} WC Integration File: Invalid Entity Type` + __location);
+            this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} WC Integration File: Invalid Entity Type`);
             return this.return_result('error');
         }
         NameInfo.ele('LegalEntityCd', entityMatrix[this.app.business.entity_type]);
@@ -407,7 +410,7 @@ module.exports = class CompwestWC extends Integration {
         territories.forEach((territory) => {
             // <WorkCompRateState>
             const WorkCompRateState = WorkCompLineBusiness.ele('WorkCompRateState');
-            log.info('TO DO: Determine what we are doing on <com.afg_WorkSafeCredit> - Michigan Only - AF needs to get these rules to us');
+            log.info(`TO DO: Appid: ${this.app.id}  Determine what we are doing on <com.afg_WorkSafeCredit> - Michigan Only - AF needs to get these rules to us`);
 
             this.app.business.locations.forEach((location, index) => {
                 // Make sure this location is in the current territory, if not, skip it
@@ -459,7 +462,8 @@ module.exports = class CompwestWC extends Integration {
                                 // Determine how to send the answer
                                 if (question.type === 'Yes/No') {
                                     ClassCodeQuestion.ele('ResponseInd', question.get_answer_as_boolean() ? 'Y' : 'N');
-                                } else {
+                                }
+                                else {
                                     ClassCodeQuestion.ele('ResponseInd', question.answer);
                                 }
                                 // </ClassCodeQuestion>
@@ -514,8 +518,9 @@ module.exports = class CompwestWC extends Integration {
                     // Make sure we have the attributes we are expecting
                     if (Object.prototype.hasOwnProperty.call(questionAttributes, 'xml_section') && Object.prototype.hasOwnProperty.call(questionAttributes, 'code')) {
                         embeddedQuestions[`${questionAttributes.xml_section}-${questionAttributes.code}`] = this.questions[questionId];
-                    } else {
-                        log.error(`The AF Group embedded question "${this.question_details[questionId].identifier}" has invalid attributes.` + __location);
+                    }
+                    else {
+                        log.error(`Appid: ${this.app.id} The AF Group embedded question "${this.question_details[questionId].identifier}" has invalid attributes.` + __location);
                     }
                 }
             }
@@ -577,7 +582,7 @@ module.exports = class CompwestWC extends Integration {
         // </ACORD>
 
         // Get the XML structure as a string
-        const xml = ACORD.end({ pretty: true });
+        const xml = ACORD.end({pretty: true});
 
         // Determine which URL to use
         let host = '';
@@ -585,7 +590,8 @@ module.exports = class CompwestWC extends Integration {
         if (this.insurer.useSandbox) {
             host = 'npsv.afgroup.com';
             path = '/TEST_DigitalAq/rest/getworkcompquote';
-        } else {
+        }
+        else {
             host = 'psv.afgroup.com';
             path = '/DigitalAq/rest/getworkcompquote';
         }
@@ -597,8 +603,9 @@ module.exports = class CompwestWC extends Integration {
                 Authorization: `Basic ${Buffer.from(`${this.username}:${this.password}`).toString('base64')}`,
                 'Content-Type': 'application/xml'
             });
-        } catch (error) {
-            log.error(`${this.insurer.name} ${this.policy.type} Integration Error: ${error}` + __location);
+        }
+        catch (error) {
+            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: ${error}` + __location);
             return this.return_result('error');
         }
         // Begin reducing the response
@@ -609,40 +616,48 @@ module.exports = class CompwestWC extends Integration {
         const status = res.SignonRs[0].Status[0].StatusCd[0];
         switch (status) {
             case 'DECLINE':
-                this.log += `--------======= Application Declined =======--------<br><br>${this.insurer.name} declined to write this business`;
+                this.log += `--------======= Application Declined =======--------<br><br>Appid: ${this.app.id}  ${this.insurer.name} declined to write this business`;
                 this.reasons.push(`${status} - ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`);
                 return this.return_result(status);
             case 'UNAUTHENTICATED':
             case 'UNAUTHORIZED':
                 message_type = status === 'UNAUTHENTICATED' ? 'Incorrect' : 'Locked';
                 this.log += `--------======= ${message_type} Agency ID =======--------<br><br>We attempted to process a quote, but the Agency ID set for the agent was ${message_type.toLowerCase()} and no quote could be processed.`;
-                log.error(`${this.insurer.name} ${this.policy.type} ${message_type} Agency ID` + __location);
+                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} ${message_type} Agency ID` + __location);
                 // This was a misconfiguration on the Agent's part, pick it up under the Talage agency for a better user experience
                 this.reasons.push(`${status} - ${message_type} Agency ID`);
                 return this.return_result('error');
             case 'ERRORED':
+                    this.log += `--------======= Application error =======--------<br><br> ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`;
+                    log.error(`Appid: ${this.app.id}  ${this.insurer.name} ${this.policy.type} Integration Error(s):\n--- ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}` + __location);
+                    this.reasons.push(`${status} - ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`);
+                    // Send notification email if we get an E Mod error back from carrier
+                    if (res.SignonRs[0].Status[0].StatusDesc[0].Desc[0].toLowerCase().includes("experience mod")) {
+                        wcEmodEmail.sendEmodEmail(this.app.id);
+                    }
+                    return this.return_result('error');
             case 'SMARTEDITS':
-                this.log += `--------======= Application Error =======--------<br><br>${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`;
-                log.error(`${this.insurer.name} ${this.policy.type} Integration Error(s):\n--- ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}` + __location);
+                this.log += `--------======= Application SMARTEDITS =======--------<br><br>${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`;
+                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Carrier returned SMARTEDITS :\n--- ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}` + __location);
                 this.reasons.push(`${status} - ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`);
-                // Send notification email if we get an E Mod error back from carrier 
+                // Send notification email if we get an E Mod error back from carrier
                 if (res.SignonRs[0].Status[0].StatusDesc[0].Desc[0].toLowerCase().includes("experience mod")) {
                     wcEmodEmail.sendEmodEmail(this.app.id);
                 }
-                return this.return_result('error');
+                return this.return_result('referred');
             case 'REFERRALNEEDED':
             case 'QUOTED':
                 // This is desired, do nothing
                 break;
             case 'RESERVED':
-                this.log += `--------======= Application Blocked =======--------<br><br>Another agency has already quotetd this business.`;
-                log.info(`${this.insurer.name} ${this.policy.type} Application Blocked (business already quoted by another agency)`);
+                this.log += `--------======= Application Blocked =======--------<br><br>Another agency has already quoted this business.`;
+                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Application Blocked (business already quoted by another agency)`);
                 this.reasons.push(`${status} (blocked) - Another agency has already quoted this business.`);
-                return this.return_result('error');
+                return this.return_result('declined');
             default:
                 this.log += '--------======= Unexpected API Response =======--------';
                 this.log += util.inspect(res, false, null);
-                log.error(`${this.insurer.name} ${status} - Unexpected response code by API `);
+                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${status} - Unexpected response code by API `);
                 this.reasons.push(`${status} - Unexpected response code returned by API.`);
                 return this.return_result('error');
         }
@@ -660,7 +675,7 @@ module.exports = class CompwestWC extends Integration {
                     length: res['com.afg_Base64PDF'][0].length
                 };
             } catch (err) {
-                log.error(`${this.insurer.name} integration error: could not locate quote letter attachments. ${__location}`);
+                log.error(`Appid: ${this.app.id} ${this.insurer.name} integration error: could not locate quote letter attachments. ${__location}`);
                 return this.return_result('error');
             }
         }
@@ -672,7 +687,7 @@ module.exports = class CompwestWC extends Integration {
         try {
             this.number = res.PolicyNumber[0];
         } catch (e) {
-            log.error(`${this.insurer.name} integration error: could not locate policy number ${__location}`);
+            log.error(`Appid: ${this.app.id} ${this.insurer.name} integration error: could not locate policy number ${__location}`);
             return this.return_result('error');
         }
 
@@ -681,7 +696,7 @@ module.exports = class CompwestWC extends Integration {
             try {
                 this.amount = parseInt(res.CurrentTermAmt[0].Amt[0], 10);
             } catch (e) {
-                log.error(`${this.insurer.name} Integration Error: Quote structure changed. Unable to quote amount. `);
+                log.error(`Appid: ${this.app.id} ${this.insurer.name} Integration Error: Quote structure changed. Unable to quote amount. `);
                 return this.return_result('error');
             }
         }
