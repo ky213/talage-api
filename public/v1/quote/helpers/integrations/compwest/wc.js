@@ -650,7 +650,7 @@ module.exports = class CompwestWC extends Integration {
                 // This is desired, do nothing
                 break;
             case 'RESERVED':
-                this.log += `--------======= Application Blocked =======--------<br><br>Another agency has already quotetd this business.`;
+                this.log += `--------======= Application Blocked =======--------<br><br>Another agency has already quoted this business.`;
                 log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Application Blocked (business already quoted by another agency)`);
                 this.reasons.push(`${status} (blocked) - Another agency has already quoted this business.`);
                 return this.return_result('declined');
