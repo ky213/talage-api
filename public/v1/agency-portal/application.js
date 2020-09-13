@@ -217,36 +217,61 @@ async function getApplication(req, res, next){
 
     // Get the quotes from the database
     const quotesSQL = `
-			SELECT
-				${db.quoteName('q.api_result')},
-				${db.quoteName('q.policy_type')},
-				${db.quoteName('pt.name', 'policyTypeName')},
-				${db.quoteName('pay.name', 'paymentPlan')},
-				${db.quoteName('q.insurer')},
-				${db.quoteName('q.amount')},
-				${db.quoteName('q.bound')},
-				${db.quoteName('i.logo')},
-				${db.quoteName('q.quote_letter')},
-				${db.quoteName('q.number')},
-				${db.quoteName('q.status')}
-			FROM ${db.quoteName('#__quotes', 'q')}
-			LEFT JOIN  ${db.quoteName('#__policies', 'p')} ON ${db.quoteName('p.quote')} = ${db.quoteName('q.id')}
-			LEFT JOIN  ${db.quoteName('#__payment_plans', 'pay')} ON ${db.quoteName('pay.id')} = ${db.quoteName('q.payment_plan')}
-			LEFT JOIN  ${db.quoteName('#__insurers', 'i')} ON ${db.quoteName('i.id')} = ${db.quoteName('q.insurer')}
-			LEFT JOIN  ${db.quoteName('#__policy_types', 'pt')} ON ${db.quoteName('pt.abbr')} = ${db.quoteName('q.policy_type')}
-			LEFT JOIN  ${db.quoteName('#__applications', 'a')} ON ${db.quoteName('q.application')} = ${db.quoteName('a.id')}
-			
-			WHERE ${db.quoteName('q.application')} = ${req.query.id} AND ${db.quoteName('q.state')} = 1;
+            SELECT
+                q.api_result,
+                q.policy_type,
+                pt.name as policyTypeName,
+                pay.name as paymentPlan,
+                q.insurer,
+                q.amount,
+                q.bound,
+                q.reasons,
+                i.logo,
+                q.quote_letter,
+                q.number,
+                q.status
+            FROM clw_talage_quotes as q
+            LEFT JOIN  clw_talage_policies as p ON p.quote = q.id
+            LEFT JOIN  clw_talage_payment_plans as pay ON pay.id = q.payment_plan
+            LEFT JOIN  clw_talage_insurers as i ON i.id = q.insurer
+            LEFT JOIN  clw_talage_policy_types as pt ON pt.abbr = q.policy_type
+            LEFT JOIN  clw_talage_applications as a ON q.application = a.id
+
+            WHERE q.application = ${req.query.id} AND q.state = 1;
 		`;
+
 
     const quotes = await db.query(quotesSQL).catch(function(err){
         log.error(err.message);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     });
 
+
     // Add the quotes to the return object and determine the application status
     application.quotes = [];
     if (quotes.length > 0){
+        for(let i = 0; i < quotes.length; i++){
+            // eslint-disable-next-line prefer-const
+            let quote = quotes[i];
+            if(!quote.status && quote.api_result){
+                quote.status = quote.api_result;
+            }
+
+            // Change the name of autodeclined
+            if(quote.status === 'autodeclined'){
+                quote.status = 'Out of Market';
+                quote.reasons = '';
+            }
+            if(quote.status === 'bind_requested'
+                || quote.bound
+                || quote.status === 'quoted'){
+
+                quote.reasons = '';
+            }
+
+        }
+
+
         // Add the quotes to the response
         application.quotes = quotes;
     }
