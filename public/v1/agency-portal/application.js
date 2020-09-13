@@ -227,9 +227,11 @@ async function getApplication(req, res, next){
                 q.bound,
                 q.reasons,
                 i.logo,
+                i.name as insurerName,
                 q.quote_letter,
                 q.number,
-                q.status
+                q.status,
+                q.log
             FROM clw_talage_quotes as q
             LEFT JOIN  clw_talage_policies as p ON p.quote = q.id
             LEFT JOIN  clw_talage_payment_plans as pay ON pay.id = q.payment_plan
@@ -268,12 +270,27 @@ async function getApplication(req, res, next){
 
                 quote.reasons = '';
             }
+            // can see log?
+            try{
+                if(req.authentication.permissions.applications.viewlogs){
+                    quote.log = await crypt.decrypt(quote.log);
+                }
+                else {
+                    delete quote.log;
+                }
+            }
+            catch(e){
+                delete quote.log;
+            }
 
         }
 
 
         // Add the quotes to the response
         application.quotes = quotes;
+        if(req.authentication.permissions.applications.viewlogs){
+            application.showLogs = true;
+        }
     }
 
     // Get any existing claims for the application from the data base
