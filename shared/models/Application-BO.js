@@ -3,9 +3,11 @@ const moment = require('moment');
 const DatabaseObject = require('./DatabaseObject.js');
 const BusinessModel = require('./Business-model.js');
 const ApplicationActivityCodesModel = require('./ApplicationActivityCodes-model.js');
-const ApplicationPolicyTypeModel = require('./ApplicationPolicyType-model.js');
+const ApplicationPolicyTypeBO = require('./ApplicationPolicyType-BO.js');
 const LegalAcceptanceModel = require('./LegalAcceptance-model.js');
-const ApplicationClaimModel =  require('./ApplicationClaim-model.js');
+const ApplicationClaimBO =  require('./ApplicationClaim-BO.js');
+const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
+const status = global.requireShared('./models/application-businesslogic/status.js');
 
 const QuoteModel = require('./Quote-model.js');
 const taskWholesaleAppEmail = global.requireRootPath('tasksystem/task-wholesaleapplicationemail.js');
@@ -20,10 +22,13 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 const convertToIntFields = [];
 
+const tableName = 'clw_talage_applications';
+
 const  QUOTE_STEP_NUMBER = 9;
 module.exports = class ApplicationModel {
 
     #dbTableORM = null;
+    doNotSnakeCase = ['appStatusId'];
 
     constructor() {
         this.agencyLocation = null;
@@ -33,9 +38,26 @@ module.exports = class ApplicationModel {
         this.policies = [];
         this.questions = {};
         this.test = false;
-        this.#dbTableORM = new ApplicationOrm();
-    }
+        this.WorkFlowSteps = {
+            'contact': 2,
+            'coverage': 3,
+            'locations': 4,
+            'owners': 5,
+            'details': 6,
+            'claims': 7,
+            'questions': 8,
+            'quotes': 9,
+            'cart': 10,
+            'bindRequest': 10,
+        };
 
+
+
+        
+        this.#dbTableORM = new ApplicationOrm();
+        this.#dbTableORM.doNotSnakeCase = this.doNotSnakeCase;
+    }
+   
 
     /**
    * Load new application JSON with optional save.
@@ -50,6 +72,8 @@ module.exports = class ApplicationModel {
                 reject(new Error("empty application object given"));
                 return;
             }
+
+            //log.debug("Beginning applicationJSON: " + JSON.stringify(applicationJSON));
 
             const stepMap = {
                 'contact': 2,
@@ -86,7 +110,7 @@ module.exports = class ApplicationModel {
                 });
                 this.updateProperty();
                 //Check that is still updateable.
-                if(this.state > 15  && this.state === 0){
+                if(this.state > 15  && this.state < 1){
                     log.warn(`Attempt to update a finished or deleted application. appid ${applicationJSON.id}`  + __location);
                     reject(new Error("Data Error:Application may not be updated."));
                     return;
@@ -124,20 +148,40 @@ module.exports = class ApplicationModel {
                 }
                 if(!applicationJSON.agency){
                     applicationJSON.agency = 1
+                    applicationJSON.agency_location = 1
                 }
                 if(applicationJSON.agency === 0 && applicationJSON.agency === "0"){
                     applicationJSON.agency = 1
+                    applicationJSON.agency_location = 1
+                }
+                if(applicationJSON.agencylocation_id === null){
+                    delete applicationJSON.agencylocation_id
+                }
+                if(applicationJSON.agency_location === null){
+                    delete applicationJSON.agency_location
                 }
                 //agency location defaults
                 if(applicationJSON.agencylocation_id && !applicationJSON.agency_location){
-                    applicationJSON.agency_location = applicationJSON.agencylocation_id   
+                    applicationJSON.agency_location = applicationJSON.agencylocation_id  
+                    delete applicationJSON.agencylocation_id 
                 }
-                if(!applicationJSON.agency_location){
-                    applicationJSON.agency_location = 1
+                //set to Agencylocation to Agency's primary if not set by request
+                if(typeof applicationJSON.agency_location !== 'number' && typeof applicationJSON.agency_location !== 'string'){
+                    log.info(`Setting App agency location to primary ${applicationJSON.uuid }` + __location)
+                    let agencyLocationBO = new AgencyLocationBO();
+                    const locationPrimaryJSON = await agencyLocationBO.getByAgencyPrimary(applicationJSON.agency).catch(function(err){
+                        log.error("Error getting Agency Primary Location ${applicationJSON.uuid} " + err + __location);
+                    });
+                    if(locationPrimaryJSON && locationPrimaryJSON.id ){
+                        applicationJSON.agency_location = locationPrimaryJSON.id
+                        log.info(`Set App agency location to primary for ${applicationJSON.uuid } agency ${applicationJSON.agency} Location ${applicationJSON.agency_location}` + __location)
+                    }
+                    else {
+                        log.warn(`Data problem prevented setting App agency location to primary for ${applicationJSON.uuid } agency ${applicationJSON.agency} Location ${applicationJSON.agency_location}` + __location)
+                    }
+                    
                 }
-                if(applicationJSON.agency_location === 0 || applicationJSON.agency_location === "0"){
-                    applicationJSON.agency_location = 1
-                }
+                
             }
 
             //log.debug("applicationJSON: " + JSON.stringify(applicationJSON));
@@ -145,7 +189,9 @@ module.exports = class ApplicationModel {
             let updateBusiness = false;
             switch (workflowStep) {
                 case "contact":
-                    
+                    applicationJSON.progress = 'incomplete';
+                    applicationJSON.status = 'incomplete';
+                    applicationJSON.appStatusId = 0;
                     //setup business special case need new business ID back.
                     if (applicationJSON.businessInfo) {
                         //load business
@@ -220,6 +266,8 @@ module.exports = class ApplicationModel {
                         log.error('Adding Legal Acceptance error:' + err + __location);
                         reject(err);
                     });
+                    //applicationJSON.status = 'incomplete';
+                    //applicationJSON.appStatusId = 10;
                     if(applicationJSON.wholesale === 1 || applicationJSON.solepro === 1 ){
                         //save the app for the email.
                         this.#dbTableORM.load(applicationJSON, false).catch(function (err) {
@@ -252,6 +300,7 @@ module.exports = class ApplicationModel {
                     break;
                 case 'bindRequest':
                     if(applicationJSON.quotes){
+                        applicationJSON.appStatusId = this.appStatusId;
                         await this.processQuotes(applicationJSON).catch(function(err){
                             log.error('Processing Quotes error:' + err + __location);
                             reject(err);
@@ -337,7 +386,7 @@ module.exports = class ApplicationModel {
    processClaimsWF(claims) {
     return new Promise(async (resolve, reject) => {
         //delete existing.
-        const applicationClaimModelDelete = new ApplicationClaimModel();
+        const applicationClaimModelDelete = new ApplicationClaimBO();
         //remove existing addresss acivity codes. we do not get ids from UI.
         await applicationClaimModelDelete.DeleteClaimsByApplicationId(this.id).catch(function(err){
             log.error("Error deleting ApplicationClaimModel " + err +  __location);
@@ -345,7 +394,7 @@ module.exports = class ApplicationModel {
         for(var i = 0; i < claims.length; i++){
             let claim = claims[i];
             claim.application = this.id;
-            const applicationClaimModel = new ApplicationClaimModel();
+            const applicationClaimModel = new ApplicationClaimBO();
             await applicationClaimModel.saveModel(claim).catch(function (err) {
                 log.error("Adding new claim error:" + err + __location);
                 reject(err);
@@ -394,7 +443,7 @@ processPolicyTypes(policyTypeArray){
 
     return new Promise(async (resolve, reject) => {
         //delete existing.
-        const applicationPolicyTypeModelDelete = new ApplicationPolicyTypeModel();
+        const applicationPolicyTypeModelDelete = new ApplicationPolicyTypeBO();
         //remove existing addresss acivity codes. we do not get ids from UI.
         await applicationPolicyTypeModelDelete.DeleteByApplicationId(this.id).catch(function(err){
             log.error("Error deleting ApplicationPolicyTypeModel " + err +  __location);
@@ -407,7 +456,7 @@ processPolicyTypes(policyTypeArray){
                 'application': this.id,
 				"policy_type": policyType
             }
-            const applicationPolicyTypeModel = new ApplicationPolicyTypeModel();
+            const applicationPolicyTypeModel = new ApplicationPolicyTypeBO();
             await applicationPolicyTypeModel.saveModel(policyTypeJSON).catch(function (err) {
                 log.error(`Adding new applicationPolicyTypeModel for Appid ${this.id} error:` + err + __location);
                 reject(err);
@@ -433,11 +482,11 @@ processQuestions(questions){
             let valueLine = '';
             if(question.type === 'text'){
                 const cleanString = question.answer.replace(/\|/g,',')
-                valueLine = `(${this.id}, ${question.id}, NULL, '${cleanString}')`
+                valueLine = `(${this.id}, ${question.id}, NULL, ${db.escape(cleanString)})`
 
             } else if (question.type === 'array'){
                 const arrayString = "|" + question.answer.join('|');
-                valueLine = `(${this.id}, ${question.id},NULL, '${arrayString}')`
+                valueLine = `(${this.id}, ${question.id},NULL, ${db.escape(arrayString)})`
             }
             else {
                 valueLine = `(${this.id}, ${question.id}, ${question.answer}, NULL)`
@@ -499,8 +548,8 @@ processQuotes(applicationJSON){
         if(applicationJSON.quotes){
             for(var i=0;i<applicationJSON.quotes.length; i++){
                 const quote = applicationJSON.quotes[i];
-                log.debug("quote: " + JSON.stringify(quote))
-                log.debug("Sending Bind Agency email for AppId " + this.id + " quote " + quote.quote);
+                log.debug("quote: " + JSON.stringify(quote) + __location)
+                log.debug("Sending Bind Agency email for AppId " + this.id + " quote " + quote.quote + __location);
                 //no need to await.
                 taskEmailBindAgency.emailbindagency(this.id, quote.quote);
 
@@ -523,12 +572,19 @@ processQuotes(applicationJSON){
                     
                 });                  
 
-                // TODO order of quotes may reduce the state
                 applicationJSON.state = quote['api_result'] === 'referred_with_price' ? 12 : 16;
-                // will get saved later afte this returns.
-                
-               
+                if( applicationJSON.state === 12 && applicationJSON.appStatusId < 80){
+                    applicationJSON.status = 'request_to_bind_referred';
+                    applicationJSON.appStatusId = 80;
+                }
+                else  if( applicationJSON.state === 16 && applicationJSON.appStatusId < 70){
+                    applicationJSON.status = 'request_to_bind';
+                    applicationJSON.appStatusId = 70;
+                }
             }
+        }
+        else {
+            log.error("in AppBO Process quote, but no quotes included in JSON " + JSON.stringify(applicationJSON) +__location)
         }
         resolve(true);
 
@@ -630,7 +686,7 @@ processQuotes(applicationJSON){
         return new Promise(async (resolve, reject) => {
             //validate
             if (id && id > 0) {
-                await this.#dbTableORM.getById(applicationJSON.id).catch(function (err) {
+                await this.#dbTableORM.getById(id).catch(function (err) {
                     log.error("Error getting application from Database " + err + __location);
                     reject(err);
                     return;
@@ -644,6 +700,79 @@ processQuotes(applicationJSON){
         });
     }
 
+    getById(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id && id >0 ){
+                await this.#dbTableORM.getById(id).catch(function (err) {
+                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
+                    reject(err);
+                    return;
+                });
+                this.updateProperty();
+                resolve(this.#dbTableORM.cleanJSON());
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
+    deleteSoftById(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id && id >0 ){
+              
+                //Remove old records.
+                const sql =`Update ${tableName} 
+                        SET state = -2
+                        WHERE id = ${db.escape(id)}
+                `;
+                let rejected = false;
+                const result = await db.query(sql).catch(function (error) {
+                    // Check if this was
+                    log.error("Database Object ${tableName} UPDATE State error :" + error + __location);
+                    rejected = true;
+                    reject(error);
+                });
+                if (rejected) {
+                    return false;
+                }
+                resolve(true);
+              
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
+    async getAgencyNewtorkIdById(id){
+        return new Promise(async (resolve, reject) => {
+           
+            let rejected = false;
+
+            let sql = `
+            select agency_network from clw_talage_applications a
+            inner join clw_talage_agencies ag on ag.id = a.agency
+            where a.id = ${db.escape(id)}
+            `;
+            const result = await db.query(sql).catch(function (error) {
+                rejected = true;
+                log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
+                reject(error);
+            });
+            if (rejected) {
+                return;
+            }
+            if(result && result.length >0){
+                resolve(result[0].agency_network)
+            }
+            else {
+                rejected(new Error("Not Found"));
+            }
+        });
+    }
 
 
     async cleanupInput(inputJSON) {
@@ -710,6 +839,14 @@ const properties = {
         "rules": null,
         "type": "string",
         "dbType": "varchar(32)"
+    },
+    "appStatusId": {
+        "default": null,
+        "encrypted": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "abandoned_email": {
         "default": 0,
@@ -962,6 +1099,13 @@ const properties = {
         "rules": null,
         "type": "number"
     },
+    "progress": {
+        "default": "unknown",
+        "encrypted": false,
+        "required": false,
+        "rules": null,
+        "type": "string"
+    },
     "referrer": {
         "default": "unknown",
         "encrypted": false,
@@ -1061,6 +1205,33 @@ const properties = {
         "rules": null,
         "type": "number",
         "dbType": "mediumint(5) unsigned"
+    },
+    "city": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(60)"
+    },
+    "state_abbr": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(2)"
+    },
+    "zipcode": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(10)"
     },
     "created": {
         "default": null,

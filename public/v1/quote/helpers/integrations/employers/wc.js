@@ -71,8 +71,8 @@ module.exports = class EmployersWC extends Integration {
 
             // Ensure this entity type is in the entity matrix above
             if (!(this.app.business.entity_type in entityMatrix)) {
-                log.warn(`autodeclined: no limits  ${this.insurer.name} does not support the selected entity type ${this.entity_code} ` + __location)
-                this.reasons.push(`${this.insurer.name} does not support the selected entity type`);
+                log.error(`Appid: ${this.app.id} autodeclined: no limits  ${this.insurer.name} does not support the selected entity type ${this.entity_code} ` + __location)
+                this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} does not support the selected entity type`);
                 fulfill(this.return_result('autodeclined'));
                 return;
             }
@@ -80,8 +80,8 @@ module.exports = class EmployersWC extends Integration {
             // Prepare limits
             this.bestLimits = this.getBestLimits(carrierLimits);
             if (!this.bestLimits) {
-                log.warn(`autodeclined: no best limits  ${this.insurer.name} does not support the requested liability limits ` + __location)
-                this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
+                log.warn(`Appid: ${this.app.id} autodeclined: no best limits  ${this.insurer.name} does not support the requested liability limits ` + __location)
+                this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} does not support the requested liability limits`);
                 fulfill(this.return_result('autodeclined'));
                 return;
             }
@@ -109,7 +109,7 @@ module.exports = class EmployersWC extends Integration {
                         answer = this.determine_question_answer(question, required_questions.includes(question.id));
                     }
                     catch (error) {
-                        log.error(`Employers WC: Unable to determine answer for question ${question.id} error: ${error} ` + __location)
+                        log.error(`Appid: ${this.app.id}Employers WC: Unable to determine answer for question ${question.id} error: ${error} ` + __location)
                         this.reasons.push(`Unable to determine answer for question ${question.id}`);
                         fulfill(this.return_result('error'));
                         return;
@@ -122,7 +122,7 @@ module.exports = class EmployersWC extends Integration {
 
                     // Ensure the question is only yes/no at this point
                     if (question.type !== 'Yes/No') {
-                        log.error(`Employers WC: Unknown question type supported. Employers only has Yes/No. ` + __location)
+                        log.error(`Appid: ${this.app.id}Employers WC: Unknown question type supported. Employers only has Yes/No. ` + __location)
                         this.reasons.push('Unknown question type supported. Employers only has Yes/No.');
                         fulfill(this.return_result('error'));
                         return;
@@ -143,7 +143,7 @@ module.exports = class EmployersWC extends Integration {
 
             // Determine which URL to use
             let host = '';
-            if (this.insurer.useSandbox || global.settings.ENV !== 'production') {
+            if (this.insurer.useSandbox) {
                 host = 'api-qa.employers.com';
             }
             else {
@@ -151,7 +151,7 @@ module.exports = class EmployersWC extends Integration {
             }
             const path = '/DigitalAgencyServices/ws/AcordServices';
 
-            log.info(`Sending application to https://${host}${path}. Remember to connect to the VPN. This can take up to 30 seconds.`);
+            log.info(`Appid: ${this.app.id} Sending application to https://${host}${path}. Remember to connect to the VPN. This can take up to 30 seconds.`);
 
             // Send the XML to the insurer
             await this.send_xml_request(host, path, xml).
@@ -177,8 +177,8 @@ module.exports = class EmployersWC extends Integration {
                                     fulfill(this.return_result('declined'));
                                     return;
                                 default:
-                                    log.error(`Employers WC: Unknown status code from Employers Acord Service ${status_code}` + __location)
-                                    fulfill(this.return_result('error'));
+                                    log.error(`Appid: ${this.app.id} Employers WC: Unknown status code from Employers Acord Service ${status_code}` + __location)
+                                    fulfill(this.return_result('declined'));
                                     return;
                             }
                         }
@@ -207,7 +207,7 @@ module.exports = class EmployersWC extends Integration {
                         this.number = policy_number;
                     }
                     else {
-                        log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find policy number.` + __location);
+                        log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find policy number.` + __location);
                     }
 
                     // Attempt to get the amount of the quote
@@ -234,7 +234,7 @@ module.exports = class EmployersWC extends Integration {
                                             this.limits[3] = limit.FormatCurrencyAmt[0].Amt[0];
                                             break;
                                         default:
-                                            log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response` + __location);
+                                            log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response` + __location);
                                             break;
                                     }
                                 });
@@ -251,7 +251,7 @@ module.exports = class EmployersWC extends Integration {
                     }
                     catch (e) {
                         if (status === 'QUOTE' || status === 'PENDING_REFER') {
-                            log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.` + __location);
+                            log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.` + __location);
                         }
                     }
 
@@ -267,13 +267,13 @@ module.exports = class EmployersWC extends Integration {
                         }
                         catch (err) {
                             if (status === 'QUOTE') {
-                                log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Changed how it returns the quote letter.` + __location);
+                                log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Changed how it returns the quote letter.` + __location);
                             }
                         }
                     }
                     catch (e) {
                         if (status === 'QUOTE') {
-                            log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find files.` + __location);
+                            log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find files.` + __location);
                         }
                     }
 
@@ -285,7 +285,7 @@ module.exports = class EmployersWC extends Integration {
                     }
                     catch (e) {
                         if (status === 'INPROGRESS') {
-                            log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to reasons.` + __location);
+                            log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to reasons.` + __location);
                         }
                     }
 
@@ -293,7 +293,7 @@ module.exports = class EmployersWC extends Integration {
                     fulfill(this.return_result(status));
                 }).
                 catch(() => {
-                    log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.` + __location);
+                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.` + __location);
                     fulfill(this.return_result('error'));
                 });
         });

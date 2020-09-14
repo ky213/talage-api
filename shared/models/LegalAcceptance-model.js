@@ -87,26 +87,6 @@ module.exports = class ApplicationClaimModel{
         });
     }
 
-    DeleteByApplicationId(applicationId) {
-        return new Promise(async(resolve, reject) => {
-            //Remove old records.
-            const sql =`DELETE FROM ${tableName} 
-                   WHERE application = ${applicationId}
-            `;
-            let rejected = false;
-			const result = await db.query(sql).catch(function (error) {
-				// Check if this was
-				log.error("Database Object ${tableName} DELETE error :" + error + __location);
-				rejected = true;
-				reject(error);
-			});
-			if (rejected) {
-				return false;
-			}
-            resolve(true);
-       });
-    }
-
 
     async cleanupInput(inputJSON){
         for (const property in properties) {

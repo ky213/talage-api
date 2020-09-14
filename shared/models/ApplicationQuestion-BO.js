@@ -8,13 +8,15 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 const tableName = 'clw_talage_application_questions'
 const skipCheckRequired = false;
-module.exports = class ApplicationClaimModel{
+module.exports = class ApplicationQuestionBO{
 
     #dbTableORM = null;
-
+    doNotSnakeCase = ['additionalInfo'];
+    
 	constructor(){
         this.id = 0;
         this.#dbTableORM = new DbTableOrm(tableName);
+        this.#dbTableORM.doNotSnakeCase = this.doNotSnakeCase;
     }
 
 
@@ -88,6 +90,74 @@ module.exports = class ApplicationClaimModel{
         });
     }
 
+    loadFromApplicationId(applicationId, returnQuestionList = false) {
+        return new Promise(async (resolve, reject) => {
+            if(applicationId && applicationId >0 ){
+                let rejected = false;
+                // Create the update query
+                const sql = `
+                    select *  from ${tableName} where application = ${applicationId}
+                `;
+
+                // Run the query
+                const result = await db.query(sql).catch(function (error) {
+                    // Check if this was
+                
+                    rejected = true;
+                    log.error(`loadFromApplicationId ${tableName} id: ${db.escape(this.id)}  error ` + error + __location)
+                    reject(error);
+                });
+                if (rejected) {
+                    return;
+                }
+                let boList = [];
+                let questionJSON = {};
+                if(result && result.length > 0 ){
+                    for(let i=0; i < result.length; i++ ){
+                        //Decrypt encrypted fields.
+                        let applicationQuestionBO = new ApplicationQuestionBO();
+                        await applicationQuestionBO.#dbTableORM.decryptFields(result[i]);
+                        await applicationQuestionBO.#dbTableORM.convertJSONColumns(result[i]);
+                      
+                        const resp = await applicationQuestionBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                            log.error(`loadFromApplicationId error loading object: ` + err + __location);
+                            //not reject on issues from database object.
+                            //reject(err);
+                        })
+                        if(!resp){
+                            log.debug("Bad BO load" + __location)
+                        }
+                        if(returnQuestionList){
+                            if(applicationQuestionBO.answer){
+                                questionJSON[applicationQuestionBO.question] = applicationQuestionBO.answer; 
+                            }
+                            else {
+                                questionJSON[applicationQuestionBO.question] = applicationQuestionBO.text_answer; 
+                            }
+                        }
+                        boList.push(applicationQuestionBO);
+                    }
+                    if(returnQuestionList){
+                        resolve(questionJSON)
+                    }
+                    else {
+                        resolve(boList);
+                    }
+                    
+                }
+                else {
+                    log.debug("not found loadFromApplicationId: " + sql);
+                    reject(new Error("not found"));
+                    return
+                }
+               
+            }
+            else {
+                reject(new Error('no applicationId supplied'))
+            }
+        });
+    }
+
     DeleteQuestionsByApplicationId(applicationId) {
         return new Promise(async(resolve, reject) => {
             //Remove old records.
@@ -130,6 +200,10 @@ module.exports = class ApplicationClaimModel{
         }
     }
 
+    cleanJSON(noNulls = true){
+		return this.#dbTableORM.cleanJSON(noNulls);
+	}
+
     updateProperty(){
         const dbJSON = this.#dbTableORM.cleanJSON()
         // eslint-disable-next-line guard-for-in
@@ -137,6 +211,18 @@ module.exports = class ApplicationClaimModel{
             this[property] = dbJSON[property];
         }
       }
+     
+      /**
+	 * Load new object JSON into ORM. can be used to filter JSON to object properties
+     *
+	 * @param {object} inputJSON - input JSON
+	 * @returns {void} 
+	 */
+    async loadORM(inputJSON){
+        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
+        this.updateProperty();
+        return true;
+    }
 
 }
 

@@ -12,10 +12,14 @@ const crypt = require('./crypt.js');
 const validator = global.requireShared('./helpers/validator.js');
 const fs = require('fs');
 //const imgSize = require('./emailhelpers/imgSize.js');
-const moment_timezone = require('moment-timezone');
+const moment = require('moment');
+//const moment_timezone = require('moment-timezone');
 //const request = require('request');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+
+const MessageBO = global.requireShared('./models/Message-BO.js');
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 
 /**
  * Sends an email to the address specified through our email service and saves the message data in the database
@@ -25,30 +29,56 @@ const tracker = global.requireShared('./helpers/tracker.js');
  * @param {string} subject - The subject of the email
  * @param {string} content - The HTML content of the email
  * @param {object} keys - (optional) An object of property names and values to tie this email to, an be an application id, agencyLocation, or both (preferred)
- * @param {string} brand - (optional) The name of the brand to use for this email (Default is talage)
+ * @param {string} brand - (optional) The name of the brand to override agency network record. talage to override wheelhouse. agency to make it agency branding.
  * @param {int} agency - (optional) The ID of the agency whose branding will appear on the email (brand must be agency or digalent-agency)
   @param {int} attachments - (optional) Array of JSON for attachments
  * @return {boolean} - True if successful; false otherwise
  */
 
-exports.send = async function(recipients, subject, content, keys = {}, brand = 'talage', agency = 1, attachments) {
+exports.send = async function(recipients, subject, content, keys = {}, agencyNetworkId = 1 , brandOverride = '', agencyId = 1, attachments) {
     // If we are in the test environment, don't send and just return true
     if(global.settings.ENV === 'test'){
         return true;
     }
+    log.debug("EmailSvc: agencyNetworkId:  " + agencyNetworkId);
+    log.debug("EmailSvc: brandOverride:  " + brandOverride);
+    log.debug("EmailSvc: agencyId:  " + agencyId);
+    //check agencyNetworkId is number
+    try{
+        agencyNetworkId = parseInt(agencyNetworkId,10);
+    }
+    catch(e){
+
+        return false;
+    }
+
+    //load AgencyNetworkBO
+    const agencyNetworkBO = new AgencyNetworkBO();
+    let error = null;
+    const boResp = await agencyNetworkBO.loadFromId(agencyNetworkId).catch(function(err){
+        log.error(`Error loading AgencyNetworkBO AgencyNetworkId {agencyNetworkId} ` + err + __location);
+        error = err;
+    })
+    if(error || boResp === false){
+        return false;
+    }
+    if(!agencyNetworkBO.additionalInfo || !agencyNetworkBO.additionalInfo.fromEmailAddress){
+        log.error(`Error loading AgencyNetworkBO Missing additionalInfo AgencyNetworkId {agencyNetworkId} ` + __location);
+        return false;
+    }
 
     var emailJSON = {};
     // Define systems with their sending email address
-    const systems = {
-        agency: 'no-reply@insurancewheelhouse.com',
-        digalent: 'no-reply@digalent.com',
-        'digalent-agency': 'no-reply@digalent.com',
-        talage: 'info@talageins.com',
-        wheelhouse: 'info@insurancewheelhouse.com'
-    };
+    // const systems = {
+    //     agency: 'no-reply@insurancewheelhouse.com',
+    //     digalent: 'no-reply@digalent.com',
+    //     'digalent-agency': 'no-reply@digalent.com',
+    //     talage: 'info@talageins.com',
+    //     wheelhouse: 'info@insurancewheelhouse.com'
+    // };
 
-    if(agency === 1 && brand === 'wheelhouse'){
-        brand = 'talage';
+    if(agencyId === 1 && brandOverride === 'wheelhouse'){
+        brandOverride = 'talage';
     }
 
     // Make sure we have recipients
@@ -69,28 +99,16 @@ exports.send = async function(recipients, subject, content, keys = {}, brand = '
         return false;
     }
 
-    // Make sure the brand is lowercase
-    if (brand && typeof brand === 'string') {
-        brand = brand.toLowerCase();
-        if (!systems[brand]) {
-            log.error('Email Service Send: Invalid brand supplied to send(), must be a valid system. ' + __location);
-            return false;
-        }
-    }
-    else {
-        log.error('Email Service Send: Invalid brand supplied to send(), must be a string' + __location);
-        return false;
-    }
 
     // If this is an agency, make sure we have an agency ID in the payload
-    if (brand === 'agency' || brand === 'digalent-agency') {
-        if (!agency || !/^\d*$/.test(agency)) {
-            const message = `You must specify an agency when sending from '${brand}'`;
+    if (brandOverride === 'agency' || brandOverride === 'digalent-agency') {
+        if (!agencyId || !/^\d*$/.test(agencyId)) {
+            const message = `You must specify an agency when sending from '${brandOverride}'`;
             log.error('Email Service send: ' + message + __location);
             return false;
         }
 
-        emailJSON.agency = parseInt(agency, 10);
+        emailJSON.agency = parseInt(agencyId, 10);
 
         // Validate the agency
         if (!await validator.agency(emailJSON.agency)) {
@@ -101,20 +119,34 @@ exports.send = async function(recipients, subject, content, keys = {}, brand = '
     }
 
     // If the brand is 'agency' or 'digalent-agency', make sure an agency was supplied
-    if ((brand === 'agency' || brand === 'digalent-agency') && (typeof agency !== 'number' || !agency)) {
+    if ((brandOverride === 'agency' || brandOverride === 'digalent-agency') && (typeof agencyId !== 'number' || !agencyId)) {
         log.warn('Email Service Send: When using a brand of "agency" or "digalent-agency" an agency must be supplied to send()');
         return false;
     }
 
     // ******* Begin building out the data that will be sent into the email service ****************************************
-    emailJSON.from = systems[brand];
+    emailJSON.from = agencyNetworkBO.additionalInfo.fromEmailAddress
+    if (brandOverride === 'agency' || brandOverride === 'digalent-agency'){
+        emailJSON.from = agencyNetworkBO.additionalInfo.fromEmailAddressAgency
+    }
+    else if (brandOverride === 'talage'){
+        emailJSON.from = 'info@talageins.com';
+    }
+    // log.debug("emailJSON.from: " + emailJSON.from);
     emailJSON.subject = subject;
 
     // ******  Template processing ************/
     // Make sure we have a template for this system
-    const template = `${__dirname}/emailhelpers/templates/${brand}.html`;
+    let template = `${__dirname}/emailhelpers/templates/${agencyNetworkBO.additionalInfo.emailTempateFile}`;
+    if(brandOverride === 'agency' || brandOverride === 'digalent-agency'){
+        template = `${__dirname}/emailhelpers/templates/${agencyNetworkBO.additionalInfo.emailTempateFileAgency}`;
+    }
+    else if(brandOverride === 'talage'){
+        template = `${__dirname}/emailhelpers/templates/talage.html`;
+    }
+    //log.debug("template:  " + template);
     if (!fs.existsSync(template)) {
-        const message = 'There is no email template setup for the specified system.';
+        const message = 'There is no email template setup for the specified system. ' + template;
         log.error('Email Service send: ' + message + __location);
         return false;
     }
@@ -123,7 +155,8 @@ exports.send = async function(recipients, subject, content, keys = {}, brand = '
     emailJSON.html = fs.readFileSync(template, 'utf8').replace('{{subject}}', emailJSON.subject).replace('{{content}}', content);
 
     // If this is an agency, there is some additional replacement that needs to occur
-    if (brand === 'agency' || brand === 'digalent-agency') {
+    if (brandOverride === 'agency' || brandOverride === 'digalent-agency') {
+        log.debug('agency template being used')
         // default logoHTMl empty string
         let logoHTML = '';
         logoHTML = await getAgencyLogoHtml(emailJSON.agency).catch(function(err) {
@@ -137,13 +170,13 @@ exports.send = async function(recipients, subject, content, keys = {}, brand = '
     }
 
     //Setup storing sent email.
-    // Get the current time in the Pacific timezone
-    const now = moment_timezone.tz('America/Los_Angeles');
+    // Working UTC with MongoDB and sending momemt object
+    const sentDtm = moment();
     // Begin populating a list of columns to insert into the database
     const columns = {
         checked_out: '0',
         message: await crypt.encrypt(content),
-        sent: now.format('YYYY-MM-DD HH:mm:ss'),
+        sent: sentDtm,
         subject: emailJSON.subject
     };
 
@@ -194,80 +227,53 @@ exports.send = async function(recipients, subject, content, keys = {}, brand = '
     // DO NOT send non talageins.com email in development (local) or awsdev
     // Scheduled tasks and db restores may lead to applications or agencies with "real" emails
     // in dev databases.
-    // if (global.settings.ENV === 'development' || global.settings.ENV === 'awsdev') {
-    //     // Hard override
-    //     if (global.settings.OVERRIDE_EMAIL && global.settings.OVERRIDE_EMAIL === 'YES' && global.settings.TEST_EMAIL) {
-    //         emailJSON.to = global.settings.TEST_EMAIL;
-    //         log.debug('Overriding email: ' + emailJSON.to);
-    //     }
-    //     else if (recipients.endsWith('@talageins.com') === false || recipients.includes(',')) {
-    //         // Soft override
-    //         // eslint-disable-next-line keyword-spacing
-    //         if (global.settings.TEST_EMAIL) {
-    //             emailJSON.to = global.settings.TEST_EMAIL;
-    //         }
-    //         else {
-    //             const overrideEmail = 'brian@talageins.com';
-    //             emailJSON.to = overrideEmail;
-    //         }
-    //     }
-    // }
-
+    if (global.settings.ENV === 'development' || global.settings.ENV === 'awsdev') {
+        // Hard disable
+        if (global.settings.DISABLE_EMAIL && global.settings.DISABLE_EMAIL === 'YES') {
+            log.debug('Disabling email: ' + emailJSON.to);
+            return true;
+        }
+        // Hard override
+        if (global.settings.OVERRIDE_EMAIL && global.settings.OVERRIDE_EMAIL === 'YES' && global.settings.TEST_EMAIL) {
+            emailJSON.to = global.settings.TEST_EMAIL;
+            log.debug('Overriding email: ' + emailJSON.to);
+        }
+        else if (recipients.endsWith('@talageins.com') === false || recipients.includes(',')) {
+            // Soft override
+            // eslint-disable-next-line keyword-spacing
+            if (global.settings.TEST_EMAIL) {
+                emailJSON.to = global.settings.TEST_EMAIL;
+            }
+            else {
+                const overrideEmail = 'brian@talageins.com';
+                emailJSON.to = overrideEmail;
+            }
+        }
+    }
+    //save any overrides for DB Save
+    recipients = emailJSON.to
     if (attachments) {
         emailJSON.attachments = attachments;
     }
 
+    //emailJSON.to may get changed in sendUsingSendGrid
+    let sendGridResp = await sendUsingSendGrid(emailJSON).catch(function(err) {
+        log.error('SendUsingSendGrid error: ' + err + __location);
+        sendGridResp = {"sendGridRespError": err};
+    });
+    log.debug('sendGridResp:  ' + JSON.stringify(sendGridResp))
+
     // Store mail before sending to SendGrid
     // Store a record of this sent message
-    await saveEmailToDb(columns, emailJSON.to).catch(function(err) {
-        log.error('saveEmailToDb error: ' + err + __location);
-    });
-
-    const sendGridResp = await sendUsingSendGrid(emailJSON).catch(function(err) {
-        log.error('SendUsingSendGrid error: ' + err + __location);
+    // await saveEmailToDb(columns, emailJSON.to, attachments).catch(function(err) {
+    //     log.error('saveEmailToDb error: ' + err + __location);
+    // });
+    const messageBO = new MessageBO();
+    await messageBO.saveMessage(columns,recipients,sendGridResp, attachments).catch(function(err){
+        log.error('saveMessage error: ' + err + __location);
     });
 
     return sendGridResp;
-};
-
-var saveEmailToDb = async function(columns, recipients) {
-    const insertQuery = `INSERT INTO clw_talage_messages (${Object.keys(columns).join(',')}) VALUES (${Object.values(columns).
-        map(function(val) {
-            return db.escape(val);
-        }).
-        join(',')})`;
-    let messagesId = null;
-    await db.
-        query(insertQuery).
-        then(function(results) {
-            messagesId = results.insertId;
-        }).
-        catch(function(err) {
-            log.error('Unable to record email message in the database' + err + ' sql: ' + insertQuery + __location);
-            throw err;
-        });
-    if (messagesId) {
-        if (global.settings.ENV === 'development' || global.settings.ENV === 'awsdev') {
-            log.debug('recipients:' + recipients + __location);
-        }
-        //write to message_recipents table  clw_talage_message_recipients
-        const recipientsList = recipients.split(',');
-        let error = null;
-        for (let i = 0; i < recipientsList.length; i++) {
-            const encryptRecipent = await crypt.encrypt(recipientsList[i]);
-            const hashRecipent = await crypt.hash(recipientsList[i]);
-            const insertQuery2 = `Insert INTO clw_talage_message_recipients (message,recipient,email_hash ) VALUES (${messagesId}, '${encryptRecipent}', '${hashRecipent}' )`;
-            // eslint-disable-next-line no-loop-func
-            await db.query(insertQuery2).catch(function(errDb) {
-                log.error('Unable to record email messager ecipient in the database' + errDb + ' sql: ' + insertQuery2 + __location);
-                error = errDb;
-            });
-        }
-        if (error) {
-            throw error;
-        }
-    }
-    return true;
 };
 
 var sendUsingSendGrid = async function(emailJSON) {
@@ -279,10 +285,11 @@ var sendUsingSendGrid = async function(emailJSON) {
         emailJSON.to = recipientsList;
     }
     // Initialize the email object
-   await Sendgrid.send(emailJSON).
+    let goodSend = false;
+    await Sendgrid.send(emailJSON).
         then(function() {
             log.info('Email successfully sent.' + __location);
-            return true;
+            goodSend = true;
         }).
         catch(function(error) {
             // Make sure the error returned is an object and has a code
@@ -290,38 +297,35 @@ var sendUsingSendGrid = async function(emailJSON) {
                 //const message = 'An unexpected error was returned from Sendgrid. Check the logs for more information. ' ;
                 log.error('Email Service PostEmail: ' + error + __location);
                 //log.verbose(util.inspect(error, false, null));
-                return false;
             }
-
-            // If this is a 400, something wrong was sent in
-            if (error.code === 400) {
+            else if (error.code === 400) {
+                // If this is a 400, something wrong was sent in
                 // Check that the response object has the properties we are expecting, and if not, exit
                 if (!Object.prototype.hasOwnProperty.call(error, 'response') || !Object.prototype.hasOwnProperty.call(error.response, 'body') || !Object.prototype.hasOwnProperty.call(error.response.body, 'errors') || typeof error.response.body.errors !== 'object') {
                     const message = 'Sendgrid may have changed the way it returns errors. Check the logs for more information. ';
                     log.error('Email Service PostEmail: ' + message + JSON.stringify(error) + __location);
                     //log.verbose(util.inspect(error, false, null) + __location);
-                    return false;
                 }
+                else {
+                    // Parse the error message to return something useful
+                    const errors = [];
+                    error.response.body.errors.forEach(function(errorObj) {
+                        errors.push(errorObj.message + __location);
+                    });
 
-                // Parse the error message to return something useful
-                const errors = [];
-                error.response.body.errors.forEach(function(errorObj) {
-                    errors.push(errorObj.message + __location);
-                });
+                    // Build the message to be sent
+                    const message = `Sendgrid returned the following errors: ${errors.join(', ')}`;
+                    log.warn(`Email Failed: ${message}` + __location);
 
-                // Build the message to be sent
-                const message = `Sendgrid returned the following errors: ${errors.join(', ')}`;
-                log.warn(`Email Failed: ${message}` + __location);
-                return false;
+                }
             }
             else {
                 // Some other type of error occurred
                 const message = 'An unexpected error was returned from Sendgrid. Check the logs for more information. ';
                 log.error('Email Service PostEmail: ' + message + JSON.stringify(error) + __location);
-                return false;
             }
         });
-    //return true;
+    return goodSend;
 };
 
 /**
@@ -378,7 +382,7 @@ var getAgencyLogoHtml = async function(agencyId) {
     // If the user has a logo, use it; otherwise, use a heading
     if (agencyDB[0].logo) {
         try {
-            const imgInfo = await imgSize(`https://${global.settings.S3_BUCKET}.s3-us-west-1.amazonaws.com/public/agency-logos/${agencyDB[0].logo}`);
+            const imgInfo = await imgSize(`${global.settings.IMAGE_URL}/public/agency-logos/${agencyDB[0].logo}`);
 
             // Determine if image needs to be scaled down
             const maxHeight = 100;
@@ -390,7 +394,7 @@ var getAgencyLogoHtml = async function(agencyId) {
                 imgInfo.width *= ratio;
             }
 
-            logoHTML = `<img alt="${agencyDB[0].name}" src="https://${global.settings.S3_BUCKET}.s3-us-west-1.amazonaws.com/public/agency-logos/${agencyDB[0].logo}" height="${imgInfo.height}" width="${imgInfo.width}">`;
+            logoHTML = `<img alt="${agencyDB[0].name}" src="${global.settings.IMAGE_URL}/public/agency-logos/${agencyDB[0].logo}" height="${imgInfo.height}" width="${imgInfo.width}">`;
         }
         catch (e) {
             // we will fail back to the default email heading for safety

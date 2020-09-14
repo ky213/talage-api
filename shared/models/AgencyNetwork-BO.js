@@ -3,6 +3,10 @@
 const DatabaseObject = require('./DatabaseObject.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+const fileSvc = global.requireShared('services/filesvc.js');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+
+const { 'v4': uuidv4 } = require('uuid');
 
 
 
@@ -11,11 +15,12 @@ const skipCheckRequired = false;
 module.exports = class AgencyNetworkBO{
 
     #dbTableORM = null;
-
+    doNotSnakeCase = ['additionalInfo'];
 	constructor(){
         this.id = 0;
         this.#dbTableORM = new DbTableOrm(tableName);
-    }
+        this.#dbTableORM.doNotSnakeCase = this.doNotSnakeCase;
+    }   
 
 
     /**
@@ -42,6 +47,36 @@ module.exports = class AgencyNetworkBO{
             else{
                 this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
             }
+            this.#dbTableORM.state = 1;
+
+            //logo processing
+            if(newObjectJSON.headerLogoContent){
+                const newFileName = await this.saveLogofiles(newObjectJSON.headerLogoContent, newObjectJSON.newHeaderFileName ).catch(function(err){
+                    reject(err)
+                })
+                if(newFileName){
+                    this.#dbTableORM.logo = newFileName;
+                }
+                else 
+                {
+                    log.error("No files name for S3 logo " + __location)
+                }
+                
+            }
+            if(newObjectJSON.footerLogoContent){
+                const newFileName = await this.saveLogofiles(newObjectJSON.footerLogoContent, newObjectJSON.newFooterFileName, false ).catch(function(err){
+                    reject(err)
+                })
+                if(newFileName){
+                    this.#dbTableORM.footer_logo = newFileName;
+                }
+                else 
+                {
+                    log.error("No files name for S3 logo " + __location)
+                }
+            }
+
+
 
             //save
             await this.#dbTableORM.save().catch(function(err){
@@ -50,10 +85,33 @@ module.exports = class AgencyNetworkBO{
             this.updateProperty();
             this.id = this.#dbTableORM.id;
 
-
+           
+            
+            
             resolve(true);
 
         });
+    }
+
+    async saveLogofiles(newLogoContent64, newFileName, isHeader = true){
+        
+        const logoData =newLogoContent64.substring(newLogoContent64.indexOf(',') + 1);
+
+        const baseS3Path = 'public/agency-network-logos/';
+        //clean name 
+        let fileName = stringFunctions.santizeFilename(this.name);
+        fileName += isHeader ? "-header-" : "-footer-"
+        fileName += uuidv4().toString();
+        fileName += `-${stringFunctions.santizeFilename(newFileName)}` 
+        const s3Path = baseS3Path + fileName;
+        await fileSvc.PutFile(s3Path, logoData).then(function(data){
+            return fileName;   
+    
+        }).catch(function(err){
+            log.error("File Service HTTP Put: " + err + __location);
+            throw err
+        });
+        return fileName;   
     }
 
     /**
@@ -72,7 +130,7 @@ module.exports = class AgencyNetworkBO{
         });
     }
 
-    getById(id) {
+    loadFromId(id) {
         return new Promise(async (resolve, reject) => {
             //validate
             if(id && id >0 ){
@@ -87,6 +145,77 @@ module.exports = class AgencyNetworkBO{
             else {
                 reject(new Error('no id supplied'))
             }
+        });
+    }
+
+    getById(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id && id >0 ){
+                await this.#dbTableORM.getById(id).catch(function (err) {
+                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
+                    reject(err);
+                    return;
+                });
+                this.updateProperty();
+                resolve(this.#dbTableORM.cleanJSON());
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
+    getList(queryJSON) {
+        return new Promise(async (resolve, reject) => {
+           
+                let rejected = false;
+                // Create the update query
+                let sql = `
+                    select *  from ${tableName}  
+                `;
+                if(queryJSON){
+                    let hasWhere = false;
+                    if(queryJSON.name){
+                        sql += hasWhere ? " AND " : " WHERE ";
+                        sql += ` name like ${db.escape(queryJSON.name)} `
+                        hasWhere = true;
+                    }
+                }
+                // Run the query
+                //log.debug("AgencyNetworkBO getlist sql: " + sql);
+                const result = await db.query(sql).catch(function (error) {
+                    // Check if this was
+                    
+                    rejected = true;
+                    log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
+                    reject(error);
+                });
+                if (rejected) {
+                    return;
+                }
+                let boList = [];
+                if(result && result.length > 0 ){
+                    for(let i=0; i < result.length; i++ ){
+                        let agencyNetworkBO = new AgencyNetworkBO();
+                        await agencyNetworkBO.#dbTableORM.decryptFields(result[i]);
+                        await agencyNetworkBO.#dbTableORM.convertJSONColumns(result[i]);
+                        const resp = await agencyNetworkBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                            log.error(`getList error loading object: ` + err + __location);
+                        })
+                        if(!resp){
+                            log.debug("Bad BO load" + __location)
+                        }
+                        boList.push(agencyNetworkBO);
+                    }
+                    resolve(boList);
+                }
+                else {
+                    //Search so no hits ok.
+                    resolve([]);
+                }
+               
+            
         });
     }
 
@@ -131,6 +260,7 @@ module.exports = class AgencyNetworkBO{
 	 */
     async loadORM(inputJSON){
         await this.#dbTableORM.load(inputJSON, skipCheckRequired);
+        this.updateProperty();
         return true;
     }
 
@@ -152,7 +282,9 @@ module.exports = class AgencyNetworkBO{
         
         const emailContentSQL = `
         SELECT
+            name as brandName,
             email_brand AS emailBrand,
+            additionalInfo,
             JSON_EXTRACT(custom_emails, '$.${agencyContentProperty}') AS agencyEmailData,
             JSON_EXTRACT(custom_emails, '$.${customerContentProperty}') AS customerEmailData,
             (SELECT JSON_EXTRACT(custom_emails, '$.${agencyContentProperty}')  FROM  clw_talage_agency_networks WHERE id = 1 ) AS defaultAgencyEmailData,
@@ -160,7 +292,7 @@ module.exports = class AgencyNetworkBO{
         FROM clw_talage_agency_networks
         WHERE id = ${db.escape(agencyNetworkId)}
         `;
-        log.debug("emailContent SQL: " + emailContentSQL);
+       // log.debug("emailContent SQL: " + emailContentSQL);
         let error = null;
         const emailContentResultArray = await db.query(emailContentSQL).catch(function(err){
             log.error(`DB Error Unable to get email content for abandon quote. appid: ${applicationId}.  error: ${err}` +  __location);
@@ -189,12 +321,20 @@ module.exports = class AgencyNetworkBO{
                 const agencySubject = agencyEmailData && agencyEmailData.subject ? agencyEmailData.subject : defaultAgencyEmailData.subject;
 
                 emailTemplateJSON = { 
-                        "emailBrand": emailContentResult.emailBrand,
-                        "customerMessage": customermessage, 
-                        "customerSubject": customersubject,
-                        "agencyMessage": agencyMessage, 
-                        "agencySubject": agencySubject
-                    }
+                    "brandName": emailContentResult.brandName,
+                    "emailBrand": emailContentResult.emailBrand,
+                    "customerMessage": customermessage, 
+                    "customerSubject": customersubject,
+                    "agencyMessage": agencyMessage, 
+                    "agencySubject": agencySubject
+                }
+                
+                const environmentSettings = this.getEnvSettingFromJSON(emailContentResult.additionalInfo, agencyNetworkId)
+                if(typeof environmentSettings === "object"){
+                    for (var property in environmentSettings) {
+                        emailTemplateJSON[property]  = environmentSettings[property];
+                    };
+                }
                 
             }
             catch(err) {
@@ -224,7 +364,9 @@ module.exports = class AgencyNetworkBO{
         
         const emailContentSQL = `
         SELECT
+            name as brandName,
             email_brand AS emailBrand,
+            additionalInfo,
             JSON_EXTRACT(custom_emails, '$.${contentProperty}') AS emailData,
             (SELECT JSON_EXTRACT(custom_emails, '$.${contentProperty}')  FROM  clw_talage_agency_networks WHERE id = 1 ) AS defaultEmailData
         FROM clw_talage_agency_networks
@@ -255,11 +397,19 @@ module.exports = class AgencyNetworkBO{
 
 
                 emailTemplateJSON = { 
+                        
                         "emailBrand": emailContentResult.emailBrand,
                         "message": message, 
                         "subject": subject
                     }
-                
+              
+                const environmentSettings = this.getEnvSettingFromJSON(emailContentResult.additionalInfo, agencyNetworkId)
+                if(typeof environmentSettings === "object"){
+                    for (var property in environmentSettings) {
+                        emailTemplateJSON[property]  = environmentSettings[property];
+                    };
+                }
+                   
             }
             catch(err) {
                 log.error("getEmailContentAgencyAndCustomer error: " + err + __location);
@@ -276,6 +426,80 @@ module.exports = class AgencyNetworkBO{
         }
         
     }
+    async getEnvSettingbyId(agencyNetworkId){
+         let error = null;
+         const agencyNetworkJSON = await this.getById(agencyNetworkId).catch(err => error);
+         if(error){
+             log.error("Error getting AgencyNetwork for env settings " + error + __location);
+             return null;
+         }
+        if(agencyNetworkJSON && agencyNetworkJSON.additionalInfo){
+            let envSetting = this.getEnvSettingFromJSON(agencyNetworkJSON.additionalInfo,agencyNetworkId );
+            envSetting.brandName = agencyNetworkJSON.name;
+            envSetting.emailBrand = agencyNetworkJSON.email_brand;
+            envSetting.brand = agencyNetworkJSON.additionalInfo.brand
+            return envSetting;
+        }
+        else {
+            log.error(`AgencyNetwork ${agencyNetworkId} does not have additionalInfo ` + __location);
+            return null;
+        }
+    }
+    getEnvSettingFromJSON(additionalInfoJSON, agencyNetworkId){
+        if(!additionalInfoJSON){
+            log.error(`AgencyNetwork ${agencyNetworkId} is missing additionalInfoJSON.environmentSettings for ${env} ` + __location)
+            return {};
+        }
+        if(typeof additionalInfoJSON === 'string'){
+            additionalInfoJSON = JSON.parse(additionalInfoJSON);
+        }
+        const env = global.settings.ENV
+        if(additionalInfoJSON && additionalInfoJSON.environmentSettings && additionalInfoJSON.environmentSettings[env]){
+            return additionalInfoJSON.environmentSettings[env];
+        }
+        else {
+            log.error(`AgencyNetwork ${agencyNetworkId} is missing additionalInfoJSON.environmentSettings for ${env} ` + __location)
+            return {};
+        }
+    }
+    getIdToNameMap(){
+        return new Promise(async (resolve, reject) => {
+            let map = {};
+            let rejected = false;
+            // Create the update query
+            let sql = `
+                select *  from ${tableName}  
+            `;
+            
+            // Run the query
+            //log.debug("AgencyNetworkBO getlist sql: " + sql);
+            const result = await db.query(sql).catch(function (error) {
+                // Check if this was
+                
+                rejected = true;
+                log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
+                reject(error);
+            });
+            if (rejected) {
+                return;
+            }
+            let boList = [];
+            if(result && result.length > 0 ){
+                for(let i=0; i < result.length; i++ ){
+                   map[result[i].id] = result[i].name ;
+                }
+                resolve(map);
+            }
+            else {
+                //Search so no hits ok.
+                resolve(map);
+            }
+           
+        
+    });
+        
+    }
+   
 }
 
 const properties = {
@@ -331,7 +555,7 @@ const properties = {
       "required": false,
       "rules": null,
       "type": "string",
-      "dbType": "varchar(40)"
+      "dbType": "varchar(250)"
     },
     "fname": {
       "default": null,
@@ -376,7 +600,7 @@ const properties = {
       "required": false,
       "rules": null,
       "type": "string",
-      "dbType": "varchar(40)"
+      "dbType": "varchar(250)"
     },
     "name": {
       "default": "",
@@ -397,6 +621,15 @@ const properties = {
       "dbType": "blob"
     },
     "feature_json": {
+      "default": null,
+      "encrypted": false,
+      "hashed": false,
+      "required": false,
+      "rules": null,
+      "type": "json",
+      "dbType": "json"
+    },
+    "additionalInfo": {
         "default": null,
         "encrypted": false,
         "hashed": false,
@@ -404,7 +637,7 @@ const properties = {
         "rules": null,
         "type": "json",
         "dbType": "json"
-      },
+     },
     "created": {
       "default": null,
       "encrypted": false,

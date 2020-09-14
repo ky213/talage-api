@@ -17,6 +17,7 @@ exports.process = function(requestJSON) {
         requestJSON.agency = requestJSON.agency_id
         if(requestJSON.agency === 0 || requestJSON.agency === "0"){
             requestJSON.agency = 1;
+            requestJSON.agency_location = 1;
         }
     }
     else {
@@ -24,13 +25,12 @@ exports.process = function(requestJSON) {
     }
     if(requestJSON.agencylocation_id){
         requestJSON.agency_location = requestJSON.agencylocation_id
+        delete requestJSON.agencylocation_id
         if(requestJSON.agency_location === 0 || requestJSON.agency_location === "0"){
             requestJSON.agency_location = 1;
         }
     }
-    else {
-        requestJSON.agency_location = 1;
-    }
+    //ApplicationBO will lookup primary location on save.
 
     var fieldstoMoveToBusineess = ["industry_code", "dba", "name"]
     var fieldstoMoveToBusineessContact = ["fname", "lname", "email", "phone"]
@@ -52,10 +52,6 @@ exports.process = function(requestJSON) {
     }
     businessInfo.contacts.push(contact);
 
-    requestJSON.demo = false;
-    if (requestJSON.name.toLowerCase().startsWith('talage')) {
-        requestJSON.demo = true;
-    }
 
     return true;
 }

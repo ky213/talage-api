@@ -29,7 +29,8 @@ var options = {
      "requireShared": true,
      "__location": true,
      "#dbTableORM": true,
-     "dbTableORM": true
+     "dbTableORM": true,
+     "requireRootPath": true
      
   }
 };
@@ -63,6 +64,8 @@ dir.files(__dirname, function (err, files) {
                   && file.indexOf('coverage') === -1
                   && file.indexOf('.json') === -1
                   && file.indexOf('.js') > -1
+                  && file.indexOf('BO.js') === -1
+                  && file.indexOf('model.js') === -1
                   && file.indexOf('DatabaseObject.js') === -1
                   && file.indexOf('mochawesome-report') === -1) {
                //console.log('processing  - ' + file);

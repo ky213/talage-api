@@ -7,12 +7,14 @@
 const crypt = global.requireShared('./services/crypt.js');
 const serverHelper = require('../../../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 
 module.exports = class AgencyLocation {
 
-    constructor(app) {
-        this.app = app;
-
+    constructor(appBusiness, appPolicies) {
+        //this.app = app;
+        this.business = appBusiness;
+        this.appPolicies = appPolicies;
         this.agency = '';
         this.agencyEmail = '';
         this.agencyId = 0;
@@ -27,9 +29,13 @@ module.exports = class AgencyLocation {
         this.last_name = '';
         this.territories = [];
         this.wholesale = false;
+        this.additionalInfo = {};
+        //Slack message to Talage for this Agency's applications.
+        // Parter channel that is really Talage Agency business.
+        this.notifiyTalage = false;
     }
 
-	/**
+    /**
 	 * Initializes an agent, getting the information we need about them from the database
 	 *
 	 * @returns {Promise.<object, Error>} True on success, Error on failure.
@@ -47,22 +53,27 @@ module.exports = class AgencyLocation {
 
             // Array for tracking queries
             const queries = [];
+            //fix zero or null agency_location id in application
+            // eslint-disable-next-line space-in-parens
+            // eslint-disable-next-line no-extra-parens
+            if((this.id > 0) === false){
+                this.id = 1;
+            }
+            const agencyLocationId = this.id;
+            // Define the where clause
+            // const where = `a.id = ${db.escape(parseInt(this.id, 10))}`;
+            const where = `a.id = ${this.id}`
 
-			// Define the where clause
-			// const where = `a.id = ${db.escape(parseInt(this.id, 10))}`;
-			const where = `a.id = ${this.id}`
-
-			// SQL for getting agency / location details
-			queries.push(`
-				SELECT ag.id, ag.agency_network, an.email_brand, a.email, a.fname, a.lname, ag.name, ag.phone, ag.website, ag.wholesale
-				FROM clw_talage_agency_locations a
-				LEFT JOIN clw_talage_agencies ag ON a.agency = ag.id
-				INNER JOIN clw_talage_agency_networks an ON ag.agency_network = an.id
-				WHERE ${where} LIMIT 1;
-			`);
-
-			// SQL for getting agency insurers
-			queries.push(`
+            // SQL for getting agency / location details
+            queries.push(`
+                SELECT ag.id, ag.agency_network, a.email, a.fname, a.lname, ag.name, ag.phone, ag.website, ag.wholesale, ag.additionalInfo
+                FROM clw_talage_agency_locations a
+                LEFT JOIN clw_talage_agencies ag ON a.agency = ag.id
+                
+                WHERE ${where} LIMIT 1;
+            `);
+            // SQL for getting agency insurers
+            queries.push(`
 				SELECT ai.insurer id, ai.agency_id, i.agent_login, ai.agent_id, ai.policy_type_info, ai.bop, ai.gl, ai.wc, i.enable_agent_id
 				FROM clw_talage_agency_location_insurers AS ai
 				LEFT JOIN clw_talage_agency_locations AS a ON ai.agency_location = a.id
@@ -70,8 +81,8 @@ module.exports = class AgencyLocation {
 				WHERE ${where} AND i.state > 0;
 			`);
 
-			// SQL for getting agency territories
-			queries.push(`
+            // SQL for getting agency territories
+            queries.push(`
 				SELECT at.territory
 				FROM clw_talage_agency_location_territories AS at
 				LEFT JOIN clw_talage_agency_locations AS a ON at.agency_location = a.id
@@ -95,6 +106,16 @@ module.exports = class AgencyLocation {
             const insurers = results[1];
             const territories = results[2];
 
+            const agency_network = agencyInfo.agency_network;
+            const agencyNetworkBO = new AgencyNetworkBO();
+            const agencyNetworkJSON = await agencyNetworkBO.getById(agencyInfo[0].agency_network).catch(function(err){
+                //error = err;
+                log.error(`Get AgencyNetwork ${agency_network} AgencyLocation ${agencyLocationId} Error ` + err + __location);
+            })
+            if(agencyNetworkJSON){
+                this.emailBrand = agencyNetworkJSON.email_brand;
+            }
+
             // Extract the agent info, decrypting as necessary
             this.agency = agencyInfo[0].name;
             this.agencyEmail = await crypt.decrypt(agencyInfo[0].email);
@@ -102,10 +123,17 @@ module.exports = class AgencyLocation {
             this.agencyNetwork = agencyInfo[0].agency_network;
             this.agencyPhone = await crypt.decrypt(agencyInfo[0].phone);
             this.agencyWebsite = await crypt.decrypt(agencyInfo[0].website);
-            this.emailBrand = agencyInfo[0].email_brand;
+
             this.first_name = await crypt.decrypt(agencyInfo[0].fname);
             this.last_name = await crypt.decrypt(agencyInfo[0].lname);
             this.wholesale = Boolean(agencyInfo[0].wholesale);
+            // Notification: Parter channel that is really Talage Agency business.
+            if(agencyInfo[0].additionalInfo){
+                this.additionalInfo = JSON.parse(agencyInfo[0].additionalInfo);
+                if(this.additionalInfo && typeof this.additionalInfo.notifiyTalage === 'boolean'){
+                    this.notifiyTalage = this.additionalInfo.notifiyTalage;
+                }
+            }
 
             // Extract the insurer info
             for (const insurerId in insurers) {
@@ -128,10 +156,10 @@ module.exports = class AgencyLocation {
                         insurer.agent_id = await crypt.decrypt(insurer.agent_id.toString()); // eslint-disable-line no-await-in-loop
                     }
 
-					// Parse the JSON for easy access
-					if(insurer.policy_type_info){
-						insurer.policy_type_info = JSON.parse(insurer.policy_type_info);
-					}
+                    // Parse the JSON for easy access
+                    if(insurer.policy_type_info){
+                        insurer.policy_type_info = JSON.parse(insurer.policy_type_info);
+                    }
                     this.insurers[insurer.id] = insurer;
                 }
             }
@@ -188,7 +216,7 @@ module.exports = class AgencyLocation {
         });
     }
 
-	/**
+    /**
 	 * Populates this object with data from the request
 	 *
 	 * @param {object} data - The business data
@@ -213,7 +241,7 @@ module.exports = class AgencyLocation {
         });
     }
 
-	/**
+    /**
 	 * Checks whether or not this agent can support the application that was submitted
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns true if this application is supported, rejects with a RestifyError.BadRequestError if not
@@ -221,16 +249,16 @@ module.exports = class AgencyLocation {
     supports_application() {
         return new Promise((fulfill, reject) => {
             // Territories
-            this.app.business.locations.forEach((location) => {
-                if (!this.territories.includes(location.territory)) {
-                    log.info(`Agent does not have ${location.territory} enabled`);
-                    reject(serverHelper.requestError('The specified agent is not setup to support this application.'));
+            this.business.locations.forEach((location) => {
+                if (!this.territories.includes(location.state_abbr)) {
+                    log.error(`Agent does not have ${location.state_abbr} enabled` + __location);
+                    reject(serverHelper.requestError(`The specified agent is not setup to support this application in territory ${location.state_abbr}.`));
 
                 }
             });
 
             // Policy Types
-            this.app.policies.forEach((policy) => {
+            this.appPolicies.forEach((policy) => {
                 let match_found = false;
                 for (const insurer in this.insurers) {
                     if (Object.prototype.hasOwnProperty.call(this.insurers, insurer)) {
@@ -240,7 +268,7 @@ module.exports = class AgencyLocation {
                     }
                 }
                 if (!match_found) {
-                    log.info(`Agent does not have ${policy.type} policies enabled`);
+                    log.error(`Agent does not have ${policy.type} policies enabled`);
                     reject(serverHelper.requestError('The specified agent is not setup to support this application.'));
 
                 }
@@ -250,7 +278,7 @@ module.exports = class AgencyLocation {
         });
     }
 
-	/**
+    /**
 	 * Checks that the data supplied is valid
 	 *
 	 * @returns {Promise.<array, Error>} A promise that returns a boolean indicating whether or not this record is valid, or an Error if rejected
@@ -258,7 +286,7 @@ module.exports = class AgencyLocation {
     validate() {
         return new Promise(async(fulfill, reject) => {
 
-			/**
+            /**
 			 * Key (required) - This is how we uniquelly identify agents
 			 */
             if (this.key) {
@@ -271,5 +299,32 @@ module.exports = class AgencyLocation {
 
             fulfill(true);
         });
+    }
+
+
+    shouldNotifyTalage(insureId){
+        //  const insurerIdTest = insureId.toString;
+        let notifyTalage = false;
+        if(this.insurers){
+            if(this.insurers[insureId] && this.insurers[insureId].policy_type_info){
+                try{
+                    if(this.insurers[insureId].policy_type_info.notifyTalage === true){
+                        notifyTalage = true;
+                    }
+                }
+                catch(e){
+                    log.error(`Error getting notifyTalage from agencyLocation ${this.id} insureid ${insureId} ` + e + __location);
+                }
+            }
+            else if(this.insurers[insureId] && !this.insurers[insureId].policy_type_info){
+                log.error(`Quote Agency Location no policy_type_info for insurer ${insureId} in shouldNotifyTalage ` + __location);
+            }
+        }
+        else {
+            log.error("Quote Agency Location no insurers in shouldNotifyTalage " + __location);
+        }
+        return notifyTalage;
+
+
     }
 };

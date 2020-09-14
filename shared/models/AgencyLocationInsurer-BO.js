@@ -91,6 +91,24 @@ module.exports = class AgencyLocationBO{
         });
     }
 
+    getById(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id && id >0 ){
+                await this.#dbTableORM.getById(id).catch(function (err) {
+                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
+                    reject(err);
+                    return;
+                });
+                this.updateProperty();
+                resolve(this.cleanJSON());
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
     async cleanupInput(inputJSON){
         for (const property in properties) {
             if(inputJSON[property]){
@@ -120,9 +138,44 @@ module.exports = class AgencyLocationBO{
         }
       }
    
+      async getByAgencyLocationAndInsurer(agencyLocId, insurerId){
+        
+        if(agencyLocId && insurerId){
+            agencyLocId = stringFunctions.santizeNumber(agencyLocId, true);
+            agencyLocId = stringFunctions.santizeNumber(agencyLocId, true);
+            let rejected  = false;
+            let sql = `select *
+                from ${tableName}
+                where agency_location = ${db.escape(agencyLocId)} 
+                    AND insurer = ${db.escape(insurerId)} 
+            `;
+            
+            const result = await db.query(sql).catch(function (error) {
+                // Check if this was
+                rejected = true;
+                log.error(`${tableName} error on select ` + error + __location);
+            });
+
+            if (!rejected && result && result.length >0) {
+                let locationInsurerJSON = result[0];
+                //created encrypt and format
+                let agencyLocationBO = new AgencyLocationBO();
+                await agencyLocationBO.#dbTableORM.decryptFields(locationInsurerJSON);
+                await agencyLocationBO.#dbTableORM.convertJSONColumns(locationInsurerJSON);
+                return locationInsurerJSON;
+            }
+            else {
+                return null;
+            }
+           
+        }
+        else {
+            throw new Error("No id or agency id");
+        }
+    }
 
 
-    async getListByAgencyLoationForAgencyPortal(agencyLocationId ){
+    async getListByAgencyLocationForAgencyPortal(agencyLocationId ){
         
         if(agencyLocationId){
             //santize id.
@@ -233,7 +286,7 @@ const properties = {
       "hashed": false,
       "required": false,
       "rules": null,
-      "type": "string",
+      "type": "json",
       "dbType": "json"
     },
     "bop": {

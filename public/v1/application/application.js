@@ -21,6 +21,7 @@ const questionStepParser = require('./parsers/question-step-parser.js')
 const bindStepParser = require('./parsers/bindrequest-step-parse.js')
 
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
+const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
 
 const slackSvc = global.requireShared('./services/slacksvc.js');
 const emailSvc = global.requireShared('./services/emailsvc.js');
@@ -37,17 +38,17 @@ const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
  * @returns {void}
  */
 async function Save(req, res, next){
-	log.debug("Application Post: " + JSON.stringify(req.body));
-	// Check for data
-	if(!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0){
-		log.warn('No data was received' + __location);
-		return next(serverHelper.requestError('No data was received'));
-	}
+    log.debug("Application Post: " + JSON.stringify(req.body));
+    // Check for data
+    if(!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0){
+        log.warn('No data was received' + __location);
+        return next(serverHelper.requestError('No data was received'));
+    }
 
-	// // Make sure basic elements are present
-	// if(!req.body.business || !Object.prototype.hasOwnProperty.call(req.body, 'id') || !req.body.policies){
-	// 	log.warn('Some required data is missing' + __location);
-	// 	return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    // // Make sure basic elements are present
+    // if(!req.body.business || !Object.prototype.hasOwnProperty.call(req.body, 'id') || !req.body.policies){
+    // 	log.warn('Some required data is missing' + __location);
+    // 	return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
     // }
     const applicationRequestJson = req.body;
 
@@ -60,7 +61,7 @@ async function Save(req, res, next){
         return next();
     }
 
-	//Validation passed, give requst application to model to process and save.
+    //Validation passed, give requst application to model to process and save.
     if(!applicationRequestJson.id && applicationRequestJson.step !== "contact" && applicationRequestJson.step !== "bindRequest"){
         res.send(400, "missing application id");
         return next(serverHelper.requestError("missing application id"));
@@ -78,53 +79,53 @@ async function Save(req, res, next){
     // Prep request data for passing to App Model
     let knownWorkflowStep = true;
     const worflowStep = applicationRequestJson.step
-	switch (applicationRequestJson.step) {
-		case "contact":
+    switch (applicationRequestJson.step) {
+        case "contact":
             await contactStepParser.process(applicationRequestJson);
-			break;
-		case 'locations':
+            break;
+        case 'locations':
             if(!applicationRequestJson.locations || !applicationRequestJson.mailing){
                 res.send(400, "missing location information");
                 return next(serverHelper.requestError("missing location information"));
             }
             // Get parser for locations page
             await locationStepParser.process(applicationRequestJson);
-			break;
-		case 'coverage':
+            break;
+        case 'coverage':
             //validate
             if(!applicationRequestJson.policy_types || !applicationRequestJson.questions){
                 res.send(400, "missing coverage information");
                 return next(serverHelper.requestError("missing coverage information"));
             }
-			// Get parser for coverage
+            // Get parser for coverage
             await coverageStepParser.process(applicationRequestJson);
-			break;
-		case 'owners':
+            break;
+        case 'owners':
             if(!applicationRequestJson.owners && !applicationRequestJson.owners_covered){
                 res.send(400, "missing owners information");
                 return next(serverHelper.requestError("missing owners information"));
             }
             await ownerStepParser.process(applicationRequestJson);
-			break;
-		case 'details':
+            break;
+        case 'details':
             await detailStepParser.process(applicationRequestJson);
-			break;
-		case 'claims':
-			if(!applicationRequestJson.claims){
+            break;
+        case 'claims':
+            if(!applicationRequestJson.claims){
                 res.send(400, "missing claim information");
                 return next(serverHelper.requestError("missing claim information"));
             }
             await claimStepParser.process(applicationRequestJson);
-			break;
-		case 'questions':
+            break;
+        case 'questions':
             if(!applicationRequestJson.question_answers && !applicationRequestJson.question_defaults){
                 res.send(400, "missing question information");
                 return next(serverHelper.requestError("missing question information"));
             }
             applicationRequestJson.remoteAddress = req.connection.remoteAddress;
             await questionStepParser.process(applicationRequestJson);
-			break;
-		case 'quotes':
+            break;
+        case 'quotes':
             // Do nothing - we only save here to update the last step
             break;
         case 'bindRequest':
@@ -136,11 +137,11 @@ async function Save(req, res, next){
             if(resp === false){
                 log.error("problems in bindStepParser " + __location)
             }
-			break;
-		default:
+            break;
+        default:
             // not from old Web application application flow.
             knownWorkflowStep = false;
-			break;
+            break;
     }
     // eslint-disable-next-line prefer-const
     let responseObj = {};
@@ -151,7 +152,7 @@ async function Save(req, res, next){
             if(modelResponse === true){
                 // const tokenPayload = {applicationID: applicationModel.id};
                 // const token = jwt.sign(tokenPayload, global.settings.AUTH_SECRET_KEY, {expiresIn: '5m'});
-               // responseObj.demo = applicationRequestJson.demo;
+                // responseObj.demo = applicationRequestJson.demo;
                 responseObj.id = applicationModel.id;
                 responseObj.message = "saved";
                 //associations
@@ -250,14 +251,48 @@ async function CheckZip(req, res, next){
     const responseObj = {};
     if(req.body && req.body.zip){
         let rejected = false;
+        //make sure we have a valid zip code
+        const zipCodeBO = new ZipCodeBO();
+        let error = null;
+        const zipCode = stringFunctions.santizeNumber(req.body.zip, false);
+        if(!zipCode){
+            responseObj['error'] = true;
+            responseObj['message'] = 'The zip code you entered is invalid.';
+            res.send(404, responseObj);
+            return next(serverHelper.requestError('The zip code you entered is invalid.'));
+        }
+
+        await zipCodeBO.loadByZipCode(zipCode).catch(function(err) {
+            error = err;
+            log.error("Unable to get ZipCode records for " + req.body.zip + err + __location);
+        });
+        if (error) {
+            if(error.message === "not found"){
+                responseObj['error'] = true;
+                responseObj['message'] = 'The zip code you entered is invalid.';
+                res.send(404, responseObj);
+                return next(serverHelper.requestError('The zip code you entered is invalid.'));
+
+            }
+            else {
+                responseObj['error'] = true;
+                responseObj['message'] = 'internal error.';
+                res.send(500, responseObj);
+                return next(serverHelper.requestError('internal error'));
+            }
+        }
+
+        log.debug("zipCodeBO: " + JSON.stringify(zipCodeBO.cleanJSON()))
+
+        // Check if we have coverage.
         const sql = `select  z.territory, t.name, t.licensed 
             from clw_talage_zip_codes z
             inner join clw_talage_territories t  on z.territory = t.abbr
             where z.zip  = ${db.escape(req.body.zip)}`;
-        const result = await db.query(sql).catch(function(error) {
+        const result = await db.query(sql).catch(function(err) {
             // Check if this was
             rejected = true;
-            log.error(`clw_content error on select ` + error + __location);
+            log.error(`clw_content error on select ` + err + __location);
         });
         if (!rejected) {
             if(result && result.length > 0){
@@ -278,6 +313,7 @@ async function CheckZip(req, res, next){
                 responseObj['error'] = true;
                 responseObj['message'] = 'The zip code you entered is invalid.';
                 res.send(404, responseObj);
+                return next(serverHelper.requestError('The zip code you entered is invalid.'));
             }
         }
         else {
@@ -379,8 +415,8 @@ async function ReportError(req, res, next){
         await slackSvc.send2SlackJSON(req.body).catch(function(err){
             log.error(err + __location);
         });
-       res.send(200, responseObj);
-       return next();
+        res.send(200, responseObj);
+        return next();
     }
     else {
         res.send(200, responseObj);
@@ -434,7 +470,7 @@ async function AgencyEmail(req, res, next){
                 message = message + '<p style="text-align:left;margin-top:10px;">"' + messageText + '"</p>';
                 message += `<p style="text-align:right;">-Your Wheelhouse Team</p>`;
                 //call email service
-                const respSendEmail = await emailSvc.send(agencyEmail, 'A Wheelhouse user wants to get in touch with you', message, messageKeys, 'wheelhouse').catch(function(err){
+                const respSendEmail = await emailSvc.send(agencyEmail, 'A Wheelhouse user wants to get in touch with you', message, messageKeys, global.WHEELHOUSE_AGENCYNETWORK_ID, 'wheelhouse',0).catch(function(err){
                     log.error("Send email error: " + err + __location);
                     return res.send(serverHelper.internalError("SendEmail Error"));
                 });
@@ -468,7 +504,7 @@ async function AgencyEmail(req, res, next){
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-	server.addPostAuthAppWF('Post Application Workflow', `${basePath}/applicationwf`, Save);
+    server.addPostAuthAppWF('Post Application Workflow', `${basePath}/applicationwf`, Save);
     server.addPostAuthAppWF('Post Application Workflow(depr)', `${basePath}wf`, Save);
     server.addGet('Get Quote Engine Resources', `${basePath}/applicationwf/getresources`, GetResources)
     server.addGet('Get Quote Engine Resources', `${basePath}wf/getresources`, GetResources)

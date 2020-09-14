@@ -52,21 +52,21 @@ const properties = {
 		'type': 'number'
 	},
 	'wc': {
-		'default': 1,
+		'default': 0,
 		'encrypted': false,
 		'required': false,
 		'rules': [],
 		'type': 'number'
     },
     'gl': {
-		'default': 1,
+		'default': 0,
 		'encrypted': false,
 		'required': false,
 		'rules': [],
 		'type': 'number'
     },
     'bop': {
-		'default': 1,
+		'default': 0,
 		'encrypted': false,
 		'required': false,
 		'rules': [],

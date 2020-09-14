@@ -69,28 +69,31 @@ module.exports = class LibertyGL extends Integration{
 			// Prepare limits
 			const limits = this.getBestLimits(carrierLimits);
 			if(!limits){
-                log.warn(`autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location)
-				this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
+                log.warn(`Appid: ${this.app.id} autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location)
+				this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} does not support the requested liability limits`);
 				fulfill(this.return_result('autodeclined'));
 				return;
 			}
 
 			// Check Industry Code Support
 			if(!this.industry_code.cgl){
+                log.error(`Appid: ${this.app.id} Talage does not have a CGL set for Industry code ${this.industry_code.id}.` + __location)
 				this.reasons.push(`Talage does not have a CGL set for Industry code ${this.industry_code.id}.`);
-				fulfill(this.return_result('error'));
+				fulfill(this.return_result('autodeclined'));
 				return;
 			}
 
 			// Liberty requires a 'premiumBasis' be set for every code
 			if(!this.industry_code.attributes){
+                log.error(`Appid: ${this.app.id} Talage is missing required attributes for Industry Code ${this.industry_code.id}. Check the insurer's data for updates.` + __location);
 				this.reasons.push(`Talage is missing required attributes for Industry Code ${this.industry_code.id}. Check the insurer's data for updates.`);
 				fulfill(this.return_result('error'));
 				return;
 			}
 			if(!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'premiumBasis')){
+                log.error(`Appid: ${this.app.id} Talage is missing a required attribute of 'premiumBasis' for Industry Code ${this.industry_code.id}. Check the insurer's data for updates.` + __location)
 				this.reasons.push(`Talage is missing a required attribute of 'premiumBasis' for Industry Code ${this.industry_code.id}. Check the insurer's data for updates.`);
-				fulfill(this.return_result('error'));
+				fulfill(this.return_result('autodeclined'));
 				return;
 			}
 
@@ -153,7 +156,7 @@ module.exports = class LibertyGL extends Integration{
 
 							// <ProducerInfo>
 							const ProducerInfo = Producer.ele('ProducerInfo');
-								ProducerInfo.ele('ContractNumber', process.env.NODE_ENV === 'production' ? this.app.agencyLocation.insurers[this.insurer.id].agency_id : '4689905').att('SourceSystemRef', 'Talage');
+								ProducerInfo.ele('ContractNumber', !this.insurer.useSandbox ? this.app.agencyLocation.insurers[this.insurer.id].agency_id : '4689905').att('SourceSystemRef', 'Talage');
 							// </ProducerInfo>
 						// </Producer>
 
@@ -279,7 +282,7 @@ module.exports = class LibertyGL extends Integration{
 								let had_error = false;
 								const sql = `SELECT question, attributes FROM #__insurer_questions WHERE insurer = ${db.escape(this.insurer.id)} AND policy_type = ${db.escape(this.policy.type)} AND question IN (${Object.keys(this.questions)});`;
 								const raw_question_attributes = await db.query(sql).catch((error) => {
-									log.error(`${this.insurer.name} ${this.policy.type} is unable to get question attributes. ${error}` + __location);
+									log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get question attributes. ${error}` + __location);
 									this.reasons.push('System error - Unable to get question attributes');
 									had_error = true;
 								});
@@ -289,15 +292,16 @@ module.exports = class LibertyGL extends Integration{
 								}
 
 								// Make sure each question ID is an integer
-								const question_attributes = {};
+                                const question_attributes = {};
+                                const appId = this.app.id
 								raw_question_attributes.forEach(function(data){
 									data.question = parseInt(data.question, 10);
 									if(data.attributes){
 										try{
 											question_attributes[data.question] = JSON.parse(data.attributes);
 										}
-catch(error){
-											log.warn(`Liberty GL encountered a question with invalid JSON in the attributes column (Question ID ${data.question}).` + __location);
+                                        catch(error){
+											log.warn(`Appid: ${appId} Liberty GL encountered a question with invalid JSON in the attributes column (Question ID ${data.question}).` + __location);
 										}
 									}
 								});
@@ -317,8 +321,8 @@ catch(error){
 														question['XML Path'] = attributes['XML Path'];
 														policySupplementQuestions.push(question);
 													}
-else{
-														log.error(`${this.insurer.name} ${this.policy.type} encountered an error. Insurer question missing required XML Path attribute.` + __location);
+                                                    else{
+														log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an error. Insurer question missing required XML Path attribute.` + __location);
 														this.reasons.push('Insurer question missing required XML Path');
 														fulfill(this.return_result('error'));
 														return;
@@ -326,8 +330,8 @@ else{
 												}
 											}
 										}
-else{
-											log.error(`${this.insurer.name} ${this.policy.type} encountered an error. Insurer question missing attributes (Question ID ${question_id}).` + __location);
+                                        else{
+											log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an error. Insurer question missing attributes (Question ID ${question_id}).` + __location);
 											this.reasons.push('Insurer question missing required XML Path');
 											fulfill(this.return_result('error'));
 											return;
@@ -387,7 +391,7 @@ else{
 									try{
 										answer = this.determine_question_answer(question);
 									}
-catch(error){
+                                                catch(error){
 										this.reasons.push('Talage was unable to determine the answer to a question');
 										fulfill(this.return_result('error'));
 										return;
@@ -405,7 +409,7 @@ catch(error){
 									if(question.type === 'Yes/No'){
 										QuestionAnswer.ele('YesNoCd', question.get_answer_as_boolean() ? 'YES' : 'NO');
 									}
-else{
+                                    else{
 										// Other Question Type
 										QuestionAnswer.ele('YesNoCd', 'NA');
 
@@ -413,7 +417,7 @@ else{
 										if(/^\d+$/.test(answer)){
 											QuestionAnswer.ele('Num', answer);
 										}
-else{
+                                        else{
 											QuestionAnswer.ele('Explanation', answer);
 										}
 									}
@@ -614,15 +618,15 @@ else{
 				try{
 					this.request_id = res.Policy[0].QuoteInfo[0].CompanysQuoteNumber[0];
 				}
-catch(e){
-					log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.` + __location);
+                catch(e){
+					log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.` + __location);
 				}
 
 				// Attempt to get the amount of the quote
 				try{
 					this.amount = parseInt(res.Policy[0].QuoteInfo[0].InsuredFullToBePaidAmt[0].Amt[0], 10);
 				}
- catch(e){
+                catch(e){
 					// This is handled in return_result()
 				}
 
@@ -657,12 +661,12 @@ catch(e){
 								this.limits[9] = limit;
 								break;
 							default:
-								log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response` + __location);
+								log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response` + __location);
 								break;
 						}
 					});
 				}
-catch(e){
+                catch(e){
 					// This is handled in return_result()
 				}
 
@@ -673,16 +677,16 @@ catch(e){
 						this.reasons.push(`${rule['com.libertymutual.ci_UnderwritingDecisionName']}: ${rule['com.libertymutual.ci_UnderwritingMessage']}`);
 					});
 				}
-catch(e){
+                catch(e){
 					if(status === 'Reject'){
-						log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find reasons.` + __location);
+						log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find reasons.` + __location);
 					}
 				}
 
 				// Send the result of the request
 				fulfill(this.return_result(status));
 			}).catch((err) => {
-				log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer. error: ${err}` + __location);
+				log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer. error: ${err}` + __location);
 				fulfill(this.return_result('error'));
 			});
 		});

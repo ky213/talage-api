@@ -14,17 +14,17 @@ let accessToken = null;
 let tokenExpirationTime = null;
 
 const productionConfig = {
-	// This is the base path needed to access authentication services at DocuSign
-	authBasePath: 'account.docusign.com',
+    // This is the base path needed to access authentication services at DocuSign
+    authBasePath: 'account.docusign.com',
 
-	// This is the 'User ID' of the user to be impersonated. Before you can change this value, the user must allow this app.
-	impersonatedUser: '4290a4ec-b2f5-4d90-a6ce-86e532b8156d',
+    // This is the 'User ID' of the user to be impersonated. Before you can change this value, the user must allow this app.
+    impersonatedUser: '4290a4ec-b2f5-4d90-a6ce-86e532b8156d',
 
-	// This is obtained from the DocuSign admin area under 'API and Keys'. An integration must be created in Sandbox first and then promoted to production.
-	integrationKey: 'f5f51cb9-af53-4906-b970-2de1b0a17270',
+    // This is obtained from the DocuSign admin area under 'API and Keys'. An integration must be created in Sandbox first and then promoted to production.
+    integrationKey: 'f5f51cb9-af53-4906-b970-2de1b0a17270',
 
-	// This is obtained from the DocuSign admin area under 'API and Keys' and is only shown once when the key is created. A backup of this key is in LastPass.
-	privateKey: `-----BEGIN RSA PRIVATE KEY-----
+    // This is obtained from the DocuSign admin area under 'API and Keys' and is only shown once when the key is created. A backup of this key is in LastPass.
+    privateKey: `-----BEGIN RSA PRIVATE KEY-----
 MIIEowIBAAKCAQEApcD5zBxOPg3B8QmD30ko/PMHWDdVvTf8YqHdRlAGfJQ7olPx
 dmLP4P5z3kWVElBgAUuAu2v8S8aYRrZa4WMmnWDyp59As+2P0HBFSyLp3RSjPVrD
 pUjJoUbmR4C+D1PtKhp2msFykJoyWo0iB0OSIuMYHcDayb9z06pu2vvuyJ1Qez4W
@@ -54,17 +54,17 @@ rbArULLxnQMywWCwDFjGpp/TOFIpu9rs07Ax/2g4xghwMcayD6py
 };
 
 const stagingConfig = {
-	// This is the base path needed to access authentication services at DocuSign
-	authBasePath: 'account-d.docusign.com',
+    // This is the base path needed to access authentication services at DocuSign
+    authBasePath: 'account-d.docusign.com',
 
-	// This is the 'User ID' of the user to be impersonated. Before you can change this value, the user must allow this app.
-	impersonatedUser: '19b5fb30-3d75-4381-a44e-88d87c45f89a',
+    // This is the 'User ID' of the user to be impersonated. Before you can change this value, the user must allow this app.
+    impersonatedUser: '19b5fb30-3d75-4381-a44e-88d87c45f89a',
 
-	// This is obtained from the DocuSign admin area under 'API and Keys'. An integration must be created in Sandbox first and then promoted to production.
-	integrationKey: '3c755991-135c-44da-a91a-a2d7bb25b342',
+    // This is obtained from the DocuSign admin area under 'API and Keys'. An integration must be created in Sandbox first and then promoted to production.
+    integrationKey: '3c755991-135c-44da-a91a-a2d7bb25b342',
 
-	// This is obtained from the DocuSign admin area under 'API and Keys' and is only shown once when the key is created. A backup of this key is in LastPass.
-	privateKey: `-----BEGIN RSA PRIVATE KEY-----
+    // This is obtained from the DocuSign admin area under 'API and Keys' and is only shown once when the key is created. A backup of this key is in LastPass.
+    privateKey: `-----BEGIN RSA PRIVATE KEY-----
 MIIEogIBAAKCAQEAp4MKYfTgrsnunTeUgJ6nZ5rBa+K5hxsF9v2gAQLPlrhDntDh
 MXY6B3fC9oMvd6OtW0Ac6NIwXgscAqkvido/LDft/+RzMakacMa/XhFyZJs53UfD
 z9il8ZDnZcQWs7IzuNnoI29x5b2I++IQQPwK7ZBv2iLDn4ab+iw5lX2jG6lf3A83
@@ -100,27 +100,27 @@ og5Ea/XGmopM2N9R9P851BYNN8zXWFi2L16PlQ/T4nk51iXg9vI=
  * @returns {void}
  */
 async function getNewToken(config) {
-	// Initialize the DocuSign API
-	const docusignApiClient = new DocuSign.ApiClient();
+    // Initialize the DocuSign API
+    const docusignApiClient = new DocuSign.ApiClient();
 
-	// Determine which is the proper server to use for DocuSign
-	docusignApiClient.setOAuthBasePath(config.authBasePath);
+    // Determine which is the proper server to use for DocuSign
+    docusignApiClient.setOAuthBasePath(config.authBasePath);
 
-	// Request the JWT Token
-	let result = null;
-	try {
-		result = await docusignApiClient.requestJWTUserToken(config.integrationKey, config.impersonatedUser, scopes, config.privateKey, jwtLife);
-	}
- catch (error) {
-		log.error(`Unable to authenicate to DocuSign: ${error} ${__location}`);
-		if (error.response.res.text === '{"error":"consent_required"}') {
-			log.error(`DocuSign consent needs to be provided. Try https://${config.authBasePath}/oauth/auth?response_type=code&scope=signature%20impersonation&client_id=${config.integrationKey}&redirect_uri=https://agents.insurancewheelhouse.com`);
-		}
-	}
-	// Store the token and expiration time locally for later use
-	log.verbose('New DocuSign token was generated');
-	accessToken = result.body.access_token;
-	tokenExpirationTime = moment().add(result.body.expires_in, 's');
+    // Request the JWT Token
+    let result = null;
+    try {
+        result = await docusignApiClient.requestJWTUserToken(config.integrationKey, config.impersonatedUser, scopes, config.privateKey, jwtLife);
+    }
+    catch (error) {
+        log.error(`Unable to authenicate to DocuSign: ${error} ${__location}`);
+        if (error.response.res.text === '{"error":"consent_required"}') {
+            log.error(`DocuSign consent needs to be provided. Try https://${config.authBasePath}/oauth/auth?response_type=code&scope=signature%20impersonation&client_id=${config.integrationKey}&redirect_uri=https://agents.insurancewheelhouse.com`);
+        }
+    }
+    // Store the token and expiration time locally for later use
+    log.verbose('New DocuSign token was generated');
+    accessToken = result.body.access_token;
+    tokenExpirationTime = moment().add(result.body.expires_in, 's');
 }
 
 /**
@@ -136,21 +136,21 @@ async function getNewToken(config) {
  * @returns {void}
  */
 async function populateConfigToken(config) {
-	// Check if we have an existing token
-	if (!accessToken || !tokenExpirationTime) {
-		log.verbose('No DocuSign token exists. Getting a new one.');
-		await getNewToken(config);
-		return accessToken;
-	}
+    // Check if we have an existing token
+    if (!accessToken || !tokenExpirationTime) {
+        log.verbose('No DocuSign token exists. Getting a new one.');
+        await getNewToken(config);
+        return accessToken;
+    }
 
-	// Check if we need a new token
-	if (tokenExpirationTime.subtract(tokenReplaceMinutes, 'm').isBefore(moment())) {
-		log.verbose('Docusign token is expired or close to expiring. Getting a new one');
-		await getNewToken(config);
-		return accessToken;
-	}
+    // Check if we need a new token
+    if (tokenExpirationTime.subtract(tokenReplaceMinutes, 'm').isBefore(moment())) {
+        log.verbose('Docusign token is expired or close to expiring. Getting a new one');
+        await getNewToken(config);
+        return accessToken;
+    }
 
-	return accessToken;
+    return accessToken;
 }
 
 /**
@@ -159,39 +159,39 @@ async function populateConfigToken(config) {
  * @returns {object} - A reference to the DocuSign API class
  */
 async function createDocusignAPIClient() {
-	// Initialize the API
-	const docusignApiClient = new DocuSign.ApiClient();
+    // Initialize the API
+    const docusignApiClient = new DocuSign.ApiClient();
 
-	// Load the DocuSign configuration object
-	const config = global.settings.ENV === 'production' ? productionConfig : stagingConfig;
+    // Load the DocuSign configuration object
+    const config = global.settings.ENV === 'production' ? productionConfig : stagingConfig;
 
-	// Determine which is the proper server to use for DocuSign
-	docusignApiClient.setOAuthBasePath(config.authBasePath);
+    // Determine which is the proper server to use for DocuSign
+    docusignApiClient.setOAuthBasePath(config.authBasePath);
 
-	// Get the token
-	const token = await populateConfigToken(config);
+    // Get the token
+    const token = await populateConfigToken(config);
 
-	// Set the token to be sent with each API request
-	docusignApiClient.addDefaultHeader('Authorization', `Bearer ${token}`);
-	let accountId = null;
-	try {
-		// Get our user info
-		const userInfo = await docusignApiClient.getUserInfo(token);
-		// Grab the account ID and store it globally
-		accountId = userInfo.accounts[0].accountId;
-		// Set the path used for API requests
-		docusignApiClient.setBasePath(`${userInfo.accounts[0].baseUri}/restapi`);
-	}
- catch (error) {
-		log.error('Unable to get User Info from DocuSign.' + error + __location);
-		log.verbose(error);
-	}
+    // Set the token to be sent with each API request
+    docusignApiClient.addDefaultHeader('Authorization', `Bearer ${token}`);
+    let accountId = null;
+    try {
+        // Get our user info
+        const userInfo = await docusignApiClient.getUserInfo(token);
+        // Grab the account ID and store it globally
+        accountId = userInfo.accounts[0].accountId;
+        // Set the path used for API requests
+        docusignApiClient.setBasePath(`${userInfo.accounts[0].baseUri}/restapi`);
+    }
+    catch (error) {
+        log.error('Unable to get User Info from DocuSign.' + error + __location);
+        log.verbose(error);
+    }
 
-	// Return a reference to the DocuSign API that can be used for further API calls
-	return {
-		accountId: accountId,
-		docusignApiClient: docusignApiClient
-	};
+    // Return a reference to the DocuSign API that can be used for further API calls
+    return {
+        accountId: accountId,
+        docusignApiClient: docusignApiClient
+    };
 }
 
 /**
@@ -200,97 +200,123 @@ async function createDocusignAPIClient() {
  * @returns {object} - A reference to the DocuSign Envelopes API class
  */
 async function createDocusignEnvelopesAPI() {
-	// Before we do anything, get a reference to the DocuSign API
-	const {
- accountId, docusignApiClient
-} = await createDocusignAPIClient();
+    // Before we do anything, get a reference to the DocuSign API
+    const {
+        accountId, docusignApiClient
+    } = await createDocusignAPIClient();
 
-	// Get a reference to the Envelopes API
-	const envelopesApi = new DocuSign.EnvelopesApi(docusignApiClient);
+    // Get a reference to the Envelopes API
+    const envelopesApi = new DocuSign.EnvelopesApi(docusignApiClient);
 
-	return {
-		accountId: accountId,
-		envelopesApi: envelopesApi
-	};
+    return {
+        accountId: accountId,
+        envelopesApi: envelopesApi
+    };
 }
 
 exports.userHasSigned = async function(user, envelopeID) {
-	// Before we do anything, get a reference to the DocuSign API
-	const {
- accountId, envelopesApi
-} = await createDocusignEnvelopesAPI();
+    // Before we do anything, get a reference to the DocuSign API
+    const {
+        accountId, envelopesApi
+    } = await createDocusignEnvelopesAPI();
 
-	let result = null;
-	let userSigned = false;
-	try {
-		result = await envelopesApi.listRecipients(accountId, envelopeID);
-		result.signers.forEach((signer) => {
-			if (signer.clientUserId === user.toString() && signer.status === 'completed') {
-				userSigned = true;
-			}
-		});
-	}
- catch (error) {
-		log.error(`Could not retrieve envelope ${envelopeID} recipients for user ${user}: ${error} ${__location}`);
-		return false;
-	}
-	return userSigned;
+    let result = null;
+    let userSigned = false;
+    try {
+        result = await envelopesApi.listRecipients(accountId, envelopeID);
+        result.signers.forEach((signer) => {
+            if (signer.clientUserId === user.toString() && signer.status === 'completed') {
+                userSigned = true;
+            }
+        });
+    }
+    catch (error) {
+        log.error(`Could not retrieve envelope ${envelopeID} recipients for envelope ID ${envelopeID}: ${error} ${__location}`);
+        return false;
+    }
+    return userSigned;
 };
 
+/**
+ * Create a signing request URL and an envelopeID
+ *
+ * @param {string} user - user ID
+ * @param {string} name - user name
+ * @param {string} email - user email address
+ * @param {string} envelopeID - previous envelope ID (can be null)
+ * @param {string} template - template ID
+ * @param {string} returnUrl - return URL
+ *
+ * @returns {Object} envelopeId, signingURL
+ */
+async function createSigningRequestURLActual(user, name, email, envelopeID, template, returnUrl) {
+    const {
+        accountId, envelopesApi
+    } = await createDocusignEnvelopesAPI(user, name, email, template);
+
+    // Create a Template Role that matches the one in our template
+    const role = new DocuSign.TemplateRole();
+    role.clientUserId = user;
+    role.roleName = 'Producer';
+    role.name = name;
+    role.email = email;
+
+    // envelopeID = null;
+
+    // Create an Envelope from the Template in our account
+    const envelope = new DocuSign.EnvelopeDefinition();
+    envelope.templateId = template;
+    envelope.templateRoles = [role];
+    envelope.status = 'sent';
+    if (envelopeID === null) {
+        try {
+            const envelopeSummary = await envelopesApi.createEnvelope(accountId, {envelopeDefinition: envelope});
+            envelopeID = envelopeSummary.envelopeId;
+        }
+        catch (error) {
+            log.error(`Unable to create DocuSign envelope for envelope ID ${envelopeID}: ${error} ${__location}`);
+            return null;
+        }
+    }
+
+    // Create the recipient view
+    const viewRequest = new DocuSign.RecipientViewRequest();
+
+    // Set the url where you want the recipient to go once they are done signing
+    viewRequest.returnUrl = returnUrl;
+
+    // Indicate how we authenticated the user
+    viewRequest.authenticationMethod = 'email';
+
+    // Recipient information must match embedded recipient info
+    viewRequest.clientUserId = user;
+    viewRequest.email = email;
+    viewRequest.userName = name;
+
+    // Call the CreateRecipientView API
+    let viewResults = null;
+    try {
+        viewResults = await envelopesApi.createRecipientView(accountId, envelopeID, {recipientViewRequest: viewRequest});
+    }
+    catch (error) {
+        log.error(`Unable to create DocuSign view for envelope ID ${envelopeID}: ${error} ${__location}`);
+        return null;
+    }
+
+    return {
+        envelopeId: envelopeID,
+        signingUrl: viewResults.url
+    };
+}
+
 exports.createSigningRequestURL = async function(user, name, email, envelopeID, template, returnUrl) {
-	const {
- accountId, envelopesApi
-} = await createDocusignEnvelopesAPI(user, name, email, template);
 
-	// Create a Template Role that matches the one in our template
-	const role = new DocuSign.TemplateRole();
-	role.clientUserId = user;
-	role.roleName = 'Producer';
-	role.name = name;
-	role.email = email;
-
-	// Create an Envelope from the Template in our account
-	const envelope = new DocuSign.EnvelopeDefinition();
-	envelope.templateId = template;
-	envelope.templateRoles = [role];
-	envelope.status = 'sent';
-	if (envelopeID === null) {
-		try {
-			const envelopeSummary = await envelopesApi.createEnvelope(accountId, {envelopeDefinition: envelope});
-			envelopeID = envelopeSummary.envelopeId;
-		}
- catch (error) {
-			log.error(`Unable to create DocuSign envelope for ${name} (${email}): ${error} ${__location}`);
-			return null;
-		}
-	}
-
-	// Create the recipient view
-	const viewRequest = new DocuSign.RecipientViewRequest();
-
-	// Set the url where you want the recipient to go once they are done signing
-	viewRequest.returnUrl = returnUrl;
-
-	// Indicate how we authenticated the user
-	viewRequest.authenticationMethod = 'email';
-
-	// Recipient information must match embedded recipient info
-	viewRequest.clientUserId = user;
-	viewRequest.email = email;
-	viewRequest.userName = name;
-
-	// Call the CreateRecipientView API
-	let viewResults = null;
-	try {
-		viewResults = await envelopesApi.createRecipientView(accountId, envelopeID, {recipientViewRequest: viewRequest});
-	}
- catch (error) {
-		log.error(`Unable to create DocuSign view for ${name} (${email}): ${error} ${__location}`);
-		return null;
-	}
-
-	return {
-		envelopeId: envelopeID,
-		signingUrl: viewResults.url
-	};
+    // We try to create the signing request URL with the passed-in envelope ID
+    let result = await createSigningRequestURLActual(user, name, email, envelopeID, template, returnUrl);
+    if (result === null) {
+        // If that fails, then for some reason Docusign does not recognize the envelope ID
+        // so we retry with envelope ID = null to force it to generate a new one.
+        result = await createSigningRequestURLActual(user, name, email, null, template, returnUrl);
+    }
+    return result;
 };

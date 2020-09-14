@@ -112,7 +112,7 @@ async function createAgencyLocation(req, res, next) {
     req.body.id = 0;
     //correct legacy properties
     await legacyFieldUpdate(req.body)
-    log.debug("update legacy " + JSON.stringify(req.body))
+    //log.debug("update legacy " + JSON.stringify(req.body))
 
     // Initialize an agency object
     const location = new AgencyLocationModel();
@@ -269,7 +269,7 @@ function getAgencyByLocationId(id) {
 
         // Make sure an agency was found
         if (result.length !== 1) {
-            log.warn('Agency ID not found in updateAgencyLocation()');
+            log.warn('Agency ID not found in getAgencyLocation()' + __location);
             reject(serverHelper.requestError('No agency found. Please contact us.'));
         }
 
@@ -372,7 +372,7 @@ async function updateAgencyLocation(req, res, next) {
 
     //correct legacy properties
     await legacyFieldUpdate(req.body)
-    log.debug("update legacy " + JSON.stringify(req.body))
+    // log.debug("update legacy " + JSON.stringify(req.body))
 
 
     // Initialize an agency object
@@ -456,23 +456,23 @@ async function legacyFieldUpdate(requestALJSON) {
     if (requestALJSON.insurers) {
         for (let i = 0; i < requestALJSON.insurers.length; i++) {
             let insurer = requestALJSON.insurers[i];
+            insurer.bop = 0;
+            insurer.gl = 0;
+            insurer.wc = 0;
             if (insurer.policy_type_info) {
                 for (let j = 0; j < policyTypeList.length; j++) {
                     const policyType = policyTypeList[j];
-                    log.debug("policyType " + policyType);
+                    //log.debug("policyType " + policyType);
                     if (insurer.policy_type_info[policyType] && insurer.policy_type_info[policyType].enabled) {
                         insurer[policyType.toLowerCase()] = insurer.policy_type_info[policyType].enabled ? 1 : 0;
                     }
                     else {
                         insurer[policyType.toLowerCase()] = 0;
                     }
+                    // log.debug(`Set ${policyType.toLowerCase()} to ` + insurer[policyType.toLowerCase()])
                 }
             }
-            else{
-                insurer.GL = 0;
-                insurer.WC = 0;
-                insurer.BOP = 0;
-            }
+            //log.debug("insurer: " + JSON.stringify(insurer))
         }
 
     }
