@@ -20,7 +20,7 @@ async function getUserGroups(req, res, next){
 				\`name\`,
 				\`permissions\`
 			FROM \`#__agency_portal_user_groups\`
-			WHERE \`id\` != 3;
+			WHERE \`id\` != 3 and name != 'Talage Super User';
 		`;
     //TODO Fix Catch logic
 	const userGroups = await db.query(userGroupsSQL).catch(function(err){
