@@ -60,7 +60,7 @@ async function getQuestions(req, res, next){
         return_hidden = true;
     }
 
-    return questionSvc.GetQuestions(req, res, next, return_hidden);
+    return questionSvc.GetQuestions(req.query.activity_codes, req.query.industry_code, req.query.zips, req.query.policy_types, req.query.insurers ,return_hidden);
 
 }
 

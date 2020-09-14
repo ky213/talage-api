@@ -29,28 +29,28 @@ function find_missing_questions(questions) {
     });
     return missing_questions.length ? missing_questions : false;
 }
-exports.GetQuestions = async function(req, res, next, return_hidden) {
+exports.GetQuestions = async function(activityCodeArray, industryCode, zipCodeArray, policyTypeArray, insurerArray, return_hidden = false) {
 
     /* ---=== Validate Input ===--- */
 
     const activity_codes = [];
     const insurers = [];
     const policy_types = [];
-    const zips = req.query.zips.split(',').map(function(zip) {
+    const zips = zipCodeArray.split(',').map(function(zip) {
         return zip ? zip.replace(/[^0-9]/gi, '') : 0;
     });
-    const industry_code = req.query.industry_code ? parseInt(req.query.industry_code, 10) : 0;
+    const industry_code = industryCode ? parseInt(industryCode, 10) : 0;
 
     // Do not permit requests that include both BOP and GL
-    if (req.query.policy_types.includes('BOP') && req.query.policy_types.includes('GL')) {
+    if (policyTypeArray.includes('BOP') && policyTypeArray.includes('GL')) {
         log.warn('Bad Request: Both BOP and GL are not allowed, must be one or the other');
         return next(serverHelper.requestError('Both BOP and GL are not allowed, please choose one or the other'));
     }
 
     // Sanitize and de-duplicate
-    if (req.query.policy_types.includes('WC')) {
-        if (req.query.activity_codes) {
-            req.query.activity_codes.split(',').forEach(function(activity_code) {
+    if (policyTypeArray.includes('WC')) {
+        if (activityCodeArray) {
+            activityCodeArray.split(',').forEach(function(activity_code) {
                 const int_code = parseInt(activity_code, 10);
                 if (!activity_codes.includes(int_code)) {
                     activity_codes.push(int_code);
@@ -59,9 +59,9 @@ exports.GetQuestions = async function(req, res, next, return_hidden) {
         }
     }
 
-    if (req.query.insurers) {
+    if (insurerArray) {
         let invalid_insurer = false;
-        await req.query.insurers.split(',').forEach(function(insurer) {
+        await insurerArray.split(',').forEach(function(insurer) {
             const insurer_id = parseInt(insurer, 10);
             if (isNaN(insurer_id)) {
                 log.warn('Bad Request: Invalid insurer');
@@ -74,7 +74,7 @@ exports.GetQuestions = async function(req, res, next, return_hidden) {
         }
     }
 
-    req.query.policy_types.split(',').forEach(function(policy_type) {
+    policyTypeArray.split(',').forEach(function(policy_type) {
         policy_types.push(policy_type.replace(/[^a-z]/gi, '').toUpperCase());
     });
 
@@ -416,6 +416,10 @@ exports.GetQuestions = async function(req, res, next, return_hidden) {
     }
     console.log('YOU KNOW WHAT? HERES A SANITY CHECK CAUSE I CANT THINK TODAY');
     // log.info(`Returning ${questions.length} Questions`);
+    console.log(questions);
+
+    
+
     res.send(200, questions);
 
     return next();
