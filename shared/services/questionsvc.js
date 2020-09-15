@@ -3,33 +3,25 @@
 const util = require('util');
 const serverHelper = global.requireRootPath('server.js');
 
+/**
+ * @typedef {Object} Questions
+ * @property {boolean} error - true if there was an error, false otherwise
+ * @property {array} questionsArray - An array of Objects containing the retrieved question data
+ */
 
 /**
- * Parses through the questions we have recieved to see if any are missing based on those referenced as the 'parent' of an existing question
+ * @param {array} activityCodeArray - An array of all the activity codes in the applicaiton
+ * @param {string} industryCodeString - The industry code of the application
+ * @param {array} zipCodeArray - An array of all the zipcodes (stored as strings) in which the business operates
+ * @param {array} policyTypeArray - An array containing of all the policy types applied for
+ * @param {array} insurerArray - An array containing the IDs of the relevant insurers for the application
+ * @param {boolean} return_hidden - true to return hidden questions, false to only return visible questions
  *
- * @param {array} questions - An array of objects, each containing question data
+ * @returns {Questions} Object containing the results of the call
  *
- * @returns {mixed} - An array of IDs if questions are missing, false if none are
  */
-function find_missing_questions(questions) {
-    const missing_questions = [];
 
-    // Get a list of question IDs for easier reference
-    const question_ids = questions.map(function(question) {
-        return question.id;
-    });
-
-    // Loop through each question and make sure it's parent is in our question_ids
-    questions.forEach(function(question) {
-        if (question.parent) {
-            if (!question_ids.includes(question.parent)) {
-                missing_questions.push(question.parent);
-            }
-        }
-    });
-    return missing_questions.length ? missing_questions : false;
-}
-exports.GetQuestions = async function(activityCodeArray, industryCode, zipCodeArray, policyTypeArray, insurerArray, return_hidden = false) {
+exports.GetQuestions = async function(res, activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden = false) {
 
     /* ---=== Validate Input ===--- */
 
@@ -39,7 +31,7 @@ exports.GetQuestions = async function(activityCodeArray, industryCode, zipCodeAr
     const zips = zipCodeArray.split(',').map(function(zip) {
         return zip ? zip.replace(/[^0-9]/gi, '') : 0;
     });
-    const industry_code = industryCode ? parseInt(industryCode, 10) : 0;
+    const industry_code = industryCodeString ? parseInt(industryCodeString, 10) : 0;
 
     // Do not permit requests that include both BOP and GL
     if (policyTypeArray.includes('BOP') && policyTypeArray.includes('GL')) {
@@ -414,13 +406,36 @@ exports.GetQuestions = async function(activityCodeArray, industryCode, zipCodeAr
             return a.id - b.id;
         });
     }
-    console.log('YOU KNOW WHAT? HERES A SANITY CHECK CAUSE I CANT THINK TODAY');
-    // log.info(`Returning ${questions.length} Questions`);
-    console.log(questions);
 
-    
+    // log.info(`Returning ${questions.length} Questions`);
 
     res.send(200, questions);
 
     return next();
+}
+
+/**
+ * Parses through the questions we have recieved to see if any are missing based on those referenced as the 'parent' of an existing question
+ *
+ * @param {array} questions - An array of objects, each containing question data
+ *
+ * @returns {mixed} - An array of IDs if questions are missing, false if none are
+ */
+function find_missing_questions(questions) {
+    const missing_questions = [];
+
+    // Get a list of question IDs for easier reference
+    const question_ids = questions.map(function(question) {
+        return question.id;
+    });
+
+    // Loop through each question and make sure it's parent is in our question_ids
+    questions.forEach(function(question) {
+        if (question.parent) {
+            if (!question_ids.includes(question.parent)) {
+                missing_questions.push(question.parent);
+            }
+        }
+    });
+    return missing_questions.length ? missing_questions : false;
 }

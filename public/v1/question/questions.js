@@ -5,7 +5,6 @@ const serverHelper = global.requireRootPath('server.js');
 const questionSvc = global.requireShared('./services/questionsvc.js');
 
 
-
 /**
  * Returns all questions related to given params
  *
@@ -60,7 +59,7 @@ async function getQuestions(req, res, next){
         return_hidden = true;
     }
 
-    return questionSvc.GetQuestions(req.query.activity_codes, req.query.industry_code, req.query.zips, req.query.policy_types, req.query.insurers ,return_hidden);
+    return questionSvc.GetQuestions(res, req.query.activity_codes, req.query.industry_code, req.query.zips, req.query.policy_types, req.query.insurers ,return_hidden);
 
 }
 
