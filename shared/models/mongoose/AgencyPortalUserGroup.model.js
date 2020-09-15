@@ -36,7 +36,7 @@ let AgencyPortalUserGroupSchema = new Schema({
     agencyPortalUserGroupId: { type: String, required: [true, 'agencyPortalUserGroupId required'], unique: true },
     systemId: {type: Number, required: true, unique: true},
     name: {type: String, required:[true, 'name required']},
-    permissions: [PermissionSchema],
+    permissions: PermissionSchema,
     talageAdminOnly: {type: Boolean, required: true, default: false },
     active: { type: Boolean, default: true }
 })

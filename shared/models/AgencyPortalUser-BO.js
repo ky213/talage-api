@@ -135,7 +135,17 @@ module.exports = class AgencyPortalUserBO{
                         sql += ` agency = ${db.escape(queryJSON.agencyid)} `
                         hasWhere = true;
                     }
+                    if(queryJSON.agency){
+                        sql += hasWhere ? " AND " : " WHERE ";
+                        sql += ` agency = ${db.escape(queryJSON.agencyid)} `
+                        hasWhere = true;
+                    }
                     if(queryJSON.agencylocationid){
+                        sql += hasWhere ? " AND " : " WHERE ";
+                        sql += ` agency_location = ${db.escape(queryJSON.agencylocationid)} `
+                        hasWhere = true;
+                    }
+                    if(queryJSON.agency_location){
                         sql += hasWhere ? " AND " : " WHERE ";
                         sql += ` agency_location = ${db.escape(queryJSON.agencylocationid)} `
                         hasWhere = true;
@@ -180,7 +190,8 @@ module.exports = class AgencyPortalUserBO{
                         let cleanJSON = agencyPortalUserBO.#dbTableORM.cleanJSON();
                         let outputJSON = this.cleanOuput(cleanJSON)
                         outputJSON.lastLogin = outputJSON.last_login;
-                        outputJSON.canSign = outputJSON.can_sign;
+                        outputJSON.canSign = outputJSON.can_sign ? outputJSON.can_sign : null;
+                        
                         if(addPermissions){
                             let userGroupQuery = {"systemId": outputJSON.group};
                             let userGroup = await AgencyPortalUserGroup.findOne(userGroupQuery, '-__v');
