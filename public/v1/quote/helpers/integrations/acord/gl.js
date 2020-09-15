@@ -18,25 +18,25 @@ module.exports = class ACORDGL extends Integration{
 	 * @returns {object | error} A promise that returns an object containing quote information if resolved, or an error if rejected
 	 */
     async _insurer_quote(){
-
+        const appId = this.app.id;
         // Generate acord
         const generated_acord = await acordsvc.create(this.app.id, this.insurer.id, 'gl');
 
         // Check the acord generated successfully
         if(generated_acord.error){
-            log.error(`Acord form could not be generated for application ${this.app.id} insurer ${this.insurer.id}: ` + generated_acord.error + __location);
+            log.error(`Appid: ${this.app.id} Acord form could not be generated for application ${this.app.id} insurer ${this.insurer.id}: ` + generated_acord.error + __location);
             return this.return_result('error');
         }
         // Retrieve email address to send to
         let acord_email = await this.getEmail().catch(function(err){
-            log.error(`Could not retrieve email for agency` + err + __location);
+            log.error(`Appid: ${appId} Could not retrieve email for agency` + err + __location);
             //	return this.return_result('error');
             acord_email = false;
         });
 
         //Check the email was retrieved successfully
         if(acord_email === false){
-            log.error(`Failed to retrieve Email for agency location ${this.app.agencyLocation.id}, insurer ${this.insurer.id} for GL` + __location);
+            log.error(`Appid: ${this.app.id} Failed to retrieve Email for agency location ${this.app.agencyLocation.id}, insurer ${this.insurer.id} for GL` + __location);
             return this.return_result('error');
         }
 
@@ -70,7 +70,7 @@ module.exports = class ACORDGL extends Integration{
             // Email it
             const emailResp = await emailsvc.send(acord_email, email_subject, email_body, email_keys, this.app.agencyLocation.agencyNetwork, this.app.agencyLocation.email_brand, this.app.agencyLocation.agencyId, attachments);
             if(emailResp === false){
-                log.error(`Unable to send acord for applicationId ${this.app.id}` + __location)
+                log.error(`Appid: ${this.app.id} Unable to send acord for applicationId ${this.app.id}` + __location)
             }
             //  if(emailResp === true){
             //     self.return_result('referred');
@@ -105,13 +105,13 @@ module.exports = class ACORDGL extends Integration{
             acord_email = await db.query(acord_email_sql)
         }
         catch(err){
-            log.error(`Database error retrieving ACORD email for agency location: ${this.app.agencyLocation.id} insurer: ${this.insurer.id} ` + err + __location);
+            log.error(`Appid: ${this.app.id} Database error retrieving ACORD email for agency location: ${this.app.agencyLocation.id} insurer: ${this.insurer.id} ` + err + __location);
             return false;
         }
 
         //Make sure we found exactly one record
         if(acord_email.length !== 1){
-            log.error(`${acord_email.length} records found for ACORD email for agency location: ${this.app.agencyLocation.id} insurer: ${this.insurer.id} instead of 1` + __location);
+            log.error(`Appid: ${this.app.id} ${acord_email.length} records found for ACORD email for agency location: ${this.app.agencyLocation.id} insurer: ${this.insurer.id} instead of 1` + __location);
             return false;
         }
 
@@ -123,7 +123,7 @@ module.exports = class ACORDGL extends Integration{
             email_address = policyTypeInfoJSON.GL.acordInfo.sendToEmail;
         }
         catch(e){
-            log.error(`Missing acord email address GL agency location id ${this.app.agencyLocation.id} ` + __location)
+            log.error(`Appid: ${this.app.id} Missing acord email address GL agency location id ${this.app.agencyLocation.id} ` + __location)
         }
 
         //Check the email was found
@@ -131,7 +131,7 @@ module.exports = class ACORDGL extends Integration{
             return email_address;
         }
         else{
-            log.error(`Email for agency location ${this.app.agencyLocation.id}, insurer ${this.insurer.id}, policy type GL, was not found.` + __location);
+            log.error(`Appid: ${this.app.id} Email for agency location ${this.app.agencyLocation.id}, insurer ${this.insurer.id}, policy type GL, was not found.` + __location);
             return false;
         }
     }

@@ -1,3 +1,4 @@
+/* eslint-disable no-extra-parens */
 'use strict';
 const auth = require('./helpers/auth.js');
 const crypt = global.requireShared('./services/crypt.js');
@@ -5,10 +6,7 @@ const csvStringify = require('csv-stringify');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const moment = require('moment');
 const serverHelper = require('../../../server.js');
-const sha1 = require('sha1');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
-
-const salt = '3h42kize0loh16ke3otxfebkq5rqp91y6uj9jmg751r9ees97l61ycodwbw74o3o';
 
 /**
  * Validates the parameters for the applications call
@@ -374,7 +372,7 @@ async function getApplications(req, res, next){
         req.params.startDate = moment('2020-01-2010').toISOString();
     }
 
-    if(!req.params.endDate || (req.params.endDate &&req.params.endDate.startsWith('T23:59:59.999'))){
+    if(!req.params.endDate || (req.params.endDate && req.params.endDate.startsWith('T23:59:59.999'))){
         // now....
         req.params.endDate = moment().toISOString();
     }
@@ -438,8 +436,8 @@ async function getApplications(req, res, next){
         // Search the description (industry), city, territory (state), and business name columns
         where += `
 				AND (
-					${db.quoteName('zc.city')} LIKE ${db.escape(`%${req.params.searchText}%`)}
-					OR ${db.quoteName('zc.territory')} LIKE ${db.escape(`%${req.params.searchText}%`)}
+					${db.quoteName('b.mailing_city')} LIKE ${db.escape(`%${req.params.searchText}%`)}
+                    OR ${db.quoteName('b.mailing_state_abbr')} LIKE ${db.escape(`%${req.params.searchText}%`)}
                     OR ${db.quoteName('b.name_clear')} LIKE ${db.escape(`%${req.params.searchText}%`)}
                     OR ${db.quoteName('b.dba_clear')} LIKE ${db.escape(`%${req.params.searchText}%`)}
 			`;
@@ -450,6 +448,14 @@ async function getApplications(req, res, next){
         else {
             // Otherwise, we search on industry description
             where += ` OR ${db.quoteName('ic.description')} LIKE ${db.escape(`%${req.params.searchText}%`)}`;
+        }
+        //if searchText is number search on application id
+        if(isNaN(req.params.searchText) === false && req.params.searchText.length > 3){
+            const testInteger = Number(req.params.searchText);
+            if(Number.isInteger(testInteger)){
+                where += ` OR a.id  = ${db.escape(req.params.searchText)}`;
+                where += ` OR b.mailing_zipcode LIKE ${db.escape(`${req.params.searchText}%`)}`
+            }
         }
         where += ')';
     }
@@ -467,7 +473,6 @@ async function getApplications(req, res, next){
 			FROM ${db.quoteName('#__applications', 'a')}
 			LEFT JOIN ${db.quoteName('#__businesses', 'b')} ON ${db.quoteName('b.id')} = ${db.quoteName('a.business')}
 			LEFT JOIN ${db.quoteName('#__industry_codes', 'ic')} ON ${db.quoteName('ic.id')} = ${db.quoteName('a.industry_code')}
-			LEFT JOIN ${db.quoteName('#__zip_codes', 'zc')} ON ${db.quoteName('zc.zip')} = ${db.quoteName('a.zip')}
 			LEFT JOIN ${db.quoteName('#__agencies', 'ag')} ON ${db.quoteName('a.agency')} = ${db.quoteName('ag.id')}
         `;
 
@@ -488,6 +493,7 @@ async function getApplications(req, res, next){
 			${commonSQL}
 		`;
     let applicationsSearchCount = 0;
+    //log.debug("applicationsSearchCountSQL: " + applicationsSearchCountSQL)
     try {
         applicationsSearchCount = (await db.query(applicationsSearchCountSQL))[0].count;
     }
@@ -510,7 +516,7 @@ async function getApplications(req, res, next){
 				${db.quoteName('b.name_clear', 'business')},
 				${db.quoteName('a.last_step', 'lastStep')},
 				${db.quoteName('ic.description', 'industry')},
-				CONCAT(LOWER(${db.quoteName('zc.city')}), ', ', ${db.quoteName('zc.territory')}) AS ${db.quoteName('location')}
+				CONCAT(LOWER(${db.quoteName('b.mailing_city')}), ', ', ${db.quoteName('b.mailing_state_abbr')}, ' ',b.mailing_zipcode) AS ${db.quoteName('location')}
 			${commonSQL}
 			ORDER BY ${db.quoteName(req.params.sort)} ${req.params.sortDescending ? 'DESC' : 'ASC'}
 			LIMIT ${req.params.limit}
