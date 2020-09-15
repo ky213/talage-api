@@ -4,6 +4,8 @@ const DatabaseObject = require('./DatabaseObject.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const crypt = global.requireShared('./services/crypt.js');
+var AgencyPortalUserGroup = require('mongoose').model('AgencyPortalUserGroup');
+const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 
 const tableName = 'clw_talage_agency_portal_users'
@@ -101,7 +103,7 @@ module.exports = class AgencyPortalUserBO{
         });
     }
 
-    getList(queryJSON) {
+    getList(queryJSON, addPermissions = false) {
         return new Promise(async (resolve, reject) => {
                 let rejected = false;
                 // Create the update query
@@ -176,8 +178,18 @@ module.exports = class AgencyPortalUserBO{
                             log.debug("Bad BO load" + __location)
                         }
                         let cleanJSON = agencyPortalUserBO.#dbTableORM.cleanJSON();
-                        this.cleanOuput(cleanJSON)
-                        boList.push(this.cleanOuput(cleanJSON));
+                        let outputJSON = this.cleanOuput(cleanJSON)
+                        outputJSON.lastLogin = outputJSON.last_login;
+                        outputJSON.canSign = outputJSON.can_sign;
+                        if(addPermissions){
+                            let userGroupQuery = {"systemId": outputJSON.group};
+                            let userGroup = await AgencyPortalUserGroup.findOne(userGroupQuery, '-__v');
+                            if(userGroup){
+                                outputJSON.groupRole = userGroup.name;
+                                outputJSON.permissions = userGroup.permissions;
+                            }
+                        }
+                        boList.push(outputJSON);
                     }
                     resolve(boList);
                 }
@@ -213,6 +225,24 @@ module.exports = class AgencyPortalUserBO{
             }
         });
     }
+
+    async getByAgencyId(agencyId, addPermissions = false) {
+        if(agencyId){
+            const addPermissions = true;
+            const query = {'agencyid': agencyId};
+            const userList = await this.getList(query, addPermissions).catch(function(err){
+                throw err;
+            })
+            return userList;
+        }
+        else {
+            throw new Error("Missing agencyId");
+        }
+
+       
+    }
+
+
 
     deleteSoftById(id) {
         return new Promise(async (resolve, reject) => {
@@ -298,40 +328,25 @@ module.exports = class AgencyPortalUserBO{
 
 
 
-    getGroupList() {
+    getGroupList(forTalageAdmin = false) {
         return new Promise(async (resolve, reject) => {
-                let rejected = false;
-                // Create the update query
-                let sql = `
-                    select *  from clw_talage_agency_portal_user_groups  
-                `;
-
-                // Run the query
-                const result = await db.query(sql).catch(function (error) {
-                    // Check if this was
-                    
-                    rejected = true;
-                    log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
-                    reject(error);
-                });
-                if (rejected) {
-                    return;
+            let query = {active: true};
+            if(forTalageAdmin === false){
+                query.talageAdminOnly = false;
+            }
+            let userGroupList = null;
+            try {
+                let doclist = await AgencyPortalUserGroup.find(query, '-__v');
+                userGroupList = mongoUtils.objListCleanup(doclist);
+                for(let i = 0; i < userGroupList.length; i++) {
+                    userGroupList[i].id = userGroupList[i].systemId;
                 }
-                if(result && result.length > 0 ){
-                    for(let i=0; i < result.length; i++ ){
-                        if(result[i].permissions){
-                            result[i].permissions = JSON.parse(result[i].permissions)
-                        }
-                         
-                     }
-                    resolve(result);
-                }
-                else {
-                    //Search so no hits ok.
-                    resolve([]);
-                }
-               
-            
+            }
+            catch (err) {
+                log.error("Getting AgencyPortalUserGroup error " + err + __location);
+                reject(err);
+            }
+            resolve(userGroupList);   
         });
     }
 }
