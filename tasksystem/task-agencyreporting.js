@@ -67,7 +67,7 @@ var agencyReportTask = async function(){
     //const currentDate = moment().utc().format(db.dbTimeFormat())
 
     //S QLAgency locations
-    const quoteSQL = `
+    const agencySQL = `
     select 
             id, name, slug, agency_network, created, modified, deleted, wholesale_agreement_signed
         from    
@@ -79,7 +79,7 @@ var agencyReportTask = async function(){
 
     let agencyListDBJSON = null;
 
-    agencyListDBJSON = await db.query(quoteSQL).catch(function(err){
+    agencyListDBJSON = await db.query(agencySQL).catch(function(err){
         log.error(`Error get agency list from DB. error:  ${err}` + __location);
         return false;
     });
@@ -104,23 +104,30 @@ var agencyReportTask = async function(){
         })
 
         for(let i = 0; i < agencyListDBJSON.length; i++){
-            const quote = agencyListDBJSON[i];
+            const agency = agencyListDBJSON[i];
 
-            quote.created = moment_timezone(quote.created).tz('America/Los_Angeles').format('YYYY-MM-DD');
-            quote.modified = moment_timezone(quote.modified).tz('America/Los_Angeles').format('YYYY-MM-DD');
+            const createdDtm = moment_timezone(agency.created).tz('America/Los_Angeles');
+            agency.created = moment_timezone(agency.created).tz('America/Los_Angeles').format('YYYY-MM-DD');
+            agency.modified = moment_timezone(agency.modified).tz('America/Los_Angeles').format('YYYY-MM-DD');
 
 
-            quote.state = ""
-            if(quote.wholesale_agreement_signed){
-                const signedDtm = moment_timezone(quote.wholesale_agreement_signed).tz('America/Los_Angeles')
-                quote.wholesale_agreement_signed = signedDtm.format('YYYY-MM-DD');
-                if(signedDtm < startOfMonth){
-                    quote.state = "Active"
+            agency.state = ""
+            if(agency.agency_network === 2){
+                if(agency.wholesale_agreement_signed){
+                    const signedDtm = moment_timezone(agency.wholesale_agreement_signed).tz('America/Los_Angeles')
+                    agency.wholesale_agreement_signed = signedDtm.format('YYYY-MM-DD');
+                    if(signedDtm < startOfMonth){
+                        agency.state = "Active"
+                    }
                 }
             }
+            else if(createdDtm < startOfMonth){
+                agency.state = "Active";
+            }
 
-            if(quote.deleted){
-                quote.deleted = moment_timezone(quote.deleted).tz('America/Los_Angeles').format('YYYY-MM-DD');
+
+            if(agency.deleted){
+                agency.deleted = moment_timezone(agency.deleted).tz('America/Los_Angeles').format('YYYY-MM-DD');
             }
             // get AgencyNetwork name from map
             if(agencyNetworkNameMapJSON[agencyListDBJSON[i].agency_network]){
