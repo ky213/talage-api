@@ -403,8 +403,33 @@ module.exports = class CompwestWC extends Integration {
 
             // For the first location, insert the DBA nodes
             if (this.app.business.dba && index === 0) {
-                Location.ele('GeneralPartyInfo').ele('NameInfo').ele('CommlName').ele('SupplementaryNameInfo').ele('SupplementaryName', this.app.business.dba);
-                Location.ele('AdditionalInterest').ele('AdditionalInterestInfo').ele('NatureInterestCd', 'DB');
+                const DBAAdditionalInterest = Location.ele('AdditionalInterest');
+                DBAAdditionalInterest.att('id', 'c2');
+                // <GeneralPartyInfo>
+                const DBAGeneralPartyInfo = DBAAdditionalInterest.ele('GeneralPartyInfo');
+                // <NameInfo>
+                const DBANameInfo = DBAGeneralPartyInfo.ele('NameInfo');
+                DBANameInfo.ele('CommlName').ele('CommercialName', this.app.business.dba);
+                const DBATaxIdentity = DBANameInfo.ele('TaxIdentity');
+                DBATaxIdentity.ele('TaxIdTypeCd', 'FEIN');
+                DBATaxIdentity.ele('TaxCd',this.app.business.locations[0].identification_number);
+                DBANameInfo.ele('LegalEntityCd', entityMatrix[this.app.business.entity_type]);
+                // </NameInfo>
+                // <Addr>
+                const DBAAddr = DBAGeneralPartyInfo.ele('Addr');
+                DBAAddr.ele('Addr1', this.app.business.mailing_address);
+                if (this.app.business.mailing_address2) {
+                    DBAAddr.ele('Addr2', this.app.business.mailing_address2);
+                }
+                DBAAddr.ele('City', this.app.business.mailing_city);
+                DBAAddr.ele('StateProvCd', this.app.business.mailing_territory);
+                DBAAddr.ele('PostalCode', this.app.business.mailing_zip);
+                DBAAddr.ele('CountryCd', 'USA');
+                // </Addr>
+                // </GeneralPartyInfo>
+                // <AdditionalInterestInfo>
+                DBAAdditionalInterest.ele('AdditionalInterestInfo').ele('NatureInterestCd', 'DB');
+                // </AdditionalInterestInfo>
             }
 
             // </Location>
