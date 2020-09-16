@@ -187,7 +187,7 @@ function getGenericApplicationStatus(application, quotes) {
     }
     else if (quotes.some((quote) => quote.aggregated_status === 'declined')) {
         //appStatusId = 30
-        return 'declined';
+       // return 'declined';
         return { appStatusId: 30, appStatusDesc:'declined'};
     }
     else if (quotes.some((quote) => quote.aggregated_status === 'error')) {
