@@ -169,19 +169,8 @@ async function createToken(req, res, next){
 
         // Only agencies who have wholesale enabled and have not signed before should be required to sign
         // Only for for Digalent is the process handle in the software.
-        if (wholesaleInfo[0].wholesale && !wholesaleInfo[0].wholesale_agreement_signed && wholesaleInfo[0].agency_network === 2) {
+        if (wholesaleInfo[0].agency_network === 2 && wholesaleInfo[0].wholesale && !wholesaleInfo[0].wholesale_agreement_signed) {
             payload.signatureRequired = true;
-        }
-        else if (wholesaleInfo[0].wholesale && !wholesaleInfo[0].wholesale_agreement_signed && wholesaleInfo[0].agency_network === 1){
-            // mark them as signed ??
-            try{
-                const agencyPortalUserBO = new AgencyPortalUserBO();
-                await agencyPortalUserBO.markWholeSaleSignedById(agencyPortalUserResult[0].agency)
-            }
-            catch(err){
-                // do not stop login over this error.
-                log.error("Error marking wheelhouse user wholesale " + err + __location);
-            }
         }
 
         // Store the agency network ID locally for later use
