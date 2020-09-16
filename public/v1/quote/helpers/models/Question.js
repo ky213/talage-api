@@ -127,22 +127,24 @@ module.exports = class Question{
             }
 
             // For Checkbox questions, there may be more than one possible answer, process each
-            if(this.type === 'Checkboxes'){
-                if(typeof answer === 'string' && answer.indexOf("|") > -1){
-                    if (answer.indexOf("|") === 0){
+            if (this.type === 'Checkboxes') {
+                if (typeof answer === 'string' && answer.indexOf("|") > -1) {
+                    if (answer.indexOf("|") === 0) {
                         answer = answer.substr(1);
                     }
                     answer = answer.split('|');
-                    try{
-                        for (let i = 0; i < answer.length; i++){
-                            if(typeof answer[i] === 'string'){
+                    try {
+                        for (let i = 0; i < answer.length; i++) {
+                            if (typeof answer[i] === 'string') {
                                 answer[i] = parseInt(answer[i], 10);
                             }
                         }
-                    }
-                    catch(e) {
+                    } catch (e) {
                         log.warn(`answer array conversion problem on ${answer} ` + __location);
                     }
+                } else if (typeof answer === 'number') {
+                    // It is a single answer ID so put it in an array by itself
+                    answer = [answer];
                 }
                 // Every answer must be numeric, if they are not, they are wrong
                 if(typeof answer !== 'object' || !answer.length){
@@ -168,8 +170,7 @@ module.exports = class Question{
                 this.answer = answer;
 
                 // For boolean and select questions, set the answer ID or find the equivalent
-            }
-            else if(this.type === 'Yes/No' || this.type === 'Select List'){
+            } else if(this.type === 'Yes/No' || this.type === 'Select List'){
 
                 // If the answer wasn't numeric, it is wrong
                 if(typeof answer !== 'number'){
@@ -186,8 +187,7 @@ module.exports = class Question{
                 // Set the answer ID and determine and set the answer text
                 this.answer_id = answer;
                 this.answer = this.possible_answers[answer].answer;
-            }
-            else{
+            } else{
                 // For text answer questions
                 this.answer_id = 0;
                 this.answer = answer;
