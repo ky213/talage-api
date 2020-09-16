@@ -113,10 +113,10 @@ exports.hasOtherSigningAuthority = hasOtherSigningAuthority;
 /**
  * Validates a user and returns a clean data object
  *
- * @param {object} req - HTTP request object
+ * @param {object} user - User Object
  * @return {object} Object containing user information
  */
-async function validate(req) {
+async function validate(user) {
     // Establish default values
     const data = {
         canSign: 0,
@@ -127,28 +127,28 @@ async function validate(req) {
     // Validate each parameter
 
     // Can Sign? (optional)
-    if (Object.prototype.hasOwnProperty.call(req.body, 'canSign') && req.body.canSign !== true && req.body.canSign !== false) {
+    if (Object.prototype.hasOwnProperty.call(user, 'canSign') && user.canSign !== true && user.canSign !== false) {
         throw new Error('Invalid canSign value. Please contact us.');
     }
-    data.canSign = req.body.canSign ? 1 : null;
+    data.canSign = user.canSign ? 1 : null;
 
     // Email
-    if (!Object.prototype.hasOwnProperty.call(req.body, 'email') || !req.body.email) {
+    if (!Object.prototype.hasOwnProperty.call(user, 'email') || !user.email) {
         throw new Error('You must enter an email address');
     }
-    if (!validator.email(req.body.email)) {
+    if (!validator.email(user.email)) {
         throw new Error('Email address is invalid');
     }
-    data.email = req.body.email;
+    data.email = user.email;
 
     // Group (optional)
-    if (Object.prototype.hasOwnProperty.call(req.body, 'group') && !validator.userGroup(req.body.group)) {
+    if (Object.prototype.hasOwnProperty.call(user, 'group') && !validator.userGroup(user.group)) {
         throw new Error('User group (role) is invalid');
     }
-    data.group = req.body.group;
+    data.group = user.group;
 
     // Prepare the email hash
-    const emailHash = await crypt.hash(req.body.email);
+    const emailHash = await crypt.hash(user.email);
 
     // Check for duplicate email address
     const duplicateSQL = `
@@ -156,7 +156,7 @@ async function validate(req) {
 			FROM \`#__agency_portal_users\`
 			WHERE \`email_hash\` = ${db.escape(emailHash)}
 				AND \`state\` > -2
-				${req.body.id ? `AND \`id\` != ${db.escape(req.body.id)}` : ''}
+				${user.id ? `AND \`id\` != ${db.escape(user.id)}` : ''}
 			;
 		`;
     const duplicateResult = await db.query(duplicateSQL).catch(function(err) {
@@ -189,7 +189,9 @@ async function createUser(req, res, next) {
     }
 
     // Validate the request and get back the data
-    const data = await validate(req).catch(function(err) {
+    // HACK: Adding backward compatibility so if typeof req.body.user === 'undefined' old ui use case else updated UI
+    const userObj = typeof req.body.user === 'undefined' ? req.body : req.body.user;
+    const data = await validate(userObj).catch(function(err) {
         error = err.message;
     });
     if (error) {
@@ -199,7 +201,10 @@ async function createUser(req, res, next) {
 
     // Determine if this is an agency or agency network
     let where = ``;
-    if (req.authentication.agencyNetwork) {
+    if (req.authentication.agencyNetwork && req.body.agency) {
+        where = `\`agency\`= ${parseInt(req.body.agency, 10)}`;
+    }
+    else if (req.authentication.agencyNetwork){
         where = `\`agency_network\`= ${parseInt(req.authentication.agencyNetwork, 10)}`;
     }
     else {
@@ -276,7 +281,11 @@ async function createUser(req, res, next) {
     // Add this user to the database
     let controlColumn = '';
     let controlValue = '';
-    if (req.authentication.agencyNetwork) {
+    if (req.authentication.agencyNetwork && req.body.agency) {
+        controlColumn = 'agency';
+        controlValue = req.body.agency;
+    }
+    else if (req.authentication.agencyNetwork) {
         controlColumn = 'agency_network';
         controlValue = req.authentication.agencyNetwork;
     }
@@ -354,9 +363,17 @@ async function createUser(req, res, next) {
     // Get the content of the new user email
     //Refactor to use AgencyNetworkBO
     log.debug("req.authentication.agencyNetwork: " + req.authentication.agencyNetwork);
-
-    const jsonEmailProp = req.authentication.agencyNetwork ? 'new_agency_network_user' : 'new_agency_user';
-    log.debug("jsonEmailProp: " + jsonEmailProp);
+    let jsonEmailProp = '';
+    if(req.authentication.agencyNetwork && req.body.agency){
+        jsonEmailProp = 'new_agency_user';
+    }
+    else if (req.authentication.agencyNetwork){
+        jsonEmailProp = 'new_agency_network_user';
+    }
+    else {
+        jsonEmailProp = 'new_agency_user';
+    }
+    //log.debug("jsonEmailProp: " + jsonEmailProp);
     error = null;
     const agencyNetworkBO = new AgencyNetworkBO();
     const emailContentJSON = await agencyNetworkBO.getEmailContent(agencyNetwork, jsonEmailProp).catch(function(err){
@@ -415,8 +432,14 @@ async function deleteUser(req, res, next) {
 
     // Determine if this is an agency or agency network
     let agencyOrNetworkID = 0;
+
     let where = ``;
-    if (req.authentication.agencyNetwork) {
+
+    if (req.authentication.agencyNetwork && req.query.agency) {
+        agencyOrNetworkID = parseInt(req.query.agency,10);
+        where = ` \`agency\` = ${agencyOrNetworkID}`;
+    }
+    else if (req.authentication.agencyNetwork) {
         agencyOrNetworkID = parseInt(req.authentication.agencyNetwork, 10);
         where = `\`agency_network\`= ${agencyOrNetworkID}`;
     }
@@ -439,16 +462,18 @@ async function deleteUser(req, res, next) {
     }
 
     // Validate the ID
+    // Since agency network can update an agency user determine, if this is an agency network but also has sent an agency (agencyId) then set this to false else let the authentication determine the agencyNetwork truthiness
+    const isThisAgencyNetwork = req.authentication.agencyNetwork && req.query.agency ? false : req.authentication.agencyNetwork;
     if (!Object.prototype.hasOwnProperty.call(req.query, 'id')) {
         return next(serverHelper.requestError('ID missing'));
     }
-    if (!await validator.userId(req.query.id, agencyOrNetworkID, req.authentication.agencyNetwork)) {
+    if (!await validator.userId(req.query.id, agencyOrNetworkID, isThisAgencyNetwork)) {
         return next(serverHelper.requestError('ID is invalid'));
     }
     const id = req.query.id;
 
     // Make sure there is an owner for this agency (we are not removing the last owner)
-    if (!await hasOtherOwner(agencyOrNetworkID, id, req.authentication.agencyNetwork)) {
+    if (!await hasOtherOwner(agencyOrNetworkID, id, isThisAgencyNetwork)) {
         // Log a warning and return an error
         log.warn('This user is the account owner. You must assign ownership to another user before deleting this account.');
         return next(serverHelper.requestError('This user is the account owner. You must assign ownership to another user before deleting this account.'));
@@ -575,8 +600,10 @@ async function updateUser(req, res, next) {
     }
 
     // Validate the request and get back the data
-    const data = await validate(req).catch(function(err) {
-        log.warn(err.message);
+    // HACK: Adding backward compatibility so if typeof req.body.user === 'undefined' old ui use case else updated UI
+    const userObj = typeof req.body.user === 'undefined' ? req.body : req.body.user;
+    const data = await validate(userObj).catch(function(err) {
+        log.warn(`${err.message}  ${__location}`);
         error = serverHelper.requestError(err.message);
     });
     if (error) {
@@ -586,7 +613,11 @@ async function updateUser(req, res, next) {
     // Determine if this is an agency or agency network
     let agencyOrNetworkID = 0;
     let where = ``;
-    if (req.authentication.agencyNetwork) {
+    if(req.authentication.agencyNetwork && req.body.agency){
+        agencyOrNetworkID = parseInt(req.body.agency, 10);
+        where = ` \`agency\` = ${agencyOrNetworkID}`;
+    }
+    else if (req.authentication.agencyNetwork) {
         agencyOrNetworkID = parseInt(req.authentication.agencyNetwork, 10);
         where = `\`agency_network\`= ${agencyOrNetworkID}`;
     }
@@ -603,13 +634,16 @@ async function updateUser(req, res, next) {
     }
 
     // Validate the ID
-    if (!Object.prototype.hasOwnProperty.call(req.body, 'id')) {
+    // Since agency network can update an agency user determine, if this is an agency network but also has sent an agency (agencyId) then set this to false else let the authentication determine the agencyNetwork truthiness
+    const isThisAgencyNetwork = req.authentication.agencyNetwork && req.body.agency ? false : req.authentication.agencyNetwork;
+
+    if (!Object.prototype.hasOwnProperty.call(userObj, 'id')) {
         return next(serverHelper.requestError('ID missing'));
     }
-    if (!await validator.userId(req.body.id, agencyOrNetworkID, req.authentication.agencyNetwork)) {
+    if (!await validator.userId(userObj.id, agencyOrNetworkID, isThisAgencyNetwork)) {
         return next(serverHelper.requestError('ID is invalid'));
     }
-    data.id = req.body.id;
+    data.id = userObj.id;
 
     // Begin a database transaction
     const connection = await db.beginTransaction().catch(function(err) {
@@ -619,6 +653,7 @@ async function updateUser(req, res, next) {
     if (error) {
         return next(error);
     }
+
 
     // If this user is to be set as owner, remove the current owner (they will become a super administrator)
     if (data.group === 1) {
@@ -644,7 +679,7 @@ async function updateUser(req, res, next) {
 
         // Make sure there is an owner for this agency (we are not removing the last owner)
     }
-    else if (!await hasOtherOwner(agencyOrNetworkID, data.id, req.authentication.agencyNetwork)) {
+    else if (!await hasOtherOwner(agencyOrNetworkID, data.id, isThisAgencyNetwork)) {
         // Rollback the transaction
         db.rollback(connection);
 
@@ -654,7 +689,8 @@ async function updateUser(req, res, next) {
     }
 
     // If the user is being set as the signing authority, remove the current signing authority (this setting does not apply to agency networks)
-    if (!req.authentication.agencyNetwork) {
+    // However adding functionality to update user from agency network so also need to make sure no agency id was sent in the req.body
+    if (!req.authentication.agencyNetwork && !req.body.agency) {
         if (data.canSign) {
             const removeCanSignSQL = `
 					UPDATE
@@ -676,7 +712,7 @@ async function updateUser(req, res, next) {
 
             // Make sure there is another signing authority (we are not removing the last one)
         }
-        else if (!await hasOtherSigningAuthority(agencyOrNetworkID, data.id, req.authentication.agencyNetwork)) {
+        else if (!await hasOtherSigningAuthority(agencyOrNetworkID, data.id)) {
             // Rollback the transaction
             db.rollback(connection);
 
