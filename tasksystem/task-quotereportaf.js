@@ -10,6 +10,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 
 /**
  * Quotereport Task processor
@@ -72,20 +73,18 @@ var quoteReportTask = async function(){
     q.application as application,
     q.policy_type as policy_type,
     i.name as name,
-    z.territory as territory,
+    a.state_abbr as territory,
     q.api_result as api_result,
     q.reasons as reasons,
     q.seconds as seconds,
     q.insurer,
     q.created,
-     IFNULL(an.name, "Talage") AS network,
+    ag.agency_network as agencyNetworkId,
     GROUP_CONCAT(DISTINCT ac.description) AS activity_codes
     FROM clw_talage_quotes AS q
         LEFT JOIN clw_talage_insurers AS i ON q.insurer = i.id
         LEFT JOIN clw_talage_applications AS a ON a.id = q.application
-        LEFT JOIN clw_talage_zip_codes as z on a.zip = z.zip
         LEFT JOIN clw_talage_agencies AS ag ON a.agency = ag.id
-        LEFT JOIN clw_talage_agency_networks AS an ON ag.agency_network = an.id
         LEFT JOIN clw_talage_application_activity_codes as acc on a.id = acc.application
         LEFT JOIN clw_talage_activity_codes as ac on acc.ncci_code = ac.id
     WHERE 
@@ -120,8 +119,25 @@ var quoteReportTask = async function(){
 
     // Loop locations setting up activity codes.
     if(quoteListDBJSON && quoteListDBJSON.length > 0){
+        //Load AgencyNetwork Map
+        const agencyNetworkBO = new AgencyNetworkBO();
+        let agencyNetworkNameMapJSON = {};
+        agencyNetworkNameMapJSON = await agencyNetworkBO.getIdToNameMap().catch(function(err){
+            log.error("Could not get agency network id to name map " + err + __location);
+        })
+
+
         for(let i = 0; i < quoteListDBJSON.length; i++){
+ 
+
+
             const quote = quoteListDBJSON[i];
+
+            // get AgencyNetwork name from map
+            if(agencyNetworkNameMapJSON[quoteListDBJSON[i].agencyNetworkId]){
+                quoteListDBJSON[i].network = agencyNetworkNameMapJSON[quoteListDBJSON[i].agencyNetworkId];
+            }
+
             //split activity_codes
             if(quote.activity_codes){
                 const activityCodeList = quote.activity_codes.split(",")
@@ -173,7 +189,7 @@ var quoteReportTask = async function(){
             };
             const attachments = [];
             attachments.push(attachmentJson);
-            const emailResp = await emailSvc.send(toEmail, 'Weekly Quote Report', 'Your weekly quote report is attached.', {}, 'talage', 1, attachments);
+            const emailResp = await emailSvc.send(toEmail, 'Weekly Quote Report', 'Your weekly quote report is attached.', {}, global.WHEELHOUSE_AGENCYNETWORK_ID, 'talage', 1, attachments);
             if(emailResp === false){
                 slack.send('#alerts', 'warning',`The system failed to send AF Weekly Quote Report email.`);
             }
@@ -190,7 +206,7 @@ var quoteReportTask = async function(){
         if(global.settings.ENV !== 'production'){
             toEmail = 'brian@talageins.com';
         }
-        const emailResp = await emailSvc.send(toEmail, 'Weekly Quote Report', 'Your weekly quote report: No Quotes.', {}, 'talage', 1);
+        const emailResp = await emailSvc.send(toEmail, 'Weekly Quote Report', 'Your weekly quote report: No Quotes.', {}, global.WHEELHOUSE_AGENCYNETWORK_ID, 'talage', 1);
         if(emailResp === false){
             slack.send('#alerts', 'warning',`The system failed to send AF Weekly Quote Report email.`);
         }

@@ -122,7 +122,7 @@ module.exports = class AgencyLocationBO{
    
 
 
-    async getListByAgencyLoationForAgencyPortal(agencyLocationId ){
+    async getListByAgencyLocationForAgencyPortal(agencyLocationId ){
         
         if(agencyLocationId){
             //santize id.

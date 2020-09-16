@@ -163,7 +163,7 @@ module.exports = class DatabaseObject {
 						}
 
 						// Validate the property value
-						if (this.#properties[property].rules) {
+						if (this.#properties[property].rules && value) {
 							for (const func of this.#properties[property].rules) {
 								if (!func(value)) {
                                     log.error(`${this.#table} The ${property} you provided is invalid, expecting ${this.#properties[property].type}. value: ` + JSON.stringify(value) );

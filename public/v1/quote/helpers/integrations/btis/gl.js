@@ -10,343 +10,423 @@
 const Integration = require('../Integration.js');
 const moment = require('moment');
 const util = require('util');
-// eslint-disable-next-line no-unused-vars
-const tracker = global.requireShared('./helpers/tracker.js');
+
+/*
+ * As of 08/2020
+ * Define how legal entities are mapped for BTIS (/GL/Common/v1/gateway/api/lookup/dropdowns/businesstypes)
+ * NOTE: The closest mapping for an association is a corporation
+ */
+const BUSINESS_ENTITIES = {
+    Association: 2,
+    Corporation: 2,
+    'Limited Liability Company': 5,
+    'Limited Partnership': 3,
+    Partnership: 6,
+    'Sole Proprietorship': 1
+};
+
+/*
+ * As of 08/2020
+ * This is the BTIS list of territories that offer deductibles OTHER THAN $500
+ * There is no lookup available to give us this list, instead each of the in appetite territories have to be checked
+ * here individually with an effective date:
+ * GL/Common/v1/gateway/api/lookup/dropdowns/deductibles/state/<state_code>/effective/<YYYY-MM-DD>/
+ * GL/Common/v1/gateway/api/lookup/dropdowns/deductibles/state/CA/effective/2020-08-23/
+ */
+const DEDUCTIBLE_TERRITORIES = ['AR',
+    'AZ',
+    'CA',
+    'CO',
+    'ID',
+    'NM',
+    'NV',
+    'OK',
+    'OR',
+    'TX',
+    'UT',
+    'WA'];
+
+/*
+ * As of 08/2020
+ * Define how deductibles are mapped for BTIS
+ * Again, no way to lookup their whole list, but these are the mappings for the only deductibles we offer anyway
+ * GL/Common/v1/gateway/api/lookup/dropdowns/deductibles/state/<state_code>/effective/<YYYY-MM-DD>/
+ * GL/Common/v1/gateway/api/lookup/dropdowns/deductibles/state/CA/effective/2020-08-23/
+ */
+const BTIS_DEDUCTIBLE_IDS = {
+    500: 2000500,
+    1000: 2001000,
+    1500: 2001500
+}
+
+/*
+ * As of 08/2020
+ * BTIS endpoint urls
+ * Arguments:
+ * AUTH_URL: None
+ * LIMITS_URL:  STATE_NAME - to be replaced with business primary territory
+ * 				EFFECTIVE_DATE - to be replaced with policy effective date in YYYY-MM-DD format
+ * QUOTE_URL: None
+ */
+const AUTH_URL = '/v1/authentication/connect/token';
+const LIMITS_URL = '/GL/Common/v1/gateway/api/lookup/dropdowns/limits/state/STATE_NAME/effective/EFFECTIVE_DATE/';
+const QUOTE_URL = '/GL/Common/v1/gateway/api/quote';
 
 module.exports = class BtisGL extends Integration {
 
-	/**
+    /**
 	 * Requests a quote from BTIS and returns. This request is not intended to be called directly.
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
-	_insurer_quote() {
-		// Define how legal entities are mapped for BTIS (/GL/v1/gateway/lookup/businesstypes)
-		const entity_matrix = {
-			Association: 4,
-			Corporation: 2,
-			'Limited Liability Company': 5,
-			'Limited Partnership': 3,
-			Partnership: 6,
-			'Sole Proprietorship': 1
-		};
+    async _insurer_quote() {
 
-		// Build the Promise
-		return new Promise(async(fulfill) => {
-			// Determine which URL to use
-			let host = '';
-			if (this.insurer.useSandbox) {
-				host = 'api-sandbox.btisinc.com';
-			}
- else {
-				host = 'api.btisinc.com';
-			}
+        let errorMessage = null;
+        let host = '';
 
-			// Get a token from their auth server
-			let had_error = false;
-			const token_request_data = JSON.stringify({
-				client_id: this.username,
-				client_secret: this.password,
-				grant_type: 'client_credentials'
-			});
-			const token_response = await this.send_json_request(host, '/v1/authentication/connect/token', token_request_data).catch((error) => {
-				log.error(error.message + __location);
-				had_error = true;
-				fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-			});
-			if (had_error) {
-				return;
-			}
+        // Determine which URL to use
+        if (this.insurer.useSandbox) {
+            host = 'api-sandbox.btisinc.com';
+        }
+        else {
+            host = 'api.btisinc.com';
+        }
 
-			// Verify that we got back what we expected
-			if (!Object.prototype.hasOwnProperty.call(token_response, 'success') || token_response.success !== true || !Object.prototype.hasOwnProperty.call(token_response, 'token') || !token_response.token) {
-				fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-				return;
-			}
-			const token = token_response.token;
+        // Get a token from their auth server
+        const token_request_data = JSON.stringify({
+            client_id: this.username,
+            client_secret: this.password,
+            grant_type: 'client_credentials'
+        });
 
-			// Build an object of data to send to BTIS
-			const data = {};
-			data.ProposedEffectiveDate = this.policy.effective_date.format('YYYY-MM-DD');
+        let token_response = null;
+        try{
+            // Send request
+            token_response = await this.send_json_request(host, AUTH_URL, token_request_data)
 
-			// Set a default for the deductible
-			let deductible_id = 2000500;
+        }
+        catch(error){
+            log.error('Failed to retrieve auth from BTIS: ' + error.message + __location);
+            return this.return_result('error');
+        }
 
-			// If allowed, check the deductible and return the appropriate ID
-			if (['AR',
-'AZ',
-'CA',
-'CO',
-'ID',
-'NM',
-'NV',
-'OK',
-'OR',
-'TX',
-'UT',
-'WA'].includes(this.app.business.primary_territory)) {
-				switch (this.policy.deductible) {
-					case 500:
-						deductible_id = 2000500;
-						break;
-					case 1000:
-						deductible_id = 2001000;
-						break;
-					default:
-						// 1500, defaulted value
-						deductible_id = 2001500;
-						break;
-				}
-			}
-
-			// Deductible
-			data.DeductibleId = deductible_id;
-
-			// Spanish
-			data.ProvideSpanishInspection = false;
-
-			// Determine the limits ID
-			const carrierLimits = await this.send_json_request(host, `/GL/v1/gateway/lookup/limits/?stateName=${this.app.business.primary_territory}&effectiveDate=${this.policy.effective_date.format('YYYY-MM-DD')}`, null, {'x-access-token': token}).catch((error) => {
-				log.error(error.message + __location);
-				fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-			});
-
-			// Get the best limits
-			const limits = this.getBestLimits(carrierLimits.map(function(carrierLimit) {
-					return carrierLimit.text.replace(/,/g, '');
-				}));
-			if (!limits) {
-                log.warn(`autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location)
-				this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
-				fulfill(this.return_result('autodeclined'));
-				return;
-			}
-
-			// Determine the limits ID
-			let limitsId = 0;
-			carrierLimits.forEach((limit) => {
-				if (parseInt(limit.limits.occurrence.replace(/,/g, ''), 10) === limits[0] && parseInt(limit.limits.aggregate.replace(/,/g, ''), 10) === limits[1] && parseInt(limit.limits.perproject.replace(/,/g, ''), 10) === limits[2]) {
-					limitsId = limit.limitId;
-				}
-			});
-
-			data.LimitsId = limitsId;
-
-			// InsuredInformation
-			const phone = this.app.business.contacts[0].phone.toString();
-			data.InsuredInformation = {};
-			data.InsuredInformation.FirstName = this.app.business.contacts[0].first_name;
-			data.InsuredInformation.LastName = this.app.business.contacts[0].last_name;
-			data.InsuredInformation.Email = this.app.business.contacts[0].email;
-			data.InsuredInformation.PhoneNumber = `(${phone.substring(0, 3)})${phone.substring(3, 6)}-${phone.substring(phone.length - 4)}`;
-
-			// Business Information
-			data.BusinessInformation = {};
-			data.BusinessInformation.DBA = this.app.business.dba ? this.app.business.dba : this.app.business.name;
-			if (!(this.app.business.entity_type in entity_matrix)) {
-				log.error('BTIS GL Integration File: Invalid Entity Type' + __location);
-				fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));
-				return;
-			}
-			data.BusinessInformation.BusinessEntityTypeId = entity_matrix[this.app.business.entity_type];
-			data.BusinessInformation.NumberOfOwners = this.app.business.num_owners;
-			data.BusinessInformation.NumberOfFullTimeEmployees = this.get_total_full_time_employees();
-
-			// Determine the BusinessExperienceId
-			// As of December 26, 2019
-			// 1 = New in business
-			// 2 = 1-59 days lapse in coverage
-			// 3 = 60+ days lapse in coverage
-			// 4 - 1 year of coverage, no lapses and no losses
-			// 5 - 2 years of coverage, no lapses and no losses
-			// 6 - 3+ years of coverage, no lapses and no losses
-			// 9 - No prior coverage
-			let BusinessExperienceId = 6;
-			if (this.app.business.founded.isAfter(moment().subtract(6, 'months'))) {
-				BusinessExperienceId = 1;
-			}
-			// TO DO: Finish this logic
-			data.BusinessInformation.BusinessExperienceId = BusinessExperienceId;
-
-			// Continue Business Information
-			data.BusinessInformation.NumberOfPartTimeEmployees = this.get_total_part_time_employees();
-			data.BusinessInformation.EmployeePayroll = this.get_total_payroll();
-			data.BusinessInformation.LaborerPayroll = 0;
-
-			if (Object.prototype.hasOwnProperty.call(this.questions, '970')) {
-				let subcontractor_costs = this.questions['970'].answer;
-				if (subcontractor_costs / this.policy.gross_sales > 0.5) {
-					log.info('BTIS declined due to subcontractor costs being too high.');
-					fulfill(this.return_error('declined', `${this.insurer.name} has declined to offer you coverage at this time`));
-					return;
-				}
-				if (typeof subcontractor_costs !== 'string') {
-					subcontractor_costs = String(subcontractor_costs);
-				}
-				subcontractor_costs = parseInt(subcontractor_costs.replace('$', '').replace(/,/g, ''), 10);
-				data.BusinessInformation.SubcontractorCosts = subcontractor_costs ? subcontractor_costs : 0;
-			}
- else {
-				data.BusinessInformation.SubcontractorCosts = 0;
-			}
-
-			// The applicant has not completed any work involving apartment conversions, construction work involving condominiums, town homes or time shares in the past 10 years, nor does the applicant plan to in the future.
-            if(this.questions['948']){
-                data.BusinessInformation.PerformNewResidentialWork = !this.questions['948'].get_answer_as_boolean();
+        // Check the response is what we're expecting
+        if(!token_response.success || token_response.success !== true || !token_response.token){
+            errorMessage = 'BTIS auth returned an unexpected response or error';
+            if(token_response.message && token_response.message.length > 0){
+                errorMessage += ': ' + token_response.message;
             }
-            else {
-                log.error("BTIS GL missing this.questions['948'] appId: " + this.app.id + __location);
+            log.error(errorMessage + __location);
+            return this.return_result('error');
+        }
+
+        // format the token the way BTIS expects it
+        const token = {'x-access-token': token_response.token};
+
+        /*
+         * DEDUCTIBLE
+         * Set a default for the deductible to $500 (available for all territories)
+         * Then check to see if higher deductibles are offered, if they are find an exact match
+         * or default to $1500
+         */
+        let deductibleId = BTIS_DEDUCTIBLE_IDS[500];
+
+        // If deductibles other than $500 are allowed, check the deductible and return the appropriate BTIS ID
+        if (DEDUCTIBLE_TERRITORIES.includes(this.app.business.primary_territory)) {
+            if(BTIS_DEDUCTIBLE_IDS[this.policy.deductible]){
+                deductibleId = BTIS_DEDUCTIBLE_IDS[this.policy.deductible];
+            }
+            else{
+                // Default to 1500 deductible
+                deductibleId = BTIS_DEDUCTIBLE_IDS[1500];
+            }
+        }
+
+        /*
+         * LIMITS
+         * BTIS allows submission without a limits id, so log a warning an keep going if the limits couldn't be retrieved
+         * As of 08/2020, their system defaults a submission without a limits ID to:
+         * $1M Occurrence, $2M Aggregate
+         */
+
+        // Prep limits URL arguments
+        const limitsURL = LIMITS_URL.replace('STATE_NAME', this.app.business.primary_territory).replace('EFFECTIVE_DATE', this.policy.effective_date.format('YYYY-MM-DD'));
+
+        let carrierLimitsList = null;
+        let btisLimitsId = null;
+
+        try{
+            carrierLimitsList = await this.send_json_request(host, limitsURL, null, token);
+        }
+        catch(error){
+            log.warn('Failed to retrieve limits from BTIS: ' + error.message + __location);
+        }
+
+        // If we successfully retrieved limit information from the carrier, process it to find the limit ID
+        if(carrierLimitsList){
+
+            // Filter out all carriers except victory (victory and clearspring have the same limit IDs so we only need victory)
+            carrierLimitsList = carrierLimitsList.filter(limit => limit.carrier === 'victory')
+
+            // Get the limit that most closely fits the user's request that the carrier supports
+            const bestLimit = this.getBestLimits(carrierLimitsList.map(function(limit) {
+                return limit.value.replace(/,/g, '');
+            }));
+
+            if(bestLimit){
+                // Determine the BTIS ID of the bestLimit
+                btisLimitsId = carrierLimitsList.find(limit => bestLimit.join('/') === limit.value.replace(/,/g, '')).key;
+            }
+        }
+
+        /*
+         * INSURED INFORMATION
+         * Retreive the insured information and format it to BTIS specs
+         */
+        const insuredInformation = this.app.business.contacts[0];
+        let insuredPhoneNumber = insuredInformation.phone.toString();
+        // Format phone number to: (xxx)xxx-xxxx
+        insuredPhoneNumber = `(${insuredPhoneNumber.substring(0, 3)})${insuredPhoneNumber.substring(3, 6)}-${insuredPhoneNumber.substring(insuredPhoneNumber.length - 4)}`;
+
+        /*
+         * BUSINESS ENTITY
+         * Check to make sure BTIS supports the applicant's entity type, if not autodecline
+         */
+        if (!(this.app.business.entity_type in BUSINESS_ENTITIES)) {
+            log.error(`BTIS GL Integration File: BTIS does not support ${this.app.business.entity_type}` + __location);
+            this.reasons.push(`BTIS does not support business entity type: ${this.app.business.entity_type}`);
+            return this.return_result('autodeclined');
+        }
+
+        /*
+         * BUSINESS HISTORY
+         * BTIS Lookup here: /GL/Common/v1/gateway/api/lookup/dropdowns/businesshistory/
+         * As of 08/2020
+         * 0 = New in business
+         * 1 = 1 year in business
+         * 2 = 2 years in business
+         * 3 = 3 years in business
+         * 4 = 4 years in business
+         * 5 = 5+ years in business
+         */
+        let businessHistoryId = moment().diff(this.app.business.founded, 'years');
+        if(businessHistoryId > 5){
+            businessHistoryId = 5;
+        }
+
+        /*
+         * PRIMARY ADDRESS
+         * Retrieve the business' primary address. Primary address is always stored in the first element of locations.
+         */
+        const primaryAddress = this.app.business.locations[0];
+
+        /*
+         * BTIS QUALIFYING STATEMENTS
+         * Retrieve the BTIS qualifying statement ids and map them to our ids, if unsuccessful we have
+         * to quit as they are required for BTIS.
+         * questionIdsObject: key - talage ID
+         *                    value - BTIS ID
+         */
+        let questionIdsObject = null;
+        try{
+            questionIdsObject = await this.get_question_identifiers();
+        }
+        catch(error){
+            log.error(`BTIS GL is unable to get question identifiers. ${error}` + __location);
+            this.reasons.push('Unable to get BTIS question identifiers required for application submission');
+            return this.return_result('error');
+        }
+
+        // Loop through and process each BTIS qualifying statement/question
+        let subcontractorCosts = 0;
+        let constructionExperience = 0;
+        const qualifyingStatements = [];
+
+        for (const question_id in this.questions) {
+            if(this.questions[question_id]){
+                const question = this.questions[question_id];
+                // Make sure we have a BTIS qualifying statement ID
+                if (questionIdsObject[question.id]) {
+                    // If the question is a special case (manually added in the question importer) handle it,
+                    // otherwise push it onto the qualifying statements
+                    switch(questionIdsObject[question.id]){
+                        // What is your annual cost of sub-contracted labor?
+                        case '1000':
+                            subcontractorCosts = question.answer ? question.answer : 0;
+                            break;
+                        // How many years of construction experience do you have?
+                        case '1001':
+                            constructionExperience = question.answer ? question.answer : 0;
+                            break;
+                        default:
+                            qualifyingStatements.push({
+                                QuestionId: parseInt(questionIdsObject[question.id], 10),
+                                Answer: question.get_answer_as_boolean()
+                            });
+                    }
+                }
+            }
+        }
+
+        /*
+         * PERFORM NEW RESIDENTIAL WORK
+         * Question text: Can you confirm that you haven't done any work involving apartment conversions,
+         * construction work involving condominiums, town homes, or time shares in the past 10 years?
+         * NOTE: Because of the negative in the question text, we have to flip the user's answer because
+         * why would we make this simple BTIS, why you gotta put negatives in your questions
+         * ADDITIONAL NOTE: BTIS asks for this info in the body of their application AS WELL as in their
+         * qualifying statements so we need to isolate this answer from the qualifying statements separately
+         */
+
+        // Get the talage ID of BTIS qualifying statement number 2
+        const talageIdNewResidentialWork = Object.keys(questionIdsObject).find(talageId => questionIdsObject[talageId] === '2');
+        let performNewResidentialWork = false;
+        if(this.questions[talageIdNewResidentialWork]){
+            performNewResidentialWork = !this.questions[talageIdNewResidentialWork].get_answer_as_boolean();
+        }
+        else {
+            log.warn(`BTIS GL missing question ${talageIdNewResidentialWork} appId: ` + this.app.id + __location);
+        }
+
+        /*
+         * GROSS RECEIPTS
+         * BTIS qulaifying statement id 1 asks: Are your gross receipts below $1,500,000 in each of the past 2 years?
+         * We ask for and store gross sales in the applicaiton so this qualifying statement needs to be processed separately
+         */
+        qualifyingStatements.push({
+            QuestionId: 1,
+            Answer: this.policy.gross_sales < 1500000
+        });
+
+        /*
+         * BTIS APPLICAITON
+         * Build the expected data object for BTIS
+         */
+        const data = {
+            ProposedEffectiveDate: this.policy.effective_date.format('YYYY-MM-DD'),
+            DeductibleId: deductibleId,
+            LimitsId: btisLimitsId,
+            ProvideSpanishInspection: false,
+
+            InsuredInformation: {
+                FirstName: insuredInformation.first_name,
+                LastName: insuredInformation.last_name,
+                Email: insuredInformation.email,
+                PhoneNumber: insuredPhoneNumber,
+                CellularNumber: insuredPhoneNumber
+            },
+
+            BusinessInformation:{
+                DBA: this.app.business.dba ? this.app.business.dba : this.app.business.name,
+                BusinessEntityTypeId: BUSINESS_ENTITIES[this.app.business.entity_type],
+                BusinessExperienceId: businessHistoryId,
+                ConstructionExperienceId: constructionExperience,
+                BusinessHistoryId: businessHistoryId,
+                NumberOfOwners: this.app.business.num_owners,
+                NumberOfFullTimeEmployees: this.get_total_full_time_employees(),
+                NumberOfPartTimeEmployees: this.get_total_part_time_employees(),
+                EmployeePayroll: this.get_total_payroll(),
+                LaborerPayroll: 0,
+                SubcontractorCosts: subcontractorCosts,
+                PerformNewResidentialWork: performNewResidentialWork,
+                DescriptionOfOperations: this.get_operation_description(),
+
+                PrimaryAddress: {
+                    Line1: primaryAddress.address,
+                    Line2: primaryAddress.address2,
+                    City: primaryAddress.city,
+                    State: primaryAddress.territory,
+                    Zip: primaryAddress.zip.toString()
+                },
+
+                MailingAddress: {
+                    Line1: this.app.business.mailing_address,
+                    Line2: this.app.business.mailing_address2,
+                    City: this.app.business.mailing_city,
+                    State: this.app.business.mailing_territory,
+                    Zip: this.app.business.mailing_zip.toString()
+                },
+
+                GrossReceipts:[
+                    {
+                        Type: 'OneYearGrossReceipts',
+                        Amount: this.policy.gross_sales.toString()
+                    }
+                ],
+
+                InsuranceHistory: [],
+                ConstructionZones: [],
+                ConstructionTypes: null,
+                PartnerNames: null
+            },
+
+            Classifications: [
+                {
+                    ClassCode: this.industry_code.cgl.toString(),
+                    Percentage: 100
+                }
+            ],
+
+            OptionalCoverages: [],
+            QualifyingStatements: qualifyingStatements
+        }
+
+        // Send JSON to the insurer
+        let quoteResult = null;
+        try{
+            quoteResult = await this.send_json_request(host, QUOTE_URL, JSON.stringify(data), token)
+        }
+        catch(error){
+            log.warn(`BTIS Submit Endpoint Returned Error ${util.inspect(error, false, null)}` + __location);
+            this.reasons.push('Problem connecting to insurer BTIS');
+            return this.return_result('autodeclined');
+        }
+
+        // The result can be under either clearspring or victory, checking for success
+        if (quoteResult.clearspring && quoteResult.clearspring.success === true || quoteResult.victory && quoteResult.victory.success === true) {
+
+            const product = quoteResult.clearspring ? 'clearspring' : 'victory';
+            const quoteInfo = quoteResult[product];
+
+            // Get the quote amount
+            if(quoteInfo.quote && quoteInfo.quote.results && quoteInfo.quote.results.total_premium){
+                this.amount = quoteInfo.quote.results.total_premium;
+            }
+            else{
+                log.error('BTIS GL Integration Error: Quote structure changed. Unable to get quote amount from insurer. ' + __location);
+                this.reasons.push('A quote was generated but our API was unable to isolate it.');
+                return this.return_result('error');
             }
 
-            data.BusinessInformation.DescriptionOfOperations = this.get_operation_description();
+            // Get the quote limits
+            if(quoteInfo.quote.criteria && quoteInfo.quote.criteria.limits){
+                const limitsString = quoteInfo.quote.criteria.limits.replace(/,/g, '');
+                const limitsArray = limitsString.split('/');
+                this.limits = {
+                    '4': limitsArray[0],
+                    '8': limitsArray[1],
+                    '9': limitsArray[2]
+                }
+            }
+            else{
+                log.error('BTIS GL Integration Error: Quote structure changed. Unable to find limits. ' + __location);
+            }
 
-			// Primary Address
-			data.BusinessInformation.PrimaryAddress = {};
-			data.BusinessInformation.PrimaryAddress.Line1 = this.app.business.locations[0].address;
-			data.BusinessInformation.PrimaryAddress.Line2 = this.app.business.locations[0].address2;
-			data.BusinessInformation.PrimaryAddress.City = this.app.business.locations[0].city;
-			data.BusinessInformation.PrimaryAddress.State = this.app.business.locations[0].territory;
-			data.BusinessInformation.PrimaryAddress.Zip = this.app.business.locations[0].zip;
+            // Return the quote
+            return this.return_result('referred_with_price');
+        }
+        // Checking for referral with reasons
+        if(quoteResult.clearspring && quoteResult.clearspring.success === false || quoteResult.victory && quoteResult.victory.success === false){
+            const product = quoteResult.clearspring ? 'clearspring' : 'victory';
+            const declinedInfo = quoteResult[product];
 
-			// Mailing Address
-			data.BusinessInformation.MailingAddress = {};
-			data.BusinessInformation.MailingAddress.Line1 = this.app.business.mailing_address;
-			data.BusinessInformation.MailingAddress.Line2 = this.app.business.mailing_address2;
-			data.BusinessInformation.MailingAddress.City = this.app.business.mailing_city;
-			data.BusinessInformation.MailingAddress.State = this.app.business.mailing_territory;
-			data.BusinessInformation.MailingAddress.Zip = this.app.business.mailing_zip;
+            declinedInfo.referral_reasons.forEach((reason) => {
+                this.reasons.push(reason);
+            });
+            return this.return_result('referred');
+        }
 
-			// Gross Receipts
-			data.BusinessInformation.GrossReceipts = [];
-			data.BusinessInformation.GrossReceipts[0] = {};
-			data.BusinessInformation.GrossReceipts[0].Type = 'OneYearGrossReceipts';
-			data.BusinessInformation.GrossReceipts[0].Amount = this.policy.gross_sales;
-
-			// TO DO: OPTIONAL COVERAGES (we may not support these?)
-
-			// Classifications
-			data.Classifications = [];
-			data.Classifications[0] = {};
-			data.Classifications[0].ClassCode = this.industry_code.cgl;
-			data.Classifications[0].Name = this.industry_code.description;
-			data.Classifications[0].Percentage = 100;
-
-			// Questions (in BTIS speak, "qualifying statements")
-
-			// Get the identifiers for each question
-			const question_identifiers = await this.get_question_identifiers().catch((error) => {
-				log.error(`BTIS GL is unable to get question identifiers. ${error}` + __location);
-				fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-			});
-
-			// Loop through and send each
-			data.QualifyingStatements = [];
-			for (const question_id in this.questions) {
-				if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
-					const question = this.questions[question_id];
-					const QuestionCd = question_identifiers[question.id];
-
-					// Don't process questions without a code (not for this insurer)
-					if (!QuestionCd) {
-						continue;
-					}
-
-					const q = {};
-					q.QuestionId = QuestionCd;
-					q.Answer = question.get_answer_as_boolean();
-
-					data.QualifyingStatements.push(q);
-				}
-			}
-
-			// Specially Handled Questions
-
-			// Are your gross receipts below $1,500,000 in each of the past 2 years?
-			const gross_q = {};
-			gross_q.QuestionId = 1;
-			gross_q.Answer = this.policy.gross_sales < 1500000;
-			data.QualifyingStatements.push(gross_q);
-
-			// How many years of experience do you have?
-			const exp_q = {};
-			exp_q.QuestionId = 7;
-			exp_q.Answer = this.get_years_in_business() >= 2 ? true : this.app.business.years_of_exp >= 2;
-			data.QualifyingStatements.push(exp_q);
-
-			// Determine the API Path for this request
-			const path = '/GL/v1/gateway/submit';
-
-			// Send JSON to the insurer
-			await this.send_json_request(host, path, JSON.stringify(data), {'x-access-token': token}).
-				then((result) => {
-					if (result.success) {
-						// Get the quote ID
-						this.request_id = result.submissionid;
-
-						if (Object.prototype.hasOwnProperty.call(result, 'submission')) {
-							// Make an additional 'Quote' call to take this app out of submitted status, don't wait b/c we really don't care
-							this.send_json_request(host, `/GL/v1/gateway/quote?submissionId=${this.request_id}`, JSON.stringify(data), {'x-access-token': token}, 'PUT').catch((error) => {
-								log.error(`BTIS Quote Endpoint Returned Error ${util.inspect(error, false, null)}` + __location);
-							});
-
-							// Get the amount of the quote (from the Silver package only, per Adam)
-							let amount = 0;
-							try {
-								amount = result.submission.results.total_premium;
-							}
- catch (e) {
-								log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to quote amount.` + __location);
-								this.reasons.push('A quote was generated, but our API was unable to isolate it.');
-								fulfill(this.return_error('error', "Our bad. Something went wrong, but we're on it. Expect to hear from us"));
-								return;
-							}
-
-							// Grab the limits info
-							try {
-								let limits_string = result.submission.criteria.limits;
-
-								// Remove the commas
-								limits_string = limits_string.replace(/,/g, '');
-
-								// Break the limits into an array
-								const policy_limits = limits_string.split('/');
-
-								// Build out the limits how our system expects to see them
-								this.limits = {
-									'4': policy_limits[0],
-									'8': policy_limits[1],
-									'9': policy_limits[2]
-								};
-							}
- catch (e) {
-								log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find limits.` + __location);
-							}
-
-							// Return the quote
-							this.log += `--------======= Success! =======--------<br><br>Quote: ${amount}<br>Application ID: ${this.request_id}`;
-							fulfill(this.return_quote(amount));
-						}
- else {
-							this.log += `--------======= Application Referred =======--------<br><br>`;
-							result.referralReasons.forEach((reason) => {
-								this.log += `- ${reason}<br>`;
-								this.reasons.push(reason);
-								log.warn(`Referred by Insurer With Message: ${reason}` + __location);
-							});
-							fulfill(this.return_error('referred', `${this.insurer.name} needs a little more time to make a decision`));
-						}
-					}
- else {
-						log.error(`BTIS Submit Endpoint Returned Error ${result.message}` + __location);
-						this.reasons.push(result.message);
-						fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));
-					}
-				}).
-				catch((error) => {
-					log.error(`BTIS Submit Endpoint Returned Error ${util.inspect(error, false, null)}` + __location);
-					this.reasons.push('Problem connecting to insurer');
-					fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));
-				});
-		});
-	}
-};
+        // If we made it this far, they declined
+        return this.return_result('declined');
+    }
+}

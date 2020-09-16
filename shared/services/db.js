@@ -12,7 +12,7 @@ let conn = null;
 
 exports.connect = async() => {
 
-    console.log(`Connecting to database ${colors.cyan(global.settings.DATABASE_HOST)}`); // eslint-disable-line no-console
+    log.info(`MySQL Connecting to database ${colors.cyan(global.settings.DATABASE_HOST)}`); // eslint-disable-line no-console
 
     // Connect to the database set client to assume db datetimes are in UTC.
     conn = mysql.createPool({
@@ -24,16 +24,23 @@ exports.connect = async() => {
         'timezone': 'Z'
     });
 
+    conn.on('connection', function(connection) {
+        if(global.settings.USING_AURORA_CLUSTER === "YES"){
+            connection.query(`set @@aurora_replica_read_consistency = 'session';`)
+            log.info("Set aurora_replica_read_consistency")
+        }
+    });
+
     // Try to connect to the database to ensure it is reachable.
     try{
         const connection = await util.promisify(conn.getConnection).call(conn);
         connection.release();
     }
     catch(error){
-        console.log(colors.red(`\tERROR: ${error.toString()}`)); // eslint-disable-line no-console
+        log.error(colors.red(`\tMySQL DB ERROR: ${error.toString()}`)); // eslint-disable-line no-console
         return false;
     }
-    console.log(colors.green('\tConnected')); // eslint-disable-line no-console
+    log.info(colors.green(`\tMySQL Connected to ${colors.cyan(global.settings.DATABASE_HOST)}`)); // eslint-disable-line no-console
     return true;
 };
 

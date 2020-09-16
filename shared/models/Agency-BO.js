@@ -90,6 +90,24 @@ module.exports = class AgencyBO{
         });
     }
 
+    getById(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id && id >0 ){
+                await this.#dbTableORM.getById(id).catch(function (err) {
+                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
+                    reject(err);
+                    return;
+                });
+                this.updateProperty();
+                resolve(this.#dbTableORM.cleanJSON());
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
     async cleanupInput(inputJSON){
         for (const property in properties) {
             if(inputJSON[property]){
@@ -118,6 +136,47 @@ module.exports = class AgencyBO{
             this[property] = dbJSON[property];
         }
       }
+
+       /**
+	 * Load new object JSON into ORM. can be used to filter JSON to object properties
+     *
+	 * @param {object} inputJSON - input JSON
+	 * @returns {void} 
+	 */
+    async loadORM(inputJSON){
+        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
+        this.updateProperty();
+        return true;
+    }
+
+    markWholeSaleSignedById(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id && id >0 ){
+              
+                //Remove old records.
+                const sql =`Update ${tableName} 
+                        SET SET wholesale_agreement_signed = CURRENT_TIMESTAMP()
+                        WHERE id = ${db.escape(id)}
+                `;
+                let rejected = false;
+                const result = await db.query(sql).catch(function (error) {
+                    // Check if this was
+                    log.error("Database Object ${tableName} UPDATE wholesale_agreement_signed error :" + error + __location);
+                    rejected = true;
+                    reject(error);
+                });
+                if (rejected) {
+                    return false;
+                }
+                resolve(true);
+              
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
     
 }
 

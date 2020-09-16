@@ -75,7 +75,7 @@ module.exports = class LibertyWC extends Integration {
             const limits = this.getBestLimits(carrierLimits);
             if (!limits) {
                 log.error(`autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location)
-                this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
+                this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} does not support the requested liability limits`);
                 fulfill(this.return_result('autodeclined'));
                 return;
             }
@@ -281,7 +281,7 @@ module.exports = class LibertyWC extends Integration {
                         answer = this.determine_question_answer(question);
                     }
                     catch (error) {
-                        log.error(`Liberty Mutual WC: Talage was unable to determine the answer to a question. Error: ${error} ` + __location);
+                        log.error(`Appid: ${this.app.id} Liberty Mutual WC: Talage was unable to determine the answer to a question. Error: ${error} ` + __location);
                         this.reasons.push('Talage was unable to determine the answer to a question');
                         fulfill(this.return_result('error'));
                         return;
@@ -434,7 +434,7 @@ module.exports = class LibertyWC extends Integration {
 
                 // Check that there was success at the root level
                 if (res.Status[0].StatusCd[0] !== '0') {
-                    log.error(`Liberty Mutual WC:Insurer's API Responded With Status ${res.Status[0].StatusCd[0]}: ${res.Status[0].StatusDesc[0]} ` + __location);
+                    log.error(`Appid: ${this.app.id} Liberty Mutual WC:Insurer's API Responded With Status ${res.Status[0].StatusCd[0]}: ${res.Status[0].StatusDesc[0]} ` + __location);
                     this.reasons.push(`Insurer's API Responded With Status ${res.Status[0].StatusCd[0]}: ${res.Status[0].StatusDesc[0]}`);
                     fulfill(this.return_result('error'));
                     return;
@@ -448,14 +448,14 @@ module.exports = class LibertyWC extends Integration {
 
                     // Check if this was an outage
                     if (res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0].indexOf('services being unavailable') >= 0) {
-                        log.error(`Liberty Mutual WC:Insurer's API Responded With services being unavailable ${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]} ` + __location);
+                        log.error(`Appid: ${this.app.id} Liberty Mutual WC:Insurer's API Responded With services being unavailable ${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]} ` + __location);
                         this.reasons.push(`${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]}`);
                         fulfill(this.return_result('outage'));
                         return;
                     }
 
                     // This was some other sort of error
-                    log.error(`Liberty Mutual WC:Insurer's API Responded With ${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusCd[0]}: ${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]} ` + __location);
+                    log.error(`Appid: ${this.app.id} Liberty Mutual WC:Insurer's API Responded With ${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusCd[0]}: ${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]} ` + __location);
                     this.reasons.push(`${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusCd[0]}: ${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]}`);
                     fulfill(this.return_result('error'));
                     return;
@@ -472,7 +472,7 @@ module.exports = class LibertyWC extends Integration {
                     this.request_id = res.Policy[0].QuoteInfo[0].CompanysQuoteNumber[0];
                 }
                 catch (e) {
-                    log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.` + __location);
+                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.` + __location);
                 }
 
                 // Attempt to get the amount of the quote
@@ -480,7 +480,7 @@ module.exports = class LibertyWC extends Integration {
                     this.amount = parseInt(res.Policy[0].QuoteInfo[0].InsuredFullToBePaidAmt[0].Amt[0], 10);
                 }
                 catch (e) {
-                    log.error(`Liberty Mutual WC: Unable to get an amount . Error: ${e} ` + __location);
+                    log.error(`Appid: ${this.app.id} Liberty Mutual WC: Unable to get an amount . Error: ${e} ` + __location);
                     // This is handled in return_result()
                 }
 
@@ -493,7 +493,7 @@ module.exports = class LibertyWC extends Integration {
                 }
                 catch (e) {
                     if (status === 'Reject') {
-                        log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find reasons.` + __location);
+                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find reasons.` + __location);
                     }
                 }
 
@@ -513,7 +513,7 @@ module.exports = class LibertyWC extends Integration {
                                         this.limits[3] = limit.FormatCurrencyAmt[0].Amt[0];
                                         break;
                                     default:
-                                        log.warn(`${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response` + __location);
+                                        log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response` + __location);
                                         break;
                                 }
                             });
@@ -522,13 +522,13 @@ module.exports = class LibertyWC extends Integration {
                 }
                 catch (e) {
                     // This is handled in return_result()
-                    log.error(`Liberty Mutual WC: Error getting limits. Error: ${e} ` + __location);
+                    log.error(`Appid: ${this.app.id} Liberty Mutual WC: Error getting limits. Error: ${e} ` + __location);
                 }
 
                 // Send the result of the request
                 fulfill(this.return_result(status));
             }).catch((err) => {
-                log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer. error: ${err}` + __location);
+                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer. error: ${err}` + __location);
                 fulfill(this.return_result('error'));
             });
         });

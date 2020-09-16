@@ -6,6 +6,7 @@
 
 const crypt = global.requireShared('./services/crypt.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 
 /**
  * Parses the quote app request URL and extracts the agency and page slugs
@@ -98,16 +99,12 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
 				ag.ca_license_number as californiaLicense,
 				ag.name as agencyName,
 				ag.agency_network as agencyNetwork,
-				an.landing_page_content as landingPageContent,
-				an.footer_logo,
 				ag.logo,
 				ag.enable_optout,
 				ag.website,
-				ag.wholesale,
-				(SELECT landing_page_content FROM clw_talage_agency_networks WHERE id = 1) AS defaultLandingPageContent
+				ag.wholesale
 			FROM clw_talage_agency_landing_pages as alp
 			LEFT JOIN clw_talage_agencies AS ag ON alp.agency = ag.id
-			LEFT JOIN clw_talage_agency_networks AS an ON ag.agency_network = an.id
 			LEFT JOIN clw_talage_industry_code_categories AS icc ON alp.industry_code_category = icc.id
 			LEFT JOIN clw_talage_color_schemes AS cs ON cs.id = alp.color_scheme
 			WHERE
@@ -129,12 +126,43 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
         return null;
     }
     try {
-        if (agency.landingPageContent) {
-            agency.landingPageContent = JSON.parse(agency.landingPageContent);
+        //Get AgencyNetworkBO  If missing landing page content get AgnencyNetwork = 1 for it.
+        const agencyNetworkBO = new AgencyNetworkBO();
+        // eslint-disable-next-line no-unused-vars
+        let error = null;
+        const agencyNetworkJSON = await agencyNetworkBO.getById(agency.agencyNetwork).catch(function(err){
+            error = err;
+            log.error("Get AgencyNetwork Error " + err + __location);
+        })
+        //Check featurer - optout
+        if(agencyNetworkJSON && agencyNetworkJSON.feature_json
+            && agencyNetworkJSON.feature_json.applicationOptOut === false
+        ){
+            agency.enable_optout = 0
         }
-        else if (agency.defaultLandingPageContent) {
-            agency.landingPageContent = JSON.parse(agency.defaultLandingPageContent);
+
+        if(agencyNetworkJSON && agencyNetworkJSON.footer_logo){
+            agency.footer_logo = agencyNetworkJSON.footer_logo
         }
+        if(agencyNetworkJSON && agencyNetworkJSON.landing_page_content){
+            agency.landingPageContent = agencyNetworkJSON.landing_page_content;
+        }
+        else {
+            //get from default AgencyNetwork
+            log.debug(`AgencyNetwork ${agency.agencyNetwork} using default landingpage`)
+            const agencyNetworkJSONDefault = await agencyNetworkBO.getById(1).catch(function(err){
+                error = err;
+                log.error("Get AgencyNetwork 1 Error " + err + __location);
+            });
+
+            if(agencyNetworkJSONDefault && agencyNetworkJSONDefault.landing_page_content){
+                agency.landingPageContent = agencyNetworkJSONDefault.landing_page_content;
+                if(!agency.footer_logo){
+                    agency.footer_logo = agencyNetworkJSONDefault.footer_logo;
+                }
+            }
+        }
+
         if (agency.meta) {
             agency.meta = JSON.parse(agency.meta);
         }
@@ -321,13 +349,12 @@ async function getAgencySocialMetadata(req, res, next) {
     // Retrieve the information needed to create the social media sharing metadata
     const sql = `
 		SELECT
-			ag.name,
-			an.landing_page_content as landingPageContent,
+            ag.agency_network as agencyNetwork,
+            ag.name as agencyName,
 			ag.logo,
-			(SELECT landing_page_content FROM clw_talage_agency_networks WHERE id = 1) AS defaultLandingPageContent
+			ag.website
 		FROM clw_talage_agency_landing_pages as alp
 		LEFT JOIN clw_talage_agencies AS ag ON alp.agency = ag.id
-		LEFT JOIN clw_talage_agency_networks AS an ON ag.agency_network = an.id
 		WHERE
 			ag.slug = ${db.escape(agencySlug)}
 			AND ag.state = 1
@@ -352,12 +379,36 @@ async function getAgencySocialMetadata(req, res, next) {
         return next();
     }
     try {
-        if (agency.landingPageContent) {
-            agency.landingPageContent = JSON.parse(agency.landingPageContent);
+        const agencyNetworkBO = new AgencyNetworkBO();
+        // eslint-disable-next-line no-unused-vars
+        let error = null;
+        // TODO refactor into BO function with list of default fields to use.
+        const agencyNetworkJSON = await agencyNetworkBO.getById(agency.agencyNetwork).catch(function(err){
+            error = err;
+            log.error("Get AgencyNetwork Error " + err + __location);
+        })
+        if(agencyNetworkJSON && agencyNetworkJSON.footer_logo){
+            agency.footer_logo = agencyNetworkJSON.footer_logo
         }
-        if (agency.defaultLandingPageContent) {
-            agency.defaultLandingPageContent = JSON.parse(agency.defaultLandingPageContent);
+        if(agencyNetworkJSON && agencyNetworkJSON.landing_page_content){
+            agency.landingPageContent = agencyNetworkJSON.landing_page_content;
         }
+        else {
+            //get from default AgencyNetwork
+            log.debug(`AgencyNetwork ${agency.agencyNetwork} using default landingpage`)
+            const agencyNetworkJSONDefault = await agencyNetworkBO.getById(1).catch(function(err){
+                error = err;
+                log.error("Get AgencyNetwork 1 Error " + err + __location);
+            });
+
+            if(agencyNetworkJSONDefault && agencyNetworkJSONDefault.landing_page_content){
+                agency.landingPageContent = agencyNetworkJSONDefault.landing_page_content;
+                if(!agency.footer_logo){
+                    agency.footer_logo = agencyNetworkJSONDefault.footer_logo;
+                }
+            }
+        }
+
         if (agency.website) {
             agency.website = await crypt.decrypt(agency.website);
         }
@@ -370,7 +421,7 @@ async function getAgencySocialMetadata(req, res, next) {
     res.send(200, {
         metaTitle: agency.name,
         metaDescription: agency.landingPageContent.bannerHeadingDefault ? agency.landingPageContent.bannerHeadingDefault : agency.defaultLandingPageContent.bannerHeadingDefault,
-        metaImage: `https://${global.settings.S3_BUCKET}.s3-us-west-1.amazonaws.com/public/agency-logos/${agency.logo}`
+        metaImage: `global.settings.IMAGE_URL}/public/agency-logos/${agency.logo}`
     });
     return next();
 }

@@ -18,6 +18,9 @@ const talageEvent = require('./shared/services/talageeventemitter.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 global.tracker = tracker;
+global.WHEELHOUSE_AGENCYNETWORK_ID = 1;
+global.DIGALENT_AGENCYNETWORK_ID = 2;
+
 
 var hasMongoMadeInitialConnected = false;
 // Inject the tracker code

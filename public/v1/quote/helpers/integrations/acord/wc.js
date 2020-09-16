@@ -12,7 +12,7 @@ let email_body = 'Attached is the ACORD 130 application from TEMPLATE_AGENCY_NAM
 
 module.exports = class ACORDWC extends Integration {
 
-	/**
+    /**
 	 * Generate and sends ACORD email and returns
 	 *
 	 * @returns {object | error} A promise that returns an object containing quote information if resolved, or an error if rejected
@@ -67,10 +67,10 @@ module.exports = class ACORDWC extends Integration {
             const attachments = [];
             attachments.push(attachment);
             // Email it
-            const emailResp = await emailsvc.send(acord_email, email_subject, email_body, email_keys, this.app.agencyLocation.email_brand, this.app.agencyLocation.agencyId, attachments);
+            const emailResp = await emailsvc.send(acord_email, email_subject, email_body, email_keys,this.app.agencyLocation.agencyNetwork, this.app.agencyLocation.email_brand, this.app.agencyLocation.agencyId, attachments);
             if(emailResp === false){
-                log.error(`Unable to send accord for applicationId ${this.app.id}` + __location)
-             }
+                log.error(`Unable to send acord for applicationId ${this.app.id}` + __location)
+            }
             //  if(emailResp === true){
             //     self.return_result('referred');
             // }
@@ -79,12 +79,13 @@ module.exports = class ACORDWC extends Integration {
             // }
             return emailResp;
         });
+        // eslint-disable-next-line no-unused-vars
         const email_sent = generated_acord.doc.end();
         return this.return_result('referred');
     }
     // TODO BP - Move logic ot Agency location BO is it alread in 2 places in the code.
 
-	/**
+    /**
 	 * Retrieve agency location/insurer email address to send acord form to for WC
 	 *
 	 * @returns {Promise<string|false>} A promise that contains an email address if resolved, false otherwise
@@ -118,7 +119,7 @@ module.exports = class ACORDWC extends Integration {
             email_address = policyTypeInfoJSON.GL.acordInfo.sendToEmail;
         }
         catch (e) {
-            log.error(`Missing accord email address WC agency location id ${this.app.agencyLocation.id} ` + __location)
+            log.error(`Missing acord email address WC agency location id ${this.app.agencyLocation.id} ` + __location)
         }
 
         //Check the email was found

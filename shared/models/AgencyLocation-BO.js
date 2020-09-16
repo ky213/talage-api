@@ -1,7 +1,7 @@
 'use strict';
 
 const DatabaseObject = require('./DatabaseObject.js');
-const AgencyLocationInsurer = require('./AgencyLocationInsurer-BO.js');
+const AgencyLocationInsurerBO = require('./AgencyLocationInsurer-BO.js');
 const AgencyLocationTerritory = require('./AgencyLocationTerritory-BO.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
@@ -93,6 +93,9 @@ module.exports = class AgencyLocationBO{
             }
         });
     }
+
+
+
     getById(id) {
         return new Promise(async (resolve, reject) => {
             //validate
@@ -144,7 +147,7 @@ module.exports = class AgencyLocationBO{
             let rejected = false;
                 let responseLandingPageJSON = {};
                 let reject  = false;
-                const sql = `select al.id, al.address, al.city, al.ca_abbr, al.zipcode 
+                const sql = `select al.id, al.address, al.city, al.state_abbr, al.zipcode 
                     from clw_talage_agency_locations al
                     where agency = ${agencyId}`
                 const result = await db.query(sql).catch(function (error) {
@@ -205,20 +208,20 @@ module.exports = class AgencyLocationBO{
                     location.openTime = location.open_time;
                     location.closeTime = location.close_time
                     if(children === true ){
-                        const agencyLocationInsurer = new AgencyLocationInsurer
-                        const insurerList = await agencyLocationInsurer.getListByAgencyLoationForAgencyPortal(id).catch(function (error) {
+                        const agencyLocationInsurer = new AgencyLocationInsurerBO
+                        const insurerList = await agencyLocationInsurer.getListByAgencyLocationForAgencyPortal(id).catch(function (error) {
                             // Check if this was
                             rejected = true;
-                            log.error(`agencyLocationInsurer.getListByAgencyLoationForAgencyPortal error on select ` + error + __location);
+                            log.error(`agencyLocationInsurer.getListByAgencyLocationForAgencyPortal error on select ` + error + __location);
                         });
                         location.insurers = insurerList;
 
                         // Territories 
                         const agencyLocationTerritory = new AgencyLocationTerritory
-                        const territoryList = await agencyLocationTerritory.getListByAgencyLoationForAgencyPortal(id).catch(function (error) {
+                        const territoryList = await agencyLocationTerritory.getListByAgencyLocationForAgencyPortal(id).catch(function (error) {
                             // Check if this was
                             rejected = true;
-                            log.error(`agencyLocationTerritory.getListByAgencyLoationForAgencyPortal error on select ` + error + __location);
+                            log.error(`agencyLocationTerritory.getListByAgencyLocationForAgencyPortal error on select ` + error + __location);
                         });
                         location.territories = territoryList;
 
@@ -246,11 +249,9 @@ module.exports = class AgencyLocationBO{
             //santize id.
             
             let rejected  = false;
-            //what agencyportal client expects.
-            //TODO parameterize query....
-            const sql = `select *
+            let sql = `select *
                 from clw_talage_agency_locations 
-                where agency = ${agencyId} and l.id = ${id} AND state > 0`
+                where agency = ${db.escape(agencyId)} and id = ${db.escape(id)} AND state > 0`
 
             const result = await db.query(sql).catch(function (error) {
                 // Check if this was
@@ -267,16 +268,13 @@ module.exports = class AgencyLocationBO{
                     const resp = await agencyLocationBO.loadORM(locationJSON, skipCheckRequired).catch(function(err){
                         log.error(`getList error loading object: ` + err + __location);
                     })
-                    
-                    locationJSON;
-                    
-                    if(children === true ){
-
-                    }
-                    return result;
+                    // if(children === true ){
+                    //     //TODO
+                    // }
+                    return locationJSON;
                 }
                 else {
-                    return locationJSON;
+                    return null;
                 }
             }
             else {
@@ -287,6 +285,49 @@ module.exports = class AgencyLocationBO{
             throw new Error("No id or agency id");
         }
     }
+
+
+
+    async getByAgencyPrimary(agencyId){
+        
+        if(agencyId){
+            agencyId = stringFunctions.santizeNumber(agencyId, true);
+            let rejected  = false;
+            let sql = `select *
+                from clw_talage_agency_locations 
+                where agency = ${db.escape(agencyId)} and \`primary\` = 1 AND state > 0`
+
+            
+            const result = await db.query(sql).catch(function (error) {
+                // Check if this was
+                rejected = true;
+                log.error(`clw_talage_agency_locations error on select ` + error + __location);
+            });
+
+            if (!rejected && result && result.length >0) {
+                let locationJSON = result[0];
+                //created encrypt and format
+                let agencyLocationBO = new AgencyLocationBO();
+                await agencyLocationBO.#dbTableORM.decryptFields(locationJSON);
+                await agencyLocationBO.#dbTableORM.convertJSONColumns(locationJSON);
+                // const resp = await agencyLocationBO.loadORM(locationJSON, skipCheckRequired).catch(function(err){
+                //     log.error(`getList error loading object: ` + err + __location);
+                // })
+                // if(children === true ){
+                //     //TODO
+                // }
+                return locationJSON;
+            }
+            else {
+                return null;
+            }
+           
+        }
+        else {
+            throw new Error("No id or agency id");
+        }
+    }
+
 
      /**
 	 * Load new business JSON into ORM. can be used to filter JSON to busines properties

@@ -28,9 +28,11 @@ module.exports = class Location {
         this.part_time_employees = 0;
         this.square_footage = 0;
         this.territory = '';
-        this.zip = 0;
+        this.zipcode = '';
+        this.state_abbr = '';
 
         // WC Only
+        this.unemployment_num = 0;
         this.unemployment_number = 0;
     }
 
@@ -95,19 +97,11 @@ module.exports = class Location {
                     break;
             }
         }); //object loop
-
-        //Process zip.
-        let error = null;
-        let zipCodeBO = new ZipCodeBO();
-        await zipCodeBO.loadByZipCode(this.zip).catch(function(err) {
-            error = err;
-            log.error("Unable to get ZipCode records for quoting locationId: " + data.id + __location);
-        });
-        if (error) {
-            throw error;
-        }
-        this.territory = zipCodeBO.territory
-        this.city = zipCodeBO.city;
+        //backward compatible for integration code.
+        this.zip = this.zipcode;
+        this.territory = this.state_abbr;
+        this.unemployment_number = this.unemployment_num;
+        //log.debug("Location finished load " + JSON.stringify(this));
     }
 
     setPolicyTypeList(appPolicyTypeList){
@@ -219,27 +213,15 @@ module.exports = class Location {
             }
 
             // Validate zip
-            if (this.zip) {
-                if (!validator.isZip(this.zip)) {
-                    reject(serverHelper.requestError('Invalid formatting for property: zip. Expected 5 digit format'));
+            if (this.zipcode) {
+                if (!validator.isZip(this.zipcode)) {
+                    log.error('Invalid formatting for location: mailing_zip. Expected 5 digit format. actual zip: ' + this.zipcode + __location)
+                    reject(serverHelper.requestError('Invalid formatting for location: zip. Expected 5 digit format'));
                     return;
                 }
-
-                // Make sure we have match in our database
-                await db.query(`SELECT \`city\`, \`territory\` FROM \`#__zip_codes\` WHERE \`zip\` = ${this.zip} LIMIT 1;`).then((row) => {
-                    if (row) {
-                        this.city = row[0].city;
-                        this.territory = row[0].territory;
-                    }
-                    else {
-                        reject(serverHelper.requestError('The zip code you entered is not valid'));
-                    }
-                }).catch(function(error) {
-                    log.warn(error + __location);
-                    reject(serverHelper.requestError('The zip code you entered is not valid'));
-                });
             }
             else {
+                log.error('Missing required field: zip' + __location)
                 reject(serverHelper.requestError('Missing required field: zip'));
                 return;
             }
@@ -258,9 +240,10 @@ module.exports = class Location {
                 ];
 
                 // Check if an unemployment number is required
-                if (unemployment_number_states.includes(this.territory)) {
+                if (unemployment_number_states.includes(this.state_abbr)) {
+                    log.debug("this.unemployment_number " + this.unemployment_number + __location)
                     if (this.unemployment_number === 0) {
-                        reject(serverHelper.requestError(`Unemployment Number is required for all locations in ${unemployment_number_states.join(', ')}`));
+                        reject(serverHelper.requestError(`Unemployment Number is required for all locations in ${unemployment_number_states.join(', ')}` + __location));
                         return;
                     }
                     if (!Number.isInteger(this.unemployment_number)) {

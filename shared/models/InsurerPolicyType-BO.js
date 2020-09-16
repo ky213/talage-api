@@ -117,7 +117,7 @@ module.exports = class InsurerPolicyTypeBO{
                         hasWhere = true;
                     }
                 }
-                sql += ` order by territory `
+                sql += ` order by insurer `
                 // Run the query
                 const result = await db.query(sql).catch(function (error) {
                     // Check if this was
@@ -165,6 +165,34 @@ module.exports = class InsurerPolicyTypeBO{
                 });
                 this.updateProperty();
                 resolve(this.#dbTableORM.cleanJSON());
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
+    deleteById(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id && id >0 ){
+              
+                //Remove old records.
+                const sql =`DELETE FROM ${tableName} 
+                        WHERE id = ${id}
+                `;
+                let rejected = false;
+                const result = await db.query(sql).catch(function (error) {
+                    // Check if this was
+                    log.error("Database Object ${tableName} DELETE  error :" + error + __location);
+                    rejected = true;
+                    reject(error);
+                });
+                if (rejected) {
+                    return false;
+                }
+                resolve(true);
+              
             }
             else {
                 reject(new Error('no id supplied'))
