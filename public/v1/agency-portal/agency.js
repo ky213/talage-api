@@ -673,6 +673,10 @@ async function postAgency(req, res, next) {
     await crypt.batchProcessObject(encrypted, 'encrypt', ['email',
         'firstName',
         'lastName']);
+    let wholesale = 0;
+    if(req.authentication.agencyNetwork === 2){
+        wholesale = 1;
+    }
 
     // Create the agency
     // Log.debug('TO DO: We need a wholesale toggle switch on the screen, but hidden for some Agency Networks');
@@ -692,7 +696,7 @@ async function postAgency(req, res, next) {
 				${db.escape(encrypted.firstName)},
 				${db.escape(encrypted.lastName)},
 				${db.escape(slug)},
-				1
+				${wholesale}
 			);
 		`;
 
