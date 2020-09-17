@@ -9,6 +9,7 @@ const validator = global.requireShared('./helpers/validator.js');
 const serverHelper = require('../../../server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
 
 /**
  * Generates a random password for the user's first login
@@ -263,18 +264,28 @@ async function getAgency(req, res, next) {
 			FROM ${db.quoteName('#__agency_landing_pages')}
 			WHERE ${db.quoteName('agency')} = ${agent} AND state > 0;
 		`;
-    const userSQL = `
-			SELECT
-				\`apu\`.\`id\`,
-				\`apu\`.\`last_login\` AS \`lastLogin\`,
-				\`apu\`.\`email\`,
-				\`apu\`.\`can_sign\` AS \`canSign\`,
-				\`apg\`.\`id\` AS \`group\`,
-				\`apg\`.\`name\` AS \`groupRole\`
-			FROM \`#__agency_portal_users\` AS \`apu\`
-			LEFT JOIN \`#__agency_portal_user_groups\` AS \`apg\` ON \`apu\`.\`group\` = \`apg\`.\`id\`
-			WHERE \`apu\`.\`agency\` = ${agent} AND state > 0;
-		`;
+    // const userSQL = `
+    // 		SELECT
+    // 			\`apu\`.\`id\`,
+    // 			\`apu\`.\`last_login\` AS \`lastLogin\`,
+    // 			\`apu\`.\`email\`,
+    // 			\`apu\`.\`can_sign\` AS \`canSign\`,
+    // 			\`apg\`.\`id\` AS \`group\`,
+    // 			\`apg\`.\`name\` AS \`groupRole\`
+    // 		FROM \`#__agency_portal_users\` AS \`apu\`
+    // 		LEFT JOIN \`#__agency_portal_user_groups\` AS \`apg\` ON \`apu\`.\`group\` = \`apg\`.\`id\`
+    // 		WHERE \`apu\`.\`agency\` = ${agent} AND state > 0;
+    // 	`;
+    let users = null;
+    try{
+        const agencyPortalUserBO = new AgencyPortalUserBO();
+        users = await agencyPortalUserBO.getByAgencyId(agent);
+    }
+    catch(err){
+        log.error('DB query failed: ' + err.message + __location);
+        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+    }
+
 
     // Query the database
     const allTerritories = await db.query(allTerritoriesSQL).catch(function(err){
@@ -293,10 +304,10 @@ async function getAgency(req, res, next) {
         log.error('DB query failed: ' + err.message + __location);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     });
-    const users = await db.query(userSQL).catch(function(err){
-        log.error('DB query failed: ' + err.message + __location);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    });
+    // const users = await db.query(userSQL).catch(function(err){
+    //     log.error('DB query failed: ' + err.message + __location);
+    //     return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+    // });
 
     // Separate out location IDs and define some variables
     const locationIDs = locations.map((location) => location.id);
@@ -374,13 +385,14 @@ async function getAgency(req, res, next) {
         'fname',
         'lname',
         'phone']);
-    const usersDecrypt = crypt.batchProcessObjectArray(users, 'decrypt', ['email']);
+    //const usersDecrypt = crypt.batchProcessObjectArray(users, 'decrypt', ['email']);
+
     const insurersDecrypt = crypt.batchProcessObjectArray(locationInsurers, 'decrypt', ['agencyId', 'agentId']);
 
     // Wait for all data to decrypt
     await Promise.all([agencyDecrypt,
         locationsDecrypt,
-        usersDecrypt,
+        //usersDecrypt,
         insurersDecrypt]);
 
     // Parse json field
