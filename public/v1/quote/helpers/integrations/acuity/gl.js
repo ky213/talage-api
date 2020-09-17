@@ -294,9 +294,8 @@ module.exports = class AcuityGL extends Integration {
         let question_identifiers = null;
         try {
             question_identifiers = await this.get_question_identifiers();
-        }
-        catch (error) {
-            log.error(`${this.insurer.name} WC is unable to get question identifiers.${error}` + __location);
+        } catch (error) {
+            log.error(`${this.insurer.name} GL is unable to get question identifiers.${error}` + __location);
             return this.return_result('autodeclined');
         }
         const questionCodes = Object.values(question_identifiers);
@@ -316,8 +315,7 @@ module.exports = class AcuityGL extends Integration {
                 let answer = '';
                 try {
                     answer = this.determine_question_answer(question);
-                }
-                catch (error) {
+                } catch (error) {
                     log.error(`Acuity (application ${this.app.id}): Could not determine question ${question_id} answer: ${error} ${__location}`);
                     return this.return_result('autodeclined');
                 }
@@ -334,11 +332,9 @@ module.exports = class AcuityGL extends Integration {
                 // Determine how to send the answer
                 if (question.type === 'Yes/No') {
                     QuestionAnswer.ele('YesNoCd', question.get_answer_as_boolean() ? 'YES' : 'NO');
-                }
-                else if (/^\d+$/.test(answer)) {
+                } else if (/^\d+$/.test(answer)) {
                     QuestionAnswer.ele('Num', answer);
-                }
-                else {
+                } else {
                     QuestionAnswer.ele('Explanation', answer);
                 }
             }
@@ -495,14 +491,13 @@ module.exports = class AcuityGL extends Integration {
         // </ACORD>
 
         // Get the XML structure as a string
-        const xml = ACORD.end({pretty: true});
+        const xml = ACORD.end({ pretty: true });
 
         // Determine which URL to use
         let host = '';
         if (this.insurer.useSandbox) {
             host = 'tptest.acuity.com';
-        }
-        else {
+        } else {
             host = 'www.acuity.com';
         }
         const path = '/ws/partner/public/irate/rating/RatingService/Talage';
@@ -516,8 +511,7 @@ module.exports = class AcuityGL extends Integration {
                 'X-IBM-Client-Id': this.username,
                 'X-IBM-Client-Secret': this.password
             });
-        }
-        catch (error) {
+        } catch (error) {
             log.error(`Acuity (application ${this.app.id}): Could not connect to server: ${error} ${__location}`);
             this.reasons.push('Could not connect to the Acuity server');
             return this.return_error('error', "Could not connect to Acuity server");
@@ -542,29 +536,19 @@ module.exports = class AcuityGL extends Integration {
         }
 
         // Find the PolicySummaryInfo, PolicySummaryInfo.PolicyStatusCode, and optionally the PolicySummaryInfo.FullTermAmt.Amt
-        const policySummaryInfo = this.get_xml_child(res.ACORD, [
-                'InsuranceSvcRs',
-                'GeneralLiabilityPolicyQuoteInqRs',
-                'PolicySummaryInfo'
-        ]);
+        const policySummaryInfo = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.PolicySummaryInfo');
         if (!policySummaryInfo) {
-            log.error(`Acuity (application ${this.app.id}): Could not find PolicySummaryInfo: ${error} ${__location}`);
+            log.error(`Acuity (application ${this.app.id}): Could not find PolicySummaryInfo ${__location}`);
             return this.return_error('error', 'Acuity returned an unexpected reply');
         }
-        const policyStatusCode = this.get_xml_child(policySummaryInfo, ['PolicyStatusCd']);
+        const policyStatusCode = this.get_xml_child(policySummaryInfo, 'PolicyStatusCd');
         if (!policyStatusCode) {
-            log.error(`Acuity (application ${this.app.id}): Could not find PolicyStatusCode: ${error} ${__location}`);
+            log.error(`Acuity (application ${this.app.id}): Could not find PolicyStatusCode ${__location}`);
             return this.return_error('error', 'Acuity returned an unexpected reply');
         }
 
         // If the first message status begins with "Rating is not available ...", it is an autodecline
-        const extendedStatusDescription = this.get_xml_child(res.ACORD, [
-            'InsuranceSvcRs',
-            'GeneralLiabilityPolicyQuoteInqRs',
-            'MsgStatus',
-            'ExtendedStatus',
-            'ExtendedStatusDesc'
-        ]);
+        const extendedStatusDescription = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.MsgStatus.ExtendedStatus.ExtendedStatusDesc');
         if (extendedStatusDescription && extendedStatusDescription.startsWith("Rating is not available for this type of business")) {
             this.reasons.push('Rating is not available for this type of business.');
             return this.return_result('autodeclined');
@@ -575,19 +559,13 @@ module.exports = class AcuityGL extends Integration {
             case "com.acuity_BindableModifiedQuote":
             case "com.acuity_NonBindableQuote":
                 let policyAmount = 0;
-                const policyAmountNode = this.get_xml_child(policySummaryInfo, ['FullTermAmt', 'Amt']);
+                const policyAmountNode = this.get_xml_child(policySummaryInfo, 'FullTermAmt.Amt');
                 if (policyAmountNode) {
                     policyAmount = parseFloat(policyAmountNode);
                 }
                 // Get the returned limits
                 let foundLimitsCount = 0;
-                const commlCoverage = this.get_xml_child(res.ACORD, [
-                    'InsuranceSvcRs',
-                    'GeneralLiabilityPolicyQuoteInqRs',
-                    'GeneralLiabilityLineBusiness',
-                    'LiabilityInfo',
-                    'CommlCoverage'
-                ], true);
+                const commlCoverage = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.GeneralLiabilityLineBusiness.LiabilityInfo.CommlCoverage', true);
                 if (!commlCoverage) {
                     this.reasons.push(`Could not find CommlCoverage node in response.`);
                     log.error(`Acuity (application ${this.app.id}): Could not find the CommlCoverage node. ${__location}`);
@@ -628,19 +606,14 @@ module.exports = class AcuityGL extends Integration {
                 if (policyAmount) {
                     // Set the policy amount
                     this.amount = policyAmount;
-                }
-                else if (policyStatusCode === "com.acuity_BindableQuote" || policyStatusCode === "com.acuity_BindableModifiedQuote") {
+                } else if (policyStatusCode === "com.acuity_BindableQuote" || policyStatusCode === "com.acuity_BindableModifiedQuote") {
                     // If this is bindable and we can't find a policy amount, flag an error.
                     this.reasons.push(`Could not find policy amount for bindable quote.`);
                     log.error(`Acuity (application ${this.app.id}): Could not find policy amount for bindable quote. ${__location}`);
                     return this.return_error('error', 'Acuity returned an unexpected result for a bindable quote.');
                 }
                 // Look for a quote letter
-                const fileAttachmentInfo = this.get_xml_child(res.ACORD, [
-                    'InsuranceSvcRs',
-                    'GeneralLiabilityPolicyQuoteInqRs',
-                    'FileAttachmentInfo'
-                ]);
+                const fileAttachmentInfo = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.FileAttachmentInfo');
                 if (fileAttachmentInfo) {
                     log.info(`Acuity: Found a quote letter and saving it.`);
                     // Try to save the letter. This is a non-fatal event if we can't save it, but we log it as an error.
@@ -650,8 +623,7 @@ module.exports = class AcuityGL extends Integration {
                             data: fileAttachmentInfo.cData[0],
                             file_name: `${this.insurer.name}_ ${this.policy.type}_quote_letter.pdf`
                         };
-                    }
-                    catch (error) {
+                    } catch (error) {
                         log.error(`Acuity (application ${this.app.id}): Quote letter node exists, but could not extract it. Continuing.`);
                     }
                 }

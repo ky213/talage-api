@@ -864,9 +864,10 @@ module.exports = class Application {
                             continue;
                         }
 
+                        let parent_question = null;
                         if (question.parent) {
                             // Get the parent question
-                            const parent_question = this.questions[question.parent];
+                            parent_question = this.questions[question.parent];
 
                             // If no parent was found, throw an error
                             if (!parent_question) {
@@ -885,7 +886,6 @@ module.exports = class Application {
                         } else {
                             question.required = true;
                         }
-
                         // If required, check that this question was answered by the user
                         if (question.required && (!user_questions || !Object.prototype.hasOwnProperty.call(user_questions, question.id))) {
                             reject(

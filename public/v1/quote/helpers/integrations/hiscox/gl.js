@@ -15,6 +15,13 @@ const xmlToObj = require("xml2js").parseString;
 // Read the template into memory at load
 const hiscoxGLTemplate = require("jsrender").templates("./public/v1/quote/helpers/integrations/hiscox/gl.xmlt");
 
+function consoleLogLineNumbers(str) {
+    const lines = str.split(/\n/);
+    lines.forEach((line, index) => {
+        console.log(`${index.toString().padStart(4)}: ${line}`);
+    });
+}
+
 module.exports = class HiscoxGL extends Integration {
     /**
      * Requests a quote from Hiscox and returns. This request is not intended to be called directly.
@@ -110,7 +117,7 @@ module.exports = class HiscoxGL extends Integration {
         if (this.insurer.useSandbox) {
             host = "sdbx.hiscox.com";
         } else {
-            log.error("Hiscox production API URL not set. We need to obtain this from Hiscox." + __location);
+            this.log_error("Production API URL not set. We need to obtain this from Hiscox.", __location);
             return;
         }
 
@@ -124,14 +131,11 @@ module.exports = class HiscoxGL extends Integration {
 
         // Fill in calculated fields
         this.requestDate = momentTimezone.tz("America/Los_Angeles").format("YYYY-MM-DD");
-        // console.log(this.app.agencyLocation);
+
         // Ensure we have an email and phone for this agency, both are required to quote with Hiscox
         if (!this.app.agencyLocation.agencyEmail || !this.app.agencyLocation.agencyPhone) {
-            log.warn(
-                `Agency Location (ID: ${this.app.agencyLocation.id}) not fully configured for agency ${this.app.agencyLocation.agencyId}. Both an email address and phone number are required to quote with ${this.insurer.name}.`
-            );
-            // this.reasons.push(`Agency Location not fully configured. Both an email address and phone number are required to quote with ${this.insurer.name}.`);
-            return this.return_result("autodeclined");
+            this.log_error(`Agency ${this.app.agencyLocation.id} does not have an email address and/or phone number. Hiscox requires both to quote.`);
+            return this.return_error('error', 'Hiscox requires an agency to provide both a phone number and email address to quote');
         }
 
         // Ensure this entity type is in the entity matrix above
@@ -193,6 +197,43 @@ module.exports = class HiscoxGL extends Integration {
         this.secondaryLocations = locations;
         this.secondaryLocationsCount = this.secondaryLocations.length >= 5 ? "5+" : this.secondaryLocations.length.toString();
 
+        let questionDetails = null;
+        try {
+            questionDetails = await this.get_question_details();
+        } catch (error) {
+            this.log_error(`Unable to get question identifiers or details: ${error}`, __location);
+            return this.return_result('autodeclined');
+        }
+        console.log('questions', this.questions);
+        console.log('questionDetails', questionDetails);
+
+        this.questionList = [];
+        Object.values(this.questions).forEach((question) => {
+            const questionAnswer = this.determine_question_answer(question, question.required);
+            console.log(`${question.text}? ${questionAnswer}`);
+            if (questionAnswer) {
+                let elementName = questionDetails[question.id].attributes.elementName;
+                if (elementName === 'GLHireNonOwnVehicleUse') {
+                    elementName = 'HireNonOwnVehclUse';
+                }
+                this.questionList.push({
+                    nodeName: elementName,
+                    answer: questionAnswer
+                });
+            }
+        });
+
+        // Render the template into XML and remove any empty lines (artifacts of control blocks)
+        let xml = null;
+        try {
+            xml = hiscoxGLTemplate.render(this, { ucwords: (val) => stringFunctions.ucwords(val.toLowerCase()) }).replace(/\n\s*\n/g, "\n");
+        } catch (error) {
+            this.log_error('Could not render the request. There is an error in the gl.xmlt file.');
+            return this.result_error('error', 'An unexpected error occurred when creating the quote request.');
+        }
+
+        consoleLogLineNumbers(xml);
+
         // Get a token from their auth server
         const tokenRequestData = {
             client_id: this.username,
@@ -204,279 +245,149 @@ module.exports = class HiscoxGL extends Integration {
                 "Content-Type": "application/x-www-form-urlencoded"
             });
         } catch (error) {
-            log.error(`${this.insurer.name} ${this.policy.type} Unable to obtain authentication token. API returned error: ${error.message}` + __location);
-            return this.return_error("error", "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.");
+            this.log_error(`Unable to obtain authentication token. API returned error: ${error.message}`, __location);
+            return this.return_error("error", "Could not retrieve the access token from the Hiscox server.");
         }
         const responseObject = JSON.parse(tokenResponse);
 
         // Verify that we got back what we expected
         if (responseObject.status !== "approved" || !responseObject.access_token) {
-            log.error(`${this.insurer.name} ${this.policy.type} Unable to authenticate with API.` + __location);
-            return this.return_error("error", "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.");
+            this.log_error(`Unable to authenticate with API.`, __location);
+            return this.return_error("error", "Could not retrieve the access token from the Hiscox server.");
         }
         const token = responseObject.access_token;
-
-        // Render the template into XML and remove any empty lines (artifacts of control blocks)
-        const xml = hiscoxGLTemplate.render(this, { ucwords: (val) => stringFunctions.ucwords(val.toLowerCase()) }).replace(/\n\s*\n/g, "\n");
-
-        console.log("request", xml);
-
-        // AGENCY LOCATION PHONE AND EMAIL ARE REQUIRED TO QUOTE
 
         // Specify the path to the Quote endpoint
         const path = "/partner/v3/quote";
 
-        log.info(`Sending application to https://${host}${path}. This can take up to 30 seconds.`);
+        this.log_info(`Sending application to https://${host}${path}. This can take up to 30 seconds.`);
 
         // Send the XML to the insurer
         let result = null;
+        let requestError = null;
         try {
             result = await this.send_xml_request(host, path, xml, {
                 Authorization: `Bearer ${token}`,
                 Accept: "application/xml",
                 "Content-Type": "application/xml"
             });
-            console.log("result", result);
-        } catch (err) {
-            // Check if we have an HTTP status code to give us more information about the error encountered
-            if (err.httpStatusCode) {
-                if (err.httpStatusCode === 422 && err.response) {
-                    // Convert the response to XML
-                    let e = null;
-                    let xmlResponse = null;
-                    xmlToObj(err.response, (eCallback, xmlResponseCallback) => {
-                        e = eCallback;
-                        xmlResponse = xmlResponseCallback;
-                    });
-                    console.log("xmlResponse error", JSON.stringify(xmlResponse, null, 4));
-                    // Check if there was an error parsing the XML
-                    if (e) {
-                        log.error(
-                            `${this.insurer.name} ${this.policy.type} Integration Error: Unable to parse 422 error returned from API (response may not be XML)` +
-                                __location
-                        );
-                        log.info(err.response);
-                        this.reasons.push("Unable to parse 422 error returned from API (response may not be XML)");
-                        return this.return_result("error");
-                    }
-
-                    // Check for a validation error
-                    if (
-                        Object.prototype.hasOwnProperty.call(xmlResponse, "InsuranceSvcRq") &&
-                        Object.prototype.hasOwnProperty.call(xmlResponse.InsuranceSvcRq, "Validations") &&
-                        Array.isArray(xmlResponse.InsuranceSvcRq.Validations) &&
-                        xmlResponse.InsuranceSvcRq.Validations.length > 0 &&
-                        Object.prototype.hasOwnProperty.call(xmlResponse.InsuranceSvcRq.Validations[0], "Validation") &&
-                        Array.isArray(xmlResponse.InsuranceSvcRq.Validations[0].Validation) &&
-                        xmlResponse.InsuranceSvcRq.Validations[0].Validation.length > 0
-                    ) {
-                        // Localize the validation errors for easier reference
-                        const validationErrors = xmlResponse.InsuranceSvcRq.Validations[0].Validation;
-
-                        // Loop through and capture each validation message
-                        for (const validationError of validationErrors) {
-                            if (
-                                Object.prototype.hasOwnProperty.call(validationError, "DataItem") &&
-                                Object.prototype.hasOwnProperty.call(validationError, "Status") &&
-                                Object.prototype.hasOwnProperty.call(validationError, "XPath")
-                            ) {
-                                const reason = `${validationError.Status} (${validationError.DataItem}) at ${validationError.XPath}`;
-                                log.error(`${this.insurer.name} ${this.policy.type} Integration Error: ${reason}`);
-                                this.reasons.push(reason);
-                            } else {
-                                log.error(
-                                    `${this.insurer.name} ${
-                                        this.policy.type
-                                    } Integration Error: API returned validation errors, but not as an array as expected. ${JSON.stringify(validationError)}` +
-                                        __location
-                                );
-                                this.reasons.push(
-                                    `API returned an error that could not be parsed. Validation object missing one of the following: DataItem, Status, XPath`
-                                );
-                            }
-                        }
-                    } else if (
-                        Object.prototype.hasOwnProperty.call(xmlResponse, "InsuranceSvcRq") &&
-                        Object.prototype.hasOwnProperty.call(xmlResponse.InsuranceSvcRq, "Errors") &&
-                        Array.isArray(xmlResponse.InsuranceSvcRq.Errors) &&
-                        xmlResponse.InsuranceSvcRq.Errors.length > 0 &&
-                        Object.prototype.hasOwnProperty.call(xmlResponse.InsuranceSvcRq.Errors[0], "Error") &&
-                        Array.isArray(xmlResponse.InsuranceSvcRq.Errors[0].Error) &&
-                        xmlResponse.InsuranceSvcRq.Errors[0].Error.length > 0
-                    ) {
-                        // Check for an error response (this includes declined applications)
-
-                        // Localize the validation errors for easier reference
-                        const errorResponses = xmlResponse.InsuranceSvcRq.Errors[0].Error;
-
-                        // Loop through and capture each error
-                        for (const errorResponse of errorResponses) {
-                            if (errorResponse.Code && errorResponse.Description) {
-                                if (errorResponse.Code[0].startsWith("DECLINE")) {
-                                    // Return an error result
-                                    return this.return_result("declined");
-                                } else {
-                                    // Non-decline error
-                                    const reason = `${errorResponse.Description[0]} (${errorResponse.Code[0]})`;
-                                    log.error(`${this.insurer.name} ${this.policy.type} Integration Error: ${reason}`);
-                                    this.reasons.push(reason);
-                                }
-                            } else {
-                                log.error(
-                                    `${this.insurer.name} ${this.policy.type} Integration Error: API returned validation errors, but not as an array as expected.` +
-                                        __location
-                                );
-                                this.reasons.push(
-                                    `API returned an error that could not be parsed. Validation object missing one of the following: DataItem, Status, XPath`
-                                );
-                            }
-                        }
-                    } else if (
-                        Object.prototype.hasOwnProperty.call(xmlResponse, "fault") &&
-                        Object.prototype.hasOwnProperty.call(xmlResponse.fault, "faultstring")
-                    ) {
-                        // Check for a system fault
-                        log.error(
-                            `${this.insurer.name} ${this.policy.type} Integration Error: API returned 422 error with message: ${xmlResponse.fault.faultstring[0]}` +
-                                __location
-                        );
-                        this.reasons.push(`API returned 422 error with message: ${xmlResponse.fault.faultstring[0]}`);
-                    } else {
-                        log.error(
-                            `${this.insurer.name} ${
-                                this.policy.type
-                            } Integration Error: Unable to parse 422 error returned from API (XML did not contain fault object or the Validations object was missing or malformed): ${JSON.stringify(
-                                xmlResponse
-                            )}` + __location
-                        );
-                        this.reasons.push(
-                            "Unable to parse 422 error returned from API (XML did not contain fault object or the Validations object was missing or malformed)"
-                        );
-                    }
-
-                    // Return an error result
-                    return this.return_result("error");
-                } else {
-                    // An HTTP error was encountered other than a 422 error
-                    log.error(
-                        `${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer. API returned error code: ${err.httpStatusCode}` +
-                            __location
-                    );
-                    this.reasons.push(`Unable to connect to insurer. API returned error code: ${err.httpStatusCode}`);
-                    return this.return_result("error");
-                }
-            } else {
+            console.log("result", JSON.stringify(result, null, 4));
+        } catch (error) {
+            requestError = error;
+        }
+        // Check if we have an HTTP status code to give us more information about the error encountered
+        if (requestError) {
+            if (!requestError.httpStatusCode) {
                 // There is no response from the API server to help us understand the error
-                log.error(
-                    `${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer. An unknown error was encountered.` + __location
-                );
+                this.log_error('Unable to connect to insurer. An unknown error was encountered.', __location);
                 this.reasons.push("Unable to connect to insurer. An unknown error was encountered.");
-                return this.return_result("error");
+                return this.return_result("error", 'The Hiscox servers returned an unknown error.');
             }
-        }
-        // Make sure we got a Quote Response
-        if (
-            !Object.prototype.hasOwnProperty.call(result, "InsuranceSvcRs") ||
-            !Object.prototype.hasOwnProperty.call(result.InsuranceSvcRs, "QuoteRs") ||
-            !Array.isArray(result.InsuranceSvcRs.QuoteRs) ||
-            result.InsuranceSvcRs.QuoteRs.length !== 1
-        ) {
-            log.error(
-                `${this.insurer.name} ${this.policy.type} Integration Error: API did not return an error, but it also did not return a quote. ${JSON.stringify(
-                    result
-                )}` + __location
-            );
-            this.reasons.push("API did not return an error, but it also did not return a quote.");
-            return this.return_result("error");
-        }
-
-        // Isolate the quote response object for easier reference
-        const quoteRs = result.InsuranceSvcRs.QuoteRs[0];
-
-        // Attempt to get the Request ID
-        if (Object.prototype.hasOwnProperty.call(quoteRs, "RqUID") && Array.isArray(quoteRs.RqUID) && quoteRs.RqUID.length === 1) {
-            this.request_id = quoteRs.RqUID[0];
-        } else {
-            log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find request ID.` + __location);
-            // Even though an error occurred, we may still be able to get a quote, so processing will continue to try and provide a good user experience
-        }
-
-        // Attempt to get the Quote ID
-        if (Object.prototype.hasOwnProperty.call(quoteRs, "QuoteID") && Array.isArray(quoteRs.QuoteID) && quoteRs.QuoteID.length === 1) {
-            this.number = quoteRs.QuoteID[0];
-        } else {
-            log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.` + __location);
-            // Even though an error occurred, we may still be able to get a quote, so processing will continue to try and provide a good user experience
-        }
-
-        // Make sure the quote included a General Liability response
-        if (
-            !Object.prototype.hasOwnProperty.call(quoteRs, "ProductQuoteRs") ||
-            !Array.isArray(quoteRs.ProductQuoteRs) ||
-            quoteRs.ProductQuoteRs.length !== 1 ||
-            !Object.prototype.hasOwnProperty.call(quoteRs.ProductQuoteRs[0], "GeneralLiabilityQuoteRs") ||
-            !Array.isArray(quoteRs.ProductQuoteRs[0].GeneralLiabilityQuoteRs) ||
-            quoteRs.ProductQuoteRs[0].GeneralLiabilityQuoteRs.length !== 1
-        ) {
-            log.error(
-                `${this.insurer.name} ${this.policy.type} Integration Error: API returned some quote information, but no actual quote. ${JSON.stringify(
-                    result
-                )}` + __location
-            );
-            this.reasons.push("API returned some quote information, but no actual quote.");
-            return this.return_result("error");
-        }
-
-        // Isolate the GL quote response for easier reference
-        const generalLiabilityQuoteRs = quoteRs.ProductQuoteRs[0].GeneralLiabilityQuoteRs[0];
-
-        // Attempt to get the Premium
-        if (
-            Object.prototype.hasOwnProperty.call(generalLiabilityQuoteRs, "Premium") &&
-            Array.isArray(generalLiabilityQuoteRs.Premium) &&
-            generalLiabilityQuoteRs.Premium.length === 1 &&
-            Object.prototype.hasOwnProperty.call(generalLiabilityQuoteRs.Premium[0], "Annual") &&
-            Array.isArray(generalLiabilityQuoteRs.Premium[0].Annual) &&
-            generalLiabilityQuoteRs.Premium[0].Annual.length === 1
-        ) {
-            this.amount = generalLiabilityQuoteRs.Premium[0].Annual[0];
-        } else {
-            log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find premium amount.` + __location);
-            // A quote with a zero amount is handled in return_result(), so processing should continue beyond this point
-        }
-
-        // Attempt to get the Limits
-        if (
-            Object.prototype.hasOwnProperty.call(generalLiabilityQuoteRs, "RatingResult") &&
-            Array.isArray(generalLiabilityQuoteRs.RatingResult) &&
-            generalLiabilityQuoteRs.RatingResult.length === 1
-        ) {
-            // Isolate the limits for easier reference
-            const limits = generalLiabilityQuoteRs.RatingResult[0];
-
-            // Attempt to get the Each Occurrence (LOI) Limit
-            if (Object.prototype.hasOwnProperty.call(limits, "LOI") && Array.isArray(limits.LOI) && limits.LOI.length === 1) {
-                this.limits[4] = parseInt(limits.LOI[0], 10);
-            } else {
-                log.error(
-                    `${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find each occurance limit.` + __location
-                );
+            if (requestError.httpStatusCode !== 422 || !requestError.response) {
+                // An HTTP error was encountered other than a 422 error
+                this.log_error(`Unable to connect to the Hiscox server. API returned HTTP status code ${requestError.httpStatusCode}`, __location);
+                this.reasons.push(`Unable to connect to the Hiscox server. API returned HTTP status code ${requestError.httpStatusCode}`);
+                return this.return_result("error", `The Hiscox servers returned HTTP error ${requestError.httpStatusCode}.`);
             }
-
-            // Attempt to get the General Aggregate (AggLOI) Limit
-            if (Object.prototype.hasOwnProperty.call(limits, "AggLOI") && Array.isArray(limits.AggLOI) && limits.AggLOI.length === 1) {
-                this.limits[8] = parseInt(limits.AggLOI[0], 10);
-            } else {
-                log.error(
-                    `${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find general aggregate limit.` + __location
-                );
+            // Convert the response to XML
+            let e = null;
+            let xmlResponse = null;
+            xmlToObj(requestError.response, (eCallback, xmlResponseCallback) => {
+                e = eCallback;
+                xmlResponse = xmlResponseCallback;
+            });
+            console.log("xmlResponse error", JSON.stringify(xmlResponse, null, 4));
+            // Check if there was an error parsing the XML
+            if (e) {
+                this.log_error(`Response error 422 could not be parsed: ${requestError.response}`, __location);
+                return this.return_error("error", "Hiscox returned an unknown error response.");
             }
-        } else {
-            log.error(`${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find any limits.` + __location);
-            // Even though an error occurred, we may still be able to get a quote, so processing will continue to try and provide a good user experience
+            // Check for errors
+            const errorResponseList = this.get_xml_child(xmlResponse, "InsuranceSvcRq.Errors.Error", true);
+            if (errorResponseList) {
+                let errors = "";
+                for (const errorResponse of errorResponseList) {
+                    if (errorResponse.Code && errorResponse.Description) {
+                        if (errorResponse.Code[0].startsWith("DECLINE")) {
+                            // Return an error result
+                            return this.return_result("declined");
+                        } else {
+                            // Non-decline error
+                            const reason = `${errorResponse.Description[0]} (${errorResponse.Code[0]})`;
+                            this.log_error(reason, __location);
+                            this.reasons.push(reason);
+                            errors += (errors.length ? ", " : "") + reason;
+                        }
+                    }
+                }
+                return this.return_result('error', `The Hiscox server returned the following errors: ${errors}`);
+            }
+            // Check for validation errors
+            const validationErrorList = this.get_xml_child(xmlResponse, "InsuranceSvcRq.Validations.Validation", true);
+            if (validationErrorList) {
+                // Loop through and capture each validation message
+                for (const validationError of validationErrorList) {
+                    const reason = `Validation error: ${validationError.Status} (${validationError.DataItem}) at ${validationError.XPath}`;
+                    this.log_error(reason, __location);
+                    this.reasons.push(reason);
+                }
+                return this.return_error('error', 'Hiscox could not process the request due to validation errors.');
+            }
+            // Check for a fault string (unknown node name)
+            const faultString = this.get_xml_child(xmlResponse, "fault.faultstring");
+            if (faultString) {
+                // Check for a system fault
+                this.log_error(`API returned fault string: ${faultString}`, __location);
+                this.reasons.push(`API returned fault string: ${faultString}`);
+                return this.result_error('error', 'Hiscox could not process the request due to an unknown XML node.');
+            }
+            // Return an error result
+            this.log_error(`An unknown error occurred: ${requestError.response}`, __location);
+            this.reasons.push(`An unknown error occurred: ${requestError.response}`);
+            return this.return_result("error", 'An unknown error occurred when processing the request.');
         }
 
-        // Send the result of the request
-        return this.return_result("quoted");
+        // We have received a quote. Parse it.
+
+        // Get the limits (required)
+        const loi = this.get_xml_child(result, "InsuranceSvcRs.QuoteRs.ProductQuoteRs.GeneralLiabilityQuoteRs.RatingResult.LOI");
+        if (!loi) {
+            this.log_error('Could not locate the LOI (each occurrence) node. This is non-fatal. Continuing.');
+            return this.return_result("error", "Hiscox quoted the application, but the limits could not be found in the response.");
+        }
+        this.limits[4] = parseInt(loi, 10);
+        const aggLOI = this.get_xml_child(result, "InsuranceSvcRs.QuoteRs.ProductQuoteRs.GeneralLiabilityQuoteRs.RatingResult.AggLOI");
+        if (!aggLOI) {
+            this.log_error('Could not locate the AggLOI (general aggregate) node. This is non-fatal. Continuing.');
+            return this.return_result("error", "Hiscox quoted the application, but the limits could not be found in the response.");
+        }
+        this.limits[8] = parseInt(aggLOI, 10);
+
+        // Get the premium amount (required)
+        const premium = this.get_xml_child(result, "InsuranceSvcRs.QuoteRs.ProductQuoteRs.Premium.Annual");
+        if (!premium) {
+            this.log_error('Could not locate the Premium price node.');
+            return this.return_result("error", "Hiscox quoted the application, but the premium amount could not be found in the response.");
+        }
+        this.amount = premium;
+
+        // Get the request ID (optional)
+        const requestId = this.get_xml_child(result, "InsuranceSvcRs.QuoteRs.RqUID");
+        if (!requestId) {
+            this.log_error('Could not locate the request ID (RqUID) node. This is non-fatal. Continuing.');
+        } else {
+            this.request_id = requestId;
+        }
+
+        // Get the quote ID (optional)
+        const quoteId = this.get_xml_child(result, "InsuranceSvcRs.QuoteRs.QuoteID");
+        if (!quoteId) {
+            this.log_error('Could not locate the quote ID (QuoteID) node. This is non-fatal. Continuing.');
+        } else {
+            this.number = quoteId;
+        }
+
+        // That we are quoted
+        return this.return_result('quoted');
     }
 };

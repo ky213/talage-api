@@ -77,7 +77,7 @@
                         <Country>US</Country>
                     </AddrInfo>
                 </Primary>
-				{{if secondaryLocations}}
+				{{if secondaryLocations.length}}
                 <Secondary>
 					{{for secondaryLocations itemVar='~location'}}
                     <AddrInfo>
@@ -115,12 +115,13 @@
                     <EmailConsent>Yes</EmailConsent>
                     <InformationConfirmAgreement>Yes</InformationConfirmAgreement>
 
-                    {{!-- Questions which are not asked we default here with defaults --}
+                    {{!-- Questions which are not asked we default here with defaults --}}
                     <SimilarInsurance>No</SimilarInsurance>
 
                     {{!-- Class-specific questions --}}
-
-
+					{{for questionList itemVar='~question'}}
+                    <{{:~question.nodeName}}>{{:~question.answer}}</{{:~question.nodeName}}>
+                    {{/for}}
                 </RatingInfo>
                 <GeneralLiabilityCoverQuoteRq>
                     <CoverId>CGL</CoverId>
