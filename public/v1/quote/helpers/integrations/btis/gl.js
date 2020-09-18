@@ -377,9 +377,16 @@ module.exports = class BtisGL extends Integration {
             quoteResult = await this.send_json_request(host, QUOTE_URL, JSON.stringify(data), token)
         }
         catch(error){
-            log.warn(`BTIS Submit Endpoint Returned Error ${util.inspect(error, false, null)}` + __location);
-            this.reasons.push('Problem connecting to insurer BTIS');
-            return this.return_result('autodeclined');
+            log.error(`BTIS Submit Endpoint Returned Error ${util.inspect(error, false, null)}` + __location);
+            const errorString = JSON.stringify(error);
+            if(errorString.indexOf("No Carrier found for passed state and class code") > -1){
+                this.reasons.push('BTIS response with: No Carrier found for passed state and class code ' );
+                return this.return_result('declined');
+            }
+            else {
+                this.reasons.push('Problem connecting to insurer BTIS ' + error);
+                return this.return_result('autodeclined');
+            }
         }
 
         // The result can be under either clearspring or victory, checking for success
