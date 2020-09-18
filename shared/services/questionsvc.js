@@ -21,7 +21,7 @@ const serverHelper = global.requireRootPath('server.js');
  *
  */
 
-exports.GetQuestions = async function(res, activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden = false) {
+exports.GetQuestions = async function(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden = false) {
 
     /* ---=== Validate Input ===--- */
 
@@ -279,8 +279,7 @@ exports.GetQuestions = async function(res, activityCodeArray, industryCodeString
 
     if (!questions || questions.length === 0) {
         log.info('No questions to return');
-        res.send(200, []);
-        return next();
+        return [];
     }
 
     // Check for missing questions
@@ -409,9 +408,7 @@ exports.GetQuestions = async function(res, activityCodeArray, industryCodeString
 
     // log.info(`Returning ${questions.length} Questions`);
 
-    res.send(200, questions);
-
-    return next();
+    return questions;
 }
 
 /**

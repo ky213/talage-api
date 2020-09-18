@@ -9,7 +9,8 @@ const moment = require('moment');
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
-const get_questions = global.requireShared('./helpers/getQuestions.js');
+//const get_questions = global.requireShared('./helpers/getQuestions.js');
+const questionsSvc = global.requireShared('./services/questionsvc.js');
 
 const htmlentities = require('html-entities').Html5Entities;
 const AgencyLocation = require('./AgencyLocation.js');
@@ -786,7 +787,7 @@ module.exports = class Application {
             // Get a list of all questions the user may need to answer
             const insurer_ids = this.get_insurer_ids();
             const wc_codes = this.get_wc_codes();
-            const questions = await get_questions(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids).catch(function(error) {
+            const questions = await questionsSvc.GetQuestions(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids).catch(function(error) {
                 log.error('get_questions error ' + error + __location);
                 reject(error);
             });

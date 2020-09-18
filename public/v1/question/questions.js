@@ -59,8 +59,19 @@ async function getQuestions(req, res, next){
         return_hidden = true;
     }
 
-    return questionSvc.GetQuestions(res, req.query.activity_codes, req.query.industry_code, req.query.zips, req.query.policy_types, req.query.insurers ,return_hidden);
+    let getQuestionsResult = null;
+    try{
+        getQuestionsResult = await questionSvc.GetQuestions(req.query.activity_codes, req.query.industry_code, req.query.zips, req.query.policy_types, req.query.insurers ,return_hidden);
+    }
+    catch(error){
+        return next(serverHelper.requestError('An error occured while retrieving application questions.'));
+    }
 
+    if(!getQuestionsResult){
+        return next(serverHelper.requestError('An error occured while retrieving application questions.'));
+    }
+
+    res.send(200, getQuestionsResult);
 }
 
 /* -----==== Endpoints ====-----*/
