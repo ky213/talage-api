@@ -81,7 +81,7 @@ module.exports = class BtisGL extends Integration {
 	 */
     async _insurer_quote() {
 
-        let errorMessage = null;
+        let errorMessage = '';
         let host = '';
 
         // Determine which URL to use
@@ -106,18 +106,17 @@ module.exports = class BtisGL extends Integration {
 
         }
         catch(error){
-            log.error('Failed to retrieve auth from BTIS: ' + error.message + __location);
-            return this.return_result('error');
+            this.reasons.push('Failed to retrieve auth from BTIS.')
+            return this.return_error('error', 'Failed to retrieve auth from BTIS: ' + error.message + __location);
         }
 
         // Check the response is what we're expecting
         if(!token_response.success || token_response.success !== true || !token_response.token){
-            errorMessage = 'BTIS auth returned an unexpected response or error';
+            this.reasons.push('BTIS auth returned an unexpected response or error.');
             if(token_response.message && token_response.message.length > 0){
-                errorMessage += ': ' + token_response.message;
+                errorMessage = token_response.message;
             }
-            log.error(errorMessage + __location);
-            return this.return_result('error');
+            return this.return_error('error', 'BTIS auth returned an unexpected response or error. ' + errorMessage + __location);
         }
 
         // format the token the way BTIS expects it
@@ -159,6 +158,7 @@ module.exports = class BtisGL extends Integration {
             carrierLimitsList = await this.send_json_request(host, limitsURL, null, token);
         }
         catch(error){
+            this.reasons.push('Limits could not be retrieved from BTIS, defaulted to $1M Occurrence, $2M Aggregate.');
             log.warn('Failed to retrieve limits from BTIS: ' + error.message + __location);
         }
 
@@ -193,7 +193,6 @@ module.exports = class BtisGL extends Integration {
          * Check to make sure BTIS supports the applicant's entity type, if not autodecline
          */
         if (!(this.app.business.entity_type in BUSINESS_ENTITIES)) {
-            log.error(`BTIS GL Integration File: BTIS does not support ${this.app.business.entity_type}` + __location);
             this.reasons.push(`BTIS does not support business entity type: ${this.app.business.entity_type}`);
             return this.return_result('autodeclined');
         }
@@ -232,9 +231,8 @@ module.exports = class BtisGL extends Integration {
             questionIdsObject = await this.get_question_identifiers();
         }
         catch(error){
-            log.error(`BTIS GL is unable to get question identifiers. ${error}` + __location);
-            this.reasons.push('Unable to get BTIS question identifiers required for application submission');
-            return this.return_result('error');
+            this.reasons.push('Unable to get BTIS question identifiers required for application submission.');
+            return this.return_error('error', 'Unable to get BTIS question identifiers required for application submission' + error + __location);
         }
 
         // Loop through and process each BTIS qualifying statement/question
@@ -379,10 +377,12 @@ module.exports = class BtisGL extends Integration {
         catch(error){
             //log.warn(`BTIS Submit Endpoint Returned Error ${util.inspect(error, false, null)}` + __location);
             if(error.response.includes('No Carrier found for passed state and class code.')){
-                return this.return_error('declined', `BTIS has indicated it will not cover ${this.app.business.industry_code_description.replace('&', 'and')} in territory ${primaryAddress.territory} at this time.`);
+                this.reasons.push(`BTIS has indicated it will not cover ${this.app.business.industry_code_description.replace('&', 'and')} in territory ${primaryAddress.territory} at this time.`);
+                return this.return_error('declined','Out of Market' + __location);
             }
             else{
-                return this.return_error('error', 'Could not connect to the BTIS servers at this time.');
+                this.reasons.push('Could not connect to the BTIS servers at this time.')
+                return this.return_error('error', 'Could not connect to the BTIS servers at this time.' + __location);
             }
         }
 
@@ -399,7 +399,7 @@ module.exports = class BtisGL extends Integration {
             else{
                 log.error('BTIS GL Integration Error: Quote structure changed. Unable to get quote amount from insurer. ' + __location);
                 this.reasons.push('A quote was generated but our API was unable to isolate it.');
-                return this.return_result('error');
+                return this.return_error('error');
             }
 
             // Get the quote limits
@@ -414,6 +414,7 @@ module.exports = class BtisGL extends Integration {
             }
             else{
                 log.error('BTIS GL Integration Error: Quote structure changed. Unable to find limits. ' + __location);
+                this.reasons.push('Quote structure changed. Unable to find limits.');
             }
 
             // Return the quote
@@ -431,6 +432,7 @@ module.exports = class BtisGL extends Integration {
         }
 
         // If we made it this far, they declined
+        this.reasons.push(`BTIS has indicated it will not cover ${this.app.business.industry_code_description.replace('&', 'and')} in territory ${primaryAddress.territory} at this time.`);
         return this.return_result('declined');
     }
 }
