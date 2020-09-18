@@ -1161,9 +1161,10 @@ module.exports = class Integration {
 	 * @param {string} data - The data to be sent
 	 * @param {object} additional_headers - Additional headers to be sent with the request, one header 'Content-Type' is required, all others are optional
 	 * @param {string} method (optional) - The HTTP method to be used (e.g. POST or GET)
+     * @param {boolean} log_errors - True if error logging should be handled here, false if error logging is handled in the client
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
 	 */
-    send_request(host, path, data, additional_headers, method) {
+    send_request(host, path, data, additional_headers, method, log_errors = true) {
         log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Sending To ${path}`);
         const start_time = process.hrtime();
 
@@ -1248,7 +1249,7 @@ module.exports = class Integration {
                         this.log += `--------======= Response Appid: ${this.app.id}  =======--------<br><br><pre>${filteredData}</pre><br><br>`;
                         fulfill(rawData);
                     }
-                    else {
+                    else if(log_errors){
                         const error = new Error(`Appid: ${this.app.id} insurer request encountered a ${res.statusCode} error`);
                         log.error(error.message + __location);
                         log.verbose(rawData);
