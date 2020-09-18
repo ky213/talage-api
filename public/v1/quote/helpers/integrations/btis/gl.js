@@ -285,7 +285,7 @@ module.exports = class BtisGL extends Integration {
             performNewResidentialWork = !this.questions[talageIdNewResidentialWork].get_answer_as_boolean();
         }
         else {
-            log.warn(`BTIS GL missing question ${talageIdNewResidentialWork} appId: ` + this.app.id + __location);
+            log.warn(`BTIS GL missing BTIS question (BTIS ID: 2) appId: ` + this.app.id + __location);
         }
 
         /*
@@ -377,9 +377,13 @@ module.exports = class BtisGL extends Integration {
             quoteResult = await this.send_json_request(host, QUOTE_URL, JSON.stringify(data), token)
         }
         catch(error){
-            log.warn(`BTIS Submit Endpoint Returned Error ${util.inspect(error, false, null)}` + __location);
-            this.reasons.push('Problem connecting to insurer BTIS');
-            return this.return_result('autodeclined');
+            //log.warn(`BTIS Submit Endpoint Returned Error ${util.inspect(error, false, null)}` + __location);
+            if(error.response.includes('No Carrier found for passed state and class code.')){
+                return this.return_error('declined', `BTIS has indicated it will not cover ${this.app.business.industry_code_description.replace('&', 'and')} in territory ${primaryAddress.territory} at this time.`);
+            }
+            else{
+                return this.return_error('error', 'Could not connect to the BTIS servers at this time.');
+            }
         }
 
         // The result can be under either clearspring or victory, checking for success
