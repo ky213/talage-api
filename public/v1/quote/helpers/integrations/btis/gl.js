@@ -375,14 +375,15 @@ module.exports = class BtisGL extends Integration {
             quoteResult = await this.send_json_request(host, QUOTE_URL, JSON.stringify(data), token)
         }
         catch(error){
-            //log.warn(`BTIS Submit Endpoint Returned Error ${util.inspect(error, false, null)}` + __location);
-            if(error.response.includes('No Carrier found for passed state and class code.')){
-                this.reasons.push(`BTIS has indicated it will not cover ${this.app.business.industry_code_description.replace('&', 'and')} in territory ${primaryAddress.territory} at this time.`);
-                return this.return_error('declined','Out of Market' + __location);
+            log.error(`BTIS Submit Endpoint Returned Error ${util.inspect(error, false, null)}` + __location);
+            const errorString = JSON.stringify(error);
+            if(errorString.indexOf("No Carrier found for passed state and class code") > -1){
+                this.reasons.push('BTIS response with: No Carrier found for passed state and class code ');
+                return this.return_result('declined');
             }
-            else{
-                this.reasons.push('Could not connect to the BTIS servers at this time.')
-                return this.return_error('error', 'Could not connect to the BTIS servers at this time.' + __location);
+            else {
+                this.reasons.push('Problem connecting to insurer BTIS ' + error);
+                return this.return_result('autodeclined');
             }
         }
 

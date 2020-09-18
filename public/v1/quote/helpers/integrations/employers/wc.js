@@ -153,7 +153,9 @@ module.exports = class EmployersWC extends Integration {
 
             log.info(`Appid: ${this.app.id} Sending application to https://${host}${path}. Remember to connect to the VPN. This can take up to 30 seconds.`);
 
+            try {
             // Send the XML to the insurer
+
             await this.send_xml_request(host, path, xml).
                 then((result) => {
                     // Parse the various status codes and take the appropriate action
@@ -207,7 +209,7 @@ module.exports = class EmployersWC extends Integration {
                         this.number = policy_number;
                     }
                     else {
-                        log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find policy number.` + __location);
+                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find policy number.` + __location);
                     }
 
                     // Attempt to get the amount of the quote
@@ -291,11 +293,19 @@ module.exports = class EmployersWC extends Integration {
 
                     // Send the result of the request
                     fulfill(this.return_result(status));
-                }).
-                catch(() => {
-                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer.` + __location);
-                    fulfill(this.return_result('error'));
                 });
+            }
+            catch(error){
+                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer. ` + error + __location);
+                if(error.message.indexOf('timedout') > -1){
+                    this.reasons.push(error)
+                    //TODO change result to connection timeout vs error
+                }
+                else{
+                    this.reasons.push(error)
+                }
+                fulfill(this.return_result('error'));
+            }
         });
     }
 };
