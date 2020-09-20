@@ -8,7 +8,8 @@ const signature = require('./signature.js');
 const generate = require('./state-rating-sheets.js');
 const styles = require('./document-style/acord-form-wc/styles.js');
 const positions = require('./document-style/acord-form-wc/positions.js');
-const {createLogger} = require('restify/lib/bunyan_helper');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+//const {createLogger} = require('restify/lib/bunyan_helper');
 
 exports.createWC = async function(application_id, insurer_id){
 
@@ -32,10 +33,10 @@ exports.createWC = async function(application_id, insurer_id){
 					a.address,
 					a.address2,
 					a.zip,
-					a.billing,
-					LOWER(insured_zip.city) AS city,
+                    a.billing,
+                    LOWER(a.city) as city,
 					insured_zip.county,
-					insured_zip.territory,
+                    LOWER(a.state_abbr) as territory,
 					app.owners_covered,
 					app.has_ein,
 					app.waiver_subrogation,
@@ -45,7 +46,7 @@ exports.createWC = async function(application_id, insurer_id){
 					app.wc_limits AS limits,
 					agency.name AS agencyName,
 					al.address AS mailing_address,
-                    al.zip AS mailing_zip,
+                    al.zipcode AS mailing_zip,
                     al.city AS agencyCity,
                     al.state_abbr as agencyTerritory,
 					al.fname AS producerFName,
@@ -96,6 +97,7 @@ exports.createWC = async function(application_id, insurer_id){
     }
 
     // Replace any null values with an empty string
+    // eslint-disable-next-line no-confusing-arrow
     application_data.forEach(row => Object.values(row).map(element => element === null ? '' : element))
 
     // Check that the applicant applied for WC
@@ -131,7 +133,10 @@ exports.createWC = async function(application_id, insurer_id){
     else{
         missing_data.push('Agency address');
     }
-    agency += `\n${application_data[0].agencyCity.split(' ').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}, ${application_data[0].agencyTerritory} ${application_data[0].mailing_zip}`;
+    //might not have an address.
+    if(application_data[0] && application_data[0].agencyCity && application_data[0].agencyTerritory && application_data[0].mailing_zip){
+        agency += `\n${application_data[0].agencyCity.split(' ').map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}, ${application_data[0].agencyTerritory} ${application_data[0].mailing_zip}`;
+    }
 
 
     // Producer Name
@@ -149,6 +154,7 @@ exports.createWC = async function(application_id, insurer_id){
     let producer_phone = '';
     if(application_data[0].agencyPhone && application_data[0].agencyPhone.byteLength){
         producer_phone = await crypt.decrypt(application_data[0].agencyPhone);
+        producer_phone = stringFunctions.santizeNumber(producer_phone);
         producer_phone = `(${producer_phone.substr(0, 3)}) ${producer_phone.substr(3, 3)} - ${producer_phone.substr(6, 4)}`;
     }
     else{
@@ -178,8 +184,9 @@ exports.createWC = async function(application_id, insurer_id){
     // Contact Phone
     let contactPhone = '';
     if(application_data[0].contactPhone && application_data[0].contactPhone.byteLength){
-        contactPhone = await crypt.decrypt(application_data[0].contactPhone);
-        contactPhone = `(${contactPhone.substr(0, 3)}) ${contactPhone.substr(3, 3)} - ${contactPhone.substr(6, 4)}`;
+        let contactPhoneWorking = await crypt.decrypt(application_data[0].contactPhone);
+        contactPhoneWorking = stringFunctions.santizeNumber(contactPhoneWorking);
+        contactPhone = `(${contactPhoneWorking.substr(0, 3)}) ${contactPhoneWorking.substr(3, 3)} - ${contactPhoneWorking.substr(6, 4)}`;
     }
     else{
         missing_data.push('Contact phone number');
@@ -734,13 +741,16 @@ exports.createWC = async function(application_id, insurer_id){
     }
 
     // Replace any null values with an empty string
+    // eslint-disable-next-line no-confusing-arrow
     ncci_data.forEach(row => Object.values(row).map(element => element === null ? '' : element))
 
     // Check that all the activity codes are supported by the selected insurer
     if(ncci_data.length){
         // Convert all activity_codes into an array
         ncci_data.map(function(code){
-            code.activity_codes = code.activity_codes.split(',');
+            if(code.activity_codes){
+                code.activity_codes = code.activity_codes.split(',');
+            }
             return code;
         });
 
@@ -876,6 +886,7 @@ exports.createWC = async function(application_id, insurer_id){
     });
 
     // Replace any null values with an empty string
+    // eslint-disable-next-line no-confusing-arrow
     question_data.forEach(row => Object.values(row).map(element => element === null ? '' : element))
 
     const num_questions_page_3 = 16;
