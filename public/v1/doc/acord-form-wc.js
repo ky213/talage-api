@@ -45,8 +45,9 @@ async function GetACORDFormWC(req, res, next){
     //Generic for policy_type regardless of old endpoint name.
     let form = null;
     let error = null;
+
     form = await acord.create(req.query.application_id, req.query.insurer_id, policy_type).catch(function(err){
-        log.error('ACORD form generation failed. ' + err + __location);
+        log.error(`ACORD form generation failed. appid ${req.query.application_id} insurerId ${req.query.insurer_id}  polcy type: ${policy_type} ` + err + __location);
         error = err;
     });
     if(error){
