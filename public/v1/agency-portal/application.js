@@ -262,7 +262,6 @@ async function getApplication(req, res, next){
             // Change the name of autodeclined
             if(quote.status === 'autodeclined'){
                 quote.status = 'Out of Market';
-                quote.reasons = '';
             }
             if(quote.status === 'bind_requested'
                 || quote.bound

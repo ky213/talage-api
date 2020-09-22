@@ -172,6 +172,7 @@ module.exports = class CompwestWC extends Integration {
      * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
      */
     async _insurer_quote() {
+
         // These are the statuses returned by the insurer and how they map to our Talage statuses
         this.possible_api_responses.DECLINE = 'declined';
         this.possible_api_responses.QUOTED = 'quoted';
@@ -200,7 +201,6 @@ module.exports = class CompwestWC extends Integration {
 
         // Get the activity code to question relationships
         const activity_codes_to_questions = await this.get_activity_codes_to_questions_relationships();
-
         // Check if this is within a core state, if not, more checking needs to be done
         if (!afCoreStates.includes(this.app.business.primary_territory) && !cwCoreStates.includes(this.app.business.primary_territory)) {
             // If this wasn't the Talage agency, start over as the Talage agency
@@ -285,13 +285,14 @@ module.exports = class CompwestWC extends Integration {
         // <CommlName>
         const CommlName = NameInfo.ele('CommlName');
         CommlName.ele('CommercialName', this.app.business.name.replace('’', "'").replace('+', '').replace('|', ''));
-        if (this.app.business.dba) {
-            // <SupplementaryNameInfo>
-            const SupplementaryNameInfo = CommlName.ele('SupplementaryNameInfo');
-            SupplementaryNameInfo.ele('SupplementaryNameCd', 'DBA');
-            SupplementaryNameInfo.ele('SupplementaryName', this.app.business.dba.replace('’', "'").replace('+', '').replace('|', ''));
-            // </SupplementaryNameInfo>
-        }
+        // Preserve this in case they move it back here -SF
+        // if (this.app.business.dba) {
+        //     // <SupplementaryNameInfo>
+        //     const SupplementaryNameInfo = CommlName.ele('SupplementaryNameInfo');
+        //     SupplementaryNameInfo.ele('SupplementaryNameCd', 'DBA');
+        //     SupplementaryNameInfo.ele('SupplementaryName', this.app.business.dba.replace('’', "'").replace('+', '').replace('|', ''));
+        //     // </SupplementaryNameInfo>
+        // }
         // </CommlName>
 
         if (!(this.app.business.entity_type in entityMatrix)) {
@@ -341,7 +342,7 @@ module.exports = class CompwestWC extends Integration {
         }
         // </Communications>
         // </GeneralPartyInfo>
-        // </InsuredOrPrincipal
+        // </InsuredOrPrincipal>
 
         // <CommlPolicy>
         const CommlPolicy = WorkCompPolicyQuoteInqRq.ele('CommlPolicy');
@@ -399,6 +400,38 @@ module.exports = class CompwestWC extends Integration {
                 TaxCodeInfo.ele('TaxCd', location.unemployment_number);
                 // </TaxCodeInfo>
             }
+
+            // For the first location, insert the DBA nodes
+            if (this.app.business.dba && index === 0) {
+                const DBAAdditionalInterest = Location.ele('AdditionalInterest');
+                DBAAdditionalInterest.att('id', 'c2');
+                // <GeneralPartyInfo>
+                const DBAGeneralPartyInfo = DBAAdditionalInterest.ele('GeneralPartyInfo');
+                // <NameInfo>
+                const DBANameInfo = DBAGeneralPartyInfo.ele('NameInfo');
+                DBANameInfo.ele('CommlName').ele('CommercialName', this.app.business.dba);
+                const DBATaxIdentity = DBANameInfo.ele('TaxIdentity');
+                DBATaxIdentity.ele('TaxIdTypeCd', 'FEIN');
+                DBATaxIdentity.ele('TaxCd',this.app.business.locations[0].identification_number);
+                DBANameInfo.ele('LegalEntityCd', entityMatrix[this.app.business.entity_type]);
+                // </NameInfo>
+                // <Addr>
+                const DBAAddr = DBAGeneralPartyInfo.ele('Addr');
+                DBAAddr.ele('Addr1', this.app.business.mailing_address);
+                if (this.app.business.mailing_address2) {
+                    DBAAddr.ele('Addr2', this.app.business.mailing_address2);
+                }
+                DBAAddr.ele('City', this.app.business.mailing_city);
+                DBAAddr.ele('StateProvCd', this.app.business.mailing_territory);
+                DBAAddr.ele('PostalCode', this.app.business.mailing_zip);
+                DBAAddr.ele('CountryCd', 'USA');
+                // </Addr>
+                // </GeneralPartyInfo>
+                // <AdditionalInterestInfo>
+                DBAAdditionalInterest.ele('AdditionalInterestInfo').ele('NatureInterestCd', 'DB');
+                // </AdditionalInterestInfo>
+            }
+
             // </Location>
         });
 
@@ -606,6 +639,13 @@ module.exports = class CompwestWC extends Integration {
         }
         catch (error) {
             log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: ${error}` + __location);
+            if(error.message.indexOf('timedout') > -1){
+                this.reasons.push(error)
+                //TODO change result to connection timeout vs error
+            }
+            else{
+                this.reasons.push(error)
+            }
             return this.return_result('error');
         }
         // Begin reducing the response

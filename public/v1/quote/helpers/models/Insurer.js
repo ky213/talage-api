@@ -16,9 +16,9 @@ module.exports = class Insurer {
         this.logo = '';
         this.name = '';
         this.outage = false;
-        this.packages = [];
+        //this.packages = [];
         this.password = '';
-        this.payment_options = [];
+        //this.payment_options = [];
         this.policy_types = [];
         this.policy_type_details = {};
         this.rating = '';
@@ -30,7 +30,7 @@ module.exports = class Insurer {
         this.username = '';
     }
 
-	/**
+    /**
 	 * Returns the decrypted password for authenticating to this insurer's API. If
 	 * we are in test mode, the test password will be returned instead.
 	 *
@@ -43,7 +43,7 @@ module.exports = class Insurer {
         return crypt.decrypt(this.password);
     }
 
-	/**
+    /**
 	 * Returns the decrypted username for authenticating to this insurer's API. If
 	 * we are in test mode, the test username will be returned instead.
 	 *
@@ -56,7 +56,7 @@ module.exports = class Insurer {
         return crypt.decrypt(this.username);
     }
 
-	/**
+    /**
 	 * Initializes the insurer, getting the information we need about them from the database
 	 *
 	 * @param {int} id - The ID of the insurer
@@ -114,66 +114,68 @@ module.exports = class Insurer {
         const insurerOutageBO = new InsurerOutageBO();
         this.outage = await insurerOutageBO.isInOutage(parseInt(id, 10));
 
-        // Construct a query to get all of the payment plans for this insurer
-        const payment_plan_sql = `
-				SELECT pp.id, pp.name, pp.description, ipp.premium_threshold
-				FROM clw_talage_insurer_payment_plans AS ipp
-				LEFT JOIN clw_talage_payment_plans AS pp ON pp.id = ipp.payment_plan
-				WHERE ipp.insurer = ${db.escape(this.id)};
-			`;
-        let payment_plans = null;
-        try {
-            payment_plans = await db.query(payment_plan_sql);
-        }
-        catch (error) {
-            log.error(`Could not query the database for insurer ${id} payment plans: ${error} ${__location}`);
-            return new Error('Database error');
-        }
-        // Make sure we found some payment plans
-        if (!payment_plans || payment_plans.length <= 0) {
-            log.error(`Empty results when querying the database for insurer ${id} payment plans ${__location}`);
-            return new Error('Invalid insurer');
-        }
-        // Loop through the results and store them in this object
-        for (const i in payment_plans) {
-            // Make sure this property is a direct child of its parent
-            if (Object.prototype.hasOwnProperty.call(payment_plans, i)) {
-                this.payment_options.push({
-                    description: payment_plans[i].description,
-                    id: payment_plans[i].id,
-                    name: payment_plans[i].name,
-                    threshold: payment_plans[i].premium_threshold
-                });
-            }
-        }
+
+        // // Construct a query to get all of the payment plans for this insurer
+        // const payment_plan_sql = `
+		// 		SELECT pp.id, pp.name, pp.description, ipp.premium_threshold
+		// 		FROM clw_talage_insurer_payment_plans AS ipp
+		// 		LEFT JOIN clw_talage_payment_plans AS pp ON pp.id = ipp.payment_plan
+		// 		WHERE ipp.insurer = ${db.escape(this.id)};
+		// 	`;
+        // let payment_plans = null;
+        // try {
+        //     payment_plans = await db.query(payment_plan_sql);
+        // }
+        // catch (error) {
+        //     log.error(`Could not query the database for insurer ${id} payment plans: ${error} ${__location}`);
+        //     //return new Error('Database error');
+        // }
+        // // Loop through the results and store them in this object
+        // if (payment_plans || payment_plans.length > 0) {
+        //     for (const i in payment_plans) {
+        //         // Make sure this property is a direct child of its parent
+        //         if (Object.prototype.hasOwnProperty.call(payment_plans, i)) {
+        //             this.payment_options.push({
+        //                 description: payment_plans[i].description,
+        //                 id: payment_plans[i].id,
+        //                 name: payment_plans[i].name,
+        //                 threshold: payment_plans[i].premium_threshold
+        //             });
+        //         }
+        //     }
+        // }
+        // else {
+        //     log.error(`Empty results when querying the database for insurer ${id} payment plans ${__location}`);
+        // }
 
         // Construct a query to get all of the packages for this insurer
-        const packages_sql = `
-				SELECT id, description, name
-				FROM clw_talage_insurer_package_types
-				WHERE insurer = ${db.escape(this.id)};
-			`;
-        let packages = null;
-        try {
-            packages = await db.query(packages_sql);
-        }
-        catch (error) {
-            log.error(`Could not query the database for insurer ${id} packages: ${error} ${__location}`);
-            return new Error('Database error');
-        }
-        // Loop through the results and store them in this object
-        if (packages && packages.length > 0) {
-            for (const i in packages) {
-                // Make sure this property is a direct child of its parent
-                if (Object.prototype.hasOwnProperty.call(packages, i)) {
-                    this.packages.push({
-                        description: packages[i].description,
-                        id: packages[i].id,
-                        name: packages[i].name
-                    });
-                }
-            }
-        }
+        // not used downsteam this.packages
+        // const packages_sql = `
+		// 		SELECT id, description, name
+		// 		FROM clw_talage_insurer_package_types
+		// 		WHERE insurer = ${db.escape(this.id)};
+		// 	`;
+        // let packages = null;
+        // try {
+        //     packages = await db.query(packages_sql);
+        // }
+        // catch (error) {
+        //     log.error(`Could not query the database for insurer ${id} packages: ${error} ${__location}`);
+        //     // return new Error('Database error');
+        // }
+        // // Loop through the results and store them in this object
+        // if (packages && packages.length > 0) {
+        //     for (const i in packages) {
+        //         // Make sure this property is a direct child of its parent
+        //         if (Object.prototype.hasOwnProperty.call(packages, i)) {
+        //             this.packages.push({
+        //                 description: packages[i].description,
+        //                 id: packages[i].id,
+        //                 name: packages[i].name
+        //             });
+        //         }
+        //     }
+        // }
 
         // Construct a query to get all the acord and api support data for all supported policy types
         const policy_type_details_sql = `SELECT ipt.insurer, ipt.policy_type, ipt.api_support, ipt.acord_support

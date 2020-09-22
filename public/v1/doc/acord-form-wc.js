@@ -43,60 +43,70 @@ async function GetACORDFormWC(req, res, next){
     }
 
     //Generic for policy_type regardless of old endpoint name.
-    const form = await acord.create(req.query.application_id, req.query.insurer_id, policy_type).catch(function(error){
-        log.error('ACORD form generation failed. ' + error + __location);
-        return next(serverHelper.requestError('ACORD form generation failed.'));
-    });
+    let form = null;
+    let error = null;
 
+    form = await acord.create(req.query.application_id, req.query.insurer_id, policy_type).catch(function(err){
+        log.error(`ACORD form generation failed. appid ${req.query.application_id} insurerId ${req.query.insurer_id}  polcy type: ${policy_type} ` + err + __location);
+        error = err;
+    });
+    if(error){
+        return next(serverHelper.requestError('ACORD form generation failed.'));
+    }
     // If there was an error while generating the form return it to the front end
-    if(form.error){
+    if(form && form.error){
         return next(serverHelper.requestError(form.error));
     }
 
     // Pull out the document and array containing details of missing data
-    const doc = form.doc;
-    const missing_data = form.missing_data;
+    if(form && form.doc){
+        const doc = form.doc;
+        const missing_data = form.missing_data;
 
-    const chunks = [];
+        const chunks = [];
 
-    doc.on('data', function(chunk){
-        chunks.push(chunk);
-    });
-
-    if(Object.hasOwnProperty.call(req.query, 'response') && req.query.response === 'json'){
-        doc.on('end', () => {
-            const result = Buffer.concat(chunks);
-            const response = {'pdf': result.toString('base64')};
-
-            if(missing_data.length){
-                response.status = 'warning';
-                response.missing_data = missing_data;
-            }
-            else{
-                response.status = 'ok';
-            }
-            res.send(200, response);
+        doc.on('data', function(chunk){
+            chunks.push(chunk);
         });
-    }
-    else{
-        let ending = '';
-        doc.on('end', function(){
-            ending = Buffer.concat(chunks);
 
-            res.writeHead(200, {
-                'Content-Disposition': 'attachment; filename=acord-130.pdf',
-                'Content-Length': ending.length,
-                'Content-Type': 'application/pdf'
+        if(Object.hasOwnProperty.call(req.query, 'response') && req.query.response === 'json'){
+            doc.on('end', () => {
+                const result = Buffer.concat(chunks);
+                const response = {'pdf': result.toString('base64')};
+
+                if(missing_data.length){
+                    response.status = 'warning';
+                    response.missing_data = missing_data;
+                }
+                else{
+                    response.status = 'ok';
+                }
+                res.send(200, response);
             });
-            res.end(ending);
-            log.info('Acord Sent in Response');
-        });
+        }
+        else{
+            let ending = '';
+            doc.on('end', function(){
+                ending = Buffer.concat(chunks);
+
+                res.writeHead(200, {
+                    'Content-Disposition': 'attachment; filename=acord-130.pdf',
+                    'Content-Length': ending.length,
+                    'Content-Type': 'application/pdf'
+                });
+                res.end(ending);
+                log.info('Acord Sent in Response');
+            });
+        }
+
+        doc.end();
+        log.info('Acord Generated!');
+
+        return next();
     }
-
-    doc.end();
-    log.info('Acord Generated!');
-
-    return next();
+    else {
+        return next(serverHelper.requestError('ACORD form generation failed.'));
+    }
 }
 
 /* -----==== Endpoints ====-----*/
