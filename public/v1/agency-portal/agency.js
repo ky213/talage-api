@@ -165,22 +165,23 @@ async function getAgency(req, res, next) {
 
     // Prepare to get the information for this agency
     const agencyInfoSQL = `
-			SELECT
-				${db.quoteName('id')},
-				IF(${db.quoteName('state')} >= 1, 'Active', 'Inactive') AS ${db.quoteName('state')},
-				${db.quoteName('name')},
-				${db.quoteName('ca_license_number', 'caLicenseNumber')},
-				${db.quoteName('email')},
-				${db.quoteName('fname')},
-				${db.quoteName('lname')},
-				${db.quoteName('phone')},
-				${db.quoteName('logo')},
-				${db.quoteName('website')},
-                ${db.quoteName('slug')},
-				${db.quoteName('enable_optout', 'enableOptout')}
-			FROM ${db.quoteName('#__agencies')}
-			WHERE ${db.quoteName('id')} = ${agent}
-			LIMIT 1;
+                SELECT
+                    id,
+                    agency_network,
+                    IF(state >= 1, 'Active', 'Inactive') AS state,
+                    name,
+                    ca_license_number as caLicenseNumber,
+                    email,
+                    fname,
+                    lname,
+                    phone,
+                    logo,
+                    website,
+                    slug,
+                    enable_optout as enableOptout
+                FROM clw_talage_agencies
+                WHERE id = ${agent}
+                LIMIT 1;
 		`;
 
     // Going to the database to get the user's info
@@ -202,7 +203,8 @@ async function getAgency(req, res, next) {
             agency[property] = null;
         }
     }
-
+    const agencyNetworkId = agency.agency_network
+    log.debug('agencyNetworkId: ' + agencyNetworkId);
     // Define some queries to get locations, pages and users
     const allTerritoriesSQL = `
 		SELECT
@@ -231,25 +233,25 @@ async function getAgency(req, res, next) {
 			WHERE ${db.quoteName('l.agency')} = ${agent} AND l.state > 0;
 		`;
     const networkInsurersSQL = `
-		SELECT
-			\`i\`.\`id\`,
-			\`i\`.\`logo\`,
-			\`i\`.\`name\`,
-			\`i\`.agency_id_label,
-			\`i\`.agent_id_label,
-            \`i\`.enable_agent_id,
-		GROUP_CONCAT(\`it\`.\`territory\`) AS \`territories\`
-		FROM \`clw_talage_agency_network_insurers\` AS \`agi\`
-		LEFT JOIN \`clw_talage_insurers\` AS \`i\` ON \`agi\`.\`insurer\` = \`i\`.\`id\`
-		LEFT JOIN \`clw_talage_insurer_territories\` AS \`it\` ON \`i\`.\`id\` = \`it\`.\`insurer\`
-		LEFT JOIN \`clw_talage_insurer_policy_types\` AS \`pti\` ON \`i\`.\`id\` = \`pti\`.\`insurer\`
-		WHERE
-			\`i\`.\`id\` IN (${req.authentication.insurers.join(',')}) AND
-			\`i\`.\`state\` = 1 AND
-			\`pti\`.\`wheelhouse_support\` = 1
+                SELECT
+                    i.id,
+                    i.logo,
+                    i.name,
+                    i.agency_id_label,
+                    i.agent_id_label,
+                    i.enable_agent_id,
+                    GROUP_CONCAT(it.territory) AS territories
+                FROM clw_talage_agency_network_insurers AS agi
+                LEFT JOIN clw_talage_insurers AS i ON agi.insurer = i.id
+                LEFT JOIN clw_talage_insurer_territories AS it ON i.id = it.insurer
+                LEFT JOIN clw_talage_insurer_policy_types AS pti ON i.id = pti.insurer
+                WHERE
+                    i.id IN (select insurer from clw_talage_agency_network_insurers where agency_network = ${agencyNetworkId}) AND
+                    i.state = 1 AND
+                    pti.wheelhouse_support = 1
 
-		GROUP BY \`i\`.\`id\`
-		ORDER BY \`i\`.\`name\` ASC;
+                GROUP BY i.id
+                ORDER BY i.name ASC;
 	`;
     const pagesSQL = `
 			SELECT
@@ -315,8 +317,7 @@ async function getAgency(req, res, next) {
     let territories = [];
 
     // Get the insurers and territories
-    if (req.authentication.insurers.length && locationIDs.length) {
-
+    if (locationIDs.length) {
 
         // Define queries for insurers and territories
         // TODO BUG insurer_policy_type not handled correctly
@@ -345,7 +346,7 @@ async function getAgency(req, res, next) {
 				INNER JOIN ${db.quoteName('#__insurer_policy_types', 'pti')} ON ${db.quoteName('i.id')} = ${db.quoteName('pti.insurer')}
 				WHERE
 					${db.quoteName('li.agency_location')} IN (${locationIDs.join(',')}) AND
-					${db.quoteName('i.id')} IN (${req.authentication.insurers.join(',')}) AND
+					${db.quoteName('i.id')} IN (select insurer from clw_talage_agency_network_insurers where agency_network = ${agencyNetworkId}) AND
 					${db.quoteName('i.state')} > 0 AND
 					${db.quoteName('pti.wheelhouse_support')} = 1
 				ORDER BY ${db.quoteName('i.name')} ASC;
@@ -535,16 +536,18 @@ async function postAgency(req, res, next) {
     let territoryAbbreviations = [];
     // TODO Move to Model
     // Build a query for getting all insurers with their territories
+    const agencyNetworkId = req.authentication.agencyNetworkId
+
     const insurersSQL = `
-			SELECT
-				${db.quoteName('i.id')},
-				${db.quoteName('i.enable_agent_id')},
-				GROUP_CONCAT(${db.quoteName('it.territory')}) AS ${db.quoteName('territories')}
-			FROM ${db.quoteName('#__insurers', 'i')}
-			LEFT JOIN ${db.quoteName('#__insurer_territories', 'it')} ON ${db.quoteName('it.insurer')} = ${db.quoteName('i.id')}
-			WHERE ${db.quoteName('i.id')} IN (${req.authentication.insurers.join(',')}) AND ${db.quoteName('i.state')} > 0
-			GROUP BY ${db.quoteName('i.id')}
-			ORDER BY ${db.quoteName('i.name')} ASC;
+                SELECT
+                    i.id,
+                    i.enable_agent_id,
+                    GROUP_CONCAT(it.territory) AS territories
+                FROM clw_talage_insurers as i
+                LEFT JOIN clw_talage_insurer_territories as it ON it.insurer = i.id
+                WHERE i.id IN (select insurer from clw_talage_agency_network_insurers where agency_network = ${agencyNetworkId} ) AND i.state > 0
+                GROUP BY i.id
+                ORDER BY i.name ASC;
 		`;
 
     // Run the query
