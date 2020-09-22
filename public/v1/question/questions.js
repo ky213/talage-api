@@ -61,14 +61,14 @@ async function getQuestions(req, res, next){
 
     let getQuestionsResult = null;
     try{
-        getQuestionsResult = await questionSvc.GetQuestions(req.query.activity_codes, req.query.industry_code, req.query.zips, req.query.policy_types, req.query.insurers ,return_hidden);
+        getQuestionsResult = await questionSvc.GetQuestionsForEndpoint(req.query.activity_codes.split(','), req.query.industry_code, req.query.zips.split(','), req.query.policy_types.split(','), req.query.insurers.split(','), return_hidden);
     }
     catch(error){
         return next(serverHelper.requestError('An error occured while retrieving application questions.'));
     }
 
     if(!getQuestionsResult){
-        return next(serverHelper.requestError('An error occured while retrieving application questions.'));
+        return next(serverHelper.requestError('------An error occured while retrieving application questions.-----'));
     }
 
     res.send(200, getQuestionsResult);

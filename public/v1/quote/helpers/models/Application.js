@@ -791,7 +791,7 @@ module.exports = class Application {
                 log.error('get_questions error ' + error + __location);
                 reject(error);
             });
-
+            console.log('APP: HEY WE DID THINGS SUCCESSFULLY MAKE SURE ALL THE QUESTIONS ARE THERE');
             // Grab the answers the user provided to our questions and reset the question object
             const user_questions = this.questions;
             this.questions = {};

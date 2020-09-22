@@ -4,12 +4,6 @@ const util = require('util');
 const serverHelper = global.requireRootPath('server.js');
 
 /**
- * @typedef {Object} Questions
- * @property {boolean} error - true if there was an error, false otherwise
- * @property {array} questionsArray - An array of Objects containing the retrieved question data
- */
-
-/**
  * @param {array} activityCodeArray - An array of all the activity codes in the applicaiton
  * @param {string} industryCodeString - The industry code of the application
  * @param {array} zipCodeArray - An array of all the zipcodes (stored as strings) in which the business operates
@@ -17,7 +11,7 @@ const serverHelper = global.requireRootPath('server.js');
  * @param {array} insurerArray - An array containing the IDs of the relevant insurers for the application
  * @param {boolean} return_hidden - true to return hidden questions, false to only return visible questions
  *
- * @returns {Questions} Object containing the results of the call
+ * @returns {array|false} An array of questions if successful, false otherwise
  *
  */
 
@@ -28,7 +22,7 @@ exports.GetQuestions = async function(activityCodeArray, industryCodeString, zip
     const activity_codes = [];
     const insurers = [];
     const policy_types = [];
-    const zips = zipCodeArray.split(',').map(function(zip) {
+    const zips = zipCodeArray.map(function(zip) {
         return zip ? zip.replace(/[^0-9]/gi, '') : 0;
     });
     const industry_code = industryCodeString ? parseInt(industryCodeString, 10) : 0;
@@ -36,13 +30,13 @@ exports.GetQuestions = async function(activityCodeArray, industryCodeString, zip
     // Do not permit requests that include both BOP and GL
     if (policyTypeArray.includes('BOP') && policyTypeArray.includes('GL')) {
         log.warn('Bad Request: Both BOP and GL are not allowed, must be one or the other');
-        return next(serverHelper.requestError('Both BOP and GL are not allowed, please choose one or the other'));
+        return false;
     }
 
     // Sanitize and de-duplicate
     if (policyTypeArray.includes('WC')) {
         if (activityCodeArray) {
-            activityCodeArray.split(',').forEach(function(activity_code) {
+            activityCodeArray.forEach(function(activity_code) {
                 const int_code = parseInt(activity_code, 10);
                 if (!activity_codes.includes(int_code)) {
                     activity_codes.push(int_code);
@@ -53,7 +47,7 @@ exports.GetQuestions = async function(activityCodeArray, industryCodeString, zip
 
     if (insurerArray) {
         let invalid_insurer = false;
-        await insurerArray.split(',').forEach(function(insurer) {
+        insurerArray.forEach(function(insurer) {
             const insurer_id = parseInt(insurer, 10);
             if (isNaN(insurer_id)) {
                 log.warn('Bad Request: Invalid insurer');
@@ -62,11 +56,11 @@ exports.GetQuestions = async function(activityCodeArray, industryCodeString, zip
             insurers.push(insurer_id);
         });
         if (invalid_insurer) {
-            return next(serverHelper.requestError('Bad Request: Invalid Insurer'));
+            return false;
         }
     }
 
-    policyTypeArray.split(',').forEach(function(policy_type) {
+    policyTypeArray.forEach(function(policy_type) {
         policy_types.push(policy_type.replace(/[^a-z]/gi, '').toUpperCase());
     });
 
@@ -86,7 +80,8 @@ exports.GetQuestions = async function(activityCodeArray, industryCodeString, zip
             error = 'One or more of the activity codes supplied is invalid';
         }
         if (error) {
-            return next(serverHelper.requestError(error));
+            //return next(serverHelper.requestError(error));
+            return false;
         }
     }
 
@@ -101,7 +96,8 @@ exports.GetQuestions = async function(activityCodeArray, industryCodeString, zip
             error = 'The industry code supplied is invalid';
         }
         if (error) {
-            return next(serverHelper.requestError(error));
+            //return next(serverHelper.requestError(error));
+            return false;
         }
     }
 
@@ -116,7 +112,8 @@ exports.GetQuestions = async function(activityCodeArray, industryCodeString, zip
             error = 'One or more of the insurers supplied is invalid';
         }
         if (error) {
-            return next(serverHelper.requestError(error));
+            //return next(serverHelper.requestError(error));
+            return false;
         }
     }
 
@@ -126,7 +123,8 @@ exports.GetQuestions = async function(activityCodeArray, industryCodeString, zip
         error = err.message;
     });
     if (error) {
-        return next(serverHelper.requestError(error));
+        //return next(serverHelper.requestError(error));
+        return false;
     }
 
     // Prepare the response
@@ -143,14 +141,16 @@ exports.GetQuestions = async function(activityCodeArray, industryCodeString, zip
         }
     });
     if (error) {
-        return next(serverHelper.requestError(error));
+        //return next(serverHelper.requestError(error));
+        return false;
     }
 
     // Check that the zip code is valid
     const territories = [];
     if (!zips || !zips.length) {
         log.warn('Bad Request: Zip Codes');
-        return next(serverHelper.requestError('You must supply at least one zip code'));
+        //return next(serverHelper.requestError('You must supply at least one zip code'));
+        return false;
     }
 
     sql = `SELECT DISTINCT territory FROM clw_talage_zip_codes WHERE zip IN (${zips.join(',')});`;
@@ -158,7 +158,8 @@ exports.GetQuestions = async function(activityCodeArray, industryCodeString, zip
         error = err.message;
     });
     if (error) {
-        return next(serverHelper.requestError(error));
+        //return next(serverHelper.requestError(error));
+        return false;
     }
     if (zip_result && zip_result.length >= 1) {
         zip_result.forEach(function(result) {
@@ -167,7 +168,8 @@ exports.GetQuestions = async function(activityCodeArray, industryCodeString, zip
     }
     else {
         log.warn('Bad Request: Zip Code');
-        return next(serverHelper.requestError('The zip code(s) supplied is/are invalid'));
+        //return next(serverHelper.requestError('The zip code(s) supplied is/are invalid'));
+        return false;
     }
 
     /* ---=== Get The Applicable Questions ===--- */
@@ -193,7 +195,8 @@ exports.GetQuestions = async function(activityCodeArray, industryCodeString, zip
         error = err.message;
     });
     if (error) {
-        return next(serverHelper.requestError(error));
+        //return next(serverHelper.requestError(error));
+        return false;
     }
 
     // Add these questions to the array
@@ -218,7 +221,8 @@ exports.GetQuestions = async function(activityCodeArray, industryCodeString, zip
             error = err.message;
         });
         if (error) {
-            return next(serverHelper.requestError(error));
+            //return next(serverHelper.requestError(error));
+            return false;
         }
 
         // Add these questions to the array
@@ -239,7 +243,8 @@ exports.GetQuestions = async function(activityCodeArray, industryCodeString, zip
             error = err.message;
         });
         if (error) {
-            return next(serverHelper.requestError(error));
+            //return next(serverHelper.requestError(error));
+            return false;
         }
 
         // Add these questions to the array
@@ -265,7 +270,8 @@ exports.GetQuestions = async function(activityCodeArray, industryCodeString, zip
             error = err.message;
         });
         if (error) {
-            return next(serverHelper.requestError(error));
+            //return next(serverHelper.requestError(error));
+            return false;
         }
 
         // Add these questions to the array
@@ -300,7 +306,8 @@ exports.GetQuestions = async function(activityCodeArray, industryCodeString, zip
             error2 = err.message;
         });
         if (error2) {
-            return next(serverHelper.requestError(error));
+            //return next(serverHelper.requestError(error));
+            return false;
         }
         questions = questions.concat(added_questions);
 
@@ -367,13 +374,14 @@ exports.GetQuestions = async function(activityCodeArray, industryCodeString, zip
             error = err.message;
         });
         if (error) {
-            return next(serverHelper.requestError(error));
+            //return next(serverHelper.requestError(error));
+            return false;
         }
 
         // Combine the answers with their questions
         questions.forEach((question) => {
             if (question.type_id >= 1 && question.type_id <= 3) {
-                question.answers = [];
+                question.possible_answers = {};
                 answers.forEach((answer) => {
                     if (answer.question === question.id) {
                         // Create a local copy of the answer so we can remove properties
@@ -388,13 +396,13 @@ exports.GetQuestions = async function(activityCodeArray, industryCodeString, zip
                             delete answer_obj.default;
                         }
 
-                        question.answers.push(answer_obj);
+                        question.possible_answers[parseInt(answer_obj.id, 10)] = answer_obj;
                     }
                 });
 
                 // If there were no answers, do not return the element
-                if (!question.answers.length) {
-                    delete question.answers;
+                if (!Object.keys(question.possible_answers).length) {
+                    delete question.possible_answers;
                 }
             }
             delete question.type_id;
@@ -405,11 +413,33 @@ exports.GetQuestions = async function(activityCodeArray, industryCodeString, zip
             return a.id - b.id;
         });
     }
-
+    console.log('--------- SVC QUESTIONS ---------');
+    console.log(questions);
     // log.info(`Returning ${questions.length} Questions`);
 
     return questions;
 }
+
+exports.GetQuestionsForEndpoint = async function(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden = false){
+
+    const questions = await exports.GetQuestions(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden);
+
+    if(!questions){
+        return false;
+    }
+    for(const question in questions){
+        if(Object.prototype.hasOwnProperty.call(questions, question)){
+            if('possible_answers' in questions[question]){
+                questions[question].answers = Object.values(questions[question].possible_answers);
+                delete questions[question].possible_answers;
+            }
+        }
+    }
+    console.log('--------- ENDPOINT QUESTIONS ---------');
+    console.log(questions);
+    return questions;
+}
+
 
 /**
  * Parses through the questions we have recieved to see if any are missing based on those referenced as the 'parent' of an existing question
