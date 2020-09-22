@@ -68,7 +68,13 @@ async function GetUserInfo(req, res, next){
     })
     if(agencyNetworkJSON){
         userInfo[0].feature_json = agencyNetworkJSON.feature_json;
-        if(agencyNetworkJSON.additionalInfo){
+        if(!agencyNetworkJSON.additionalInfo){
+            log.error("additionalInfo was not present on agencyNetwork: " + agencyNetworkJSON.id);
+        }
+        else if(!agencyNetworkJSON.additionalInfo.contactEmailAddress){
+            log.error("contactEmailAddress was not present on additionalInfo for agencyNetwork: " + agencyNetworkJSON.id);
+        }
+        else {
             userInfo[0].contactEmailAddress = agencyNetworkJSON.additionalInfo.contactEmailAddress;
         }
         if(agencyNetwork){
