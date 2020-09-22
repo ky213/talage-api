@@ -559,6 +559,9 @@ async function postAgency(req, res, next) {
             insurer.territories = insurer.territories.split(',');
             territoryAbbreviations = territoryAbbreviations.concat(insurer.territories);
         }
+        else {
+            log.warn(`Creating Agency Insurer has not territories ${insurer.id}` + __location)
+        }
         insurerIDs.push(insurer.id);
     });
 
