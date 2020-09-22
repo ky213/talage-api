@@ -338,7 +338,6 @@ async function getAgencySocialMetadata(req, res, next) {
         res.send(400, {error: 'Missing URL'});
         return next();
     }
-
     const slugs = parseQuoteURL(req.query.url);
     let agencySlug = slugs.agencySlug;
     const pageSlug = slugs.pageSlug;
@@ -417,11 +416,12 @@ async function getAgencySocialMetadata(req, res, next) {
         log.error(`Could not parse landingPageContent/defaultLandingPageContent in agency slug '${agencySlug}' for social metadata: ${error} ${__location}`);
         res.send(400, {error: 'Could not process agency data'});
         return next();
-    }
+	}
     res.send(200, {
-        metaTitle: agency.name,
+        metaTitle: agency.agencyName,
         metaDescription: agency.landingPageContent.bannerHeadingDefault ? agency.landingPageContent.bannerHeadingDefault : agency.defaultLandingPageContent.bannerHeadingDefault,
-        metaImage: `global.settings.IMAGE_URL}/public/agency-logos/${agency.logo}`
+		metaImage: `${global.settings.IMAGE_URL}/public/agency-logos/${agency.logo}`,
+		metaURL: agency.website
     });
     return next();
 }
