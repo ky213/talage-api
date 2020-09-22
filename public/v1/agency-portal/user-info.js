@@ -68,7 +68,7 @@ async function GetUserInfo(req, res, next){
     })
     if(agencyNetworkJSON){
         userInfo[0].feature_json = agencyNetworkJSON.feature_json;
-        userInfo[0].additionalInfo = agencyNetworkJSON.additionalInfo;
+        userInfo[0].contactEmailAddress = agencyNetworkJSON.additionalInfo.contactEmailAddress;
         if(agencyNetwork){
             userInfo[0].logo = agencyNetworkJSON.logo;
             userInfo[0].name = agencyNetworkJSON.name;
