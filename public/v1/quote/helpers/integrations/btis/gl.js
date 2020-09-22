@@ -372,10 +372,10 @@ module.exports = class BtisGL extends Integration {
         // Send JSON to the insurer
         let quoteResult = null;
         try{
-            quoteResult = await this.send_json_request(host, QUOTE_URL, JSON.stringify(data), token, false)
+            quoteResult = await this.send_json_request(host, QUOTE_URL, JSON.stringify(data), token, 'POST', false);
         }
         catch(error){
-            log.error(`BTIS Submit Endpoint Returned Error ${util.inspect(error, false, null)}` + __location);
+            log.error(`BTIS Quote Endpoint Returned Error ${util.inspect(error, false, null)}` + __location);
             const errorString = JSON.stringify(error);
             if(errorString.indexOf("No Carrier found for passed state and class code") > -1){
                 this.reasons.push('BTIS response with: No Carrier found for passed state and class code ');
