@@ -421,7 +421,9 @@ async function getAgency(req, res, next) {
 
     // Convert the network insurer territory data into an array
     networkInsurers.map(function(networkInsurer) {
-        networkInsurer.territories = networkInsurer.territories.split(',');
+        if(networkInsurer.territories){
+            networkInsurer.territories = networkInsurer.territories.split(',');
+        }
         return networkInsurer;
     });
     // For each network insurer grab the policy_types
@@ -541,8 +543,13 @@ async function postAgency(req, res, next) {
 
     // Convert the territories list into an array
     insurers.forEach(function(insurer) {
-        insurer.territories = insurer.territories.split(',');
-        territoryAbbreviations = territoryAbbreviations.concat(insurer.territories);
+        if(insurer.territories){
+            insurer.territories = insurer.territories.split(',');
+            territoryAbbreviations = territoryAbbreviations.concat(insurer.territories);
+        }
+        else {
+            log.warn(`Creating Agency Insurer has not territories ${insurer.id}` + __location)
+        }
         insurerIDs.push(insurer.id);
     });
 
