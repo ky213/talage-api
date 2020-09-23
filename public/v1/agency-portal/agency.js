@@ -291,6 +291,8 @@ async function getAgency(req, res, next) {
         log.error('DB query failed: ' + err.message + __location);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     });
+
+
     const pages = await db.query(pagesSQL).catch(function(err){
         log.error('DB query failed: ' + err.message + __location);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
@@ -553,12 +555,7 @@ async function postAgency(req, res, next) {
         }
     }
 
-    // // Encrypt the user's information
-    // const encrypted = {
-    //     "email": email,
-    //     "firstName": firstName,
-    //     "lastName": lastName
-    // };
+  
 
     let wholesale = 0;
     if(req.authentication.agencyNetwork === 2){
@@ -726,6 +723,15 @@ async function postAgency(req, res, next) {
     });
 
     // Create a user for agency portal access
+      // // Encrypt the user's information
+    const encrypted = {
+        "email": email,
+        "firstName": firstName,
+        "lastName": lastName
+    };
+    await crypt.batchProcessObject(encrypted, 'encrypt', ['email',
+    'firstName',
+    'lastName']);
     const password = generatePassword();
     const hashedPassword = await crypt.hashPassword(password);
     const createUserSQL = `
