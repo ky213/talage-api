@@ -787,11 +787,10 @@ module.exports = class Application {
             // Get a list of all questions the user may need to answer
             const insurer_ids = this.get_insurer_ids();
             const wc_codes = this.get_wc_codes();
-            const questions = await questionsSvc.GetQuestions(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids).catch(function(error) {
+            const questions = await questionsSvc.GetQuestionsAsJSON(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids, true).catch(function(error) {
                 log.error('get_questions error ' + error + __location);
                 reject(error);
             });
-            console.log('APP: HEY WE DID THINGS SUCCESSFULLY MAKE SURE ALL THE QUESTIONS ARE THERE');
             // Grab the answers the user provided to our questions and reset the question object
             const user_questions = this.questions;
             this.questions = {};

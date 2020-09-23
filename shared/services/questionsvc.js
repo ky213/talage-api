@@ -14,8 +14,7 @@ const serverHelper = global.requireRootPath('server.js');
  * @returns {array|false} An array of questions if successful, false otherwise
  *
  */
-
-exports.GetQuestions = async function(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden = false) {
+async function GetQuestions(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden = false) {
 
     /* ---=== Validate Input ===--- */
 
@@ -413,8 +412,6 @@ exports.GetQuestions = async function(activityCodeArray, industryCodeString, zip
             return a.id - b.id;
         });
     }
-    console.log('--------- SVC QUESTIONS ---------');
-    console.log(questions);
     // log.info(`Returning ${questions.length} Questions`);
 
     return questions;
@@ -422,7 +419,7 @@ exports.GetQuestions = async function(activityCodeArray, industryCodeString, zip
 
 exports.GetQuestionsForEndpoint = async function(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden = false){
 
-    const questions = await exports.GetQuestions(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden);
+    const questions = await GetQuestions(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden);
 
     if(!questions){
         return false;
@@ -439,7 +436,15 @@ exports.GetQuestionsForEndpoint = async function(activityCodeArray, industryCode
     console.log(questions);
     return questions;
 }
-
+exports.GetQuestionsAsJSON = async function(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden = false){
+    let questions = await GetQuestions(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden);
+    if(!questions){
+        return false;
+    }
+    const test = JSON.stringify(questions);
+    questions = JSON.parse(test);
+    return questions;
+}
 
 /**
  * Parses through the questions we have recieved to see if any are missing based on those referenced as the 'parent' of an existing question
