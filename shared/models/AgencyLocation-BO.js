@@ -35,6 +35,7 @@ module.exports = class AgencyLocationBO{
             if(!newObjectJSON){
                 reject(new Error(`empty ${tableName} object given`));
             }
+           
             await this.cleanupInput(newObjectJSON);
             if(newObjectJSON.id){
                 await this.#dbTableORM.getById(newObjectJSON.id).catch(function (err) {
@@ -43,20 +44,26 @@ module.exports = class AgencyLocationBO{
                     return;
                 });
                 this.updateProperty();
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
+                //TODO if anything more than territory goes into additionalInfo
             }
-            else{
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
+            
+             // Territories put in additionalInfo JSON.
+             if(newObjectJSON.territories){
+                if(typeof newObjectJSON.additionalInfo !== "object" ){
+                    newObjectJSON.additionalInfo = {};
+                }
+                newObjectJSON.additionalInfo.territories =  newObjectJSON.territories;
+                delete newObjectJSON.territories;
             }
 
+            this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
             //save
             await this.#dbTableORM.save().catch(function(err){
                 reject(err);
             });
             this.updateProperty();
             this.id = this.#dbTableORM.id;
-
-
+            //TODO if primary make sure other agency location for agency are not primary.
             resolve(true);
 
         });
@@ -94,7 +101,63 @@ module.exports = class AgencyLocationBO{
         });
     }
 
-
+    getList(queryJSON) {
+        return new Promise(async (resolve, reject) => {
+           
+                let rejected = false;
+                // Create the update query
+                let sql = `
+                    select * from ${tableName}  
+                `;
+                if(queryJSON){
+                    let hasWhere = false;
+                    if(queryJSON.agency){
+                        sql += hasWhere ? " AND " : " WHERE ";
+                        sql += ` agency = ${db.escape(queryJSON.agency)} `
+                        hasWhere = true;
+                    }
+                    if(queryJSON.zipcode){
+                        sql += hasWhere ? " AND " : " WHERE ";
+                        sql += ` zipcode = ${db.escape(queryJSON.zipcode)} `
+                        hasWhere = true;
+                    }
+                }
+                // Run the query
+                //log.debug("AgencyLocationBO getlist sql: " + sql);
+                const result = await db.query(sql).catch(function (error) {
+                    // Check if this was
+                    
+                    rejected = true;
+                    log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
+                    reject(error);
+                });
+                if (rejected) {
+                    return;
+                }
+                let boList = [];
+                if(result && result.length > 0 ){
+                    for(let i=0; i < result.length; i++ ){
+                        let agencyLocationBO = new InsurerContactBO();
+                        await agencyLocationBO.#dbTableORM.decryptFields(result[i]);
+                        await agencyLocationBO.#dbTableORM.convertJSONColumns(result[i]);
+                        const resp = await agencyLocationBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                            log.error(`getList error loading object: ` + err + __location);
+                        })
+                        if(!resp){
+                            log.debug("Bad BO load" + __location)
+                        }
+                        boList.push(agencyLocationBO);
+                    }
+                    resolve(boList);
+                }
+                else {
+                    //Search so no hits ok.
+                    resolve([]);
+                }
+               
+            
+        });
+    }
 
     getById(id) {
         return new Promise(async (resolve, reject) => {
@@ -113,6 +176,38 @@ module.exports = class AgencyLocationBO{
             }
         });
     }
+
+    deleteSoftById(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id && id >0 ){
+              
+                //Remove old records.
+                const sql =`Update ${tableName} 
+                        SET state = -2
+                        WHERE id = ${id}
+                `;
+                let rejected = false;
+                const result = await db.query(sql).catch(function (error) {
+                    // Check if this was
+                    log.error("Database Object ${tableName} UPDATE State error :" + error + __location);
+                    rejected = true;
+                    reject(error);
+                });
+                if (rejected) {
+                    return false;
+                }
+                //Mongo....
+
+                resolve(true);
+              
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
 
     async cleanupInput(inputJSON){
         for (const property in properties) {
@@ -548,6 +643,15 @@ const properties = {
         "type": "string",
         "dbType": "varchar(10)"
     },
+    "additionalInfo": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "json",
+        "dbType": "json"
+     },
     "created": {
       "default": null,
       "encrypted": false,
