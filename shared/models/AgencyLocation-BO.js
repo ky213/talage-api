@@ -3,6 +3,8 @@
 const DatabaseObject = require('./DatabaseObject.js');
 const AgencyLocationInsurerBO = require('./AgencyLocationInsurer-BO.js');
 const AgencyLocationTerritory = require('./AgencyLocationTerritory-BO.js');
+const TerritoryBO = global.requireShared('./models/Territory-BO.js');
+const InsurerBO = require('./Insurer-BO.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const crypt = global.requireShared('./services/crypt.js');
@@ -101,7 +103,7 @@ module.exports = class AgencyLocationBO{
         });
     }
 
-    getList(queryJSON) {
+    getList(queryJSON, children = false) {
         return new Promise(async (resolve, reject) => {
            
                 let rejected = false;
@@ -109,8 +111,8 @@ module.exports = class AgencyLocationBO{
                 let sql = `
                     select * from ${tableName}  
                 `;
+                let hasWhere = false;
                 if(queryJSON){
-                    let hasWhere = false;
                     if(queryJSON.agency){
                         sql += hasWhere ? " AND " : " WHERE ";
                         sql += ` agency = ${db.escape(queryJSON.agency)} `
@@ -122,8 +124,11 @@ module.exports = class AgencyLocationBO{
                         hasWhere = true;
                     }
                 }
+                sql += hasWhere ? " AND " : " WHERE ";
+                sql += ` state > 0 `
+                hasWhere = true;
                 // Run the query
-                //log.debug("AgencyLocationBO getlist sql: " + sql);
+                log.debug("AgencyLocationBO getlist sql: " + sql);
                 const result = await db.query(sql).catch(function (error) {
                     // Check if this was
                     
@@ -137,7 +142,7 @@ module.exports = class AgencyLocationBO{
                 let boList = [];
                 if(result && result.length > 0 ){
                     for(let i=0; i < result.length; i++ ){
-                        let agencyLocationBO = new InsurerContactBO();
+                        let agencyLocationBO = new AgencyLocationBO();
                         await agencyLocationBO.#dbTableORM.decryptFields(result[i]);
                         await agencyLocationBO.#dbTableORM.convertJSONColumns(result[i]);
                         const resp = await agencyLocationBO.loadORM(result[i], skipCheckRequired).catch(function(err){
@@ -146,6 +151,47 @@ module.exports = class AgencyLocationBO{
                         if(!resp){
                             log.debug("Bad BO load" + __location)
                         }
+                        if(agencyLocationBO.additionalInfo && agencyLocationBO.additionalInfo.territories  ){
+                            agencyLocationBO.territories = agencyLocationBO.additionalInfo.territories;
+                        }
+
+                        if(children === true ){
+                            if(agencyLocationBO.insurers){
+                                //Map to current Insurers   
+                                await this.addInsureInfoTolocationInsurers(agencyLocationBO.insurers);
+                            }
+                            else {
+    
+                                const agencyLocationInsurer = new AgencyLocationInsurerBO
+                                const insurerList = await agencyLocationInsurer.getListByAgencyLocationForAgencyPortal(agencyLocationBO.id).catch(function (error) {
+                                    // Check if this was
+                                    rejected = true;
+                                    log.error(`agencyLocationInsurer.getListByAgencyLocationForAgencyPortal error on select ` + error + __location);
+                                });
+                                agencyLocationBO.insurers = insurerList;
+                            }
+                            // Territories 
+                            if(agencyLocationBO.additionalInfo && agencyLocationBO.additionalInfo.territories  ){
+                                agencyLocationBO.territories = agencyLocationBO.additionalInfo.territories;
+                            }
+                            else {
+                                const agencyLocationTerritory = new AgencyLocationTerritory
+                                const territoryList = await agencyLocationTerritory.getListByAgencyLocationForAgencyPortal(agencyLocationBO.id).catch(function (error) {
+                                    // Check if this was
+                                    rejected = true;
+                                    log.error(`agencyLocationTerritory.getListByAgencyLocationForAgencyPortal error on select ` + error + __location);
+                                });
+                                agencyLocationBO.territories = territoryList;
+                            }
+                            if(!agencyLocationBO.territories){
+                                agencyLocationBO.territories = [];
+                            }
+                            if(!agencyLocationBO.insurers){
+                                agencyLocationBO.insurers = [];
+                            }
+    
+                        }
+
                         boList.push(agencyLocationBO);
                     }
                     resolve(boList);
@@ -303,22 +349,34 @@ module.exports = class AgencyLocationBO{
                     location.openTime = location.open_time;
                     location.closeTime = location.close_time
                     if(children === true ){
-                        const agencyLocationInsurer = new AgencyLocationInsurerBO
-                        const insurerList = await agencyLocationInsurer.getListByAgencyLocationForAgencyPortal(id).catch(function (error) {
-                            // Check if this was
-                            rejected = true;
-                            log.error(`agencyLocationInsurer.getListByAgencyLocationForAgencyPortal error on select ` + error + __location);
-                        });
-                        location.insurers = insurerList;
+                        if(location.insurers){
+                            //Map to current Insurers   
+                            await this.addInsureInfoTolocationInsurers(location.insurers);
+                        }
+                        else {
 
+                            const agencyLocationInsurer = new AgencyLocationInsurerBO
+                            const insurerList = await agencyLocationInsurer.getListByAgencyLocationForAgencyPortal(id).catch(function (error) {
+                                // Check if this was
+                                rejected = true;
+                                log.error(`agencyLocationInsurer.getListByAgencyLocationForAgencyPortal error on select ` + error + __location);
+                            });
+                            location.insurers = insurerList;
+                        }
                         // Territories 
-                        const agencyLocationTerritory = new AgencyLocationTerritory
-                        const territoryList = await agencyLocationTerritory.getListByAgencyLocationForAgencyPortal(id).catch(function (error) {
-                            // Check if this was
-                            rejected = true;
-                            log.error(`agencyLocationTerritory.getListByAgencyLocationForAgencyPortal error on select ` + error + __location);
-                        });
-                        location.territories = territoryList;
+                        if(location.additionalInfo && location.additionalInfo.territories  ){
+                            location.territories = location.additionalInfo.territories;
+                        }
+                        else {
+                            const agencyLocationTerritory = new AgencyLocationTerritory
+                            const territoryList = await agencyLocationTerritory.getListByAgencyLocationForAgencyPortal(id).catch(function (error) {
+                                // Check if this was
+                                rejected = true;
+                                log.error(`agencyLocationTerritory.getListByAgencyLocationForAgencyPortal error on select ` + error + __location);
+                            });
+                            location.territories = territoryList;
+                        }
+                        
 
                     }
                     return locationJSON;
@@ -381,7 +439,25 @@ module.exports = class AgencyLocationBO{
         }
     }
 
-
+    async addInsureInfoTolocationInsurers(locationInfoArray){
+        let error = null;
+        const insurerBO = new InsurerBO();
+        const query = {};
+        const insurerList = await insurerBO.getList(query).catch(function(err) {
+            log.error("admin agencynetwork error: " + err + __location);
+            error = err;
+        })
+        if(insurerList){
+            for(let i =0; i < locationInfoArray; i++ ){
+                let insurer = insurerList.find(insurer => insurer.id === locationInfoArray.insurer);
+                locationInfoArray[i].logo = insurer.logo;
+                locationInfoArray[i].name = insurer.name;
+                locationInfoArray[i].agency_id_label = insurer.agency_id_label;
+                locationInfoArray[i].agent_id_label = insurer.agent_id_label;
+                locationInfoArray[i].enable_agent_id = insurer.enable_agent_id;
+            }
+        }
+    }
 
     async getByAgencyPrimary(agencyId){
         
@@ -644,6 +720,15 @@ const properties = {
         "dbType": "varchar(10)"
     },
     "additionalInfo": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "json",
+        "dbType": "json"
+     },
+     "insurers": {
         "default": null,
         "encrypted": false,
         "hashed": false,

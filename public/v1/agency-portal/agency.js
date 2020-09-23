@@ -1,6 +1,8 @@
 /* eslint-disable array-element-newline */
 'use strict';
 const AgencyModel = global.requireShared('models/Agency-model.js');
+const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
+
 const crypt = global.requireShared('./services/crypt.js');
 const util = require('util');
 const sendOnboardingEmail = require('./helpers/send-onboarding-email.js');
@@ -213,25 +215,7 @@ async function getAgency(req, res, next) {
 		FROM \`clw_talage_territories\`
 		ORDER BY \`name\` ASC;
 	`;
-    const locationsSQL = `
-			SELECT
-				${db.quoteName('l.id')},
-				${db.quoteName('l.state')},
-				${db.quoteName('l.email')},
-				${db.quoteName('l.fname')},
-				${db.quoteName('l.lname')},
-				${db.quoteName('l.phone')},
-				${db.quoteName('l.address')},
-                ${db.quoteName('l.address2')},
-                ${db.quoteName('l.city')},
-                ${db.quoteName('l.state_abbr')},
-                ${db.quoteName('l.zipcode')},
-				${db.quoteName('l.open_time', 'openTime')},
-				${db.quoteName('l.close_time', 'closeTime')},
-				${db.quoteName('l.primary')}
-			FROM ${db.quoteName('#__agency_locations', 'l')}
-			WHERE ${db.quoteName('l.agency')} = ${agent} AND l.state > 0;
-		`;
+  
     const networkInsurersSQL = `
                 SELECT
                     i.id,
@@ -266,18 +250,7 @@ async function getAgency(req, res, next) {
 			FROM ${db.quoteName('#__agency_landing_pages')}
 			WHERE ${db.quoteName('agency')} = ${agent} AND state > 0;
 		`;
-    // const userSQL = `
-    // 		SELECT
-    // 			\`apu\`.\`id\`,
-    // 			\`apu\`.\`last_login\` AS \`lastLogin\`,
-    // 			\`apu\`.\`email\`,
-    // 			\`apu\`.\`can_sign\` AS \`canSign\`,
-    // 			\`apg\`.\`id\` AS \`group\`,
-    // 			\`apg\`.\`name\` AS \`groupRole\`
-    // 		FROM \`#__agency_portal_users\` AS \`apu\`
-    // 		LEFT JOIN \`#__agency_portal_user_groups\` AS \`apg\` ON \`apu\`.\`group\` = \`apg\`.\`id\`
-    // 		WHERE \`apu\`.\`agency\` = ${agent} AND state > 0;
-    // 	`;
+  
     let users = null;
     try{
         const agencyPortalUserBO = new AgencyPortalUserBO();
@@ -294,10 +267,26 @@ async function getAgency(req, res, next) {
         log.error('DB query failed: ' + err.message + __location);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     });
-    const locations = await db.query(locationsSQL).catch(function(err){
-        log.error('DB query failed: ' + err.message + __location);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    });
+
+    const agencyLocationBO = new AgencyLocationBO();
+    
+    let locations = null;
+    try{
+        const query = {"agency": agent}
+        const getChildren = true;
+        locations = await  agencyLocationBO.getList(query, getChildren)
+        locations.forEach((location) => {
+            location.openTime = location.open_time;
+            location.closeTime = location.close_time;
+        });
+    }
+    catch(err){
+        log.error(err.message + __location);
+        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.')); 
+    }
+    //log.debug("agency get locations: " + JSON.stringify(locations))
+
+    
     const networkInsurers = await db.query(networkInsurersSQL).catch(function(err){
         log.error('DB query failed: ' + err.message + __location);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
@@ -306,72 +295,7 @@ async function getAgency(req, res, next) {
         log.error('DB query failed: ' + err.message + __location);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     });
-    // const users = await db.query(userSQL).catch(function(err){
-    //     log.error('DB query failed: ' + err.message + __location);
-    //     return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    // });
-
-    // Separate out location IDs and define some variables
-    const locationIDs = locations.map((location) => location.id);
-    let locationInsurers = [];
-    let territories = [];
-
-    // Get the insurers and territories
-    if (locationIDs.length) {
-
-        // Define queries for insurers and territories
-        // TODO BUG insurer_policy_type not handled correctly
-        // If insurer has multiple policyType duplicate rows are shown.
-        // DISTINCT kills dups.
-        // BUT the wheelhouse_support is not handled correctly for
-        // multiple policy types.
-        const insurersSQL = `
-				SELECT DISTINCT
-					${db.quoteName('i.id', 'insurer')},
-					${db.quoteName('i.logo')},
-					${db.quoteName('i.name')},
-					${db.quoteName('i.agency_id_label', 'agency_id_label')},
-					${db.quoteName('i.agent_id_label', 'agent_id_label')},
-					${db.quoteName('i.enable_agent_id', 'enable_agent_id')},					
-					${db.quoteName('li.id')},
-					${db.quoteName('li.agency_location', 'locationID')},
-					${db.quoteName('li.agency_id', 'agencyId')},
-					${db.quoteName('li.agent_id', 'agentId')},
-					${db.quoteName('li.bop')},
-					${db.quoteName('li.gl')},
-                    ${db.quoteName('li.wc')},
-                    li.policy_type_info
-				FROM ${db.quoteName('#__agency_location_insurers', 'li')}
-				INNER JOIN ${db.quoteName('#__insurers', 'i')} ON ${db.quoteName('li.insurer')} = ${db.quoteName('i.id')}
-				INNER JOIN ${db.quoteName('#__insurer_policy_types', 'pti')} ON ${db.quoteName('i.id')} = ${db.quoteName('pti.insurer')}
-				WHERE
-					${db.quoteName('li.agency_location')} IN (${locationIDs.join(',')}) AND
-					${db.quoteName('i.id')} IN (select insurer from clw_talage_agency_network_insurers where agency_network = ${agencyNetworkId}) AND
-					${db.quoteName('i.state')} > 0 AND
-					${db.quoteName('pti.wheelhouse_support')} = 1
-				ORDER BY ${db.quoteName('i.name')} ASC;
-			`;
-        const territoriesSQL = `
-				SELECT
-					${db.quoteName('lt.id')},
-					${db.quoteName('lt.agency_location', 'locationID')},
-					${db.quoteName('t.abbr')},
-					${db.quoteName('t.name')}
-				FROM ${db.quoteName('#__agency_location_territories', 'lt')}
-				LEFT JOIN ${db.quoteName('#__territories', 't')} ON ${db.quoteName('lt.territory')} = ${db.quoteName('t.abbr')}
-				WHERE ${db.quoteName('lt.agency_location')} IN (${locationIDs.join(',')})
-				ORDER BY ${db.quoteName('t.name')} ASC;
-			`;
-        locationInsurers = await db.query(insurersSQL).catch(function(err) {
-            log.error(err.message);
-            return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-        });
-
-        territories = await db.query(territoriesSQL).catch(function(err) {
-            log.error(err.message);
-            return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-        });
-    }
+    
 
     // Decrypt data from all the queries so far
     const agencyDecrypt = crypt.batchProcessObject(agency, 'decrypt', ['caLicenseNumber',
@@ -380,57 +304,14 @@ async function getAgency(req, res, next) {
         'lname',
         'phone',
         'website']);
-    const locationsDecrypt = crypt.batchProcessObjectArray(locations, 'decrypt', ['address',
-        'address2',
-        'email',
-        'fname',
-        'lname',
-        'phone']);
-    //const usersDecrypt = crypt.batchProcessObjectArray(users, 'decrypt', ['email']);
-
-    const insurersDecrypt = crypt.batchProcessObjectArray(locationInsurers, 'decrypt', ['agencyId', 'agentId']);
+   
 
     // Wait for all data to decrypt
-    await Promise.all([agencyDecrypt,
-        locationsDecrypt,
+    await Promise.all([agencyDecrypt
         //usersDecrypt,
-        insurersDecrypt]);
+        ]);
 
-    // Parse json field
-    locationInsurers.forEach((locationInsurer) => {
-        if (locationInsurer.policy_type_info) {
-            try {
-                locationInsurer.policy_type_info = JSON.parse(locationInsurer.policy_type_info)
-                //fix database 1/0 to true and false
-                const policyTypeList = ["GL", "BOP","WC"];
-                for(let i = 0; i < policyTypeList.length; i++){
-                    const policyType = policyTypeList[i];
-                    if(locationInsurer.policy_type_info[policyType]){
-                        if(locationInsurer.policy_type_info[policyType].enabled === 1){
-                            locationInsurer.policy_type_info[policyType].enabled = true;
-                        }
-                        else if(locationInsurer.policy_type_info[policyType].enabled === 0){
-                            locationInsurer.policy_type_info[policyType].enabled = false;
-                        }
-                    }
-                }
-            }
-            catch (err) {
-                log.error(`Agency location insurer JSON parse error ${err} JSON ` + JSON.stringify(locationInsurer));
-            }
-        }
-    });
-    // Sort insurers and territories into the appropriate locations if necessary
-    if (locationInsurers.length || territories.length) {
-        locations.forEach((location) => {
-            location.insurers = locationInsurers.filter((insurer) => insurer.locationID === location.id);
-            location.territories = territories.
-                filter((territory) => territory.locationID === location.id).
-                map(function(territory) {
-                    return territory.abbr;
-                });
-        });
-    }
+   
 
     // Convert the network insurer territory data into an array
     networkInsurers.map(function(networkInsurer) {
@@ -472,6 +353,7 @@ async function getAgency(req, res, next) {
         "territories": allTerritories,
         "users": users
     };
+    //log.debug('Get Agency ' + JSON.stringify(response))
 
     // Return the response
     res.send(200, response);
