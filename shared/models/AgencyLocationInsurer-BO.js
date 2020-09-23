@@ -12,6 +12,16 @@ const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 const tableName = 'clw_talage_agency_location_insurers'
 const skipCheckRequired = false;
+/****
+ * 
+ * 
+ *  NOTE:  clw_talage_agency_location_insurers is being phased out
+ *         after 2020-09-23 any write of AgencyLocation Insurer
+ *         should got into the agency_locations.insurer column 
+ *         NOT the clw_talage_agency_location_insurers table.
+ * 
+ */
+
 module.exports = class AgencyLocationInsurerBO{
 
     #dbTableORM = null;

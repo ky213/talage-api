@@ -156,40 +156,7 @@ module.exports = class AgencyLocationBO{
                         }
 
                         if(children === true ){
-                            if(agencyLocationBO.insurers){
-                                //Map to current Insurers   
-                                await this.addInsureInfoTolocationInsurers(agencyLocationBO.insurers);
-                            }
-                            else {
-    
-                                const agencyLocationInsurer = new AgencyLocationInsurerBO
-                                const insurerList = await agencyLocationInsurer.getListByAgencyLocationForAgencyPortal(agencyLocationBO.id).catch(function (error) {
-                                    // Check if this was
-                                    rejected = true;
-                                    log.error(`agencyLocationInsurer.getListByAgencyLocationForAgencyPortal error on select ` + error + __location);
-                                });
-                                agencyLocationBO.insurers = insurerList;
-                            }
-                            // Territories 
-                            if(agencyLocationBO.additionalInfo && agencyLocationBO.additionalInfo.territories  ){
-                                agencyLocationBO.territories = agencyLocationBO.additionalInfo.territories;
-                            }
-                            else {
-                                const agencyLocationTerritory = new AgencyLocationTerritory
-                                const territoryList = await agencyLocationTerritory.getListByAgencyLocationForAgencyPortal(agencyLocationBO.id).catch(function (error) {
-                                    // Check if this was
-                                    rejected = true;
-                                    log.error(`agencyLocationTerritory.getListByAgencyLocationForAgencyPortal error on select ` + error + __location);
-                                });
-                                agencyLocationBO.territories = territoryList;
-                            }
-                            if(!agencyLocationBO.territories){
-                                agencyLocationBO.territories = [];
-                            }
-                            if(!agencyLocationBO.insurers){
-                                agencyLocationBO.insurers = [];
-                            }
-    
+                            await this.loadChildren(agencyLocationBO.id, agencyLocationBO)
                         }
 
                         boList.push(agencyLocationBO);
@@ -205,7 +172,44 @@ module.exports = class AgencyLocationBO{
         });
     }
 
-    getById(id) {
+    async loadChildren(agencyLocationId, agencyLocationJSON){
+        if(agencyLocationJSON.insurers){
+            //Map to current Insurers   
+            await this.addInsureInfoTolocationInsurers(agencyLocationJSON.insurers);
+        }
+        else {
+
+            const agencyLocationInsurer = new AgencyLocationInsurerBO
+            const insurerList = await agencyLocationInsurer.getListByAgencyLocationForAgencyPortal(agencyLocationId).catch(function (error) {
+                // Check if this was
+                rejected = true;
+                log.error(`agencyLocationInsurer.getListByAgencyLocationForAgencyPortal error on select ` + error + __location);
+            });
+            agencyLocationJSON.insurers = insurerList;
+        }
+        // Territories 
+        if(agencyLocationJSON.additionalInfo && agencyLocationJSON.additionalInfo.territories  ){
+            agencyLocationJSON.territories = agencyLocationJSON.additionalInfo.territories;
+        }
+        else {
+            const agencyLocationTerritory = new AgencyLocationTerritory
+            const territoryList = await agencyLocationTerritory.getListByAgencyLocationForAgencyPortal(agencyLocationId).catch(function (error) {
+                // Check if this was
+                rejected = true;
+                log.error(`agencyLocationTerritory.getListByAgencyLocationForAgencyPortal error on select ` + error + __location);
+            });
+            agencyLocationJSON.territories = territoryList;
+        }
+        if(!agencyLocationJSON.territories){
+            agencyLocationJSON.territories = [];
+        }
+        if(!agencyLocationJSON.insurers){
+            agencyLocationJSON.insurers = [];
+        }
+
+
+    }
+    getById(id, children=true) {
         return new Promise(async (resolve, reject) => {
             //validate
             if(id && id >0 ){
@@ -215,7 +219,11 @@ module.exports = class AgencyLocationBO{
                     return;
                 });
                 this.updateProperty();
-                resolve(this.#dbTableORM.cleanJSON());
+                let agencyLocationJSON = this.#dbTableORM.cleanJSON();
+                if(children === true ){
+                    await this.loadChildren(id, agencyLocationJSON)
+                }
+                resolve(agencyLocationJSON);
             }
             else {
                 reject(new Error('no id supplied'))
@@ -349,35 +357,7 @@ module.exports = class AgencyLocationBO{
                     location.openTime = location.open_time;
                     location.closeTime = location.close_time
                     if(children === true ){
-                        if(location.insurers){
-                            //Map to current Insurers   
-                            await this.addInsureInfoTolocationInsurers(location.insurers);
-                        }
-                        else {
-
-                            const agencyLocationInsurer = new AgencyLocationInsurerBO
-                            const insurerList = await agencyLocationInsurer.getListByAgencyLocationForAgencyPortal(id).catch(function (error) {
-                                // Check if this was
-                                rejected = true;
-                                log.error(`agencyLocationInsurer.getListByAgencyLocationForAgencyPortal error on select ` + error + __location);
-                            });
-                            location.insurers = insurerList;
-                        }
-                        // Territories 
-                        if(location.additionalInfo && location.additionalInfo.territories  ){
-                            location.territories = location.additionalInfo.territories;
-                        }
-                        else {
-                            const agencyLocationTerritory = new AgencyLocationTerritory
-                            const territoryList = await agencyLocationTerritory.getListByAgencyLocationForAgencyPortal(id).catch(function (error) {
-                                // Check if this was
-                                rejected = true;
-                                log.error(`agencyLocationTerritory.getListByAgencyLocationForAgencyPortal error on select ` + error + __location);
-                            });
-                            location.territories = territoryList;
-                        }
-                        
-
+                        await this.loadChildren(id, location)
                     }
                     return locationJSON;
                 }
@@ -421,10 +401,10 @@ module.exports = class AgencyLocationBO{
                     const resp = await agencyLocationBO.loadORM(locationJSON, skipCheckRequired).catch(function(err){
                         log.error(`getList error loading object: ` + err + __location);
                     })
-                    // if(children === true ){
-                    //     //TODO
-                    // }
-                    return locationJSON;
+                    if(children === true ){
+                        await this.loadChildren(agencyLocationBO.id, agencyLocationBO)
+                    }
+                    return agencyLocationBO;
                 }
                 else {
                     return null;
@@ -484,10 +464,10 @@ module.exports = class AgencyLocationBO{
                 // const resp = await agencyLocationBO.loadORM(locationJSON, skipCheckRequired).catch(function(err){
                 //     log.error(`getList error loading object: ` + err + __location);
                 // })
-                // if(children === true ){
-                //     //TODO
-                // }
-                return locationJSON;
+                if(children === true ){
+                    await this.loadChildren(agencyLocationBO.id, agencyLocationBO)
+                }
+                return agencyLocationBO;
             }
             else {
                 return null;
