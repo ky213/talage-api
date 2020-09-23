@@ -3,10 +3,9 @@
 /* eslint-disable array-element-newline */
 /* eslint-disable require-jsdoc */
 'use strict';
-const AgencyLocationModel = global.requireShared('./models/AgencyLocation-model.js');
+
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 const AgencyLocationInsurerBO = global.requireShared('./models/AgencyLocationInsurer-BO.js');
-const AgencyLocationTerritoryBO = global.requireShared('./models/AgencyLocationTerritory-BO.js');
 
 // const util = require('util');
 const auth = require('./helpers/auth.js');

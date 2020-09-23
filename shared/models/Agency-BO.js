@@ -90,6 +90,80 @@ module.exports = class AgencyBO{
         });
     }
 
+    getList(queryJSON) {
+      return new Promise(async (resolve, reject) => {
+         
+              let rejected = false;
+              // Create the update query
+              let sql = `
+                  select * from ${tableName}  
+              `;
+              let hasWhere = false;
+              if(queryJSON){
+                  if(queryJSON.agency_network){
+                      sql += hasWhere ? " AND " : " WHERE ";
+                      sql += ` agency_network = ${db.escape(queryJSON.agency_network)} `
+                      hasWhere = true;
+                  }
+                  if(queryJSON.name){
+                      sql += hasWhere ? " AND " : " WHERE ";
+                      sql += ` name like ${db.escape(`%${queryJSON.name}%`)} `
+                      hasWhere = true;
+                  }
+                  if(queryJSON.state){
+                    sql += hasWhere ? " AND " : " WHERE ";
+                    sql += ` state = ${db.escape(queryJSON.state)} `
+                    hasWhere = true;
+                  }
+                  else {
+                    sql += hasWhere ? " AND " : " WHERE ";
+                    sql += ` state > 0 `
+                    hasWhere = true;
+                  }
+              }
+              else {
+                    sql += hasWhere ? " AND " : " WHERE ";
+                    sql += ` state > 0 `
+                    hasWhere = true;
+              }
+              
+             
+              // Run the query
+              log.debug("AgencyLocationBO getlist sql: " + sql);
+              const result = await db.query(sql).catch(function (error) {
+                  // Check if this was
+                  
+                  rejected = true;
+                  log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
+                  reject(error);
+              });
+              if (rejected) {
+                  return;
+              }
+              let boList = [];
+              if(result && result.length > 0 ){
+                  for(let i=0; i < result.length; i++ ){
+                      let agencyBO = new AgencyBO();
+                      await agencyBO.#dbTableORM.decryptFields(result[i]);
+                      await agencyBO.#dbTableORM.convertJSONColumns(result[i]);
+                      const resp = await agencyBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                          log.error(`getList error loading object: ` + err + __location);
+                      })
+                      if(!resp){
+                          log.debug("Bad BO load" + __location)
+                      }
+                      boList.push(agencyBO);
+                  }
+                  resolve(boList);
+              }
+              else {
+                  //Search so no hits ok.
+                  resolve([]);
+              }
+             
+          
+      });
+    }
     getById(id) {
         return new Promise(async (resolve, reject) => {
             //validate

@@ -1,7 +1,10 @@
 /* eslint-disable array-element-newline */
 'use strict';
 const AgencyModel = global.requireShared('models/Agency-model.js');
+const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
+const AgencyLandingPageBO = global.requireShared('./models/AgencyLandingPage-BO.js');
+const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
 
 const crypt = global.requireShared('./services/crypt.js');
 const util = require('util');
@@ -11,7 +14,7 @@ const validator = global.requireShared('./helpers/validator.js');
 const serverHelper = require('../../../server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
+
 
 /**
  * Generates a random password for the user's first login
@@ -165,42 +168,39 @@ async function getAgency(req, res, next) {
         return next(serverHelper.requestError('The agent you selected is invalid'));
     }
 
-    // Prepare to get the information for this agency
-    const agencyInfoSQL = `
-                SELECT
-                    id,
-                    agency_network,
-                    IF(state >= 1, 'Active', 'Inactive') AS state,
-                    name,
-                    ca_license_number as caLicenseNumber,
-                    email,
-                    fname,
-                    lname,
-                    phone,
-                    logo,
-                    website,
-                    slug,
-                    enable_optout as enableOptout
-                FROM clw_talage_agencies
-                WHERE id = ${agent}
-                LIMIT 1;
-		`;
 
-    // Going to the database to get the user's info
-    const agencyInfo = await db.query(agencyInfoSQL).catch(function(err) {
-        log.error(err.message + __location);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+    error = null;
+    const agencyBO = new AgencyBO();
+    // Load the request data into it
+    let agency = await agencyBO.getById(agent).catch(function(err) {
+        log.error("Location load error " + err + __location);
+        error = err;
     });
+    if (error && error.message !== "not found") {
+        log.error(`Error getting Agency: ${agent} ` + error + __location);
+        return next(error);
+    }
+    if (error && error.message === "not found") {
+        log.error(`Agency not found: ${agent}` + __location);
+        return next(serverHelper.notFoundError('Agency not found'));
+    }
 
     // Make sure we got back the expected data
-    if (!agencyInfo || agencyInfo.length !== 1) {
-        log.error('Agency not found after having passed validation');
+    if (!agency) {
+        log.error('Agency not found after having passed validation' + __location);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     }
 
-    // Get the agency from the response and do some cleanup
-    const agency = agencyInfo[0];
+    //do some cleanup
     for (const property in agency) {
+        if(property === 'ca_license_number'){
+            agency.caLicenseNumber = agency.ca_license_number
+        }
+        else if(property === 'state'){
+            agency.state = agency.state > 0 ? "Active" : "Inactive";
+        }   
+        
+
         if (typeof agency[property] === 'object' && agency[property] !== null && agency[property].length === 0) {
             agency[property] = null;
         }
@@ -297,21 +297,6 @@ async function getAgency(req, res, next) {
     });
     
 
-    // Decrypt data from all the queries so far
-    const agencyDecrypt = crypt.batchProcessObject(agency, 'decrypt', ['caLicenseNumber',
-        'email',
-        'fname',
-        'lname',
-        'phone',
-        'website']);
-   
-
-    // Wait for all data to decrypt
-    await Promise.all([agencyDecrypt
-        //usersDecrypt,
-        ]);
-
-   
 
     // Convert the network insurer territory data into an array
     networkInsurers.map(function(networkInsurer) {
@@ -568,131 +553,157 @@ async function postAgency(req, res, next) {
         }
     }
 
-    // Encrypt the user's information
-    const encrypted = {
-        "email": email,
-        "firstName": firstName,
-        "lastName": lastName
-    };
-    await crypt.batchProcessObject(encrypted, 'encrypt', ['email',
-        'firstName',
-        'lastName']);
+    // // Encrypt the user's information
+    // const encrypted = {
+    //     "email": email,
+    //     "firstName": firstName,
+    //     "lastName": lastName
+    // };
+
     let wholesale = 0;
     if(req.authentication.agencyNetwork === 2){
         wholesale = 1;
     }
 
-    // Create the agency
-    // Log.debug('TO DO: We need a wholesale toggle switch on the screen, but hidden for some Agency Networks');
-    const createAgencySQL = `
-			INSERT INTO ${db.quoteName('#__agencies')} (
-				${db.quoteName('name')},
-				${db.quoteName('email')},
-				${db.quoteName('agency_network')},
-				${db.quoteName('fname')},
-				${db.quoteName('lname')},
-				${db.quoteName('slug')},
-				${db.quoteName('wholesale')}
-			) VALUES (
-				${db.escape(name)},
-				${db.escape(encrypted.email)},
-				${db.escape(req.authentication.agencyNetwork)},
-				${db.escape(encrypted.firstName)},
-				${db.escape(encrypted.lastName)},
-				${db.escape(slug)},
-				${wholesale}
-			);
-		`;
+    // // Create the agency
+    // // Log.debug('TO DO: We need a wholesale toggle switch on the screen, but hidden for some Agency Networks');
+    // const createAgencySQL = `
+	// 		INSERT INTO ${db.quoteName('#__agencies')} (
+	// 			${db.quoteName('name')},
+	// 			${db.quoteName('email')},
+	// 			${db.quoteName('agency_network')},
+	// 			${db.quoteName('fname')},
+	// 			${db.quoteName('lname')},
+	// 			${db.quoteName('slug')},
+	// 			${db.quoteName('wholesale')}
+	// 		) VALUES (
+	// 			${db.escape(name)},
+	// 			${db.escape(encrypted.email)},
+	// 			${db.escape(req.authentication.agencyNetwork)},
+	// 			${db.escape(encrypted.firstName)},
+	// 			${db.escape(encrypted.lastName)},
+	// 			${db.escape(slug)},
+	// 			${wholesale}
+	// 		);
+	// 	`;
 
-    // Insert the value into the database
-    const createAgencyResult = await db.query(createAgencySQL).catch(function(e) {
-        log.error(e.message);
-        error = serverHelper.internalError('Error querying database. Check logs.');
-    });
-    if (error) {
-        return next(error);
+    let newAgencyJSON = {
+        name: name,
+        email: email,
+        agency_network: req.authentication.agencyNetwork,
+        fname: firstName,
+        lname: lastName,
+        slug: slug,
+        wholesale: wholesale
     }
-
+    error = null;
+    let agencyBO = new AgencyBO();
+    // Load the request data into it
+    await agencyBO.saveModel(newAgencyJSON).catch(function(err) {
+        log.error("agencyBO.save error " + err + __location);
+        error = err;
+    });
+    if(error){
+        
+    }
     // Get the ID of the new agency
-    const agencyId = createAgencyResult.insertId;
+    const agencyId = agencyBO.id;
 
-    // Create a default location for this agency
-    const createDefaultLocationSQL = `
-			INSERT INTO ${db.quoteName('#__agency_locations')} (
-				${db.quoteName('agency')},
-				${db.quoteName('email')},
-				${db.quoteName('fname')},
-				${db.quoteName('lname')},
-				${db.quoteName('primary')}
-			) VALUES (
-				${db.escape(agencyId)},
-				${db.escape(encrypted.email)},
-				${db.escape(encrypted.firstName)},
-				${db.escape(encrypted.lastName)},
-				1
-			);
-		`;
-
-    // Insert the value into the database
-    const createLocationResult = await db.query(createDefaultLocationSQL).catch(function(e) {
-        log.error(e.message);
-        error = serverHelper.internalError('Error querying database. Check logs.');
-    });
-    if (error) {
-        return next(error);
-    }
-
-    // Get the ID of the new agency
-    const locationID = createLocationResult.insertId;
-
-    // Store the territories for this agency
-    const territoryValues = [];
-    territories.forEach((territoryAbbreviation) => {
-        territoryValues.push(`(${db.escape(locationID)}, ${db.escape(territoryAbbreviation)})`);
-    });
-
-    // SQL to insert territories
-    const associateTerritoriesSQL = `
-			INSERT INTO ${db.quoteName('#__agency_location_territories')} (${db.quoteName('agency_location')}, ${db.quoteName('territory')})
-			VALUES ${territoryValues.join(',')};
-		`;
-
-    // Insert the territories
-    await db.query(associateTerritoriesSQL).catch(function(e) {
-        log.error(e.message);
-        error = serverHelper.internalError('Error querying database. Check logs.');
-    });
-    if (error) {
-        return next(error);
-    }
-
-    // Store the insurers for this agency
-    const agencyIdValues = [];
+    // Create Insurers array:
+    // Defaults to WC being enbled only.
+    let insurerArray = [];
     for (const insurerID in agencyIds) {
-        if (Object.prototype.hasOwnProperty.call(agencyIds, insurerID)) {
-            // eslint-disable-next-line  no-await-in-loop
-            const insureragencyId = await crypt.encrypt(agencyIds[insurerID]);
-            // check to see if we have agent id if we do then encrypt it else we will just set the value to null
-            // eslint-disable-next-line  no-await-in-loop
-            const insureragentId = Object.prototype.hasOwnProperty.call(agentIds, insurerID) ? await crypt.encrypt(agentIds[insurerID]) : null;
-            agencyIdValues.push(`(${db.escape(locationID)}, ${db.escape(insurerID)}, ${db.escape(insureragencyId)}, ${db.escape(insureragentId)}, 0, 0 ,1)`);
+        let insurer = {
+            "insurer": insurerID,
+            "gl": 0,
+            "wc": 1,
+            "bop": 0,
+            "agencyId": agentIds[insurerID],
+            "policy_type_info": {
+                "WC": {
+                    "enabled": true,
+                    "useAcord": false,
+                    "acordInfo": {
+                        "sendToEmail": ""
+                    }
+                },
+                "GL": {
+                    "enabled": false,
+                    "useAcord": false,
+                    "acordInfo": {
+                        "sendToEmail": ""
+                    }
+                },
+                "BOP": {
+                    "enabled": false,
+                    "useAcord": false,
+                    "acordInfo": {
+                        "sendToEmail": ""
+                    }
+                },
+                "notifyTalage": false
+            }
+        };
+        if(agentIds[insurerID]){
+            insurer.agentId = agentIds[insurerID];
+        }
+        insurerArray.push(insurer);
+    }
+    // Create a default location for this agency
+    const newAgencyLocationJSON = {
+        agency: agencyId,
+        email: email,
+        agency_network: req.authentication.agencyNetwork,
+        fname: firstName,
+        lname: lastName,
+        insurers: insurerArray,
+        additionalInfo: {
+            territories: territories
         }
     }
-    const associateInsurersSQL = `
-			INSERT INTO ${db.quoteName('#__agency_location_insurers')} (
-				${db.quoteName('agency_location')},
-				${db.quoteName('insurer')},
-				${db.quoteName('agency_id')},
-				${db.quoteName('agent_id')},
-				${db.quoteName('bop')},
-				${db.quoteName('gl')},
-				${db.quoteName('wc')}
-			) VALUES ${agencyIdValues.join(',')};
-		`;
-    await db.query(associateInsurersSQL).catch(function(e) {
-        log.error(e.message);
-        return next(serverHelper.internalError('Error querying database. Check logs.'));
+
+    const agencyLocationBO = new AgencyLocationBO();
+    await agencyLocationBO.saveModel(newAgencyLocationJSON).catch(function(err) {
+        log.error("Add Agency - agencyLocationBO.save error " + err + __location);
+        error = err;
     });
+    if (error) {
+        return next(serverHelper.internalError('Error saving to database.'));
+    }
+
+
+    // Get the ID of the new agency
+   // const locationID = agencyLocationBO.id;
+
+  
+
+    // // Store the insurers for this agency
+    // const agencyIdValues = [];
+    // for (const insurerID in agencyIds) {
+    //     if (Object.prototype.hasOwnProperty.call(agencyIds, insurerID)) {
+    //         // eslint-disable-next-line  no-await-in-loop
+    //         const insureragencyId = await crypt.encrypt(agencyIds[insurerID]);
+    //         // check to see if we have agent id if we do then encrypt it else we will just set the value to null
+    //         // eslint-disable-next-line  no-await-in-loop
+    //         const insureragentId = Object.prototype.hasOwnProperty.call(agentIds, insurerID) ? await crypt.encrypt(agentIds[insurerID]) : null;
+    //         agencyIdValues.push(`(${db.escape(locationID)}, ${db.escape(insurerID)}, ${db.escape(insureragencyId)}, ${db.escape(insureragentId)}, 0, 0 ,1)`);
+    //     }
+    // }
+    // const associateInsurersSQL = `
+	// 		INSERT INTO ${db.quoteName('#__agency_location_insurers')} (
+	// 			${db.quoteName('agency_location')},
+	// 			${db.quoteName('insurer')},
+	// 			${db.quoteName('agency_id')},
+	// 			${db.quoteName('agent_id')},
+	// 			${db.quoteName('bop')},
+	// 			${db.quoteName('gl')},
+	// 			${db.quoteName('wc')}
+	// 		) VALUES ${agencyIdValues.join(',')};
+	// 	`;
+    // await db.query(associateInsurersSQL).catch(function(e) {
+    //     log.error(e.message);
+    //     return next(serverHelper.internalError('Error querying database. Check logs.'));
+    // });
 
     // Create a landing page for this agency
     const landingPageSQL = `
