@@ -68,7 +68,7 @@ async function getQuestions(req, res, next){
     }
 
     if(!getQuestionsResult){
-        return next(serverHelper.requestError('------An error occured while retrieving application questions.-----'));
+        return next(serverHelper.requestError('An error occured while retrieving application questions.'));
     }
 
     res.send(200, getQuestionsResult);
