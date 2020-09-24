@@ -5,7 +5,7 @@
 'use strict';
 
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
-const AgencyLocationInsurerBO = global.requireShared('./models/AgencyLocationInsurer-BO.js');
+
 
 // const util = require('util');
 const auth = require('./helpers/auth.js');
@@ -129,23 +129,7 @@ async function createAgencyLocation(req, res, next) {
         return next(error);
     }
   
-    //process insurers
-    // body.insurers
-    if(req.body.insurers){
-        for(let i = 0; i < req.body.insurers.length; i++){
-            let reqAlInsurer  = req.body.insurers[i];
-            reqAlInsurer.agency_location = agencyLocationBO.id;
-            let agencyLocationInsurerBO = new AgencyLocationInsurerBO()
-            await agencyLocationInsurerBO.saveModel(reqAlInsurer).catch(function(err) {
-                log.error("agencyLocationInsurerBO.save error " + err + __location);
-                error = err;
-            });
-            if (error) {
-                return next(error);
-            }
-            
-        }
-    }
+    
     // Return the response
     res.send(200, {
         'id': agencyLocationBO.id,
