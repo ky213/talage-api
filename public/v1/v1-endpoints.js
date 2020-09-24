@@ -77,7 +77,6 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'agency-portal', 'reports');
     registerEndpoint(server, 'agency-portal', 'resend-onboarding-email');
     registerEndpoint(server, 'agency-portal', 'reset-password');
-    registerEndpoint(server, 'agency-portal', 'settings');
     registerEndpoint(server, 'agency-portal', 'terms-of-service');
     registerEndpoint(server, 'agency-portal', 'user-info');
     registerEndpoint(server, 'agency-portal', 'validate-token');

@@ -23,7 +23,8 @@ module.exports = class DatabaseObject {
 	#table = '';
 	#properties = {};
 
-    doNotSnakeCase = [];
+	doNotSnakeCase = [];
+	allowNulls = [];
 	/**
 	 * Constructor
 	 *
@@ -54,7 +55,7 @@ module.exports = class DatabaseObject {
 
                     let expectedDataType = this.#properties[property].type;
                    
-					if(this.hasValue(value)){
+					if(this.hasValue(value) || this.allowNulls.includes(property)){
 
 						// Verify the data type
                         // Special timestamp and Date processing
@@ -255,7 +256,7 @@ module.exports = class DatabaseObject {
                 // Store the value of the property in this object
 				try {
                     //skip nulls
-					if(this.hasValue(data[property]) ){
+					if(this.hasValue(data[property])  || this.allowNulls.includes(property) ){
 						this[property] = data[property];
                     }
 				} catch (error) {
@@ -405,7 +406,7 @@ module.exports = class DatabaseObject {
 					}
 
                     // Store the column and value
-                    if(this.hasValue(value)){
+                    if(this.hasValue(value) || this.allowNulls.includes(property)){
                         if(this.doNotSnakeCase.includes(property)){
                             columns.push(`\`${property}\``);
                         }   
@@ -515,7 +516,7 @@ module.exports = class DatabaseObject {
 						value = JSON.stringify(value);
                     }
                     
-                    if(this.hasValue(value)){
+                    if(this.hasValue(value) || this.allowNulls.includes(property)){
                         // Write the set statement for this value
                         if(this.doNotSnakeCase.includes(property)){
                             setStatements.push(`\`${property}\` = ${db.escape(value)}`);
@@ -651,7 +652,7 @@ module.exports = class DatabaseObject {
 		let propertyNameJson = {};
 		for (const property in this.#properties) {
             if(noNulls === true){
-                if(this.hasValue(this[`#${property}`]) ){
+                if(this.hasValue(this[`#${property}`] || this.allowNulls.includes(property)) ){
                     propertyNameJson[property] = this[`#${property}`]   
                 }
             }

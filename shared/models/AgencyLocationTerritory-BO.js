@@ -11,7 +11,17 @@ const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 const tableName = 'clw_talage_agency_location_territories'
 const skipCheckRequired = false;
-module.exports = class AgencyLocationBO{
+
+/****
+ * 
+ * 
+ *  NOTE:  clw_talage_agency_location_territories is being phased out
+ *         after 2020-09-23 any write of AgencyLocation Insurer
+ *         should go intto the agency_locations.additionalInfo.territories  property
+ *         NOT the clw_talage_agency_location_territories table.
+ * 
+ */
+module.exports = class AgencyLocationTerritoryBO{
 
     #dbTableORM = null;
 
@@ -120,7 +130,7 @@ module.exports = class AgencyLocationBO{
         }
       }
    
-
+    
 
     async getListByAgencyLocationForAgencyPortal(agencyLocationId ){
         
@@ -149,7 +159,7 @@ module.exports = class AgencyLocationBO{
             const result = await db.query(sql).catch(function (error) {
                 // Check if this was
                 rejected = true;
-                log.error(`clw_talage_agency_location_insurers error on select ` + error + __location);
+                log.error(`clw_talage_agency_location_territories error on select ` + error + __location);
             });
             if(result && result.length>0) {
                 if (!rejected && result && result.length >0) {

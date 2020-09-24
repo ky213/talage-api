@@ -3,8 +3,9 @@
 /* eslint-disable array-element-newline */
 /* eslint-disable require-jsdoc */
 'use strict';
-const AgencyLocationModel = global.requireShared('./models/AgencyLocation-model.js');
+
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
+const AgencyLocationInsurerBO = global.requireShared('./models/AgencyLocationInsurer-BO.js');
 
 // const util = require('util');
 const auth = require('./helpers/auth.js');
@@ -113,31 +114,41 @@ async function createAgencyLocation(req, res, next) {
     //correct legacy properties
     await legacyFieldUpdate(req.body)
     //log.debug("update legacy " + JSON.stringify(req.body))
+    //get Agency insures data from body
+
 
     // Initialize an agency object
-    const location = new AgencyLocationModel();
+    const agencyLocationBO = new AgencyLocationBO();
 
     // Load the request data into it
-    await location.load(req.body).catch(function(err) {
-        log.error("location.load error " + err + __location);
+    await agencyLocationBO.saveModel(req.body).catch(function(err) {
+        log.error("agencyLocationBO.save error " + err + __location);
         error = err;
     });
     if (error) {
         return next(error);
     }
-
-    // Save the location
-    await location.save().catch(function(err) {
-        log.error("location.save error " + err + __location);
-        error = err;
-    });
-    if (error) {
-        return next(new Error("Save error"));
+  
+    //process insurers
+    // body.insurers
+    if(req.body.insurers){
+        for(let i = 0; i < req.body.insurers.length; i++){
+            let reqAlInsurer  = req.body.insurers[i];
+            reqAlInsurer.agency_location = agencyLocationBO.id;
+            let agencyLocationInsurerBO = new AgencyLocationInsurerBO()
+            await agencyLocationInsurerBO.saveModel(reqAlInsurer).catch(function(err) {
+                log.error("agencyLocationInsurerBO.save error " + err + __location);
+                error = err;
+            });
+            if (error) {
+                return next(error);
+            }
+            
+        }
     }
-
     // Return the response
     res.send(200, {
-        'id': location.id,
+        'id': agencyLocationBO.id,
         'code': 'Success',
         'message': 'Created'
     });
@@ -209,30 +220,15 @@ async function deleteAgencyLocation(req, res, next) {
         log.info('Forbidden: User is not authorized to manage this agency');
         return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
     }
+    
 
-    // Update the agency location (we set the state to -2 to signify that the agency location is deleted)
-    const updateSQL = `
-			UPDATE \`#__agency_locations\`
-			SET
-				\`state\` = -2
-			WHERE
-				\`id\` = ${id}
-			LIMIT 1;
-		`;
-
-    // Run the query
-    const result = await db.query(updateSQL).catch(function(err) {
-        error = serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.');
-        log.error('Agency Location delete had an error: ' + err + __location);
+    const agencyLocationBO = new AgencyLocationBO();
+    await agencyLocationBO.deleteSoftById(id).catch(function(err) {
+        log.error("agencyLocationBO deleteSoft load error " + err + __location);
+        error = err;
     });
     if (error) {
         return next(error);
-    }
-
-    // Make sure the query was successful
-    if (result.affectedRows !== 1) {
-        log.error('Agency Location delete failed');
-        return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
     }
 
     res.send(200, 'Deleted');
@@ -362,6 +358,7 @@ async function updateAgencyLocation(req, res, next) {
             let insurer = req.body.insurers[i];
             if (insurer.locationID) {
                 insurer.agencyLocation = insurer.locationID;
+
             }
             else {
                 //Fix client not setting location id
@@ -376,26 +373,32 @@ async function updateAgencyLocation(req, res, next) {
 
 
     // Initialize an agency object
-    const location = new AgencyLocationModel();
-
-
-    // Load the request data into it
-    await location.load(req.body).catch(function(err) {
-        log.error("Location load error " + err + __location);
+    const agencyLocationBO = new AgencyLocationBO();
+    await agencyLocationBO.saveModel(req.body).catch(function(err) {
+        log.error("agencyLocationBO.save error " + err + __location);
         error = err;
     });
     if (error) {
         return next(error);
     }
-    // Save the location
-    await location.save().catch(function(err) {
-        log.error("Location save error " + err + __location);
-        //do not leak actual error to client.
-        error = new Error("Save Error")
-    });
-    if (error) {
-        return next(error);
-    }
+  
+    // //process insurers
+    // // body.insurers
+    // if(req.body.insurers){
+    //     for(let i = 0; i < req.body.insurers.length; i++){
+    //         let reqAlInsurer  = req.body.insurers[i];
+    //         reqAlInsurer.agency_location = agencyLocationBO.id;
+    //         let agencyLocationInsurerBO = new AgencyLocationInsurerBO()
+    //         await agencyLocationInsurerBO.saveModel(reqAlInsurer).catch(function(err) {
+    //             log.error("agencyLocationInsurerBO.save error " + err + __location);
+    //             error = err;
+    //         });
+    //         if (error) {
+    //             return next(error);
+    //         }
+            
+    //     }
+    // }
 
     // Send back a success response
     res.send(200, 'Updated');
@@ -412,9 +415,8 @@ async function updateAgencyLocation(req, res, next) {
  * @returns {void}
  */
 async function getSelectionList(req, res, next) {
-    //log.debug('getSelectionList: ' + JSON.stringify(req.body))
+	//log.debug('getSelectionList: ' + JSON.stringify(req.body))
     let error = false;
-
     // Determine which permissions group to use (start with the default permission needed by an agency network)
     let permissionGroup = 'agencies';
 
@@ -432,8 +434,28 @@ async function getSelectionList(req, res, next) {
     }
 
 
-    // Determine the agency ID
-    const agencyId = req.authentication.agents[0];
+	// Determine the agency ID, if network id then we will have an agencyId in the query else not
+	let agencyId = req.authentication.agents[0];
+	
+	if(req.authentication.agencyNetwork){
+		    // Get the agencies that the user is permitted to manage
+			const agencies = await auth.getAgents(req).catch(function(e) {
+				log.error("auth.getAgents error " + e + __location);
+				error = e;
+			});
+			if (error) {
+				return next(error);
+			}
+			if(Object.prototype.hasOwnProperty.call(req.query, 'agencyId')){
+				agencyId = req.query.agencyId;
+			}
+		
+			// Security Check: Make sure this Agency Network has access to this Agency
+			if (!agencies.includes(agencyId)) {
+				log.info('Forbidden: User is not authorized to manage this agency');
+				return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
+			}
+	}
 
     // Initialize an agency object
     const agencyLocationBO = new AgencyLocationBO();

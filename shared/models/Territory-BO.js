@@ -391,6 +391,50 @@ module.exports = class TerritoryBO{
         });
     }
 
+    async fliptoStateName(stateAbbrArray, commaDelimitedString = false ){
+        
+        if(stateAbbrArray){
+            let rejected  = false;
+         
+            const parmList = [stateAbbrArray];
+            const sql = `SELECT
+                t.name
+            FROM clw_talage_territories as t as lt
+            WHERE t.abbr in  (?)
+            ORDER BY t.name ASC;`
+
+            const result = await db.queryParam(sql,parmList).catch(function (error) {
+                // Check if this was
+                rejected = true;
+                log.error(`${tableName} error on select ` + error + __location);
+            });
+            if(result && result.length>0) {
+                if (!rejected && result && result.length >0) {
+                    let territoryList = []
+                    for(let i=0; i< result.length; i++ ){
+                        territoryList.push(result[i].name);
+                    }
+                    if(commaDelimitedString === true ){
+                        return territoryList.join(',');
+                    }
+                    else {
+                        return territoryList;
+                    }
+                    
+                }
+                else {
+                    return null;
+                }
+            }
+            else {
+                return null;
+            }
+        }
+        else {
+            throw new Error("No stateAbbrArray");
+        }
+    }
+
 }
 
 const properties = {

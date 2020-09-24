@@ -3,6 +3,8 @@
 const DatabaseObject = require('./DatabaseObject.js');
 const AgencyLocationInsurerBO = require('./AgencyLocationInsurer-BO.js');
 const AgencyLocationTerritory = require('./AgencyLocationTerritory-BO.js');
+const TerritoryBO = global.requireShared('./models/Territory-BO.js');
+const InsurerBO = require('./Insurer-BO.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const crypt = global.requireShared('./services/crypt.js');
@@ -35,6 +37,7 @@ module.exports = class AgencyLocationBO{
             if(!newObjectJSON){
                 reject(new Error(`empty ${tableName} object given`));
             }
+           
             await this.cleanupInput(newObjectJSON);
             if(newObjectJSON.id){
                 await this.#dbTableORM.getById(newObjectJSON.id).catch(function (err) {
@@ -43,20 +46,26 @@ module.exports = class AgencyLocationBO{
                     return;
                 });
                 this.updateProperty();
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
+                //TODO if anything more than territory goes into additionalInfo
             }
-            else{
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
+            
+             // Territories put in additionalInfo JSON.
+             if(newObjectJSON.territories){
+                if(typeof newObjectJSON.additionalInfo !== "object" ){
+                    newObjectJSON.additionalInfo = {};
+                }
+                newObjectJSON.additionalInfo.territories =  newObjectJSON.territories;
+                delete newObjectJSON.territories;
             }
 
+            this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
             //save
             await this.#dbTableORM.save().catch(function(err){
                 reject(err);
             });
             this.updateProperty();
             this.id = this.#dbTableORM.id;
-
-
+            //TODO if primary make sure other agency location for agency are not primary.
             resolve(true);
 
         });
@@ -94,9 +103,143 @@ module.exports = class AgencyLocationBO{
         });
     }
 
+    getList(queryJSON, children = false) {
+        return new Promise(async (resolve, reject) => {
+                
+                let rejected = false;
+                // Create the update query
+                let sql = `
+                    select * from ${tableName}  
+                `;
+                let hasWhere = false;
+                if(queryJSON){
+                    if(queryJSON.agency){
+                        sql += hasWhere ? " AND " : " WHERE ";
+                        sql += ` agency = ${db.escape(queryJSON.agency)} `
+                        hasWhere = true;
+                    }
+                    if(queryJSON.zipcode){
+                        sql += hasWhere ? " AND " : " WHERE ";
+                        sql += ` zipcode = ${db.escape(queryJSON.zipcode)} `
+                        hasWhere = true;
+                    }
+                }
+                sql += hasWhere ? " AND " : " WHERE ";
+                sql += ` state > 0 `
+                hasWhere = true;
+                // Run the query
+                //log.debug("AgencyLocationBO getlist sql: " + sql);
+                const result = await db.query(sql).catch(function (error) {
+                    // Check if this was
+                    
+                    rejected = true;
+                    log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
+                    reject(error);
+                });
+                if (rejected) {
+                    return;
+                }
+                let boList = [];
+                if(result && result.length > 0 ){
+                    for(let i=0; i < result.length; i++ ){
+                        let agencyLocationBO = new AgencyLocationBO();
+                        await agencyLocationBO.#dbTableORM.decryptFields(result[i]);
+                        await agencyLocationBO.#dbTableORM.convertJSONColumns(result[i]);
+                        const resp = await agencyLocationBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                            log.error(`getList error loading object: ` + err + __location);
+                        })
+                        if(!resp){
+                            log.debug("Bad BO load" + __location)
+                        }
+                        if(agencyLocationBO.additionalInfo && agencyLocationBO.additionalInfo.territories  ){
+                            agencyLocationBO.territories = agencyLocationBO.additionalInfo.territories;
+                        }
+
+                        if(children === true ){
+                            await this.loadChildren(agencyLocationBO.id, agencyLocationBO)
+                        }
+
+                        boList.push(agencyLocationBO);
+                    }
+                    resolve(boList);
+                }
+                else {
+                    //Search so no hits ok.
+                    resolve([]);
+                }
+               
+            
+        });
+    }
+
+    async loadChildren(agencyLocationId, agencyLocationJSON){
+        if(agencyLocationJSON.insurers){
+            //Map to current Insurers   
+            await this.addInsureInfoTolocationInsurers(agencyLocationJSON.insurers);
+        }
+        else {
+
+            const agencyLocationInsurer = new AgencyLocationInsurerBO
+            const insurerList = await agencyLocationInsurer.getListByAgencyLocationForAgencyPortal(agencyLocationId).catch(function (error) {
+                // Check if this was
+                rejected = true;
+                log.error(`agencyLocationInsurer.getListByAgencyLocationForAgencyPortal error on select ` + error + __location);
+            });
+            agencyLocationJSON.insurers = insurerList;
+        }
+        // Territories 
+        if(agencyLocationJSON.additionalInfo && agencyLocationJSON.additionalInfo.territories  ){
+            agencyLocationJSON.territories = agencyLocationJSON.additionalInfo.territories;
+        }
+        else {
+            const agencyLocationTerritory = new AgencyLocationTerritory
+            const territoryList = await agencyLocationTerritory.getListByAgencyLocationForAgencyPortal(agencyLocationId).catch(function (error) {
+                // Check if this was
+                rejected = true;
+                log.error(`agencyLocationTerritory.getListByAgencyLocationForAgencyPortal error on select ` + error + __location);
+            });
+            agencyLocationJSON.territories = territoryList;
+        }
+        if(!agencyLocationJSON.territories){
+            agencyLocationJSON.territories = [];
+        }
+        if(!agencyLocationJSON.insurers){
+            agencyLocationJSON.insurers = [];
+        }
 
 
-    getById(id) {
+    }
+
+    async addInsureInfoTolocationInsurers(locationInsurerInfoArray){
+        let error = null;
+        const insurerBO = new InsurerBO();
+        const query = {};
+        const insurerList = await insurerBO.getList(query).catch(function(err) {
+            log.error("admin agencynetwork error: " + err + __location);
+            error = err;
+        })
+        if(insurerList){
+            for(let i = 0; i < locationInsurerInfoArray.length; i++ ){
+                if( typeof locationInsurerInfoArray[i].insurer === "string"){
+                    locationInsurerInfoArray[i].insurer = parseInt(locationInsurerInfoArray[i].insurer,10);
+                }
+                let insurer = insurerList.find(insurer => insurer.id === locationInsurerInfoArray[i].insurer);
+                locationInsurerInfoArray[i].logo = insurer.logo;
+                locationInsurerInfoArray[i].name = insurer.name;
+                locationInsurerInfoArray[i].agency_id_label = insurer.agency_id_label;
+                locationInsurerInfoArray[i].agent_id_label = insurer.agent_id_label;
+                locationInsurerInfoArray[i].enable_agent_id = insurer.enable_agent_id;
+            }
+        }
+        else {
+            log.error("No Insures AgencLocation.Insurers " + __location);
+        }
+    }
+
+
+
+
+    getById(id, children=true) {
         return new Promise(async (resolve, reject) => {
             //validate
             if(id && id >0 ){
@@ -106,13 +249,49 @@ module.exports = class AgencyLocationBO{
                     return;
                 });
                 this.updateProperty();
-                resolve(this.#dbTableORM.cleanJSON());
+                let agencyLocationJSON = this.#dbTableORM.cleanJSON();
+                if(children === true ){
+                    await this.loadChildren(id, agencyLocationJSON)
+                }
+                resolve(agencyLocationJSON);
             }
             else {
                 reject(new Error('no id supplied'))
             }
         });
     }
+
+    deleteSoftById(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id && id >0 ){
+              
+                //Remove old records.
+                const sql =`Update ${tableName} 
+                        SET state = -2
+                        WHERE id = ${id}
+                `;
+                let rejected = false;
+                const result = await db.query(sql).catch(function (error) {
+                    // Check if this was
+                    log.error("Database Object ${tableName} UPDATE State error :" + error + __location);
+                    rejected = true;
+                    reject(error);
+                });
+                if (rejected) {
+                    return false;
+                }
+                //Mongo....
+
+                resolve(true);
+              
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
 
     async cleanupInput(inputJSON){
         for (const property in properties) {
@@ -208,23 +387,7 @@ module.exports = class AgencyLocationBO{
                     location.openTime = location.open_time;
                     location.closeTime = location.close_time
                     if(children === true ){
-                        const agencyLocationInsurer = new AgencyLocationInsurerBO
-                        const insurerList = await agencyLocationInsurer.getListByAgencyLocationForAgencyPortal(id).catch(function (error) {
-                            // Check if this was
-                            rejected = true;
-                            log.error(`agencyLocationInsurer.getListByAgencyLocationForAgencyPortal error on select ` + error + __location);
-                        });
-                        location.insurers = insurerList;
-
-                        // Territories 
-                        const agencyLocationTerritory = new AgencyLocationTerritory
-                        const territoryList = await agencyLocationTerritory.getListByAgencyLocationForAgencyPortal(id).catch(function (error) {
-                            // Check if this was
-                            rejected = true;
-                            log.error(`agencyLocationTerritory.getListByAgencyLocationForAgencyPortal error on select ` + error + __location);
-                        });
-                        location.territories = territoryList;
-
+                        await this.loadChildren(id, location)
                     }
                     return locationJSON;
                 }
@@ -268,10 +431,10 @@ module.exports = class AgencyLocationBO{
                     const resp = await agencyLocationBO.loadORM(locationJSON, skipCheckRequired).catch(function(err){
                         log.error(`getList error loading object: ` + err + __location);
                     })
-                    // if(children === true ){
-                    //     //TODO
-                    // }
-                    return locationJSON;
+                    if(children === true ){
+                        await this.loadChildren(agencyLocationBO.id, agencyLocationBO)
+                    }
+                    return agencyLocationBO;
                 }
                 else {
                     return null;
@@ -286,8 +449,7 @@ module.exports = class AgencyLocationBO{
         }
     }
 
-
-
+   
     async getByAgencyPrimary(agencyId){
         
         if(agencyId){
@@ -313,10 +475,10 @@ module.exports = class AgencyLocationBO{
                 // const resp = await agencyLocationBO.loadORM(locationJSON, skipCheckRequired).catch(function(err){
                 //     log.error(`getList error loading object: ` + err + __location);
                 // })
-                // if(children === true ){
-                //     //TODO
-                // }
-                return locationJSON;
+                if(children === true ){
+                    await this.loadChildren(agencyLocationBO.id, agencyLocationBO)
+                }
+                return agencyLocationBO;
             }
             else {
                 return null;
@@ -548,6 +710,24 @@ const properties = {
         "type": "string",
         "dbType": "varchar(10)"
     },
+    "additionalInfo": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "json",
+        "dbType": "json"
+     },
+     "insurers": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "json",
+        "dbType": "json"
+     },
     "created": {
       "default": null,
       "encrypted": false,
