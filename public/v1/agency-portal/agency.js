@@ -280,25 +280,7 @@ async function getAgency(req, res, next) {
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     });
     
-    // const pagesSQL = `
-    // SELECT
-    //     ${db.quoteName('id')},
-    //     ${db.quoteName('about')},
-    //     ${db.quoteName('banner')},
-    //     ${db.quoteName('color_scheme', 'colorScheme')},
-    //     ${db.quoteName('hits')},
-    //     ${db.quoteName('name')},
-    //     ${db.quoteName('primary')},
-    //     ${db.quoteName('slug')}
-    // FROM ${db.quoteName('#__agency_landing_pages')}
-    // WHERE ${db.quoteName('agency')} = ${agent} AND state > 0;
-//`;
 
-    // const pages = await db.query(pagesSQL).catch(function(err){
-    //     log.error('DB query failed: ' + err.message + __location);
-    //     return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    // });
-    
     const agencyLandingPageBO = new AgencyLandingPageBO();
     const pageQuery =  {"agency": agent}
     const pages = await agencyLandingPageBO.getList(pageQuery).catch(function(err) {
