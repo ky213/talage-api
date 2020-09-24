@@ -7,6 +7,7 @@
 const crypt = global.requireShared('./services/crypt.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
+const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 
 /**
  * Parses the quote app request URL and extracts the agency and page slugs
@@ -184,86 +185,48 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
         log.error(`Could not parse landingPageContent/meta in agency ${agencySlug}: ${error} ${__location}`);
         return null;
     }
-    // Get the locations
-    sql = `
-			SELECT
-				al.id,
-				al.address,
-				al.address2,
-				al.close_time as closeTime,
-				al.email,
-				al.open_time as openTime,
-				al.phone,
-				al.primary,
-				al.city,
-                al.state_abbr as territory,
-                al.zipcode as zip,
-				GROUP_CONCAT(alt.territory) AS appointments
-			FROM clw_talage_agency_locations AS al
-			LEFT JOIN clw_talage_agency_location_territories AS alt ON al.id = alt.agency_location
-			WHERE
-				agency = ${agency.id}
-				AND state = 1
-			GROUP BY al.id
-		`;
-    try {
-        agency.locations = await db.query(sql);
-        if (agency.locations) {
-            for (let i = 0; i < agency.locations.length; i++) {
-                const l = agency.locations[i];
-                if (l) {
-                    if (l.address) {
-                        l.address = await crypt.decrypt(l.address);
-                    }
-                    if (l.address2) {
-                        l.address2 = await crypt.decrypt(l.address2);
-                    }
-                    if (l.email) {
-                        l.email = await crypt.decrypt(l.email);
-                    }
-                    if (l.phone) {
-                        l.phone = await crypt.decrypt(l.phone);
-                    }
-                    if (l.city) {
-                        l.city = stringFunctions.ucFirstLetter(l.city);
-                    }
-                    if (l.appointments) {
-                        l.appointments = l.appointments.split(',');
-                    }
+    
+    let locations = null;
+    try{
+        const query = {"agency": agency.id}
+        const getChildren = true;
+        const agencyLocationBO = new AgencyLocationBO();
+        locations = await  agencyLocationBO.getList(query, getChildren);
+        let insurerList = [];
+        if(locations){
+            for(let j=0; j < locations.length ; j++) {
+                let location = locations[j];
+                location.openTime = location.open_time;
+                location.closeTime = location.close_time;
+                location.territory = location.state_abbr;
+                location.zip = location.zipcode;
+                location.appointments = location.territories;
+                delete location.territories;
+                if(location.insurers){
+                    for(let i=0; i < location.insurers.length ; i++) {
+                        let insurer = location.insurers[i];
+                        insurer.agencylocation = location.id;
+                        insurerList.push(insurer);
+                    };
+                    delete location.insurers;    
                 }
+                else {
+                    log.error("No insurers for location " + __location)
+                }
+                
             }
         }
+        else {
+            log.error(`No locations for Agency ${agency.id}` + __location)
+        }
+        agency.locations = locations
+        agency.insurers = insurerList;
     }
-    catch (error) {
-        log.error(`Could not retrieve quote engine locations ${agencySlug} Agency: ${agency.id} (${pageSlug ? 'page ' + pageSlug : 'no page'}):  ${error} ${__location}`);
-        return null;
+    catch(err){
+        log.error(err.message + __location);
+        return null; 
     }
-
-    // Get the agency insurers
-    // TODO need to look at policy_type_info JSON.
-    // bop, gl,wc are being decommissioned.
-    const locationIDs = [];
-    agency.locations.forEach((l) => {
-        locationIDs.push(l.id);
-    });
-    sql = `
-			SELECT
-				insurer,
-				bop,
-				gl,
-				wc,
-				agency_location as agencyLocation
-			FROM clw_talage_agency_location_insurers
-			WHERE agency_location IN(${locationIDs.join(',')})
-		`;
-    try {
-        agency.insurers = await db.query(sql);
-    }
-    catch (error) {
-        log.error(`Could not retrieve quote engine insurers ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${error} ${__location}`);
-        return null;
-    }
-
+   
     // Update the landing page hit counter
     sql = `
 			UPDATE clw_talage_agency_landing_pages
