@@ -237,19 +237,7 @@ async function getAgency(req, res, next) {
                 GROUP BY i.id
                 ORDER BY i.name ASC;
 	`;
-    const pagesSQL = `
-			SELECT
-				${db.quoteName('id')},
-				${db.quoteName('about')},
-				${db.quoteName('banner')},
-				${db.quoteName('color_scheme', 'colorScheme')},
-				${db.quoteName('hits')},
-				${db.quoteName('name')},
-				${db.quoteName('primary')},
-				${db.quoteName('slug')}
-			FROM ${db.quoteName('#__agency_landing_pages')}
-			WHERE ${db.quoteName('agency')} = ${agent} AND state > 0;
-		`;
+  
   
     let users = null;
     try{
@@ -291,14 +279,38 @@ async function getAgency(req, res, next) {
         log.error('DB query failed: ' + err.message + __location);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     });
-
-
-    const pages = await db.query(pagesSQL).catch(function(err){
-        log.error('DB query failed: ' + err.message + __location);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    });
     
+    // const pagesSQL = `
+    // SELECT
+    //     ${db.quoteName('id')},
+    //     ${db.quoteName('about')},
+    //     ${db.quoteName('banner')},
+    //     ${db.quoteName('color_scheme', 'colorScheme')},
+    //     ${db.quoteName('hits')},
+    //     ${db.quoteName('name')},
+    //     ${db.quoteName('primary')},
+    //     ${db.quoteName('slug')}
+    // FROM ${db.quoteName('#__agency_landing_pages')}
+    // WHERE ${db.quoteName('agency')} = ${agent} AND state > 0;
+//`;
 
+    // const pages = await db.query(pagesSQL).catch(function(err){
+    //     log.error('DB query failed: ' + err.message + __location);
+    //     return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+    // });
+    
+    const agencyLandingPageBO = new AgencyLandingPageBO();
+    const pageQuery =  {"agency": agent}
+    const pages = await agencyLandingPageBO.getList(pageQuery).catch(function(err) {
+        log.error("Add Agency - agencyLandingPageBO.getList error " + err + __location);
+    });
+    if(pages){
+        pages.forEach((page) => {
+            if(page.color_scheme){
+                page.colorScheme = page.color_scheme
+            }
+        });
+    }
 
     // Convert the network insurer territory data into an array
     networkInsurers.map(function(networkInsurer) {
@@ -648,26 +660,19 @@ async function postAgency(req, res, next) {
         return next(serverHelper.internalError('Error saving to database.'));
     }
 
-
-    // Create a landing page for this agency
-    const landingPageSQL = `
-			INSERT INTO  ${db.quoteName('#__agency_landing_pages')} (
-				${db.quoteName('agency')},
-				${db.quoteName('name')},
-				${db.quoteName('slug')},
-				${db.quoteName('primary')}
-			) VALUES (
-				${db.escape(agencyId)},
-				${db.escape('Get Quotes')},
-				${db.escape('get-quotes')},
-				${db.escape(1)}
-			);
-		`;
-
-    await db.query(landingPageSQL).catch(function(e) {
-        log.error(e.message);
-        return next(serverHelper.internalError('Error querying database. Check logs.'));
+    const newAgencyLandingPageJSON = {
+        agency: agencyId,
+        name: 'Get Quotes',
+        slug: 'get-quotes',
+        primary: 1
+    };
+    const agencyLandingPageBO = new AgencyLandingPageBO();
+    await agencyLandingPageBO.saveModel(newAgencyLandingPageJSON).catch(function(err) {
+        log.error("Add Agency - agencyLandingPageBO.save error " + err + __location);
+        error = err;
     });
+    //Agency already created not return error over landing page.
+
 
     // Create a user for agency portal access
       // // Encrypt the user's information
