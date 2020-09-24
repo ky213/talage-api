@@ -2,6 +2,7 @@
 
 const DatabaseObject = require('./DatabaseObject.js');
 const BusinessModel = require('./Business-model.js');
+const { ResourceGroups } = require('aws-sdk');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const crypt = global.requireShared('./services/crypt.js');
@@ -11,7 +12,17 @@ const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 const tableName = 'clw_talage_agency_location_insurers'
 const skipCheckRequired = false;
-module.exports = class AgencyLocationBO{
+/****
+ * 
+ * 
+ *  NOTE:  clw_talage_agency_location_insurers is being phased out
+ *         after 2020-09-23 any write of AgencyLocation Insurer
+ *         should got into the agency_locations.insurer column 
+ *         NOT the clw_talage_agency_location_insurers table.
+ * 
+ */
+
+module.exports = class AgencyLocationInsurerBO{
 
     #dbTableORM = null;
 
@@ -41,6 +52,21 @@ module.exports = class AgencyLocationBO{
                 });
                 this.updateProperty();
                 this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
+            }
+            else if(newObjectJSON.agency_location && newObjectJSON.insurer){
+                try{
+                    const currentDBrec = await this.getByAgencyLocationAndInsurer(newObjectJSON.agency_location,newObjectJSON.insurer );
+                    if(currentDBrec){
+                        await this.#dbTableORM.getById(currentDBrec.id).catch(function (err) {
+                            log.error(`Error getting ${tableName} from Database ` + err + __location);
+                            reject(err);
+                            return;
+                        });
+                    }
+                }
+                catch(e){
+                    log.error(`Error: ${tableName} getting by alId, and insurerid ` + e + __location);
+                }
             }
             else{
                 this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
@@ -91,6 +117,69 @@ module.exports = class AgencyLocationBO{
         });
     }
 
+    getList(queryJSON) {
+        return new Promise(async (resolve, reject) => {
+           
+                let rejected = false;
+                // Create the update query
+                let sql = `
+                    select * from ${tableName}  
+                `;
+                if(queryJSON){
+                    let hasWhere = false;
+                    if(queryJSON.id){
+                        sql += hasWhere ? " AND " : " WHERE ";
+                        sql += ` id = ${db.escape(queryJSON.id)} `
+                        hasWhere = true;
+                    }
+                    if(queryJSON.agency_location){
+                        sql += hasWhere ? " AND " : " WHERE ";
+                        sql += ` agency_location = ${db.escape(queryJSON.agency_location)} `
+                        hasWhere = true;
+                    }
+                    if(queryJSON.insurer){
+                        sql += hasWhere ? " AND " : " WHERE ";
+                        sql += ` insurer = ${db.escape(queryJSON.insurer)} `
+                        hasWhere = true;
+                    }
+                }
+                // Run the query
+                //log.debug("AgencyLocationInsurerBO getlist sql: " + sql);
+                const result = await db.query(sql).catch(function (error) {
+                    // Check if this was
+                    
+                    rejected = true;
+                    log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
+                    reject(error);
+                });
+                if (rejected) {
+                    return;
+                }
+                let boList = [];
+                if(result && result.length > 0 ){
+                    for(let i=0; i < result.length; i++ ){
+                        let agencyLocationInsurerBO = new InsurerContactBO();
+                        await agencyLocationInsurerBO.#dbTableORM.decryptFields(result[i]);
+                        await agencyLocationInsurerBO.#dbTableORM.convertJSONColumns(result[i]);
+                        const resp = await agencyLocationInsurerBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                            log.error(`getList error loading object: ` + err + __location);
+                        })
+                        if(!resp){
+                            log.debug("Bad BO load" + __location)
+                        }
+                        boList.push(agencyLocationInsurerBO);
+                    }
+                    resolve(boList);
+                }
+                else {
+                    //Search so no hits ok.
+                    resolve([]);
+                }
+               
+            
+        });
+    }
+
     getById(id) {
         return new Promise(async (resolve, reject) => {
             //validate
@@ -107,6 +196,24 @@ module.exports = class AgencyLocationBO{
                 reject(new Error('no id supplied'))
             }
         });
+    }
+
+    async getByAgencyLocationandInsurer(agencyLocationid, insurerId) {
+        let query = {"agency_location": agencyLocationid , "insurer" : insurerId};
+        let recordSet = null
+        try{
+            recordSet = await this.getList(query)
+        }
+        catch(e){
+            log.error(`${tableName} getByIdandInsurer error ` + error + __location);
+            throw err;
+        }
+        if(recordSet){
+            return recordSet[0]
+        }
+        else {
+            return null;
+        }
     }
 
     async cleanupInput(inputJSON){
@@ -159,7 +266,7 @@ module.exports = class AgencyLocationBO{
             if (!rejected && result && result.length >0) {
                 let locationInsurerJSON = result[0];
                 //created encrypt and format
-                let agencyLocationBO = new AgencyLocationBO();
+                let agencyLocationBO = new AgencyLocationInsurerBO();
                 await agencyLocationBO.#dbTableORM.decryptFields(locationInsurerJSON);
                 await agencyLocationBO.#dbTableORM.convertJSONColumns(locationInsurerJSON);
                 return locationInsurerJSON;
