@@ -61,7 +61,7 @@ async function getQuestions(req, res, next){
 
     let getQuestionsResult = null;
     try{
-        getQuestionsResult = await questionSvc.GetQuestionsForEndpoint(req.query.activity_codes.split(','), req.query.industry_code, req.query.zips.split(','), req.query.policy_types.split(','), req.query.insurers.split(','), return_hidden);
+        getQuestionsResult = await questionSvc.GetQuestionsForFrontend(req.query.activity_codes.split(','), req.query.industry_code, req.query.zips.split(','), req.query.policy_types.split(','), req.query.insurers.split(','), return_hidden);
     }
     catch(error){
         return next(serverHelper.requestError('An error occured while retrieving application questions.'));

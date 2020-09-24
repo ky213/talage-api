@@ -4,24 +4,22 @@ const util = require('util');
 const serverHelper = global.requireRootPath('server.js');
 
 /**
- * @param {array} activityCodeArray - An array of all the activity codes in the applicaiton
+ * @param {array} activityCodeStringArray - An array of all the activity codes in the applicaiton
  * @param {string} industryCodeString - The industry code of the application
- * @param {array} zipCodeArray - An array of all the zipcodes (stored as strings) in which the business operates
+ * @param {array} zipCodeStringArray - An array of all the zipcodes (stored as strings) in which the business operates
  * @param {array} policyTypeArray - An array containing of all the policy types applied for
- * @param {array} insurerArray - An array containing the IDs of the relevant insurers for the application
+ * @param {array} insurerStringArray - An array containing the IDs of the relevant insurers for the application
  * @param {boolean} return_hidden - true to return hidden questions, false to only return visible questions
  *
  * @returns {array|false} An array of questions if successful, false otherwise
  *
  */
-async function GetQuestions(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden = false) {
+async function GetQuestions(activityCodeStringArray, industryCodeString, zipCodeStringArray, policyTypeArray, insurerStringArray, return_hidden = false) {
 
     /* ---=== Validate Input ===--- */
 
-    const activity_codes = [];
-    const insurers = [];
     const policy_types = [];
-    const zips = zipCodeArray.map(function(zip) {
+    const zipCodeArray = zipCodeStringArray.map(function(zip) {
         return zip ? zip.replace(/[^0-9]/gi, '') : 0;
     });
     const industry_code = industryCodeString ? parseInt(industryCodeString, 10) : 0;
@@ -32,32 +30,26 @@ async function GetQuestions(activityCodeArray, industryCodeString, zipCodeArray,
         return false;
     }
 
-    // Sanitize and de-duplicate
-    if (policyTypeArray.includes('WC')) {
-        if (activityCodeArray) {
-            activityCodeArray.forEach(function(activity_code) {
-                const int_code = parseInt(activity_code, 10);
-                if (!activity_codes.includes(int_code)) {
-                    activity_codes.push(int_code);
-                }
-            });
-        }
+    // Convert activity code strings to ints
+    let activityCodeArray = activityCodeStringArray.map(activityCode => parseInt(activityCode, 10));
+
+    // Filter out duplicate codes
+    activityCodeArray = activityCodeArray.filter((code, index) => activityCodeArray.indexOf(code) === index);
+
+    /*
+     * Validate Insurer Array
+     */
+
+    let insurerArray = [];
+    // Convert insurer id strings to ints
+    insurerArray = insurerStringArray.map(insurer => parseInt(insurer, 10));
+
+    // Check for anything that was not successfully converted
+    if(insurerArray.includes(NaN)){
+        log.error('Bad Request: Invalid insurer provided in request. Expecting talage insurer ID. ' + __location);
+        return false;
     }
 
-    if (insurerArray) {
-        let invalid_insurer = false;
-        insurerArray.forEach(function(insurer) {
-            const insurer_id = parseInt(insurer, 10);
-            if (isNaN(insurer_id)) {
-                log.warn('Bad Request: Invalid insurer');
-                invalid_insurer = true;
-            }
-            insurers.push(insurer_id);
-        });
-        if (invalid_insurer) {
-            return false;
-        }
-    }
 
     policyTypeArray.forEach(function(policy_type) {
         policy_types.push(policy_type.replace(/[^a-z]/gi, '').toUpperCase());
@@ -69,12 +61,12 @@ async function GetQuestions(activityCodeArray, industryCodeString, zipCodeArray,
     let sql = '';
 
     // Check that each activity code is valid
-    if (activity_codes.length) {
-        sql = `SELECT id FROM clw_talage_activity_codes WHERE id IN (${activity_codes.join(',')}) AND state = 1;`;
+    if (activityCodeArray.length) {
+        sql = `SELECT id FROM clw_talage_activity_codes WHERE id IN (${activityCodeArray.join(',')}) AND state = 1;`;
         const activity_code_result = await db.query(sql).catch(function(err) {
             error = err.message;
         });
-        if (activity_code_result && activity_code_result.length !== activity_codes.length) {
+        if (activity_code_result && activity_code_result.length !== activityCodeArray.length) {
             log.warn('Bad Request: Invalid Activity Code(s)');
             error = 'One or more of the activity codes supplied is invalid';
         }
@@ -101,12 +93,12 @@ async function GetQuestions(activityCodeArray, industryCodeString, zipCodeArray,
     }
 
     // Check that insurers were valid
-    if (insurers.length) {
-        sql = `SELECT id FROM clw_talage_insurers WHERE id IN (${insurers.join(',')}) AND state = 1;`;
+    if (insurerArray.length) {
+        sql = `SELECT id FROM clw_talage_insurers WHERE id IN (${insurerArray.join(',')}) AND state = 1;`;
         const insurers_result = await db.query(sql).catch(function(err) {
             error = err.message;
         });
-        if (insurers_result && insurers_result.length !== insurers.length) {
+        if (insurers_result && insurers_result.length !== insurerArray.length) {
             log.warn('Bad Request: Invalid Insurer(s)');
             error = 'One or more of the insurers supplied is invalid';
         }
@@ -146,13 +138,13 @@ async function GetQuestions(activityCodeArray, industryCodeString, zipCodeArray,
 
     // Check that the zip code is valid
     const territories = [];
-    if (!zips || !zips.length) {
+    if (!zipCodeArray || !zipCodeArray.length) {
         log.warn('Bad Request: Zip Codes');
         //return next(serverHelper.requestError('You must supply at least one zip code'));
         return false;
     }
 
-    sql = `SELECT DISTINCT territory FROM clw_talage_zip_codes WHERE zip IN (${zips.join(',')});`;
+    sql = `SELECT DISTINCT territory FROM clw_talage_zip_codes WHERE zip IN (${zipCodeArray.join(',')});`;
     const zip_result = await db.query(sql).catch(function(err) {
         error = err.message;
     });
@@ -177,7 +169,7 @@ async function GetQuestions(activityCodeArray, industryCodeString, zipCodeArray,
 
     // Build the select and where statements
     const select = `q.id, q.parent, q.parent_answer, q.sub_level, q.question AS \`text\`, q.hint, q.type AS type_id, qt.name AS type, q.hidden${return_hidden ? ', GROUP_CONCAT(DISTINCT CONCAT(iq.insurer, "-", iq.policy_type)) AS insurers' : ''}`;
-    let where = `q.state = 1${insurers.length ? ` AND iq.insurer IN (${insurers.join(',')})` : ''}`;
+    let where = `q.state = 1${insurerArray.length ? ` AND iq.insurer IN (${insurerArray.join(',')})` : ''}`;
 
     let questions = [];
 
@@ -259,7 +251,7 @@ async function GetQuestions(activityCodeArray, industryCodeString, zipCodeArray,
 			INNER JOIN clw_talage_insurer_ncci_code_questions AS ncq ON q.id = ncq.question AND ncq.ncci_code IN(
 				SELECT nca.insurer_code FROM clw_talage_activity_code_associations AS nca
 				LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON nca.insurer_code = inc.id
-				WHERE nca.code IN (${activity_codes.join(',')})
+				WHERE nca.code IN (${activityCodeArray.join(',')})
 				AND inc.state = 1${territories && territories.length ? ` AND inc.territory IN (${territories.map(db.escape).join(',')})` : ``}
 			)
 			LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
@@ -417,7 +409,18 @@ async function GetQuestions(activityCodeArray, industryCodeString, zipCodeArray,
     return questions;
 }
 
-exports.GetQuestionsForEndpoint = async function(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden = false){
+/**
+ * @param {array} activityCodeArray - An array of all the activity codes in the applicaiton
+ * @param {string} industryCodeString - The industry code of the application
+ * @param {array} zipCodeArray - An array of all the zipcodes (stored as strings) in which the business operates
+ * @param {array} policyTypeArray - An array containing of all the policy types applied for
+ * @param {array} insurerArray - An array containing the IDs of the relevant insurers for the application
+ * @param {boolean} return_hidden - true to return hidden questions, false to only return visible questions
+ *
+ * @returns {array|false} An array of questions structured the way the front end is expecting them, false otherwise
+ *
+ */
+exports.GetQuestionsForFrontend = async function(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden = false){
 
     const questions = await GetQuestions(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden);
 
@@ -432,18 +435,23 @@ exports.GetQuestionsForEndpoint = async function(activityCodeArray, industryCode
             }
         }
     }
-    console.log('--------- ENDPOINT QUESTIONS ---------');
-    console.log(questions);
+
     return questions;
 }
-exports.GetQuestionsAsJSON = async function(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden = false){
-    let questions = await GetQuestions(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden);
-    if(!questions){
-        return false;
-    }
-    const test = JSON.stringify(questions);
-    questions = JSON.parse(test);
-    return questions;
+
+/**
+ * @param {array} activityCodeArray - An array of all the activity codes in the applicaiton
+ * @param {string} industryCodeString - The industry code of the application
+ * @param {array} zipCodeArray - An array of all the zipcodes (stored as strings) in which the business operates
+ * @param {array} policyTypeArray - An array containing of all the policy types applied for
+ * @param {array} insurerArray - An array containing the IDs of the relevant insurers for the application
+ * @param {boolean} return_hidden - true to return hidden questions, false to only return visible questions
+ *
+ * @returns {array|false} An array of questions structured the way the back end is expecting them, false otherwise
+ *
+ */
+exports.GetQuestionsForBackend = async function(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden = false){
+    return GetQuestions(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden);
 }
 
 /**
