@@ -589,8 +589,9 @@ async function postAgency(req, res, next) {
     // Defaults to WC being enbled only.
     let insurerArray = [];
     for (const insurerID in agencyIds) {
+        const insurerIdInt = parseInt(insurerID, 10)
         let insurer = {
-            "insurer": insurerID,
+            "insurer": insurerIdInt,
             "gl": 0,
             "wc": 1,
             "bop": 0,

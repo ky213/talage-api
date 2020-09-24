@@ -105,7 +105,7 @@ module.exports = class AgencyLocationBO{
 
     getList(queryJSON, children = false) {
         return new Promise(async (resolve, reject) => {
-           
+                
                 let rejected = false;
                 // Create the update query
                 let sql = `
@@ -128,7 +128,7 @@ module.exports = class AgencyLocationBO{
                 sql += ` state > 0 `
                 hasWhere = true;
                 // Run the query
-                log.debug("AgencyLocationBO getlist sql: " + sql);
+                //log.debug("AgencyLocationBO getlist sql: " + sql);
                 const result = await db.query(sql).catch(function (error) {
                     // Check if this was
                     
@@ -209,6 +209,37 @@ module.exports = class AgencyLocationBO{
 
 
     }
+
+    async addInsureInfoTolocationInsurers(locationInsurerInfoArray){
+        let error = null;
+        const insurerBO = new InsurerBO();
+        const query = {};
+        const insurerList = await insurerBO.getList(query).catch(function(err) {
+            log.error("admin agencynetwork error: " + err + __location);
+            error = err;
+        })
+        if(insurerList){
+            for(let i = 0; i < locationInsurerInfoArray.length; i++ ){
+                log.debug("typeof locationInfoArray[i].insurer: " + typeof locationInsurerInfoArray[i].insurer);
+                if( typeof locationInsurerInfoArray[i].insurer === "string"){
+                    locationInsurerInfoArray[i].insurer = parseInt(locationInsurerInfoArray[i].insurer,10);
+                }
+                let insurer = insurerList.find(insurer => insurer.id === locationInsurerInfoArray[i].insurer);
+                locationInsurerInfoArray[i].logo = insurer.logo;
+                locationInsurerInfoArray[i].name = insurer.name;
+                locationInsurerInfoArray[i].agency_id_label = insurer.agency_id_label;
+                locationInsurerInfoArray[i].agent_id_label = insurer.agent_id_label;
+                locationInsurerInfoArray[i].enable_agent_id = insurer.enable_agent_id;
+            }
+        }
+        else {
+            log.error("No Insures AgencLocation.Insurers " + __location);
+        }
+    }
+
+
+
+
     getById(id, children=true) {
         return new Promise(async (resolve, reject) => {
             //validate
@@ -419,26 +450,7 @@ module.exports = class AgencyLocationBO{
         }
     }
 
-    async addInsureInfoTolocationInsurers(locationInfoArray){
-        let error = null;
-        const insurerBO = new InsurerBO();
-        const query = {};
-        const insurerList = await insurerBO.getList(query).catch(function(err) {
-            log.error("admin agencynetwork error: " + err + __location);
-            error = err;
-        })
-        if(insurerList){
-            for(let i =0; i < locationInfoArray; i++ ){
-                let insurer = insurerList.find(insurer => insurer.id === locationInfoArray.insurer);
-                locationInfoArray[i].logo = insurer.logo;
-                locationInfoArray[i].name = insurer.name;
-                locationInfoArray[i].agency_id_label = insurer.agency_id_label;
-                locationInfoArray[i].agent_id_label = insurer.agent_id_label;
-                locationInfoArray[i].enable_agent_id = insurer.enable_agent_id;
-            }
-        }
-    }
-
+   
     async getByAgencyPrimary(agencyId){
         
         if(agencyId){
