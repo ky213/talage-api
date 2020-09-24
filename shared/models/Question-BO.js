@@ -29,7 +29,6 @@ module.exports = class QuestionBO{
 	 */
     // Use SaveMessage
     saveModel(newObjectJSON){
-        console.log(newObjectJSON);
         return new Promise(async(resolve, reject) => {
             if(!newObjectJSON){
                 reject(new Error(`empty ${tableName} object given`));
