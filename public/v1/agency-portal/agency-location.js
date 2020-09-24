@@ -412,9 +412,8 @@ async function updateAgencyLocation(req, res, next) {
  * @returns {void}
  */
 async function getSelectionList(req, res, next) {
-    //log.debug('getSelectionList: ' + JSON.stringify(req.body))
+	//log.debug('getSelectionList: ' + JSON.stringify(req.body))
     let error = false;
-
     // Determine which permissions group to use (start with the default permission needed by an agency network)
     let permissionGroup = 'agencies';
 
@@ -432,8 +431,28 @@ async function getSelectionList(req, res, next) {
     }
 
 
-    // Determine the agency ID
-    const agencyId = req.authentication.agents[0];
+	// Determine the agency ID, if network id then we will have an agencyId in the query else not
+	let agencyId = req.authentication.agents[0];
+	
+	if(req.authentication.agencyNetwork){
+		    // Get the agencies that the user is permitted to manage
+			const agencies = await auth.getAgents(req).catch(function(e) {
+				log.error("auth.getAgents error " + e + __location);
+				error = e;
+			});
+			if (error) {
+				return next(error);
+			}
+			if(Object.prototype.hasOwnProperty.call(req.query, 'agencyId')){
+				agencyId = req.query.agencyId;
+			}
+		
+			// Security Check: Make sure this Agency Network has access to this Agency
+			if (!agencies.includes(agencyId)) {
+				log.info('Forbidden: User is not authorized to manage this agency');
+				return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
+			}
+	}
 
     // Initialize an agency object
     const agencyLocationBO = new AgencyLocationBO();
