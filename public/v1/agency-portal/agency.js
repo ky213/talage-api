@@ -595,7 +595,7 @@ async function postAgency(req, res, next) {
             "gl": 0,
             "wc": 1,
             "bop": 0,
-            "agencyId": agentIds[insurerID],
+            "agencyId": agencyIds[insurerID],
             "policy_type_info": {
                 "WC": {
                     "enabled": true,

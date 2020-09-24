@@ -220,7 +220,6 @@ module.exports = class AgencyLocationBO{
         })
         if(insurerList){
             for(let i = 0; i < locationInsurerInfoArray.length; i++ ){
-                log.debug("typeof locationInfoArray[i].insurer: " + typeof locationInsurerInfoArray[i].insurer);
                 if( typeof locationInsurerInfoArray[i].insurer === "string"){
                     locationInsurerInfoArray[i].insurer = parseInt(locationInsurerInfoArray[i].insurer,10);
                 }
