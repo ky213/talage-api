@@ -193,6 +193,7 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
         const agencyLocationBO = new AgencyLocationBO();
         locations = await  agencyLocationBO.getList(query, getChildren);
         let insurerList = [];
+        let removeList = ["doNotSnakeCase", "territories", "created", "modified", "modified_by","checked_out", "checked_out_time"]
         if(locations){
             for(let j=0; j < locations.length ; j++) {
                 let location = locations[j];
@@ -201,7 +202,6 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
                 location.territory = location.state_abbr;
                 location.zip = location.zipcode;
                 location.appointments = location.territories;
-                delete location.territories;
                 if(location.insurers){
                     for(let i=0; i < location.insurers.length ; i++) {
                         let insurer = location.insurers[i];
@@ -213,7 +213,11 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
                 else {
                     log.error("No insurers for location " + __location)
                 }
-                
+                for(let i =0;i< removeList.length ; i++) {
+                    if(location[removeList[i]]){
+                        delete location[removeList[i]]
+                    }
+                }                
             }
         }
         else {
