@@ -435,7 +435,7 @@ async function getSelectionList(req, res, next) {
 
 
 	// Determine the agency ID, if network id then we will have an agencyId in the query else not
-	let agencyId = req.authentication.agents[0];
+	let agencyId = parseInt(req.authentication.agents[0], 10);
 	
 	if(req.authentication.agencyNetwork){
 		    // Get the agencies that the user is permitted to manage
@@ -447,7 +447,7 @@ async function getSelectionList(req, res, next) {
 				return next(error);
 			}
 			if(Object.prototype.hasOwnProperty.call(req.query, 'agencyId')){
-				agencyId = req.query.agencyId;
+				agencyId = parseInt(req.query.agencyId, 10);
 			}
 		
 			// Security Check: Make sure this Agency Network has access to this Agency
