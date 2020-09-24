@@ -8,15 +8,17 @@ const moment = require('moment');
 const moment_timezone = require('moment-timezone');
 const { debug } = require('request');
 
-const tableName = 'clw_talage_questions'
+const tableName = 'clw_talage_questions';
 const skipCheckRequired = false;
 module.exports = class QuestionBO{
 
     #dbTableORM = null;
+    allowNulls = ["parent", "parent_answer"];
 
 	constructor(){
         this.id = 0;
         this.#dbTableORM = new DbTableOrm(tableName);
+        this.#dbTableORM.allowNulls = this.allowNulls;
     }
 
     /**

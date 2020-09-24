@@ -13,7 +13,7 @@ const { query } = require('winston');
 
 const tableName = 'clw_talage_territories'
 const skipCheckRequired = false;
-const doNotUpdateColoumns = ['id','uuid','created', 'created_by', 'modified', 'deleted'];
+const doNotUpdateColumns = ['id','uuid','created', 'created_by', 'modified', 'deleted'];
 
 module.exports = class TerritoryBO{
 
@@ -330,7 +330,7 @@ module.exports = class TerritoryBO{
             const setStatements = [];
             log.debug("this.properties: " + JSON.stringify(this.#dbTableORM.properties))
 			for (const property in properties) {
-                if(doNotUpdateColoumns.includes(property)){
+                if(doNotUpdateColumns.includes(property)){
                     continue;
                 }
 				// Localize the data value
