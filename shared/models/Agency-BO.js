@@ -3,9 +3,11 @@
 const DatabaseObject = require('./DatabaseObject.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+const fileSvc = global.requireShared('services/filesvc.js');
+const{'v4': uuidv4} = require('uuid');
 
 
-
+const s3AgencyLogoPath ="public/agency-logos/";
 const tableName = 'clw_talage_agencies'
 const skipCheckRequired = false;
 module.exports = class AgencyBO{
@@ -32,6 +34,12 @@ module.exports = class AgencyBO{
                 reject(new Error(`empty ${tableName} object given`));
             }
             await this.cleanupInput(newObjectJSON);
+            //propery mapping 
+            if(newObjectJSON.caLicenseNumber){
+              newObjectJSON.ca_license_number = newObjectJSON.caLicenseNumber
+            }
+
+
             if(newObjectJSON.id){
                 await this.#dbTableORM.getById(newObjectJSON.id).catch(function (err) {
                     log.error(`Error getting ${tableName} from Database ` + err + __location);
@@ -40,11 +48,39 @@ module.exports = class AgencyBO{
                 });
                 this.updateProperty();
                 this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
+
+                // Logo are not sent in during agency create
+                // file naming requires agencyId
+                if(newObjectJSON.logo && newObjectJSON.logo.startsWith('data:')){
+
+                  if(this.logo){
+                    //removed old logo from S3.
+                    try{
+                      log.debug("Removing logo " + s3AgencyLogoPath +  this.logo);
+                      await fileSvc.deleteFile(s3AgencyLogoPath + this.logo)
+                    } catch(e){
+                      log.error("Agency Logo delete error: " + e + __location);
+                    }
+                  }
+                   
+                  try{
+                      let fileName = await this.processLogo(newObjectJSON);
+                      newObjectJSON.logo = fileName;
+                      this.logo = fileName;
+                      this.#dbTableORM.logo = fileName;
+                      log.debug("new logo file " +  newObjectJSON.logo );
+                    }
+                    catch(e){
+                      log.error("Agency SaveModel error processing logo " + e + __location);
+                      //newObjectJSON.logo = null;
+                      delete  newObjectJSON.logo
+                    }
+                }
             }
             else{
                 this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
             }
-
+            log.debug("preSave logo " + this.#dbTableORM.logo)
             //save
             await this.#dbTableORM.save().catch(function(err){
                 reject(err);
@@ -52,12 +88,63 @@ module.exports = class AgencyBO{
             this.updateProperty();
             this.id = this.#dbTableORM.id;
 
-
             resolve(true);
 
         });
     }
 
+    processLogo(newObjectJSON){
+      return new Promise(async(fulfill, reject) => {
+        // Handle the logo file
+        if(newObjectJSON.logo){
+          let rejected = false;
+          // If the logo is base64, we need to save it; otherwise, assume no changes were made
+          if(newObjectJSON.logo.startsWith('data:')){
+
+            // If this is an existing record, attempt to remove the old logo first
+
+            // Isolate the extension
+            const extension = newObjectJSON.logo.substring(11, newObjectJSON.logo.indexOf(';'));
+            if(!['gif',
+              'jpeg',
+              'png'].includes(extension)){
+              reject(serverHelper.requestError('Please upload your logo in gif, jpeg, or preferably png format.'));
+              return;
+            }
+
+            // Isolate the file data from the type prefix
+            const logoData = newObjectJSON.logo.substring(newObjectJSON.logo.indexOf(',') + 1);
+
+            // Check the file size (max 150KB)
+            if(logoData.length * 0.75 > 150000){
+              reject(serverHelper.requestError('Logo too large. The maximum file size is 150KB.'));
+              return;
+            }
+
+            // Generate a random file name (defeats caching issues issues)
+            const fileName = `${this.id}-${uuidv4().substring(24)}.${extension}`;
+
+            // Store on S3
+            log.debug("Agency saving logo " + fileName)
+            await fileSvc.PutFile(s3AgencyLogoPath + fileName, logoData).catch(function(err){
+              log.error("Agency add logo error " + err + __location);
+              reject(err)
+              rejected = true;
+            });
+            if(rejected){
+              return;
+            }
+        
+            // Save the file name locally
+            fulfill(fileName);
+          }
+        }
+            
+        
+      });
+    }
+
+    
     /**
 	 * saves businessContact.
      *

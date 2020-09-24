@@ -562,28 +562,7 @@ async function postAgency(req, res, next) {
         wholesale = 1;
     }
 
-    // // Create the agency
-    // // Log.debug('TO DO: We need a wholesale toggle switch on the screen, but hidden for some Agency Networks');
-    // const createAgencySQL = `
-	// 		INSERT INTO ${db.quoteName('#__agencies')} (
-	// 			${db.quoteName('name')},
-	// 			${db.quoteName('email')},
-	// 			${db.quoteName('agency_network')},
-	// 			${db.quoteName('fname')},
-	// 			${db.quoteName('lname')},
-	// 			${db.quoteName('slug')},
-	// 			${db.quoteName('wholesale')}
-	// 		) VALUES (
-	// 			${db.escape(name)},
-	// 			${db.escape(encrypted.email)},
-	// 			${db.escape(req.authentication.agencyNetwork)},
-	// 			${db.escape(encrypted.firstName)},
-	// 			${db.escape(encrypted.lastName)},
-	// 			${db.escape(slug)},
-	// 			${wholesale}
-	// 		);
-	// 	`;
-
+ 
     let newAgencyJSON = {
         name: name,
         email: email,
@@ -668,39 +647,6 @@ async function postAgency(req, res, next) {
         return next(serverHelper.internalError('Error saving to database.'));
     }
 
-
-    // Get the ID of the new agency
-   // const locationID = agencyLocationBO.id;
-
-  
-
-    // // Store the insurers for this agency
-    // const agencyIdValues = [];
-    // for (const insurerID in agencyIds) {
-    //     if (Object.prototype.hasOwnProperty.call(agencyIds, insurerID)) {
-    //         // eslint-disable-next-line  no-await-in-loop
-    //         const insureragencyId = await crypt.encrypt(agencyIds[insurerID]);
-    //         // check to see if we have agent id if we do then encrypt it else we will just set the value to null
-    //         // eslint-disable-next-line  no-await-in-loop
-    //         const insureragentId = Object.prototype.hasOwnProperty.call(agentIds, insurerID) ? await crypt.encrypt(agentIds[insurerID]) : null;
-    //         agencyIdValues.push(`(${db.escape(locationID)}, ${db.escape(insurerID)}, ${db.escape(insureragencyId)}, ${db.escape(insureragentId)}, 0, 0 ,1)`);
-    //     }
-    // }
-    // const associateInsurersSQL = `
-	// 		INSERT INTO ${db.quoteName('#__agency_location_insurers')} (
-	// 			${db.quoteName('agency_location')},
-	// 			${db.quoteName('insurer')},
-	// 			${db.quoteName('agency_id')},
-	// 			${db.quoteName('agent_id')},
-	// 			${db.quoteName('bop')},
-	// 			${db.quoteName('gl')},
-	// 			${db.quoteName('wc')}
-	// 		) VALUES ${agencyIdValues.join(',')};
-	// 	`;
-    // await db.query(associateInsurersSQL).catch(function(e) {
-    //     log.error(e.message);
-    //     return next(serverHelper.internalError('Error querying database. Check logs.'));
-    // });
 
     // Create a landing page for this agency
     const landingPageSQL = `
@@ -825,26 +771,21 @@ async function updateAgency(req, res, next) {
     });
 
     // Initialize an agency object
-    const agency = new AgencyModel();
-
+    error = null;
+    log.debug("saving agency")
+    let agencyBO = new AgencyBO();
     // Load the request data into it
-    await agency.load(req.body).catch(function(err) {
+    await agencyBO.saveModel(req.body).catch(function(err) {
+        log.error("agencyBO.save error " + err + __location);
         error = err;
     });
-    if (error) {
-        return next(serverHelper.internalError(error));
+    if(error){
+        
     }
-
-    // Save the agency
-    await agency.save().catch(function(err) {
-        error = err;
-    });
-    if (error) {
-        return next(serverHelper.internalError(error));
-    }
+   //deal with logo
 
     // Send back a success response
-    res.send(200, {"logo": agency.logo});
+    res.send(200, {"logo": agencyBO.logo});
     return next();
 }
 
