@@ -47,7 +47,12 @@ module.exports = class AgencyLocationBO{
                 });
                 this.updateProperty();
                 //TODO if anything more than territory goes into additionalInfo
+                
+                if(newObjectJSON.primary){
+                    await this.resetPrimary(this.agency, this.id);
+                }
             }
+           
             
              // Territories put in additionalInfo JSON.
              if(newObjectJSON.territories){
@@ -66,9 +71,44 @@ module.exports = class AgencyLocationBO{
             this.updateProperty();
             this.id = this.#dbTableORM.id;
             //TODO if primary make sure other agency location for agency are not primary.
+            if(this.primary){
+                await this.resetPrimary(this.agency, this.id);
+            }
             resolve(true);
 
         });
+    }
+    async resetPrimary(agencyId, primaryAgencyLocationId){
+        if(!agencyId){
+            return false;
+        }
+        let where = '';
+
+        // If we are editing and this location is primary, don't change it
+
+        if(primaryAgencyLocationId){
+            where = `AND id != ${db.escape(primaryAgencyLocationId)}`
+        }
+
+        // Build the SQL query to update other locations
+        const sql = `
+            UPDATE
+                clw_talage_agency_locations
+            SET
+                \`primary\` = NULL
+            WHERE
+                agency = ${agencyId}
+                ${where};
+        `;
+
+        try {
+            await db.query(sql);
+        }
+        catch(e){
+            log.error(`Error resetting Agency Location primary agencyId ${agencyId} ` + e +__location )
+            return false;
+        }
+        return true;
     }
 
     /**

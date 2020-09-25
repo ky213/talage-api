@@ -1,6 +1,5 @@
 /* eslint-disable array-element-newline */
 'use strict';
-const AgencyModel = global.requireShared('models/Agency-model.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 const AgencyLandingPageBO = global.requireShared('./models/AgencyLandingPage-BO.js');
