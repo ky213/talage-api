@@ -16,49 +16,20 @@ const serverHelper = global.requireRootPath('server.js');
  */
 async function GetQuestions(activityCodeStringArray, industryCodeString, zipCodeStringArray, policyTypeArray, insurerStringArray, return_hidden = false) {
 
-    /* ---=== Validate Input ===--- */
-
     const policy_types = [];
-    const zipCodeArray = zipCodeStringArray.map(function(zip) {
-        return zip ? zip.replace(/[^0-9]/gi, '') : 0;
-    });
-    const industry_code = industryCodeString ? parseInt(industryCodeString, 10) : 0;
 
-    // Do not permit requests that include both BOP and GL
-    if (policyTypeArray.includes('BOP') && policyTypeArray.includes('GL')) {
-        log.warn('Bad Request: Both BOP and GL are not allowed, must be one or the other');
-        return false;
-    }
+    let error = false;
+    let sql = '';
+
+    /*
+     * Validate Activity Codes
+     */
 
     // Convert activity code strings to ints
     let activityCodeArray = activityCodeStringArray.map(activityCode => parseInt(activityCode, 10));
 
     // Filter out duplicate codes
     activityCodeArray = activityCodeArray.filter((code, index) => activityCodeArray.indexOf(code) === index);
-
-    /*
-     * Validate Insurer Array
-     */
-
-    let insurerArray = [];
-    // Convert insurer id strings to ints
-    insurerArray = insurerStringArray.map(insurer => parseInt(insurer, 10));
-
-    // Check for anything that was not successfully converted
-    if(insurerArray.includes(NaN)){
-        log.error('Bad Request: Invalid insurer provided in request. Expecting talage insurer ID. ' + __location);
-        return false;
-    }
-
-
-    policyTypeArray.forEach(function(policy_type) {
-        policy_types.push(policy_type.replace(/[^a-z]/gi, '').toUpperCase());
-    });
-
-    /* ---=== Validate Input ===--- */
-
-    let error = false;
-    let sql = '';
 
     // Check that each activity code is valid
     if (activityCodeArray.length) {
@@ -76,6 +47,13 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         }
     }
 
+    /*
+     * Validate Industry Code
+     */
+
+    // Prep industry code for validation
+    const industry_code = industryCodeString ? parseInt(industryCodeString, 10) : 0;
+
     // Check if the industry code is valid
     if (industry_code) {
         sql = `SELECT id FROM clw_talage_industry_codes WHERE id = ${db.escape(industry_code)} AND state = 1 LIMIT 1;`;
@@ -92,20 +70,52 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         }
     }
 
-    // Check that insurers were valid
-    if (insurerArray.length) {
-        sql = `SELECT id FROM clw_talage_insurers WHERE id IN (${insurerArray.join(',')}) AND state = 1;`;
-        const insurers_result = await db.query(sql).catch(function(err) {
-            error = err.message;
+    /*
+     * Validate Zip Codes
+     */
+
+    const zipCodeArray = zipCodeStringArray.map(zip => (zip.replace(/[^0-9]/gi, '')))
+
+    // Check that the zip code is valid
+    const territories = [];
+    if (!zipCodeArray || !zipCodeArray.length) {
+        log.warn('Bad Request: Zip Codes');
+        //return next(serverHelper.requestError('You must supply at least one zip code'));
+        return false;
+    }
+
+    sql = `SELECT DISTINCT territory FROM clw_talage_zip_codes WHERE zip IN (${zipCodeArray.join(',')});`;
+    const zip_result = await db.query(sql).catch(function(err) {
+        error = err.message;
+    });
+    if (error) {
+        //return next(serverHelper.requestError(error));
+        return false;
+    }
+    if (zip_result && zip_result.length >= 1) {
+        zip_result.forEach(function(result) {
+            territories.push(result.territory);
         });
-        if (insurers_result && insurers_result.length !== insurerArray.length) {
-            log.warn('Bad Request: Invalid Insurer(s)');
-            error = 'One or more of the insurers supplied is invalid';
-        }
-        if (error) {
-            //return next(serverHelper.requestError(error));
-            return false;
-        }
+    }
+    else {
+        log.warn('Bad Request: Zip Code');
+        //return next(serverHelper.requestError('The zip code(s) supplied is/are invalid'));
+        return false;
+    }
+
+
+    /*
+     * Validate Policy Types
+     */
+
+    policyTypeArray.forEach(function(policy_type) {
+        policy_types.push(policy_type.replace(/[^a-z]/gi, '').toUpperCase());
+    });
+
+    // Do not permit requests that include both BOP and GL
+    if (policyTypeArray.includes('BOP') && policyTypeArray.includes('GL')) {
+        log.warn('Bad Request: Both BOP and GL are not allowed, must be one or the other');
+        return false;
     }
 
     // Get Policy Types from the database
@@ -136,32 +146,36 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         return false;
     }
 
-    // Check that the zip code is valid
-    const territories = [];
-    if (!zipCodeArray || !zipCodeArray.length) {
-        log.warn('Bad Request: Zip Codes');
-        //return next(serverHelper.requestError('You must supply at least one zip code'));
+
+    /*
+     * Validate Insurers
+     */
+
+    // Convert insurer id strings to ints
+    const insurerArray = insurerStringArray.map(insurer => parseInt(insurer, 10));
+
+    // Check for anything that was not successfully converted
+    if(insurerArray.includes(NaN)){
+        log.error('Bad Request: Invalid insurer provided in request. Expecting talage insurer ID. ' + __location);
         return false;
     }
 
-    sql = `SELECT DISTINCT territory FROM clw_talage_zip_codes WHERE zip IN (${zipCodeArray.join(',')});`;
-    const zip_result = await db.query(sql).catch(function(err) {
-        error = err.message;
-    });
-    if (error) {
-        //return next(serverHelper.requestError(error));
-        return false;
-    }
-    if (zip_result && zip_result.length >= 1) {
-        zip_result.forEach(function(result) {
-            territories.push(result.territory);
+    // Check that insurers were valid
+    if (insurerArray.length) {
+        sql = `SELECT id FROM clw_talage_insurers WHERE id IN (${insurerArray.join(',')}) AND state = 1;`;
+        const insurers_result = await db.query(sql).catch(function(err) {
+            error = err.message;
         });
+        if (insurers_result && insurers_result.length !== insurerArray.length) {
+            log.warn('Bad Request: Invalid Insurer(s)');
+            error = 'One or more of the insurers supplied is invalid';
+        }
+        if (error) {
+            //return next(serverHelper.requestError(error));
+            return false;
+        }
     }
-    else {
-        log.warn('Bad Request: Zip Code');
-        //return next(serverHelper.requestError('The zip code(s) supplied is/are invalid'));
-        return false;
-    }
+
 
     /* ---=== Get The Applicable Questions ===--- */
 
