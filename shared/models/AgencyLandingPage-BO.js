@@ -1,6 +1,5 @@
 'use strict';
 
-
 const DatabaseObject = require('./DatabaseObject.js');
 const crypt = requireShared('./services/crypt.js');
 // eslint-disable-next-line no-unused-vars
@@ -110,7 +109,7 @@ module.exports = class AgencyLandingPageBO {
       sql += hasWhere ? " AND " : " WHERE ";
       sql += ` state > 0 `
       // Run the query
-      log.debug("AgencyLandingPageBO getlist sql: " + sql);
+      //log.debug("AgencyLandingPageBO getlist sql: " + sql);
       const result = await db.query(sql).catch(function (error) {
         // Check if this was
 

@@ -186,6 +186,8 @@ module.exports = class AgencyLocationBO{
                 log.error(`agencyLocationInsurer.getListByAgencyLocationForAgencyPortal error on select ` + error + __location);
             });
             agencyLocationJSON.insurers = insurerList;
+            await this.addInsureInfoTolocationInsurers(agencyLocationJSON.insurers);
+
         }
         // Territories 
         if(agencyLocationJSON.additionalInfo && agencyLocationJSON.additionalInfo.territories  ){
