@@ -231,9 +231,11 @@ module.exports = class AgencyLocationBO{
         }
         // Territories 
         if(agencyLocationJSON.additionalInfo && agencyLocationJSON.additionalInfo.territories  ){
+           // log.debug("Using agencyLocationJSON.additionalInfo.territories ")
             agencyLocationJSON.territories = agencyLocationJSON.additionalInfo.territories;
         }
         else {
+          //  log.debug("Using agencyLocationTerritory  ")
             const agencyLocationTerritory = new AgencyLocationTerritory
             const territoryList = await agencyLocationTerritory.getListByAgencyLocationForAgencyPortal(agencyLocationId).catch(function (error) {
                 // Check if this was
@@ -253,28 +255,30 @@ module.exports = class AgencyLocationBO{
     }
 
     async addInsureInfoTolocationInsurers(locationInsurerInfoArray){
-        let error = null;
-        const insurerBO = new InsurerBO();
-        const query = {};
-        const insurerList = await insurerBO.getList(query).catch(function(err) {
-            log.error("admin agencynetwork error: " + err + __location);
-            error = err;
-        })
-        if(insurerList){
-            for(let i = 0; i < locationInsurerInfoArray.length; i++ ){
-                if( typeof locationInsurerInfoArray[i].insurer === "string"){
-                    locationInsurerInfoArray[i].insurer = parseInt(locationInsurerInfoArray[i].insurer,10);
+        if(locationInsurerInfoArray){
+            let error = null;
+            const insurerBO = new InsurerBO();
+            const query = {};
+            const insurerList = await insurerBO.getList(query).catch(function(err) {
+                log.error("admin agencynetwork error: " + err + __location);
+                error = err;
+            })
+            if(insurerList){
+                for(let i = 0; i < locationInsurerInfoArray.length; i++ ){
+                    if( typeof locationInsurerInfoArray[i].insurer === "string"){
+                        locationInsurerInfoArray[i].insurer = parseInt(locationInsurerInfoArray[i].insurer,10);
+                    }
+                    let insurer = insurerList.find(insurer => insurer.id === locationInsurerInfoArray[i].insurer);
+                    locationInsurerInfoArray[i].logo = insurer.logo;
+                    locationInsurerInfoArray[i].name = insurer.name;
+                    locationInsurerInfoArray[i].agency_id_label = insurer.agency_id_label;
+                    locationInsurerInfoArray[i].agent_id_label = insurer.agent_id_label;
+                    locationInsurerInfoArray[i].enable_agent_id = insurer.enable_agent_id;
                 }
-                let insurer = insurerList.find(insurer => insurer.id === locationInsurerInfoArray[i].insurer);
-                locationInsurerInfoArray[i].logo = insurer.logo;
-                locationInsurerInfoArray[i].name = insurer.name;
-                locationInsurerInfoArray[i].agency_id_label = insurer.agency_id_label;
-                locationInsurerInfoArray[i].agent_id_label = insurer.agent_id_label;
-                locationInsurerInfoArray[i].enable_agent_id = insurer.enable_agent_id;
             }
-        }
-        else {
-            log.error("No Insures AgencLocation.Insurers " + __location);
+            else {
+                log.error("No Insures AgencLocation.Insurers " + __location);
+            }
         }
     }
 

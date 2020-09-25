@@ -61,41 +61,8 @@ module.exports = class AgencyLocation {
             }
             const agencyLocationId = this.id;
             // Define the where clause
-            // const where = `a.id = ${db.escape(parseInt(this.id, 10))}`;
-            const where = `a.id = ${this.id}`
-
-            // SQL for getting agency / location details
-            queries.push(`
-                SELECT ag.id, ag.agency_network, a.email, a.fname, a.lname, ag.name, ag.phone, ag.website, ag.wholesale, ag.additionalInfo
-                FROM clw_talage_agency_locations a
-                LEFT JOIN clw_talage_agencies ag ON a.agency = ag.id
-                
-                WHERE ${where} LIMIT 1;
-            `);
-            // // SQL for getting agency insurers
-            // queries.push(`
-			// 	SELECT ai.insurer id, ai.agency_id, i.agent_login, ai.agent_id, ai.policy_type_info, ai.bop, ai.gl, ai.wc, i.enable_agent_id
-			// 	FROM clw_talage_agency_location_insurers AS ai
-			// 	LEFT JOIN clw_talage_agency_locations AS a ON ai.agency_location = a.id
-			// 	LEFT JOIN clw_talage_insurers AS i ON i.id = ai.insurer
-			// 	WHERE ${where} AND i.state > 0;
-			// `);
-
-            // // SQL for getting agency territories
-            // queries.push(`
-			// 	SELECT at.territory
-			// 	FROM clw_talage_agency_location_territories AS at
-			// 	LEFT JOIN clw_talage_agency_locations AS a ON at.agency_location = a.id
-			// 	WHERE ${where};
-			// `);
-
-            // // Wait for all queries to return
-            // const results = await Promise.all(queries.map((sql) => db.query(sql))).catch(function(error) {
-            //     log.error("DB queries error: " + error + __location);
-            //     reject(error);
-            //     hadError = true;
-            // });
-
+            
+           
             // Stop if there was an error
             if (hadError) {
                 return;
@@ -114,6 +81,8 @@ module.exports = class AgencyLocation {
                 }
                 if(agencyLocation.territories){
                     alTerritoyList = agencyLocation.territories;
+                    this.territories = agencyLocation.territories;
+                    log.debug("alTerritoyList: " + JSON.stringify(alTerritoyList));
                 } else {
                     log.error(`Agency territories Missing insurers ${this.id} ` + JSON.stringify(agencyLocation) + __location);
                 }
@@ -140,8 +109,7 @@ module.exports = class AgencyLocation {
             }
             // Get the query results
             const insurers = alInsurerList;
-            const territories = alTerritoyList;
-
+            
             const agency_network = agencyInfo.agency_network;
             const agencyNetworkBO = new AgencyNetworkBO();
             const agencyNetworkJSON = await agencyNetworkBO.getById(agencyInfo.agency_network).catch(function(err){
@@ -169,11 +137,12 @@ module.exports = class AgencyLocation {
                 if (Object.prototype.hasOwnProperty.call(insurers, insurerId)) {
                     const insurer = insurers[insurerId];
                     // Decrypt the agent's information
-                    //i.insurer id, ai.agency_id, i.agent_login, ai.agent_id, ai.policy_type_info, ai.bop, ai.gl, ai.wc, i.enable_agent_id
                     if(insurer.agencyId){
                         insurer.agency_id = insurer.agencyId;
                     }
-
+                    if(insurer.insurer){
+                        insurer.id = insurer.insurer;
+                    }
                     if(insurer.agentId){
                         insurer.agent_id = insurer.agentId;
                     }
@@ -192,18 +161,10 @@ module.exports = class AgencyLocation {
                            // return;
                         }
                     }
-                    // Parse the JSON for easy access
-                    // if(insurer.policy_type_info){
-                    //     insurer.policy_type_info = JSON.parse(insurer.policy_type_info);
-                    // }
                     this.insurers[insurer.id] = insurer;
                 }
             }
 
-            // Extract the territory info
-            territories.forEach((row) => {
-                this.territories.push(row.territory);
-            });
 
             // Check that we have all of the required data
             const missing = [];
@@ -286,6 +247,7 @@ module.exports = class AgencyLocation {
         return new Promise((fulfill, reject) => {
             // Territories
             this.business.locations.forEach((location) => {
+                log.debug(`this.territories` + JSON.stringify(this.territories))
                 if (!this.territories.includes(location.state_abbr)) {
                     log.error(`Agent does not have ${location.state_abbr} enabled` + __location);
                     reject(serverHelper.requestError(`The specified agent is not setup to support this application in territory ${location.state_abbr}.`));
