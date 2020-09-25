@@ -536,6 +536,20 @@ module.exports = class AgencyLocationBO{
         }
     }
 
+    async getPolicyInfo(agencyLocationId, insurerId){
+        let policyInfoJSON = null;
+        try{
+            const agencyLocationJSON = await this.getById(agencyLocationId);
+            const insurerJSON = agencyLocationJSON.insurers.find(insurer => insurerId === insurer.insurer);
+            policyInfoJSON = insurerJSON.policy_type_info;
+        }
+        catch(err){
+            log.error(`Error get PolicyTypeInfo agencyLocationId ${agencyLocationId} ` + err + __location)
+            throw err;
+        }
+        return policyInfoJSON;
+    }
+
 
      /**
 	 * Load new business JSON into ORM. can be used to filter JSON to busines properties
