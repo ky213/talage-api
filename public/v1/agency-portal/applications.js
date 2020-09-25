@@ -450,12 +450,17 @@ async function getApplications(req, res, next){
             where += ` OR ${db.quoteName('ic.description')} LIKE ${db.escape(`%${req.params.searchText}%`)}`;
         }
         //if searchText is number search on application id
+        if(req.params.searchText.length > 2){
+            where += ` OR a.uuid LIKE ${db.escape(`%${req.params.searchText}%`)}`;
+        }
         if(isNaN(req.params.searchText) === false && req.params.searchText.length > 3){
             const testInteger = Number(req.params.searchText);
             if(Number.isInteger(testInteger)){
                 where += ` OR a.id  = ${db.escape(req.params.searchText)}`;
                 where += ` OR b.mailing_zipcode LIKE ${db.escape(`${req.params.searchText}%`)}`
             }
+            
+            
         }
         where += ')';
     }
