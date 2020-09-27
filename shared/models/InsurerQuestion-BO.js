@@ -8,13 +8,12 @@ const moment = require('moment');
 const moment_timezone = require('moment-timezone');
 const { debug } = require('request');
 
-const tableName = 'clw_talage_question_answers'
+const tableName = 'clw_talage_insurer_questions';
 const skipCheckRequired = false;
-module.exports = class QuestionAnswerBO{
+module.exports = class InsurerQuestionBO{
 
     #dbTableORM = null;
-
-    allowNulls = ["default"];
+    allowNulls = ["question"];
 
 	constructor(){
         this.id = 0;
@@ -104,24 +103,14 @@ module.exports = class QuestionAnswerBO{
                 `;
                 if(queryJSON){
                     let hasWhere = false;
-                    if(queryJSON.answer){
-                        sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` answer like ${db.escape(queryJSON.answer)} `
-                        hasWhere = true;
-                    }
                     if(queryJSON.question){
                         sql += hasWhere ? " AND " : " WHERE ";
                         sql += ` question = ${db.escape(queryJSON.question)} `
                         hasWhere = true;
                     }
-                    if(queryJSON.state){
-                        sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` state = ${db.escape(queryJSON.state)} `
-                        hasWhere = true;
-                    }
                 }
                 // Run the query
-                log.debug("QuestionAnswerBO getlist sql: " + sql);
+                log.debug("InsurerQuestionBO getlist sql: " + sql);
                 const result = await db.query(sql).catch(function (error) {
                     // Check if this was
                     
@@ -135,16 +124,16 @@ module.exports = class QuestionAnswerBO{
                 let boList = [];
                 if(result && result.length > 0 ){
                     for(let i=0; i < result.length; i++ ){
-                        let questionAnswerBO = new QuestionAnswerBO();
-                        await questionAnswerBO.#dbTableORM.decryptFields(result[i]);
-                        await questionAnswerBO.#dbTableORM.convertJSONColumns(result[i]);
-                        const resp = await questionAnswerBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                        let insurerQuestionBO = new InsurerQuestionBO();
+                        await insurerQuestionBO.#dbTableORM.decryptFields(result[i]);
+                        await insurerQuestionBO.#dbTableORM.convertJSONColumns(result[i]);
+                        const resp = await insurerQuestionBO.loadORM(result[i], skipCheckRequired).catch(function(err){
                             log.error(`getList error loading object: ` + err + __location);
                         })
                         if(!resp){
                             log.debug("Bad BO load" + __location)
                         }
-                        boList.push(questionAnswerBO);
+                        boList.push(insurerQuestionBO);
                     }
                     resolve(boList);
                 }
@@ -166,33 +155,6 @@ module.exports = class QuestionAnswerBO{
                 });
                 this.updateProperty();
                 resolve(this.#dbTableORM.cleanJSON());
-            }
-            else {
-                reject(new Error('no id supplied'))
-            }
-        });
-    }
-
-    deleteSoftById(id) {
-        return new Promise(async (resolve, reject) => {
-            //validate
-            if(id && id > 0){
-                //Remove old records.
-                const sql =`Update ${tableName} 
-                        SET state = -2
-                        WHERE id = ${id}
-                `;
-                let rejected = false;
-                const result = await db.query(sql).catch(function (error) {
-                    // Check if this was
-                    log.error(`Database Object ${tableName} UPDATE State error :` + error + __location);
-                    rejected = true;
-                    reject(error);
-                });
-                if (rejected) {
-                    return false;
-                }
-                resolve(true);
             }
             else {
                 reject(new Error('no id supplied'))
@@ -255,7 +217,7 @@ module.exports = class QuestionAnswerBO{
         let responseLandingPageJSON = {};
         let reject  = false;
         const sql = `select id, name, logo  
-            from clw_talage_question_answers
+            from clw_talage_insurer_questions
             where state > 0
             order by name`
         const result = await db.query(sql).catch(function (error) {
@@ -282,16 +244,16 @@ const properties = {
         "type": "number",
         "dbType": "int(11) unsigned"
     },
-    "state": {
-        "default": "1",
+    "question": {
+        "default": null,
         "encrypted": false,
         "hashed": false,
-        "required": true,
+        "required": false,
         "rules": null,
         "type": "number",
-        "dbType": "tinyint(1)"
+        "dbType": "int(11) unsigned"
     },
-    "question": {
+    "insurer": {
         "default": 0,
         "encrypted": false,
         "hashed": false,
@@ -300,23 +262,68 @@ const properties = {
         "type": "number",
         "dbType": "int(11) unsigned"
     },
-    "default": {
-        "default": null,
+    "policy_type": {
+        "default": "WC",
         "encrypted": false,
         "hashed": false,
-        "required": false,
+        "required": true,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(3)"
+    },
+    "universal": {
+        "default": 0,
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
         "rules": null,
         "type": "number",
         "dbType": "tinyint(1)"
     },
-    "answer": {
+    "text": {
         "default": "",
         "encrypted": false,
         "hashed": false,
         "required": true,
         "rules": null,
         "type": "string",
-        "dbType": "varchar(75)"
+        "dbType": "varchar(500)"
+    },
+    "identifier": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(60)"
+    },
+    "attributes": {
+        "default": "",
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(150)"
+    },
+    "created": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "timestamp",
+        "dbType": "timestamp"
+    },
+    "modified": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "timestamp",
+        "dbType": "timestamp"
     }
 }
 

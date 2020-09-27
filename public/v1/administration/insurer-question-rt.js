@@ -7,15 +7,15 @@
 /* eslint-disable require-jsdoc */
 'use strict';
 
-const QuestionBO = global.requireShared('./models/Question-BO.js');
+const InsurerQuestionBO = global.requireShared('./models/InsurerQuestion-BO.js');
 const serverHelper = global.requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
 async function findAll(req, res, next) {
     let error = null;
-    const questionBO = new QuestionBO();
-    const rows = await questionBO.getList(req.query).catch(function(err) {
+    const insurerQuestionBO = new InsurerQuestionBO();
+    const rows = await insurerQuestionBO.getList(req.query).catch(function(err) {
         error = err;
     })
     if (error) {
@@ -38,9 +38,9 @@ async function findOne(req, res, next) {
         return next(serverHelper.requestError("bad parameter"));
     }
     let error = null;
-    const questionBO = new QuestionBO();
+    const insurerQuestionBO = new InsurerQuestionBO();
     // Load the request data into it
-    const questionJSON = await questionBO.getById(id).catch(function(err) {
+    const insurerQuestionJSON = await insurerQuestionBO.getById(id).catch(function(err) {
         log.error("question load error " + err + __location);
         error = err;
     });
@@ -48,40 +48,14 @@ async function findOne(req, res, next) {
         return next(error);
     }
     // Send back a success response
-    if (questionJSON) {
-        res.send(200, questionJSON);
+    if (insurerQuestionJSON) {
+        res.send(200, insurerQuestionJSON);
         return next();
     }
     else {
         res.send(404);
         return next(serverHelper.notFoundError('question not found'));
     }
-}
-
-async function add(req, res, next) {
-
-    log.debug("question post " + JSON.stringify(req.body));
-    //TODO Validate
-    if(!req.body.question){
-        return next(serverHelper.requestError("bad missing question"));
-    }
-    // allow hint to be empty string
-    if(!req.body.hint && req.body.hint !== ""){
-        return next(serverHelper.requestError("bad missing hint"));
-    }
-    const questionBO = new QuestionBO();
-    let error = null;
-    const newRecord = true;
-    await questionBO.saveModel(req.body,newRecord).catch(function(err) {
-        log.error("question save error " + err + __location);
-        error = err;
-    });
-    if (error) {
-        return next(error);
-    }
-
-    res.send(200, questionBO.cleanJSON());
-    return next();
 }
 
 async function update(req, res, next) {
@@ -94,22 +68,22 @@ async function update(req, res, next) {
     }
     let error = null;
     const updateRecord = false;
-    const questionBO = new QuestionBO();
-    await questionBO.saveModel(req.body, updateRecord).catch(function(err) {
-        log.error("question load error " + err + __location);
+    const insurerQuestionBO = new InsurerQuestionBO();
+    await insurerQuestionBO.saveModel(req.body, updateRecord).catch(function(err) {
+        log.error("insurer question load error " + err + __location);
         error = err;
     });
     if (error) {
         return next(error);
     }
-    res.send(200, questionBO);
+    res.send(200, insurerQuestionBO);
     return next();
 }
 
 exports.registerEndpoint = (server, basePath) => {
     // We require the 'administration.read' permission
-    server.addGetAuthAdmin('GET Question list', `${basePath}/question`, findAll, 'administration', 'all');
-    server.addGetAuthAdmin('GET Question Object', `${basePath}/question/:id`, findOne, 'administration', 'all');
-    server.addPostAuthAdmin('POST Question Object', `${basePath}/question`, add, 'administration', 'all');
-    server.addPutAuthAdmin('PUT Question Object', `${basePath}/question/:id`, update, 'administration', 'all');
+    server.addGetAuthAdmin('GET Insurer Question list', `${basePath}/insurer-question`, findAll, 'administration', 'all');
+    server.addGetAuthAdmin('GET Insurer Question Object', `${basePath}/insurer-question/:id`, findOne, 'administration', 'all');
+    // server.addPostAuthAdmin('POST Insurer Question Object', `${basePath}/insurer-question`, add, 'administration', 'all');
+    server.addPutAuthAdmin('PUT Insurer Question Object', `${basePath}/insurer-question/:id`, update, 'administration', 'all');
 };
