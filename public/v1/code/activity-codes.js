@@ -48,7 +48,7 @@ const GetActivityCodes = wrap(async (req, res, next) => {
 
 	const territory = req.query.territory;
 	const industry_code = parseInt(req.query.industry_code, 10);
-
+    //TODO move query to svc to be used by parts of API. 
 	// Get activity codes by territory, filtered by industry code
 	const sql_all_activity_codes = `
 		SELECT nc.id, nc.description,
