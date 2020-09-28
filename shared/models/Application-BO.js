@@ -601,79 +601,97 @@ module.exports = class ApplicationModel {
     // Get Business Data from AF Business Data API.
     //call only have this.id has been set.
     async getBusinessInfo(applicationJSON) {
+        let error = null;
         //Information will be in the applicationJSON.businessInfo
-        //log.debug("applicationJSON: " +JSON.stringify(applicationJSON));
         if(applicationJSON.businessInfo && applicationJSON.businessInfo.name && this.id){
+            let currentAppDBJSON = await this.getById(this.id).catch(function(err){
+                log.error(`error getBusinessInfo getting application record, appid ${this.id} error:` + e + __location)
+            });
+            if(typeof currentAppDBJSON !== 'object'){
+                return false;
+            }
+            //Setup goodplace 
+            let saveBusinessData = false;
+            let afBusinessDataJSON = {};
+            let newBusinessDataJSON  = currentAppDBJSON.businessDataJSON;
+            if(!newBusinessDataJSON){
+                newBusinessDataJSON = {};
+            }
+            if(applicationJSON.google_place){
+                if(applicationJSON.address){
+                    applicationJSON.google_place.address = applicationJSON.address;
+                }
+                newBusinessDataJSON.googleBusinessData = applicationJSON.google_place;
+                saveBusinessData = true;
+            }
             let agencyNetworkId = 0;
             try{
                 agencyNetworkId = await this.getAgencyNewtorkIdById(this.id);
             }
             catch(err){
-                log.error("Error getting agencyNetworkId " + err + __location)
+                log.error(`Error getting agencyNetworkId, application - ${this.id} ` + err + __location)
             }
-            //Only process if digalent.             
+            //Only process AF call if digalent.             
             if(agencyNetworkId === 2){
-                const businessInfo = {
+                const businessInfoRequestJSON = {
                     "company_name": applicationJSON.businessInfo.name
                 };
-                if(applicationJSON.businessInfo.address && applicationJSON.businessInfo.address.state_abbr){
-                    businessInfo.state = applicationJSON.businessInfo.address.state_abbr
+                // if(applicationJSON.businessInfo.address && applicationJSON.businessInfo.address.state_abbr){
+                //     businessInfo.state = applicationJSON.businessInfo.address.state_abbr
+                // } else if(applicationJSON.address.state_abbr){
+                //     businessInfo.state = applicationJSON.address.state_abbr
+                // }
+                const addressFieldList = ["address","address2","city","state_abbr","zip"];
+                const address2AFRequestMap = {
+                        "addresss" : "street_address1",
+                        "addresss2" : "street_address2",
+                        "state_abbr": "state"
+                        };
+                for(let i=0; i < addressFieldList.length; i++){
+                    if(applicationJSON.address[addressFieldList[i]]){
+                        let propertyName = addressFieldList[i];
+                        if(address2AFRequestMap[addressFieldList[i]]){
+                            propertyName = address2AFRequestMap[addressFieldList[i]]
+                        }
+                        businessInfoRequestJSON[propertyName] = applicationJSON.address[addressFieldList[i]];
+                    }
                 }
-                if(applicationJSON.address.state_abbr){
-                    businessInfo.state = applicationJSON.address.state_abbr
-                }
-                let businessDataJSON = null;
                 try {
-                    businessDataJSON = await afBusinessdataSvc.getBusinessData(businessInfo);
-                    //log.debug('businessDataJSON: ' + JSON.stringify(businessDataJSON));
+                    afBusinessDataJSON = await afBusinessdataSvc.getBusinessData(businessInfoRequestJSON);
                 }
                 catch (e) {
                     log.error(`error call AF Business Data API, appid ${this.id} error:` + e + __location)
-                    businessDataJSON.error = "Error call in AF Business Data API";
+                   
+                    afBusinessDataJSON.error = "Error call in AF Business Data API";
                 }
-                if(businessDataJSON){
-                    businessDataJSON.requestTime = new moment().toISOString();
+                if(afBusinessDataJSON){
+                    afBusinessDataJSON.requestTime = new moment().toISOString();
                     //save it back to applcation record.
                     // Use Update  to limit the change 
                     //This process is async so other updates may have happend.
-                    let currentAppDBJSON = await this.getById(this.id).catch(function(err){
-
-                    });
-                    if(currentAppDBJSON){
-                        let newBusinessDataJSON  = currentAppDBJSON.businessDataJSON;
-                        if(!newBusinessDataJSON){
-                            newBusinessDataJSON = {};
-                        }
-                        newBusinessDataJSON.afBusinessData = businessDataJSON;
-                        if(applicationJSON.google_place){
-                            if(applicationJSON.address){
-                                applicationJSON.google_place.address = applicationJSON.address;
-                            }
-                            newBusinessDataJSON.googleBusinessData = applicationJSON.google_place;
-                        }
-                        const sql = `Update ${tableName} 
-                                SET businessDataJSON = ${db.escape(JSON.stringify(newBusinessDataJSON))}
-                                WHERE id = ${db.escape(this.id)}
-                        `;
-                        let error = null;
-                        const result = await db.query(sql).catch(function (err) {
-                            // Check if this was
-                            log.error("Database Object ${tableName} UPDATE businessDataJSON error :" + err + __location);
-                            error = err;
-                        });
-                        log.info(`Application ${this.id} update BusinessDataJSON`);
-                        //Update Application, Business and Busisnee Address
-
-
-
-
-                    }
+                    newBusinessDataJSON.afBusinessData = afBusinessDataJSON;
+                    saveBusinessData = true;
                 }
                 else {
                     log.warn(`AF Business Data API returned no data., appid ${this.id} error:` + e + __location)
                 }
             }
-        }
+            // update application.businessDataJSON
+            const sql = `Update ${tableName} 
+                SET businessDataJSON = ${db.escape(JSON.stringify(newBusinessDataJSON))}
+                WHERE id = ${db.escape(this.id)}
+            `;
+            
+            const result = await db.query(sql).catch(function (err) {
+                // Check if this was
+                log.error("Database Object ${tableName} UPDATE businessDataJSON error :" + err + __location);
+                error = err;
+            });
+            log.info(`Application ${this.id} update BusinessDataJSON`);
+            if(afBusinessDataJSON){
+                 //update application Business and address.
+            }           
+        }// if applicationJSON.businessInfo
         //no errors....
        return false;
     }

@@ -19,7 +19,7 @@ exports.getBusinessData = async function(businessFilterJSON) {
        //check for company_name and state
        // Do any mapping here....
        // do any data filter and cleanup here
-       const auth = "Basic " + Buffer.from(userName + ":" + userPwd).toString("base64");
+       //const auth = "Basic " + Buffer.from(userName + ":" + userPwd).toString("base64");
        //15 second timeout.
        let requestOptions = { 
            
@@ -43,7 +43,7 @@ exports.getBusinessData = async function(businessFilterJSON) {
         if(error){
             throw error
         }
-        if(afResponse.status === 200){
+        if(afResponse && afResponse.status === 200){
             const responseData = afResponse.data;
             return responseData;
         }
