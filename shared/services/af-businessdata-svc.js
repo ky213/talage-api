@@ -15,7 +15,7 @@ let userPwd="ceXF4N2fcthou99q!";
 
 
 exports.getBusinessData = async function(businessFilterJSON) {
-    if(businessFilterJSON && businessFilterJSON.company_name && businessFilterJSON.state){
+    if(businessFilterJSON && businessFilterJSON.company_name){
        //check for company_name and state
        // Do any mapping here....
        // do any data filter and cleanup here
@@ -30,12 +30,11 @@ exports.getBusinessData = async function(businessFilterJSON) {
             timeout: 15000,
            
        }
-       log.debug("request options: " + JSON.stringify(requestOptions))
+       log.debug("AF API Request businessFilterJSON: " + JSON.stringify(businessFilterJSON))
        let error = null;
         let afResponse = null;
         try{
             afResponse = await axios.post(afEndpoint, businessFilterJSON, requestOptions);
-            log.debug("afResponse: " + afResponse.status + JSON.stringify(afResponse.data))
         }
         catch(err){
             log.error('afResponse error ' + err + __location);
@@ -44,7 +43,6 @@ exports.getBusinessData = async function(businessFilterJSON) {
         if(error){
             throw error
         }
-        log.debug("afResponse: " + JSON.stringify(afResponse))
         if(afResponse.status === 200){
             const responseData = afResponse.data;
             return responseData;
