@@ -44,6 +44,7 @@ async function getQuestionActivityCodes(req, res, next){
                 on c.id = clw_talage_activity_code_associations.insurer_code
             ) d
             on d.code = clw_talage_activity_codes.id
+            WHERE state = 1
             ORDER BY clw_talage_activity_codes.id ASC
 		`;
 
