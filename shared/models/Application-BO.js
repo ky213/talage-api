@@ -676,21 +676,23 @@ module.exports = class ApplicationModel {
                     log.warn(`AF Business Data API returned no data., appid ${this.id} error:` + e + __location)
                 }
             }
+            if(saveBusinessData){
+                const sql = `Update ${tableName} 
+                    SET businessDataJSON = ${db.escape(JSON.stringify(newBusinessDataJSON))}
+                    WHERE id = ${db.escape(this.id)}
+                `;
+                
+                const result = await db.query(sql).catch(function (err) {
+                    // Check if this was
+                    log.error("Database Object ${tableName} UPDATE businessDataJSON error :" + err + __location);
+                    error = err;
+                });
+                log.info(`Application ${this.id} update BusinessDataJSON`);
+                if(afBusinessDataJSON){
+                    //update application Business and address.
+                }           
+            }
             // update application.businessDataJSON
-            const sql = `Update ${tableName} 
-                SET businessDataJSON = ${db.escape(JSON.stringify(newBusinessDataJSON))}
-                WHERE id = ${db.escape(this.id)}
-            `;
-            
-            const result = await db.query(sql).catch(function (err) {
-                // Check if this was
-                log.error("Database Object ${tableName} UPDATE businessDataJSON error :" + err + __location);
-                error = err;
-            });
-            log.info(`Application ${this.id} update BusinessDataJSON`);
-            if(afBusinessDataJSON){
-                 //update application Business and address.
-            }           
         }// if applicationJSON.businessInfo
         //no errors....
        return false;
