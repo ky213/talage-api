@@ -32,7 +32,7 @@ exports.process = function(requestJSON) {
     }
     //ApplicationBO will lookup primary location on save.
 
-    var fieldstoMoveToBusineess = ["industry_code", "dba", "name"]
+    var fieldstoMoveToBusineess = ["industry_code", "dba", "name", "state_abbr", "address"]
     var fieldstoMoveToBusineessContact = ["fname", "lname", "email", "phone"]
     requestJSON.businessInfo = {};
     const businessInfo = requestJSON.businessInfo;

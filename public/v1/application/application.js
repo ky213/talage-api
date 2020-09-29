@@ -10,7 +10,8 @@ const serverHelper = require('../../../server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 //Models
-const ApplicationModel = global.requireShared('models/Application-BO.js');
+const ApplicationBO = global.requireShared('models/Application-BO.js');
+const BusinessBO = global.requireShared('models/Business-model.js');
 const contactStepParser = require('./parsers/contact-step-parser.js')
 const coverageStepParser = require('./parsers/coverage-step-parser.js');
 const locationStepParser = require('./parsers/location-step_parser.js')
@@ -147,7 +148,7 @@ async function Save(req, res, next){
     let responseObj = {};
 
     if(knownWorkflowStep === true){
-        const applicationModel = new ApplicationModel();
+        const applicationModel = new ApplicationBO();
         await applicationModel.saveApplicationStep(applicationRequestJson, worflowStep).then(function(modelResponse){
             if(modelResponse === true){
                 // const tokenPayload = {applicationID: applicationModel.id};
@@ -502,22 +503,85 @@ async function AgencyEmail(req, res, next){
 
 }
 
+/**
+ * GET returns updated address and business info on App
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function AppInfo(req, res, next){
+    const responseAppInfoJSON = {};
+    const propertyToNotSend = ['id','uuid','created', 'created_by', 'modified', 'deleted', 'dba_clear','file_num','checked_out', 'checked_out_time','state','mailing_zip', 'ein']
+    if(req.query && req.query.appid){
+        const appId = req.query.appid
+        try{
+            const applicationBO = new ApplicationBO();
+            const appDBJSON = await applicationBO.getById(appId);
+            if(appDBJSON){
+                responseAppInfoJSON.id = appDBJSON.id;
+                responseAppInfoJSON.gross_sales_amt = appDBJSON.gross_sales_amt;
+                responseAppInfoJSON.city = appDBJSON.city;
+                responseAppInfoJSON.state = appDBJSON.state_abbr;
+                responseAppInfoJSON.zip = appDBJSON.zipcode;
+                //get business
+                const businessBO = new BusinessBO();
+                let businessDBJSON = await businessBO.getById(appDBJSON.business);
+                if(businessDBJSON){
+                    for (let i =0; i< propertyToNotSend.length; i++){
+                        if(businessDBJSON[propertyToNotSend[i]]  !== 'undefined' || businessDBJSON[propertyToNotSend[i]] === 0 && businessDBJSON[propertyToNotSend[i]] === '' ){
+                            delete businessDBJSON[propertyToNotSend[i]]
+                        }
+                    }
+                    responseAppInfoJSON.business = businessDBJSON
+                }
+
+            }
+
+        }
+        catch(err){
+            log.error(`AppInfo error getting app info req.query ${JSON.stringify(req.query)} ` + err + __location)
+        }
+       res.send(200,responseAppInfoJSON)
+       return next();
+    }
+    else {
+        responseObj['error'] = true;
+        responseObj['message'] = 'Invalid input received.';
+        res.send(400, responseObj);
+        return next(serverHelper.requestError('Bad request'));
+    }
+
+}
+
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
+    //POSTs Quote Application workflow steps
     server.addPostAuthAppWF('Post Application Workflow', `${basePath}/applicationwf`, Save);
     server.addPostAuthAppWF('Post Application Workflow(depr)', `${basePath}wf`, Save);
-    server.addGet('Get Quote Engine Resources', `${basePath}/applicationwf/getresources`, GetResources)
-    server.addGet('Get Quote Engine Resources', `${basePath}wf/getresources`, GetResources)
-    server.addPost('Checkzip for Quote Engine', `${basePath}/applicationwf/checkzip`, CheckZip)
-    server.addPost('Checkzip for Quote Engine', `${basePath}wf/checkzip`, CheckZip)
-    server.addGet('GetAssociations for Quote Engine', `${basePath}/applicationwf/getassociations`, GetAssociations)
-    server.addGet('GetAssociations for Quote Engine', `${basePath}wf/getassociations`, GetAssociations)
+
+    //GET Quote Application - updated address and business info (before location step)
+    server.addGetAuthAppWF('GET Application info)', `${basePath}wf/appinfo`, AppInfo);
+
+
+    // Email and error reporting for Quote App.
     server.addPostAuthAppWF('Post Application Error', `${basePath}/applicationwf/reporterror`, ReportError);
     server.addPostAuthAppWF('Post Application Error(depr)', `${basePath}wf/reporterror`, ReportError);
     server.addPostAuthAppWF('Post Application agencyemail', `${basePath}/applicationwf/agencyemail`, AgencyEmail);
     server.addPostAuthAppWF('Post Application agencyemail(depr)', `${basePath}wf/agencyemail`, AgencyEmail);
     // server.addPost('Post Application agencyemail', `${basePath}/applicationwf/agencyemail`, AgencyEmail);
     // server.addPost('Post Application agencyemail(depr)', `${basePath}wf/agencyemail`, AgencyEmail);
+
+    // GETs for Quote App
+    server.addGet('Get Quote Engine Resources', `${basePath}/applicationwf/getresources`, GetResources)
+    server.addGet('Get Quote Engine Resources', `${basePath}wf/getresources`, GetResources)
+    server.addPost('Checkzip for Quote Engine', `${basePath}/applicationwf/checkzip`, CheckZip)
+    server.addPost('Checkzip for Quote Engine', `${basePath}wf/checkzip`, CheckZip)
+    server.addGet('GetAssociations for Quote Engine', `${basePath}/applicationwf/getassociations`, GetAssociations)
+    server.addGet('GetAssociations for Quote Engine', `${basePath}wf/getassociations`, GetAssociations)
+
 };
 
 

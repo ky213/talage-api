@@ -5,6 +5,7 @@ const acordsvc = global.requireShared('./services/acordsvc.js');
 const emailsvc = global.requireShared('./services/emailsvc.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 
 // Email template
 let email_subject = 'ACORD Application from TEMPLATE_AGENCY_NAME';
@@ -96,13 +97,10 @@ module.exports = class ACORDGL extends Integration{
 	 */
     async getEmail(){
 
-        let acord_email = '';
-        const acord_email_sql = `SELECT policy_type_info
-								 FROM clw_talage_agency_location_insurers
-								 WHERE agency_location = ${this.app.agencyLocation.id} AND insurer = ${this.insurer.id}`
-
+        let policyTypeInfoJSON = '';
         try{
-            acord_email = await db.query(acord_email_sql)
+            const agencyLocationBO = new AgencyLocationBO();
+            policyTypeInfoJSON =  await  agencyLocationBO.getPolicyInfo(this.app.agencyLocation.id, this.insurer.id);
         }
         catch(err){
             log.error(`Appid: ${this.app.id} Database error retrieving ACORD email for agency location: ${this.app.agencyLocation.id} insurer: ${this.insurer.id} ` + err + __location);
@@ -110,20 +108,21 @@ module.exports = class ACORDGL extends Integration{
         }
 
         //Make sure we found exactly one record
-        if(acord_email.length !== 1){
-            log.error(`Appid: ${this.app.id} ${acord_email.length} records found for ACORD email for agency location: ${this.app.agencyLocation.id} insurer: ${this.insurer.id} instead of 1` + __location);
+        if(!policyTypeInfoJSON){
+            log.error(`Appid: ${this.app.id} not policyTypeInfo found for ACORD email for agency location: ${this.app.agencyLocation.id} insurer: ${this.insurer.id}` + __location);
             return false;
         }
 
         //Retrieve the email address for GL
-        const policyTypeInfoJSON = await JSON.parse(acord_email[0].policy_type_info);
+        //BO returns JSON.
+        //const policyTypeInfoJSON = await JSON.parse(policyTypeInfoJSON[0].policy_type_info);
 
         let email_address = null;
         try{
             email_address = policyTypeInfoJSON.GL.acordInfo.sendToEmail;
         }
         catch(e){
-            log.error(`Appid: ${this.app.id} Missing acord email address GL agency location id ${this.app.agencyLocation.id} ` + __location)
+            log.error(`Appid: ${this.app.id} Missing acord email address GL agency location id ${this.app.agencyLocation.id} insurer: ${this.insurer.id}` + __location)
         }
 
         //Check the email was found

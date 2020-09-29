@@ -369,7 +369,7 @@ async function getApplications(req, res, next){
     ];
     //Fix bad dates coming in.
     if(!req.params.startDate || (req.params.startDate && req.params.startDate.startsWith('T00:00:00.000'))){
-        req.params.startDate = moment('2020-01-2010').toISOString();
+        req.params.startDate = moment('2020-01-01').toISOString();
     }
 
     if(!req.params.endDate || (req.params.endDate && req.params.endDate.startsWith('T23:59:59.999'))){
@@ -450,12 +450,17 @@ async function getApplications(req, res, next){
             where += ` OR ${db.quoteName('ic.description')} LIKE ${db.escape(`%${req.params.searchText}%`)}`;
         }
         //if searchText is number search on application id
+        if(req.params.searchText.length > 2){
+            where += ` OR a.uuid LIKE ${db.escape(`%${req.params.searchText}%`)}`;
+        }
         if(isNaN(req.params.searchText) === false && req.params.searchText.length > 3){
             const testInteger = Number(req.params.searchText);
             if(Number.isInteger(testInteger)){
                 where += ` OR a.id  = ${db.escape(req.params.searchText)}`;
                 where += ` OR b.mailing_zipcode LIKE ${db.escape(`${req.params.searchText}%`)}`
             }
+            
+            
         }
         where += ')';
     }
@@ -516,6 +521,7 @@ async function getApplications(req, res, next){
 				${db.quoteName('b.name_clear', 'business')},
 				${db.quoteName('a.last_step', 'lastStep')},
 				${db.quoteName('ic.description', 'industry')},
+				RIGHT(${db.quoteName('uuid')}, 5) AS 'uuid',
 				CONCAT(LOWER(${db.quoteName('b.mailing_city')}), ', ', ${db.quoteName('b.mailing_state_abbr')}, ' ',b.mailing_zipcode) AS ${db.quoteName('location')}
 			${commonSQL}
 			ORDER BY ${db.quoteName(req.params.sort)} ${req.params.sortDescending ? 'DESC' : 'ASC'}
