@@ -600,10 +600,10 @@ module.exports = class ApplicationModel {
     }
     // Get Business Data from AF Business Data API.
     //call only have this.id has been set.
-    async getBusinessInfo(applicationJSON) {
+    async getBusinessInfo(requestApplicationJSON) {
         let error = null;
         //Information will be in the applicationJSON.businessInfo
-        if(applicationJSON.businessInfo && applicationJSON.businessInfo.name && this.id){
+        if(requestApplicationJSON.businessInfo && requestApplicationJSON.businessInfo.name && this.id){
             let currentAppDBJSON = await this.getById(this.id).catch(function(err){
                 log.error(`error getBusinessInfo getting application record, appid ${this.id} error:` + e + __location)
             });
@@ -612,16 +612,16 @@ module.exports = class ApplicationModel {
             }
             //Setup goodplace 
             let saveBusinessData = false;
-            let afBusinessDataJSON = {};
+            let afBusinessDataJSON = null;
             let newBusinessDataJSON  = currentAppDBJSON.businessDataJSON;
             if(!newBusinessDataJSON){
                 newBusinessDataJSON = {};
             }
-            if(applicationJSON.google_place){
-                if(applicationJSON.address){
-                    applicationJSON.google_place.address = applicationJSON.address;
+            if(requestApplicationJSON.google_place){
+                if(requestApplicationJSON.address){
+                    requestApplicationJSON.google_place.address = requestApplicationJSON.address;
                 }
-                newBusinessDataJSON.googleBusinessData = applicationJSON.google_place;
+                newBusinessDataJSON.googleBusinessData = requestApplicationJSON.google_place;
                 saveBusinessData = true;
             }
             let agencyNetworkId = 0;
@@ -634,7 +634,7 @@ module.exports = class ApplicationModel {
             //Only process AF call if digalent.             
             if(agencyNetworkId === 2){
                 const businessInfoRequestJSON = {
-                    "company_name": applicationJSON.businessInfo.name
+                    "company_name": requestApplicationJSON.businessInfo.name
                 };
                 // if(applicationJSON.businessInfo.address && applicationJSON.businessInfo.address.state_abbr){
                 //     businessInfo.state = applicationJSON.businessInfo.address.state_abbr
@@ -643,17 +643,17 @@ module.exports = class ApplicationModel {
                 // }
                 const addressFieldList = ["address","address2","city","state_abbr","zip"];
                 const address2AFRequestMap = {
-                        "addresss" : "street_address1",
-                        "addresss2" : "street_address2",
+                        "address" : "street_address1",
+                        "address2" : "street_address2",
                         "state_abbr": "state"
                         };
                 for(let i=0; i < addressFieldList.length; i++){
-                    if(applicationJSON.address[addressFieldList[i]]){
+                    if(requestApplicationJSON.address[addressFieldList[i]]){
                         let propertyName = addressFieldList[i];
                         if(address2AFRequestMap[addressFieldList[i]]){
                             propertyName = address2AFRequestMap[addressFieldList[i]]
                         }
-                        businessInfoRequestJSON[propertyName] = applicationJSON.address[addressFieldList[i]];
+                        businessInfoRequestJSON[propertyName] = requestApplicationJSON.address[addressFieldList[i]];
                     }
                 }
                 try {
@@ -661,7 +661,7 @@ module.exports = class ApplicationModel {
                 }
                 catch (e) {
                     log.error(`error call AF Business Data API, appid ${this.id} error:` + e + __location)
-                   
+                    afBusinessDataJSON = {};
                     afBusinessDataJSON.error = "Error call in AF Business Data API";
                 }
                 if(afBusinessDataJSON){
@@ -688,15 +688,166 @@ module.exports = class ApplicationModel {
                     error = err;
                 });
                 log.info(`Application ${this.id} update BusinessDataJSON`);
-                if(afBusinessDataJSON){
+                currentAppDBJSON.businessDataJSON = newBusinessDataJSON;
+                if(afBusinessDataJSON && afBusinessDataJSON.Status === "SUCCESS"){
                     //update application Business and address.
-                }           
+                    log.debug("updating application records from afBusinessDataJSON " + __location)
+                    await this.updateFromAfBusinessData(currentAppDBJSON, afBusinessDataJSON)
+                } else if(requestApplicationJSON.google_place){
+                    await this.updatefromGooglePlaceData(currentAppDBJSON, requestApplicationJSON.google_place)
+                } else {
+                    log.debug("No valid Business Data to update records " + __location)
+                }         
             }
             // update application.businessDataJSON
         }// if applicationJSON.businessInfo
         //no errors....
        return false;
     }
+    async updateFromAfBusinessData(applicationJSON, afBusinessDataJSON){
+        if(this.id &&  afBusinessDataJSON && applicationJSON){
+            if(afBusinessDataJSON.afgCompany){
+                try{
+                    
+                    //afgCompany -> website, street_addr1, state, city, zip,number_of 
+                    if(afBusinessDataJSON.afgCompany.state && afBusinessDataJSON.afgCompany.city){
+                        applicationJSON.state = afBusinessDataJSON.afgCompany.state;
+                        applicationJSON.city = afBusinessDataJSON.afgCompany.city;
+                    }
+                    if(afBusinessDataJSON.afgCompany.zip){
+                        applicationJSON.zipcode = afBusinessDataJSON.afgCompany.zip.toString();
+                        applicationJSON.zip = parseInt(afBusinessDataJSON.afgCompany.zip);
+                    }
+
+                    this.#dbTableORM.load(applicationJSON, false).catch(function (err) {
+                        log.error("Error loading application orm " + err + __location);
+                        throw err;
+                    });
+                   
+                    //save
+                    log.debug("saving application records from afBusinessDataJSON " + __location)
+                    await this.#dbTableORM.save().catch(function (err) {
+                        log.error("Error Saving application orm " + err + __location);
+                        throw err;
+                    });
+                    log.debug(`App ${this.id} updated from afBusinessDataJSON ` + __location);
+                }
+                catch(err){
+                    log.error("Error update App from AFBusinessData " + err + __location);
+                }
+               
+                
+            }
+            if(applicationJSON.business){
+                //have businessId
+                let businessJSON = {"id": applicationJSON.business};
+                let locationJSON = {"business": applicationJSON.business}
+                if(afBusinessDataJSON.afgCompany){
+                    const companyFieldList = ["street_addr1","street_addr2","city","state","zip", "website"];
+                    const company2BOMap = {
+                                "street_addr1" : "mailing_address",
+                                "street_addr2" : "mailing_address2",
+                                "city": "mailing_city",
+                                "state": "mailing_state_abbr",
+                                "zip": "mailing_zipcode"
+                            };
+                    const company2LocationBOMap = {
+                        "street_addr1" : "address",
+                        "street_addr2" : "address2",
+                        "city": "city",
+                        "state": "state_abbr",
+                        "zip": "zipcode"
+                    };
+                    try{
+                        for(let i = 0 ; i < companyFieldList.length; i++ ){
+                            if(afBusinessDataJSON.afgCompany[companyFieldList[i]]){
+                                let propertyName = companyFieldList[i];
+                                if(company2BOMap[companyFieldList[i]]){
+                                    propertyName = company2BOMap[companyFieldList[i]]
+                                }
+                                businessJSON[propertyName] = afBusinessDataJSON.afgCompany[companyFieldList[i]];
+                                //location 
+                                propertyName = companyFieldList[i];
+                                if(company2LocationBOMap[companyFieldList[i]]){
+                                    propertyName = company2LocationBOMap[companyFieldList[i]]
+                                }
+                                locationJSON[propertyName] = afBusinessDataJSON.afgCompany[companyFieldList[i]];
+                            }
+
+                        }
+                        log.debug("afBusinessDataJSON.afgCompany " + JSON.stringify(afBusinessDataJSON.afgCompany));
+                        log.debug("businessJSON " + JSON.stringify(businessJSON));
+                        if(businessJSON.mailing_zipcode){
+                            businessJSON.mailing_zipcode = businessJSON.mailing_zipcode.toString();
+                        }
+                        if(locationJSON.zipcode){
+                            locationJSON.zipcode = locationJSON.zipcode.toString();
+                        }
+
+                        if(afBusinessDataJSON.afgCompany.employee_count){
+                            locationJSON.full_time_employees = afBusinessDataJSON.afgCompany.employee_count;
+                        }
+                    }
+                    catch(err){
+                        log.error("error mapping AF Company data to BO " + err + __location);
+                    }
+                    
+                }
+            
+                if(afBusinessDataJSON.afgPreFill){
+                    if(afBusinessDataJSON.afgPreFill.legal_entity){
+                        businessJSON.entity_type = afBusinessDataJSON.afgPreFill.legal_entity;
+                    }
+
+
+                }
+
+                businessJSON.locations = [];
+                businessJSON.locations.push(locationJSON)
+
+                // //businessJSON.contacts
+                // const contactFieldList = ["street_address1","street_address1","city","state","zip"];
+                // const contact2BOMap = {
+                //         "street_address1" : "address",
+                //         "street_address1" : "address2",
+                //         "state": "state_abbr"
+                //         };
+                
+
+                try{
+                    log.debug("updating  application business records from afBusinessDataJSON " + + __location)
+                    await this.processBusiness(businessJSON);
+                }
+                catch(err){
+                    log.error("Error Mapping AF Business Data to BO Saving " + err + __location);
+                }
+
+
+
+
+            }
+            else {
+                log.error(`No business id for application ${this.id}`)
+            }
+            //clw_talage_application_activity_codes - default from industry_code???
+        }
+        else {
+            log.warn()
+        }
+        return true;
+    }
+
+    async updatefromGooglePlaceData(applicationJSON, googlePlaceJSON){
+        if(this.id && applicationJSON && googlePlaceJSON){
+            // TODO----
+
+
+
+            
+        }
+        return true;
+    }
+
   
     // save(asNew = false) {
     //     return new Promise(async (resolve, reject) => {
