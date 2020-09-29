@@ -1415,7 +1415,7 @@ module.exports = class Integration {
             });
 
             if (!codes.length) {
-                log.error(`Appid: ${this.app.id} autodeclined: no codes  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
+                log.warn(`Appid: ${this.app.id} autodeclined: no codes  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
                 this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code');
                 fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 return;
