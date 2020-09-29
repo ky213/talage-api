@@ -694,6 +694,7 @@ module.exports = class ApplicationModel {
                     log.debug("updating application records from afBusinessDataJSON " + __location)
                     await this.updateFromAfBusinessData(currentAppDBJSON, afBusinessDataJSON)
                 } else if(requestApplicationJSON.google_place){
+                    requestApplicationJSON.google_place.address = requestApplicationJSON.address;
                     await this.updatefromGooglePlaceData(currentAppDBJSON, requestApplicationJSON.google_place)
                 } else {
                     log.debug("No valid Business Data to update records " + __location)
@@ -711,7 +712,7 @@ module.exports = class ApplicationModel {
                     
                     //afgCompany -> website, street_addr1, state, city, zip,number_of 
                     if(afBusinessDataJSON.afgCompany.state && afBusinessDataJSON.afgCompany.city){
-                        applicationJSON.state = afBusinessDataJSON.afgCompany.state;
+                        applicationJSON.state_abbr = afBusinessDataJSON.afgCompany.state;
                         applicationJSON.city = afBusinessDataJSON.afgCompany.city;
                     }
                     if(afBusinessDataJSON.afgCompany.zip){
@@ -775,8 +776,8 @@ module.exports = class ApplicationModel {
                             }
 
                         }
-                        log.debug("afBusinessDataJSON.afgCompany " + JSON.stringify(afBusinessDataJSON.afgCompany));
-                        log.debug("businessJSON " + JSON.stringify(businessJSON));
+                        // log.debug("afBusinessDataJSON.afgCompany " + JSON.stringify(afBusinessDataJSON.afgCompany));
+                        // log.debug("businessJSON " + JSON.stringify(businessJSON));
                         if(businessJSON.mailing_zipcode){
                             businessJSON.mailing_zipcode = businessJSON.mailing_zipcode.toString();
                         }
@@ -805,14 +806,6 @@ module.exports = class ApplicationModel {
                 businessJSON.locations = [];
                 businessJSON.locations.push(locationJSON)
 
-                // //businessJSON.contacts
-                // const contactFieldList = ["street_address1","street_address1","city","state","zip"];
-                // const contact2BOMap = {
-                //         "street_address1" : "address",
-                //         "street_address1" : "address2",
-                //         "state": "state_abbr"
-                //         };
-                
 
                 try{
                     log.debug("updating  application business records from afBusinessDataJSON " + + __location)
@@ -832,18 +825,121 @@ module.exports = class ApplicationModel {
             //clw_talage_application_activity_codes - default from industry_code???
         }
         else {
-            log.warn()
+            log.warn("updateFromAfBusinessData missing parameters " +  __location)
         }
         return true;
     }
 
     async updatefromGooglePlaceData(applicationJSON, googlePlaceJSON){
         if(this.id && applicationJSON && googlePlaceJSON){
-            // TODO----
+            if(googlePlaceJSON.address){
+                try{
+                    
+                    //afgCompany -> website, street_addr1, state, city, zip,number_of 
+                    if(googlePlaceJSON.address.state_abbr && googlePlaceJSON.address.city){
+                        applicationJSON.state_abbr = googlePlaceJSON.address.state_abbr;
+                        applicationJSON.city = googlePlaceJSON.address.city;
+                    }
+                    if(googlePlaceJSON.address.zip){
+                        applicationJSON.zipcode = googlePlaceJSON.address.zip.toString();
+                        applicationJSON.zip = parseInt(googlePlaceJSON.address.zip);
+                    }
 
+                    this.#dbTableORM.load(applicationJSON, false).catch(function (err) {
+                        log.error("Error loading application orm " + err + __location);
+                        throw err;
+                    });
+                   
+                    //save
+                    log.debug("saving application records from afBusinessDataJSON " + __location)
+                    await this.#dbTableORM.save().catch(function (err) {
+                        log.error("Error Saving application orm " + err + __location);
+                        throw err;
+                    });
+                    log.debug(`App ${this.id} updated from afBusinessDataJSON ` + __location);
+                }
+                catch(err){
+                    log.error("Error update App from AFBusinessData " + err + __location);
+                }
+               
+                
+            }
+            if(applicationJSON.business){
+                //have businessId
+                let businessJSON = {"id": applicationJSON.business};
+                let locationJSON = {"business": applicationJSON.business}
+                if(googlePlaceJSON.address){
+                    const companyFieldList = ["address","address2","city","state_abbr","zip"];
+                    const company2BOMap = {
+                                "address" : "mailing_address",
+                                "address2" : "mailing_address2",
+                                "city": "mailing_city",
+                                "state_abbr": "mailing_state_abbr",
+                                "zip": "mailing_zipcode"
+                            };
+                    const company2LocationBOMap = {
+                        "zip": "zipcode"
+                    };
+                    try{
+                        for(let i = 0 ; i < companyFieldList.length; i++ ){
+                            if(googlePlaceJSON.address[companyFieldList[i]]){
+                                let propertyName = companyFieldList[i];
+                                if(company2BOMap[companyFieldList[i]]){
+                                    propertyName = company2BOMap[companyFieldList[i]]
+                                }
+                                businessJSON[propertyName] = googlePlaceJSON.address[companyFieldList[i]];
+                                //location 
+                                propertyName = companyFieldList[i];
+                                if(company2LocationBOMap[companyFieldList[i]]){
+                                    propertyName = company2LocationBOMap[companyFieldList[i]]
+                                }
+                                locationJSON[propertyName] = googlePlaceJSON.address[companyFieldList[i]];
+                            }
 
+                        }
+                        // log.debug("googlePlaceJSON.address " + JSON.stringify(googlePlaceJSON.address));
+                        // log.debug("businessJSON " + JSON.stringify(businessJSON));
+                        if(businessJSON.mailing_zipcode){
+                            businessJSON.mailing_zipcode = businessJSON.mailing_zipcode.toString();
+                        }
+                        if(locationJSON.zipcode){
+                            locationJSON.zipcode = locationJSON.zipcode.toString();
+                        }
 
+                        if(googlePlaceJSON.address.employee_count){
+                            locationJSON.full_time_employees = googlePlaceJSON.address.employee_count;
+                        }
+                    }
+                    catch(err){
+                        log.error("error mapping Google Place  Company data to BO " + err + __location);
+                    }
+                    
+                }
             
+                if(googlePlaceJSON.afgPreFill){
+                    if(googlePlaceJSON.afgPreFill.legal_entity){
+                        businessJSON.entity_type = googlePlaceJSON.afgPreFill.legal_entity;
+                    }
+
+
+                }
+
+                businessJSON.locations = [];
+                businessJSON.locations.push(locationJSON)
+                try{
+                    log.debug("updating  application business records from afBusinessDataJSON " + + __location)
+                    await this.processBusiness(businessJSON);
+                }
+                catch(err){
+                    log.error("Error Mapping AF Business Data to BO Saving " + err + __location);
+                }
+            }
+            else {
+                log.error(`No business id for application ${this.id}`)
+            }
+        }
+        else {
+            log.warn("updateFromAfBusinessData missing parameters " +  __location)
         }
         return true;
     }
