@@ -83,7 +83,8 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         //return next(serverHelper.requestError('You must supply at least one zip code'));
         return false;
     }
-
+    // zip code table does not support 9-digit zips.  zipcode array need to make sure any 9 digit zips
+    // are cut down to 5.
     sql = `SELECT DISTINCT territory FROM clw_talage_zip_codes WHERE zip IN (${zipCodeArray.join(',')});`;
     const zip_result = await db.query(sql).catch(function(err) {
         error = err.message;

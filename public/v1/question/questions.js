@@ -24,7 +24,7 @@ async function getQuestions(req, res, next){
         return next(serverHelper.requestError('Required data missing. Please see documentation.'));
     }
 
-    log.verbose(util.inspect(req.query));
+    //log.verbose(util.inspect(req.query));
 
     // Make sure basic elements are present
     if (!req.query.policy_types) {

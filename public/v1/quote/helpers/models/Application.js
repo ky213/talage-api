@@ -164,7 +164,7 @@ module.exports = class Application {
         // requestedInsureres not longer sent from Web app.
         //get_insurers(requestedInsurers) {
         return new Promise(async(fulfill, reject) => {
-            log.debug("IN GET INSURERS FROM REQUESTED INSURERS")
+            log.debug("IN GET INSURERS FROM REQUESTED INSURERS FOR Agency Location ID "  + this.agencyLocation.id )
             // Get a list of desired insurers
             let desired_insurers = [];
             let stop = false;
