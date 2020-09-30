@@ -230,7 +230,18 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
         log.error(err.message + __location);
         return null; 
     }
-   
+	// Retrieve Officer Titles
+	const officerTitlesSql = `SELECT officerTitle from \`officer_titles\``;
+
+	// Including an require statements.
+	const officerTitlesResult = await db.query(officerTitlesSql).catch(function(err){
+		log.error('officer_titles ' + err + __location);
+	});
+	const officerTitleArr = [];
+	officerTitlesResult.forEach(officerTitleObj => officerTitleArr.push(officerTitleObj.officerTitle));
+	if(officerTitleArr.length > 0){
+		agency.officerTitles = officerTitleArr;
+	}
     // Update the landing page hit counter
     sql = `
 			UPDATE clw_talage_agency_landing_pages
