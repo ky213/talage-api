@@ -230,15 +230,15 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
         log.error(err.message + __location);
         return null; 
     }
-	// Retrieve Officer Roles
+	// Retrieve Officer Titles
 	const officerTitlesSql = `SELECT officerTitle from \`officer_titles\``;
 
-    //including an require statements.
+	// Including an require statements.
 	const officerTitlesResult = await db.query(officerTitlesSql).catch(function(err){
 		log.error('officer_titles ' + err + __location);
 	});
 	const officerTitleArr = [];
-	officerTitlesResult.forEach(officerRolesObj => officerTitleArr.push(officerRolesObj.officerTitle));
+	officerTitlesResult.forEach(officerTitleObj => officerTitleArr.push(officerTitleObj.officerTitle));
 	if(officerTitleArr.length > 0){
 		agency.officerTitles = officerTitleArr;
 	}
