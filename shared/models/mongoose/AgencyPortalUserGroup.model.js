@@ -29,7 +29,7 @@ let PermissionSchema = new Schema({
     applications: PermissionRightsSchema,
     dashboard: PermissionRightsSchema,
     owner: PermissionRightsSchema,
-
+    talageStaff: {type: Boolean, required: true, default: false }
 },{ _id : false })
 
 let AgencyPortalUserGroupSchema = new Schema({
