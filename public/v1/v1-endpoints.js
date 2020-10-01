@@ -134,6 +134,7 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'administration', 'payment-plan-rt');
     registerEndpoint(server, 'administration', 'policy-type-rt');
     registerEndpoint(server, 'administration', 'user-group-rt');
+    registerEndpoint(server, 'administration', 'mapping-rt');
 
     // Server.AddGet('Uptime Check', '/', GetUptime);
     // AWS load balancers and pingdom send /uptime
