@@ -77,7 +77,6 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'agency-portal', 'reports');
     registerEndpoint(server, 'agency-portal', 'resend-onboarding-email');
     registerEndpoint(server, 'agency-portal', 'reset-password');
-    registerEndpoint(server, 'agency-portal', 'settings');
     registerEndpoint(server, 'agency-portal', 'terms-of-service');
     registerEndpoint(server, 'agency-portal', 'user-info');
     registerEndpoint(server, 'agency-portal', 'validate-token');
@@ -127,8 +126,14 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'administration', 'agency-network-user-rt');
     registerEndpoint(server, 'administration', 'agency-location-rt');
     registerEndpoint(server, 'administration', 'territory-rt');
+    registerEndpoint(server, 'administration', 'question-rt');
+    registerEndpoint(server, 'administration', 'insurer-question-rt');
+    registerEndpoint(server, 'administration', 'question-answer-rt');
+    registerEndpoint(server, 'administration', 'question-type-rt');
+    registerEndpoint(server, 'administration', 'question-activity-codes-rt');
     registerEndpoint(server, 'administration', 'payment-plan-rt');
     registerEndpoint(server, 'administration', 'policy-type-rt');
+    registerEndpoint(server, 'administration', 'user-group-rt');
 
     // Server.AddGet('Uptime Check', '/', GetUptime);
     // AWS load balancers and pingdom send /uptime

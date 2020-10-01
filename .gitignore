@@ -13,3 +13,4 @@ mochawesome-report/
 /loadagencynetworkadditionalInfo.js
 /loadtestmysql.js
 /setAgencyNotifyTalage.js
+*.DS_Store
