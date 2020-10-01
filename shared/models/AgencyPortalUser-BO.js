@@ -157,8 +157,6 @@ module.exports = class AgencyPortalUserBO{
                     }
                     if(queryJSON.group){
                         sql += hasWhere ? " AND " : " WHERE ";
-                        // group is a keyword and needs special treatment on the where
-                        sql += ` ${tableName}.group = ${db.escape(queryJSON.group)} `
                         hasWhere = true;
                     }
                 }
