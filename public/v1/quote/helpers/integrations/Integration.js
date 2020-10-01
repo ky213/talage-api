@@ -1416,7 +1416,7 @@ module.exports = class Integration {
 
             if (!codes.length) {
                 log.warn(`Appid: ${this.app.id} autodeclined: no codes  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
-                this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code');
+                this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code and state');
                 fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 return;
             }
@@ -1424,7 +1424,7 @@ module.exports = class Integration {
             // Make sure the number of codes matched (otherwise there were codes unsupported by this insurer)
             if (Object.keys(wcCodes).length !== codes.length) {
                 log.error(`Appid: ${this.app.id} autodeclined: Code length do not match  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
-                this.reasons.push('Out of Appetite: The insurer does not support one or more of the selected activity codes');
+                this.reasons.push('Out of Appetite: The insurer does not support one or more of the selected activity codes and state');
                 fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 return;
             }
@@ -1433,7 +1433,7 @@ module.exports = class Integration {
             codes.forEach((code) => {
                 if (code.result === 0) {
                     log.error(`Appid: ${this.app.id} autodeclined: Code length do not match  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
-                    this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code');
+                    this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code and state');
                     fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                     hadError = true;
                     return;
@@ -1443,7 +1443,7 @@ module.exports = class Integration {
                     return;
                 }
                 log.error(`Appid: ${this.app.id} autodeclined: this.insurer_wc_codes ${this.insurer_wc_codes} insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
-                this.reasons.push('Out of Appetite: The insurer does not support one or more of the selected activity codes');
+                this.reasons.push('Out of Appetite: The insurer does not support one or more of the selected activity codes and state');
                 fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 hadError = true;
             });
