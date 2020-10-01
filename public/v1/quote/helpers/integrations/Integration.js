@@ -762,7 +762,7 @@ module.exports = class Integration {
 
             // Check for outage - "outages" in Insurer class and database SQL
             if (this.insurer.outage) {
-                const error_message = `Appid: ${this.app.id} ${this.insurer.name} is currently unavailable`;
+                const error_message = `Appid: ${this.app.id} ${this.insurer.name} is currently unavailable to planned outage`;
                 this.reasons.push(error_message);
                 fulfill(this.return_error('outage'));
                 return;
@@ -1161,9 +1161,10 @@ module.exports = class Integration {
 	 * @param {string} data - The data to be sent
 	 * @param {object} additional_headers - Additional headers to be sent with the request, one header 'Content-Type' is required, all others are optional
 	 * @param {string} method (optional) - The HTTP method to be used (e.g. POST or GET)
+     * @param {boolean} log_errors - True if error logging should be handled here, false if error logging is handled in the client
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
 	 */
-    send_request(host, path, data, additional_headers, method) {
+    send_request(host, path, data, additional_headers, method, log_errors = true) {
         log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Sending To ${path}`);
         const start_time = process.hrtime();
 
@@ -1248,13 +1249,16 @@ module.exports = class Integration {
                         this.log += `--------======= Response Appid: ${this.app.id}  =======--------<br><br><pre>${filteredData}</pre><br><br>`;
                         fulfill(rawData);
                     }
-                    else {
+                    else{
                         const error = new Error(`Appid: ${this.app.id} insurer request encountered a ${res.statusCode} error`);
-                        log.error(error.message + __location);
-                        log.verbose(rawData);
+                        // Added check - do not log errors if there is a special response case for the client to handle
+                        if(log_errors){
+                            log.error(error.message + __location);
+                            log.verbose(rawData);
+                            this.log += `--------======= Error Appid: ${this.app.id}  =======--------<br><br>Status Code: ${res.statusCode}<br><pre>${rawData}</pre><br><br>`;
+                        }
                         error.httpStatusCode = res.statusCode;
                         error.response = rawData;
-                        this.log += `--------======= Error Appid: ${this.app.id}  =======--------<br><br>Status Code: ${res.statusCode}<br><pre>${rawData}</pre><br><br>`;
                         reject(error);
                     }
                 });
@@ -1283,7 +1287,7 @@ module.exports = class Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
 	 */
 
-    send_json_request(host, path, json, additional_headers, method) {
+    send_json_request(host, path, json, additional_headers, method, log_errors = true) {
         return new Promise(async(fulfill, reject) => {
             // If we don't have additional headers, start an object to append
             if (!additional_headers) {
@@ -1297,7 +1301,7 @@ module.exports = class Integration {
             additional_headers.accept = 'application/json';
 
             // Send the request
-            await this.send_request(host, path, json, additional_headers, method).
+            await this.send_request(host, path, json, additional_headers, method, log_errors).
                 then((result) => {
                     fulfill(JSON.parse(result));
                 }).
@@ -1411,7 +1415,7 @@ module.exports = class Integration {
             });
 
             if (!codes.length) {
-                log.error(`Appid: ${this.app.id} autodeclined: no codes  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
+                log.warn(`Appid: ${this.app.id} autodeclined: no codes  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
                 this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code');
                 fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 return;

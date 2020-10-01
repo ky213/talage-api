@@ -639,6 +639,13 @@ module.exports = class CompwestWC extends Integration {
         }
         catch (error) {
             log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: ${error}` + __location);
+            if(error.message.indexOf('timedout') > -1){
+                this.reasons.push(error)
+                //TODO change result to connection timeout vs error
+            }
+            else{
+                this.reasons.push(error)
+            }
             return this.return_result('error');
         }
         // Begin reducing the response

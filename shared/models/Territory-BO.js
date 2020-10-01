@@ -13,7 +13,7 @@ const { query } = require('winston');
 
 const tableName = 'clw_talage_territories'
 const skipCheckRequired = false;
-const doNotUpdateColoumns = ['id','uuid','created', 'created_by', 'modified', 'deleted'];
+const doNotUpdateColumns = ['id','uuid','created', 'created_by', 'modified', 'deleted'];
 
 module.exports = class TerritoryBO{
 
@@ -330,7 +330,7 @@ module.exports = class TerritoryBO{
             const setStatements = [];
             log.debug("this.properties: " + JSON.stringify(this.#dbTableORM.properties))
 			for (const property in properties) {
-                if(doNotUpdateColoumns.includes(property)){
+                if(doNotUpdateColumns.includes(property)){
                     continue;
                 }
 				// Localize the data value
@@ -389,6 +389,50 @@ module.exports = class TerritoryBO{
             log.info(`updated record ${tableName} abbr:  ` + this.abbr);
 			fulfill(true);
         });
+    }
+
+    async fliptoStateName(stateAbbrArray, commaDelimitedString = false ){
+        
+        if(stateAbbrArray){
+            let rejected  = false;
+         
+            const parmList = [stateAbbrArray];
+            const sql = `SELECT
+                t.name
+            FROM clw_talage_territories as t as lt
+            WHERE t.abbr in  (?)
+            ORDER BY t.name ASC;`
+
+            const result = await db.queryParam(sql,parmList).catch(function (error) {
+                // Check if this was
+                rejected = true;
+                log.error(`${tableName} error on select ` + error + __location);
+            });
+            if(result && result.length>0) {
+                if (!rejected && result && result.length >0) {
+                    let territoryList = []
+                    for(let i=0; i< result.length; i++ ){
+                        territoryList.push(result[i].name);
+                    }
+                    if(commaDelimitedString === true ){
+                        return territoryList.join(',');
+                    }
+                    else {
+                        return territoryList;
+                    }
+                    
+                }
+                else {
+                    return null;
+                }
+            }
+            else {
+                return null;
+            }
+        }
+        else {
+            throw new Error("No stateAbbrArray");
+        }
     }
 
 }

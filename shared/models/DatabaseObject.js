@@ -15,15 +15,16 @@ const validator = global.requireShared('./helpers/validator.js');
 //usable in catches from promises.  (this not available)
 let tableName = '';
 // do not update or insert into database
-const doNotInsertColoumns = ['id','created', 'created_by', 'modified', 'deleted'];
-const doNotUpdateColoumns = ['id','uuid','created', 'created_by', 'modified', 'deleted'];
+const doNotInsertColumns = ['id','created', 'created_by', 'modified', 'deleted'];
+const doNotUpdateColumns = ['id','uuid','created', 'created_by', 'modified', 'deleted'];
 
 module.exports = class DatabaseObject {
 	#constructors = {};
 	#table = '';
 	#properties = {};
 
-    doNotSnakeCase = [];
+	doNotSnakeCase = [];
+	allowNulls = [];
 	/**
 	 * Constructor
 	 *
@@ -54,7 +55,7 @@ module.exports = class DatabaseObject {
 
                     let expectedDataType = this.#properties[property].type;
                    
-					if(this.hasValue(value)){
+					if(this.hasValue(value) || this.allowNulls.includes(property)){
 
 						// Verify the data type
                         // Special timestamp and Date processing
@@ -149,7 +150,8 @@ module.exports = class DatabaseObject {
                             value = JSON.parse(value)
                         }
 						else {
-                            if (expectedDataType !== typeof value) {
+							// if the property allows null and value is null, allow it
+							if (expectedDataType !== typeof value && (!this.allowNulls.includes(property) || value !== null)) {
                                 const badType = typeof value;
                                 const errorMessage = `${this.#table} Unexpected data type for ${property}, expecting ${this.#properties[property].type}. supplied Type: ${badType} value: ` + JSON.stringify(value);
                                 log.error(errorMessage + __location)
@@ -255,7 +257,7 @@ module.exports = class DatabaseObject {
                 // Store the value of the property in this object
 				try {
                     //skip nulls
-					if(this.hasValue(data[property]) ){
+					if(this.hasValue(data[property])  || this.allowNulls.includes(property) ){
 						this[property] = data[property];
                     }
 				} catch (error) {
@@ -382,7 +384,7 @@ module.exports = class DatabaseObject {
 				if (property === 'id') {
 					continue;
                 }
-                if(doNotInsertColoumns.includes(property)){
+                if(doNotInsertColumns.includes(property)){
                     continue;
                 }
 				if(this[property] || this[property] == '' || this[property] === 0 ){
@@ -405,7 +407,7 @@ module.exports = class DatabaseObject {
 					}
 
                     // Store the column and value
-                    if(this.hasValue(value)){
+                    if(this.hasValue(value) || this.allowNulls.includes(property)){
                         if(this.doNotSnakeCase.includes(property)){
                             columns.push(`\`${property}\``);
                         }   
@@ -497,13 +499,14 @@ module.exports = class DatabaseObject {
 					continue;
                 }
 
-                if(doNotUpdateColoumns.includes(property)){
+                if(doNotUpdateColumns.includes(property)){
                     continue;
                 }
 
 				// Localize the data value
-                let value = this[property];
-				if(this[property] || this[property] == '' || this[property] === 0 ){
+				let value = this[property];
+				// if the property allows null and value is null, allow it
+				if(value || value == '' || value === 0 || (this.allowNulls.includes(property) && value === null)){
 					// Check if we need to encrypt this value, and if so, encrypt
 					if (this.#properties[property].encrypted && value) {
 						value = await crypt.encrypt(value);
@@ -515,7 +518,7 @@ module.exports = class DatabaseObject {
 						value = JSON.stringify(value);
                     }
                     
-                    if(this.hasValue(value)){
+                    if(this.hasValue(value) || this.allowNulls.includes(property)){
                         // Write the set statement for this value
                         if(this.doNotSnakeCase.includes(property)){
                             setStatements.push(`\`${property}\` = ${db.escape(value)}`);
@@ -651,7 +654,7 @@ module.exports = class DatabaseObject {
 		let propertyNameJson = {};
 		for (const property in this.#properties) {
             if(noNulls === true){
-                if(this.hasValue(this[`#${property}`]) ){
+                if(this.hasValue(this[`#${property}`]) || this.allowNulls.includes(property)){
                     propertyNameJson[property] = this[`#${property}`]   
                 }
             }
