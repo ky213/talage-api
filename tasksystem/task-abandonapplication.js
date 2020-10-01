@@ -18,7 +18,7 @@ const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 exports.processtask = async function(queueMessage){
     let error = null;
     // Check sent time over 30 seconds do not process.
-    const sentDatetime = moment.unix(queueMessage.Attributes.SentTimestamp / 1000).utc();
+    const sentDatetime = moment.unix(queueMessage.Attributes.SentTimestamp / 1000).utc(); 
     const now = moment().utc();
     const messageAge = now.unix() - sentDatetime.unix();
 
@@ -42,7 +42,7 @@ exports.processtask = async function(queueMessage){
         }
         return;
     }
-};
+}; 
 
 /**
  * Exposes abandonAppTask for testing
@@ -178,6 +178,10 @@ var processAbandonApp = async function(applicationId){
             appDBJSON[0].agencyEmail = await crypt.decrypt(appDBJSON[0].agencyEmail);
             appDBJSON[0].agencyPhone = await crypt.decrypt(appDBJSON[0].agencyPhone);
             appDBJSON[0].agencyWebsite = await crypt.decrypt(appDBJSON[0].agencyWebsite);
+
+            if(!appDBJSON[0].agencyWebsite){
+                appDBJSON[0].agencyWebsite = "";
+            }
 
 
             let agencyPhone = '';
