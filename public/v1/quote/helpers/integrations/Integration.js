@@ -2,30 +2,31 @@
  * Defines a insurer integration
  */
 
-"use strict";
+'use strict';
 
-const crypt = global.requireShared("./services/crypt.js");
-const fileSvc = global.requireShared("./services/filesvc.js");
-const htmlentities = require("html-entities").Html5Entities;
-const https = require("https");
-const moment = require("moment");
-const util = require("util");
-const { v4: uuidv4 } = require("uuid");
-const xmlToObj = util.promisify(require("xml2js").parseString);
-const serverHelper = require("../../../../../server.js");
+const crypt = global.requireShared('./services/crypt.js');
+const fileSvc = global.requireShared('./services/filesvc.js');
+const htmlentities = require('html-entities').Html5Entities;
+const https = require('https');
+const moment = require('moment');
+const util = require('util');
+const {v4: uuidv4} = require('uuid');
+const xmlToObj = util.promisify(require('xml2js').parseString);
+const serverHelper = require('../../../../../server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const { getQuoteAggregatedStatus } = global.requireShared('./models/application-businesslogic/status.js');
+const {getQuoteAggregatedStatus} = global.requireShared('./models/application-businesslogic/status.js');
 
 module.exports = class Integration {
+
     /**
-     * Constructor for each integration
-     *
-     * @param {Application} app - An object containing all of the application information
-     * @param {object} insurer - An object containing all of the insurer information
-     * @param {object} policy - The data related to the current policy
-     * @returns {void}
-     */
+	 * Constructor for each integration
+	 *
+	 * @param {Application} app - An object containing all of the application information
+	 * @param {object} insurer - An object containing all of the insurer information
+	 * @param {object} policy - The data related to the current policy
+	 * @returns {void}
+	 */
     constructor(app, insurer, policy) {
         this.app = app;
         this.industry_code = {};
@@ -33,16 +34,16 @@ module.exports = class Integration {
         this.insurer_wc_codes = {};
         this.grouped_activity_codes = [];
         this.limits = {};
-        this.log = "";
-        this.number = "";
+        this.log = '';
+        this.number = '';
         this.policy = policy;
         this.questions = {};
         this.question_identifiers = {};
         this.question_details = {};
-        this.request_id = "";
+        this.request_id = '';
         this.seconds = 0;
         this.universal_questions = [];
-        this.writer = "";
+        this.writer = '';
 
         // These are set in our insurer integration
         this.possible_api_responses = {};
@@ -55,14 +56,14 @@ module.exports = class Integration {
         // Process payroll caps for Nevada
         const nv_payroll_cap = 36000;
         if (this.app.business) {
-            if (app.business.primary_territory === "NV") {
+            if (app.business.primary_territory === 'NV') {
                 // Loop through each location
-                app.business.locations.forEach(function (location, location_index) {
+                app.business.locations.forEach(function(location, location_index) {
                     // Total the employees
                     const total_employees = location.full_time_employees + location.part_time_employees;
 
                     // Loop through each class code
-                    location.activity_codes.forEach(function (code, code_index) {
+                    location.activity_codes.forEach(function(code, code_index) {
                         // If the payroll is over the cap, set it to the cap
                         if (code.payroll / total_employees > nv_payroll_cap) {
                             app.business.locations[location_index].activity_codes[code_index].payroll = nv_payroll_cap * total_employees;
@@ -74,88 +75,54 @@ module.exports = class Integration {
     }
 
     /**
-     * An entry point for binding a quote that conducts some necessary pre-processing before calling the insurer_bind function.
-     *
-     * @returns {Promise.<string, ServerError>} A promise that returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a ServerError if rejected
-     */
+	 * An entry point for binding a quote that conducts some necessary pre-processing before calling the insurer_bind function.
+	 *
+	 * @returns {Promise.<string, ServerError>} A promise that returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a ServerError if rejected
+	 */
     bind() {
-        this.log_info(`Bind Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
+        log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Bind Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
         return new Promise(async(fulfill, reject) => {
             // Make sure the _bind() function exists
             if (typeof this._bind === 'undefined') {
-                this.log_warn('Integration does not support binding quotes', __location);
+                log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} integration does not support binding quotes` + __location);
                 reject(serverHelper.notFoundError('Insurer integration does not support binding quotes at this time'));
                 return;
             }
 
             // Check for an outage
             if (this.insurer.outage) {
-                this.log_warn('Currently unavailable due to scheduled maintenance', __location);
+                log.warn(`Appid: ${this.app.id} ${this.insurer.name} is currently unavailable due to scheduled maintenance` + __location);
                 reject(serverHelper.serviceUnavailableError('Insurer is currently unavailable due to scheduled maintance'));
                 return;
             }
 
             // Run the insurer's bind function
-            await this._bind()
-                .then(function (result) {
+            await this._bind().
+                then(function(result) {
                     fulfill(result);
-                })
-                .catch(function (error) {
+                }).
+                catch(function(error) {
                     reject(error);
                 });
         });
-    }
-
-    // Standard log message prefix
-    log_message(message, location) {
-        return `Appid: ${this.app.id} | ${this.insurer.name} (${this.insurer.id}) ${this.policy.type}: ${message} ${location ? location : ""}`;
-    }
-
-    // Log wrappers
-    log_debug(message, location) {
-        log.debug(this.log_message(message, location));
-    }
-
-    log_verbose(message, location) {
-        log.verbose(this.log_message(message, location));
-    }
-
-    log_info(message, location) {
-        log.info(this.log_message(message, location));
-    }
-
-    log_warn(message, location) {
-        log.warn(this.log_message(message, location));
-    }
-
-    log_error(message, location) {
-        log.error(this.log_message(message, location));
     }
 
     /**
 	 * Returns an XML node child from parsed XML data. It will iterate down the node children, getting element 0 of each node's child.
 	 *
      * @param {object} node - top-level parent node
-     * @param {Array} children - A dot-separated string of XML node names
+     * @param {Array} children - Array of child node names
      * @param {bool} returnRawLastNode - true if the returned child should be raw (NOT element zero of its node). Good if you want to iterate on the child node.
 	 * @returns {object} - Claims information lumped together by policy year
 	 */
     get_xml_child(node, children, returnRawLastNode = false) {
-        const childrenList = children.split('.');
         let rawNode = node;
-        for (const child of childrenList) {
-            if (!node[child]) {
+        for (const child of children) {
+            if (!node[child] || !node[child].length) {
                 return null;
             }
             rawNode = node[child];
-            if (Array.isArray(rawNode)) {
-                if (!rawNode.length) {
-                    return null;
-                }
-                node = rawNode[0];
-            } else {
-                node = rawNode;
-            }
+            node = rawNode[0];
         }
         return returnRawLastNode ? rawNode : node;
     }
@@ -177,8 +144,8 @@ module.exports = class Integration {
             c.amountPaid = 0;
             c.amountReserved = 0;
             c.count = 0;
-            c.effective_date = effective_date.clone().subtract(i, "years");
-            c.expiration_date = c.effective_date.clone().add(1, "years");
+            c.effective_date = effective_date.clone().subtract(i, 'years');
+            c.expiration_date = c.effective_date.clone().add(1, 'years');
             c.missedWork = 0;
             claims[i] = c;
         }
@@ -188,7 +155,7 @@ module.exports = class Integration {
             // Determine the policy year
             let year = 0;
             for (let i = 1; i <= 5; i++) {
-                if (claim.date.isAfter(this.policy.effective_date.clone().subtract(i, "years"))) {
+                if (claim.date.isAfter(this.policy.effective_date.clone().subtract(i, 'years'))) {
                     year = i;
                     break;
                 }
@@ -212,11 +179,11 @@ module.exports = class Integration {
     }
 
     /**
-     * Uses the activity codes from a single location combined with the insurer's specific NCCI codes to detect and combine any duplicates.
-     *
-     * @param {object} location - A single Location object
-     * @returns {object} - The activity codes from within the location with any duplicates combined as code -> payroll pairs
-     */
+	 * Uses the activity codes from a single location combined with the insurer's specific NCCI codes to detect and combine any duplicates.
+	 *
+	 * @param {object} location - A single Location object
+	 * @returns {object} - The activity codes from within the location with any duplicates combined as code -> payroll pairs
+	 */
     combineLocationActivityCodes(location) {
         const returnCodes = {};
         location.activity_codes.forEach((activityCode) => {
@@ -238,12 +205,12 @@ module.exports = class Integration {
     }
 
     /**
-     * Determines the governing activity code for an application and returns the result.
-     * The governing class code is determined by taking the activity code with the highest payroll. If there are two, the first code is used.
-     * If the highest payroll code is our clerical code, it is ignored and the next highest is taken.
-     *
-     * @returns {object} - An ActivityCode object
-     */
+	 * Determines the governing activity code for an application and returns the result.
+	 * The governing class code is determined by taking the activity code with the highest payroll. If there are two, the first code is used.
+	 * If the highest payroll code is our clerical code, it is ignored and the next highest is taken.
+	 *
+	 * @returns {object} - An ActivityCode object
+	 */
     determine_governing_activity_code() {
         // Group the activity codes
         this.group_activity_codes();
@@ -274,36 +241,31 @@ module.exports = class Integration {
     }
 
     /**
-     * Determines the proper answer to send to the insurer based on the question type. Return false if the question should be skipped.
-     *
-     * @param {object} question - A question object
-     * @param {boolean} required - Whether or not this question is required by the insurer
-     * @returns {mixed} - The answer to send to the insurer, or false if the question should be omitted
-     */
+	 * Determines the proper answer to send to the insurer based on the question type. Return false if the question should be skipped.
+	 *
+	 * @param {object} question - A question object
+	 * @param {boolean} required - Whether or not this question is required by the insurer
+	 * @returns {mixed} - The answer to send to the insurer, or false if the question should be omitted
+	 */
     determine_question_answer(question, required) {
         let answer = false;
 
         // Default required
         required = required ? required : false;
 
-        // If this question has a parent that belongs to the same insurer, this question is not required, and the parent question answer does not trigger this question, skip this question
-        if (
-            question.parent &&
-            this.questions.hasOwnProperty(question.parent) &&
-            this.questions[question.parent].answer_id !== question.parent_answer &&
-            !required
-        ) {
+        // If this question has a parent that belongs to the same insurer, this question is not required, and the parent question was answered 'NO', skip this question
+        if (question.parent && Object.prototype.hasOwnProperty.call(this.questions, question.parent) && !required && !this.questions[question.parent].get_answer_as_boolean()) {
             return false;
         }
 
         // If this question has a parent that belongs to a different insurer it should have a default
         if (question.parent && !Object.prototype.hasOwnProperty.call(this.questions, question.parent) && question.answer_id === 0 && question.answer === null) {
-            this.log_error(`Question ${question.id} is missing a default answer. Defaulted to 'No' for this application. May cause quoting inaccuracies!`,__location);
+            log.error(`Appid: ${this.app.id} Question ${question.id} is missing a default answer. Defaulted to 'No' for this application. May cause quoting inaccuracies!` + __location);
             return 'No';
         }
 
         // If this is a checkbox, process each possible answer
-        if (question.type === "Checkboxes") {
+        if (question.type === 'Checkboxes') {
             const answers = [];
 
             // Loop over each possible answer
@@ -311,31 +273,34 @@ module.exports = class Integration {
                 // Make sure the answer is permitted
                 if (!Object.prototype.hasOwnProperty.call(question.possible_answers, answer_id)) {
                     // This shouldn't have happened, throw an error
-                    this.log_error('Encountered an answer to a question that is not possible. This should have been caught in the validation stage.', __location);
-                    this.log_verbose(`The question is as follows:`);
-                    this.log_verbose(util.inspect(question, false, null));
-                    throw new Error(this.log_message('Encountered an answer to a question that is not possible'));
+                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible. This should have been caught in the validation stage.` + __location);
+                    log.verbose(`Appid: ${this.app.id} The question is as follows:`);
+                    log.verbose(util.inspect(question, false, null));
+                    throw new Error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible`);
                 }
+
                 // Add the answer to the answers array
                 answers.push(question.possible_answers[answer_id].answer);
             }
 
             // Return the answers as a comma separated string
-            answer = answers.join(", ");
+            answer = answers.join(', ');
 
             // If this is a Boolean or Select List question, get the answer expected by the carrier
-        } else if (question.type === "Yes/No" || question.type === "Select List") {
+        }
+        else if (question.type === 'Yes/No' || question.type === 'Select List') {
             // Determine the answer based on the Answer ID stored in our database
             if (!Object.prototype.hasOwnProperty.call(question.possible_answers, question.answer_id)) {
                 // This shouldn't have happened, throw an error
-                this.log_error('Encountered an answer to a question that is not possible. This should have been caught in the validation stage.', __location);
-                this.log_verbose('The question is as follows:');
-                this.log_verbose(util.inspect(question, false, null));
-                throw new Error(this.log_message('Encountered an answer to a question that is not possible'));
+                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible. This should have been caught in the validation stage.` + __location);
+                log.verbose(`Appid: ${this.app.id} The question is as follows:`);
+                log.verbose(util.inspect(question, false, null));
+                throw new Error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible`);
             }
 
             answer = question.possible_answers[question.answer_id].answer;
-        } else {
+        }
+        else {
             // This is a fill-in-the-blank style question, simply send what the user gave us
             answer = question.answer;
         }
@@ -344,15 +309,15 @@ module.exports = class Integration {
     }
 
     /**
-     * Retrieves the relationship between questions and activity codes
-     *
-     * @returns {Promise.<object, Error>} A promise that returns an object indexed on territory + activity code (e.g. AZ908252) each with an array of corresponding question ideas if resolved, or an Error if rejected
-     */
+	 * Retrieves the relationship between questions and activity codes
+	 *
+	 * @returns {Promise.<object, Error>} A promise that returns an object indexed on territory + activity code (e.g. AZ908252) each with an array of corresponding question ideas if resolved, or an Error if rejected
+	 */
     get_activity_codes_to_questions_relationships() {
-        return new Promise(async (fulfill, reject) => {
+        return new Promise(async(fulfill, reject) => {
             // Only proceed if we have activity codes
             if (!this.insurer_wc_codes) {
-                reject(new Error("No activity codes"));
+                reject(new Error('No activity codes'));
                 return;
             }
 
@@ -361,14 +326,7 @@ module.exports = class Integration {
             this.app.business.locations.forEach((location) => {
                 // And then every activity code in a location
                 location.activity_codes.forEach((activity_code) => {
-                    where_chunks.push(
-                        `(inc.\`code\` = '${this.insurer_wc_codes[location.territory + activity_code.id].substring(
-                            0,
-                            4
-                        )}' AND inc.sub = '${this.insurer_wc_codes[location.territory + activity_code.id].substring(4, 6)}' AND inc.territory = '${
-                            location.territory
-                        }')`
-                    );
+                    where_chunks.push(`(inc.\`code\` = '${this.insurer_wc_codes[location.territory + activity_code.id].substring(0, 4)}' AND inc.sub = '${this.insurer_wc_codes[location.territory + activity_code.id].substring(4, 6)}' AND inc.territory = '${location.territory}')`);
                 });
             });
 
@@ -378,9 +336,9 @@ module.exports = class Integration {
 				FROM clw_talage_insurer_ncci_code_questions AS incq
 				LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON inc.id = incq.ncci_code AND inc.insurer = ${this.insurer.id}
 				LEFT JOIN clw_talage_questions AS q ON incq.question = q.id
-				WHERE q.state = 1 AND (${where_chunks.join(" OR ")}) GROUP BY inc.territory, class_code;
+				WHERE q.state = 1 AND (${where_chunks.join(' OR ')}) GROUP BY inc.territory, class_code;
 			`;
-            const results = await db.query(sql).catch(function (error) {
+            const results = await db.query(sql).catch(function(error) {
                 reject(error);
             });
 
@@ -388,7 +346,7 @@ module.exports = class Integration {
             const relationships = {};
             if (results) {
                 results.forEach((result) => {
-                    relationships[result.territory + result.class_code] = result.questions.split(",");
+                    relationships[result.territory + result.class_code] = result.questions.split(',');
                 });
             }
 
@@ -398,37 +356,11 @@ module.exports = class Integration {
     }
 
     /**
-     * Determines the best limits available from the carrier. If no limits are suitable, returns false.
-     *
-     * @param {array} carrierLimits - A list of limits supported by the carrier
-     * @returns {array|boolean} - An array containing limit values as integers, or false if none apply
-     */
-    // getBestLimits(carrierLimits) {
-    // 	let higherLimit = false;
-
-    // 	// Take the requested limits and prepare them for processing
-    // 	const requestedLimits = this.getSplitLimits(this.policy.limits);
-
-    // 	// Loop through all supported limits
-    // 	carrierLimits.forEach((limitSet) => {
-    // 		// Split the limits up and prepare them for processing
-    // 		const limitSetParts = this.getSplitLimits(limitSet);
-
-    // 		// Check if the supported limits are higher than or equal to the requested limits (some limit sets have 2 values, others have 3)
-    // 		if (limitSetParts[0] >= requestedLimits[0] && limitSetParts[1] >= requestedLimits[1]) {
-    // 			if(limitSetParts.length > 2){
-    // 				if(limitSetParts[2] >= requestedLimits[2]){
-    // 					// Return the first result found
-    // 					higherLimit = higherLimit ? higherLimit : limitSetParts;
-    // 				}
-    // 			}else{
-    // 				// Return the first result found, ignoring the third number
-    // 				higherLimit = higherLimit ? higherLimit : limitSetParts;
-    // 			}
-    // 		}
-    // 	});
-    // 	return higherLimit;
-    // }
+	 * Determines the best limits available from the carrier. If no limits are suitable, returns false.
+	 *
+	 * @param {array} carrierLimits - A list of limits supported by the carrier
+	 * @returns {array|boolean} - An array containing limit values as integers, or false if none apply
+	 */
     getBestLimits(carrierLimits) {
         let higherLimit = null;
 
@@ -453,10 +385,12 @@ module.exports = class Integration {
             if (limitSet[0] >= requestedLimits[0] && limitSet[1] >= requestedLimits[1] && limitSet[2] >= requestedLimits[2] && matchCount < 3) {
                 higherLimit = limitSet;
                 matchCount = 3;
-            } else if (limitSet[0] >= requestedLimits[0] && limitSet[1] >= requestedLimits[1] & matchCount < 2) {
+            }
+            else if (limitSet[0] >= requestedLimits[0] && limitSet[1] >= requestedLimits[1] & matchCount < 2) {
                 higherLimit = limitSet;
                 matchCount = 2;
-            } else if (limitSet[0] >= requestedLimits[0] && matchCount < 1) {
+            }
+            else if (limitSet[0] >= requestedLimits[0] && matchCount < 1) {
                 higherLimit = limitSet;
                 matchCount = 1;
             }
@@ -465,35 +399,31 @@ module.exports = class Integration {
         return higherLimit;
     }
 
-    //
-    // /**
-    // Returns the key (property) of an object based on the value of that property
-    //
-    // @param {object} obj - The object to search
-    // @param {mixed} val - The value to find
-    // @returns {string} - The key that matches
-    //
+    /**
+	 * Returns the key (property) of an object based on the value of that property
+	 *
+	 * @param {object} obj - The object to search
+	 * @param {mixed} val - The value to find
+	 * @returns {string} - The key that matches
+	 */
     get_key_by_value(obj, val) {
         return Object.keys(obj).find((key) => obj[key] === val);
     }
 
     /**
-     * Returns a description of the operations of the company based on the class codes they selected
-     *
-     * @returns {string} - The description of the business
-     */
+	 * Returns a description of the operations of the company based on the class codes they selected
+	 *
+	 * @returns {string} - The description of the business
+	 */
     get_operation_description() {
-        return `${this.app.business.name} is a(n) ${this.app.business.industry_code_description.replace(
-            "&",
-            "and"
-        )} company with operations primarily located in ${this.app.business.locations[0].city}, ${this.app.business.locations[0].territory}.`;
+        return `${this.app.business.name} is a(n) ${this.app.business.industry_code_description.replace('&', 'and')} company with operations primarily located in ${this.app.business.locations[0].city}, ${this.app.business.locations[0].territory}.`;
     }
 
     /**
-     * Gets the number of unique activity codes were included in this application
-     *
-     * @returns {int} - The number of activity codes
-     */
+	 * Gets the number of unique activity codes were included in this application
+	 *
+	 * @returns {int} - The number of activity codes
+	 */
     get_num_activity_codes() {
         // Group the activity codes
         this.group_activity_codes();
@@ -503,11 +433,11 @@ module.exports = class Integration {
     }
 
     /**
-     * Returns the number of claims that were within the number of years specified
-     *
-     * @param {int} number_of_years - The number of years of claims to total
-     * @returns {int} - the number of claims
-     */
+	 * Returns the number of claims that were within the number of years specified
+	 *
+	 * @param {int} number_of_years - The number of years of claims to total
+	 * @returns {int} - the number of claims
+	 */
     get_num_claims(number_of_years) {
         // Get the claims data organized by year
         const claims_by_year = this.claims_to_policy_years();
@@ -527,20 +457,18 @@ module.exports = class Integration {
     }
 
     /**
-     * Gets the details for each question for the current insurer. These details include the attributes, identifier, and whether or not the question is universal
-     *
-     * @returns {Promise.<object, Error>} A promise that returns an object containing objects indexed on the Talage Question ID with question information specific to this insurer if resolved, or an Error if rejected
-     */
+	 * Gets the details for each question for the current insurer. These details include the attributes, identifier, and whether or not the question is universal
+	 *
+	 * @returns {Promise.<object, Error>} A promise that returns an object containing objects indexed on the Talage Question ID with question information specific to this insurer if resolved, or an Error if rejected
+	 */
     get_question_details() {
-        return new Promise(async (fulfill, reject) => {
+        return new Promise(async(fulfill, reject) => {
             // Build an array of question IDs to retrieve
             const question_ids = Object.keys(this.questions);
 
             if (question_ids.length > 0) {
-                const sql = `SELECT question, universal, identifier, attributes FROM #__insurer_questions WHERE insurer = ${
-                    this.insurer.id
-                } AND question IN (${question_ids.join(",")});`;
-                const results = await db.query(sql).catch(function (error) {
+                const sql = `SELECT question, universal, identifier, attributes FROM #__insurer_questions WHERE insurer = ${this.insurer.id} AND question IN (${question_ids.join(',')});`;
+                const results = await db.query(sql).catch(function(error) {
                     reject(error);
                 });
 
@@ -548,7 +476,7 @@ module.exports = class Integration {
                 const question_details = {};
                 results.forEach((result) => {
                     question_details[result.question] = {
-                        attributes: result.attributes ? JSON.parse(result.attributes) : "",
+                        attributes: result.attributes ? JSON.parse(result.attributes) : '',
                         identifier: result.identifier,
                         universal: result.universal
                     };
@@ -559,18 +487,19 @@ module.exports = class Integration {
 
                 // Return the mapping
                 fulfill(question_details);
-            } else {
+            }
+            else {
                 fulfill({});
             }
         });
     }
 
     /**
-     * Retrieves the question that matches the identifier specified, returns false if none
-     *
-     * @param {string} identifier - The insurer identifier for the question
-     * @returns {mixed} - question object on success, false otherwise
-     */
+	 * Retrieves the question that matches the identifier specified, returns false if none
+	 *
+	 * @param {string} identifier - The insurer identifier for the question
+	 * @returns {mixed} - question object on success, false otherwise
+	 */
     get_question_by_identifier(identifier) {
         // Loop through each question and check the identifier
         for (const question_id in this.questions) {
@@ -584,21 +513,19 @@ module.exports = class Integration {
     }
 
     /**
-     * Gets the identifiers for each question for the current insurer
-     *
-     * @returns {Promise.<object, Error>} A promise that returns an object containing question information if resolved, or an Error if rejected
-     */
+	 * Gets the identifiers for each question for the current insurer
+	 *
+	 * @returns {Promise.<object, Error>} A promise that returns an object containing question information if resolved, or an Error if rejected
+	 */
     get_question_identifiers() {
         // log.info('get_question_identifiers FUNCTION IS DEPRECATED AND WILL BE REMOVED. USE get_question_details() INSTEAD WHICH RETURNS MORE DATA IN ONE QUERY');
-        return new Promise(async (fulfill, reject) => {
+        return new Promise(async(fulfill, reject) => {
             // Build an array of question IDs to retrieve
             const question_ids = Object.keys(this.questions);
 
             if (question_ids.length > 0) {
-                const sql = `SELECT question, universal, identifier FROM #__insurer_questions WHERE insurer = ${
-                    this.insurer.id
-                } AND question IN (${question_ids.join(",")});`;
-                const results = await db.query(sql).catch(function (error) {
+                const sql = `SELECT question, universal, identifier FROM #__insurer_questions WHERE insurer = ${this.insurer.id} AND question IN (${question_ids.join(',')});`;
+                const results = await db.query(sql).catch(function(error) {
                     reject(error);
                 });
 
@@ -613,30 +540,31 @@ module.exports = class Integration {
 
                 // Return the mapping
                 fulfill(identifiers);
-            } else {
+            }
+            else {
                 fulfill({});
             }
         });
     }
 
     /**
-     * Splits a limits string into an array and coverts the values to integers
-     *
-     * @param {string} limits - A limits string
-     * @returns {array} - An array of integers
-     */
+	 * Splits a limits string into an array and coverts the values to integers
+	 *
+	 * @param {string} limits - A limits string
+	 * @returns {array} - An array of integers
+	 */
     getSplitLimits(limits) {
-        return limits.split("/").map(function (val) {
+        return limits.split('/').map(function(val) {
             return parseInt(val, 10);
         });
     }
 
     /**
-     * Returns the total incurred (paid + reserved) on claims that were within the number of years specified
-     *
-     * @param {int} number_of_years - The number of years of claims to total
-     * @returns {int} - the number of claims
-     */
+	 * Returns the total incurred (paid + reserved) on claims that were within the number of years specified
+	 *
+	 * @param {int} number_of_years - The number of years of claims to total
+	 * @returns {int} - the number of claims
+	 */
     get_total_amount_incurred_on_claims(number_of_years) {
         // Get the claims data organized by year
         const claimsByYear = this.claims_to_policy_years();
@@ -657,13 +585,13 @@ module.exports = class Integration {
     }
 
     /**
-     * Returns the total number of employees associated with this application
-     *
-     * @returns {int} - The total number of employees as an integer
-     */
+	 * Returns the total number of employees associated with this application
+	 *
+	 * @returns {int} - The total number of employees as an integer
+	 */
     get_total_employees() {
         let total = 0;
-        this.app.business.locations.forEach(function (loc) {
+        this.app.business.locations.forEach(function(loc) {
             total += loc.full_time_employees;
             total += loc.part_time_employees;
         });
@@ -671,10 +599,10 @@ module.exports = class Integration {
     }
 
     /**
-     * Returns the total number of full-time employees associated with this application
-     *
-     * @returns {int} - The total number of full-time employees as an integer
-     */
+	 * Returns the total number of full-time employees associated with this application
+	 *
+	 * @returns {int} - The total number of full-time employees as an integer
+	 */
     get_total_full_time_employees() {
         let total = 0;
         this.app.business.locations.forEach(loc => {
@@ -684,10 +612,10 @@ module.exports = class Integration {
     }
 
     /**
-     * Returns the total number of part-time employees associated with this application
-     *
-     * @returns {int} - The total number of part-time employees as an integer
-     */
+	 * Returns the total number of part-time employees associated with this application
+	 *
+	 * @returns {int} - The total number of part-time employees as an integer
+	 */
     get_total_part_time_employees() {
         let total = 0;
         this.app.business.locations.forEach(loc => {
@@ -697,10 +625,10 @@ module.exports = class Integration {
     }
 
     /**
-     * Returns the total payroll associated with this application
-     *
-     * @returns {int} - The total payroll as an integer
-     */
+	 * Returns the total payroll associated with this application
+	 *
+	 * @returns {int} - The total payroll as an integer
+	 */
     get_total_payroll() {
         let total = 0;
         this.app.business.locations.forEach(loc => {
@@ -712,32 +640,32 @@ module.exports = class Integration {
     }
 
     /**
-     * Returns the total square footage of locations associated with this application
-     *
-     * @returns {int} - The total square footage as an integer
-     */
+	 * Returns the total square footage of locations associated with this application
+	 *
+	 * @returns {int} - The total square footage as an integer
+	 */
     get_total_square_footage() {
         let total = 0;
-        this.app.business.locations.forEach(function (loc) {
+        this.app.business.locations.forEach(function(loc) {
             total += loc.square_footage;
         });
         return total;
     }
 
     /**
-     * Returns the number of years this business has operated
-     *
-     * @returns {int} - The total number of years in business
-     */
+	 * Returns the number of years this business has operated
+	 *
+	 * @returns {int} - The total number of years in business
+	 */
     get_years_in_business() {
-        return moment().diff(this.app.business.founded, "years");
+        return moment().diff(this.app.business.founded, 'years');
     }
 
     /**
-     * Returns the years since the last claim was filed. If claims were never filed, returns 999
-     *
-     * @returns {int} - The total number of years
-     */
+	 * Returns the years since the last claim was filed. If claims were never filed, returns 999
+	 *
+	 * @returns {int} - The total number of years
+	 */
     get_years_since_claim() {
         if (!this.policy.claims.length) {
             return 999;
@@ -745,7 +673,7 @@ module.exports = class Integration {
 
         let years_ago = 999;
         this.policy.claims.forEach((claim) => {
-            const num_years = moment().diff(claim.date, "years");
+            const num_years = moment().diff(claim.date, 'years');
             if (num_years < years_ago) {
                 years_ago = num_years;
             }
@@ -754,20 +682,20 @@ module.exports = class Integration {
     }
 
     /**
-     * Generates and returns a Version 4 UUID
-     * Note: Version 4 UUIDs are completely random where Version 5 are not.
-     *
-     * @returns {string} - A random 36 character UUID formatted as follows 1f16f5d4-629b-11e7-b786-54616c616765
-     */
+	 * Generates and returns a Version 4 UUID
+	 * Note: Version 4 UUIDs are completely random where Version 5 are not.
+	 *
+	 * @returns {string} - A random 36 character UUID formatted as follows 1f16f5d4-629b-11e7-b786-54616c616765
+	 */
     generate_uuid() {
         return uuidv4();
     }
 
     /**
-     * Finds every activity code in an application and groups them together, adding their payrolls. Stores the result locally for later use.
-     *
-     * @returns {object} - An object with keys that are activity code ids, and values that are combined payrolls.
-     */
+	 * Finds every activity code in an application and groups them together, adding their payrolls. Stores the result locally for later use.
+	 *
+	 * @returns {object} - An object with keys that are activity code ids, and values that are combined payrolls.
+	 */
     group_activity_codes() {
         // If this function has already run, simply return what we already determined
         if (this.grouped_activity_codes.length) {
@@ -806,12 +734,12 @@ module.exports = class Integration {
     }
 
     /**
-     * An entry point for getting quotes that conducts some necessary pre-processing before calling the insurer_quote function.
-     *
-     * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
-     */
+	 * An entry point for getting quotes that conducts some necessary pre-processing before calling the insurer_quote function.
+	 *
+	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
+	 */
     quote() {
-        this.log_info(`Quote Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
+        log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Quote Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
         return new Promise(async(fulfill, reject) => {
             // Get the credentials ready for use
             this.password = await this.insurer.get_password();
@@ -819,37 +747,39 @@ module.exports = class Integration {
 
             // Make sure expiration_date is set
             if (this.policy && (!this.policy.expiration_date || !this.policy.expiration_date.isValid())) {
-                this.log_warn('Policy had an invalid effective date. Setting it to 1 years after effective date', __location);
+                log.warn(`Appid: ${this.app.id} Application ${this.app.id} policy had an invalid effective date. Setting it to 1 years after effective date. ${__location}`);
                 this.policy.expiration_date = this.policy.effective_date.clone().add(1, 'years');
             }
 
             // Make sure the insurer_quote() function exists
             if (typeof this._insurer_quote === 'undefined') {
-                this.log_error('Integration file must include the insurer_quote() function', __location);
-                this.reasons.push(this.log_message('Integration file must include the insurer_quote() function'));
-                fulfill(this.return_error("error", "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch."));
+                const error_message = `Appid: ${this.app.id} Integration file must include the insurer_quote() function`;
+                log.error(error_message + __location);
+                this.reasons.push(error_message);
+                fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
                 return;
             }
 
             // Check for outage - "outages" in Insurer class and database SQL
             if (this.insurer.outage) {
-                this.reasons.push(this.log_message("Insurer is currently unavailable"));
-                fulfill(this.return_error("outage"));
+                const error_message = `Appid: ${this.app.id} ${this.insurer.name} is currently unavailable to planned outage`;
+                this.reasons.push(error_message);
+                fulfill(this.return_error('outage'));
                 return;
             }
 
             // Check that all of the selected codes are supported by the insurer
             let are_codes_supported = null;
             switch (this.policy.type) {
-                case "BOP":
-                case "GL":
+                case 'BOP':
+                case 'GL':
                     are_codes_supported = await this._insurer_supports_industry_codes();
                     if (are_codes_supported !== true) {
                         fulfill(are_codes_supported);
                         return;
                     }
                     break;
-                case "WC":
+                case 'WC':
                     // Check code support
                     are_codes_supported = await this._insurer_supports_activity_codes();
                     if (this.insurer.id === 10) {
@@ -862,7 +792,7 @@ module.exports = class Integration {
                     }
                     break;
                 default:
-                    this.log_error(`Unexpected policy type of ${this.policy.type} in Integration`, __location);
+                    log.error(`Appid: ${this.app.id} Unexpected policy type of ${this.policy.type} in Integration` + __location);
                     fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
                     return;
             }
@@ -880,17 +810,17 @@ module.exports = class Integration {
             // Get the insurer question identifiers
             let stop = false;
             this.question_details = await this.get_question_details().catch((error) => {
-                const error_message = `Unable to get question details: ${error}`;
-                this.log_error(error_message, __location);
-                this.reasons.push(this.log_message(error_message));
-                reject(this.return_error("error", "We have no idea what went wrong, but we're on it"));
+                const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get question details. ${error}`;
+                log.error(error_message + __location);
+                this.reasons.push(error_message);
+                reject(this.return_error('error', "We have no idea what went wrong, but we're on it"));
                 stop = true;
             });
             this.question_identifiers = await this.get_question_identifiers().catch((error) => {
-                const error_message = `Unable to get question identifiers. ${error}`;
-                this.log_error(error_message, __location);
-                this.reasons.push(this.log_message(error_message));
-                reject(this.return_error("error", "We have no idea what went wrong, but we're on it"));
+                const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get question identifiers. ${error}`;
+                log.error(error_message + __location);
+                this.reasons.push(error_message);
+                reject(this.return_error('error', "We have no idea what went wrong, but we're on it"));
                 stop = true;
             });
             if (stop) {
@@ -898,77 +828,81 @@ module.exports = class Integration {
             }
 
             // Run the quote
-            await this._insurer_quote()
-                .then(function (result) {
+            await this._insurer_quote().
+                then(function(result) {
                     fulfill(result);
-                })
-                .catch(function (error) {
+                }).
+                catch(function(error) {
                     reject(error);
                 });
         });
     }
 
     /**
-     * Records this quote in the database so we know it happened
-     *
-     * @param {int} amount - The amount of the quote
-     * @param {string} api_result - The integration's api result
-     * @returns {mixed} - ID on success, error on error
-     */
+	 * Records this quote in the database so we know it happened
+	 *
+	 * @param {int} amount - The amount of the quote
+	 * @param {string} api_result - The integration's api result
+	 * @returns {mixed} - ID on success, error on error
+	 */
     async record_quote(amount, api_result) {
-        let encrypted_log = null;
-        try {
-            encrypted_log = await crypt.encrypt(this.log);
-        } catch (err) {
-            this.log_error(`Unable to encrypt log. Proceeding anyway. ${err}`, __location);
-        }
+        const encrypted_log = await crypt.encrypt(this.log).catch(function(err) {
+            log.error('Unable to encrypt log. Proceeding anyway. ' + err + __location);
+        });
 
-        const columns = ["application", "insurer", "log", "policy_type", "seconds", "created"];
+        const columns = [
+            'application',
+            'insurer',
+            'log',
+            'policy_type',
+            'seconds',
+            'created'
+        ];
         const values = [
             this.app.id,
             this.insurer.id,
-            encrypted_log ? encrypted_log : "",
+            encrypted_log ? encrypted_log : '',
             this.policy.type,
             this.seconds,
-            moment().format("YYYY-MM-DD HH:mm:ss")
+            moment().format('YYYY-MM-DD HH:mm:ss')
         ];
 
         // Amount
         if (amount) {
-            columns.push("amount");
+            columns.push('amount');
             values.push(amount);
         }
 
         // Number
         if (this.number) {
-            columns.push("number");
+            columns.push('number');
             values.push(this.number);
         }
 
         // Request ID
         if (this.request_id) {
-            columns.push("request_id");
+            columns.push('request_id');
             values.push(this.request_id);
         }
 
         // Writer
         if (this.writer) {
-            columns.push("writer");
+            columns.push('writer');
             values.push(this.writer);
         }
 
         // Error
-        columns.push("api_result");
+        columns.push('api_result');
         values.push(api_result);
 
         // Reasons
         if (this.reasons.length > 0) {
-            columns.push("reasons");
-            values.push(this.reasons.join(",").replace(/'/g, "\\'").substring(0, 500));
+            columns.push('reasons');
+            values.push(this.reasons.join(',').replace(/'/g, "\\'").substring(0, 500));
         }
 
         // Quote Letter
-        if (this.quote_letter && Object.prototype.hasOwnProperty.call(this.quote_letter, "data") && this.quote_letter.data) {
+        if (this.quote_letter && Object.prototype.hasOwnProperty.call(this.quote_letter, 'data') && this.quote_letter.data) {
             // Generate a UUID to use as the file name
             const fileName = `${this.generate_uuid()}.pdf`;
 
@@ -978,25 +912,24 @@ module.exports = class Integration {
                 // TODO Secure
                 const result = await fileSvc.PutFileSecure(`secure/quote-letters/${fileName}`, this.quote_letter.data);
                 // The file was successfully saved, store the file name in the database
-                if (result && Object.prototype.hasOwnProperty.call(result, "code") && result.code === "Success") {
-                    columns.push("quote_letter");
+                if (result && Object.prototype.hasOwnProperty.call(result, 'code') && result.code === 'Success') {
+                    columns.push('quote_letter');
                     values.push(fileName);
                 }
-            } catch (err) {
-                this.log_error(`S3 error Storing Quote letter : ${fileName} error: ${err}`, __location);
+            }
+            catch (err) {
+                log.error(`Appid: ${this.app.id} S3 error Storing Quote letter : ${fileName} error: ` + err + __location);
             }
         }
 
         // Aggregated Status.
-        columns.push("aggregated_status");
-        values.push(getQuoteAggregatedStatus(false, "", api_result));
+        columns.push('aggregated_status');
+        values.push(getQuoteAggregatedStatus(false, '', api_result));
 
         // Insert the quote record
-        const quoteResult = await db
-            .query(`INSERT INTO \`#__quotes\` (\`${columns.join("`,`")}\`) VALUES (${values.map(db.escape).join(",")});`)
-            .catch(function (err) {
-                return err;
-            });
+        const quoteResult = await db.query(`INSERT INTO \`#__quotes\` (\`${columns.join('`,`')}\`) VALUES (${values.map(db.escape).join(',')});`).catch(function(err) {
+            return err;
+        });
         const quoteID = quoteResult.insertId;
 
         // Insert the limit records
@@ -1007,46 +940,44 @@ module.exports = class Integration {
                     limitValues.push(`(${quoteID}, ${limitId}, ${this.limits[limitId]})`);
                 }
             }
-            try {
-                db.query(`INSERT INTO \`#__quote_limits\` (\`quote\`, \`limit\`, \`amount\`) VALUES ${limitValues.join(",")};`);
-            } catch (err) {
-                this.log_error(err, __location);
-            }
+            db.query(`INSERT INTO \`#__quote_limits\` (\`quote\`, \`limit\`, \`amount\`) VALUES ${limitValues.join(',')};`).catch(function(err) {
+                log.error(err + __location);
+            });
         }
         return quoteID;
     }
 
     /**
-     * Generates and returns the proper structure for returning a quote from an integration
-     *
-     * @param {int} amount - The amount of the quote as a whole number
-     * @returns {object} - An object containing the quote information
-     */
+	 * Generates and returns the proper structure for returning a quote from an integration
+	 *
+	 * @param {int} amount - The amount of the quote as a whole number
+	 * @returns {object} - An object containing the quote information
+	 */
     async return_quote(amount) {
-        const result = await this.record_quote(amount, "quoted");
+        const result = await this.record_quote(amount, 'quoted');
         return result;
     }
 
     /**
-     * Generates and returns the proper structure for returning an indication from an integration
-     *
-     * @param {int} amount - The amount of the indication as a whole number
-     * @returns {object} - An object containing the indication information
-     */
+	 * Generates and returns the proper structure for returning an indication from an integration
+	 *
+	 * @param {int} amount - The amount of the indication as a whole number
+	 * @returns {object} - An object containing the indication information
+	 */
     async return_indication(amount) {
-        const result = await this.record_quote(amount, "referred_with_price");
+        const result = await this.record_quote(amount, 'referred_with_price');
         return result;
     }
 
     /**
-     * Generates and returns the proper structure for returning an error from an integration
-     *
-     * @param {string} type - The type of error
-     * @param {string} message - A user friendly description of the error
-     * @returns {object} - An error object
-     */
+	 * Generates and returns the proper structure for returning an error from an integration
+	 *
+	 * @param {string} type - The type of error
+	 * @param {string} message - A user friendly description of the error
+	 * @returns {object} - An error object
+	 */
     async return_error(type, message) {
-        this.log_info(`Returned an error of type ${type}: ${message}`, __location);
+        log.info(`Appid: ${this.app.id} ${this.insurer.name} returned an error of type ${type} for a ${this.policy.type} policy: ${message}` + __location);
 
         // If there were reasons, make sure we write them to the log
         if (this.reasons.length > 0) {
@@ -1061,10 +992,10 @@ module.exports = class Integration {
     }
 
     /**
-     * Returns an object of the limits for this policy with the propery as the limit description and the value as the amount
-     *
-     * @returns {object} - The limit information
-     */
+	 * Returns an object of the limits for this policy with the propery as the limit description and the value as the amount
+	 *
+	 * @returns {object} - The limit information
+	 */
     async returnLimits() {
         const rtn = {};
 
@@ -1074,11 +1005,9 @@ module.exports = class Integration {
         }
 
         // Get the limit descriptions from the database
-        const result = await db
-            .query(`SELECT * FROM \`#__limits\` WHERE \`id\` IN (${Object.keys(this.limits).join(",")}) ORDER BY description ASC;`)
-            .catch(function (err) {
-                return err;
-            });
+        const result = await db.query(`SELECT * FROM \`#__limits\` WHERE \`id\` IN (${Object.keys(this.limits).join(',')}) ORDER BY description ASC;`).catch(function(err) {
+            return err;
+        });
 
         // Loop through the results and build the response
         result.forEach((limitInfo) => {
@@ -1089,29 +1018,29 @@ module.exports = class Integration {
     }
 
     /**
-     * Determines which response should be sent, and sends it. This should be called by every insurer integration.
-     *
-     * @param {string} result - The result of the integration. Must be 'declined', 'quoted', 'referred', or 'referred_with_price'
-     * @returns {mixed} - An object containing the response to be sent to the user on success, false on failure
-     */
+	 * Determines which response should be sent, and sends it. This should be called by every insurer integration.
+	 *
+	 * @param {string} result - The result of the integration. Must be 'declined', 'quoted', 'referred', or 'referred_with_price'
+	 * @returns {mixed} - An object containing the response to be sent to the user on success, false on failure
+	 */
     return_result(result) {
         // Determine the log messages to show
         const log_messages = {
-            autodeclined: "System Autodeclined",
-            declined: "Application Declined",
-            error: "Integration Error",
-            outage: "Insurer System Outage",
-            quoted: "Quote Recieved",
-            referred: "Application Referred",
-            referred_with_price: "Application Referred With Price"
+            autodeclined: 'System Autodeclined',
+            declined: 'Application Declined',
+            error: 'Integration Error',
+            outage: 'Insurer System Outage',
+            quoted: 'Quote Recieved',
+            referred: 'Application Referred',
+            referred_with_price: 'Application Referred With Price'
         };
 
         // Make sure we have a result
         if (!result) {
-            const error_message = 'Missing argument for return_result(). Must pass in a valid value for result.';
-            this.log_error(error_message, __location);
+            const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Missing argument for return_result(). Must pass in a valid value for result.`;
+            log.error(error_message + __location);
             this.reasons.push(error_message);
-            return this.return_error("error", "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.");
+            return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
         }
 
         // Make sure the result is one of the ones we are expecting
@@ -1119,41 +1048,43 @@ module.exports = class Integration {
             // If result is a possible API result from an integration, convert it to the Talage equivalent
             if (Object.keys(this.possible_api_responses).includes(result)) {
                 result = this.possible_api_responses[result];
-            } else {
-                const error_message = `Invalid value of '${result}' for result passed to return_result(). Result not specified in the insurer integration.`;
-                this.log_error(error_message, __location);
+            }
+            else {
+                const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Invalid value of '${result}' for result passed to return_result(). Result not specified in the insurer integration.`;
+                log.error(error_message + __location);
                 this.reasons.push(error_message);
-                return this.return_error("error", "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.");
+                return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
             }
 
             // Double check: Is the result now what we are expecting
             if (!Object.keys(log_messages).includes(result)) {
-                const error_message = `Invalid value of '${result}' for result passed to return_result(). Must be a valid value as defined in return_result().`;
-                log.error(error_message, __location);
+                const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Invalid value of '${result}' for result passed to return_result(). Must be a valid value as defined in return_result().`;
+                log.error(error_message + __location);
                 this.reasons.push(error_message);
-                return this.return_error("error", "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.");
+                return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
             }
         }
 
         // Check if this was referred, but a price was still provided, and if so, update the status
-        if ((result === "referred" || this.indication) && this.amount) {
-            result = "referred_with_price";
+        if ((result === 'referred' || this.indication) && this.amount) {
+            result = 'referred_with_price';
         }
 
         // If this was quoted, make sure we have an amount
         if ((result === 'quoted' || result === 'referred_with_price') && !this.amount) {
-            this.log_error(`Unable to find quote amount. Response structure may have changed.`);
-            this.reasons.push(this.log_message('Unable to find quote amount. Response structure may have changed.'));
-            if (result === "quoted") {
-                result = "error";
-            } else {
-                result = "referred";
+            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote amount. Response structure may have changed.` + __location);
+            this.reasons.push(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote amount. Response structure may have changed.`);
+            if (result === 'quoted') {
+                result = 'error';
+            }
+            else {
+                result = 'referred';
             }
         }
 
         // If this was quoted, make sure we have limits
         if ((result === 'quoted' || result === 'referred_with_price') && !Object.keys(this.limits).length) {
-            this.log_error('Unable to find limits. Response structure may have changed.', __location);
+            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to find limits. Response structure may have changed.` + __location);
         }
 
         // Start the log message
@@ -1166,79 +1097,81 @@ module.exports = class Integration {
 
         // Log the reasons
         if (this.reasons.length > 0) {
-            this.log += `The insurer returned the following reasons for why they made this decision:<ul><li>${this.reasons.join("</li><li>")}</li></ul>`;
+            this.log += `The insurer returned the following reasons for why they made this decision:<ul><li>${this.reasons.join('</li><li>')}</li></ul>`;
         }
 
         // Take the appropriate action
         switch (result) {
-            case "autodeclined":
-                return this.return_error("autodeclined", "This insurer will decline to offer you coverage at this time");
+            case 'autodeclined':
+                return this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time');
 
-            case "declined":
+            case 'declined':
                 if (this.reasons) {
-                    for (const reason of this.reasons) {
-                        this.log_verbose(reason);
-                    }
+                    this.reasons.forEach(function(reason) {
+                        log.verbose(reason);
+                    });
                 }
-                this.reasons.push("Declined by insurer");
-                return this.return_error("declined", `${this.insurer.name} has declined to offer you coverage at this time`);
+                this.reasons.push('Declined by insurer');
+                return this.return_error('declined', `${this.insurer.name} has declined to offer you coverage at this time`);
 
             case 'error':
-                this.log_error('Returning error', __location);
+                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Encountered An Error` + __location);
                 if (this.reasons) {
                     //this.reasons.forEach(function(reason) {
                     for(let i = 0; i < this.reasons.length; i++){
-                        this.log_error(this.reasons[i]);
+                        log.error(`Appid: ${this.app.id} ` + this.reasons[i] + __location);
                     }
                 }
-                return this.return_error("error", "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.");
+                return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 
             case 'outage':
-                this.log_warn('Experienced A System Outage At The Time of Quote', __location);
+                log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Experienced A System Outage At The Time of Quote` + __location);
                 if (this.reasons) {
-                    for (const reason of this.reasons) {
-                        this.log_verbose(reason);
-                    }
+                    this.reasons.forEach(function(reason) {
+                        log.verbose(reason);
+                    });
                 }
-                return this.return_error("error", "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.");
+                return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 
             case 'quoted':
-                this.log_info('Returned Quote(s)');
+                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Returned Quote(s)`);
                 return this.return_quote(this.amount);
 
-            case "referred":
+            case 'referred':
                 if (this.reasons) {
-                    for (const reason of this.reasons) {
-                        this.log_verbose(reason);
-                    }
+                    this.reasons.forEach(function(reason) {
+                        log.verbose(reason);
+                    });
                 }
                 return this.return_error('referred', `Appid: ${this.app.id} ${this.insurer.name} needs a little more time to make a decision`);
 
             case 'referred_with_price':
-                this.log_info('Referred To Underwriting, But Provided An Indication');
+                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Referred To Underwriting, But Provided An Indication`);
                 return this.return_indication(this.amount);
 
             default:
         }
     }
 
-    // Sends a request to an insurer over HTTPS
-    //
-    // @param {string} host - The host name we are sending to (minus the protocol)
-    // @param {string} path - The path at the host name we are sending to (the parts after the /, including the query string, if any)
-    // @param {string} data - The data to be sent
-    // @param {object} additional_headers - Additional headers to be sent with the request, one header 'Content-Type' is required, all others are optional
-    // @param {string} method (optional) - The HTTP method to be used (e.g. POST or GET)
-    // @param {boolean} log_errors - True if error logging should be handled here, false if error logging is handled in the client
-    // @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
+    /**
+	 * Sends a request to an insurer over HTTPS
+	 *
+	 * @param {string} host - The host name we are sending to (minus the protocol)
+	 * @param {string} path - The path at the host name we are sending to (the parts after the /, including the query string, if any)
+	 * @param {string} data - The data to be sent
+	 * @param {object} additional_headers - Additional headers to be sent with the request, one header 'Content-Type' is required, all others are optional
+	 * @param {string} method (optional) - The HTTP method to be used (e.g. POST or GET)
+     * @param {boolean} log_errors - True if error logging should be handled here, false if error logging is handled in the client
+	 * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
+	 */
     send_request(host, path, data, additional_headers, method, log_errors = true) {
-        this.log_info(`Sending To ${path}`);
+        log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Sending To ${path}`);
         const start_time = process.hrtime();
 
         return new Promise((fulfill, reject) => {
             // Determine which method to use
             if (!method) {
-                method = data ? "POST" : "GET";
+                method = data ? 'POST' : 'GET';
             }
 
             // Check that we have a valid method
@@ -1247,8 +1180,8 @@ module.exports = class Integration {
                 'POST',
                 'PUT'
             ].includes(method)) {
-                const error = new Error(this.log_message('Invalid method provided to send_request()'));
-                this.log_error(error.message, __location);
+                const error = new Error(`Appid: ${this.app.id} Invalid method provided to send_request()`);
+                log.error(error.message + __location);
                 reject(error);
                 return;
             }
@@ -1259,30 +1192,28 @@ module.exports = class Integration {
             if (additional_headers) {
                 for (const key in additional_headers) {
                     if (Object.prototype.hasOwnProperty.call(additional_headers, key)) {
-                        if (key === "Content-Type") {
+                        if (key === 'Content-Type') {
                             content_type_found = true;
-                            if (additional_headers[key] === "application/x-www-form-urlencoded") {
+                            if (additional_headers[key] === 'application/x-www-form-urlencoded') {
                                 // Encode the data
-                                const querystring = require("querystring");
+                                const querystring = require('querystring');
                                 data = querystring.stringify(data);
                             }
-                            this.log += `--------======= Sending ${
-                                additional_headers[key]
-                            } =======--------<br><br>URL: ${host}${path}<br><br><pre>${htmlentities.encode(data)}</pre><br><br>`;
+                            this.log += `--------======= Sending ${additional_headers[key]} =======--------<br><br>URL: ${host}${path}<br><br><pre>${htmlentities.encode(data)}</pre><br><br>`;
                         }
                         headers[key] = additional_headers[key];
                     }
                 }
             }
             if (!content_type_found) {
-                const error = new Error(this.log_message('No Content-Type header found. The Content-Type header is required for calls to send_request()'));
-                this.log_error(error.message, __location);
+                const error = new Error(`Appid: ${this.app.id} No Content-Type header found. The Content-Type header is required for calls to send_request()`);
+                log.error(error.message + __location);
                 reject(error);
                 return;
             }
 
             // Set the length parameter
-            headers["Content-Length"] = data && data.length ? data.length : 0;
+            headers['Content-Length'] = data && data.length ? data.length : 0;
 
             // Set the request options
             const options = {
@@ -1297,31 +1228,33 @@ module.exports = class Integration {
             };
 
             const req = https.request(options, (res) => {
-                let rawData = "";
+                let rawData = '';
 
                 // Grab each chunk of data
-                res.on("data", (d) => {
+                res.on('data', (d) => {
                     rawData += d;
                 });
 
-                res.on("end", () => {
+                res.on('end', () => {
                     // Calculate how long this took
                     this.seconds = process.hrtime(start_time)[0];
 
                     if (res.statusCode >= 200 && res.statusCode <= 299) {
                         // Strip AF Group's Quote Letter out of the log
-                        let filteredData = rawData.replace(/<com\.afg_Base64PDF>(.*)<\/com\.afg_Base64PDF>/, "<com.afg_Base64PDF>...</com.afg_Base64PDF>");
+                        let filteredData = rawData.replace(/<com\.afg_Base64PDF>(.*)<\/com\.afg_Base64PDF>/, '<com.afg_Base64PDF>...</com.afg_Base64PDF>');
 
                         // Strip Employer's Quote Letter out of the log
-                        filteredData = filteredData.replace(/<BinData>(.*)<\/BinData>/, "<BinData>...</BinData>");
+                        filteredData = filteredData.replace(/<BinData>(.*)<\/BinData>/, '<BinData>...</BinData>');
 
                         this.log += `--------======= Response Appid: ${this.app.id}  =======--------<br><br><pre>${filteredData}</pre><br><br>`;
                         fulfill(rawData);
-                    } else {
-                        const error = new Error(this.log_message(`Insurer request encountered a ${res.statusCode} error`));
-                        if (log_errors) {
-                            this.log_error(error.message, __location);
-                            this.log_verbose(rawData);
+                    }
+                    else{
+                        const error = new Error(`Appid: ${this.app.id} insurer request encountered a ${res.statusCode} error`);
+                        // Added check - do not log errors if there is a special response case for the client to handle
+                        if(log_errors){
+                            log.error(error.message + __location);
+                            log.verbose(rawData);
                             this.log += `--------======= Error Appid: ${this.app.id}  =======--------<br><br>Status Code: ${res.statusCode}<br><pre>${rawData}</pre><br><br>`;
                         }
                         error.httpStatusCode = res.statusCode;
@@ -1331,7 +1264,7 @@ module.exports = class Integration {
                 });
             });
 
-            req.on("error", () => {
+            req.on('error', () => {
                 this.log += `Connection to ${this.insurer.name} timedout.`;
                 reject(new Error(`Appid: ${this.app.id} Connection to ${this.insurer.name} timedout.`));
             });
@@ -1344,15 +1277,15 @@ module.exports = class Integration {
     }
 
     /**
-     * Sends an JSON request to this insurer
-     *
-     * @param {string} host - The host name we are sending to (minus the protocol)
-     * @param {string} path - The path at the host name we are sending to (the parts after the /, including the query string, if any)
-     * @param {string} json - The JSON to be sent
-     * @param {object} additional_headers (optional) - Additional headers to be sent with the request
-     * @param {string} method (optional) - The HTTP method to be used
-     * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
-     */
+	 * Sends an JSON request to this insurer
+	 *
+	 * @param {string} host - The host name we are sending to (minus the protocol)
+	 * @param {string} path - The path at the host name we are sending to (the parts after the /, including the query string, if any)
+	 * @param {string} json - The JSON to be sent
+	 * @param {object} additional_headers (optional) - Additional headers to be sent with the request
+	 * @param {string} method (optional) - The HTTP method to be used
+	 * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
+	 */
 
     send_json_request(host, path, json, additional_headers, method, log_errors = true) {
         return new Promise(async(fulfill, reject) => {
@@ -1362,31 +1295,31 @@ module.exports = class Integration {
             }
 
             // Add in the JSON specific headers
-            if (!Object.prototype.hasOwnProperty.call(additional_headers, "Content-Type")) {
-                additional_headers["Content-Type"] = "application/json";
+            if (!Object.prototype.hasOwnProperty.call(additional_headers, 'Content-Type')) {
+                additional_headers['Content-Type'] = 'application/json';
             }
-            additional_headers.accept = "application/json";
+            additional_headers.accept = 'application/json';
 
             // Send the request
-            await this.send_request(host, path, json, additional_headers, method, log_errors)
-                .then((result) => {
+            await this.send_request(host, path, json, additional_headers, method, log_errors).
+                then((result) => {
                     fulfill(JSON.parse(result));
-                })
-                .catch((error) => {
+                }).
+                catch((error) => {
                     reject(error);
                 });
         });
     }
 
     /**
-     * Sends an XML request to this insurer
-     *
-     * @param {string} host - The host name we are sending to (minus the protocol)
-     * @param {string} path - The path at the host name we are sending to (the parts after the /, including the query string, if any)
-     * @param {string} xml - The XML to be sent
-     * @param {object} additional_headers (optional) - Additional headers to be sent with the request
-     * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
-     */
+	 * Sends an XML request to this insurer
+	 *
+	 * @param {string} host - The host name we are sending to (minus the protocol)
+	 * @param {string} path - The path at the host name we are sending to (the parts after the /, including the query string, if any)
+	 * @param {string} xml - The XML to be sent
+	 * @param {object} additional_headers (optional) - Additional headers to be sent with the request
+	 * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
+	 */
     async send_xml_request(host, path, xml, additional_headers) {
         // return new Promise(async(fulfill, reject) => {
         // If we don't have additional headers, start an object to append
@@ -1395,19 +1328,20 @@ module.exports = class Integration {
         }
 
         // Add in the content length header
-        additional_headers["Content-Length"] = Buffer.byteLength(xml);
+        additional_headers['Content-Length'] = Buffer.byteLength(xml);
 
         // Add in the XML specific headers
-        if (!Object.prototype.hasOwnProperty.call(additional_headers, "Content-Type")) {
-            additional_headers["Content-Type"] = "text/xml";
+        if (!Object.prototype.hasOwnProperty.call(additional_headers, 'Content-Type')) {
+            additional_headers['Content-Type'] = 'text/xml';
         }
 
         // Send the request
         let raw_data = null;
         try {
             raw_data = await this.send_request(host, path, xml, additional_headers, 'POST');
-        } catch (error) {
-            this.log_error(`Integration send_request error: ${error}`, __location);
+        }
+        catch (error) {
+            log.error(`Appid: ${this.app.id} Integration send_request error: ${error}` + __location);
             // reject(error);
             throw error;
         }
@@ -1418,10 +1352,11 @@ module.exports = class Integration {
         let result = null;
         try {
             result = xmlToObj(str_data);
-        } catch (error) {
+        }
+        catch (error) {
             const errData = {
                 // eslint-disable-line prefer-promise-reject-errors
-                message: "Response from API was not XML",
+                message: 'Response from API was not XML',
                 raw: str_data
             };
             throw new Error(JSON.stringify(errData));
@@ -1430,16 +1365,16 @@ module.exports = class Integration {
     }
 
     /**
-     * Determines whether or not this insurer supports all class codes in this application
-     *
-     * @returns {Promise.<object, Error>} A promise that returns an true or an object containing error information on success
-     */
+	 * Determines whether or not this insurer supports all class codes in this application
+	 *
+	 * @returns {Promise.<object, Error>} A promise that returns an true or an object containing error information on success
+	 */
     _insurer_supports_activity_codes() {
-        return new Promise(async (fulfill) => {
+        return new Promise(async(fulfill) => {
             // Get all of the WC Codes with their ID and territory, removing duplicates
             const wcCodes = {};
-            this.app.business.locations.forEach(function (location) {
-                location.activity_codes.forEach(function (activity_code) {
+            this.app.business.locations.forEach(function(location) {
+                location.activity_codes.forEach(function(activity_code) {
                     // Check if this code already existed
                     if (!Object.prototype.hasOwnProperty.call(wcCodes, `${location.territory}${activity_code.id}`)) {
                         wcCodes[`${location.territory}${activity_code.id}`] = {
@@ -1451,7 +1386,7 @@ module.exports = class Integration {
             });
 
             // Build some WHERE statements from those codes
-            const whereCombinations = Object.values(wcCodes).map(function (codeObj) {
+            const whereCombinations = Object.values(wcCodes).map(function(codeObj) {
                 return `(\`ac\`.\`id\` = ${db.escape(codeObj.id)} AND \`inc\`.\`territory\` = ${db.escape(codeObj.territory)})`;
             });
 
@@ -1468,17 +1403,19 @@ module.exports = class Integration {
             FROM clw_talage_activity_codes AS ac
                 LEFT JOIN clw_talage_activity_code_associations AS aca ON ac.id = aca.code
                 LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON aca.insurer_code = inc.id
-            WHERE inc.insurer = ${this.insurer.id} AND (${whereCombinations.join(" OR ")});
+            WHERE inc.insurer = ${this.insurer.id} AND (${whereCombinations.join(' OR ')});
             `;
-            //this.log_debug("_insurer_supports_activity_codes sql: " + sql);
+            //log.debug("_insurer_supports_activity_codes sql: " + sql);
+            const appId = this.app.id;
+            const insurerId = this.insurer.id;
             const codes = await db.query(sql).catch((error) => {
-                this.log_error(error, __location);
+                log.error(`AppId: ${appId} InsurerId: ${insurerId} ` + error + __location);
                 this.reasons.push('System Error: insurer_supports_activity_codes() failed to get codes.');
                 fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
             });
 
             if (!codes.length) {
-                this.log_error(`Autodeclined: no codes where ${whereCombinations.join(' OR ')}`, __location);
+                log.warn(`Appid: ${this.app.id} autodeclined: no codes  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
                 this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code and state');
                 fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 return;
@@ -1486,7 +1423,7 @@ module.exports = class Integration {
 
             // Make sure the number of codes matched (otherwise there were codes unsupported by this insurer)
             if (Object.keys(wcCodes).length !== codes.length) {
-                this.log_error(`Autodeclined: Code length do not match where ${whereCombinations.join(' OR ')}`, __location);
+                log.error(`Appid: ${this.app.id} autodeclined: Code length do not match  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
                 this.reasons.push('Out of Appetite: The insurer does not support one or more of the selected activity codes and state');
                 fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 return;
@@ -1495,17 +1432,17 @@ module.exports = class Integration {
             // Load the codes locally
             codes.forEach((code) => {
                 if (code.result === 0) {
-                    this.log_error(`Autodeclined: Code length do not match where ${whereCombinations.join(' OR ')}`, __location);
+                    log.error(`Appid: ${this.app.id} autodeclined: Code length do not match  insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
                     this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code and state');
                     fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                     hadError = true;
                     return;
                 }
                 if (code.state) {
-                    this.insurer_wc_codes[code.territory + code.id] = code.code + (code.sub ? code.sub : "");
+                    this.insurer_wc_codes[code.territory + code.id] = code.code + (code.sub ? code.sub : '');
                     return;
                 }
-                this.log_error(`Autodeclined: this.insurer_wc_codes ${this.insurer_wc_codes} where ${whereCombinations.join(' OR ')}`, __location);
+                log.error(`Appid: ${this.app.id} autodeclined: this.insurer_wc_codes ${this.insurer_wc_codes} insurer: ${this.insurer.id}  where ${whereCombinations.join(' OR ')}` + __location);
                 this.reasons.push('Out of Appetite: The insurer does not support one or more of the selected activity codes and state');
                 fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 hadError = true;
@@ -1520,92 +1457,26 @@ module.exports = class Integration {
     }
 
     /**
-     * Determines whether or not this insurer supports all industry codes in this application
-     *
-     * @returns {Promise.<object, Error>} A promise that returns an true or an object containing error information on success
-     */
-    // 	_insurer_supports_industry_codes() {
-    // 		return new Promise(async (fulfill) => {
-    // 			// Query the database to see if this insurer supports this industry code
-    // 			const sql = `
-    // 				SELECT
-    // 					ic.id,
-    // 					ic.description,
-    // 					ic.cgl,
-    // 					ic.hiscox,
-    // 					ic.sic,
-    // 					ic.naics,
-    // 					ic.iso,
-    // 					iic.attributes
-    // 				FROM clw_talage_industry_codes AS ic
-    // 				INNER JOIN clw_talage_insurer_industry_codes AS iic ON
-    // 					(iic.type = 'i' AND iic.code = ic.iso)
-    // 					OR (iic.type = 'c' AND iic.code = ic.cgl)
-    // 					OR (iic.type = 'h' AND iic.code = ic.hiscox)
-    // 					OR (iic.type = 'n' AND iic.code = ic.naics)
-    // 					OR (iic.type = 's' AND iic.code = ic.sic)
-    // 				WHERE
-    // 					iic.insurer = ${this.insurer.id}
-    // 					AND ic.id = ${this.app.business.industry_code}
-    // 					AND iic.territory = '${this.app.business.primary_territory}'
-    // 				LIMIT 1;
-    // 			`;
-    // 			const result = await db.query(sql).catch(() => {
-    // 				fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    // 			});
-    // 			if (!result || !result.length) {
-    // 				this.reasons.push('Out of Appetite: The insurer does not support the industry code selected');
-    // 				fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
-    // 				return;
-    // 			}
-
-    // 			this.industry_code = result[0];
-
-    // 			// If there are attributes, parse them for later use
-    // 			if (this.industry_code.attributes && Object.keys(this.industry_code.attributes).length > 0) {
-    // 				this.industry_code.attributes = JSON.parse(this.industry_code.attributes);
-    // 			} else {
-    // 				this.industry_code.attributes = '';
-    // 			}
-
-    // 			fulfill(true);
-    // 		});
-    // 	}
-    // };
+	 * Determines whether or not this insurer supports all industry codes in this application
+	 *
+	 * @returns {Promise.<object, Error>} A promise that returns an true or an object containing error information on success
+	 */
     _insurer_supports_industry_codes() {
-        return new Promise(async (fulfill) => {
+        return new Promise(async(fulfill) => {
             // Query the database to see if this insurer supports this industry code
-            const sql = `
-                SELECT 
-                    ic.id, 
-                    ic.description, 
-                    ic.cgl,
-                    ic.hiscox,
-                    ic.sic, 
-                    ic.naics, 
-                    ic.iso, 
-                    iic.attributes 
-                FROM clw_talage_industry_codes AS ic 
-                INNER JOIN  clw_talage_insurer_industry_codes AS iic ON 
-                    (
-                        (iic.type = 'i' AND iic.code = ic.iso) 
-                        OR (iic.type = 'c' AND iic.code = ic.cgl) 
-                        OR (iic.type = 'h' AND iic.code = ic.hiscox) 
-                        OR (iic.type = 'n' AND iic.code = ic.naics) 
-                        OR (iic.type = 's' AND iic.code = ic.sic)
-                    )
-                    AND iic.insurer = ${this.insurer.id}
-                    AND iic.territory = '${this.app.business.primary_territory}'
-                WHERE
-                    ic.id = ${this.app.business.industry_code}
-                LIMIT 1;`;
-            // this.log_debug("_insurer_supports_industry_codes sql: " + sql);
+            const sql = `SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.naics, ic.iso, iic.attributes 
+                        FROM clw_talage_industry_codes AS ic 
+                            INNER JOIN  clw_talage_insurer_industry_codes AS iic ON ((iic.type = 'i' AND iic.code = ic.iso) OR (iic.type = 'c' AND iic.code = ic.cgl) OR (iic.type = 'n' AND iic.code = ic.naics) OR (iic.type = 's' AND iic.code = ic.sic)) 
+                                                                                    AND  iic.insurer = ${this.insurer.id} AND iic.territory = '${this.app.business.primary_territory}'
+                        WHERE  ic.id = ${this.app.business.industry_code}  LIMIT 1;`;
+            // log.debug("_insurer_supports_industry_codes sql: " + sql);
             const result = await db.query(sql).catch((err) => {
-                this.log_error(`_insurer_supports_industry_codes query error ${err} `, __location);
-                fulfill(this.return_error("error", "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch."));
+                log.error(`Integration: _insurer_supports_industry_codes query error ${err} ` + __location);
+                fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+                return;
             });
             if (!result || !result.length) {
-                this.log_warn(`No Insurer industry code for territory = ${this.app.business.primary_territory} ic.id = ${this.app.business.industry_code}`, __location);
+                log.warn(`Appid: ${this.app.id} autodeclined: No Insurer industry code for insurer: ${this.insurer.id} ${this.app.business.primary_territory} talage industry code = ${this.app.business.industry_code} ` + __location);
                 this.reasons.push('Out of Appetite: The insurer does not support the industry code selected');
                 fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 return;
@@ -1616,9 +1487,10 @@ module.exports = class Integration {
             // If there are attributes, parse them for later use
             if (this.industry_code.attributes && Object.keys(this.industry_code.attributes).length > 0) {
                 this.industry_code.attributes = JSON.parse(this.industry_code.attributes);
-            } else {
+            }
+            else {
                 this.industry_code.attributes = '';
-                this.log_warn(`No Industry_code attributes for territory = ${this.app.business.primary_territory}`, __location);
+                log.warn(`Appid: ${this.app.id} No Industry_code attributes:  ${this.insurer.id} and ${this.app.business.primary_territory}` + __location);
             }
 
             fulfill(true);
