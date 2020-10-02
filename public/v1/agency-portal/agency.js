@@ -255,6 +255,8 @@ async function getAgency(req, res, next) {
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     });
 
+	//TODO Delete this next iteration start deletion section, logic moved to agency-locations
+	// START DELETE SECTION
     const agencyLocationBO = new AgencyLocationBO();
     
     let locations = null;
@@ -270,7 +272,10 @@ async function getAgency(req, res, next) {
     catch(err){
         log.error(err.message + __location);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.')); 
-    }
+	}
+	
+	// END DELETE SECTION 
+
     //log.debug("agency get locations: " + JSON.stringify(locations))
 
     
