@@ -38,20 +38,20 @@ module.exports = class Application {
     }
 
     /**
-     * Populates this object based on applicationId in the request
-     *
-     * @param {object} data - The application data
-     * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
-     */
+	 * Populates this object based on applicationId in the request
+	 *
+	 * @param {object} data - The application data
+	 * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
+	 */
     async load(data) {
         log.verbose('Loading data into Application');
         // ID
         this.id = parseInt(data.id, 10);
 
         // load application from database.
-        let error = null;
+        let error = null
         let applicationBO = new ApplicationBO();
-        await applicationBO.loadFromId(this.id).catch(function (err) {
+        await applicationBO.loadFromId(this.id).catch(function(err) {
             error = err;
             log.error("Unable to get application for quoting appId: " + data.id + __location);
         });
@@ -60,22 +60,19 @@ module.exports = class Application {
             throw error;
         }
         //LastStep check.
-        const devAllowRequote = global.settings.ENV === "development" && global.settings.APPLICATION_ALLOW_REQUOTE === "YES";
-        if (devAllowRequote) {
-            log.info("###### APPLICATION_ALLOW_REQUOTE is enabled. Bypassing application age and finished checks ######");
-        }
-
         // this.state > 15, 16 is finished.
-        if (!devAllowRequote && applicationBO.state > 15) {
-            log.warn("An attempt to quote application that is finished.");
-            throw new Error("Finished Application cannot be quoted");
+        if(applicationBO.state > 15){
+            log.warn("An attempt to quote application that is finished.")
+            throw new Error("Finished Application cannot be quoted")
+
         }
         //age check - TODO add override Age parameter to allow requoting.
+        const bypassAgeCheck = global.settings.ENV === 'development' && global.settings.APPLICATION_AGE_CHECK_BYPASS === 'YES';
         const dbCreated = moment(applicationBO.created);
         const nowTime = moment().utc();
-        const ageInMinutes = nowTime.diff(dbCreated, "minutes");
-        log.debug("Application age in minutes " + ageInMinutes);
-        if (!devAllowRequote && ageInMinutes > 60) {
+        const ageInMinutes = nowTime.diff(dbCreated, 'minutes');
+        log.debug('Application age in minutes ' + ageInMinutes);
+        if(!bypassAgeCheck && ageInMinutes > 60){
             log.warn(`Attempt to update an old application. appid ${this.id}` + __location);
             throw new Error("Data Error: Application may not be updated do to age.");
         }
@@ -85,17 +82,19 @@ module.exports = class Application {
         this.business = new Business();
         try {
             await this.business.load(applicationBO.business, applicationBO);
-        } catch (err) {
+        }
+        catch (err) {
             log.error(`Unable to load the business for application ${this.id}: ${err} ${__location}`);
             throw err;
         }
+
 
         // eslint-disable-next-line prefer-const
         let appPolicyTypeList = [];
         // Load the policy information
 
-        let applicationPolicyTypeBO = new ApplicationPolicyTypeBO();
-        let policyTypeList = await applicationPolicyTypeBO.loadFromApplicationId(this.id).catch(function (err) {
+        let applicationPolicyTypeBO = new ApplicationPolicyTypeBO()
+        let policyTypeList = await applicationPolicyTypeBO.loadFromApplicationId(this.id).catch(function(err) {
             error = err;
             log.error("Unable to load list of applicationPolicyTypeBO for quoting appId: " + data.id + __location);
         });
@@ -122,18 +121,19 @@ module.exports = class Application {
         this.agencyLocation = new AgencyLocation(this.business, this.policies);
         // Note: The front-end is sending in 'agent' but this is really a reference to the 'agency location'
         if (applicationBO.agency_location) {
-            await this.agencyLocation.load({ id: applicationBO.agency_location });
-        } else {
-            await this.agencyLocation.load({ id: 1 }); // This is Talage's agency location record
+            await this.agencyLocation.load({id: applicationBO.agency_location});
+        }
+        else {
+            await this.agencyLocation.load({id: 1}); // This is Talage's agency location record
         }
 
         //this.questions = data.questions;
         let applicationQuestionBO = new ApplicationQuestionBO();
         const GET_QUESTION_LIST = true;
-        this.questions = await applicationQuestionBO.loadFromApplicationId(this.id, GET_QUESTION_LIST).catch(function (err) {
+        this.questions = await applicationQuestionBO.loadFromApplicationId(this.id,GET_QUESTION_LIST).catch(function(err){
             log.error("Quote Application error get question list " + err + __location);
             error = err;
-        });
+        })
         if (error) {
             throw error;
         }
@@ -142,28 +142,29 @@ module.exports = class Application {
         //throw new Error("stop");
     }
 
+
     /**
-     * Returns an array of IDs that represent the active insurance carriers (limited by the selections in the API request)
-     *
-     * @returns {array} - An array of integers that are insurer IDs
-     */
+	 * Returns an array of IDs that represent the active insurance carriers (limited by the selections in the API request)
+	 *
+	 * @returns {array} - An array of integers that are insurer IDs
+	 */
     get_insurer_ids() {
-        return this.insurers.map(function (insurer) {
+        return this.insurers.map(function(insurer) {
             return insurer.id;
         });
     }
 
     /**
-     * Returns a list of the active insurers in the Talage System. Will return only desired insurers based on the request
-     * received from the user. If no desired insurers are specified, will return all insurers.
-     *
-     * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
-     */
+	 * Returns a list of the active insurers in the Talage System. Will return only desired insurers based on the request
+	 * received from the user. If no desired insurers are specified, will return all insurers.
+	 *
+	 * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
+	 */
     get_insurers() {
         // requestedInsureres not longer sent from Web app.
         //get_insurers(requestedInsurers) {
         return new Promise(async(fulfill, reject) => {
-            log.debug("IN GET INSURERS FROM REQUESTED INSURERS FOR Agency Location ID " + this.agencyLocation.id)
+            log.debug("IN GET INSURERS FROM REQUESTED INSURERS FOR Agency Location ID "  + this.agencyLocation.id )
             // Get a list of desired insurers
             let desired_insurers = [];
             let stop = false;
@@ -187,9 +188,10 @@ module.exports = class Application {
 
                             if (match_found) {
                                 desired_insurers.push(insurer);
-                            } else {
+                            }
+                            else {
                                 log.info(`Agent does not support ${policy.type} policies through insurer ${insurer}`);
-                                reject(serverHelper.requestError("Agent does not support this request"));
+                                reject(serverHelper.requestError('Agent does not support this request'));
                                 stop = true;
                             }
                         }
@@ -212,14 +214,16 @@ module.exports = class Application {
                     }
                 });
                 if (some_unsupported) {
-                    log.info("Agent does not support one or more of the insurers requested.");
-                    reject(serverHelper.requestError("Agent does not support this request"));
+                    log.info('Agent does not support one or more of the insurers requested.');
+                    reject(serverHelper.requestError('Agent does not support this request'));
                     return;
                 }
-            } else {
+            }
+            else {
                 // Only use the insurers supported by this agent
                 desired_insurers = Object.keys(this.agencyLocation.insurers);
             }
+
             // Loop through each desired insurer
             let insurers = [];
             const insurer_promises = [];
@@ -244,14 +248,14 @@ module.exports = class Application {
     }
 
     /**
-     * Returns an array of the Talage WC Codes that were included in this application
-     *
-     * @returns {array} - An array of integers that are the IDs of Talage WC Codes
-     */
+	 * Returns an array of the Talage WC Codes that were included in this application
+	 *
+	 * @returns {array} - An array of integers that are the IDs of Talage WC Codes
+	 */
     get_wc_codes() {
         const ids = [];
-        this.business.locations.forEach(function (location) {
-            location.activity_codes.forEach(function (activity_code) {
+        this.business.locations.forEach(function(location) {
+            location.activity_codes.forEach(function(activity_code) {
                 ids.push(activity_code.id);
             });
         });
@@ -259,11 +263,11 @@ module.exports = class Application {
     }
 
     /**
-     * Checks whether or not the incoming request includes the specified policy type
-     *
-     * @param {string} policy_type - The policy type (BOP, GL, or WC)
-     * @returns {boolean} - True if a policy of the specified type was requested, false otherwise
-     */
+	 * Checks whether or not the incoming request includes the specified policy type
+	 *
+	 * @param {string} policy_type - The policy type (BOP, GL, or WC)
+	 * @returns {boolean} - True if a policy of the specified type was requested, false otherwise
+	 */
     has_policy_type(policy_type) {
         let rtn = false;
 
@@ -278,69 +282,46 @@ module.exports = class Application {
     }
 
     /**
-     * Begins the process of getting and returning quotes from insurers
-     *
-     * @returns {void}
-     */
+	 * Begins the process of getting and returning quotes from insurers
+	 *
+	 * @returns {void}
+	 */
     async run_quotes() {
         // Generate quotes for each policy type
-        const fs = require("fs");
+        const fs = require('fs');
         const quote_promises = [];
         const policyTypeReferred = {};
         const policyTypeQuoted = {};
 
-        let requestedInsurers = null;
+        let requestedInsurer = null;
         if (global.settings.QUOTE_ONLY_INSURER) {
-            requestedInsurers = global.settings.QUOTE_ONLY_INSURER.split(",");
-            log.info("================================================================================");
-            log.info(`QUOTE_ONLY_INSURER is set. Running quotes against '${requestedInsurers}'`);
-            log.info("================================================================================");
+            requestedInsurer = global.settings.QUOTE_ONLY_INSURER;
+            log.info('================================================================================');
+            log.info(`QUOTE_ONLY_INSURER is set. Running quotes again '${requestedInsurer}'`);
+            log.info('================================================================================');
         }
 
         this.policies.forEach((policy) => {
             // Generate quotes for each insurer for the given policy type
             this.insurers.forEach((insurer) => {
                 // Only run quotes against requested insurers (if present)
-                if (requestedInsurers && !requestedInsurers.includes(insurer.slug)) {
+                if (requestedInsurer && requestedInsurer !== insurer.slug) {
                     return;
                 }
                 // Check that the given policy type is enabled for this insurer
                 if (insurer.policy_types.indexOf(policy.type) >= 0) {
-                    if (global.settings.ENV === "development" && insurer.id === 23) {
-                        console.log("##########################################################################################################");
-                        console.log("##########################################################################################################");
-                        console.log("Hack for hiscox development. If you see this, Scott messed up and committed it. Yell at him.");
-                        console.log("##########################################################################################################");
-                        console.log("##########################################################################################################");
-                        this.agencyLocation.insurers[insurer.id].policy_type_info = {
-                            GL: {
-                                enabled: true,
-                                useAcord: false,
-                                acordInfo: { sendToEmail: "" }
-                            },
-                            WC: {
-                                enabled: false,
-                                useAcord: false,
-                                acordInfo: { sendToEmail: "" }
-                            },
-                            BOP: {
-                                enabled: false,
-                                useAcord: false,
-                                acordInfo: { sendToEmail: "" }
-                            }
-                        };
-                    }
                     // Get the agency_location_insurer data for this insurer from the agency location
                     if (this.agencyLocation.insurers[insurer.id].policy_type_info) {
                         //Retrieve the data for this policy type
                         const agency_location_insurer_data = this.agencyLocation.insurers[insurer.id].policy_type_info[policy.type];
                         if (agency_location_insurer_data) {
                             if (agency_location_insurer_data.enabled) {
-                                let slug = "";
+                                let slug = '';
                                 // If agency wants to send acord, send acord
                                 if (agency_location_insurer_data.useAcord === true && insurer.policy_type_details[policy.type].acord_support === 1) {
-                                    slug = "acord";
-                                } else if (insurer.policy_type_details[policy.type.toUpperCase()].api_support === 1) {
+                                    slug = 'acord';
+                                }
+                                else if (insurer.policy_type_details[policy.type.toUpperCase()].api_support === 1) {
                                     // Otherwise use the api
                                     slug = insurer.slug;
                                 }
@@ -351,22 +332,20 @@ module.exports = class Application {
                                     const IntegrationClass = require(normalizedPath);
                                     const integration = new IntegrationClass(this, insurer, policy);
                                     quote_promises.push(integration.quote());
-                                } else {
-                                    log.error(
-                                        `Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} ${insurer.name} ${policy.type} slug: ${slug} path: ${normalizedPath} ` +
-                                            __location
-                                    );
                                 }
-                            } else {
+                                else {
+                                    log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} ${insurer.name} ${policy.type} slug: ${slug} path: ${normalizedPath} ` + __location);
+                                }
+                            }
+                            else {
                                 log.error(`${policy.type} is not enabled for insurer ${insurer.id} for Agency location ${this.agencyLocation.id}` + __location);
                             }
-                        } else {
-                            log.error(
-                                `Info for policy type ${policy.type} not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id}` +
-                                    __location
-                            );
                         }
-                    } else {
+                        else {
+                            log.error(`Info for policy type ${policy.type} not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id}` + __location);
+                        }
+                    }
+                    else {
                         log.error(`Policy info not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id}` + __location);
                     }
                 }
@@ -377,7 +356,8 @@ module.exports = class Application {
         let quoteIDs = null;
         try {
             quoteIDs = await Promise.all(quote_promises);
-        } catch (error) {
+        }
+        catch (error) {
             log.error(`Quoting did not complete successfully for application ${this.id}: ${error} ${__location}`);
             return;
         }
@@ -394,12 +374,13 @@ module.exports = class Application {
         const sql = `
 			SELECT id, policy_type, insurer, amount, aggregated_status, status, api_result
 			FROM clw_talage_quotes
-			WHERE id IN (${quoteIDs.join(",")});
+			WHERE id IN (${quoteIDs.join(',')});
 		`;
         let quotesRecordSet = null;
         try {
             quotesRecordSet = await db.query(sql);
-        } catch (error) {
+        }
+        catch (error) {
             log.error(`Could not retrieve quotes from the database for application ${this.id} ${__location}`);
             return;
         }
@@ -407,10 +388,11 @@ module.exports = class Application {
         // Determine the type of policy quoted for the application state
         quotesRecordSet.forEach((quote) => {
             // Determine the result of this quote
-            if (Object.prototype.hasOwnProperty.call(quote, "amount") && quote.amount) {
+            if (Object.prototype.hasOwnProperty.call(quote, 'amount') && quote.amount) {
                 // Quote
                 policyTypeQuoted[quote.policy_type] = true;
-            } else if (Object.prototype.hasOwnProperty.call(quote, "status") && quote.status === "referred") {
+            }
+            else if (Object.prototype.hasOwnProperty.call(quote, 'status') && quote.status === 'referred') {
                 // Referred
                 policyTypeReferred[quote.policy_type] = true;
             }
@@ -421,7 +403,8 @@ module.exports = class Application {
         // Send a notification to Slack about this application
         try{
             await this.send_notifications(quotesRecordSet);
-        } catch(err){
+        }
+        catch(err){
             log.error(`Quote Application ${this.id} error sending notifications ` + err + __location);
         }
 
@@ -441,7 +424,8 @@ module.exports = class Application {
         quotesRecordSet.forEach((quoteRecord) => {
             if (quoteRecord.aggregated_status === 'quoted' || quoteRecord.aggregated_status === 'quoted_referred') {
                 some_quotes = true;
-            } else {
+            }
+            else {
                 all_had_quotes = false;
             }
             //Notify Talage logic Agencylocation ->insures
@@ -452,7 +436,8 @@ module.exports = class Application {
                     notifiyTalage = notifiyTalageTest;
                     log.info(`Quote Application ${this.id} sending notification to Talage ` + __location)
                 }
-            } catch(err){
+            }
+            catch(err){
                 log.error(`Quote Application ${this.id} Error get notifyTalage ` + err + __location);
             }
         });
@@ -462,25 +447,24 @@ module.exports = class Application {
         if (!some_quotes) {
             let error = null;
             const agencyNetworkBO = new AgencyNetworkBO();
-            const emailContentJSON = await agencyNetworkBO
-                .getEmailContentAgencyAndCustomer(this.agencyLocation.agencyNetwork, "no_quotes_agency", "no_quotes_customer")
-                .catch(function (err) {
-                    log.error(`Email content Error Unable to get email content for no quotes.  error: ${err}` + __location);
-                    error = true;
-                });
+            const emailContentJSON = await agencyNetworkBO.getEmailContentAgencyAndCustomer(this.agencyLocation.agencyNetwork, 'no_quotes_agency', 'no_quotes_customer').catch(function(err) {
+                log.error(`Email content Error Unable to get email content for no quotes.  error: ${err}` + __location);
+                error = true;
+            });
             if (error) {
                 return false;
             }
 
             if (emailContentJSON && emailContentJSON.customerMessage && emailContentJSON.customerSubject && emailContentJSON.emailBrand) {
+
                 /* ---=== Email to Insured === --- */
 
                 // Determine the branding to use for this email
-                let brand = emailContentJSON.emailBrand === "wheelhouse" ? "agency" : `${emailContentJSON.emailBrand}-agency`;
+                let brand = emailContentJSON.emailBrand === 'wheelhouse' ? 'agency' : `${emailContentJSON.emailBrand}-agency`;
 
                 // If this is Talage, update the brand
                 if (this.agencyLocation.agencyId <= 2) {
-                    brand = "talage";
+                    brand = 'talage';
                 }
 
                 let message = emailContentJSON.customerMessage;
@@ -488,20 +472,14 @@ module.exports = class Application {
 
                 // Perform content replacements
                 message = message.replace(/{{Agency}}/g, this.agencyLocation.agency);
-                message = message.replace(/{{Agency Email}}/g, this.agencyLocation.agencyEmail ? this.agencyLocation.agencyEmail : "");
-                message = message.replace(/{{Agency Phone}}/g, this.agencyLocation.agencyPhone ? formatPhone(this.agencyLocation.agencyPhone) : "");
-                message = message.replace(
-                    /{{Agency Website}}/g,
-                    this.agencyLocation.agencyWebsite
-                        ? `<a href="${this.agencyLocation.agencyWebsite}"  rel="noopener noreferrer" target="_blank">${this.agencyLocation.agencyWebsite}</a>`
-                        : ""
-                );
+                message = message.replace(/{{Agency Email}}/g, this.agencyLocation.agencyEmail ? this.agencyLocation.agencyEmail : '');
+                message = message.replace(/{{Agency Phone}}/g, this.agencyLocation.agencyPhone ? formatPhone(this.agencyLocation.agencyPhone) : '');
+                message = message.replace(/{{Agency Website}}/g, this.agencyLocation.agencyWebsite ? `<a href="${this.agencyLocation.agencyWebsite}"  rel="noopener noreferrer" target="_blank">${this.agencyLocation.agencyWebsite}</a>` : '');
                 subject = subject.replace(/{{Agency}}/g, this.agencyLocation.agency);
 
                 // Send the email message
-                log.debug("sending customer email");
-                await emailSvc.send(
-                    this.business.contacts[0].email,
+                log.debug('sending customer email');
+                await emailSvc.send(this.business.contacts[0].email,
                     subject,
                     message,
                     {
@@ -510,8 +488,7 @@ module.exports = class Application {
                     },
                     this.agencyLocation.agencyNetwork,
                     brand,
-                    this.agencyLocation.agencyId
-                );
+                    this.agencyLocation.agencyId);
 
                 /* ---=== Email to Agency === --- */
 
@@ -525,10 +502,7 @@ module.exports = class Application {
 
                     // Perform content replacements
                     const capitalizedBrand = emailContentJSON.emailBrand.charAt(0).toUpperCase() + emailContentJSON.emailBrand.substring(1);
-                    message = message.replace(
-                        /{{Agency Portal}}/g,
-                        `<a href="${portalLink}" target="_blank" rel="noopener noreferrer">${capitalizedBrand} Agency Portal</a>`
-                    );
+                    message = message.replace(/{{Agency Portal}}/g, `<a href="${portalLink}" target="_blank" rel="noopener noreferrer">${capitalizedBrand} Agency Portal</a>`);
                     message = message.replace(/{{Agency}}/g, this.agencyLocation.agency);
                     message = message.replace(/{{Agent Login URL}}/g, this.agencyLocation.insurers[quotesRecordSet[0].insurer].agent_login);
                     message = message.replace(/{{Brand}}/g, capitalizedBrand);
@@ -541,10 +515,9 @@ module.exports = class Application {
                     if (quotesRecordSet[0].status) {
                         message = message.replace(/{{Quote Result}}/g, quotesRecordSet[0].status.charAt(0).toUpperCase() + quotesRecordSet[0].status.substring(1));
                     }
-                    log.debug("sending agency email");
+                    log.debug('sending agency email');
                     // Send the email message - development should email. change local config to get the email.
-                    await emailSvc.send(
-                        this.agencyLocation.agencyEmail,
+                    await emailSvc.send(this.agencyLocation.agencyEmail,
                         subject,
                         message,
                         {
@@ -553,8 +526,7 @@ module.exports = class Application {
                         },
                         this.agencyLocation.agencyNetwork,
                         emailContentJSON.emailBrand,
-                        this.agencyLocation.agencyId
-                    );
+                        this.agencyLocation.agencyId);
                 }
             }
         }
@@ -577,46 +549,49 @@ module.exports = class Application {
                     },
                     {
                         short: false,
-                        title: "Industry",
+                        title: 'Industry',
                         value: this.business.industry_code_description
                     }
                 ],
-                text: `${this.business.name} from ${this.business.primary_territory} completed an application for ${this.policies
-                    .map(function (policy) {
+                text: `${this.business.name} from ${this.business.primary_territory} completed an application for ${this.policies.
+                    map(function(policy) {
                         return policy.type;
-                    })
-                    .join(" and ")}`
+                    }).
+                    join(' and ')}`
             };
 
             // sending controlled in slacksvc by env SLACK_DO_NOT_SEND
             // Send a message to Slack
             if (all_had_quotes) {
-                slack.send("customer_success", "ok", "Application completed and the user received ALL quotes", attachment);
-            } else if (some_quotes) {
-                slack.send("customer_success", "ok", "Application completed and only SOME quotes returned", attachment);
-            } else {
-                slack.send("customer_success", "warning", "Application completed, but the user received NO quotes", attachment);
+                slack.send('customer_success', 'ok', 'Application completed and the user received ALL quotes', attachment);
+            }
+            else if (some_quotes) {
+                slack.send('customer_success', 'ok', 'Application completed and only SOME quotes returned', attachment);
+            }
+            else {
+                slack.send('customer_success', 'warning', 'Application completed, but the user received NO quotes', attachment);
             }
         }
     }
 
     /**
-     * Updates the state of the application as follows:
-     *   1 - New Application (no change, this is default)
-     *   12 - Referred (Application did not receive quotes and had at least one referral per policy type)
-     *   13 - Quoted (Application received at least one quote per policy type)
-     *
-     * @param {int} numPolicyTypesRequested - The number of policy types requested in the application
-     * @param {int} numPolicyTypesQuoted - The number of policy types that got quotes
-     * @param {int} numPolicyTypesReferred - THe number of policy types that referred
-     * @return {void}
-     */
+	 * Updates the state of the application as follows:
+	 *   1 - New Application (no change, this is default)
+	 *   12 - Referred (Application did not receive quotes and had at least one referral per policy type)
+	 *   13 - Quoted (Application received at least one quote per policy type)
+	 *
+	 * @param {int} numPolicyTypesRequested - The number of policy types requested in the application
+	 * @param {int} numPolicyTypesQuoted - The number of policy types that got quotes
+	 * @param {int} numPolicyTypesReferred - THe number of policy types that referred
+	 * @return {void}
+	 */
     async updateApplicationState(numPolicyTypesRequested, numPolicyTypesQuoted, numPolicyTypesReferred) {
         // Determine the application status
         let state = 1; // New
         if (numPolicyTypesRequested === numPolicyTypesQuoted) {
             state = 13; // Quoted
-        } else if (numPolicyTypesRequested === numPolicyTypesReferred) {
+        }
+        else if (numPolicyTypesRequested === numPolicyTypesReferred) {
             state = 12; // Referred
         }
 
@@ -630,24 +605,25 @@ module.exports = class Application {
 			`;
             try {
                 await db.query(sql);
-            } catch (error) {
+            }
+            catch (error) {
                 log.error(`Unable to update application ${this.id} state: ${error} ${__location}`);
             }
         }
     }
 
     /**
-     * Checks that the data supplied is valid
-     *
-     * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
-     */
+	 * Checks that the data supplied is valid
+	 *
+	 * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
+	 */
     validate() {
-        return new Promise(async (fulfill, reject) => {
+        return new Promise(async(fulfill, reject) => {
             let stop = false;
 
             // Agent
-            await this.agencyLocation.validate().catch(function (error) {
-                log.error("Location.validate() error " + error + __location);
+            await this.agencyLocation.validate().catch(function(error) {
+                log.error('Location.validate() error ' + error + __location);
                 reject(error);
                 stop = true;
             });
@@ -656,32 +632,32 @@ module.exports = class Application {
             }
 
             // Initialize the agent so it is ready for later
-            await this.agencyLocation.init().catch(function (error) {
-                log.error("Location.init() error " + error + __location);
+            await this.agencyLocation.init().catch(function(error) {
+                log.error('Location.init() error ' + error + __location);
                 reject(error);
                 stop = true;
             });
 
             // Validate the ID
-            if (!(await validator.application(this.id))) {
-                log.error("validator.application() " + this.id + __location);
-                reject(serverHelper.requestError("Invalid application ID specified."));
+            if (!await validator.application(this.id)) {
+                log.error('validator.application() ' + this.id + __location);
+                reject(serverHelper.requestError('Invalid application ID specified.'));
                 return;
             }
 
             // Get a list of insurers and wait for it to return
             // Determine if WholeSale shoud be used.  (this might have already been determined in the app workflow.)
-            const insurers = await this.get_insurers().catch(async (error) => {
-                if (error === "Agent does not support this request") {
+            const insurers = await this.get_insurers().catch(async(error) => {
+                if (error === 'Agent does not support this request') {
                     if (this.agencyLocation.wholesale) {
                         // Switching to the Talage agent
-                        log.info("Quote Application model Switching to the Talage agent appId: " + this.id + __location);
+                        log.info("Quote Application model Switching to the Talage agent appId: " + this.id + __location)
                         this.agencyLocation = new AgencyLocation(this);
-                        await this.agencyLocation.load({ id: 1 }); // This is Talage's agency location record
+                        await this.agencyLocation.load({id: 1}); // This is Talage's agency location record
 
                         // Initialize the agent so we can use it
-                        await this.agencyLocation.init().catch(function (init_error) {
-                            log.error("Location.init() error " + init_error + __location);
+                        await this.agencyLocation.init().catch(function(init_error) {
+                            log.error('Location.init() error ' + init_error + __location);
                             reject(init_error);
                             stop = true;
                         });
@@ -690,10 +666,11 @@ module.exports = class Application {
                         return this.get_insurers();
                     }
 
-                    reject(serverHelper.requestError("The Agent specified cannot support this policy."));
+                    reject(serverHelper.requestError('The Agent specified cannot support this policy.'));
                     stop = true;
-                } else {
-                    log.error("get insurers error " + error + __location);
+                }
+                else {
+                    log.error('get insurers error ' + error + __location);
                     reject(error);
                     stop = true;
                 }
@@ -701,16 +678,16 @@ module.exports = class Application {
             if (stop) {
                 return;
             }
-            if (!insurers || insurers.length === 0 || Object.prototype.toString.call(insurers) !== "[object Array]") {
-                log.error("Invalid insurer(s) specified in policy. " + __location);
-                reject(serverHelper.requestError("Invalid insurer(s) specified in policy."));
+            if (!insurers || insurers.length === 0 || Object.prototype.toString.call(insurers) !== '[object Array]') {
+                log.error('Invalid insurer(s) specified in policy. ' + __location);
+                reject(serverHelper.requestError('Invalid insurer(s) specified in policy.'));
                 return;
             }
 
             // Validate the business
 
-            await this.business.validate().catch(function (error) {
-                log.error("business.validate() error " + error + __location);
+            await this.business.validate().catch(function(error) {
+                log.error('business.validate() error ' + error + __location);
                 reject(error);
                 stop = true;
             });
@@ -719,75 +696,70 @@ module.exports = class Application {
             }
             //Rules related Business rules based on application level data.
             /**
-             * Management Structure (required only for LLCs in MT)
-             * - Must be either 'member' or 'manager'
-             */
-            if (this.has_policy_type("WC") && this.business.entity_type === "Limited Liability Company" && this.business.primary_territory === "MT") {
+			 * Management Structure (required only for LLCs in MT)
+			 * - Must be either 'member' or 'manager'
+			 */
+            if (this.has_policy_type('WC') && this.business.entity_type === 'Limited Liability Company' && this.business.primary_territory === 'MT') {
                 if (this.business.management_structure) {
                     if (!validator.management_structure(this.business.management_structure)) {
-                        log.warn(`Invalid management structure. Must be either "member" or "manager."` + this.id + __location);
+                        log.warn(`Invalid management structure. Must be either "member" or "manager."` + this.id + __location)
                         reject(serverHelper.requestError('Invalid management structure. Must be either "member" or "manager."'));
                         return;
                     }
-                } else {
-                    reject(serverHelper.requestError("Missing required field: management_structure"));
+                }
+                else {
+                    reject(serverHelper.requestError('Missing required field: management_structure'));
                     return;
                 }
             }
 
             /**
-             * Corporation type (required only for WC for Corporations in PA that are excluding owners)
-             * - Must be one of 'c', 'n', or 's'
-             */
-            if (
-                this.has_policy_type("WC") &&
-                this.business.entity_type === "Corporation" &&
-                this.business.primary_territory === "PA" &&
-                !this.business.owners_included
-            ) {
+			 * Corporation type (required only for WC for Corporations in PA that are excluding owners)
+			 * - Must be one of 'c', 'n', or 's'
+			 */
+            if (this.has_policy_type('WC') && this.business.entity_type === 'Corporation' && this.business.primary_territory === 'PA' && !this.business.owners_included) {
                 if (this.business.corporation_type) {
                     if (!validator.corporation_type(this.business.corporation_type)) {
-                        log.warn(`Invalid corporation type. Must be "c" (c-corp), "n" (non-profit), or "s" (s-corp)." ` + this.id + __location);
+                        log.warn(`Invalid corporation type. Must be "c" (c-corp), "n" (non-profit), or "s" (s-corp)." ` + this.id + __location)
                         reject(serverHelper.requestError('Invalid corporation type. Must be "c" (c-corp), "n" (non-profit), or "s" (s-corp).'));
                         return;
                     }
-                } else {
-                    reject(serverHelper.requestError("Missing required field: corporation_type"));
+                }
+                else {
+                    reject(serverHelper.requestError('Missing required field: corporation_type'));
                     return;
                 }
             }
 
             /**
-             * Owners (conditionally required)
-             * - Only used for WC policies, ignored otherwise
-             * - Only required if owners_included is false
-             */
-            if (this.has_policy_type("WC") && !this.business.owners_included) {
+			 * Owners (conditionally required)
+			 * - Only used for WC policies, ignored otherwise
+			 * - Only required if owners_included is false
+			 */
+            if (this.has_policy_type('WC') && !this.business.owners_included) {
                 if (this.business.owners.length) {
                     // TO DO: Owner validation is needed here
-                } else {
-                    reject(serverHelper.requestError("The names of owners must be supplied if they are not included in this policy."));
+                }
+                else {
+                    reject(serverHelper.requestError('The names of owners must be supplied if they are not included in this policy.'));
                     return;
                 }
             }
 
             /**
-             * Unincorporated Association (Required only for WC, in NH, and for LLCs and Corporations)
-             */
-            if (
-                this.has_policy_type("WC") &&
-                (this.business.entity_type === "Corporation" || this.business.entity_type === "Limited Liability Company") &&
-                this.business.primary_territory === "NH"
-            ) {
+			 * Unincorporated Association (Required only for WC, in NH, and for LLCs and Corporations)
+			 */
+            if (this.has_policy_type('WC') && (this.business.entity_type === 'Corporation' || this.business.entity_type === 'Limited Liability Company') && this.business.primary_territory === 'NH') {
+
                 // This is required
                 if (this.business.unincorporated_association === null) {
-                    reject(serverHelper.requestError("Missing required field: unincorporated_association"));
+                    reject(serverHelper.requestError('Missing required field: unincorporated_association'));
                     return;
                 }
 
                 // Validate
                 if (!validator.boolean(this.business.unincorporated_association)) {
-                    reject(serverHelper.requestError("Invalid value for unincorporated_association, please use a boolean value"));
+                    reject(serverHelper.requestError('Invalid value for unincorporated_association, please use a boolean value'));
                     return;
                 }
 
@@ -795,15 +767,16 @@ module.exports = class Application {
                 this.business.unincorporated_association = helper.convert_to_boolean(this.business.unincorporated_association);
             }
 
+
             // Validate all policies
             const policy_types = [];
             const policy_promises = [];
-            this.policies.forEach(function (policy) {
+            this.policies.forEach(function(policy) {
                 policy_promises.push(policy.validate());
                 policy_types.push(policy.type);
             });
-            await Promise.all(policy_promises).catch(function (error) {
-                log.error("Policy Validation error. " + error + __location);
+            await Promise.all(policy_promises).catch(function(error) {
+                log.error('Policy Validation error. ' + error + __location);
                 reject(error);
                 stop = true;
             });
@@ -835,8 +808,8 @@ module.exports = class Application {
                         if (Object.prototype.hasOwnProperty.call(user_questions, q.id)) {
                             const user_answer = user_questions[q.id];
 
-                            q.set_answer(user_answer).catch(function (error) {
-                                log.error("set answers error " + error + __location);
+                            q.set_answer(user_answer).catch(function(error) {
+                                log.error('set answers error ' + error + __location);
                                 reject(error);
                                 has_error = true;
                             });
@@ -862,18 +835,14 @@ module.exports = class Application {
                             continue;
                         }
 
-                        let parent_question = null;
                         if (question.parent) {
                             // Get the parent question
-                            parent_question = this.questions[question.parent];
+                            const parent_question = this.questions[question.parent];
 
                             // If no parent was found, throw an error
                             if (!parent_question) {
-                                log.error(
-                                    `Question ${question.id} has invalid parent setting. (${htmlentities.decode(question.text).replace("%", "%%")})` +
-                                        __location
-                                );
-                                reject(serverHelper.requestError("An unexpected error has occurred. Our team has been alerted and will contact you."));
+                                log.error(`Question ${question.id} has invalid parent setting. (${htmlentities.decode(question.text).replace('%', '%%')})` + __location);
+                                reject(serverHelper.requestError('An unexpected error has occurred. Our team has been alerted and will contact you.'));
                                 return;
                             }
 
@@ -881,16 +850,14 @@ module.exports = class Application {
                             if (parent_question.answer_id === question.parent_answer) {
                                 question.required = true;
                             }
-                        } else {
+                        }
+                        else {
                             question.required = true;
                         }
+
                         // If required, check that this question was answered by the user
                         if (question.required && (!user_questions || !Object.prototype.hasOwnProperty.call(user_questions, question.id))) {
-                            reject(
-                                serverHelper.requestError(
-                                    `Question ${question.id} missing from request. (${htmlentities.decode(question.text).replace("%", "%%")})`
-                                )
-                            );
+                            reject(serverHelper.requestError(`Question ${question.id} missing from request. (${htmlentities.decode(question.text).replace('%', '%%')})`));
                             return;
                         }
                     }
@@ -905,8 +872,8 @@ module.exports = class Application {
                         question_promises.push(this.questions[question_id].validate());
                     }
                 }
-                await Promise.all(question_promises).catch(function (error) {
-                    log.error("question_promises error. " + error + __location);
+                await Promise.all(question_promises).catch(function(error) {
+                    log.error('question_promises error. ' + error + __location);
                     reject(error);
                     stop = true;
                 });
@@ -919,8 +886,8 @@ module.exports = class Application {
             // Note: we cannot hurt questions where a child must be sent
 
             // Check agent support
-            await this.agencyLocation.supports_application().catch(function (error) {
-                log.error("agencyLocation.supports_application() error " + error + __location);
+            await this.agencyLocation.supports_application().catch(function(error) {
+                log.error('agencyLocation.supports_application() error ' + error + __location);
                 reject(error);
                 stop = true;
             });

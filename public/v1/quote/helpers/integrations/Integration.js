@@ -111,18 +111,27 @@ module.exports = class Integration {
 	 * Returns an XML node child from parsed XML data. It will iterate down the node children, getting element 0 of each node's child.
 	 *
      * @param {object} node - top-level parent node
-     * @param {Array} children - Array of child node names
+     * @param {Array} children - A dot-separated string of XML node names
      * @param {bool} returnRawLastNode - true if the returned child should be raw (NOT element zero of its node). Good if you want to iterate on the child node.
 	 * @returns {object} - Claims information lumped together by policy year
 	 */
     get_xml_child(node, children, returnRawLastNode = false) {
+        const childrenList = children.split('.');
         let rawNode = node;
-        for (const child of children) {
-            if (!node[child] || !node[child].length) {
+        for (const child of childrenList) {
+            if (!node[child]) {
                 return null;
             }
             rawNode = node[child];
-            node = rawNode[0];
+            if (Array.isArray(rawNode)) {
+                if (!rawNode.length) {
+                    return null;
+                }
+                node = rawNode[0];
+            }
+            else {
+                node = rawNode;
+            }
         }
         return returnRawLastNode ? rawNode : node;
     }

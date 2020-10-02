@@ -17,11 +17,11 @@ module.exports = class Location {
         this.appPolicyTypeList = [];
         this.business_entity_type = '';
 
+
         this.activity_codes = [];
         this.address = '';
         this.address2 = '';
         this.city = '';
-        // this.county = '';
         this.full_time_employees = 0;
         this.identification_number = '';
         this.identification_number_type = null;

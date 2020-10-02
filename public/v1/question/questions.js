@@ -64,7 +64,8 @@ async function getQuestions(req, res, next){
         // insurers is optional
         const insurers = req.query.insurers ? req.query.insurers.split(',') : [];
         getQuestionsResult = await questionSvc.GetQuestionsForFrontend(req.query.activity_codes.split(','), req.query.industry_code, req.query.zips.split(','), req.query.policy_types.split(','), insurers, return_hidden);
-    } catch(error){
+    }
+    catch(error){
         return next(serverHelper.requestError('An error occured while retrieving application questions.'));
     }
 

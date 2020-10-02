@@ -5,7 +5,7 @@
     "main": "index.js",
     "scripts": {
         "serve": "node index.js",
-        "dev": "nodemon --ext js,env,json,xmlt,jsont index.js",
+        "dev": "nodemon --ext js,env,json index.js",
         "lint": "eslint ./private/ ./public/ ./uptime/ ./shared/ *.js",
         "test": "mocha --reporter mochawesome",
         "testnyc": "nyc --reporter html mocha",
@@ -121,7 +121,10 @@
             "array-bracket-spacing": "error",
             "array-callback-return": "error",
             "array-element-newline": [
-                "off"
+                "error",
+                {
+                    "minItems": 3
+                }
             ],
             "arrow-body-style": "error",
             "arrow-parens": "off",
@@ -133,7 +136,7 @@
             ],
             "brace-style": [
                 "error",
-                "1tbs",
+                "stroustrup",
                 {
                     "allowSingleLine": true
                 }
@@ -154,14 +157,11 @@
                 "all"
             ],
             "default-case": "error",
-            "dot-location": [
-                "error",
-                "property"
-            ],
+            "dot-location": "error",
             "dot-notation": "error",
             "eol-last": [
                 "error",
-                "always"
+                "never"
             ],
             "eqeqeq": "error",
             "for-direction": "error",
@@ -171,7 +171,10 @@
                 "off",
                 "declaration"
             ],
-            "function-paren-newline": 0,
+            "function-paren-newline": [
+                "error",
+                "never"
+            ],
             "generator-star-spacing": "error",
             "getter-return": "error",
             "guard-for-in": "error",
@@ -221,14 +224,17 @@
                     }
                 }
             ],
-            "lines-around-comment": 0,
+            "lines-around-comment": "error",
             "lines-between-class-members": "error",
             "max-statements-per-line": "error",
             "multiline-comment-style": [
                 "error",
                 "separate-lines"
             ],
-            "multiline-ternary": "off",
+            "multiline-ternary": [
+                "error",
+                "never"
+            ],
             "new-cap": "off",
             "new-parens": "error",
             "no-alert": "error",
@@ -266,7 +272,7 @@
             "no-extra-bind": "error",
             "no-extra-boolean-cast": "error",
             "no-extra-label": "error",
-            "no-extra-parens": "off",
+            "no-extra-parens": "error",
             "no-extra-semi": "error",
             "no-fallthrough": "error",
             "no-floating-decimal": "error",
@@ -348,11 +354,13 @@
             "no-void": "error",
             "no-whitespace-before-property": "error",
             "no-with": "error",
-            "object-curly-newline": "off",
-            "object-curly-spacing": [
+            "object-curly-newline": [
                 "error",
-                "always"
+                {
+                    "minProperties": 2
+                }
             ],
+            "object-curly-spacing": "error",
             "object-property-newline": "error",
             "object-shorthand": [
                 "error",
@@ -400,7 +408,10 @@
                 "off",
                 "never"
             ],
-            "space-before-function-paren": 0,
+            "space-before-function-paren": [
+                "error",
+                "never"
+            ],
             "space-in-parens": "error",
             "space-infix-ops": "error",
             "space-unary-ops": "error",
