@@ -177,29 +177,6 @@ async function createToken(req, res, next){
         agencyNetworkId = wholesaleInfo[0].agency_network;
     }
 
-    // Build a query to get all of the insurers this agency network can use
-    const insurersSQL = `
-		SELECT \`i\`.\`id\`
-		FROM \`#__insurers\` AS \`i\`
-		RIGHT JOIN \`#__agency_network_insurers\` AS \`ani\` ON \`i\`.\`id\` = \`ani\`.\`insurer\`
-		WHERE \`ani\`.\`agency_network\` = ${db.escape(agencyNetworkId)} AND \`i\`.\`state\` > 0;
-	`;
-
-    // Query the database
-    const insurersData = await db.query(insurersSQL).catch(function(e){
-        log.error(e.message);
-        res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
-        error = true;
-    });
-    if(error){
-        return next(false);
-    }
-
-    // Store the insurers in the payload
-    payload.insurers = [];
-    insurersData.forEach((insurer) => {
-        payload.insurers.push(insurer.id);
-    });
 
     // Add the user ID to the payload
     payload.userID = agencyPortalUserResult[0].id;

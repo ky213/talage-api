@@ -144,6 +144,10 @@ module.exports = class Question{
                         log.warn(`answer array conversion problem on ${answer} ` + __location);
                     }
                 }
+                else if (typeof answer === 'number') {
+                    // Only 1 checkbox was selected and it was retrieved as a number (answer ID) instead of a pipe-delimited string. Put it in an array by itself.
+                    answer = [answer];
+                }
                 // Every answer must be numeric, if they are not, they are wrong
                 if(typeof answer !== 'object' || !answer.length){
                     const errorMessage = `Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)}) (For Checkbox questions, expecting an array of answer IDs) answer: ${answer}`

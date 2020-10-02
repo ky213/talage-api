@@ -183,7 +183,7 @@ module.exports = class BusinessAddressModel{
         const result = await db.query(sql).catch(function (error) {
             // Check if this was
             rejected = true;
-            log.error(`clw_talage_agency_location_insurers error on select ` + error + __location);
+            log.error(`clw_talage_address_activity_codes error on select ` + error + __location);
         });
         if(result && result.length>0) {
             if (!rejected && result && result.length >0) {
