@@ -1072,7 +1072,7 @@ module.exports = class Integration {
 
         // If this was quoted, make sure we have an amount
         if ((result === 'quoted' || result === 'referred_with_price') && !this.amount) {
-            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote amount. Response structure may have changed.`);
+            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote amount. Response structure may have changed.` + __location);
             this.reasons.push(`${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote amount. Response structure may have changed.`);
             if (result === 'quoted') {
                 result = 'error';
@@ -1119,7 +1119,7 @@ module.exports = class Integration {
                 if (this.reasons) {
                     //this.reasons.forEach(function(reason) {
                     for(let i = 0; i < this.reasons.length; i++){
-                        log.error(`Appid: ${this.app.id} ` + this.reasons[i]);
+                        log.error(`Appid: ${this.app.id} ` + this.reasons[i] + __location);
                     }
                 }
                 return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
@@ -1466,16 +1466,17 @@ module.exports = class Integration {
             // Query the database to see if this insurer supports this industry code
             const sql = `SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.naics, ic.iso, iic.attributes 
                         FROM clw_talage_industry_codes AS ic 
-                            LEFT JOIN  clw_talage_insurer_industry_codes AS iic ON ((iic.type = 'i' AND iic.code = ic.iso) OR (iic.type = 'c' AND iic.code = ic.cgl) OR (iic.type = 'n' AND iic.code = ic.naics) OR (iic.type = 's' AND iic.code = ic.sic)) 
+                            INNER JOIN  clw_talage_insurer_industry_codes AS iic ON ((iic.type = 'i' AND iic.code = ic.iso) OR (iic.type = 'c' AND iic.code = ic.cgl) OR (iic.type = 'n' AND iic.code = ic.naics) OR (iic.type = 's' AND iic.code = ic.sic)) 
                                                                                     AND  iic.insurer = ${this.insurer.id} AND iic.territory = '${this.app.business.primary_territory}'
                         WHERE  ic.id = ${this.app.business.industry_code}  LIMIT 1;`;
             // log.debug("_insurer_supports_industry_codes sql: " + sql);
             const result = await db.query(sql).catch((err) => {
                 log.error(`Integration: _insurer_supports_industry_codes query error ${err} ` + __location);
                 fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+                return;
             });
             if (!result || !result.length) {
-                log.error(`Appid: ${this.app.id} autodeclined: no database result insurer: ${this.insurer.id} ${this.app.business.primary_territory} ic.id = ${this.app.business.industry_code} ` + __location);
+                log.warn(`Appid: ${this.app.id} autodeclined: No Insurer industry code for insurer: ${this.insurer.id} ${this.app.business.primary_territory} talage industry code = ${this.app.business.industry_code} ` + __location);
                 this.reasons.push('Out of Appetite: The insurer does not support the industry code selected');
                 fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 return;
