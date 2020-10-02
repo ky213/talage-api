@@ -242,7 +242,11 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
 			LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
 			LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
 			LEFT JOIN clw_talage_insurer_industry_codes AS iic ON icq.insurer_industry_code = iic.id
-			LEFT JOIN clw_talage_industry_codes AS ic ON ic.cgl = iic.code AND iic.type = 'c'
+            LEFT JOIN clw_talage_industry_codes AS ic ON 
+                (
+                    (ic.cgl = iic.code AND iic.type = 'c')
+                    OR (ic.hiscox = iic.code AND iic.type = 'h')
+                )
 			WHERE ic.id = ${db.escape(industry_code)} AND ${where} GROUP BY q.id;
 		`;
         const cgl_questions = await db.query(sql).catch(function(err) {

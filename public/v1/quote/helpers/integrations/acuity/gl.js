@@ -542,29 +542,19 @@ module.exports = class AcuityGL extends Integration {
         }
 
         // Find the PolicySummaryInfo, PolicySummaryInfo.PolicyStatusCode, and optionally the PolicySummaryInfo.FullTermAmt.Amt
-        const policySummaryInfo = this.get_xml_child(res.ACORD, [
-                'InsuranceSvcRs',
-                'GeneralLiabilityPolicyQuoteInqRs',
-                'PolicySummaryInfo'
-        ]);
+        const policySummaryInfo = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.PolicySummaryInfo');
         if (!policySummaryInfo) {
             log.error(`Acuity (application ${this.app.id}): Could not find PolicySummaryInfo: ${error} ${__location}`);
             return this.return_error('error', 'Acuity returned an unexpected reply');
         }
-        const policyStatusCode = this.get_xml_child(policySummaryInfo, ['PolicyStatusCd']);
+        const policyStatusCode = this.get_xml_child(policySummaryInfo, 'PolicyStatusCd');
         if (!policyStatusCode) {
             log.error(`Acuity (application ${this.app.id}): Could not find PolicyStatusCode: ${error} ${__location}`);
             return this.return_error('error', 'Acuity returned an unexpected reply');
         }
 
         // If the first message status begins with "Rating is not available ...", it is an autodecline
-        const extendedStatusDescription = this.get_xml_child(res.ACORD, [
-            'InsuranceSvcRs',
-            'GeneralLiabilityPolicyQuoteInqRs',
-            'MsgStatus',
-            'ExtendedStatus',
-            'ExtendedStatusDesc'
-        ]);
+        const extendedStatusDescription = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.MsgStatus.ExtendedStatus.ExtendedStatusDesc');
         if (extendedStatusDescription && extendedStatusDescription.startsWith("Rating is not available for this type of business")) {
             this.reasons.push('Rating is not available for this type of business.');
             return this.return_result('autodeclined');
@@ -575,19 +565,13 @@ module.exports = class AcuityGL extends Integration {
             case "com.acuity_BindableModifiedQuote":
             case "com.acuity_NonBindableQuote":
                 let policyAmount = 0;
-                const policyAmountNode = this.get_xml_child(policySummaryInfo, ['FullTermAmt', 'Amt']);
+                const policyAmountNode = this.get_xml_child(policySummaryInfo, 'FullTermAmt.Amt');
                 if (policyAmountNode) {
                     policyAmount = parseFloat(policyAmountNode);
                 }
                 // Get the returned limits
                 let foundLimitsCount = 0;
-                const commlCoverage = this.get_xml_child(res.ACORD, [
-                    'InsuranceSvcRs',
-                    'GeneralLiabilityPolicyQuoteInqRs',
-                    'GeneralLiabilityLineBusiness',
-                    'LiabilityInfo',
-                    'CommlCoverage'
-                ], true);
+                const commlCoverage = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.GeneralLiabilityLineBusiness.LiabilityInfo.CommlCoverage', true);
                 if (!commlCoverage) {
                     this.reasons.push(`Could not find CommlCoverage node in response.`);
                     log.error(`Acuity (application ${this.app.id}): Could not find the CommlCoverage node. ${__location}`);
@@ -636,11 +620,7 @@ module.exports = class AcuityGL extends Integration {
                     return this.return_error('error', 'Acuity returned an unexpected result for a bindable quote.');
                 }
                 // Look for a quote letter
-                const fileAttachmentInfo = this.get_xml_child(res.ACORD, [
-                    'InsuranceSvcRs',
-                    'GeneralLiabilityPolicyQuoteInqRs',
-                    'FileAttachmentInfo'
-                ]);
+                const fileAttachmentInfo = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.FileAttachmentInfo');
                 if (fileAttachmentInfo) {
                     log.info(`Acuity: Found a quote letter and saving it.`);
                     // Try to save the letter. This is a non-fatal event if we can't save it, but we log it as an error.
