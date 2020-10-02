@@ -107,6 +107,75 @@ module.exports = class Integration {
         });
     }
 
+    /* Standardized log messages */
+
+    /**
+	 * Returns a standard integration logging string in the format of:
+     *  Appid: APPLICATION_ID INSURER_NAME (INSURER_ID) POLICY_TYPE: MESSAGE LOCATION
+	 *
+     * @param {string} message - the message to log
+     * @param {string} location - the location of the error
+	 * @returns {string} - the standard formatted string
+	 */
+    log_message(message, location) {
+        return `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: ${message} ${location ? location : ""}`;
+    }
+
+    /**
+	 * Logs the message and location to the debug log
+	 *
+     * @param {string} message - the message to log
+     * @param {string} location - the location of the error
+	 * @returns {null}}
+	 */
+    log_debug(message, location) {
+        log.debug(this.log_message(message, location));
+    }
+
+    /**
+	 * Logs the message and location to the verbose log
+	 *
+     * @param {string} message - the message to log
+     * @param {string} location - the location of the error
+	 * @returns {null}}
+	 */
+    log_verbose(message, location) {
+        log.verbose(this.log_message(message, location));
+    }
+
+    /**
+	 * Logs the message and location to the info log
+	 *
+     * @param {string} message - the message to log
+     * @param {string} location - the location of the error
+	 * @returns {null}}
+	 */
+    log_info(message, location) {
+        log.info(this.log_message(message, location));
+    }
+
+    /**
+	 * Logs the message and location to the warn log
+	 *
+     * @param {string} message - the message to log
+     * @param {string} location - the location of the error
+	 * @returns {null}}
+	 */
+    log_warn(message, location) {
+        log.warn(this.log_message(message, location));
+    }
+
+    /**
+	 * Logs the message and location to the error log
+	 *
+     * @param {string} message - the message to log
+     * @param {string} location - the location of the error
+	 * @returns {null}}
+	 */
+    log_error(message, location) {
+        log.error(this.log_message(message, location));
+    }
+
     /**
 	 * Returns an XML node child from parsed XML data. It will iterate down the node children, getting element 0 of each node's child.
 	 *
@@ -1473,9 +1542,9 @@ module.exports = class Integration {
     _insurer_supports_industry_codes() {
         return new Promise(async(fulfill) => {
             // Query the database to see if this insurer supports this industry code
-            const sql = `SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.naics, ic.iso, iic.attributes 
+            const sql = `SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso, iic.attributes 
                         FROM clw_talage_industry_codes AS ic 
-                            INNER JOIN  clw_talage_insurer_industry_codes AS iic ON ((iic.type = 'i' AND iic.code = ic.iso) OR (iic.type = 'c' AND iic.code = ic.cgl) OR (iic.type = 'n' AND iic.code = ic.naics) OR (iic.type = 's' AND iic.code = ic.sic)) 
+                            INNER JOIN  clw_talage_insurer_industry_codes AS iic ON ((iic.type = 'i' AND iic.code = ic.iso) OR (iic.type = 'c' AND iic.code = ic.cgl) OR (iic.type = 'h' AND iic.code = ic.hiscox) OR (iic.type = 'n' AND iic.code = ic.naics) OR (iic.type = 's' AND iic.code = ic.sic)) 
                                                                                     AND  iic.insurer = ${this.insurer.id} AND iic.territory = '${this.app.business.primary_territory}'
                         WHERE  ic.id = ${this.app.business.industry_code}  LIMIT 1;`;
             // log.debug("_insurer_supports_industry_codes sql: " + sql);

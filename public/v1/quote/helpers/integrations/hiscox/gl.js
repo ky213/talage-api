@@ -15,12 +15,12 @@ const xmlToObj = require("xml2js").parseString;
 // Read the template into memory at load
 const hiscoxGLTemplate = require("jsrender").templates("./public/v1/quote/helpers/integrations/hiscox/gl.xmlt");
 
-function consoleLogLineNumbers(str) {
-    const lines = str.split(/\n/);
-    lines.forEach((line, index) => {
-        console.log(`${index.toString().padStart(4)}: ${line}`);
-    });
-}
+// function consoleLogLineNumbers(str) {
+//     const lines = str.split(/\n/);
+//     lines.forEach((line, index) => {
+//         console.log(`${index.toString().padStart(4)}: ${line}`);
+//     });
+// }
 
 module.exports = class HiscoxGL extends Integration {
     /**
@@ -124,7 +124,7 @@ module.exports = class HiscoxGL extends Integration {
         // Bring the version number into the local scope so it is available in the template
         this.version = version;
 
-        console.log(JSON.stringify(this.app, null, 4));
+        // console.log(JSON.stringify(this.app, null, 4));
 
         // Hiscox has us define our own Request ID
         this.request_id = this.generate_uuid();
@@ -204,13 +204,13 @@ module.exports = class HiscoxGL extends Integration {
             this.log_error(`Unable to get question identifiers or details: ${error}`, __location);
             return this.return_result('autodeclined');
         }
-        console.log('questions', this.questions);
-        console.log('questionDetails', questionDetails);
+        // console.log('questions', this.questions);
+        // console.log('questionDetails', questionDetails);
 
         this.questionList = [];
         Object.values(this.questions).forEach((question) => {
             const questionAnswer = this.determine_question_answer(question, question.required);
-            console.log(`${question.text}? ${questionAnswer}`);
+            // console.log(`${question.text}? ${questionAnswer}`);
             if (questionAnswer) {
                 let elementName = questionDetails[question.id].attributes.elementName;
                 if (elementName === 'GLHireNonOwnVehicleUse') {
@@ -232,7 +232,7 @@ module.exports = class HiscoxGL extends Integration {
             return this.result_error('error', 'An unexpected error occurred when creating the quote request.');
         }
 
-        consoleLogLineNumbers(xml);
+        // consoleLogLineNumbers(xml);
 
         // Get a token from their auth server
         const tokenRequestData = {
@@ -271,8 +271,9 @@ module.exports = class HiscoxGL extends Integration {
                 Accept: "application/xml",
                 "Content-Type": "application/xml"
             });
-            console.log("result", JSON.stringify(result, null, 4));
-        } catch (error) {
+            // console.log("result", JSON.stringify(result, null, 4));
+        }
+        catch (error) {
             requestError = error;
         }
         // Check if we have an HTTP status code to give us more information about the error encountered
@@ -296,7 +297,7 @@ module.exports = class HiscoxGL extends Integration {
                 e = eCallback;
                 xmlResponse = xmlResponseCallback;
             });
-            console.log("xmlResponse error", JSON.stringify(xmlResponse, null, 4));
+            // console.log("xmlResponse error", JSON.stringify(xmlResponse, null, 4));
             // Check if there was an error parsing the XML
             if (e) {
                 this.log_error(`Response error 422 could not be parsed: ${requestError.response}`, __location);
