@@ -48,7 +48,7 @@ module.exports = class AcuityGL extends Integration {
         // Check Industry Code Support
         if (!this.industry_code.cgl) {
             log.error(`Acuity (application ${this.app.id}): CGL not set for Industry Code ${this.industry_code.id} ${__location}`);
-            return this.return_result('autodecline');
+            return this.return_result('autodeclined');
         }
 
         // Prepare limits
@@ -56,7 +56,7 @@ module.exports = class AcuityGL extends Integration {
         if (!limits) {
             log.error(`Acuity (application ${this.app.id}): Could not get best limits for policy ${this.policy.type} ${this.industry_code.id} ${__location}`);
             this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
-            return this.return_result('autodecline');
+            return this.return_result('autodeclined');
         }
 
         // Acuity has us define our own Request ID
@@ -162,7 +162,7 @@ module.exports = class AcuityGL extends Integration {
 
         if (!(this.app.business.entity_type in entityMatrix)) {
             log.error(`Acuity (application ${this.app.id}): Invalid Entity Type ${__location}`);
-            return this.return_result('autodecline');
+            return this.return_result('autodeclined');
         }
         NameInfo.ele('LegalEntityCd', entityMatrix[this.app.business.entity_type]);
 

@@ -1222,17 +1222,16 @@ module.exports = class Integration {
         }
     }
 
-    /**
-     * Sends a request to an insurer over HTTPS
-     *
-     * @param {string} host - The host name we are sending to (minus the protocol)
-     * @param {string} path - The path at the host name we are sending to (the parts after the /, including the query string, if any)
-     * @param {string} data - The data to be sent
-     * @param {object} additional_headers - Additional headers to be sent with the request, one header 'Content-Type' is required, all others are optional
-     * @param {string} method (optional) - The HTTP method to be used (e.g. POST or GET)
-     * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
-     */
-    send_request(host, path, data, additional_headers, method) {
+    // Sends a request to an insurer over HTTPS
+    //
+    // @param {string} host - The host name we are sending to (minus the protocol)
+    // @param {string} path - The path at the host name we are sending to (the parts after the /, including the query string, if any)
+    // @param {string} data - The data to be sent
+    // @param {object} additional_headers - Additional headers to be sent with the request, one header 'Content-Type' is required, all others are optional
+    // @param {string} method (optional) - The HTTP method to be used (e.g. POST or GET)
+    // @param {boolean} log_errors - True if error logging should be handled here, false if error logging is handled in the client
+    // @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
+    send_request(host, path, data, additional_headers, method, log_errors = true) {
         this.log_info(`Sending To ${path}`);
         const start_time = process.hrtime();
 
@@ -1320,11 +1319,13 @@ module.exports = class Integration {
                         fulfill(rawData);
                     } else {
                         const error = new Error(this.log_message(`Insurer request encountered a ${res.statusCode} error`));
-                        this.log_error(error.message, __location);
-                        this.log_verbose(rawData);
+                        if (log_errors) {
+                            this.log_error(error.message, __location);
+                            this.log_verbose(rawData);
+                            this.log += `--------======= Error Appid: ${this.app.id}  =======--------<br><br>Status Code: ${res.statusCode}<br><pre>${rawData}</pre><br><br>`;
+                        }
                         error.httpStatusCode = res.statusCode;
                         error.response = rawData;
-                        this.log += `--------======= Error Appid: ${this.app.id}  =======--------<br><br>Status Code: ${res.statusCode}<br><pre>${rawData}</pre><br><br>`;
                         reject(error);
                     }
                 });
@@ -1353,8 +1354,8 @@ module.exports = class Integration {
      * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
      */
 
-    send_json_request(host, path, json, additional_headers, method) {
-        return new Promise(async (fulfill, reject) => {
+    send_json_request(host, path, json, additional_headers, method, log_errors = true) {
+        return new Promise(async(fulfill, reject) => {
             // If we don't have additional headers, start an object to append
             if (!additional_headers) {
                 additional_headers = {};
@@ -1367,7 +1368,7 @@ module.exports = class Integration {
             additional_headers.accept = "application/json";
 
             // Send the request
-            await this.send_request(host, path, json, additional_headers, method)
+            await this.send_request(host, path, json, additional_headers, method, log_errors)
                 .then((result) => {
                     fulfill(JSON.parse(result));
                 })
@@ -1478,7 +1479,7 @@ module.exports = class Integration {
 
             if (!codes.length) {
                 this.log_error(`Autodeclined: no codes where ${whereCombinations.join(' OR ')}`, __location);
-                this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code');
+                this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code and state');
                 fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 return;
             }
@@ -1486,7 +1487,7 @@ module.exports = class Integration {
             // Make sure the number of codes matched (otherwise there were codes unsupported by this insurer)
             if (Object.keys(wcCodes).length !== codes.length) {
                 this.log_error(`Autodeclined: Code length do not match where ${whereCombinations.join(' OR ')}`, __location);
-                this.reasons.push('Out of Appetite: The insurer does not support one or more of the selected activity codes');
+                this.reasons.push('Out of Appetite: The insurer does not support one or more of the selected activity codes and state');
                 fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 return;
             }
@@ -1495,7 +1496,7 @@ module.exports = class Integration {
             codes.forEach((code) => {
                 if (code.result === 0) {
                     this.log_error(`Autodeclined: Code length do not match where ${whereCombinations.join(' OR ')}`, __location);
-                    this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code');
+                    this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code and state');
                     fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                     hadError = true;
                     return;
@@ -1505,7 +1506,7 @@ module.exports = class Integration {
                     return;
                 }
                 this.log_error(`Autodeclined: this.insurer_wc_codes ${this.insurer_wc_codes} where ${whereCombinations.join(' OR ')}`, __location);
-                this.reasons.push('Out of Appetite: The insurer does not support one or more of the selected activity codes');
+                this.reasons.push('Out of Appetite: The insurer does not support one or more of the selected activity codes and state');
                 fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 hadError = true;
             });
@@ -1585,7 +1586,7 @@ module.exports = class Integration {
                     ic.iso, 
                     iic.attributes 
                 FROM clw_talage_industry_codes AS ic 
-                LEFT JOIN  clw_talage_insurer_industry_codes AS iic ON 
+                INNER JOIN  clw_talage_insurer_industry_codes AS iic ON 
                     (
                         (iic.type = 'i' AND iic.code = ic.iso) 
                         OR (iic.type = 'c' AND iic.code = ic.cgl) 
@@ -1604,7 +1605,7 @@ module.exports = class Integration {
                 fulfill(this.return_error("error", "Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch."));
             });
             if (!result || !result.length) {
-                this.log_error(`Autodeclined: no database result territory = ${this.app.business.primary_territory} ic.id = ${this.app.business.industry_code}`, __location);
+                this.log_warn(`No Insurer industry code for territory = ${this.app.business.primary_territory} ic.id = ${this.app.business.industry_code}`, __location);
                 this.reasons.push('Out of Appetite: The insurer does not support the industry code selected');
                 fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 return;

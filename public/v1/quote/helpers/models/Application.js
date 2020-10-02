@@ -4,27 +4,28 @@
  * Defines a single industry code
  */
 
-"use strict";
-const moment = require("moment");
-const emailSvc = global.requireShared("./services/emailsvc.js");
-const slack = global.requireShared("./services/slacksvc.js");
-const formatPhone = global.requireShared("./helpers/formatPhone.js");
-const get_questions = global.requireShared("./helpers/getQuestions.js");
+'use strict';
+const moment = require('moment');
+const emailSvc = global.requireShared('./services/emailsvc.js');
+const slack = global.requireShared('./services/slacksvc.js');
+const formatPhone = global.requireShared('./helpers/formatPhone.js');
+//const get_questions = global.requireShared('./helpers/getQuestions.js');
+const questionsSvc = global.requireShared('./services/questionsvc.js');
 
-const htmlentities = require("html-entities").Html5Entities;
-const AgencyLocation = require("./AgencyLocation.js");
-const Business = require("./Business.js");
-const Insurer = require("./Insurer.js");
-const Policy = require("./Policy.js");
-const Question = require("./Question.js");
-const serverHelper = require("../../../../../server.js");
-const validator = global.requireShared("./helpers/validator.js");
-const helper = global.requireShared("./helpers/helper.js");
+const htmlentities = require('html-entities').Html5Entities;
+const AgencyLocation = require('./AgencyLocation.js');
+const Business = require('./Business.js');
+const Insurer = require('./Insurer.js');
+const Policy = require('./Policy.js');
+const Question = require('./Question.js');
+const serverHelper = require('../../../../../server.js');
+const validator = global.requireShared('./helpers/validator.js');
+const helper = global.requireShared('./helpers/helper.js');
 
-const AgencyNetworkBO = global.requireShared("models/AgencyNetwork-BO.js");
-const ApplicationBO = global.requireShared("./models/Application-BO.js");
-const ApplicationPolicyTypeBO = global.requireShared("./models/ApplicationPolicyType-BO.js");
-const ApplicationQuestionBO = global.requireShared("./models/ApplicationQuestion-BO.js");
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
+const ApplicationBO = global.requireShared('./models/Application-BO.js');
+const ApplicationPolicyTypeBO = global.requireShared('./models/ApplicationPolicyType-BO.js');
+const ApplicationQuestionBO = global.requireShared('./models/ApplicationQuestion-BO.js');
 
 module.exports = class Application {
     constructor() {
@@ -161,8 +162,8 @@ module.exports = class Application {
     get_insurers() {
         // requestedInsureres not longer sent from Web app.
         //get_insurers(requestedInsurers) {
-        return new Promise(async (fulfill, reject) => {
-            log.debug("IN GET INSURERS FROM REQUESTED INSURERS");
+        return new Promise(async(fulfill, reject) => {
+            log.debug("IN GET INSURERS FROM REQUESTED INSURERS FOR Agency Location ID " + this.agencyLocation.id)
             // Get a list of desired insurers
             let desired_insurers = [];
             let stop = false;
@@ -813,13 +814,10 @@ module.exports = class Application {
             // Get a list of all questions the user may need to answer
             const insurer_ids = this.get_insurer_ids();
             const wc_codes = this.get_wc_codes();
-            const questions = await get_questions(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids).catch(function (
-                error
-            ) {
-                log.error("get_questions error " + error + __location);
+            const questions = await questionsSvc.GetQuestionsForBackend(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids, true).catch(function(error) {
+                log.error('get_questions error ' + error + __location);
                 reject(error);
             });
-
             // Grab the answers the user provided to our questions and reset the question object
             const user_questions = this.questions;
             this.questions = {};

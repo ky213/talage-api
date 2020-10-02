@@ -84,23 +84,6 @@ module.exports = class MarkelWC extends Integration {
         // <SignonRq>
         const SignonRq = ACORD.ele('SignonRq');
 
-        // <SignonPswd>
-        const SignonPswd = SignonRq.ele('SignonPswd');
-
-        // <CustId>
-        const CustId = SignonPswd.ele('CustId');
-        CustId.ele('SPName', 'com.markel');
-        CustId.ele('CustLoginId', this.username);
-        // </CustId>
-
-        // <CustPswd>
-        const CustPswd = SignonPswd.ele('CustPswd');
-        CustPswd.ele('EncryptionTypeCd', 'NONE');
-        CustPswd.ele('Pswd', this.password);
-        // </CustPswd>
-
-        // </SignonPswd>
-
         SignonRq.ele('ClientDt', timestamp);
         SignonRq.ele('CustLangPref', 'en-US');
 
@@ -122,6 +105,28 @@ module.exports = class MarkelWC extends Integration {
         WorkCompPolicyQuoteInqRq.ele('RqUID', this.request_id);
         WorkCompPolicyQuoteInqRq.ele('TransactionRequestDt', timestamp);
         WorkCompPolicyQuoteInqRq.ele('CurCd', 'USD');
+
+        //<Producer>
+        const Producer = WorkCompPolicyQuoteInqRq.ele('Producer');
+
+        //<ItemIdInfo>
+        const ItemIdInfo = Producer.ele('ItemIdInfo');
+
+        //<OtherIdentifier>
+        const OtherIdentifier = ItemIdInfo.ele('OtherIdentifier');
+        OtherIdentifier.ele('OtherIdTypeCd','com.markel.mAgency.AgencyId')
+        OtherIdentifier.ele('OtherId', this.username);
+        //</OtherIdentifier>
+        
+        //</ItemIdInfo>
+
+        //<ProducerInfo>
+        const ProducerInfo = Producer.ele('ProducerInfo');
+        ProducerInfo.ele('ProducerRoleCd', 'Agency')
+
+        //</ProducerInfo>
+
+        //</Producer>
 
         // <InsuredOrPrincipal>
         const InsuredOrPrincipal = WorkCompPolicyQuoteInqRq.ele('InsuredOrPrincipal');
@@ -1290,6 +1295,7 @@ module.exports = class MarkelWC extends Integration {
         }
         catch (error) {
             log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: ${error} ${__location}`);
+            this.reasons.push(error);
             return this.return_result('error');
         }
         // Parse the various status codes and take the appropriate action
