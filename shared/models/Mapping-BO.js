@@ -162,6 +162,30 @@ module.exports = class MappingBO{
         });
     }
 
+    getByName(name) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(name ){
+                const query = {"name": name, active: true};
+                let docCleanDB = null;
+                try {
+                    let docDB = await Mapping.findOne(query, '-__v');
+                    if(docDB){
+                        docCleanDB = mongoUtils.objCleanup(docDB);
+                    }
+                }
+                catch (err) {
+                    log.error("Getting Mapping error " + err + __location);
+                    reject(err);
+                }
+                resolve(docCleanDB);
+            }
+            else {
+                reject(new Error('no name supplied'))
+            }
+        });
+    }
+
     deleteSoftById(id) {
         return new Promise(async (resolve, reject) => {
             //validate
