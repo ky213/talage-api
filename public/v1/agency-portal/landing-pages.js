@@ -15,48 +15,39 @@ const serverHelper = require('../../../server.js');
 async function getLandingPages(req, res, next){
 	let error = false;
 	let where = ``;
-	if(req.authentication.agencyNetwork && req.query.agency){
-		// Get all agencies belonging to this agency network
-		const agencies = await auth.getAgents(req).catch(function(e){error = e;})
-		if(error){
-			return next(error);
-		} 
-		// validate the agency id provided is valid
-		if (!await validator.agent(req.query.agency)) {
-			log.warn(`Agency validation error: ${__location}`)
-			return next(serverHelper.notFoundError('Agency is invalid'));
-		}
-		// Make sure the current agency network has the agency as part of its network
-		if (!agencies.includes(parseInt(req.query.agency, 10))) {
-			log.warn(`Agency network tried to access information about an agency that is not part of its network. ${__location}`);
-			return next(serverHelper.notFoundError('Agency is invalid'));
-		}
-		where = `AND \`alp\`.\`agency\` = ${parseInt(req.query.agency, 10)}`;
-	}
-	else if (req.authentication.agencyNetwork){
-		where = `AND \`alp\`.\`agency_network\`= ${parseInt(req.authentication.agencyNetwork, 10)}`;
-	}
-	else {
-		// Get the agents that we are permitted to view
-		const agents = await auth.getAgents(req).catch(function(e){
-			error = e;
-		});
-		if (error){
-			return next(error);
-		}
+	// Get the agents that we are permitted to view
+	const agents = await auth.getAgents(req).catch(function(e) {
+		error = e;
+	});
 
-		where = `AND \`alp\`.\`agency\` = ${parseInt(agents[0], 10)}`;
+	if (error){
+		log.warn(`Error when retrieving agents: ${error} ${__location}`)
+		return next(error);
 	}
-	// Build a query that will return all of the landing pages
+	// Get the first value in agents
+	let agent = agents[0];
+
+	// If this is an agency network, use the the agency id from the query
+	if (req.authentication.agencyNetwork) {
+		agent = req.query.agency;
+	}
+
+	// Make sure this user has access to the requested agent
+	if (!agents.includes(parseInt(agent, 10))) {
+		log.info('Forbidden: User is not authorized to access the requested agent');
+		return next(serverHelper.forbiddenError('You are not authorized to access the requested agent'));
+	}
+
+	// Build a query that will return only the needed information for landing pages table for all of the landing pages
 	const landingPageSQL = `
 			SELECT
-			\`alp\`.\`id\`,
-			\`alp\`.\`hits\`,
-			\`alp\`.\`name\`,
-			\`alp\`.\`slug\`,
-			\`alp\`.\`primary\`
-			FROM \`#__agency_landing_pages\` as \`alp\`
-			WHERE \`state\` > 0 ${where};
+				\`id\`,
+				\`hits\`,
+				\`name\`,
+				\`slug\`,
+				\`primary\`
+			FROM \`#__agency_landing_pages\`
+			WHERE \`agency\` = ${parseInt(agent, 10)} AND \`state\` > 0;
 		`;
 
 	// Run the query
