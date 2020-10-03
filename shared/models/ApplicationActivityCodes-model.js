@@ -8,7 +8,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 const tableName = 'clw_talage_application_activity_codes'
 const skipCheckRequired = false;
-module.exports = class ApplicationClaimModel{
+module.exports = class ApplicationActivityCodesModel{
 
     #dbTableORM = null;
     doNotSnakeCase = ['additionalInfo'];

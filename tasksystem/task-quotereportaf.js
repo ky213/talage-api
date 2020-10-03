@@ -73,6 +73,8 @@ var quoteReportTask = async function(){
     q.application as application,
     q.policy_type as policy_type,
     i.name as name,
+    ag.name as agencyName,
+    b.name_clear as businessName,
     a.state_abbr as territory,
     q.api_result as api_result,
     q.reasons as reasons,
@@ -85,6 +87,7 @@ var quoteReportTask = async function(){
         LEFT JOIN clw_talage_insurers AS i ON q.insurer = i.id
         LEFT JOIN clw_talage_applications AS a ON a.id = q.application
         LEFT JOIN clw_talage_agencies AS ag ON a.agency = ag.id
+        LEFT JOIN clw_talage_businesses AS b ON b.id = a.business
         LEFT JOIN clw_talage_application_activity_codes as acc on a.id = acc.application
         LEFT JOIN clw_talage_activity_codes as ac on acc.ncci_code = ac.id
     WHERE 
@@ -108,6 +111,8 @@ var quoteReportTask = async function(){
         "policy_type": "Type",
         "name": "Insurer",
         "network": "Agency Network",
+        "agencyName": "Agency",
+        "businessName": "Business Name",
         "territory": "Territory",
         "api_result": "Result",
         "reasons": "Reasons",
@@ -124,12 +129,9 @@ var quoteReportTask = async function(){
         let agencyNetworkNameMapJSON = {};
         agencyNetworkNameMapJSON = await agencyNetworkBO.getIdToNameMap().catch(function(err){
             log.error("Could not get agency network id to name map " + err + __location);
-        })
-
+        });
 
         for(let i = 0; i < quoteListDBJSON.length; i++){
- 
-
 
             const quote = quoteListDBJSON[i];
 
@@ -183,7 +185,7 @@ var quoteReportTask = async function(){
             }
             const attachmentJson = {
                 'content': csvContent,
-                'filename': 'quotes.csv',
+                'filename': 'quotesWeekly.csv',
                 'type': 'text/csv',
                 'disposition': 'attachment'
             };

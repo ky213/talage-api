@@ -11,7 +11,17 @@ const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 const tableName = 'clw_talage_agency_location_territories'
 const skipCheckRequired = false;
-module.exports = class AgencyLocationBO{
+
+/****
+ * 
+ * 
+ *  NOTE:  clw_talage_agency_location_territories is being phased out
+ *         after 2020-09-23 any write of AgencyLocation Insurer
+ *         should go intto the agency_locations.additionalInfo.territories  property
+ *         NOT the clw_talage_agency_location_territories table.
+ * 
+ */
+module.exports = class AgencyLocationTerritoryBO{
 
     #dbTableORM = null;
 
@@ -120,7 +130,7 @@ module.exports = class AgencyLocationBO{
         }
       }
    
-
+    
 
     async getListByAgencyLocationForAgencyPortal(agencyLocationId ){
         
@@ -140,23 +150,22 @@ module.exports = class AgencyLocationBO{
             // ORDER BY t.name ASC;`
 
             const sql = `SELECT
-                t.abbr
-            FROM clw_talage_agency_location_territories as lt
-            INNER JOIN clw_talage_territories as t ON lt.territory = t.abbr
-            WHERE lt.agency_location =  ${agencyLocationId} 
-            ORDER BY t.name ASC;`
-
+                territory
+            FROM clw_talage_agency_location_territories 
+            WHERE agency_location =  ${agencyLocationId} 
+            ORDER BY territory ASC;`
             const result = await db.query(sql).catch(function (error) {
                 // Check if this was
                 rejected = true;
-                log.error(`clw_talage_agency_location_insurers error on select ` + error + __location);
+                log.error(`clw_talage_agency_location_territories error on select ` + error + __location);
             });
             if(result && result.length>0) {
                 if (!rejected && result && result.length >0) {
+
                     let territoryList = []
                     for(let i=0; i< result.length; i++ ){
-                        territoryList.push(result[i].abbr);
-					}
+                        territoryList.push(result[i].territory);
+                    }
                     return territoryList;
                 }
                 else {

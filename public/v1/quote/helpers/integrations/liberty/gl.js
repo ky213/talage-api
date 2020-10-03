@@ -602,6 +602,14 @@ module.exports = class LibertyGL extends Integration{
 						return;
 					}
 
+                    // Check if quote was declined because there was a pre-existing application for this customer
+                    const existingAppErrorMsg = "We are unable to provide a quote at this time due to an existing application for this customer.";
+                    if(res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0].toLowerCase().includes(existingAppErrorMsg.toLowerCase())) {
+                        this.reasons.push(`blocked - ${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]}`);
+                        fulfill(this.return_result('declined'));
+                        return;
+                    }
+
 					// This was some other sort of error
 					this.reasons.push(`${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusCd[0]}: ${res.MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0]}`);
 					fulfill(this.return_result('error'));
