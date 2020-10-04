@@ -13,9 +13,6 @@ const { stringify } = require('csv');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-
-
-
 let contactSchema = new Schema({
     email: {type: String, required: true},
     fristName: {type: String, required: true},
@@ -23,7 +20,6 @@ let contactSchema = new Schema({
     phone: {type: String, required: true},
     primary: {type: Boolean, required: true, default: false }
 })
-
 
 let ActivtyCodePayrollSchema = new Schema({
     ncciCode: {type: String, required: true},
@@ -53,7 +49,6 @@ let ownerSchema = new Schema({
     ownership: {type: Number, required: true},
     officerTitle: {type: String, required: true}
 })
-
 
 
 let BusinessSchema = new Schema({
@@ -98,6 +93,8 @@ let claimSchema = new Schema({
 
 })
 
+//limit structure.
+
 let PolicySchema = new Schema({
     policyType: {type: String, required: true},
     effectiveDate: {type: Date, required: false},
@@ -110,12 +107,6 @@ let PolicySchema = new Schema({
     claims =[claimSchema]
 
 })
-
-
-
-
-
-
 
 let ApplicationSchema = new Schema({
     applicationId: { type: String, required: [true, 'applicationId required'], unique: true },
