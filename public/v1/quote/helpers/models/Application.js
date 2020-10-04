@@ -842,31 +842,12 @@ module.exports = class Application {
                             // If no parent was found, throw an error
                             if (!parent_question) {
                                 log.error(`Question ${question.id} has invalid parent setting. (${htmlentities.decode(question.text).replace('%', '%%')})` + __location);
-                                reject(serverHelper.requestError('An unexpected error has occurred. Our team has been alerted and will contact you.'));
-                                return;
+                                // No one question issue stop quoting with all insureres - BP 2020-10-04
+                                // reject(serverHelper.requestError('An unexpected error has occurred. Our team has been alerted and will contact you.'));
+                                // return;
                             }
-                            // every question is not required for every carrier.  - BP 2020-10-04
-                            // If this question's parent_answer is equal to the answer given for the parent, it is required
-                            // if (parent_question.answer_id === question.parent_answer) {
-                            //     question.required = true;
-                            // }
                         }
-                        // No longer will any question by require at an Application level - BP 2020-10-04
-                        // Checks and error logging should be within individual insurer quote integration code.
-                        // else {
-                        //     question.required = true;
-                        // }
 
-                        // We tried to question and let the carrier reject it   - BP 2020-10-04
-                        // no one question should stop all quoting unless is required by every insurers for the Agency.
-                        // as of 2020-10-04 QuestionSVC isn not telling us that.
-                        // If required, check that this question was answered by the user
-                        
-                        // //This check does not do that.
-                        // if (question.required && (!user_questions || !Object.prototype.hasOwnProperty.call(user_questions, question.id))) {
-                        //     reject(serverHelper.requestError(`Question ${question.id} missing from request. (${htmlentities.decode(question.text).replace('%', '%%')})`));
-                        //     return;
-                        // }
                     }
                 }
             }
@@ -881,12 +862,10 @@ module.exports = class Application {
                 }
                 await Promise.all(question_promises).catch(function(error) {
                     log.error('question_promises error. ' + error + __location);
-                    reject(error);
-                    stop = true;
+                    // No one question issue stop quoting with all insureres - BP 2020-10-04
+                    //reject(error);
+                    //stop = true;
                 });
-                if (stop) {
-                    return;
-                }
             }
 
             // (id: 1015 should have been removed as it was not required). What is the correct way to handle this?
@@ -895,12 +874,10 @@ module.exports = class Application {
             // Check agent support
             await this.agencyLocation.supports_application().catch(function(error) {
                 log.error('agencyLocation.supports_application() error ' + error + __location);
-                reject(error);
-                stop = true;
+                // No one question issue stop quoting with all insureres - BP 2020-10-04
+                // reject(error);
+                // stop = true;
             });
-            if (stop) {
-                return;
-            }
 
             fulfill(true);
         });
