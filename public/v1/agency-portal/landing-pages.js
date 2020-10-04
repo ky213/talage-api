@@ -1,5 +1,6 @@
 'use strict';
-
+const auth = require('./helpers/auth.js');
+const validator = global.requireShared('./helpers/validator.js');
 const serverHelper = require('../../../server.js');
 
 /**
@@ -12,10 +13,32 @@ const serverHelper = require('../../../server.js');
  * @returns {void}
  */
 async function getLandingPages(req, res, next){
-	// TO DO: Add support for Agency Networks (take in an angency as a parameter)
-	const agency = req.authentication.agents[0];
+	let error = false;
+	let where = ``;
+	// Get the agents that we are permitted to view
+	const agents = await auth.getAgents(req).catch(function(e) {
+		error = e;
+	});
 
-	// Build a query that will return all of the landing pages
+	if (error){
+		log.warn(`Error when retrieving agents: ${error} ${__location}`)
+		return next(error);
+	}
+	// Get the first value in agents
+	let agent = agents[0];
+
+	// If this is an agency network, use the the agency id from the query
+	if (req.authentication.agencyNetwork) {
+		agent = req.query.agency;
+	}
+
+	// Make sure this user has access to the requested agent
+	if (!agents.includes(parseInt(agent, 10))) {
+		log.info('Forbidden: User is not authorized to access the requested agent');
+		return next(serverHelper.forbiddenError('You are not authorized to access the requested agent'));
+	}
+
+	// Build a query that will return only the needed information for landing pages table for all of the landing pages
 	const landingPageSQL = `
 			SELECT
 				\`id\`,
@@ -24,7 +47,7 @@ async function getLandingPages(req, res, next){
 				\`slug\`,
 				\`primary\`
 			FROM \`#__agency_landing_pages\`
-			WHERE \`agency\` = ${parseInt(agency, 10)} AND \`state\` > 0;
+			WHERE \`agency\` = ${parseInt(agent, 10)} AND \`state\` > 0;
 		`;
 
 	// Run the query

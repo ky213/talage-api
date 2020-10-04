@@ -603,7 +603,8 @@ module.exports = class ApplicationModel {
     async getBusinessInfo(requestApplicationJSON) {
         let error = null;
         //Information will be in the applicationJSON.businessInfo
-        if(requestApplicationJSON.businessInfo && requestApplicationJSON.businessInfo.name && this.id){
+        // Only process if we have a google_place hit.
+        if(requestApplicationJSON.google_place && requestApplicationJSON.businessInfo && requestApplicationJSON.businessInfo.name && this.id){
             let currentAppDBJSON = await this.getById(this.id).catch(function(err){
                 log.error(`error getBusinessInfo getting application record, appid ${this.id} error:` + e + __location)
             });

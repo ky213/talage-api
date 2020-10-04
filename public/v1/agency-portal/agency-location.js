@@ -440,18 +440,22 @@ async function getSelectionList(req, res, next) {
 				return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
 			}
 	}
+	// Initialize
+	const agencyLocationBO = new AgencyLocationBO();
+    
+    let locationList = null;
+	const query = {"agency": agencyId}
+	const getChildren = true;
 
-    // Initialize an agency object
-    const agencyLocationBO = new AgencyLocationBO();
-
-    // Load the request data into it
-    const locationList = await agencyLocationBO.getSelectionList(agencyId).catch(function(err) {
-        log.error("Location load error " + err + __location);
-        error = err;
-    });
-    if (error) {
-        return next(error);
-    }
+	locationList = await  agencyLocationBO.getList(query, getChildren).catch(function(err){
+		log.error(err.message + __location);
+		error = err;
+		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.')); 
+	});
+	locationList.forEach((location) => {
+		location.openTime = location.open_time;
+		location.closeTime = location.close_time;
+	});
     // Send back a success response
     res.send(200, locationList);
     return next();
