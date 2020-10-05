@@ -153,7 +153,6 @@ async function getAgencyNetworkInsurersList(req, res, next) {
 		const response = {
 			"networkInsurers": networkInsurers,
 		};
-		log.debug('Get Network Insurers' + JSON.stringify(response))
 	
 		// Return the response
 		res.send(200, response);
