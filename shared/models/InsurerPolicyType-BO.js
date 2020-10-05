@@ -99,12 +99,15 @@ module.exports = class InsurerPolicyTypeBO{
         return new Promise(async (resolve, reject) => {
            
                 let rejected = false;
-                // Create the update query
+				// Create the update query
                 let sql = `
                     select * from ${tableName}  
                 `;
                 if(queryJSON){
-                    let hasWhere = false;
+					let hasWhere = false;
+					if(queryJSON.customSelection){
+						sql = `select ${queryJSON.customSelection} from ${tableName}`
+					}
                     if(queryJSON.policy_type){
                         sql += hasWhere ? " AND " : " WHERE ";
                         sql += ` policy_type = ${db.escape(queryJSON.policy_type)} `
@@ -128,7 +131,7 @@ module.exports = class InsurerPolicyTypeBO{
                     if(queryJSON.distinct_insurer) {
                         sql += ` GROUP BY insurer `
                     }
-                }
+				}
                 sql += ` order by insurer `
                 // Run the query
                 const result = await db.query(sql).catch(function (error) {
@@ -141,7 +144,7 @@ module.exports = class InsurerPolicyTypeBO{
                 if (rejected) {
                     return;
                 }
-                let boList = [];
+				let boList = [];
                 if(result && result.length > 0 ){
                     for(let i=0; i < result.length; i++ ){
                         let insurerPolicyTypeBO = new InsurerPolicyTypeBO();

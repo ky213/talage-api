@@ -5,7 +5,7 @@ const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const serverHelper = global.requireRootPath('server.js');
 //const auth = require('./helpers/auth.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
-
+const InsurerPolicyTypeBO = global.requireShared('./models/InsurerPolicyType-BO.js');
 /**
  * Returns the record for a single Agency Network
  *
@@ -70,6 +70,7 @@ async function getAgencyNetwork(req, res, next) {
  */
 async function getAgencyNetworkInsurersList(req, res, next) {
 	// makesure agency network info avail
+	let error = false;
 	const agencyNetworkId = stringFunctions.santizeNumber(req.params.id, true);
 	if (!agencyNetworkId) {
 		return next(new Error("bad parameter"));
@@ -130,23 +131,24 @@ async function getAgencyNetworkInsurersList(req, res, next) {
 		for (let i = 0; i < networkInsurers.length; i++) {
 			const insurer = networkInsurers[i];
 			// Grab all of the policy type and accord support for a given insurer
-			const policyTypeSql = `
-				SELECT policy_type, acord_support
-				FROM clw_talage_insurer_policy_types
-				WHERE
-					insurer = ${insurer.id}
-			`
-			let policyTypesResults = null;
-			try {
-				policyTypesResults = await db.query(policyTypeSql);
+			const policyTypeResult = new InsurerPolicyTypeBO();
+			const insurerId = insurer.id;
+			const queryJSON = {
+				customSelection : `policy_type, acord_support`,
+				insurer: insurerId
 			}
-			catch (err) {
-				log.error(`Could not retrieve policy and accord_support for insurer ${insurer} :  ${err}  ${__location}`);
-				return next(serverHelper.internalError('Internal Error'));
+			let policyTypesList = null;
+			policyTypesList = await policyTypeResult.getList(queryJSON).catch(function(err) {
+				log.error("insurerPolicyTypeBO load error " + err + __location);
+				error = err;
+			});
+			if (error) {
+				return next(error);
 			}
+
 			// Push policy types and accord support for said policy type into an array
 			insurer.policyTypes = [];
-			policyTypesResults.forEach((policyType) => {
+			policyTypesList.forEach((policyType) => {
 				insurer.policyTypes.push(policyType);
 			});
 		}
