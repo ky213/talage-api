@@ -1,6 +1,3 @@
-/* eslint indent: 0 */
-/* eslint multiline-comment-style: 0 */
-
 /**
  * General Liability for Acuity
  */
@@ -8,7 +5,6 @@
 'use strict';
 
 const builder = require('xmlbuilder');
-const moment = require('moment');
 const moment_timezone = require('moment-timezone');
 const Integration = require('../Integration.js');
 
@@ -16,14 +12,14 @@ global.requireShared('./helpers/tracker.js');
 
 module.exports = class AcuityGL extends Integration {
 
-	/**
+    /**
 	 * Requests a quote from Acuity and returns. This request is not intended to be called directly.
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
-	async _insurer_quote() {
+    async _insurer_quote() {
 
-		// These are the limits supported by Acuity
+        // These are the limits supported by Acuity
         const carrierLimits = [
             '100000/500000/100000',
             '500000/500000/500000',
@@ -31,19 +27,19 @@ module.exports = class AcuityGL extends Integration {
             '1000000/1000000/1000000'
         ];
 
-		// Define how legal entities are mapped for Acuity
-		const entityMatrix = {
-			Association: 'AS',
-			Corporation: 'CP',
-			'Limited Liability Company': 'LLC',
-			'Limited Partnership': 'LP',
-			Partnership: 'PT',
-			'Sole Proprietorship': 'IN'
-		};
+        // Define how legal entities are mapped for Acuity
+        const entityMatrix = {
+            Association: 'AS',
+            Corporation: 'CP',
+            'Limited Liability Company': 'LLC',
+            'Limited Partnership': 'LP',
+            Partnership: 'PT',
+            'Sole Proprietorship': 'IN'
+        };
 
-		// These are special questions that are not handled the same as other class questions. They will be skipped when generating QuestionAnswer values.
-		// They are likely that they are hard-coded in below somewhere
-		const skipQuestions = [1036, 1037];
+        // These are special questions that are not handled the same as other class questions. They will be skipped when generating QuestionAnswer values.
+        // They are likely that they are hard-coded in below somewhere
+        const skipQuestions = [1036, 1037];
 
         // Check Industry Code Support
         if (!this.industry_code.cgl) {
@@ -645,5 +641,5 @@ module.exports = class AcuityGL extends Integration {
                 log.error(`Acuity (application ${this.app.id}): Returned unknown policy code '${policyStatusCode}' ${__location}`);
                 return this.return_error('error', 'Acuity returned an unexpected result for a bindable quote.');
         }
-	}
+    }
 };
