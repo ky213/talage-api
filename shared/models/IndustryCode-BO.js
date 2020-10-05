@@ -98,7 +98,6 @@ module.exports = class IndustryCodeBO{
 
     getList(queryJSON) {
         return new Promise(async (resolve, reject) => {
-           
                 let rejected = false;
                 // Create the update query
                 let sql = `
@@ -106,14 +105,14 @@ module.exports = class IndustryCodeBO{
                 `;
                 if(queryJSON){
                     let hasWhere = false;
-                    if(queryJSON.name){
+                    if(queryJSON.description){
                         sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` name like ${db.escape(queryJSON.name)} `
+                        sql += ` name like ${db.escape(queryJSON.description)} `
                         hasWhere = true;
                     }
                 }
                 // Run the query
-                log.debug("AgencyNetworkBO getlist sql: " + sql);
+                log.debug("IndustryCodeBO getlist sql: " + sql);
                 const result = await db.query(sql).catch(function (error) {
                     // Check if this was
                     
@@ -223,7 +222,7 @@ module.exports = class IndustryCodeBO{
         let responseLandingPageJSON = {};
         let reject  = false;
         const sql = `select id, name, logo  
-            from clw_talage_insurers
+            from clw_talage_industry_codes
             where state > 0
             order by name`
         const result = await db.query(sql).catch(function (error) {
@@ -244,168 +243,168 @@ module.exports = class IndustryCodeBO{
 
 const properties = {
     "id": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
+        "default": 0,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "state": {
-      "default": "1",
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "number",
-      "dbType": "tinyint(1)"
+        "default": "1",
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "number",
+        "dbType": "tinyint(1)"
     },
     "featured": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "number",
-      "dbType": "tinyint(1)"
+        "default": 0,
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "number",
+        "dbType": "tinyint(1)"
     },
     "category": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "description": {
-      "default": "",
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "string",
-      "dbType": "varchar(100)"
+        "default": "",
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(100)"
     },
     "cgl": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "mediumint(5) unsigned"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "mediumint(5) unsigned"
     },
     "sic": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "smallint(4) unsigned"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "smallint(4) unsigned"
     },
     "naics": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "mediumint(6) unsigned"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "mediumint(6) unsigned"
     },
     "iso": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(10) unsigned"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(10) unsigned"
     },
     "hiscox": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "varchar(3)"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(3)"
     },
     "created": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "timestamp",
-      "dbType": "timestamp"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "timestamp",
+        "dbType": "timestamp"
     },
     "created_by": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "modified": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "timestamp",
-      "dbType": "timestamp"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "timestamp",
+        "dbType": "timestamp"
     },
     "modified_by": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "deleted": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "timestamp",
-      "dbType": "timestamp"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "timestamp",
+        "dbType": "timestamp"
     },
     "deleted_by": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "checked_out": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
+        "default": 0,
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "checked_out_time": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "datetime",
-      "dbType": "datetime"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "datetime",
+        "dbType": "datetime"
     }
-  }
+}
 
 class DbTableOrm extends DatabaseObject {
 

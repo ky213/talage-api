@@ -1,6 +1,5 @@
 'use strict';
 
-
 const DatabaseObject = require('./DatabaseObject.js');
 const crypt = requireShared('./services/crypt.js');
 // eslint-disable-next-line no-unused-vars
@@ -9,16 +8,17 @@ const moment = require('moment');
 const moment_timezone = require('moment-timezone');
 const { debug } = require('request');
 
-
-const tableName = 'clw_talage_insurer_policy_types'
+const tableName = 'clw_talage_activity_codes';
 const skipCheckRequired = false;
-module.exports = class InsurerPolicyTypeBO{
+module.exports = class ActivityCodeBO{
 
     #dbTableORM = null;
+    // allowNulls = ["parent", "parent_answer"];
 
 	constructor(){
         this.id = 0;
         this.#dbTableORM = new DbTableOrm(tableName);
+        // this.#dbTableORM.allowNulls = this.allowNulls;
     }
 
     /**
@@ -54,7 +54,6 @@ module.exports = class InsurerPolicyTypeBO{
             this.updateProperty();
             this.id = this.#dbTableORM.id;
             //MongoDB
-
 
             resolve(true);
 
@@ -97,40 +96,33 @@ module.exports = class InsurerPolicyTypeBO{
 
     getList(queryJSON) {
         return new Promise(async (resolve, reject) => {
-           
                 let rejected = false;
                 // Create the update query
+                let hasWhere = false;
                 let sql = `
                     select * from ${tableName}  
                 `;
                 if(queryJSON){
-                    let hasWhere = false;
-                    if(queryJSON.policy_type){
+                    if(queryJSON.state) {
                         sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` policy_type = ${db.escape(queryJSON.policy_type)} `
-                        hasWhere = true;
-                    }
-                    if(queryJSON.insurer){
+                        sql += ` state = ${db.escape(queryJSON.state)} `
+                    } else {
                         sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` insurer = ${db.escape(queryJSON.insurer)} `
-                        hasWhere = true;
+                        sql += ` state >= 0 `
                     }
-                    if(queryJSON.wheelhouse_support){
-                        sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` wheelhouse_support = ${db.escape(queryJSON.wheelhouse_support)} `
-                        hasWhere = true;
-                    }
-                    if(queryJSON.api_support){
-                        sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` api_support = ${db.escape(queryJSON.api_support)} `
-                        hasWhere = true;
-                    }
-                    if(queryJSON.distinct_insurer) {
-                        sql += ` GROUP BY insurer `
-                    }
+                    hasWhere = true;
+                    // TODO
+                    // let hasWhere = false;
+                    // if(queryJSON.question){
+                    //     sql += hasWhere ? " AND " : " WHERE ";
+                    //     sql += ` like ${db.escape(queryJSON.question)} `
+                    //     hasWhere = true;
+                    // }
                 }
-                sql += ` order by insurer `
+                
+
                 // Run the query
+                log.debug("ActivityCodeBO getlist sql: " + sql);
                 const result = await db.query(sql).catch(function (error) {
                     // Check if this was
                     
@@ -144,16 +136,16 @@ module.exports = class InsurerPolicyTypeBO{
                 let boList = [];
                 if(result && result.length > 0 ){
                     for(let i=0; i < result.length; i++ ){
-                        let insurerPolicyTypeBO = new InsurerPolicyTypeBO();
-                        //await insurerPolicyTypeBO.#dbTableORM.decryptFields(result[i]);
-                        //await insurerPolicyTypeBO.#dbTableORM.convertJSONColumns(result[i]);
-                        const resp = await insurerPolicyTypeBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                        let activityCodeBO = new ActivityCodeBO();
+                        await activityCodeBO.#dbTableORM.decryptFields(result[i]);
+                        await activityCodeBO.#dbTableORM.convertJSONColumns(result[i]);
+                        const resp = await activityCodeBO.loadORM(result[i], skipCheckRequired).catch(function(err){
                             log.error(`getList error loading object: ` + err + __location);
                         })
                         if(!resp){
                             log.debug("Bad BO load" + __location)
                         }
-                        boList.push(insurerPolicyTypeBO);
+                        boList.push(activityCodeBO);
                     }
                     resolve(boList);
                 }
@@ -175,34 +167,6 @@ module.exports = class InsurerPolicyTypeBO{
                 });
                 this.updateProperty();
                 resolve(this.#dbTableORM.cleanJSON());
-            }
-            else {
-                reject(new Error('no id supplied'))
-            }
-        });
-    }
-
-    deleteById(id) {
-        return new Promise(async (resolve, reject) => {
-            //validate
-            if(id && id >0 ){
-              
-                //Remove old records.
-                const sql =`DELETE FROM ${tableName} 
-                        WHERE id = ${id}
-                `;
-                let rejected = false;
-                const result = await db.query(sql).catch(function (error) {
-                    // Check if this was
-                    log.error("Database Object ${tableName} DELETE  error :" + error + __location);
-                    rejected = true;
-                    reject(error);
-                });
-                if (rejected) {
-                    return false;
-                }
-                resolve(true);
-              
             }
             else {
                 reject(new Error('no id supplied'))
@@ -255,79 +219,137 @@ module.exports = class InsurerPolicyTypeBO{
         return true;
     }
 
-   
+    /*****************************
+     *   For administration site
+     * 
+     ***************************/
+    async getSelectionList(){
+        
+        let rejected = false;
+        let responseLandingPageJSON = {};
+        let reject  = false;
+        const sql = `select id, name, logo  
+            from clw_talage_activity_codes
+            where state > 0
+            order by name`
+        const result = await db.query(sql).catch(function (error) {
+            // Check if this was
+            rejected = true;
+            log.error(`${tableName} error on select ` + error + __location);
+        });
+        if (!rejected && result && result.length >0) {
+            return result;
+        }
+        else {
+            return [];
+        }
+    }
 }
 
 const properties = {
     "id": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
+        "default": 0,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
-    "insurer": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
+    "state": {
+        "default": "1",
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "number",
+        "dbType": "tinyint(1)"
     },
-    "policy_type": {
-      "default": "",
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "string",
-      "dbType": "varchar(3)"
+    "description": {
+        "default": "",
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(150)"
     },
-    "api_support": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "number",
-      "dbType": "tinyint(1)"
+    "created": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "timestamp",
+        "dbType": "timestamp"
     },
-    "wheelhouse_support": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "number",
-      "dbType": "tinyint(1)"
+    "created_by": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
-    "slug": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "varchar(30)"
+    "modified": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "timestamp",
+        "dbType": "timestamp"
     },
-    "acord_support": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "number",
-      "dbType": "tinyint(1)"
+    "modified_by": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
+    },
+    "deleted": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "timestamp",
+        "dbType": "timestamp"
+    },
+    "deleted_by": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
+    },
+    "checked_out": {
+        "default": 0,
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11)"
+    },
+    "checked_out_time": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "datetime",
+        "dbType": "datetime"
     }
-  }
+}
 
 class DbTableOrm extends DatabaseObject {
-
 	constructor(tableName){
 		super(tableName, properties);
 	}
-
 }
