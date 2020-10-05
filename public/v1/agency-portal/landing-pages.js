@@ -41,15 +41,14 @@ async function getLandingPages(req, res, next){
 	// Build a query that will return only the needed information for landing pages table for all of the landing pages
 	const landingPageSQL = `
 			SELECT
-				\`id\`,
-				\`hits\`,
-				\`name\`,
-				\`slug\`,
+				id,
+				hits,
+				name,
+				slug,
 				\`primary\`
-			FROM \`#__agency_landing_pages\`
-			WHERE \`agency\` = ${parseInt(agent, 10)} AND \`state\` > 0;
+			FROM clw_talage_agency_landing_pages
+			WHERE agency = ${parseInt(agent, 10)} AND state > 0;
 		`;
-
 	// Run the query
 	const landingPages = await db.query(landingPageSQL).catch(function(err){
 		log.error(err.message);
