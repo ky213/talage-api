@@ -118,7 +118,7 @@ async function getAgencyNetworkInsurersList(req, res, next) {
         log.error('DB query failed: ' + err.message + __location);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});
-	console.log(JSON.stringify(networkInsurers));
+
 	    // Convert the network insurer territory data into an array
 		networkInsurers.map(function(networkInsurer) {
 			if(networkInsurer.territories){
