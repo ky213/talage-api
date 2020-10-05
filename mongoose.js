@@ -61,6 +61,7 @@ module.exports = function() {
     });
 
     require('./shared/models/mongoose/message.model');
+    require('./shared/models/mongoose/Application.model');
     require('./shared/models/mongoose/AgencyPortalUserGroup.model');
     require('./shared/models/mongoose/Mapping.model');
 

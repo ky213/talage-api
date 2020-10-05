@@ -1,5 +1,7 @@
 'use strict';
 const moment = require('moment');
+const clonedeep = require('lodash.clonedeep');
+
 const DatabaseObject = require('./DatabaseObject.js');
 const BusinessModel = require('./Business-model.js');
 const ApplicationActivityCodesModel = require('./ApplicationActivityCodes-model.js');
@@ -30,6 +32,9 @@ module.exports = class ApplicationModel {
 
     #dbTableORM = null;
     doNotSnakeCase = ['appStatusId','businessDataJSON','additionalInfo'];
+
+    #applicationMongooseModel = null;
+    #applicationMongooseJSON = {};
 
     constructor() {
         this.agencyLocation = null;
@@ -138,7 +143,7 @@ module.exports = class ApplicationModel {
                     return;
                 }
                 //check for 
-
+                // TODO Load Mongoose Model
             }
             else {
                 //set uuid on new application
@@ -210,6 +215,7 @@ module.exports = class ApplicationModel {
                             reject(new Error('Error create Business record ' + __location))
                             return;
                         }
+                        //TODO contact setup Mapping to Mongoose Model
                     }
                     else {
                         log.info('No Business for Application ' + __location)
@@ -219,10 +225,28 @@ module.exports = class ApplicationModel {
 
                     break;
                 case 'locations':
+                    if (applicationJSON.locations) {
+                        this.#applicationMongooseJSON.locations = applicationJSON.locations
+                        for(let i =0 ;i <  this.#applicationMongooseJSON.locations.length; i++){
+                            let location = this.#applicationMongooseJSON.locations[i];
+                            for (const locationProp in location) {            
+                                //not in map check....
+                                if(!businessInfoMapping[locationProp]){
+                                    if(locationProp.isSnakeCase()){
+                                        this.#applicationMongooseJSON[locationProp.toCamelCase()] =  location[locationProp];
+                                    }
+                                    else {
+                                        this.#applicationMongooseJSON[locationProp] = location[locationProp];
+                                    }
+                                    
+                                }
+                            }
+                        }
+                    }
                     // update business data
                     if (applicationJSON.total_payroll) {
                         await this.processActivityCodes(applicationJSON.total_payroll).catch(function (err) {
-                            log.error('Adding claims error:' + err + __location);
+                            log.error('Adding activity codes error:' + err + __location);
                             reject(err);
                         });
                     }
@@ -233,7 +257,7 @@ module.exports = class ApplicationModel {
                     break;
                 case 'coverage':
                     //processPolicyTypes
-                    if (applicationJSON.policy_types) {
+                    if (applicationJSON.policy_types, applicationJSON) {
                         await this.processPolicyTypes(applicationJSON.policy_types).catch(function (err) {
                             log.error('Adding claims error:' + err + __location);
                             reject(err);
@@ -244,9 +268,11 @@ module.exports = class ApplicationModel {
                     break;
                 case 'owners':
                     updateBusiness = true;
+                    //TODO owners setup Mapping to Mongoose Model not we already have one loaded.
                     break;
                 case 'details':
                     updateBusiness = true;
+                    //TODO details setup Mapping to Mongoose Model not we already have one loaded.
                     break;
                 case 'claims':
                     if (applicationJSON.claims) {
@@ -255,6 +281,7 @@ module.exports = class ApplicationModel {
                             reject(err);
                         });
                     }
+                    //TODO details setup Mapping to Mongoose Model not we already have one loaded.
                     break;
                 case 'questions':
                     if (applicationJSON.questions) {
@@ -267,6 +294,7 @@ module.exports = class ApplicationModel {
                         log.error('Adding Legal Acceptance error:' + err + __location);
                         reject(err);
                     });
+                    //TODO questions setup Mapping to Mongoose Model not we already have one loaded.
                     //applicationJSON.status = 'incomplete';
                     //applicationJSON.appStatusId = 10;
                     if (applicationJSON.wholesale === 1 || applicationJSON.solepro === 1) {
@@ -297,7 +325,7 @@ module.exports = class ApplicationModel {
                     // Do nothing - we only save here to update the last step
                     workflowStep = "quotes";
 
-
+                    //TODO quotes (Status) setup Mapping to Mongoose Model not we already have one loaded.
                     break;
                 case 'bindRequest':
                     if (applicationJSON.quotes) {
@@ -307,6 +335,7 @@ module.exports = class ApplicationModel {
                             reject(err);
                         });
                     }
+                    //TODO bindRequest setup Mapping to Mongoose Model not we already have one loaded.
                     break;
                 default:
                     // not from old Web application application flow.
@@ -342,12 +371,24 @@ module.exports = class ApplicationModel {
             if (!this.#dbTableORM.uuid) {
                 this.#dbTableORM.uuid = applicationJSON.uuid;
             }
+            //Agency Network check.....
+
             //save
             await this.#dbTableORM.save().catch(function (err) {
                 reject(err);
             });
             this.updateProperty();
             this.id = this.#dbTableORM.id;
+            // TODO mongoose model save.
+            // maybe this.#dbTableORM
+            mapToMongooseJSON(applicationJSON)
+
+            log.debug("mongooseJSON: " + JSON.stringify( this.#applicationMongooseJSON))
+            if(this.#applicationMongooseModel){
+                //update
+            } else {
+                //insert 
+            }
 
             if(workflowStep === "contact"){
                 //async call do not await processing.
@@ -358,6 +399,20 @@ module.exports = class ApplicationModel {
 
 
         });
+    }
+
+    mapToMongooseJSON(sourceJSON){
+        for(const sourceProp in sourceJSON){
+            if(typeof sourceJSON[sourceProp] !== "object" ){
+                //check if snake_case
+                if(sourceProp.isSnakeCase()){
+                    this.#applicationMongooseJSON[sourceProp.toCamelCase()] =  sourceJSON[businessInfo];
+                }
+                else {
+                    this.#applicationMongooseJSON[sourceProp] = sourceJSON[sourceProp];
+                }
+            }
+        }
     }
 
     /**
@@ -378,6 +433,41 @@ module.exports = class ApplicationModel {
                 reject(err);
                 return;
             });
+
+            //Process Mongoose Model
+            //this.#applicationMongooseJSON
+            // BusinessInfo to mongoose model
+            const businessInfoMapping = {
+                    entity_type: "entityType",
+                    "mailing_state_abbr": "mailingState"
+                } 
+            //
+            for (const businessProp in businessInfo) {            
+                //not in map check....
+                if(!businessInfoMapping[businessProp]){
+                    if(businessProp.isSnakeCase()){
+                        this.#applicationMongooseJSON[businessProp.toCamelCase()] =  businessInfo[businessProp];
+                    }
+                    else {
+                        this.#applicationMongooseJSON[businessProp] = businessInfo[businessProp];
+                    }
+                    
+                }
+            }
+            for(const mappedProp in businessInfoMapping){
+                if(businessInfo[mappedProp]){
+                    const appProp = businessInfoMapping[mappedProp]
+                    this.#applicationMongooseJSON[appProp] = businessInfo[mappedProp];
+                }
+
+            }
+            //save model if we have a model 
+            if(this.#applicationMongooseModel){
+                //save....
+
+            }
+
+
             resolve(businessModel);
         });
     }
@@ -391,6 +481,20 @@ module.exports = class ApplicationModel {
     */
     processClaimsWF(claims) {
         return new Promise(async (resolve, reject) => {
+                //copy to mongoose json
+                //clonedeep
+                this.#applicationMongooseJSON.claims = clonedeep(claims);
+                for(let i = 0; i <  this.#applicationMongooseJSON.claims.length; i++ ){
+                    let claim = this.#applicationMongooseJSON.claims[i];
+                    for (const prop in claim) {            
+                        //check if snake_case
+                        if(prop.isSnakeCase()){
+                            claim[prop.toCamelCase()] = claim[prop];
+                            delete  claim[prop];
+                        }
+                    }
+                }
+      
             //delete existing.
             const applicationClaimModelDelete = new ApplicationClaimBO();
             //remove existing addresss acivity codes. we do not get ids from UI.
@@ -415,6 +519,14 @@ module.exports = class ApplicationModel {
     processActivityCodes(activtyListJSON) {
 
         return new Promise(async (resolve, reject) => {
+
+            this.#applicationMongooseJSON.activityCodes = clonedeep(activtyListJSON);
+            for(let i = 0; i <  this.#applicationMongooseJSON.activityCodes.length; i++ ){
+                let activityCodeJson = this.#applicationMongooseJSON.activityCodes[i];
+                activityCodeJson.ncciCode = activityCodeJson.ncci_code;
+                delete activityCodeJson.ncci_code;
+            }
+
             //delete existing.
             const applicationActivityCodesModelDelete = new ApplicationActivityCodesModel();
             //remove existing addresss acivity codes. we do not get ids from UI.
@@ -445,9 +557,47 @@ module.exports = class ApplicationModel {
     }
 
 
-    processPolicyTypes(policyTypeArray) {
+    processPolicyTypes(policyTypeArray,applicationJSON) {
 
         return new Promise(async (resolve, reject) => {
+            
+            this.#applicationMongooseJSON.policies = clonedeep(policyTypeArray);
+            for(let i = 0; i <  this.#applicationMongooseJSON.policies.length; i++ ){
+                let activityCodeJson = this.#applicationMongooseJSON.activityCodes[i];
+                activityCodeJson.ncciCode = activityCodeJson.ncci_code;
+                delete activityCodeJson.ncci_code;
+            }
+
+            let policyList = [];
+            for (var i = 0; i < policyTypeArray.length; i++) {
+                const policyType = policyTypeArray[i];
+                const policyTypeJSON = {
+                    "policyType": policyType
+                }
+                if(policyType === "GL"){
+                    //GL limit and date fields.
+                    policyType.effectiveDate = applicationJSON.gl_effective_date
+                    policyType.expirationDate = applicationJSON.gl_expiration_date
+                    policyType.limits = applicationJSON.limits
+
+
+                } else if(policyType === "WC"){
+                    policyType.effectiveDate = applicationJSON.wc_effective_date
+                    policyType.expirationDate = applicationJSON.wc_expiration_date
+                    policyType.limits = applicationJSON.wc_limits
+                    policyType.coverageLapse = applicationJSON.coverageLapse
+                
+                } else if(policyType === "BOP"){
+                    policyType.effectiveDate = applicationJSON.bop_effective_date
+                    policyType.expirationDate = applicationJSON.bop_expiration_date
+                    policyType.limits = applicationJSON.limits
+                    policyType.coverage = applicationJSON.coverage
+
+                }
+                
+            }
+            this.#applicationMongooseJSON.policies = policyList
+            
             //delete existing.
             const applicationPolicyTypeModelDelete = new ApplicationPolicyTypeBO();
             //remove existing addresss acivity codes. we do not get ids from UI.
@@ -481,6 +631,11 @@ module.exports = class ApplicationModel {
 
         return new Promise(async (resolve, reject) => {
             ///delete existing ?? old system did not.
+
+            this.#applicationMongooseJSON.questions = questions;
+            //TODO get text and turn into list of question objects.
+
+
             let valueList = []
             for (var i = 0; i < questions.length; i++) {
                 let question = questions[i];
@@ -535,6 +690,7 @@ module.exports = class ApplicationModel {
                 'ip': applicationJSON.remoteAddress,
                 'version': version
             }
+            this.#applicationMongooseJSON.legalAcceptance = legalAcceptanceJSON;
 
             const legalAcceptanceModel = new LegalAcceptanceModel();
             await legalAcceptanceModel.saveModel(legalAcceptanceJSON).catch(function (err) {
@@ -688,6 +844,7 @@ module.exports = class ApplicationModel {
                     log.error("Database Object ${tableName} UPDATE businessDataJSON error :" + err + __location);
                     error = err;
                 });
+                 //TODO monogoose model save
                 log.info(`Application ${this.id} update BusinessDataJSON`);
                 currentAppDBJSON.businessDataJSON = newBusinessDataJSON;
                 if(afBusinessDataJSON && afBusinessDataJSON.Status === "SUCCESS"){
@@ -733,6 +890,7 @@ module.exports = class ApplicationModel {
                         throw err;
                     });
                     log.debug(`App ${this.id} updated from afBusinessDataJSON ` + __location);
+                    //TODO monogoose model save
                 }
                 catch(err){
                     log.error("Error update App from AFBusinessData " + err + __location);
@@ -811,6 +969,7 @@ module.exports = class ApplicationModel {
                 try{
                     log.debug("updating  application business records from afBusinessDataJSON " + + __location)
                     await this.processBusiness(businessJSON);
+                     //TODO monogoose model save
                 }
                 catch(err){
                     log.error("Error Mapping AF Business Data to BO Saving " + err + __location);
@@ -857,6 +1016,7 @@ module.exports = class ApplicationModel {
                         log.error("Error Saving application orm " + err + __location);
                         throw err;
                     });
+                     //TODO monogoose model save
                     log.debug(`App ${this.id} updated from afBusinessDataJSON ` + __location);
                 }
                 catch(err){
@@ -930,6 +1090,8 @@ module.exports = class ApplicationModel {
                 try{
                     log.debug("updating  application business records from afBusinessDataJSON " + + __location)
                     await this.processBusiness(businessJSON);
+
+                     //TODO monogoose model save
                 }
                 catch(err){
                     log.error("Error Mapping AF Business Data to BO Saving " + err + __location);
@@ -1084,6 +1246,17 @@ module.exports = class ApplicationModel {
                 this[property] = dbJSON[property];
             }
         }
+    }
+    copyToMongo(id){
+
+
+
+
+
+
+
+
+
     }
 }
 
