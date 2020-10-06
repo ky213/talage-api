@@ -131,14 +131,13 @@ async function getAgencyNetworkInsurersList(req, res, next) {
 		for (let i = 0; i < networkInsurers.length; i++) {
 			const insurer = networkInsurers[i];
 			// Grab all of the policy type and accord support for a given insurer
-			const policyTypeResult = new InsurerPolicyTypeBO();
+			const policyTypeBO = new InsurerPolicyTypeBO();
 			const insurerId = insurer.id;
 			const queryJSON = {
-				customSelection : `policy_type, acord_support`,
 				insurer: insurerId
 			}
 			let policyTypesList = null;
-			policyTypesList = await policyTypeResult.getList(queryJSON).catch(function(err) {
+			policyTypesList = await policyTypeBO.getList(queryJSON).catch(function(err) {
 				log.error("insurerPolicyTypeBO load error " + err + __location);
 				error = err;
 			});

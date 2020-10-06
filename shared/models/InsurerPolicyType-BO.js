@@ -105,9 +105,6 @@ module.exports = class InsurerPolicyTypeBO{
                 `;
                 if(queryJSON){
 					let hasWhere = false;
-					if(queryJSON.customSelection){
-						sql = `select ${queryJSON.customSelection} from ${tableName}`
-					}
                     if(queryJSON.policy_type){
                         sql += hasWhere ? " AND " : " WHERE ";
                         sql += ` policy_type = ${db.escape(queryJSON.policy_type)} `
