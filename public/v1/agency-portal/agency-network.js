@@ -147,8 +147,15 @@ async function getAgencyNetworkInsurersList(req, res, next) {
 
 			// Push policy types and accord support for said policy type into an array
 			insurer.policyTypes = [];
-			policyTypesList.forEach((policyType) => {
-				insurer.policyTypes.push(policyType);
+			policyTypesList.forEach((policyTypeObj) => {
+				let reducedPolicyTypeObj = {};
+				if(typeof policyTypeObj.policy_type !== 'undefined'){
+					reducedPolicyTypeObj.policy_type = policyTypeObj.policy_type;
+				}
+				if( typeof policyTypeObj.acord_support !== 'undefined'){
+					reducedPolicyTypeObj.acord_support = policyTypeObj.acord_support;
+				}
+				insurer.policyTypes.push(reducedPolicyTypeObj);
 			});
 		}
 		const response = {
