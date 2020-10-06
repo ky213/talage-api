@@ -16,6 +16,8 @@ const serverHelper = global.requireRootPath('server.js');
  */
 async function GetQuestions(activityCodeStringArray, industryCodeString, zipCodeStringArray, policyTypeArray, insurerStringArray, return_hidden = false) {
 
+    log.debug(`GetQuestions: activityCodeStringArray:  ${activityCodeStringArray}, industryCodeString:  ${industryCodeString}, zipCodeStringArray:  ${zipCodeStringArray}, policyTypeArray:  ${policyTypeArray}, insurerStringArray:  ${return_hidden}, return_hidden: ${return_hidden}` + __location)
+
     const policy_types = [];
 
     let error = false;
@@ -242,7 +244,11 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
 			LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
 			LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
 			LEFT JOIN clw_talage_insurer_industry_codes AS iic ON icq.insurer_industry_code = iic.id
-			LEFT JOIN clw_talage_industry_codes AS ic ON ic.cgl = iic.code AND iic.type = 'c'
+            LEFT JOIN clw_talage_industry_codes AS ic ON 
+                (
+                    (ic.cgl = iic.code AND iic.type = 'c')
+                    OR (ic.hiscox = iic.code AND iic.type = 'h')
+                )
 			WHERE ic.id = ${db.escape(industry_code)} AND ${where} GROUP BY q.id;
 		`;
         const cgl_questions = await db.query(sql).catch(function(err) {
@@ -436,6 +442,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
  *
  */
 exports.GetQuestionsForFrontend = async function(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden = false){
+
 
     const questions = await GetQuestions(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden);
 
