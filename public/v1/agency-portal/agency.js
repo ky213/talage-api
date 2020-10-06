@@ -100,6 +100,33 @@ async function deleteAgency(req, res, next) {
 }
 
 /**
+ * 
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function getTerritories(req, res, next){
+
+	const allTerritoriesSQL = `
+		SELECT
+			abbr,
+			name
+		FROM clw_talage_territories
+		ORDER BY name ASC;
+	`;
+	// Query the database
+	const allTerritories = await db.query(allTerritoriesSQL).catch(function(err){
+		log.error('DB query for territories list failed: ' + err.message + __location);
+		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+	});
+	console.log(JSON.stringify(allTerritories));
+    // Return the response
+    res.send(200, { "territories": allTerritories});
+    return next();
+}
+/**
  * Returns the record for a single Agency
  *
  * @param {object} req - HTTP request object
@@ -783,7 +810,8 @@ async function updateAgency(req, res, next) {
 
 exports.registerEndpoint = (server, basePath) => {
     server.addDeleteAuth('Delete Agency', `${basePath}/agency`, deleteAgency, 'agencies', 'manage');
-    server.addGetAuth('Get Agency', `${basePath}/agency`, getAgency, 'agencies', 'view');
+	server.addGetAuth('Get Agency', `${basePath}/agency`, getAgency, 'agencies', 'view');
+	server.addGetAuth('Get Agency', `${basePath}/agency/territories`, getTerritories, 'agencies', 'view');
     server.addPostAuth('Post Agency', `${basePath}/agency`, postAgency, 'agencies', 'manage');
-    server.addPutAuth('Put Agency', `${basePath}/agency`, updateAgency, 'agencies', 'manage');
+	server.addPutAuth('Put Agency', `${basePath}/agency`, updateAgency, 'agencies', 'manage');
 };
