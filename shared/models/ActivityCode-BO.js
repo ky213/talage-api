@@ -99,27 +99,30 @@ module.exports = class ActivityCodeBO{
                 let rejected = false;
                 // Create the update query
                 let hasWhere = false;
+                let stateSet = false;
                 let sql = `
                     select * from ${tableName}  
                 `;
                 if(queryJSON){
+                    if(queryJSON.include_insurers) {
+                        // TODO: HOW TO EDIT THE QUERY?
+                    }
                     if(queryJSON.state) {
                         sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` state = ${db.escape(queryJSON.state)} `
-                    } else {
-                        sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` state >= 0 `
+                        sql += ` state = ${db.escape(queryJSON.state)} `;
+                        stateSet = true;
+                        hasWhere = true;
                     }
-                    hasWhere = true;
-                    // TODO
-                    // let hasWhere = false;
-                    // if(queryJSON.question){
-                    //     sql += hasWhere ? " AND " : " WHERE ";
-                    //     sql += ` like ${db.escape(queryJSON.question)} `
-                    //     hasWhere = true;
-                    // }
                 }
-                
+
+                if(!stateSet) {
+                    sql += hasWhere ? " AND " : " WHERE ";
+                    sql += ` state >= 0 `;
+                    hasWhere = true;
+                }
+
+                // reverse the list to sort by id descending by default
+                sql += " GROUP BY id DESC"
 
                 // Run the query
                 log.debug("ActivityCodeBO getlist sql: " + sql);

@@ -41,7 +41,7 @@ async function findOne(req, res, next) {
     let error = null;
     const agencyNetworkInsurerBO = new AgencyNetworkInsurerBO();
     // Load the request data into it
-    const questionAnswerJSON = await agencyNetworkInsurerBO.getByAbbr(id).catch(function(err) {
+    const questionAnswerJSON = await agencyNetworkInsurerBO.getById(id).catch(function(err) {
         log.error("agency network insurer load error " + err + __location);
         error = err;
     });
