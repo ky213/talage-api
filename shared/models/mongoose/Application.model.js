@@ -116,6 +116,17 @@ let PolicySchema = new Schema({
 
 })
 
+let QuestionSchema = new Schema ({
+    questionId: { type: Number, required: [true, 'questionId required'] },
+    questionType: {type: String, required: false},
+    questionText: {type: String, required: false},
+    hint: {type: String, required: false},
+    hidden: {type: Boolean, required: true, default: false },
+    answerId: {type: Number, required: false},
+    answerValue: {type: String, required: false},
+    answerList: [String]
+})
+
 let ApplicationSchema = new Schema({
     applicationId: { type: String, required: [true, 'applicationId required'], unique: true },
     uuid: {type: String, required: false},
@@ -170,7 +181,7 @@ let ApplicationSchema = new Schema({
     activityCodes: [ActivtyCodePayrollSchema],
     grossSalesAmt: {type: Number, required: false},
     additionalInsured: {type: String, required: false},
-    questions: { type: Schema.Types.Mixed },
+    questions: [QuestionSchema],
     legalAcceptance: legalAcceptanceSchema,
     additionalInfo: { type: Schema.Types.Mixed },
     businessDataJSON: { type: Schema.Types.Mixed },

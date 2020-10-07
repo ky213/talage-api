@@ -98,6 +98,8 @@ async function updateApplicationStatus(applicationID) {
     catch (error) {
         log.error(`Could not retrieve quotes for application ${applicationID} ${__location}`);
     }
+    // TODO Mongoose update....
+    
 }
 
 /**

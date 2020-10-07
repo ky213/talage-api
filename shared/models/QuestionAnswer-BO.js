@@ -244,6 +244,29 @@ module.exports = class QuestionAnswerBO{
         this.updateProperty();
         return true;
     }
+    async getListByAnswerIDList(answerIdList){
+        let hasError = false;
+        const sql = `select id, question, answer  
+            from clw_talage_question_answers
+            where state > 0
+                AND id in (?)
+            order by id`
+
+        const parmList = [answerIdList];
+        const result = await db.queryParam(sql,parmList).catch(function (error) {
+            // Check if this was
+            hasError = true;
+            log.error(`${tableName} error on select ` + error + __location);
+        });
+        if (!hasError && result && result.length >0) {
+            return result;
+        }
+        else {
+            return [];
+        }
+
+
+    }
 
     /*****************************
      *   For administration site

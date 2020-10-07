@@ -12,6 +12,9 @@ const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 const status = global.requireShared('./models/application-businesslogic/status.js');
 const afBusinessdataSvc = global.requireShared('services/af-businessdata-svc.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
+const QuestionBO = global.requireShared('./models/Question-BO.js');
+const QuestionAnswerBO = global.requireShared('./models/QuestionAnswer-BO.js');
+const QuestionTypeBO = global.requireShared('./models/QuestionType-BO.js');
 
 const QuoteModel = require('./Quote-model.js');
 const taskWholesaleAppEmail = global.requireRootPath('tasksystem/task-wholesaleapplicationemail.js');
@@ -314,6 +317,12 @@ module.exports = class ApplicationModel {
                             log.error('Adding Questions error:' + err + __location);
                             reject(err);
                         });
+                    
+                        await this.processQuestionsMongo(applicationJSON.questions).catch(function (err) {
+                            log.error('Adding Questions error:' + err + __location);
+                           // reject(err);
+                        });
+
                     }
                     await this.processLegalAcceptance(applicationJSON).catch(function (err) {
                         log.error('Adding Legal Acceptance error:' + err + __location);
@@ -404,10 +413,8 @@ module.exports = class ApplicationModel {
             this.updateProperty();
             this.id = this.#dbTableORM.id;
             applicationJSON.id = this.id;
-            // TODO mongoose model save.
-            // maybe this.#dbTableORM
+            // mongoose model save.
             this.mapToMongooseJSON(applicationJSON)
-            log.debug("mongooseJSON: " + JSON.stringify( this.#applicationMongooseJSON))
             if(this.#applicationMongooseDB){
                 //update
                 this.updateMongo(this.#applicationMongooseDB.applicationId, this.#applicationMongooseJSON)
@@ -826,7 +833,7 @@ module.exports = class ApplicationModel {
         return new Promise(async (resolve, reject) => {
             ///delete existing ?? old system did not.
 
-            this.#applicationMongooseJSON.questions = questions;
+           // this.#applicationMongooseJSON.questions = questions;
             //TODO get text and turn into list of question objects.
 
 
@@ -865,6 +872,90 @@ module.exports = class ApplicationModel {
             });
             if (rejected) {
                 return false;
+            }
+            resolve(true);
+
+        });
+
+    }
+
+    processQuestionsMongo(questionsRequest) {
+
+        return new Promise(async (resolve, reject) => {
+            ///delete existing ?? old system did not.
+
+            const questionTypeBO = new QuestionTypeBO();
+            // Load the request data into it
+            let questionTypeListDB = await questionTypeBO.getList().catch(function(err) {
+                log.error("questionTypeBO load error " + err + __location);
+            });
+
+            this.#applicationMongooseJSON.questions = [];
+            //get text and turn into list of question objects.
+
+            for (var i = 0; i < questionsRequest.length; i++) {
+                let questionRequest = questionsRequest[i];
+                let questionJSON = {};
+                questionJSON.questionId = questionRequest.id 
+                questionsRequest.questionType = questionRequest.type;
+
+                //get Question def for Question Text and Yes
+                const questionBO = new QuestionBO();
+                // Load the request data into it
+                let questionDB = await questionBO.getById(questionJSON.questionId).catch(function(err) {
+                    log.error("questionBO load error " + err + __location);
+                });
+                if(questionDB){
+                    questionJSON.questionText = questionDB.question;
+                    questionJSON.hint = questionDB.hint;
+                    questionJSON.hidden = questionDB.hidden;
+                    questionJSON.questionType = questionDB.type;
+                    if(questionTypeListDB){
+                        let questionType = questionTypeListDB.find(questionType => questionType.id === questionDB.type);
+                        if(questionType){
+                            questionJSON.questionType = questionType.name;
+                        }
+                    }
+                } else {
+                    log.error(`no question record for id ${questionJSON.questionId} ` + __location);
+                }
+               
+                if (questionRequest.type === 'text') {
+                    //const cleanString = questionRequest.answer.replace(/\|/g, ',')
+                    questionJSON.answerValue = questionRequest.answer;
+                } else if (questionRequest.type === 'array') {
+                    const arrayString = "|" + questionRequest.answer.join('|');
+                    questionJSON.answerValue = arrayString;
+                    const questionAnswerBO = new QuestionAnswerBO();
+                    let questionAnswerListDB = await questionAnswerBO.getListByAnswerIDList(questionRequest.answer).catch(function(err) {
+                        log.error("questionBO load error " + err + __location);
+                    });
+                    if(questionAnswerListDB & questionAnswerListDB.length > 0){
+                        questionJSON.answerList = [];
+                        for (let j=0 ; j < questionAnswerListDB.length; j++){
+                            questionJSON.answerList.push(questionAnswerListDB[j].answer);
+                        }
+                        
+                    } else {
+                        log.error(`no question record for id ${questionJSON.questionId} ` + __location);
+                    }
+                }
+                else {
+                    questionJSON.answerId = questionRequest.answer;
+                    // Need answer value
+                    const questionAnswerBO = new QuestionAnswerBO();
+                    // Load the request data into it
+                    let questionAnswerDB = await questionAnswerBO.getById(questionJSON.answerId).catch(function(err) {
+                        log.error("questionBO load error " + err + __location);
+                    });
+                    if(questionAnswerDB){
+                        questionJSON.answerValue = questionAnswerDB.answer;
+                    } else {
+                        log.error(`no question record for id ${questionJSON.questionId} ` + __location);
+                    }
+
+                }
+                this.#applicationMongooseJSON.questions.push(questionJSON);
             }
             resolve(true);
 
@@ -1338,7 +1429,6 @@ module.exports = class ApplicationModel {
                         delete newObjectJSON[changeNotUpdateList[i]];
                     }
                 }
-                log.debug("application newObjectJSON: " + JSON.stringify(newObjectJSON))
                 const query = {"applicationId": uuid};
                 let newApplicationJSON = null;
                 try {
