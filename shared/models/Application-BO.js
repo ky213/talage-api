@@ -11,16 +11,24 @@ const ApplicationClaimBO = require('./ApplicationClaim-BO.js');
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 const status = global.requireShared('./models/application-businesslogic/status.js');
 const afBusinessdataSvc = global.requireShared('services/af-businessdata-svc.js');
+const AgencyBO = global.requireShared('./models/Agency-BO.js');
 
 const QuoteModel = require('./Quote-model.js');
 const taskWholesaleAppEmail = global.requireRootPath('tasksystem/task-wholesaleapplicationemail.js');
 const taskSoleProAppEmail = global.requireRootPath('tasksystem/task-soleproapplicationemail.js');
 const taskEmailBindAgency = global.requireRootPath('tasksystem/task-emailbindagency.js');
 
+
+// Mongo mOdels
+var Application = require('mongoose').model('Application');
+const mongoUtils = global.requireShared('./helpers/mongoutils.js');
+
 //const moment = require('moment');
 const { 'v4': uuidv4 } = require('uuid');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+
+
 
 
 const convertToIntFields = [];
@@ -60,6 +68,10 @@ module.exports = class ApplicationModel {
 
 
 
+        this.#applicationMongooseModel = null;
+        this.#applicationMongooseJSON = {};
+    
+
         this.#dbTableORM = new ApplicationOrm();
         this.#dbTableORM.doNotSnakeCase = this.doNotSnakeCase;
     }
@@ -78,7 +90,7 @@ module.exports = class ApplicationModel {
                 reject(new Error("empty application object given"));
                 return;
             }
-
+            let error = null;
             //log.debug("Beginning applicationJSON: " + JSON.stringify(applicationJSON));
 
             const stepMap = {
@@ -144,8 +156,22 @@ module.exports = class ApplicationModel {
                 }
                 //check for 
                 // TODO Load Mongoose Model
+
+                //Agency Network check.....
+                const agencyBO = new AgencyBO();
+                // Load the request data into it
+                let agency = await agencyBO.getById(this.#dbTableORM.agency).catch(function(err) {
+                    log.error("Agency load error " + err + __location);
+                    error = err;
+                });
+                if(agency){
+                    applicationJSON.agencyNetworkId = agency.agency_network;
+                } else {
+                    log.error(`no agency record for id ${applicationJSON.agency} ` + __location);
+                }
             }
             else {
+
                 //set uuid on new application
                 applicationJSON.uuid = uuidv4().toString();
                 //Agency Defaults
@@ -187,11 +213,24 @@ module.exports = class ApplicationModel {
                     }
 
                 }
+                //Agency Network check.....
+                error = null;
+                const agencyBO = new AgencyBO();
+                // Load the request data into it
+                let agency = await agencyBO.getById(applicationJSON.agency).catch(function(err) {
+                    log.error("Agency load error " + err + __location);
+                    error = err;
+                });
+                if(agency){
+                    applicationJSON.agencyNetworkId = agency.agency_network;
+                } else {
+                    log.error(`no agency record for id ${applicationJSON.agency} ` + __location);
+                }
 
             }
 
             //log.debug("applicationJSON: " + JSON.stringify(applicationJSON));
-            let error = null;
+            error = null;
             let updateBusiness = false;
             switch (workflowStep) {
                 case "contact":
@@ -215,13 +254,14 @@ module.exports = class ApplicationModel {
                             reject(new Error('Error create Business record ' + __location))
                             return;
                         }
-                        //TODO contact setup Mapping to Mongoose Model
+                        await this.processMongooseBusiness(applicationJSON.businessInfo)
                     }
                     else {
                         log.info('No Business for Application ' + __location)
                         reject(new Error("No Business Information supplied"));
                         return;
                     }
+
 
                     break;
                 case 'locations':
@@ -371,23 +411,24 @@ module.exports = class ApplicationModel {
             if (!this.#dbTableORM.uuid) {
                 this.#dbTableORM.uuid = applicationJSON.uuid;
             }
-            //Agency Network check.....
-
+           
             //save
             await this.#dbTableORM.save().catch(function (err) {
                 reject(err);
             });
             this.updateProperty();
             this.id = this.#dbTableORM.id;
+            applicationJSON.id = this.id;
             // TODO mongoose model save.
             // maybe this.#dbTableORM
-            mapToMongooseJSON(applicationJSON)
-
+            this.mapToMongooseJSON(applicationJSON)
             log.debug("mongooseJSON: " + JSON.stringify( this.#applicationMongooseJSON))
             if(this.#applicationMongooseModel){
                 //update
+                this.updateMongo(this.#applicationMongooseJSON.uuid, this.#applicationMongooseJSON)
             } else {
                 //insert 
+                this.insertMongo(this.#applicationMongooseJSON)
             }
 
             if(workflowStep === "contact"){
@@ -402,15 +443,28 @@ module.exports = class ApplicationModel {
     }
 
     mapToMongooseJSON(sourceJSON){
+        const propMappings = { 
+            agency_location: "agencyLocationId",
+            agency: "agencyId",
+            name: "businessName",
+            "id": "mysqlId"
+        }
         for(const sourceProp in sourceJSON){
             if(typeof sourceJSON[sourceProp] !== "object" ){
-                //check if snake_case
-                if(sourceProp.isSnakeCase()){
-                    this.#applicationMongooseJSON[sourceProp.toCamelCase()] =  sourceJSON[businessInfo];
+                if(propMappings[sourceProp]){
+                    const appProp = propMappings[sourceProp]
+                    this.#applicationMongooseJSON[appProp] = sourceJSON[sourceProp];
                 }
                 else {
-                    this.#applicationMongooseJSON[sourceProp] = sourceJSON[sourceProp];
+                    //check if snake_case
+                    if(sourceProp.isSnakeCase()){
+                        this.#applicationMongooseJSON[sourceProp.toCamelCase()] =  sourceJSON[sourceProp];
+                    }
+                    else {
+                        this.#applicationMongooseJSON[sourceProp] = sourceJSON[sourceProp];
+                    }
                 }
+                
             }
         }
     }
@@ -427,49 +481,73 @@ module.exports = class ApplicationModel {
                 reject(new Error("no business id"));
                 return;
             }
+            log.debug("businessInfo " + JSON.stringify(businessInfo));
             const businessModel = new BusinessModel();
             await businessModel.saveBusiness(businessInfo).catch(function (err) {
                 log.error("Updating new business error:" + err + __location);
                 reject(err);
                 return;
             });
+            await this.processMongooseBusiness(businessInfo)
+            
 
-            //Process Mongoose Model
+
+            resolve(businessModel);
+        });
+    }
+
+    async processMongooseBusiness(businessInfo){
+        //Process Mongoose Model
             //this.#applicationMongooseJSON
             // BusinessInfo to mongoose model
             const businessInfoMapping = {
-                    entity_type: "entityType",
-                    "mailing_state_abbr": "mailingState"
-                } 
-            //
-            for (const businessProp in businessInfo) {            
-                //not in map check....
-                if(!businessInfoMapping[businessProp]){
+                entity_type: "entityType",
+                "mailing_state_abbr": "mailingState"
+            } 
+        //
+        log.debug("businessInfo " + JSON.stringify(businessInfo));
+        for (const businessProp in businessInfo) {       
+            if(typeof businessInfo[businessProp] !== "object" ){
+                log.debug("businsess mapping " + businessProp )     
+                if(businessInfoMapping[businessProp]){
+                    const appProp = businessInfoMapping[businessProp]
+                    this.#applicationMongooseJSON[appProp] = businessInfo[businessProp];
+                }
+                else {
                     if(businessProp.isSnakeCase()){
                         this.#applicationMongooseJSON[businessProp.toCamelCase()] =  businessInfo[businessProp];
                     }
                     else {
                         this.#applicationMongooseJSON[businessProp] = businessInfo[businessProp];
                     }
-                    
                 }
             }
-            for(const mappedProp in businessInfoMapping){
-                if(businessInfo[mappedProp]){
-                    const appProp = businessInfoMapping[mappedProp]
-                    this.#applicationMongooseJSON[appProp] = businessInfo[mappedProp];
-                }
+        }
 
+        if(businessInfo.contacts){
+            //setup mongoose contanct
+            log.debug("Setting up mongose contacts")
+            this.#applicationMongooseJSON.contacts = [];
+            
+            for(var i = 0 ; i < businessInfo.contacts.length; i++){
+                let businessContact  = businessInfo.contacts[i]
+                let contactJSON = {};
+                contactJSON.email = businessContact.email;
+                contactJSON.fristName = businessContact.fname;
+                contactJSON.lastName = businessContact.lname;
+                contactJSON.phone = businessContact.phone;
+                contactJSON.primary = businessContact.primary;
+                this.#applicationMongooseJSON.contacts.push(contactJSON);                    
             }
-            //save model if we have a model 
-            if(this.#applicationMongooseModel){
-                //save....
 
-            }
+        }
+        //save model if we have a model 
+        if(this.#applicationMongooseModel){
+            //save....
 
+        }
 
-            resolve(businessModel);
-        });
+        return;
     }
 
 
@@ -1133,6 +1211,68 @@ module.exports = class ApplicationModel {
             }
         });
     }
+
+
+    async updateMongo(uuid, newObjectJSON){
+        if(uuid && uuid >0 ){
+            if(typeof newObjectJSON === "object"){
+                const changeNotUpdateList = ["active", "id","mysqlId", "applicationId", "uuid"]
+                for(let i = 0;i < changeNotUpdateList.length; i++ ){
+                    if(newObjectJSON[changeNotUpdateList[i]]){
+                        delete newObjectJSON[changeNotUpdateList[i]];
+                    }
+                }
+                log.debug("application newObjectJSON: " + JSON.stringify(newObjectJSON))
+                const query = {"applicationId": uuid};
+                let newApplicationJSON = null;
+                try {
+                    await Application.updateOne(query, newObjectJSON);
+
+                    const newApplicationdoc = await Application.findOne(query);
+                    newApplicationJSON = mongoUtils.objCleanup(newApplicationdoc);
+                }
+                catch (err) {
+                    log.error("Updating Application error " + err + __location);
+                    throw err;
+                }
+                return newApplicationJSON;
+            }
+            else {
+                throw new Error('no newObjectJSON supplied')
+            }
+          
+        }
+        else {
+            throw new Error('no id supplied')
+        }
+        return true;
+
+    }
+
+    async insertMongo(newObjectJSON){
+            newObjectJSON.applicationId = newObjectJSON.uuid;
+            let application = new Application(newObjectJSON);
+            log.debug("insert application: " + JSON.stringify(application))
+            //Insert a doc
+            await application.save().catch(function(err){
+                log.error('Mongo Application Save err ' + err + __location);
+                throw err;
+            });
+            let userGroup = mongoUtils.objCleanup(application);
+            userGroup.id = userGroup.systemId;
+            return userGroup;
+    }
+
+
+
+
+
+
+
+
+
+
+
 
     getById(id) {
         return new Promise(async (resolve, reject) => {

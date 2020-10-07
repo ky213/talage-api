@@ -254,7 +254,7 @@ Object.defineProperty(String.prototype, 'toCamelCase', {'value': function(){
 }});
 
 // eslint-disable-next-line no-extend-native
-Object.defineProperty(String.prototype, 'IsSnakeCase', {'value': function(){
+Object.defineProperty(String.prototype, 'isSnakeCase', {'value': function(){
     if (this.includes("_")){
         return true;
     }

@@ -29,7 +29,7 @@ let ActivtyCodePayrollSchema = new Schema({
 let locationSchema = new Schema({
     address: {type: String, required: false},
     address2: {type: String, required: false},
-    city: {type: string, required: false},
+    city: {type: String, required: false},
     state: {type: String, required: false},
     zipcode: {type: String, required: false},
     phone: {type: String, required: false},
@@ -84,7 +84,7 @@ let ownerSchema = new Schema({
 // })
 
 
-let legalAcceptanceSchema({
+let legalAcceptanceSchema = new Schema({
     ip: {type: String, required: true},
     version: {type: Number, required: true}
 })
@@ -110,7 +110,7 @@ let PolicySchema = new Schema({
     coverage: {type: Number, required: false}, // BOP field
     coverageLapse:  {type: Boolean, required: true, default: false },
     waiverSubrogation: {type: Boolean, required: true, default: false },
-    claims =[claimSchema]
+    claims:  [claimSchema]
 
 })
 
@@ -121,8 +121,8 @@ let ApplicationSchema = new Schema({
     agencyNetworkId: {type: Number, required: true},
     agencyId: {type: Number, required: true},
     agencyLocationId: {type: Number, required: true},
-    appStatusId: {type: Number, required: true},
-    progress: {type: Number, required: true},
+    appStatusId: {type: Number, required: true, default: 0},
+    progress: {type: String, required: true},
     status: {type: String, required: false},
     solepro:  {type: Boolean, required: true, default: false },
     wholesale:  {type: Boolean, required: true, default: false },
@@ -130,7 +130,7 @@ let ApplicationSchema = new Schema({
     abandoned_app_email:  {type: Boolean, required: true, default: false },
     opted_out_online_emailsent:  {type: Boolean, required: true, default: false },
     opted_out_online:  {type: Boolean, required: true, default: false },
-    processStateOld: {type: Number, required: true},
+    processStateOld: {type: Number, required: true, default: 1},
     referrer: {type: String, required: false},
     industryCode: {type: String, required: false},
     entityType: {type: String, required: false},
@@ -159,13 +159,14 @@ let ApplicationSchema = new Schema({
     associationId: {type: String, required: false},
     affiliate: {type: String, required: false},
     bureauNumber: {type: String, required: false},
-    ownersIncluded: true,
+    ownersIncluded: {type: Boolean, required: false, default: false },
     owners: [ownerSchema],
     locations: [locationSchema],
-    contact: [contactSchema],
-    policies = [PolicySchema],
+    contacts: [contactSchema],
+    policies: [PolicySchema],
+    claims:  [claimSchema],
     activityCodes: [ActivtyCodePayrollSchema],
-    grossSalesAmt: {type: Number, required: true},
+    grossSalesAmt: {type: Number, required: false},
     additionalInsured: {type: String, required: false},
     questions: { type: Schema.Types.Mixed },
     legalAcceptance: legalAcceptanceSchema,
