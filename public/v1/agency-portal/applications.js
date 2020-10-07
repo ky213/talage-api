@@ -115,7 +115,7 @@ function generateCSV(agents, agencyNetwork){
             WHERE
                 a.state > 0
 				AND ag.state > 0
-				AND a.do_not_report > 0
+				AND ag.do_not_report = 0
 		`;
 
         // This is a very special case. If this is the agency 'Solepro' (ID 12) is asking for applications, query differently
