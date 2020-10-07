@@ -25,6 +25,7 @@ const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 //const moment = require('moment');
 const { 'v4': uuidv4 } = require('uuid');
+const { debug } = require('request');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
@@ -41,7 +42,7 @@ module.exports = class ApplicationModel {
     #dbTableORM = null;
     doNotSnakeCase = ['appStatusId','businessDataJSON','additionalInfo'];
 
-    #applicationMongooseModel = null;
+    #applicationMongooseDB = null;
     #applicationMongooseJSON = {};
 
     constructor() {
@@ -68,7 +69,7 @@ module.exports = class ApplicationModel {
 
 
 
-        this.#applicationMongooseModel = null;
+        this.#applicationMongooseDB = null;
         this.#applicationMongooseJSON = {};
     
 
@@ -160,15 +161,11 @@ module.exports = class ApplicationModel {
                 //Agency Network check.....
                 const agencyBO = new AgencyBO();
                 // Load the request data into it
-                let agency = await agencyBO.getById(this.#dbTableORM.agency).catch(function(err) {
-                    log.error("Agency load error " + err + __location);
+                this.#applicationMongooseDB  = await this.getfromMongoByAppId(this.uuid).catch(function(err) {
+                    log.error("Mongo application load error " + err + __location);
                     error = err;
-                });
-                if(agency){
-                    applicationJSON.agencyNetworkId = agency.agency_network;
-                } else {
-                    log.error(`no agency record for id ${applicationJSON.agency} ` + __location);
-                }
+                });  
+                log.debug("load from mongo " + JSON.stringify(this.#applicationMongooseDB));
             }
             else {
 
@@ -266,22 +263,9 @@ module.exports = class ApplicationModel {
                     break;
                 case 'locations':
                     if (applicationJSON.locations) {
-                        this.#applicationMongooseJSON.locations = applicationJSON.locations
-                        for(let i =0 ;i <  this.#applicationMongooseJSON.locations.length; i++){
-                            let location = this.#applicationMongooseJSON.locations[i];
-                            for (const locationProp in location) {            
-                                //not in map check....
-                                if(!businessInfoMapping[locationProp]){
-                                    if(locationProp.isSnakeCase()){
-                                        this.#applicationMongooseJSON[locationProp.toCamelCase()] =  location[locationProp];
-                                    }
-                                    else {
-                                        this.#applicationMongooseJSON[locationProp] = location[locationProp];
-                                    }
-                                    
-                                }
-                            }
-                        }
+
+                        this.processLocationsMongo(applicationJSON.locations);
+                        
                     }
                     // update business data
                     if (applicationJSON.total_payroll) {
@@ -297,8 +281,8 @@ module.exports = class ApplicationModel {
                     break;
                 case 'coverage':
                     //processPolicyTypes
-                    if (applicationJSON.policy_types, applicationJSON) {
-                        await this.processPolicyTypes(applicationJSON.policy_types).catch(function (err) {
+                    if (applicationJSON.policy_types) {
+                        await this.processPolicyTypes(applicationJSON.policy_types, applicationJSON).catch(function (err) {
                             log.error('Adding claims error:' + err + __location);
                             reject(err);
                         });
@@ -423,9 +407,9 @@ module.exports = class ApplicationModel {
             // maybe this.#dbTableORM
             this.mapToMongooseJSON(applicationJSON)
             log.debug("mongooseJSON: " + JSON.stringify( this.#applicationMongooseJSON))
-            if(this.#applicationMongooseModel){
+            if(this.#applicationMongooseDB){
                 //update
-                this.updateMongo(this.#applicationMongooseJSON.uuid, this.#applicationMongooseJSON)
+                this.updateMongo(this.#applicationMongooseDB.applicationId, this.#applicationMongooseJSON)
             } else {
                 //insert 
                 this.insertMongo(this.#applicationMongooseJSON)
@@ -481,7 +465,6 @@ module.exports = class ApplicationModel {
                 reject(new Error("no business id"));
                 return;
             }
-            log.debug("businessInfo " + JSON.stringify(businessInfo));
             const businessModel = new BusinessModel();
             await businessModel.saveBusiness(businessInfo).catch(function (err) {
                 log.error("Updating new business error:" + err + __location);
@@ -505,10 +488,8 @@ module.exports = class ApplicationModel {
                 "mailing_state_abbr": "mailingState"
             } 
         //
-        log.debug("businessInfo " + JSON.stringify(businessInfo));
         for (const businessProp in businessInfo) {       
             if(typeof businessInfo[businessProp] !== "object" ){
-                log.debug("businsess mapping " + businessProp )     
                 if(businessInfoMapping[businessProp]){
                     const appProp = businessInfoMapping[businessProp]
                     this.#applicationMongooseJSON[appProp] = businessInfo[businessProp];
@@ -542,9 +523,9 @@ module.exports = class ApplicationModel {
 
         }
         //save model if we have a model 
-        if(this.#applicationMongooseModel){
+        if(this.#applicationMongooseDB){
             //save....
-
+            this.updateMongo(this.#applicationMongooseDB.applicationId, this.#applicationMongooseJSON)
         }
 
         return;
@@ -598,12 +579,15 @@ module.exports = class ApplicationModel {
 
         return new Promise(async (resolve, reject) => {
 
-            this.#applicationMongooseJSON.activityCodes = clonedeep(activtyListJSON);
-            for(let i = 0; i <  this.#applicationMongooseJSON.activityCodes.length; i++ ){
-                let activityCodeJson = this.#applicationMongooseJSON.activityCodes[i];
-                activityCodeJson.ncciCode = activityCodeJson.ncci_code;
-                delete activityCodeJson.ncci_code;
-            }
+           // this.#applicationMongooseJSON.activityCodes = clonedeep(activtyListJSON);
+            this.#applicationMongooseJSON.activityCodes = [];
+
+
+            // for(let i = 0; i <  activtyListJSON.length; i++ ){
+            //     let activityCodeJson = activtyListJSON[i];
+            //     activityCodeJson.ncciCode = activityCodeJson.ncci_code;
+            //     activityCodeJson.payroll = activityCodeJson.payroll;
+            // }
 
             //delete existing.
             const applicationActivityCodesModelDelete = new ApplicationActivityCodesModel();
@@ -620,6 +604,12 @@ module.exports = class ApplicationModel {
                     "ncci_code": activity,
                     "payroll": activtyListJSON[activity]
                 }
+                const activityCodeModelJSON = {
+                    "ncciCode": activity,
+                    "payroll": activtyListJSON[activity]
+                }
+
+                this.#applicationMongooseJSON.activityCodes.push(activityCodeModelJSON)
                 const applicationActivityCodesModel = new ApplicationActivityCodesModel();
                 await applicationActivityCodesModel.saveModel(activityCodeJSON).catch(function (err) {
                     log.error(`Adding new applicationActivityCodesModel for Appid ${this.id} error:` + err + __location);
@@ -639,40 +629,35 @@ module.exports = class ApplicationModel {
 
         return new Promise(async (resolve, reject) => {
             
-            this.#applicationMongooseJSON.policies = clonedeep(policyTypeArray);
-            for(let i = 0; i <  this.#applicationMongooseJSON.policies.length; i++ ){
-                let activityCodeJson = this.#applicationMongooseJSON.activityCodes[i];
-                activityCodeJson.ncciCode = activityCodeJson.ncci_code;
-                delete activityCodeJson.ncci_code;
-            }
-
+            //this.#applicationMongooseJSON.policies = clonedeep(policyTypeArray);
+            
             let policyList = [];
             for (var i = 0; i < policyTypeArray.length; i++) {
                 const policyType = policyTypeArray[i];
-                const policyTypeJSON = {
+                let policyTypeJSON = {
                     "policyType": policyType
                 }
                 if(policyType === "GL"){
                     //GL limit and date fields.
-                    policyType.effectiveDate = applicationJSON.gl_effective_date
-                    policyType.expirationDate = applicationJSON.gl_expiration_date
-                    policyType.limits = applicationJSON.limits
+                    policyTypeJSON.effectiveDate = applicationJSON.gl_effective_date
+                    policyTypeJSON.expirationDate = applicationJSON.gl_expiration_date
+                    policyTypeJSON.limits = applicationJSON.limits
 
 
                 } else if(policyType === "WC"){
-                    policyType.effectiveDate = applicationJSON.wc_effective_date
-                    policyType.expirationDate = applicationJSON.wc_expiration_date
-                    policyType.limits = applicationJSON.wc_limits
-                    policyType.coverageLapse = applicationJSON.coverageLapse
+                    policyTypeJSON.effectiveDate = applicationJSON.wc_effective_date
+                    policyTypeJSON.expirationDate = applicationJSON.wc_expiration_date
+                    policyTypeJSON.limits = applicationJSON.wc_limits
+                    policyTypeJSON.coverageLapse = applicationJSON.coverageLapse
                 
                 } else if(policyType === "BOP"){
-                    policyType.effectiveDate = applicationJSON.bop_effective_date
-                    policyType.expirationDate = applicationJSON.bop_expiration_date
-                    policyType.limits = applicationJSON.limits
-                    policyType.coverage = applicationJSON.coverage
+                    policyTypeJSON.effectiveDate = applicationJSON.bop_effective_date
+                    policyTypeJSON.expirationDate = applicationJSON.bop_expiration_date
+                    policyTypeJSON.limits = applicationJSON.limits
+                    policyTypeJSON.coverage = applicationJSON.coverage
 
                 }
-                
+                policyList.push(policyTypeJSON);
             }
             this.#applicationMongooseJSON.policies = policyList
             
@@ -703,7 +688,40 @@ module.exports = class ApplicationModel {
         });
 
     }
+    processLocationsMongo(locations){
+        this.#applicationMongooseJSON.locations = locations
+        let businessInfoMapping = {};
+        for(let i =0 ;i <  this.#applicationMongooseJSON.locations.length; i++){
+            let location = this.#applicationMongooseJSON.locations[i];
+            for (const locationProp in location) {            
+                //not in map check....
+                if(!businessInfoMapping[locationProp]){
+                    if(locationProp.isSnakeCase()){
+                        this.#applicationMongooseJSON[locationProp.toCamelCase()] =  location[locationProp];
+                    }
+                    else {
+                        this.#applicationMongooseJSON[locationProp] = location[locationProp];
+                    }
+                    
+                }
+            }
+            location.activityPayrollList = [];
 
+            log.debug("location.activity_codes " + JSON.stringify(location.activity_codes));
+            if(location.activity_codes && location.activity_codes.length > 0)
+            {
+                for(let j = 0; j < location.activity_codes.length; j++){
+                    const activity_code = location.activity_codes[j];
+                    let activityPayrollJSON = {};
+                    activityPayrollJSON.ncciCode = activity_code.id;
+                    activityPayrollJSON.payroll = activity_code.payroll;
+                    location.activityPayrollList.push(activityPayrollJSON)
+                }
+            }
+            log.debug("location.activityPayrollList " + JSON.stringify(location.activityPayrollList))
+        }
+
+    }
 
     processQuestions(questions) {
 
@@ -1214,7 +1232,7 @@ module.exports = class ApplicationModel {
 
 
     async updateMongo(uuid, newObjectJSON){
-        if(uuid && uuid >0 ){
+        if(uuid ){
             if(typeof newObjectJSON === "object"){
                 const changeNotUpdateList = ["active", "id","mysqlId", "applicationId", "uuid"]
                 for(let i = 0;i < changeNotUpdateList.length; i++ ){
@@ -1258,21 +1276,35 @@ module.exports = class ApplicationModel {
                 log.error('Mongo Application Save err ' + err + __location);
                 throw err;
             });
-            let userGroup = mongoUtils.objCleanup(application);
-            userGroup.id = userGroup.systemId;
-            return userGroup;
+
+            this.#applicationMongooseDB = application;
+            
+            return  mongoUtils.objCleanup(application);
     }
 
-
-
-
-
-
-
-
-
-
-
+    getfromMongoByAppId(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id ){
+                const query = {"applicationId": id, active: true};
+                let appllicationDoc = null;
+                try {
+                    let docDB = await Application.findOne(query, '-__v');
+                    if(docDB){
+                        appllicationDoc = mongoUtils.objCleanup(docDB);
+                    }
+                }
+                catch (err) {
+                    log.error("Getting Application error " + err + __location);
+                    reject(err);
+                }
+                resolve(appllicationDoc);
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
 
     getById(id) {
         return new Promise(async (resolve, reject) => {
