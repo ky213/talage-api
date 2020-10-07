@@ -12,7 +12,6 @@
 
 'use strict';
 
-const builder = require('xmlbuilder');
 const moment = require('moment');
 const moment_timezone = require('moment-timezone');
 const Integration = require('../Integration.js');
@@ -27,6 +26,7 @@ module.exports = class AcuityWC extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
     async _insurer_quote() {
+
         // These are the limits supported by Acuity
         const carrierLimits = [
             '100000/500000/100000',
@@ -46,7 +46,7 @@ module.exports = class AcuityWC extends Integration {
         const entityMatrix = {
             Association: 'AS',
             Corporation: 'CP',
-            'Limited Liability Company': 'LLC',
+            'Limited Liability Company': 'LL',
             'Limited Partnership': 'LP',
             Partnership: 'PT',
             'Sole Proprietorship': 'IN'
@@ -58,15 +58,26 @@ module.exports = class AcuityWC extends Integration {
 
         // Check Industry Code Support
         if (!this.industry_code.cgl) {
-            log.error(`${this.insurer.name} ${this.policy.type} Integration File: CGL not set for Industry Code ${this.industry_code.id} ` + __location);
+            this.log_error(`CGL not set for Industry Code ${this.industry_code.id} `, __location);
             return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+        }
+
+        // Check to ensure we have NCCI codes available for every provided activity code.
+        for (const location of this.app.business.locations) {
+            for (const activityCode of location.activity_codes) {
+                const ncciCode = await this.get_ncci_code_from_activity_code(location.territory, activityCode.id);
+                if (!ncciCode) {
+                    this.log_error(`Could not find NCCI code for activity code ${activityCode.id}`, __location);
+                    return this.return_error('error', 'Could not locate an NCCI code for the provided activity.');
+                }
+                activityCode.ncciCode = `${ncciCode.code}${ncciCode.sub}`;
+            }
         }
 
         // Prepare limits
         const limits = this.getBestLimits(carrierLimits);
-        this.limits = this.getBestLimits(carrierLimits);
         if (!limits) {
-            log.warn(`autodeclined: no limits  ${this.insurer.name} ${this.policy.type} ${this.industry_code.id} ` + __location)
+            this.log_warn(`autodeclined: no limits industryCode = ${this.industry_code.id} `, __location)
             this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
             return this.return_result('autodeclined');
         }
@@ -80,7 +91,7 @@ module.exports = class AcuityWC extends Integration {
         // Business entity/corporate structure
         this.entityID = entityMatrix[this.app.business.entity_type];
         if (!(this.app.business.entity_type in entityMatrix)) {
-            this.log_error(`${this.insurer.name} WC Integration File: Invalid Entity Type ` + __location);
+            this.log_error(`Invalid Entity Type `, __location);
             return this.return_error('error', "We have no idea what went wrong, but we're on it");
         }
         if (this.app.business.corporation_type) {
@@ -102,7 +113,7 @@ module.exports = class AcuityWC extends Integration {
 
         // Questions
         const question_identifiers = await this.get_question_identifiers().catch((error) => {
-            log.error(`${this.insurer.name} WC is unable to get question identifiers.${error}` + __location);
+            this.log_error(`Unable to get question identifiers.${error}`, __location);
             return this.return_error('error', "We have no idea what went wrong, but we're on it");
         });
         // Loop through each question
@@ -155,14 +166,12 @@ module.exports = class AcuityWC extends Integration {
         // ===================================================================================================
         // Render the template into XML and remove any empty lines (artifacts of control blocks)
         // ===================================================================================================
-        console.log("BEFORE RENDER");
         let xml = null;
         try {
             xml = acuityWCTemplate.render(this).replace(/\n\s*\n/g, '\n');
         }
         catch (error) {
-            console.log('render error', error);
-            return this.result_error('error', 'Internal error when creating the request');
+            return this.result_error('error', 'Unable to create the request.');
         }
 
         // Determine which URL to use
@@ -185,8 +194,8 @@ module.exports = class AcuityWC extends Integration {
                 'X-IBM-Client-Secret': this.password
             });
         }
-        catch(error) {
-            log.error(error.message + __location);
+        catch (error) {
+            this.log_error(error.message, __location);
             this.reasons.push('Problem connecting to insurer');
             return this.return_error('error', "We have no idea what went wrong, but we're on it");
         }
@@ -199,167 +208,126 @@ module.exports = class AcuityWC extends Integration {
             switch (error_code) {
                 case '401':
                     this.log += '--------======= Authorization failed =======--------';
-                    log.error(`${this.insurer.name} 401 - Authorization Failed, Check Headers ` + __location);
+                    this.log_error(`401 - Authorization Failed, Check Headers `, __location);
                     this.reasons.push('Unable to connect to API. Check headers.');
                     return this.return_error('error', 'We are currently unable to connect to this insurer');
                 case '403':
                     this.log += '--------======= Authentication Failed =======--------';
-                    log.error(`${this.insurer.name} 403 - Authentication Failed ` + __location);
+                    this.log_error(`403 - Authentication Failed `, __location);
                     this.reasons.push('Unable to connect to API. Check credentials.');
                     return this.return_error('error', 'We are currently unable to connect to this insurer');
                 case '500':
                     this.log += '--------======= server. Error =======--------';
-                    log.warn(`${this.insurer.name} 500 - server. Error ` + __location);
+                    this.log_warn(`500 - server. Error `, __location);
                     this.reasons.push('Insurer encountered a server error');
                     return this.return_error('error', 'We are currently unable to connect to this insurer');
                 case '504':
                     this.log += '--------======= Insurer Timeout Error =======--------';
-                    log.warn(`${this.insurer.name} 504 - Insurer Timeout Error ` + __location);
+                    this.log_warn(`504 - Insurer Timeout Error `, __location);
                     this.reasons.push(`Insurer's system timedout (our connection was good).`);
                     return this.return_error('error', 'We are currently unable to connect to this insurer');
                 default:
                     this.log += '--------======= Unexpected API Error =======--------';
-                    log.error(`${this.insurer.name} ${error_code} - Unexpected error code from API ` + __location);
+                    this.log_error(`${error_code} - Unexpected error code from API `, __location);
                     this.reasons.push(`Unexpected HTTP error code of ${error_code} returned from API.`);
                     return this.return_error('error', 'We are currently unable to connect to this insurer');
             }
         }
 
-        // We didn't get back an error, process the response
-        let amount = 0;
-        let declined = false;
-        const errors = [];
-        let res = result.ACORD;
-
-        // Const util = require('util');
-        // Log.error(util.inspect(res.SignonRs[0]));
+        // Move down a node for convenience
+        result = result.ACORD;
 
         // Parse the various status codes and take the appropriate action
-        const statusCode = parseInt(res.SignonRs[0].Status[0].StatusCd[0], 10);
+        const statusCode = parseInt(this.get_xml_child(result, 'SignonRs.Status.StatusCd'), 10);
         if (statusCode !== 0) {
             if (statusCode === 503) {
                 this.log += '--------======= Insurer Down =======--------<br><br>';
-                log.warn(`${this.insurer.name} - Outage in insurer's system ` + __location);
+                this.log_warn(`Outage in insurer's system `, __location);
                 this.reasons.push(`The insurer's system was unavailable at the time of quote.`);
-                return this.return_error('error', 'We are currently unable to connect to this insurer');
+                return this.return_error('error', 'We are currently unable to connect to the Acuity servers');
             }
             this.log += '--------======= Unexpected API Error =======--------<br><br>';
-            log.error(`${this.insurer.name} - Unexpected status code of ${statusCode} from API ` + __location);
+            this.log_error(`Unexpected status code of ${statusCode} from API `, __location);
             this.reasons.push(`Unknown status of '${statusCode}' recieved from API`);
-            return this.return_error('error', 'We are currently unable to connect to this insurer');
+            return this.return_error('error', 'We are currently unable to connect to the Acuity servers');
         }
 
-        // Further refine the response object
-        res = res.InsuranceSvcRs[0].WorkCompPolicyQuoteInqRs[0];
+        // Check if we have an error
+        const msgStatusCd = this.get_xml_child(result, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.MsgStatus.MsgStatusCd");
+        if (msgStatusCd === 'Error') {
+            const extendedStatusDesc = this.get_xml_child(result, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.MsgStatus.ExtendedStatus.ExtendedStatusDesc");
+            this.log_error(`The API returned the error '${extendedStatusDesc}'`, __location);
+            return this.return_error('error', `The Acuity servers returned an error of '${extendedStatusDesc}.`);
+        }
 
-        // If there are extended status messages, grab them
-        if (Object.prototype.hasOwnProperty.call(res.MsgStatus[0], 'ExtendedStatus')) {
-            for (const status in res.MsgStatus[0].ExtendedStatus) {
-                if (Object.prototype.hasOwnProperty.call(res.MsgStatus[0].ExtendedStatus, status)) {
-                    errors.push(`${res.MsgStatus[0].ExtendedStatus[status]['com.acuity_ExtendedStatusType'][0]} - ${res.MsgStatus[0].ExtendedStatus[status].ExtendedStatusDesc[0]}`);
-
-                    // Check if this was a decline
-                    if (res.MsgStatus[0].ExtendedStatus[status].ExtendedStatusDesc[0].includes('not a market for the risk')) {
-                        declined = true;
-                    }
-                }
+        // Check if the application was rejected or declined
+        let declined = false;
+        const extendedStatus = this.get_xml_child(result, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.MsgStatus.ExtendedStatus", true);
+        for (const status of extendedStatus) {
+            if (status.ExtendedStatusDesc[0].includes('not a market for the risk')) {
+                declined = true;
             }
         }
-
-        // Additional Error Checking
-        switch (res.MsgStatus[0].MsgStatusCd[0]) {
-            case 'Error':
-                // If a decline, just stop
-                if (declined) {
-                    this.log += '--------======= Application Declined =======--------';
-                    return this.return_error('declined', 'This insurer has declined to offer you coverage at this time');
-                }
-
-                // An error other than decline
-                this.log += `--------======= Application Error =======--------<br><br>${errors.join('<br>')}`;
-                log.error(`${this.insurer.name} Integration Error(s):\n--- ${errors.join('\n--- ')} ` + __location);
-                errors.forEach((error) => {
-                    this.reasons.push(error);
-                });
-                return this.return_error('error', "We have no idea what went wrong, but we're on it");
-
-            case 'Rejected':
-                this.log += '--------======= Application Declined =======--------';
-                return this.return_error('declined', `${this.insurer.name} has declined to offer you coverage at this time`);
-
-            default:
-                break;
+        if (msgStatusCd === 'Rejected' || declined) {
+            return this.return_error('declined', `${this.insurer.name} has declined to offer you coverage at this time`);
         }
 
-        switch (res.PolicySummaryInfo[0].PolicyStatusCd[0]) {
+        // Find the policy information
+        const policyStatusCd = this.get_xml_child(result, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.PolicySummaryInfo.PolicyStatusCd");
+        switch (policyStatusCd) {
             case 'com.acuity_BindableQuoteIncompleteData':
-                this.log += `--------======= Application Quoted But Was Missing Data =======--------<br><br>${errors.join('<br>')}`;
-                log.info(`${this.insurer.name} is returning a quote, but indicates data is missing:\n--- ${errors.join('\n--- ')} `);
+                this.log_info(`Reporting incomplete information for a bindable quote. The quote will be a referral. Non-fatal so continuing.`);
                 // eslint-disable-line no-fallthrough
-
             case 'com.acuity_BindableQuote':
-            case 'com.acuity_BindableQuoteIncompleteData': // eslint-disable-line no-duplicate-case
-                // Get the amount of the quote
-                try {
-                    amount = parseInt(res.PolicySummaryInfo[0].FullTermAmt[0].Amt[0], 10);
-                }
-                catch (e) {
-                    log.error(`${this.insurer.name} Integration Error: Quote structure changed. Unable to quote amount.` + __location);
-                    this.reasons.push('A quote was generated, but our API was unable to isolate it.');
-                    return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-                }
-
-                // Grab the limits info
-                try {
-                    res.WorkCompLineBusiness[0].CommlCoverage[0].Limit.forEach((limit) => {
-                        switch (limit.LimitAppliesToCd[0]) {
-                            case 'PerAcc':
-                                this.limits[1] = limit.FormatInteger[0];
-                                break;
-                            case 'DisEachEmpl':
-                                this.limits[2] = limit.FormatInteger[0];
-                                break;
-                            case 'DisPol':
-                                this.limits[3] = limit.FormatInteger[0];
-                                break;
-                            default:
-                                log.warn(`${this.insurer.name} Integration Error: Unexpected limit found in response ` + __location);
-                                break;
-                        }
-                    });
-                }
-                catch (e) {
-                    log.warn(`${this.insurer.name} Integration Error: Quote structure changed. Unable to find limits. ` + __location);
-                }
-
-                // Grab the file info
-                try {
-
-                    //
-                    // This section needs to be updated. The policy_info field below is no longer valid. In this case, the insurer returns a URL instead of PDF data.
-                    // We store the PDF data. What should we do here? Do we build in support for the URL or do we download the quote letter so we have it and know
-                    // it will remain available? The data and file information needs to be stored in this.quote_letter.
-                    //
-                    //                             policy_info.files[0].url = res.FileAttachmentInfo[0].WebsiteURL[0];
-                    //
-                }
-                catch (e) {
-                    log.warn(`${this.insurer.name} Integration Error: Quote structure changed. Unable to quote letter.` + __location);
-                }
-
-                this.log += `--------======= Success! =======--------<br><br>Quote: ${amount}<br>Application ID: ${this.request_id}`;
-                return this.return_quote(amount);
             case 'com.acuity_NonBindableQuote':
-                this.log += '--------======= Application Referred =======--------<br><br>';
-                if (errors) {
-                    log.warn(`${this.insurer.name} referred with the following messages:\n--- ${errors.join('\n--- ')} ` + __location);
-                    this.log += `Referred with the following errors:<br>${errors.join('<br>')}`;
+                // Retrieve and populate the quote amount
+                const amt = this.get_xml_child(result, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.PolicySummaryInfo.FullTermAmt.Amt");
+                if (amt) {
+                    this.amount = parseFloat(amt, 10);
                 }
-                return this.return_error('referred', `${this.insurer.name} needs a little more time to make a decision`);
+                // Retrieve and populate the quote limits
+                const quoteLimits = this.get_xml_child(result, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.WorkCompLineBusiness.CommlCoverage.Limit", true);
+                quoteLimits.forEach((limit) => {
+                    switch (limit.LimitAppliesToCd[0]) {
+                        case 'PerAcc':
+                            this.limits[1] = limit.FormatInteger[0];
+                            break;
+                        case 'DisEachEmpl':
+                            this.limits[2] = limit.FormatInteger[0];
+                            break;
+                        case 'DisPol':
+                            this.limits[3] = limit.FormatInteger[0];
+                            break;
+                        default:
+                            break;
+                    }
+                });
+
+                // Retrieve and save the quote letter
+                const fileAttachmentInfo = this.get_xml_child(result, 'InsuranceSvcRs.WorkCompPolicyQuoteInqRs.FileAttachmentInfo');
+                if (fileAttachmentInfo) {
+                    this.log_info(`Found a quote letter and saving it.`);
+                    // Try to save the letter. This is a non-fatal event if we can't save it, but we log it as an error.
+                    try {
+                        this.quote_letter = {
+                            content_type: fileAttachmentInfo.MIMEContentTypeCd[0],
+                            data: fileAttachmentInfo.cData[0],
+                            file_name: `${this.insurer.name}_ ${this.policy.type}_quote_letter.pdf`
+                        };
+                    }
+                    catch (error) {
+                        this.log_error(`Quote letter node exists, but could not extract it. Continuing.`);
+                    }
+                }
+
+                // Only bindable is a quote. Bindable incomplete and non bindable are referred.
+                const status = policyStatusCd === "com.acuity_BindableQuote" ? "quoted" : "referred";
+                this.log_info(`Returning ${status} ${amt ? "with price" : ""}`);
+                return this.return_result(status);
             default:
                 this.log += `--------======= Unknown Status	=======--------<br><br>${result.response}<br><br>`;
-                log.error(`${this.insurer.name} - Unexpected status code of ${res.PolicySummaryInfo[0].PolicyStatusCd[0]} from API ` + __location);
-                return this.return_error('error', "We have no idea what went wrong, but we're on it");
+                this.log_error(`Unknown policy status code of ${policyStatusCd ? policyStatusCd : "null"}.`, __location);
+                return this.return_error('error', "The Acuity servers returned an unrecognized policy status.");
         }
     }
 };

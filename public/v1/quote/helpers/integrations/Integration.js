@@ -177,6 +177,60 @@ module.exports = class Integration {
     }
 
     /**
+     * Retrieves an NCCI code from a given activity code
+     *
+     * @param {string} territory - The 2 character territory code
+     * @param {number} activityCode - The 4 digit Talage activity code
+     * @returns {number} The 4 digit NCCI code
+     */
+    async get_ncci_code_from_activity_code(territory, activityCode) {
+        // NOTE: Right now, we do not have a mapping of NCCI codes -> Activity codes because
+        // most insurers use their own standard... except for Employers.
+        // Employers sticks to the NCCI standard so we use  NCCI code -> Activity code mappings.
+        // This should be addressed in the next system similar to how we do GL/BOP mappings.
+        const sql = `
+            SELECT inc.code, inc.sub
+            FROM clw_talage_insurer_ncci_codes AS inc 
+            LEFT JOIN clw_talage_activity_code_associations AS aca ON aca.insurer_code = inc.id
+            WHERE
+                inc.state = 1
+                AND inc.insurer = 1 
+                AND inc.territory = '${territory}'
+                AND aca.code = ${activityCode};
+        `;
+        console.log(sql);
+        let result = null;
+        try {
+            result = await db.query(sql);
+        }
+        catch (error) {
+            return null;
+        }
+        if (result.length === 0) {
+            return null;
+        }
+        return {
+            code: result[0].code,
+            sub: result[0].sub
+        }
+    }
+
+    /**
+     * Retrieves an NCCI code string (code concatenated with subcode) from a given activity code
+     *
+     * @param {string} territory - The 2 character territory code
+     * @param {number} activityCode - The 4 digit Talage activity code
+     * @returns {number} The 4 digit NCCI code
+     */
+    async get_ncci_code_string_from_activity_code(territory, activityCode) {
+        const result = await this.get_ncci_code_from_activity_code(territory, activityCode);
+        if (!result) {
+            return '';
+        }
+        return `${result.code}${result.sub}`;
+    }
+
+    /**
 	 * Returns an XML node child from parsed XML data. It will iterate down the node children, getting element 0 of each node's child.
 	 *
      * @param {object} node - top-level parent node
