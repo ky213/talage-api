@@ -166,7 +166,7 @@ module.exports = class ApplicationModel {
                     log.error("Mongo application load error " + err + __location);
                     error = err;
                 });  
-                log.debug("load from mongo " + JSON.stringify(this.#applicationMongooseDB));
+                //log.debug("load from mongo " + JSON.stringify(this.#applicationMongooseDB));
             }
             else {
 
@@ -1342,9 +1342,19 @@ module.exports = class ApplicationModel {
                 const query = {"applicationId": uuid};
                 let newApplicationJSON = null;
                 try {
-                    await Application.updateOne(query, newObjectJSON);
+                    //because Virtual Sets.  new need to get the model and save.
 
-                    const newApplicationdoc = await Application.findOne(query);
+                    await Application.updateOne(query, newObjectJSON);
+                    let newApplicationdoc = await Application.findOne(query);
+                    //because Virtual Sets. we need to updatemode land save it.
+                    // Only EIN is virtual...
+                    if(newObjectJSON.ein && newApplicationdoc){
+                        newApplicationdoc.ein = newObjectJSON.ein
+                        await newApplicationdoc.save().catch(function(err){
+                            log.error('Mongo Application Save for Virtuals err ' + err + __location);
+                            throw err;
+                        });
+                    }                   
                     newApplicationJSON = mongoUtils.objCleanup(newApplicationdoc);
                 }
                 catch (err) {

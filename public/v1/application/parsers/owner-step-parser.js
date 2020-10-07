@@ -1,7 +1,7 @@
 /* eslint-disable dot-notation */
 /* eslint-disable array-element-newline */
 'use strict';
-const moment = require('moment');
+//const moment = require('moment');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 

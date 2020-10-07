@@ -9,6 +9,7 @@ var moment = require('moment');
 var uuid = require('uuid');
 var mongooseHistory = require('mongoose-history');
 const { stringify } = require('csv');
+const crypt = global.requireShared('./services/crypt.js');
 
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
@@ -92,8 +93,8 @@ let legalAcceptanceSchema = new Schema({
 
 let claimSchema = new Schema({
     policyType: {type: String, required: true},
-    amountPaid: {type: Number, required: true},
-    amountReserved: {type: Number, required: true},
+    amountPaid: {type: Number, required: false},
+    amountReserved: {type: Number, required: false},
     eventDate: {type: Date, required: true},
     open: {type: Boolean, required: true, default: false },
     missedWork: {type: Boolean, required: true, default: false }
@@ -136,11 +137,11 @@ let ApplicationSchema = new Schema({
     industryCode: {type: String, required: false},
     entityType: {type: String, required: false},
     businessName: {type: String, required: false},
-    entityType: {type: String, required: false},
     fileNum: {type: String, required: false},
     founded: {type: Date, required: false},
     hasEin: {type: Boolean, required: true, default: true },
-    ein: {type: String, required: false},
+    einEncrypted: {type: String, required: false},
+    einHash: {type: String, required: false},
     mailingAddress: {type: String, required: false},
     mailingAddress2: {type: String, required: false},
     mailingCity: {type: String, required: false},
@@ -176,6 +177,35 @@ let ApplicationSchema = new Schema({
     active: { type: Boolean, default: true }
 })
 
+//***** Virtuals  ****************** */
+ApplicationSchema.virtual('ein').
+  get(function() { 
+    let clearEin = '';    
+    if(this.einEncrypted){       
+        try{
+            clearEin = crypt.decryptSync(this.einEncrypted);
+        }
+        catch(err){
+            log.error(`ApplicationModel error decrypting ein ${this.applicationId} ` + err +__location );
+        }
+    }
+    return clearEin; 
+        
+  }).
+  set(function(einClear) {
+      try{
+        let me = this;
+        crypt.encrypt(einClear).then(function(encryptedEin){
+            me.set({einEncrypted: encryptedEin});
+        });
+      }
+      catch(err){
+        log.error(`ApplicationModel error encrypting ein ${this.applicationId} ` + err +__location );
+      }
+  });
+
+
+/********************************** */
 ApplicationSchema.plugin(timestamps);
 ApplicationSchema.plugin(mongooseHistory);
 
