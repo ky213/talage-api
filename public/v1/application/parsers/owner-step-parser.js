@@ -26,6 +26,7 @@ exports.process = async function(requestJSON) {
             requestJSON.owner_payroll.activity_code = stringFunctions.santizeNumber(requestJSON.activity_code, makeInt);
             requestJSON.owner_payroll.payroll = stringFunctions.santizeNumber(requestJSON.payroll, makeInt);
             requestJSON.businessInfo.owner_payroll = JSON.parse(JSON.stringify(requestJSON.owner_payroll));
+            requestJSON.owner_payroll = JSON.parse(JSON.stringify(requestJSON.owner_payroll));
             delete requestJSON.activity_code
             delete requestJSON.payroll
         }

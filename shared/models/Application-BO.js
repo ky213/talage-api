@@ -26,6 +26,7 @@ const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 //const moment = require('moment');
 const { 'v4': uuidv4 } = require('uuid');
 const { debug } = require('request');
+const { loggers } = require('winston');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
@@ -292,7 +293,7 @@ module.exports = class ApplicationModel {
                     break;
                 case 'owners':
                     updateBusiness = true;
-                    //TODO owners setup Mapping to Mongoose Model not we already have one loaded.
+                    this.processOwnersMongo(applicationJSON);
                     break;
                 case 'details':
                     updateBusiness = true;
@@ -487,7 +488,11 @@ module.exports = class ApplicationModel {
                 entity_type: "entityType",
                 "mailing_state_abbr": "mailingState"
             } 
-        //
+        //owners if present needs to be removed.
+        if(businessInfo.owners){
+            delete businessInfo.owners;
+        }
+
         for (const businessProp in businessInfo) {       
             if(typeof businessInfo[businessProp] !== "object" ){
                 if(businessInfoMapping[businessProp]){
@@ -642,6 +647,7 @@ module.exports = class ApplicationModel {
                     policyTypeJSON.effectiveDate = applicationJSON.gl_effective_date
                     policyTypeJSON.expirationDate = applicationJSON.gl_expiration_date
                     policyTypeJSON.limits = applicationJSON.limits
+                    policyTypeJSON.deductible = applicationJSON.deductible
 
 
                 } else if(policyType === "WC"){
@@ -655,6 +661,7 @@ module.exports = class ApplicationModel {
                     policyTypeJSON.expirationDate = applicationJSON.bop_expiration_date
                     policyTypeJSON.limits = applicationJSON.limits
                     policyTypeJSON.coverage = applicationJSON.coverage
+                    policyTypeJSON.deductible = applicationJSON.deductible
 
                 }
                 policyList.push(policyTypeJSON);
@@ -721,6 +728,97 @@ module.exports = class ApplicationModel {
             log.debug("location.activityPayrollList " + JSON.stringify(location.activityPayrollList))
         }
 
+    }
+
+
+    processOwnersMongo(applicationJSON){
+        if(applicationJSON.owners_covered){
+            try{
+                const tempInt = parse(applicationJSON.owners_covered, 10);
+                this.#applicationMongooseJSON.ownersCovered = tempInt === 1 ? true : false;
+                if(this.#applicationMongooseJSON.ownersCovered > 0 && applicationJSON.owner_payroll){
+
+                    if(this.#applicationMongooseDB && this.#applicationMongooseDB.locations){
+                        //Find primary location and update payroll - ownerPayroll field.
+                        // applicationJSON.owner_payroll.activity_code = stringFunctions.santizeNumber(requestJSON.activity_code, makeInt);
+                        // applicationJSON.owner_payroll.payroll = stringFunctions.santizeNumber(requestJSON.payroll, makeInt);
+                        // applicationJSON.businessInfo.owner_payroll = JSON.parse(JSON.stringify(requestJSON.owner_payroll));
+                        // applicationJSON.owner_payroll = JSON.parse(JSON.stringify(requestJSON.owner_payroll));
+                        for(let i = 0; i< this.#applicationMongooseDB.locations.length; i++){
+                            let location = this.#applicationMongooseDB.locations[i];
+                            if(!location.activityPayrollList){
+                                location.activityPayrollList = [];
+                            }
+                            let activityPayroll = location.activityPayrollList.find(activityPayroll => activityPayroll.ncciCode === applicationJSON.owner_payroll.activity_code);
+                            if(activityPayroll){
+                                activityPayroll.ownerPayRoll = applicationJSON.owner_payroll.payroll
+                            }
+                            else {
+                                let activityPayrollJSON = {
+                                    ncciCode: applicationJSON.owner_payroll.activity_code,
+                                    ownerPayRoll: applicationJSON.owner_payroll.payroll
+                                };
+                                location.activityPayrollList.push(activityPayrollJSON);
+
+                            }
+                        }
+                        this.#applicationMongooseJSON.locations = this.applicationMongooseDB.locations;
+                    }
+                    else {
+                        log.error(`Missing this.#applicationMongooseJSON.locations for owner payroll appId: ${applicationJSON.id} ` + __location);
+                    }
+                    
+                }
+            }
+            catch(err){
+                log.error(`Error Parsing appID: ${applicationJSON.id} applicationJSON.owners_covered ${applicationJSON.owners_covered}: ` + err + __location)
+            }
+        }
+
+        if(applicationJSON.businessInfo.num_owners){
+            try{
+                this.#applicationMongooseJSON.numOwners = parseInt(applicationJSON.businessInfo.num_owners, 10);
+            }
+            catch(err){
+                log.error(`Error Parsing appID: ${applicationJSON.id} applicationJSON.owners_covered ${applicationJSON.businessInfo.num_owners}: ` + err + __location)
+            }
+        }
+
+        log.debug("applicationJSON.businessInfo.ownersJSON " + JSON.stringify(applicationJSON.businessInfo.ownersJSON));
+        if(applicationJSON.businessInfo.ownersJSON){
+            try{
+                if(!this.#applicationMongooseJSON.owners){
+                    this.#applicationMongooseJSON.owners = [];
+                }
+                for(let i =0; i < applicationJSON.businessInfo.ownersJSON.length; i++){
+                    const sourceJSON = applicationJSON.businessInfo.ownersJSON[i];
+                    let ownerJSON = {};
+                    for(const sourceProp in sourceJSON){
+                        if(typeof sourceJSON[sourceProp] !== "object" ){
+                            //check if snake_case
+                            if(sourceProp.isSnakeCase()){
+                                ownerJSON[sourceProp.toCamelCase()] =  sourceJSON[sourceProp];
+                            }
+                            else {
+                                ownerJSON[sourceProp] = sourceJSON[sourceProp];
+                            }
+                            if(sourceProp === "ownership"){
+                                try{
+                                    ownerJSON[sourceProp] = parseInt(ownerJSON[sourceProp], 10);
+                                }
+                                catch(err){
+                                    log.error(`unable to convert ownership appId: ${applicationJSON.id} value: ${ownerJSON[sourceProp]} ` + err + __location);
+                                }
+                            }
+                        }
+                    }
+                    this.#applicationMongooseJSON.owners.push(ownerJSON);
+                }
+            }
+            catch(err){
+                log.error(`Error Parsing  owner for appID: ${applicationJSON.id} applicationJSON.owners_covered ${JSON.stringify(applicationJSON.owners)}: ` + err + __location)
+            }
+        }
     }
 
     processQuestions(questions) {

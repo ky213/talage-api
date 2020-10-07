@@ -23,7 +23,8 @@ let contactSchema = new Schema({
 
 let ActivtyCodePayrollSchema = new Schema({
     ncciCode: {type: String, required: true},
-    payroll: {type: Number, required: true}
+    payroll: {type: Number, required: true},
+    ownerPayRoll: {type: Number, required: false}
 })
 
 let locationSchema = new Schema({
@@ -151,7 +152,6 @@ let ApplicationSchema = new Schema({
     website: {type: String, required: false},
     yearsOfExp: {type: Number, required: false},
     management_structure: {type: String, required: false},
-    numOwners: {type: Number, required: false},
     unincorporated_association: {type: String, required: false},
     experience_modifier: {type: Number, required: false},
     ncciNumber: {type: String, required: false},
@@ -159,7 +159,8 @@ let ApplicationSchema = new Schema({
     associationId: {type: String, required: false},
     affiliate: {type: String, required: false},
     bureauNumber: {type: String, required: false},
-    ownersIncluded: {type: Boolean, required: false, default: false },
+    numOwners: {type: Number, required: false},
+    ownersCovered: {type: Boolean, required: false, default: false },
     owners: [ownerSchema],
     locations: [locationSchema],
     contacts: [contactSchema],
