@@ -31,7 +31,7 @@ async function getQuestionActivityCodes(req, res, next){
                     SELECT 
                     clw_talage_insurer_ncci_codes.id, 
                     clw_talage_insurer_ncci_codes.insurer
-                    from clw_talage_insurer_ncci_codes
+                    FROM clw_talage_insurer_ncci_codes
                     INNER JOIN (
                         SELECT DISTINCT
                         ncci_code 
