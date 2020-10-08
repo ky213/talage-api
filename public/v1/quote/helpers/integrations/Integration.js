@@ -13,6 +13,7 @@ const util = require('util');
 const {v4: uuidv4} = require('uuid');
 const xmlToObj = util.promisify(require('xml2js').parseString);
 const serverHelper = require('../../../../../server.js');
+const xmlFormatter = require('xml-formatter');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const {getQuoteAggregatedStatus} = global.requireShared('./models/application-businesslogic/status.js');
@@ -20,13 +21,13 @@ const {getQuoteAggregatedStatus} = global.requireShared('./models/application-bu
 module.exports = class Integration {
 
     /**
-	 * Constructor for each integration
-	 *
-	 * @param {Application} app - An object containing all of the application information
-	 * @param {object} insurer - An object containing all of the insurer information
-	 * @param {object} policy - The data related to the current policy
-	 * @returns {void}
-	 */
+     * Constructor for each integration
+     *
+     * @param {Application} app - An object containing all of the application information
+     * @param {object} insurer - An object containing all of the insurer information
+     * @param {object} policy - The data related to the current policy
+     * @returns {void}
+     */
     constructor(app, insurer, policy) {
         this.app = app;
         this.industry_code = {};
@@ -75,10 +76,10 @@ module.exports = class Integration {
     }
 
     /**
-	 * An entry point for binding a quote that conducts some necessary pre-processing before calling the insurer_bind function.
-	 *
-	 * @returns {Promise.<string, ServerError>} A promise that returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a ServerError if rejected
-	 */
+     * An entry point for binding a quote that conducts some necessary pre-processing before calling the insurer_bind function.
+     *
+     * @returns {Promise.<string, ServerError>} A promise that returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a ServerError if rejected
+     */
     bind() {
         log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Bind Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
         return new Promise(async(fulfill, reject) => {
@@ -110,80 +111,150 @@ module.exports = class Integration {
     /* Standardized log messages */
 
     /**
-	 * Returns a standard integration logging string in the format of:
+     * Returns a standard integration logging string in the format of:
      *  Appid: APPLICATION_ID INSURER_NAME (INSURER_ID) POLICY_TYPE: MESSAGE LOCATION
-	 *
+     *
      * @param {string} message - the message to log
      * @param {string} location - the location of the error
-	 * @returns {string} - the standard formatted string
-	 */
-    log_message(message, location) {
-        return `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: ${message} ${location ? location : ""}`;
+     * @param {Object} extraData - key/values that will be appended to the log message in form of 'key=value, key=value' (optional)
+     * @returns {string} - the standard formatted string
+     */
+    log_message(message, location, extraData = null) {
+        let logMessage = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}: ${message}`;
+        // Append extra data
+        if (extraData) {
+            Object.keys(extraData).forEach((key) => {
+                logMessage += `, ${key}=${extraData[key]}`;
+            });
+        }
+        // Append the location
+        if (location) {
+            logMessage += ' ' + location;
+        }
+        return logMessage;
     }
 
     /**
-	 * Logs the message and location to the debug log
-	 *
+     * Logs the message and location to the debug log
+     *
      * @param {string} message - the message to log
      * @param {string} location - the location of the error
-	 * @returns {null}}
-	 */
-    log_debug(message, location) {
-        log.debug(this.log_message(message, location));
+     * @param {Object} extraData - key/values that will be appended to the log message in form of 'key=value, key=value' (optional)
+     * @returns {null}}
+     */
+    log_debug(message, location, extraData = null) {
+        log.debug(this.log_message(message, location, extraData));
     }
 
     /**
-	 * Logs the message and location to the verbose log
-	 *
+     * Logs the message and location to the verbose log
+     *
      * @param {string} message - the message to log
      * @param {string} location - the location of the error
-	 * @returns {null}}
-	 */
-    log_verbose(message, location) {
-        log.verbose(this.log_message(message, location));
+     * @param {Object} extraData - key/values that will be appended to the log message in form of 'key=value, key=value' (optional)
+     * @returns {null}}
+     */
+    log_verbose(message, location, extraData = null) {
+        log.verbose(this.log_message(message, location, extraData));
     }
 
     /**
-	 * Logs the message and location to the info log
-	 *
+     * Logs the message and location to the info log
+     *
      * @param {string} message - the message to log
      * @param {string} location - the location of the error
-	 * @returns {null}}
-	 */
-    log_info(message, location) {
-        log.info(this.log_message(message, location));
+     * @param {Object} extraData - key/values that will be appended to the log message in form of 'key=value, key=value' (optional)
+     * @returns {null}}
+     */
+    log_info(message, location, extraData = null) {
+        log.info(this.log_message(message, location, extraData));
     }
 
     /**
-	 * Logs the message and location to the warn log
-	 *
+     * Logs the message and location to the warn log
+     *
      * @param {string} message - the message to log
      * @param {string} location - the location of the error
-	 * @returns {null}}
-	 */
-    log_warn(message, location) {
-        log.warn(this.log_message(message, location));
+     * @param {Object} extraData - key/values that will be appended to the log message in form of 'key=value, key=value' (optional)
+     * @returns {null}}
+     */
+    log_warn(message, location, extraData = null) {
+        log.warn(this.log_message(message, location, extraData));
     }
 
     /**
-	 * Logs the message and location to the error log
-	 *
+     * Logs the message and location to the error log
+     *
      * @param {string} message - the message to log
      * @param {string} location - the location of the error
-	 * @returns {null}}
-	 */
-    log_error(message, location) {
-        log.error(this.log_message(message, location));
+     * @param {Object} extraData - key/values that will be appended to the log message in form of 'key=value, key=value' (optional)
+     * @returns {null}}
+     */
+    log_error(message, location, extraData = null) {
+        log.error(this.log_message(message, location, extraData));
     }
 
     /**
-	 * Returns an XML node child from parsed XML data. It will iterate down the node children, getting element 0 of each node's child.
-	 *
+     * Retrieves an NCCI code from a given activity code
+     *
+     * @param {string} territory - The 2 character territory code
+     * @param {number} activityCode - The 4 digit Talage activity code
+     * @returns {number} The 4 digit NCCI code
+     */
+    async get_ncci_code_from_activity_code(territory, activityCode) {
+        // NOTE: Right now, we do not have a mapping of NCCI codes -> Activity codes because
+        // most insurers use their own standard... except for Employers.
+        // Employers sticks to the NCCI standard so we use  NCCI code -> Activity code mappings.
+        // This should be addressed in the next system similar to how we do GL/BOP mappings.
+        const sql = `
+            SELECT inc.code, inc.sub
+            FROM clw_talage_insurer_ncci_codes AS inc 
+            LEFT JOIN clw_talage_activity_code_associations AS aca ON aca.insurer_code = inc.id
+            WHERE
+                inc.state = 1
+                AND inc.insurer = 1 
+                AND inc.territory = '${territory}'
+                AND aca.code = ${activityCode};
+        `;
+        let result = null;
+        try {
+            result = await db.query(sql);
+        }
+        catch (error) {
+            return null;
+        }
+        if (result.length === 0) {
+            return null;
+        }
+        return {
+            code: result[0].code,
+            sub: result[0].sub
+        }
+    }
+
+    /**
+     * Retrieves an NCCI code string (code concatenated with subcode) from a given activity code
+     *
+     * @param {string} territory - The 2 character territory code
+     * @param {number} activityCode - The 4 digit Talage activity code
+     * @returns {number} The 4 digit NCCI code
+     */
+    async get_ncci_code_string_from_activity_code(territory, activityCode) {
+        const result = await this.get_ncci_code_from_activity_code(territory, activityCode);
+        if (!result) {
+            return '';
+        }
+        return `${result.code}${result.sub}`;
+    }
+
+    /**
+     * Returns an XML node child from parsed XML data. It will iterate down the node children, getting element 0 of each node's child.
+     *
      * @param {object} node - top-level parent node
      * @param {Array} children - A dot-separated string of XML node names
      * @param {bool} returnRawLastNode - true if the returned child should be raw (NOT element zero of its node). Good if you want to iterate on the child node.
-	 * @returns {object} - Claims information lumped together by policy year
-	 */
+     * @returns {object} - Claims information lumped together by policy year
+     */
     get_xml_child(node, children, returnRawLastNode = false) {
         const childrenList = children.split('.');
         let rawNode = node;
@@ -206,10 +277,10 @@ module.exports = class Integration {
     }
 
     /**
-	 * Returns an object that includes Claims information based on policy years for up to the past 5 years
-	 *
-	 * @returns {object} - Claims information lumped together by policy year
-	 */
+     * Returns an object that includes Claims information based on policy years for up to the past 5 years
+     *
+     * @returns {object} - Claims information lumped together by policy year
+     */
     claims_to_policy_years() {
         const claims = {};
 
@@ -257,11 +328,11 @@ module.exports = class Integration {
     }
 
     /**
-	 * Uses the activity codes from a single location combined with the insurer's specific NCCI codes to detect and combine any duplicates.
-	 *
-	 * @param {object} location - A single Location object
-	 * @returns {object} - The activity codes from within the location with any duplicates combined as code -> payroll pairs
-	 */
+     * Uses the activity codes from a single location combined with the insurer's specific NCCI codes to detect and combine any duplicates.
+     *
+     * @param {object} location - A single Location object
+     * @returns {object} - The activity codes from within the location with any duplicates combined as code -> payroll pairs
+     */
     combineLocationActivityCodes(location) {
         const returnCodes = {};
         location.activity_codes.forEach((activityCode) => {
@@ -283,12 +354,12 @@ module.exports = class Integration {
     }
 
     /**
-	 * Determines the governing activity code for an application and returns the result.
-	 * The governing class code is determined by taking the activity code with the highest payroll. If there are two, the first code is used.
-	 * If the highest payroll code is our clerical code, it is ignored and the next highest is taken.
-	 *
-	 * @returns {object} - An ActivityCode object
-	 */
+     * Determines the governing activity code for an application and returns the result.
+     * The governing class code is determined by taking the activity code with the highest payroll. If there are two, the first code is used.
+     * If the highest payroll code is our clerical code, it is ignored and the next highest is taken.
+     *
+     * @returns {object} - An ActivityCode object
+     */
     determine_governing_activity_code() {
         // Group the activity codes
         this.group_activity_codes();
@@ -319,12 +390,12 @@ module.exports = class Integration {
     }
 
     /**
-	 * Determines the proper answer to send to the insurer based on the question type. Return false if the question should be skipped.
-	 *
-	 * @param {object} question - A question object
-	 * @param {boolean} required - Whether or not this question is required by the insurer
-	 * @returns {mixed} - The answer to send to the insurer, or false if the question should be omitted
-	 */
+     * Determines the proper answer to send to the insurer based on the question type. Return false if the question should be skipped.
+     *
+     * @param {object} question - A question object
+     * @param {boolean} required - Whether or not this question is required by the insurer
+     * @returns {mixed} - The answer to send to the insurer, or false if the question should be omitted
+     */
     determine_question_answer(question, required) {
         let answer = false;
 
@@ -387,10 +458,10 @@ module.exports = class Integration {
     }
 
     /**
-	 * Retrieves the relationship between questions and activity codes
-	 *
-	 * @returns {Promise.<object, Error>} A promise that returns an object indexed on territory + activity code (e.g. AZ908252) each with an array of corresponding question ideas if resolved, or an Error if rejected
-	 */
+     * Retrieves the relationship between questions and activity codes
+     *
+     * @returns {Promise.<object, Error>} A promise that returns an object indexed on territory + activity code (e.g. AZ908252) each with an array of corresponding question ideas if resolved, or an Error if rejected
+     */
     get_activity_codes_to_questions_relationships() {
         return new Promise(async(fulfill, reject) => {
             // Only proceed if we have activity codes
@@ -434,11 +505,11 @@ module.exports = class Integration {
     }
 
     /**
-	 * Determines the best limits available from the carrier. If no limits are suitable, returns false.
-	 *
-	 * @param {array} carrierLimits - A list of limits supported by the carrier
-	 * @returns {array|boolean} - An array containing limit values as integers, or false if none apply
-	 */
+     * Determines the best limits available from the carrier. If no limits are suitable, returns false.
+     *
+     * @param {array} carrierLimits - A list of limits supported by the carrier
+     * @returns {array|boolean} - An array containing limit values as integers, or false if none apply
+     */
     getBestLimits(carrierLimits) {
         let higherLimit = null;
 
@@ -478,30 +549,30 @@ module.exports = class Integration {
     }
 
     /**
-	 * Returns the key (property) of an object based on the value of that property
-	 *
-	 * @param {object} obj - The object to search
-	 * @param {mixed} val - The value to find
-	 * @returns {string} - The key that matches
-	 */
+     * Returns the key (property) of an object based on the value of that property
+     *
+     * @param {object} obj - The object to search
+     * @param {mixed} val - The value to find
+     * @returns {string} - The key that matches
+     */
     get_key_by_value(obj, val) {
         return Object.keys(obj).find((key) => obj[key] === val);
     }
 
     /**
-	 * Returns a description of the operations of the company based on the class codes they selected
-	 *
-	 * @returns {string} - The description of the business
-	 */
+     * Returns a description of the operations of the company based on the class codes they selected
+     *
+     * @returns {string} - The description of the business
+     */
     get_operation_description() {
         return `${this.app.business.name} is a(n) ${this.app.business.industry_code_description.replace('&', 'and')} company with operations primarily located in ${this.app.business.locations[0].city}, ${this.app.business.locations[0].territory}.`;
     }
 
     /**
-	 * Gets the number of unique activity codes were included in this application
-	 *
-	 * @returns {int} - The number of activity codes
-	 */
+     * Gets the number of unique activity codes were included in this application
+     *
+     * @returns {int} - The number of activity codes
+     */
     get_num_activity_codes() {
         // Group the activity codes
         this.group_activity_codes();
@@ -511,11 +582,11 @@ module.exports = class Integration {
     }
 
     /**
-	 * Returns the number of claims that were within the number of years specified
-	 *
-	 * @param {int} number_of_years - The number of years of claims to total
-	 * @returns {int} - the number of claims
-	 */
+     * Returns the number of claims that were within the number of years specified
+     *
+     * @param {int} number_of_years - The number of years of claims to total
+     * @returns {int} - the number of claims
+     */
     get_num_claims(number_of_years) {
         // Get the claims data organized by year
         const claims_by_year = this.claims_to_policy_years();
@@ -535,10 +606,10 @@ module.exports = class Integration {
     }
 
     /**
-	 * Gets the details for each question for the current insurer. These details include the attributes, identifier, and whether or not the question is universal
-	 *
-	 * @returns {Promise.<object, Error>} A promise that returns an object containing objects indexed on the Talage Question ID with question information specific to this insurer if resolved, or an Error if rejected
-	 */
+     * Gets the details for each question for the current insurer. These details include the attributes, identifier, and whether or not the question is universal
+     *
+     * @returns {Promise.<object, Error>} A promise that returns an object containing objects indexed on the Talage Question ID with question information specific to this insurer if resolved, or an Error if rejected
+     */
     get_question_details() {
         return new Promise(async(fulfill, reject) => {
             // Build an array of question IDs to retrieve
@@ -573,11 +644,11 @@ module.exports = class Integration {
     }
 
     /**
-	 * Retrieves the question that matches the identifier specified, returns false if none
-	 *
-	 * @param {string} identifier - The insurer identifier for the question
-	 * @returns {mixed} - question object on success, false otherwise
-	 */
+     * Retrieves the question that matches the identifier specified, returns false if none
+     *
+     * @param {string} identifier - The insurer identifier for the question
+     * @returns {mixed} - question object on success, false otherwise
+     */
     get_question_by_identifier(identifier) {
         // Loop through each question and check the identifier
         for (const question_id in this.questions) {
@@ -591,10 +662,10 @@ module.exports = class Integration {
     }
 
     /**
-	 * Gets the identifiers for each question for the current insurer
-	 *
-	 * @returns {Promise.<object, Error>} A promise that returns an object containing question information if resolved, or an Error if rejected
-	 */
+     * Gets the identifiers for each question for the current insurer
+     *
+     * @returns {Promise.<object, Error>} A promise that returns an object containing question information if resolved, or an Error if rejected
+     */
     get_question_identifiers() {
         // log.info('get_question_identifiers FUNCTION IS DEPRECATED AND WILL BE REMOVED. USE get_question_details() INSTEAD WHICH RETURNS MORE DATA IN ONE QUERY');
         return new Promise(async(fulfill, reject) => {
@@ -626,11 +697,11 @@ module.exports = class Integration {
     }
 
     /**
-	 * Splits a limits string into an array and coverts the values to integers
-	 *
-	 * @param {string} limits - A limits string
-	 * @returns {array} - An array of integers
-	 */
+     * Splits a limits string into an array and coverts the values to integers
+     *
+     * @param {string} limits - A limits string
+     * @returns {array} - An array of integers
+     */
     getSplitLimits(limits) {
         return limits.split('/').map(function(val) {
             return parseInt(val, 10);
@@ -638,11 +709,11 @@ module.exports = class Integration {
     }
 
     /**
-	 * Returns the total incurred (paid + reserved) on claims that were within the number of years specified
-	 *
-	 * @param {int} number_of_years - The number of years of claims to total
-	 * @returns {int} - the number of claims
-	 */
+     * Returns the total incurred (paid + reserved) on claims that were within the number of years specified
+     *
+     * @param {int} number_of_years - The number of years of claims to total
+     * @returns {int} - the number of claims
+     */
     get_total_amount_incurred_on_claims(number_of_years) {
         // Get the claims data organized by year
         const claimsByYear = this.claims_to_policy_years();
@@ -663,10 +734,10 @@ module.exports = class Integration {
     }
 
     /**
-	 * Returns the total number of employees associated with this application
-	 *
-	 * @returns {int} - The total number of employees as an integer
-	 */
+     * Returns the total number of employees associated with this application
+     *
+     * @returns {int} - The total number of employees as an integer
+     */
     get_total_employees() {
         let total = 0;
         this.app.business.locations.forEach(function(loc) {
@@ -677,10 +748,10 @@ module.exports = class Integration {
     }
 
     /**
-	 * Returns the total number of full-time employees associated with this application
-	 *
-	 * @returns {int} - The total number of full-time employees as an integer
-	 */
+     * Returns the total number of full-time employees associated with this application
+     *
+     * @returns {int} - The total number of full-time employees as an integer
+     */
     get_total_full_time_employees() {
         let total = 0;
         this.app.business.locations.forEach(loc => {
@@ -690,10 +761,10 @@ module.exports = class Integration {
     }
 
     /**
-	 * Returns the total number of part-time employees associated with this application
-	 *
-	 * @returns {int} - The total number of part-time employees as an integer
-	 */
+     * Returns the total number of part-time employees associated with this application
+     *
+     * @returns {int} - The total number of part-time employees as an integer
+     */
     get_total_part_time_employees() {
         let total = 0;
         this.app.business.locations.forEach(loc => {
@@ -703,10 +774,10 @@ module.exports = class Integration {
     }
 
     /**
-	 * Returns the total payroll associated with this application
-	 *
-	 * @returns {int} - The total payroll as an integer
-	 */
+     * Returns the total payroll associated with this application
+     *
+     * @returns {int} - The total payroll as an integer
+     */
     get_total_payroll() {
         let total = 0;
         this.app.business.locations.forEach(loc => {
@@ -718,10 +789,10 @@ module.exports = class Integration {
     }
 
     /**
-	 * Returns the total square footage of locations associated with this application
-	 *
-	 * @returns {int} - The total square footage as an integer
-	 */
+     * Returns the total square footage of locations associated with this application
+     *
+     * @returns {int} - The total square footage as an integer
+     */
     get_total_square_footage() {
         let total = 0;
         this.app.business.locations.forEach(function(loc) {
@@ -731,19 +802,19 @@ module.exports = class Integration {
     }
 
     /**
-	 * Returns the number of years this business has operated
-	 *
-	 * @returns {int} - The total number of years in business
-	 */
+     * Returns the number of years this business has operated
+     *
+     * @returns {int} - The total number of years in business
+     */
     get_years_in_business() {
         return moment().diff(this.app.business.founded, 'years');
     }
 
     /**
-	 * Returns the years since the last claim was filed. If claims were never filed, returns 999
-	 *
-	 * @returns {int} - The total number of years
-	 */
+     * Returns the years since the last claim was filed. If claims were never filed, returns 999
+     *
+     * @returns {int} - The total number of years
+     */
     get_years_since_claim() {
         if (!this.policy.claims.length) {
             return 999;
@@ -760,20 +831,20 @@ module.exports = class Integration {
     }
 
     /**
-	 * Generates and returns a Version 4 UUID
-	 * Note: Version 4 UUIDs are completely random where Version 5 are not.
-	 *
-	 * @returns {string} - A random 36 character UUID formatted as follows 1f16f5d4-629b-11e7-b786-54616c616765
-	 */
+     * Generates and returns a Version 4 UUID
+     * Note: Version 4 UUIDs are completely random where Version 5 are not.
+     *
+     * @returns {string} - A random 36 character UUID formatted as follows 1f16f5d4-629b-11e7-b786-54616c616765
+     */
     generate_uuid() {
         return uuidv4();
     }
 
     /**
-	 * Finds every activity code in an application and groups them together, adding their payrolls. Stores the result locally for later use.
-	 *
-	 * @returns {object} - An object with keys that are activity code ids, and values that are combined payrolls.
-	 */
+     * Finds every activity code in an application and groups them together, adding their payrolls. Stores the result locally for later use.
+     *
+     * @returns {object} - An object with keys that are activity code ids, and values that are combined payrolls.
+     */
     group_activity_codes() {
         // If this function has already run, simply return what we already determined
         if (this.grouped_activity_codes.length) {
@@ -812,10 +883,10 @@ module.exports = class Integration {
     }
 
     /**
-	 * An entry point for getting quotes that conducts some necessary pre-processing before calling the insurer_quote function.
-	 *
-	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
-	 */
+     * An entry point for getting quotes that conducts some necessary pre-processing before calling the insurer_quote function.
+     *
+     * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
+     */
     quote() {
         log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Quote Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
         return new Promise(async(fulfill, reject) => {
@@ -917,12 +988,12 @@ module.exports = class Integration {
     }
 
     /**
-	 * Records this quote in the database so we know it happened
-	 *
-	 * @param {int} amount - The amount of the quote
-	 * @param {string} api_result - The integration's api result
-	 * @returns {mixed} - ID on success, error on error
-	 */
+     * Records this quote in the database so we know it happened
+     *
+     * @param {int} amount - The amount of the quote
+     * @param {string} api_result - The integration's api result
+     * @returns {mixed} - ID on success, error on error
+     */
     async record_quote(amount, api_result) {
         const encrypted_log = await crypt.encrypt(this.log).catch(function(err) {
             log.error('Unable to encrypt log. Proceeding anyway. ' + err + __location);
@@ -1026,6 +1097,154 @@ module.exports = class Integration {
     }
 
     /**
+     * Returns a quote object for an auto-declined quote
+     *
+     * @param {string} publicMessage - Message to display to the customer
+     * @returns {object} - An object containing the quote information
+     */
+    async client_declined(publicMessage = null) {
+        if (!publicMessage) {
+            publicMessage = "The insurer has declined to offer you coverage at this time.";
+        }
+        // Added by return_result()
+        // this.reasons.push(publicMessage);
+        this.log_info(`Declined with message '${publicMessage}'`, __location);
+        return this.return_result('declined');
+    }
+
+    /**
+     * Returns a quote object for an auto-declined quote
+     *
+     * @param {string} publicMessage - Message to display to the customer
+     * @param {object} extraLogData - Data to append to the logging message
+     * @returns {object} - An object containing the quote information
+     */
+    async client_autodeclined(publicMessage, extraLogData = null) {
+        this.reasons.push(publicMessage);
+        this.log_info(`Autodeclined with message '${publicMessage}'`, __location, extraLogData);
+        return this.return_result('autodeclined');
+    }
+
+    /**
+     * Returns a quote object for an auto-declined out of appetite quote
+     *
+     * @returns {object} - An object containing the quote information
+     */
+    async client_autodeclined_out_of_appetite() {
+        return this.client_autodeclined('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code and state');
+    }
+
+    /**
+     * Returns a quote object for a 'referred' quote
+     *
+     * @param {string} quoteNumber - The quote's number for the given insurer (optional, but encouraged)
+     * @param {int} limits - The limits parsed from the quote
+     * @param {int} premiumAmount - The premium amount (optional)
+     * @param {string} quoteLetter - The quote letter (optional)
+     * @param {int} quoteLetterMimeType - Quote letter mime type (optional, default = "application/base64")
+     * @returns {object} - An object containing the quote information
+     */
+    async client_referred(quoteNumber, limits, premiumAmount = null, quoteLetter = null, quoteLetterMimeType = null) {
+        if (!limits || Object.keys(limits).length === 0) {
+            this.log_error('Received a referred quote but no limits', __location);
+            return this.return_error('error', `Could not locate the limits in the quote returned from the carrier.`);
+        }
+        this.limits = limits;
+        if (premiumAmount) {
+            this.amount = premiumAmount;
+        }
+        if (quoteNumber) {
+            this.number = quoteNumber;
+        }
+        if (quoteLetter) {
+            this.quote_letter = {
+                content_type: quoteLetterMimeType ? quoteLetterMimeType : "application/base64",
+                data: quoteLetter,
+                file_name: `${this.insurer.name}_ ${this.policy.type}_quote_letter.pdf`
+            };
+        }
+
+        const message = `Referred${premiumAmount ? ` with premium $${premiumAmount}` : ""}`;
+        this.log += `<br>${message}<br><br>\n`;
+        this.log_info(message, __location);
+
+        return this.return_result('referred');
+    }
+
+    /**
+     * Returns a quote object for a 'quoted' quote
+     *
+     * @param {string} quoteNumber - The quote's number for the given insurer (optional, but encouraged)
+     * @param {array} limits - The limits parsed from the quote
+     * @param {int} premiumAmount - The premium amount
+     * @param {string} quoteLetter - The quote letter (optional)
+     * @param {int} quoteLetterMimeType - Quote letter mime type (optional, default = "application/base64")
+     * @returns {object} - An object containing the quote information
+     */
+    async client_quoted(quoteNumber, limits, premiumAmount, quoteLetter = null, quoteLetterMimeType = null) {
+        if (!limits) {
+            this.log_error('Received a quote but no limits', __location);
+            return this.return_error('error', `Could not locate the limits in the quote returned from the carrier.`);
+        }
+        this.limits = limits;
+
+        if (!premiumAmount) {
+            this.log_error('Received a quote but no premium amount', __location);
+            return this.return_error('error', `Could not locate the limits in the quote returned from the carrier.`);
+        }
+        this.amount = premiumAmount;
+
+        if (quoteNumber) {
+            this.number = quoteNumber;
+        }
+
+        if (quoteLetter) {
+            this.quote_letter = {
+                content_type: quoteLetterMimeType ? quoteLetterMimeType : "application/base64",
+                data: quoteLetter,
+                file_name: `${this.insurer.name}_ ${this.policy.type}_quote_letter.pdf`
+            };
+        }
+
+        const message = `Quoted with premium $${premiumAmount}`;
+        this.log += `<br>${message}<br><br>\n`;
+        this.log_info(message, __location);
+
+        // Record the quote
+        return this.record_quote(premiumAmount, 'quoted');
+    }
+
+    /**
+     * Returns a quote object for an 'error' condition
+     *
+     * @param {string} publicMessage - Message to display to the customer
+     * @param {string} location - location of the error (set to __location)
+     * @param {object} extraLogData - Data to append to the logging message
+     * @returns {object} - An object containing the quote information
+     */
+    async client_error(publicMessage, location, extraLogData = null) {
+
+        // Log the public message
+        this.log += `<b>Error:</b> ${publicMessage}<br><br>`;
+        this.reasons.push(publicMessage);
+        this.log_error(publicMessage, location, extraLogData);
+
+        // Return the error with the customer-facing message
+        return this.return_error('error', publicMessage);
+    }
+
+    /**
+     * Returns a quote object for an auto-declined quote
+     *
+     * @param {string} location - location of the error (set to __location)
+     * @param {object} extraLogData - Data to append to the logging message
+     * @returns {object} - An object containing the quote information
+     */
+    async client_connection_error(location, extraLogData = null) {
+        return this.client_error('Could not connect to the insurer\'s servers at this time.', location, extraLogData);
+    }
+
+    /**
 	 * Generates and returns the proper structure for returning a quote from an integration
 	 *
 	 * @param {int} amount - The amount of the quote as a whole number
@@ -1043,8 +1262,7 @@ module.exports = class Integration {
 	 * @returns {object} - An object containing the indication information
 	 */
     async return_indication(amount) {
-        const result = await this.record_quote(amount, 'referred_with_price');
-        return result;
+        return this.record_quote(amount, 'referred_with_price');
     }
 
     /**
@@ -1065,8 +1283,7 @@ module.exports = class Integration {
         }
 
         // Record this quote
-        const result = await this.record_quote(null, type);
-        return result;
+        return this.record_quote(null, type);
     }
 
     /**
@@ -1324,6 +1541,26 @@ module.exports = class Integration {
                         // Strip Employer's Quote Letter out of the log
                         filteredData = filteredData.replace(/<BinData>(.*)<\/BinData>/, '<BinData>...</BinData>');
 
+                        // Attempt to format the returned data
+                        let formattedData = null;
+                        try {
+                            if (headers['Content-Type'].toLowerCase() === 'text/xml') {
+                                // Format XML to be readable
+                                formattedData = xmlFormatter(filteredData);
+                                formattedData = formattedData.replace(/</g, "&lt;");
+                                formattedData = formattedData.replace(/>/g, "&gt;");
+                            }
+                            else if (headers['Content-Type'].toLowerCase() === 'application/json') {
+                                // Format JSON to be readable
+                                formattedData = JSON.stringify(JSON.parse(filteredData), null, 4);
+                            }
+                        }
+                        catch (error) {
+                            // nothing
+                        }
+                        if (formattedData) {
+                            filteredData = formattedData
+                        }
                         this.log += `--------======= Response Appid: ${this.app.id}  =======--------<br><br><pre>${filteredData}</pre><br><br>`;
                         fulfill(rawData);
                     }
