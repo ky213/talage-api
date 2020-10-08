@@ -1245,6 +1245,17 @@ module.exports = class Integration {
     }
 
     /**
+	 * Generates and returns the proper structure for returning a quote from an integration
+	 *
+	 * @param {int} amount - The amount of the quote as a whole number
+	 * @returns {object} - An object containing the quote information
+	 */
+    async return_quote(amount) {
+        const result = await this.record_quote(amount, 'quoted');
+        return result;
+    }
+
+    /**
 	 * Generates and returns the proper structure for returning an indication from an integration
 	 *
 	 * @param {int} amount - The amount of the indication as a whole number
