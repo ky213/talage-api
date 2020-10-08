@@ -17,7 +17,6 @@ async function getActivityCodeIndustryCodes(req, res, next){
     }
 
     // Define a query to get a list of industry_codes, given an activityCode
-    // TODO: clw_talage_industry_code_associations.ncci_code will be renamed to something proper since it is actually activityCode
     const activityCodeIndustryCodesSQL = `
         SELECT id, description FROM clw_talage_industry_codes
         INNER JOIN (
@@ -28,7 +27,7 @@ async function getActivityCodeIndustryCodes(req, res, next){
                 SELECT DISTINCT id
                 FROM clw_talage_activity_codes 
                 WHERE id = ${db.escape(req.query.activityCode)}
-            ) ac ON ac.id = clw_talage_industry_code_associations.ncci_code
+            ) ac ON ac.id = clw_talage_industry_code_associations.activityCodeId
         ) ica ON ica.industry_code = clw_talage_industry_codes.id
 		`;
 
