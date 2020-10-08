@@ -96,7 +96,7 @@ module.exports = class ApplicationModel {
                 return;
             }
             let error = null;
-            //log.debug("Beginning applicationJSON: " + JSON.stringify(applicationJSON));
+            log.debug("Beginning applicationJSON: " + JSON.stringify(applicationJSON));
 
             const stepMap = {
                 'contact': 2,
@@ -297,6 +297,10 @@ module.exports = class ApplicationModel {
                 case 'details':
                     updateBusiness = true;
                     //TODO details setup Mapping to Mongoose Model not we already have one loaded.
+                    if(applicationJSON.coverage_lapse === 1){
+                        applicationJSON.coverageLapseWC = true;
+                        //TODO update policy info
+                    }
                     break;
                 case 'claims':
                     if (applicationJSON.claims) {
@@ -928,7 +932,7 @@ module.exports = class ApplicationModel {
                     let questionAnswerListDB = await questionAnswerBO.getListByAnswerIDList(questionRequest.answer).catch(function(err) {
                         log.error("questionBO load error " + err + __location);
                     });
-                    if(questionAnswerListDB & questionAnswerListDB.length > 0){
+                    if(questionAnswerListDB && questionAnswerListDB.length > 0){
                         questionJSON.answerList = [];
                         for (let j=0 ; j < questionAnswerListDB.length; j++){
                             questionJSON.answerList.push(questionAnswerListDB[j].answer);

@@ -258,7 +258,7 @@ module.exports = class QuestionAnswerBO{
             hasError = true;
             log.error(`${tableName} error on select ` + error + __location);
         });
-        if (!hasError && result && result.length >0) {
+        if (hasError === false && result && result.length > 0) {
             return result;
         }
         else {

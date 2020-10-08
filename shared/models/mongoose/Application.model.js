@@ -140,6 +140,7 @@ let ApplicationSchema = new Schema({
     status: {type: String, required: false},
     solepro:  {type: Boolean, required: true, default: false },
     wholesale:  {type: Boolean, required: true, default: false },
+    coverageLapseWC:  {type: Boolean, required: true, default: false },
     abandoned_email:  {type: Boolean, required: true, default: false },
     abandoned_app_email:  {type: Boolean, required: true, default: false },
     opted_out_online_emailsent:  {type: Boolean, required: true, default: false },
