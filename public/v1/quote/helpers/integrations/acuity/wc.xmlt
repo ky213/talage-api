@@ -227,7 +227,6 @@
 						{{for ~location.activity_codes itemVar='~activityCode'}}
                         <WorkCompRateClass>
                             <RatingClassificationCd>{{:~activityCode.ncciCode}}</RatingClassificationCd>
-                            <!-- <RatingClassificationCd>123400</RatingClassificationCd> -->
                             <Exposure>{{:~activityCode.payroll}}</Exposure>
                             <RatingClassificationDesc>{{:~activityCode.ncciCodeDescription}}</RatingClassificationDesc>
                         </WorkCompRateClass>
