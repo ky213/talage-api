@@ -224,6 +224,7 @@ module.exports = class ApplicationModel {
                 });
                 if(agency){
                     applicationJSON.agencyNetworkId = agency.agency_network;
+                    applicationJSON.agency_network = agency.agency_network;
                 } else {
                     log.error(`no agency record for id ${applicationJSON.agency} ` + __location);
                 }
@@ -328,7 +329,6 @@ module.exports = class ApplicationModel {
                         log.error('Adding Legal Acceptance error:' + err + __location);
                         reject(err);
                     });
-                    //TODO questions setup Mapping to Mongoose Model not we already have one loaded.
                     //applicationJSON.status = 'incomplete';
                     //applicationJSON.appStatusId = 10;
                     if (applicationJSON.wholesale === 1 || applicationJSON.solepro === 1) {
@@ -1069,13 +1069,13 @@ module.exports = class ApplicationModel {
                 newBusinessDataJSON.googleBusinessData = requestApplicationJSON.google_place;
                 saveBusinessData = true;
             }
-            let agencyNetworkId = 0;
-            try{
-                agencyNetworkId = await this.getAgencyNewtorkIdById(this.id);
-            }
-            catch(err){
-                log.error(`Error getting agencyNetworkId, application - ${this.id} ` + err + __location)
-            }
+            let agencyNetworkId = requestApplicationJSON.agencyNetworkId;
+            // try{
+            //     agencyNetworkId = await this.getAgencyNewtorkIdById(this.id);
+            // }
+            // catch(err){
+            //     log.error(`Error getting agencyNetworkId, application - ${this.id} ` + err + __location)
+            // }
             //Only process AF call if digalent.             
             if(agencyNetworkId === 2){
                 const businessInfoRequestJSON = {
@@ -1561,7 +1561,7 @@ module.exports = class ApplicationModel {
             let rejected = false;
 
             let sql = `
-            select agency_network from clw_talage_applications a
+            select ag.agency_network from clw_talage_applications a
             inner join clw_talage_agencies ag on ag.id = a.agency
             where a.id = ${db.escape(id)}
             `;
@@ -1707,6 +1707,14 @@ const properties = {
         "rules": null,
         "type": "number",
         "dbType": "tinyint(1)"
+    },
+    "agency_network": {
+        "default": 1,
+        "encrypted": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "agency": {
         "default": 1,
