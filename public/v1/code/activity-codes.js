@@ -61,7 +61,7 @@ const GetActivityCodes = wrap(async (req, res, next) => {
 		FROM #__activity_codes AS nc
 		JOIN #__activity_code_associations AS nca ON nc.id = nca.code
 		JOIN #__insurer_ncci_codes AS inc ON nca.insurer_code = inc.id
-		LEFT JOIN #__industry_code_associations AS ica ON nc.id = ica.activityCodeId AND ica.industry_code = ${db.escape(industry_code)}
+		LEFT JOIN #__industry_code_associations AS ica ON nc.id = ica.activityCodeId AND ica.industryCodeId = ${db.escape(industry_code)}
 		LEFT JOIN #__activity_code_alt_names AS acan ON nc.id = acan.activity_code
 		WHERE inc.territory = ${db.escape(territory)} AND nc.state = 1 AND inc.state = 1 GROUP BY nc.id ORDER BY nc.description;
 		`;

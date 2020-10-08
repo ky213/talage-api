@@ -21,14 +21,14 @@ async function getActivityCodeIndustryCodes(req, res, next){
         SELECT id, description FROM clw_talage_industry_codes
         INNER JOIN (
             SELECT 
-            clw_talage_industry_code_associations.industry_code
+            clw_talage_industry_code_associations.industryCodeId
             FROM clw_talage_industry_code_associations
             INNER JOIN (
                 SELECT DISTINCT id
                 FROM clw_talage_activity_codes 
                 WHERE id = ${db.escape(req.query.activityCode)}
             ) ac ON ac.id = clw_talage_industry_code_associations.activityCodeId
-        ) ica ON ica.industry_code = clw_talage_industry_codes.id
+        ) ica ON ica.industryCodeId = clw_talage_industry_codes.id
 		`;
 
     // Get the agencies from the database
