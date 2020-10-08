@@ -54,6 +54,7 @@ async function postApplication(req, res, next) {
     }
 
     // Set the application progress to 'quoting'
+    //TODO CALL ApplicationBO
     const sql = `
 		UPDATE clw_talage_applications
 		SET progress = ${db.escape('quoting')}
@@ -99,6 +100,7 @@ async function runQuotes(application) {
     }
 
     // Update the application quote progress to "complete"
+    //TODO CALL ApplicationBO
     const sql = `
         UPDATE clw_talage_applications
         SET progress = ${db.escape('complete')}

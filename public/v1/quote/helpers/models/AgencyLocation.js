@@ -82,7 +82,7 @@ module.exports = class AgencyLocation {
                 if(agencyLocation.territories){
                     alTerritoyList = agencyLocation.territories;
                     this.territories = agencyLocation.territories;
-                    log.debug("alTerritoyList: " + JSON.stringify(alTerritoyList));
+                    //log.debug("alTerritoyList: " + JSON.stringify(alTerritoyList));
                 } else {
                     log.error(`Agency territories Missing insurers ${this.id} ` + JSON.stringify(agencyLocation) + __location);
                 }

@@ -23,7 +23,7 @@ let contactSchema = new Schema({
 })
 
 let ActivtyCodePayrollSchema = new Schema({
-    ncciCode: {type: String, required: true},
+    ncciCode: {type: Number, required: true},
     payroll: {type: Number, required: true},
     ownerPayRoll: {type: Number, required: false}
 })
@@ -135,6 +135,7 @@ let ApplicationSchema = new Schema({
     agencyId: {type: Number, required: true},
     agencyLocationId: {type: Number, required: true},
     appStatusId: {type: Number, required: true, default: 0},
+    lastStep: {type: Number, required: true, default: 0},
     progress: {type: String, required: true},
     status: {type: String, required: false},
     solepro:  {type: Boolean, required: true, default: false },

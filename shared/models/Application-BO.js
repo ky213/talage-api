@@ -363,13 +363,13 @@ module.exports = class ApplicationModel {
                     break;
                 case 'bindRequest':
                     if (applicationJSON.quotes) {
+                        applicationJSON.progress = 'complete';
                         applicationJSON.appStatusId = this.appStatusId;
                         await this.processQuotes(applicationJSON).catch(function (err) {
                             log.error('Processing Quotes error:' + err + __location);
                             reject(err);
                         });
                     }
-                    //TODO bindRequest setup Mapping to Mongoose Model not we already have one loaded.
                     break;
                 default:
                     // not from old Web application application flow.
@@ -391,9 +391,11 @@ module.exports = class ApplicationModel {
 
             if (!this.#dbTableORM.last_step) {
                 this.#dbTableORM.last_step = stepNumber;
+                applicationJSON.lastStep = stepNumber;
             }
             else if (stepNumber > this.#dbTableORM.last_step) {
                 this.#dbTableORM.last_step = stepNumber;
+                applicationJSON.lastStep = stepNumber;
             }
 
             await this.cleanupInput(applicationJSON);
@@ -439,7 +441,8 @@ module.exports = class ApplicationModel {
             agency_location: "agencyLocationId",
             agency: "agencyId",
             name: "businessName",
-            "id": "mysqlId"
+            "id": "mysqlId",
+            "state": "processStateOld"
         }
         for(const sourceProp in sourceJSON){
             if(typeof sourceJSON[sourceProp] !== "object" ){
@@ -741,7 +744,7 @@ module.exports = class ApplicationModel {
     processOwnersMongo(applicationJSON){
         if(applicationJSON.owners_covered){
             try{
-                const tempInt = parse(applicationJSON.owners_covered, 10);
+                const tempInt = parseInt(applicationJSON.owners_covered, 10);
                 this.#applicationMongooseJSON.ownersCovered = tempInt === 1 ? true : false;
                 if(this.#applicationMongooseJSON.ownersCovered > 0 && applicationJSON.owner_payroll){
 
@@ -769,7 +772,7 @@ module.exports = class ApplicationModel {
 
                             }
                         }
-                        this.#applicationMongooseJSON.locations = this.applicationMongooseDB.locations;
+                        this.#applicationMongooseJSON.locations = this.#applicationMongooseDB.locations;
                     }
                     else {
                         log.error(`Missing this.#applicationMongooseJSON.locations for owner payroll appId: ${applicationJSON.id} ` + __location);
@@ -782,7 +785,7 @@ module.exports = class ApplicationModel {
             }
         }
 
-        if(applicationJSON.businessInfo.num_owners){
+        if(applicationJSON.businessInfo && applicationJSON.businessInfo.num_owners){
             try{
                 this.#applicationMongooseJSON.numOwners = parseInt(applicationJSON.businessInfo.num_owners, 10);
             }
@@ -791,8 +794,8 @@ module.exports = class ApplicationModel {
             }
         }
 
-        log.debug("applicationJSON.businessInfo.ownersJSON " + JSON.stringify(applicationJSON.businessInfo.ownersJSON));
-        if(applicationJSON.businessInfo.ownersJSON){
+        
+        if(applicationJSON.businessInfo && applicationJSON.businessInfo.ownersJSON){
             try{
                 if(!this.#applicationMongooseJSON.owners){
                     this.#applicationMongooseJSON.owners = [];
@@ -1119,6 +1122,7 @@ module.exports = class ApplicationModel {
                 }
             }
             if(saveBusinessData){
+                this.#applicationMongooseJSON.businessDataJSON = newBusinessDataJSON;
                 const sql = `Update ${tableName} 
                     SET businessDataJSON = ${db.escape(JSON.stringify(newBusinessDataJSON))}
                     WHERE id = ${db.escape(this.id)}

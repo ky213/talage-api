@@ -36,6 +36,7 @@ async function updateQuoteAggregatedStatus(quote) {
  */
 async function updateApplicationStatus(applicationID) {
     // Get the application
+    //TODO call BO
     let sql = `
 		SELECT 
 			application.last_step,
@@ -87,6 +88,7 @@ async function updateApplicationStatus(applicationID) {
     // console.log('status', applicationStatus);
 
     // Set the new application status
+    // Todo CALL BO
     sql = `
 		UPDATE clw_talage_applications
 		SET status = ${db.escape(applicationStatus.appStatusDesc)}, appStatusid = ${db.escape(applicationStatus.appStatusId)}
@@ -99,7 +101,7 @@ async function updateApplicationStatus(applicationID) {
         log.error(`Could not retrieve quotes for application ${applicationID} ${__location}`);
     }
     // TODO Mongoose update....
-    
+
 }
 
 /**

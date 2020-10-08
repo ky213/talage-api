@@ -193,6 +193,7 @@ async function getQuotes(req, res, next) {
     }
 
     // Retrieve if we are complete. Must be done first or we may miss quotes.
+    //TODO CALL ApplicationBO
     let sql = `
 			SELECT progress
 			FROM #__applications
