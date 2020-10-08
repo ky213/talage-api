@@ -56,43 +56,35 @@ module.exports = class AcuityWC extends Integration {
         // They are likely that they are hard-coded in below somewhere
         const skipQuestions = [1036, 1037];
 
-        // Check Industry Code Support
-        if (!this.industry_code.cgl) {
-            this.log_error(`CGL not set for Industry Code ${this.industry_code.id} `, __location);
-            return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-        }
-
         // Check to ensure we have NCCI codes available for every provided activity code.
         for (const location of this.app.business.locations) {
             for (const activityCode of location.activity_codes) {
                 const ncciCode = await this.get_ncci_code_from_activity_code(location.territory, activityCode.id);
                 if (!ncciCode) {
-                    this.log_error(`Could not find NCCI code for activity code ${activityCode.id}`, __location);
-                    return this.return_error('error', 'Could not locate an NCCI code for the provided activity.');
+                    return this.client_error('We could not locate an NCCI code for one or more of the provided activities.', {activityCode: activityCode.id});
                 }
                 activityCode.ncciCode = `${ncciCode.code}${ncciCode.sub}`;
+                activityCode.ncciCodeDescription = ncciCode.description;
             }
         }
 
         // Prepare limits
         const limits = this.getBestLimits(carrierLimits);
         if (!limits) {
-            this.log_warn(`autodeclined: no limits industryCode = ${this.industry_code.id} `, __location)
-            this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
-            return this.return_result('autodeclined');
+            return this.client_autodeclined('The insurer does not support the request liability limits', {industryCode: this.industry_code.id});
         }
+        this.requestLimits = limits;
 
         // Transaction
-        this.transactionID = this.generate_uuid();
         const now = moment_timezone.tz('America/Los_Angeles');
+        this.transactionID = this.generate_uuid();
         this.transactionRequestDate = now.format('YYYY-MM-DDTHH:mm:ss');
         this.transactionEffectiveDate = now.format('YYYY-MM-DD');
 
         // Business entity/corporate structure
         this.entityID = entityMatrix[this.app.business.entity_type];
         if (!(this.app.business.entity_type in entityMatrix)) {
-            this.log_error(`Invalid Entity Type `, __location);
-            return this.return_error('error', "We have no idea what went wrong, but we're on it");
+            return this.client_autodeclined('The business entity type is not configured for this insurer.', {businessEntityType: this.app.business.entity_type});
         }
         if (this.app.business.corporation_type) {
             this.corporationType = corporationTypeMatrix[this.app.business.corporation_type];
@@ -110,12 +102,14 @@ module.exports = class AcuityWC extends Integration {
         // Claims
         this.claims_by_year = this.claims_to_policy_years();
 
-
         // Questions
-        const question_identifiers = await this.get_question_identifiers().catch((error) => {
-            this.log_error(`Unable to get question identifiers.${error}`, __location);
-            return this.return_error('error', "We have no idea what went wrong, but we're on it");
-        });
+        let question_identifiers = null;
+        try {
+            question_identifiers = await this.get_question_identifiers();
+        }
+        catch (error) {
+            return this.client_error('Could not determine the identifiers for the questions', __location);
+        }
         // Loop through each question
         this.questionList = [];
         for (const question_id in this.questions) {
@@ -132,7 +126,7 @@ module.exports = class AcuityWC extends Integration {
                     answer = this.determine_question_answer(question);
                 }
                 catch (error) {
-                    return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+                    return this.client_error('Could not determine the answer for one of the questions', __location, {questionID: question_id});
                 }
 
                 // This question was not answered
@@ -171,7 +165,7 @@ module.exports = class AcuityWC extends Integration {
             xml = acuityWCTemplate.render(this).replace(/\n\s*\n/g, '\n');
         }
         catch (error) {
-            return this.result_error('error', 'Unable to create the request.');
+            return this.client_error('Unable to create the request to send to the insurer', __location);
         }
 
         // Determine which URL to use
@@ -184,7 +178,7 @@ module.exports = class AcuityWC extends Integration {
         }
         const path = '/ws/partner/public/irate/rating/RatingService/Talage';
 
-        console.log('request', xml);
+        // console.log('request', xml);
 
         // Send the XML to the insurer
         let result = null;
@@ -195,85 +189,59 @@ module.exports = class AcuityWC extends Integration {
             });
         }
         catch (error) {
-            this.log_error(error.message, __location);
-            this.reasons.push('Problem connecting to insurer');
-            return this.return_error('error', "We have no idea what went wrong, but we're on it");
+            return this.client_connection_error(__location);
         }
 
-        console.log('result', JSON.stringify(result, null, 4));
+        // console.log('result', JSON.stringify(result, null, 4));
 
         // Check if there was an error
         if (result.hasOwnProperty('errorResponse')) {
             const error_code = parseInt(result.errorResponse.httpCode, 10);
             switch (error_code) {
                 case '401':
-                    this.log += '--------======= Authorization failed =======--------';
-                    this.log_error(`401 - Authorization Failed, Check Headers `, __location);
-                    this.reasons.push('Unable to connect to API. Check headers.');
-                    return this.return_error('error', 'We are currently unable to connect to this insurer');
                 case '403':
-                    this.log += '--------======= Authentication Failed =======--------';
-                    this.log_error(`403 - Authentication Failed `, __location);
-                    this.reasons.push('Unable to connect to API. Check credentials.');
-                    return this.return_error('error', 'We are currently unable to connect to this insurer');
+                    return this.client_error(`Authorization failed with the insurer's server.`, __location, {errorCode: error_code});
                 case '500':
-                    this.log += '--------======= server. Error =======--------';
-                    this.log_warn(`500 - server. Error `, __location);
-                    this.reasons.push('Insurer encountered a server error');
-                    return this.return_error('error', 'We are currently unable to connect to this insurer');
+                    return this.client_error(`The insurer's server encountered an internal error.`, __location, {errorCode: error_code});
                 case '504':
-                    this.log += '--------======= Insurer Timeout Error =======--------';
-                    this.log_warn(`504 - Insurer Timeout Error `, __location);
-                    this.reasons.push(`Insurer's system timedout (our connection was good).`);
-                    return this.return_error('error', 'We are currently unable to connect to this insurer');
+                    return this.client_error(`The insurer's server timed out on the request.`, __location, {errorCode: error_code});
                 default:
-                    this.log += '--------======= Unexpected API Error =======--------';
-                    this.log_error(`${error_code} - Unexpected error code from API `, __location);
-                    this.reasons.push(`Unexpected HTTP error code of ${error_code} returned from API.`);
-                    return this.return_error('error', 'We are currently unable to connect to this insurer');
+                    return this.client_error(`The insurer's server returned an unknown error.`, __location, {errorCode: error_code});
             }
         }
 
-        // Move down a node for convenience
-        result = result.ACORD;
-
         // Parse the various status codes and take the appropriate action
-        const statusCode = parseInt(this.get_xml_child(result, 'SignonRs.Status.StatusCd'), 10);
+        const statusCode = parseInt(this.get_xml_child(result.ACORD, 'SignonRs.Status.StatusCd'), 10);
         if (statusCode !== 0) {
             if (statusCode === 503) {
-                this.log += '--------======= Insurer Down =======--------<br><br>';
-                this.log_warn(`Outage in insurer's system `, __location);
-                this.reasons.push(`The insurer's system was unavailable at the time of quote.`);
-                return this.return_error('error', 'We are currently unable to connect to the Acuity servers');
+                return this.client_error(`The insurer's server is experiencing an outage.`, __location, {statusCode: statusCode});
             }
-            this.log += '--------======= Unexpected API Error =======--------<br><br>';
-            this.log_error(`Unexpected status code of ${statusCode} from API `, __location);
-            this.reasons.push(`Unknown status of '${statusCode}' recieved from API`);
-            return this.return_error('error', 'We are currently unable to connect to the Acuity servers');
+            else {
+                return this.client_error(`The insurer's server returned an unknown API error.`, __location, {statusCode: statusCode});
+            }
         }
 
         // Check if we have an error
-        const msgStatusCd = this.get_xml_child(result, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.MsgStatus.MsgStatusCd");
-        if (msgStatusCd === 'Error') {
-            const extendedStatusDesc = this.get_xml_child(result, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.MsgStatus.ExtendedStatus.ExtendedStatusDesc");
-            this.log_error(`The API returned the error '${extendedStatusDesc}'`, __location);
-            return this.return_error('error', `The Acuity servers returned an error of '${extendedStatusDesc}.`);
+        const msgStatusCd = this.get_xml_child(result.ACORD, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.MsgStatus.MsgStatusCd");
+        if (msgStatusCd.toLowerCase() === 'error') {
+            const extendedStatusDesc = this.get_xml_child(result.ACORD, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.MsgStatus.ExtendedStatus.ExtendedStatusDesc");
+            return this.client_error('The insurer encountered an error while processing the request', __location, {extendedStatusDesc: extendedStatusDesc});
         }
 
         // Check if the application was rejected or declined
         let declined = false;
-        const extendedStatus = this.get_xml_child(result, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.MsgStatus.ExtendedStatus", true);
+        const extendedStatus = this.get_xml_child(result.ACORD, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.MsgStatus.ExtendedStatus", true);
         for (const status of extendedStatus) {
             if (status.ExtendedStatusDesc[0].includes('not a market for the risk')) {
                 declined = true;
             }
         }
-        if (msgStatusCd === 'Rejected' || declined) {
-            return this.return_error('declined', `${this.insurer.name} has declined to offer you coverage at this time`);
+        if (declined || msgStatusCd.toLowerCase() === 'rejected') {
+            return this.client_declined();
         }
 
         // Find the policy information
-        const policyStatusCd = this.get_xml_child(result, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.PolicySummaryInfo.PolicyStatusCd");
+        const policyStatusCd = this.get_xml_child(result.ACORD, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.PolicySummaryInfo.PolicyStatusCd");
         switch (policyStatusCd) {
             case 'com.acuity_BindableQuoteIncompleteData':
                 this.log_info(`Reporting incomplete information for a bindable quote. The quote will be a referral. Non-fatal so continuing.`);
@@ -281,53 +249,42 @@ module.exports = class AcuityWC extends Integration {
             case 'com.acuity_BindableQuote':
             case 'com.acuity_NonBindableQuote':
                 // Retrieve and populate the quote amount
-                const amt = this.get_xml_child(result, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.PolicySummaryInfo.FullTermAmt.Amt");
-                if (amt) {
-                    this.amount = parseFloat(amt, 10);
-                }
+                const amt = this.get_xml_child(result.ACORD, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.PolicySummaryInfo.FullTermAmt.Amt");
+                const premiumAmount = amt ? parseFloat(amt, 10) : 0;
+
+                const quoteNumber = this.get_xml_child(result.ACORD, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.CommlPolicy.QuoteInfo.CompanysQuoteNumber");
+
                 // Retrieve and populate the quote limits
-                const quoteLimits = this.get_xml_child(result, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.WorkCompLineBusiness.CommlCoverage.Limit", true);
-                quoteLimits.forEach((limit) => {
-                    switch (limit.LimitAppliesToCd[0]) {
+                const limitNodeList = this.get_xml_child(result.ACORD, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.WorkCompLineBusiness.CommlCoverage.Limit", true);
+                const quoteLimits = {};
+                limitNodeList.forEach((limitNode) => {
+                    switch (limitNode.LimitAppliesToCd[0]) {
                         case 'PerAcc':
-                            this.limits[1] = limit.FormatInteger[0];
+                            quoteLimits[1] = limitNode.FormatInteger[0];
                             break;
                         case 'DisEachEmpl':
-                            this.limits[2] = limit.FormatInteger[0];
+                            quoteLimits[2] = limitNode.FormatInteger[0];
                             break;
                         case 'DisPol':
-                            this.limits[3] = limit.FormatInteger[0];
+                            quoteLimits[3] = limitNode.FormatInteger[0];
                             break;
                         default:
                             break;
                     }
                 });
 
-                // Retrieve and save the quote letter
-                const fileAttachmentInfo = this.get_xml_child(result, 'InsuranceSvcRs.WorkCompPolicyQuoteInqRs.FileAttachmentInfo');
-                if (fileAttachmentInfo) {
-                    this.log_info(`Found a quote letter and saving it.`);
-                    // Try to save the letter. This is a non-fatal event if we can't save it, but we log it as an error.
-                    try {
-                        this.quote_letter = {
-                            content_type: fileAttachmentInfo.MIMEContentTypeCd[0],
-                            data: fileAttachmentInfo.cData[0],
-                            file_name: `${this.insurer.name}_ ${this.policy.type}_quote_letter.pdf`
-                        };
-                    }
-                    catch (error) {
-                        this.log_error(`Quote letter node exists, but could not extract it. Continuing.`);
-                    }
-                }
+                // Retrieve and the quote letter if it exists
+                const quoteLetter = this.get_xml_child(result.ACORD, 'InsuranceSvcRs.WorkCompPolicyQuoteInqRs.FileAttachmentInfo.cData');
+                const quoteLetterMimeType = this.get_xml_child(result.ACORD, 'InsuranceSvcRs.WorkCompPolicyQuoteInqRs.FileAttachmentInfo.MIMEContentTypeCd');
 
-                // Only bindable is a quote. Bindable incomplete and non bindable are referred.
-                const status = policyStatusCd === "com.acuity_BindableQuote" ? "quoted" : "referred";
-                this.log_info(`Returning ${status} ${amt ? "with price" : ""}`);
-                return this.return_result(status);
+                // Check if it is a bindable quote
+                if (policyStatusCd === 'acuity_BindableQuote') {
+                    return this.client_quoted(quoteNumber, quoteLimits, premiumAmount, quoteLetter, quoteLetterMimeType);
+                }
+                // Nonbindable quote is referred
+                return this.client_referred(quoteNumber, quoteLimits, premiumAmount, quoteLetter, quoteLetterMimeType);
             default:
-                this.log += `--------======= Unknown Status	=======--------<br><br>${result.response}<br><br>`;
-                this.log_error(`Unknown policy status code of ${policyStatusCd ? policyStatusCd : "null"}.`, __location);
-                return this.return_error('error', "The Acuity servers returned an unrecognized policy status.");
+                return this.client_error("The insurer returned an unrecognized policy status", __location, {policyStatusCd: policyStatusCd});
         }
     }
 };
