@@ -8,6 +8,7 @@ const Application = require('./helpers/models/Application.js');
 const serverHelper = require('../../../server.js');
 const jwt = require('jsonwebtoken');
 const status = global.requireShared('./models/application-businesslogic/status.js');
+const ApplicationBO = global.requireShared('models/Application-BO.js');
 
 /**
  *
@@ -54,24 +55,15 @@ async function postApplication(req, res, next) {
     }
 
     // Set the application progress to 'quoting'
-    //TODO CALL ApplicationBO
-    const sql = `
-		UPDATE clw_talage_applications
-		SET progress = ${db.escape('quoting')}
-		WHERE id = ${db.escape(req.body.id)}
-	`;
-    let result = null;
-    try {
-        result = await db.query(sql);
+    const applicationBO = new ApplicationBO();
+    try{
+        log.debug("APPLICATION UPDATE PROGRESS - QUOTING " + __location);
+        await applicationBO.updateProgress(req.body.id, "quoting");
     }
-    catch (error) {
-        log.error(`Could not update the quote progress to 'quoting' for application ${req.body.id}: ${error} ${__location}`);
-        return next(serverHelper.internalError('An unexpected error occurred.'));
+    catch(err){
+        log.error(`Error update appication progress appId = ${req.body.id}  for quoting. ` + err + __location);
     }
-    if (result === null || result.affectedRows !== 1) {
-        log.error(`Could not update the quote progress to 'quoting' for application ${req.body.id}: ${sql} ${__location}`);
-        return next(serverHelper.internalError('An unexpected error occurred.'));
-    }
+
 
     // Build a JWT that contains the application ID that expires in 5 minutes.
     const tokenPayload = {applicationID: req.body.id};
@@ -92,6 +84,7 @@ async function postApplication(req, res, next) {
  * @returns {void}
  */
 async function runQuotes(application) {
+    log.debug('running quotes')
     try {
         await application.run_quotes();
     }
@@ -100,17 +93,14 @@ async function runQuotes(application) {
     }
 
     // Update the application quote progress to "complete"
-    //TODO CALL ApplicationBO
-    const sql = `
-        UPDATE clw_talage_applications
-        SET progress = ${db.escape('complete')}
-        WHERE id = ${application.id}
-    `;
-    try {
-        await db.query(sql);
+    const applicationBO = new ApplicationBO();
+    try{
+        log.debug(`updating progress to complete appId ${application.id} `)
+        await applicationBO.updateProgress(application.id, "complete");
+        log.debug(`FINISHED updating progress to complete appId ${application.id} `)
     }
-    catch (error) {
-        log.error(`Could not update the quote progress to 'complete' for application ${application.id}: ${error} ${__location}`);
+    catch(err){
+        log.error(`Error update appication progress appId = ${application.id}  for complete. ` + err + __location);
     }
 
     // Update the application status

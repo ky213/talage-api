@@ -159,12 +159,7 @@ module.exports = class ApplicationModel {
                     reject(new Error("Data Error:Application may not be updated."));
                     return;
                 }
-                //check for 
-                // TODO Load Mongoose Model
-
-                //Agency Network check.....
-                const agencyBO = new AgencyBO();
-                // Load the request data into it
+                // Load Mongoose Model
                 this.#applicationMongooseDB  = await this.getfromMongoByAppId(this.uuid).catch(function(err) {
                     log.error("Mongo application load error " + err + __location);
                     error = err;
@@ -214,7 +209,7 @@ module.exports = class ApplicationModel {
                     }
 
                 }
-                //Agency Network check.....
+                //Agency Network check for new application
                 error = null;
                 const agencyBO = new AgencyBO();
                 // Load the request data into it
@@ -1396,6 +1391,89 @@ module.exports = class ApplicationModel {
         return true;
     }
 
+
+    async updateStatus(id,appStatusDesc, appStatusid){
+
+        if(id && id > 0 ){
+            try {
+                const sql = `
+                    UPDATE clw_talage_applications
+                    SET status = ${db.escape(appStatusDesc)}, appStatusid = ${db.escape(appStatusid)}
+                    WHERE id = ${id};
+                `;
+                const result = await db.query(sql);
+            }
+            catch (error) {
+                log.error(`Could not update application status mySql appId: ${id}  ${error} ${__location}`);
+            }
+            //mongo update.....
+            try{
+                const updateStatusJson = {status:  appStatusDesc, "appStatusId": appStatusid }
+                const query = {"mysqlId": id};
+                await Application.updateOne(query, updateStatusJson);
+            }
+            catch(error){
+                log.error(`Could not update application status mongo appId: ${id}  ${error} ${__location}`);
+            }
+            return true;
+        }
+        else {
+            log.error(`updateStatus missing id ` + __location);
+        }
+    }
+
+    async updateProgress(id,progress){
+
+        const sql = `
+		    UPDATE clw_talage_applications
+		    SET progress = ${db.escape(progress)}
+		    WHERE id = ${db.escape(id)}
+        `;
+        let result = null;
+        
+        try {
+            result = await db.query(sql);
+        }
+        catch (error) {
+            log.error(`Could not update the quote progress to ${progress} for application ${id}: ${error} ${__location}`);
+        }
+        if (result === null || result.affectedRows !== 1) {
+            log.error(`Could not update the quote ${progress} to 'quoting' for application ${id}: ${sql} ${__location}`);
+        }
+        //mongo update.....
+        try{
+            const updateStatusJson = {progress:  progress}
+            const query = {"mysqlId": id};
+            await Application.updateOne(query, updateStatusJson);
+        }
+        catch(error){
+            log.error(`Could not update application status mongo appId: ${id}  ${error} ${__location}`);
+        }
+        return true;
+    }
+
+    async getProgress(id){
+        log.debug(`Getting Progress appID ${id}`)
+        
+        const sql = `
+            SELECT progress
+            FROM clw_talage_applications
+            WHERE id = ${id}
+        `;
+        const result = null;
+        try {
+            result = await db.query(sql);
+        }
+        catch (error) {
+            log.error(`Could not get the quote progress for application ${id}: ${error} ${__location}`);
+        }
+        if(result && result.length > 0 ){
+            return result[0].progress;
+        }
+        else {
+            return "unknown";
+        }
+    }
   
     // save(asNew = false) {
     //     return new Promise(async (resolve, reject) => {
@@ -1621,17 +1699,9 @@ module.exports = class ApplicationModel {
             }
         }
     }
-    copyToMongo(id){
+    // copyToMongo(id){
 
-
-
-
-
-
-
-
-
-    }
+    // }
 }
 
 const properties = {

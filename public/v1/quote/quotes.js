@@ -1,8 +1,9 @@
 'use strict';
 
 const jwt = require('jsonwebtoken');
-const serverHelper = require('../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
 const fileSvc = global.requireShared('./services/filesvc.js');
+const ApplicationBO = global.requireShared('./models/Application-BO.js');
 
 /**
  * Execute a query and log an error if it fails (testing a pattern)
@@ -193,20 +194,19 @@ async function getQuotes(req, res, next) {
     }
 
     // Retrieve if we are complete. Must be done first or we may miss quotes.
-    //TODO CALL ApplicationBO
-    let sql = `
-			SELECT progress
-			FROM #__applications
-			WHERE id = ${tokenPayload.applicationID}
-		`;
-    let result = await queryDB(sql, `retrieving quote progress for application ${tokenPayload.applicationID}`);
-    if (result === null || result.length === 0) {
-        return next(serverHelper.internalError('Error retrieving quote progress'));
+    let progress = null;
+    const applicationBO = new ApplicationBO();
+    try{
+        progress = await applicationBO.getProgress(tokenPayload.applicationID);
     }
-    const complete = result[0].progress !== 'quoting';
+    catch(err){
+        log.error(`Error getting appication progress appId = ${req.body.id}. ` + err + __location);
+    }
+
+    const complete = progress !== 'quoting';
 
     // Retrieve quotes newer than the last quote ID
-    sql = `
+    const sql = `
 		SELECT id
 		FROM #__quotes
 		WHERE
@@ -214,7 +214,7 @@ async function getQuotes(req, res, next) {
 			AND id > ${lastQuoteID}
 		ORDER BY id ASC
 	`;
-    result = await queryDB(sql, `retrieving quotes for application ${tokenPayload.applicationID}`);
+    const result = await queryDB(sql, `retrieving quotes for application ${tokenPayload.applicationID}`);
     if (result === null) {
         return next(serverHelper.internalError('Error retrieving quotes'));
     }

@@ -1,6 +1,7 @@
 'use strict';
 
-// TODO This business logic shoud move to a service or the Application-BO.
+
+
 
 /**
  * Ensures that a quote has a value for aggregated_status
@@ -42,9 +43,8 @@ async function updateApplicationStatus(applicationID) {
 			application.last_step,
 			application.solepro,
 			application.wholesale,
-			agency.agency_network
+			application.agency_network
 		FROM clw_talage_applications AS application
-		LEFT JOIN clw_talage_agencies AS agency ON agency.id = application.agency
 		WHERE application.id = ${applicationID};
 	`;
     let result = null;
@@ -88,19 +88,17 @@ async function updateApplicationStatus(applicationID) {
     // console.log('status', applicationStatus);
 
     // Set the new application status
-    // Todo CALL BO
-    sql = `
-		UPDATE clw_talage_applications
-		SET status = ${db.escape(applicationStatus.appStatusDesc)}, appStatusid = ${db.escape(applicationStatus.appStatusId)}
-		WHERE id = ${applicationID};
-	`;
-    try {
-        result = await db.query(sql);
+    const ApplicationBO = global.requireShared('models/Application-BO.js');
+    const applicationBO = new ApplicationBO();
+    try{
+        await applicationBO.updateStatus(applicationID, applicationStatus.appStatusDesc, applicationStatus.appStatusId);
     }
-    catch (error) {
-        log.error(`Could not retrieve quotes for application ${applicationID} ${__location}`);
+    catch(err){
+        log.error(`Error update appication status appId = ${applicationID}  ${db.escape(applicationStatus.appStatusDesc)} ` + err + __location);
     }
-    // TODO Mongoose update....
+
+   
+    
 
 }
 
