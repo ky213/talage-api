@@ -935,7 +935,7 @@ module.exports = class ApplicationModel {
                         }
                         
                     } else {
-                        log.error(`no question record for id ${questionJSON.questionId} ` + __location);
+                        log.error(`no questionAnswer record for ids ${JSON.stringify(questionRequest.answer)} ` + __location);
                     }
                 }
                 else {
@@ -1453,14 +1453,13 @@ module.exports = class ApplicationModel {
     }
 
     async getProgress(id){
-        log.debug(`Getting Progress appID ${id}`)
         
         const sql = `
             SELECT progress
             FROM clw_talage_applications
             WHERE id = ${id}
         `;
-        const result = null;
+        let result = null;
         try {
             result = await db.query(sql);
         }
@@ -1471,6 +1470,7 @@ module.exports = class ApplicationModel {
             return result[0].progress;
         }
         else {
+            log.error(`Could not get the quote progress for application ${id}: ${error} ${__location}`);
             return "unknown";
         }
     }
