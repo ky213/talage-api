@@ -374,6 +374,7 @@ async function getApplications(req, res, next){
 
     if(!req.params.endDate || (req.params.endDate && req.params.endDate.startsWith('T23:59:59.999'))){
         // now....
+        log.debug('AP Application Search resetting end date' + __location);
         req.params.endDate = moment().toISOString();
     }
 
@@ -385,8 +386,8 @@ async function getApplications(req, res, next){
     // All parameters and their values have been validated at this point -SF
 
     // Create MySQL date strings
-    const startDateSQL = moment(req.params.startDate).format('YYYY-MM-DD HH:mm:ss');
-    const endDateSQL = moment(req.params.endDate).format('YYYY-MM-DD HH:mm:ss');
+    const startDateSQL = moment(req.params.startDate).utc().format('YYYY-MM-DD HH:mm:ss');
+    const endDateSQL = moment(req.params.endDate).utc().format('YYYY-MM-DD HH:mm:ss');
 
     // Make sure we got agents
     if (!agents.length){
