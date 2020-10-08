@@ -71,6 +71,15 @@ const BTIS_DEDUCTIBLE_IDS = {
 const AUTH_URL = '/v1/authentication/connect/token';
 const LIMITS_URL = '/GL/Common/v1/gateway/api/lookup/dropdowns/limits/state/STATE_NAME/effective/EFFECTIVE_DATE/';
 const QUOTE_URL = '/GL/Common/v1/gateway/api/quote';
+const REGISTER_AGENT_URL = '/v1/authentication/api/registeragent';
+
+/*
+ * As of 10/2020
+ * Our BTIS service channel designations for retrieving agency credentials
+ * Used in the request to the BTIS registeragent endpoint
+ */
+const SANDBOX_SERVICE_CHANNEL_ID = 12;
+const PRODUCTION_SERVICE_CHANNEL_ID = 86;
 
 module.exports = class BtisGL extends Integration {
 
@@ -83,21 +92,54 @@ module.exports = class BtisGL extends Integration {
 
         let errorMessage = '';
         let host = '';
+        let service_channel = null;
 
         // Determine which URL to use
         if (this.insurer.useSandbox) {
             host = 'api-sandbox.btisinc.com';
+            service_channel = SANDBOX_SERVICE_CHANNEL_ID;
         }
         else {
             host = 'api.btisinc.com';
+            service_channel = PRODUCTION_SERVICE_CHANNEL_ID;
         }
 
-        // Get a token from their auth server
-        const token_request_data = JSON.stringify({
-            client_id: this.username,
-            client_secret: this.password,
-            grant_type: 'client_credentials'
-        });
+        let token_request_data = null;
+        let agency_credentials_response = null
+
+        if('11' in this.app.agencyLocation.insurers && this.app.agencyLocation.insurers['11'].agencyId && this.app.agencyLocation.insurers['11'].agentId){
+
+            const credentials_request_data = JSON.stringify({
+                agency_code: this.app.agencyLocation.insurers['11'].agencyId,
+                contact_email: this.app.agencyLocation.insurers['11'].agentId,
+                service_channel_id: service_channel
+            });
+
+            try{
+                agency_credentials_response = await this.send_json_request(host, REGISTER_AGENT_URL, credentials_request_data)
+            }
+            catch(error){
+                this.reasons.push(`Failed to retrieve credentials from BTIS for agency: ${this.app.agencyLocation.agency}. `);
+                return this.return_error('error', `Failed to retrieve credentials from BTIS for agency: ${this.app.agencyLocation.agency}. ` + error.message + __location);
+            }
+
+            console.log(agency_credentials_response);
+
+            token_request_data = JSON.stringify({
+                client_id: agency_credentials_response.client_id,
+                client_secret: agency_credentials_response.client_secret,
+                grant_type: 'client_credentials'
+            })
+
+        }
+        else{
+            // Get a token from their auth server
+            token_request_data = JSON.stringify({
+                client_id: this.username,
+                client_secret: this.password,
+                grant_type: 'client_credentials'
+            });
+        }
 
         let token_response = null;
         try{

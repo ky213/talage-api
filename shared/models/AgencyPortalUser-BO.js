@@ -7,7 +7,6 @@ const crypt = global.requireShared('./services/crypt.js');
 var AgencyPortalUserGroup = require('mongoose').model('AgencyPortalUserGroup');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
-
 const tableName = 'clw_talage_agency_portal_users'
 const skipCheckRequired = false;
 const passwordProperty = "password";
@@ -21,7 +20,6 @@ module.exports = class AgencyPortalUserBO{
         this.id = 0;
         this.#dbTableORM = new DbTableOrm(tableName);
     }
-
 
     /**
 	 * Save Model 
@@ -157,7 +155,7 @@ module.exports = class AgencyPortalUserBO{
                     }
                     if(queryJSON.group){
                         sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` ${"`"}group${"`"} = ${db.escape(queryJSON.group)} `
+                        sql += ` \`group\` = ${db.escape(queryJSON.group)} `
                         hasWhere = true;
                     }
                 }
@@ -208,14 +206,8 @@ module.exports = class AgencyPortalUserBO{
                     //Search so no hits ok.
                     resolve([]);
                 }
-               
-            
         });
     }
-
-
-    
-
 
     getById(id) {
         return new Promise(async (resolve, reject) => {
@@ -249,11 +241,7 @@ module.exports = class AgencyPortalUserBO{
         else {
             throw new Error("Missing agencyId");
         }
-
-       
     }
-
-
 
     deleteSoftById(id) {
         return new Promise(async (resolve, reject) => {
@@ -304,6 +292,7 @@ module.exports = class AgencyPortalUserBO{
             }
         }
     }
+    
     cleanJSON(noNulls = true){
 		return this.#dbTableORM.cleanJSON(noNulls);
     }
@@ -336,8 +325,6 @@ module.exports = class AgencyPortalUserBO{
         this.updateProperty();
         return true;
     }
-
-
 
     getGroupList(forTalageAdmin = false) {
         return new Promise(async (resolve, reject) => {

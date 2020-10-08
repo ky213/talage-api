@@ -114,13 +114,9 @@ function generateCSV(agents, agencyNetwork){
             LEFT JOIN clw_talage_zip_codes AS z2 ON pa.zip = z2.zip
             WHERE
                 a.state > 0
-                AND ag.state > 0
+				AND ag.state > 0
+				AND ag.do_not_report = 0
 		`;
-
-        // If this is an AF Group Agency Network user, exclude Agency 42 from the output
-        if(agencyNetwork === 2){
-            sql += ' AND a.agency != 42';
-        }
 
         // This is a very special case. If this is the agency 'Solepro' (ID 12) is asking for applications, query differently
         if(!agencyNetwork && agents[0] === 12){
@@ -393,14 +389,12 @@ async function getApplications(req, res, next){
         log.info('Bad Request: No agencies permitted');
         return next(serverHelper.requestError('Bad Request: No agencies permitted'));
     }
-
+	
     // Begin by only allowing applications that are not deleted from agencies that are also not deleted
     let where = `${db.quoteName('a.state')} > 0 AND ${db.quoteName('ag.state')} > 0`;
-
-    // If this is AF Group, filter out agency 42	// If this is AF Group, filter out agency 42
-    if(agencyNetwork === 2){
-        where += ` AND ${db.quoteName('a.agency')} != 42`;
-    }
+	
+	// Filter out any agencies with do_not_report value set to true
+	where += ` AND ag.do_not_report = 0`;
 
     // This is a very special case. If this is the agent 'Solepro' (ID 12) asking for applications, query differently
     if(!agencyNetwork && agents[0] === 12){
@@ -409,6 +403,7 @@ async function getApplications(req, res, next){
     else{
         where += ` AND ${db.quoteName('a.agency')} IN(${agents.join(',')})`;
     }
+
 
     // ================================================================================
     // Get the total number of applications for this agency
@@ -528,6 +523,7 @@ async function getApplications(req, res, next){
 			LIMIT ${req.params.limit}
 			OFFSET ${req.params.page * req.params.limit}
 		`;
+
 
     let applications = null;
     try {
