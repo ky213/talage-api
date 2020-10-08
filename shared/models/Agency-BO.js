@@ -557,7 +557,16 @@ const properties = {
       "rules": null,
       "type": "datetime",
       "dbType": "datetime"
-    }
+	},
+	"do_not_report": {
+		"default": 0,
+		"encrypted": false,
+		"hashed": false,
+		"required": false,
+		"rules": null,
+		"type": "number",
+		"dbType": "tinyint(1)"	
+	}
   }
 
 class DbTableOrm extends DatabaseObject {

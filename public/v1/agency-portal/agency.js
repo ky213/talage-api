@@ -121,7 +121,6 @@ async function getTerritories(req, res, next){
 		log.error('DB query for territories list failed: ' + err.message + __location);
 		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
 	});
-	console.log(JSON.stringify(allTerritories));
     // Return the response
     res.send(200, { "territories": allTerritories});
     return next();
