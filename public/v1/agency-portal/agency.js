@@ -736,6 +736,7 @@ async function postAgency(req, res, next) {
  * @returns {void}
  */
 async function updateAgency(req, res, next) {
+
     let error = false;
 
     // Determine which permissions group to use (start with the default permission needed by an agency network)
@@ -807,10 +808,80 @@ async function updateAgency(req, res, next) {
     return next();
 }
 
+/**
+ * 
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function postSocialMediaTags(req, res, next) {
+    let error = false;
+
+    // Determine which permissions group to use (start with the default permission needed by an agency network)
+    let permissionGroup = 'agencies';
+
+    // If this is not an agency network, use the agency specific permissions
+    if (req.authentication.agencyNetwork === false) {
+        permissionGroup = 'settings';
+    }
+
+    // Make sure the authentication payload has everything we are expecting
+    await auth.validateJWT(req, permissionGroup, 'view').catch(function (e) {
+        error = e;
+    });
+    if (error) {
+        return next(error);
+    }
+
+    // Check for data
+    if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
+        log.warn('No data was received');
+        return next(serverHelper.requestError('No data was received'));
+    }
+
+    //Agency Model
+    const agencyBO = new AgencyBO();
+
+    const agencies = await agencyBO.getList().catch(function (error) {
+        log.error("error");
+        process.exit(1);
+    });
+
+    for(let i = 0; i < agencies.length; i++) {
+        let agencyJSON = null;
+        const agency = new AgencyBO();
+        try {
+            agencyJSON = await agency.getById(agencies[i].id);
+        } catch(error) {
+            log.error("error");
+            process.exit(1);
+        }   
+        if (agencyJSON.id === req.body.id) {
+                agencyJSON.additionalInfo=[{socialMediaTags:{
+                    facebookPixel:req.body.pixelId
+                }}]
+        }
+        let result = await agency.saveModel(agencyJSON).catch(function(error) {
+            // Check if this was
+            log.error("error");
+            process.exit(1);
+        });
+    }
+
+    res.send(200, 'socialMediaTags');
+    return next();
+
+}
+
 exports.registerEndpoint = (server, basePath) => {
     server.addDeleteAuth('Delete Agency', `${basePath}/agency`, deleteAgency, 'agencies', 'manage');
 	server.addGetAuth('Get Agency', `${basePath}/agency`, getAgency, 'agencies', 'view');
 	server.addGetAuth('Get Agency', `${basePath}/agency/territories`, getTerritories, 'agencies', 'view');
     server.addPostAuth('Post Agency', `${basePath}/agency`, postAgency, 'agencies', 'manage');
-	server.addPutAuth('Put Agency', `${basePath}/agency`, updateAgency, 'agencies', 'manage');
+    server.addPutAuth('Put Agency', `${basePath}/agency`, updateAgency, 'agencies', 'manage');
+    server.addPostAuth('Post Agency', `${basePath}/agency/socialMediaTags`, postSocialMediaTags, 'agencies', 'manage');
+
 };
