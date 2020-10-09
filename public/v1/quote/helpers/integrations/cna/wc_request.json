@@ -1,0 +1,379 @@
+{
+	"SignonRq": {
+		"SignonPswd": {
+			"CustId": {
+				"CustLoginId": "TESTG2"
+			}
+		},
+		"ClientApp": {
+			"Org": "CNA",
+			"Name": "API"
+		}
+	},
+	"InsuranceSvcRq": [{
+		"WorkCompPolicyQuoteInqRq": [{
+			"Producer": [{
+				"ProducerInfo": {
+					"ContractNumber": {
+						"value": "018297"
+					},
+					"ProducerSubCode": {
+						"value": "AGT"
+					},
+					"com.cna_branchCode": [{
+						"value": "010"
+					}],
+					"com.cna_branchLabel": [{
+						"value": "Al"
+					}]
+				}
+			}],
+			"InsuredOrPrincipal": [{
+				"ItemIdInfo": {
+					"AgencyId": {
+						"value": "018297-010"
+					}
+				},
+				"GeneralPartyInfo": {
+					"NameInfo": [{
+						"CommlName": {
+							"CommercialName": {
+								"value": "Test of a Working Full Quote Example"
+							}
+						},
+						"LegalEntityCd": {
+							"value": "CP"
+						},
+						"TaxIdentity": [{
+							"TaxIdTypeCd": {
+								"value": "FEIN"
+							},
+							"TaxId": {
+								"value": "595976858"
+							}
+						}],
+						"SupplementaryNameInfo": [{
+							"SupplementaryNameCd": {
+								"value": "DBA"
+							},
+							"SupplementaryName": {
+								"value": "New Full Quote Sample Request"
+							}
+						}],
+						"id": "N001"
+					}],
+					"Addr": [{
+						"AddrTypeCd": [{
+							"value": "MailingAddress"
+						}],
+						"Addr1": {
+							"value": "6161 Test Blvd"
+						},
+						"City": {
+							"value": "Citrus Heights"
+						},
+						"StateProvCd": {
+							"value": "CA"
+						},
+						"PostalCode": {
+							"value": "95610"
+						},
+						"County": {
+							"value": "California"
+						}
+					}],
+					"Communications": {
+						"PhoneInfo": [{
+							"PhoneTypeCd": {
+								"value": "Phone"
+							},
+							"PhoneNumber": {
+								"value": "+1-812-2222222"
+							},
+							"id": "1"
+						}],
+						"EmailInfo": [{
+							"EmailAddr": {
+								"value": "test@yahoo.com"
+							}
+						}],
+						"WebsiteInfo": [{
+							"WebsiteURL": {
+								"value": "http://test.com"
+							}
+						}]
+					}
+				},
+				"InsuredOrPrincipalInfo": {
+					"InsuredOrPrincipalRoleCd": [{
+						"value": "Insured"
+					}],
+					"BusinessInfo": {
+						"SICCd": {
+							"value": "56990_50"
+						},
+						"NAICSCd": {
+							"value": "315240"
+						}
+					}
+				}
+			}],
+			"CommlPolicy": {
+				"LOBCd": {
+					"value": "WORK"
+				},
+				"NAICCd": {
+					"value": "448120"
+				},
+				"ControllingStateProvCd": {
+					"value": "CA"
+				},
+				"ContractTerm": {
+					"EffectiveDt": {
+						"value": "2020-10-27"
+					},
+					"ExpirationDt": {
+						"value": "2021-10-27"
+					},
+					"DurationPeriod": {
+						"NumUnits": {
+							"value": 12
+						},
+						"UnitMeasurementCd": {
+							"value": "MON"
+						}
+					}
+				},
+				"NumLosses": {
+					"value": 0
+				},
+				"OtherOrPriorPolicy": [{
+					"InsurerName": {
+						"value": "None"
+					}
+				}],
+				"CommlPolicySupplement": {
+					"PolicyTypeCd": {
+						"value": "SPC"
+					},
+					"LengthTimeInBusiness": {
+						"NumUnits": {
+							"value": 1
+						}
+					},
+					"OtherSafetyProgramInd": {
+						"value": false
+					},
+					"com.cna_LengthTimeIndustyManagement": {
+						"NumUnits": {}
+					},
+					"com.cna_NumPowerUnitsOwned": {
+						"NumUnits": {
+							"value": 0
+						}
+					}
+				}
+			},
+			"Location": [{
+				"ItemIdInfo": {
+					"AgencyId": {
+						"value": "1"
+					}
+				},
+				"Addr": {
+					"AddrTypeCd": [{
+						"value": "MailingAddress"
+					}],
+					"Addr1": {
+						"value": "6161 Test Blvd"
+					},
+					"City": {
+						"value": "Citrus Heights"
+					},
+					"StateProvCd": {
+						"value": "CA"
+					},
+					"PostalCode": {
+						"value": "95610"
+					}
+				},
+				"id": "L1"
+			}],
+			"WorkCompLineBusiness": {
+				"LOBCd": {
+					"value": "WORK"
+				},
+				"CurrentTermAmt": {
+					"Amt": {
+						"value": 10000
+					}
+				},
+				"com.cna_PremiumTypeCd": {
+					"value": "EST"
+				},
+				"com.cna_AnniversaryRatingDt": {
+					"value": "2020-09-27"
+				},
+				"WorkCompRateState": [{
+					"StateProvCd": {
+						"value": "CA"
+					},
+					"WorkCompLocInfo": [{
+						"NumEmployees": {
+							"value": 4
+						},
+						"WorkCompRateClass": [{
+							"RatingClassificationCd": {
+								"value": "8008A"
+							},
+							"Exposure": "66000",
+							"RatingClassificationDescCd": {
+								"value": "STORES-CLOTHING/DRY GOODS-RETAIL"
+							}
+						}],
+						"LocationRef": "L1",
+						"NameInfoRef": "N001"
+					}],
+					"GoverningClassCd": {
+						"value": "8008"
+					}
+				}],
+				"CommlCoverage": [{
+					"CoverageCd": {
+						"value": "WCEL"
+					},
+					"Limit": [{
+							"FormatInteger": {
+								"value": 1000000
+							},
+							"LimitAppliesToCd": [{
+								"value": "BIEachOcc"
+							}]
+						},
+						{
+							"FormatInteger": {
+								"value": 1000000
+							},
+							"LimitAppliesToCd": [{
+								"value": "DisPol"
+							}]
+						},
+						{
+							"FormatInteger": {
+								"value": 1000000
+							},
+							"LimitAppliesToCd": [{
+								"value": "DisEachEmpl"
+							}]
+						}
+					]
+				}],
+				"QuestionAnswer": [{
+						"QuestionCd": {
+							"value": "WORK06"
+						},
+						"YesNoCd": {
+							"value": "NO"
+						}
+					},
+					{
+						"QuestionCd": {
+							"value": "WORK21439"
+						},
+						"YesNoCd": {
+							"value": "NO"
+						}
+					},
+					{
+						"QuestionCd": {
+							"value": "WORK21442"
+						},
+						"YesNoCd": {
+							"value": "NO"
+						}
+					},
+					{
+						"QuestionCd": {
+							"value": "WORK21443"
+						},
+						"YesNoCd": {
+							"value": "YES"
+						}
+					},
+					{
+						"QuestionCd": {
+							"value": "WORK21444"
+						},
+						"YesNoCd": {
+							"value": "YES"
+						}
+					},
+					{
+						"QuestionCd": {
+							"value": "WORK21445"
+						},
+						"YesNoCd": {
+							"value": "YES"
+						}
+					},
+					{
+						"QuestionCd": {
+							"value": "WORK21446"
+						},
+						"YesNoCd": {
+							"value": "YES"
+						}
+					},
+					{
+						"QuestionCd": {
+							"value": "WORK21447"
+						},
+						"YesNoCd": {
+							"value": "YES"
+						}
+					},
+					{
+						"QuestionCd": {
+							"value": "WORK21448"
+						},
+						"YesNoCd": {
+							"value": "YES"
+						}
+					},
+					{
+						"QuestionCd": {
+							"value": "WORK21449"
+						},
+						"YesNoCd": {
+							"value": "YES"
+						}
+					},
+					{
+						"QuestionCd": {
+							"value": "WORK21450"
+						},
+						"YesNoCd": {
+							"value": "YES"
+						}
+					},
+					{
+						"QuestionCd": {
+							"value": "WORK21451"
+						},
+						"YesNoCd": {
+							"value": "YES"
+						}
+					},
+					{
+						"QuestionCd": {
+							"value": "com.cna_WORK20295"
+						},
+						"YesNoCd": {
+							"value": "YES"
+						}
+					}
+				]
+			}
+		}]
+	}]
+}

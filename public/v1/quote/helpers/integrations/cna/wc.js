@@ -1,5 +1,12 @@
+/* eslint-disable space-before-function-paren */
+/* eslint-disable no-trailing-spaces */
+/* eslint-disable eol-last */
+/* eslint-disable function-paren-newline */
+/* eslint-disable no-console */
 /* eslint indent: 0 */
 /* eslint multiline-comment-style: 0 */
+const axios = require('axios');
+const util = require('util');
 
 /**
  * Workers' Comp Integration for CNA
@@ -9,26 +16,232 @@
 
 const Integration = require('../Integration.js');
 
+/*
+ * Quote URL
+ *  Required Headers: 
+ *  branch-producer-cd - combination of branch code and producer code (test: 010000000)
+ *  agentId - (test: TEST19)
+ *  Content-Type - application/json
+ *  Accept - application/json
+*/
+const HOST = 'https://drt-apis.cna.com';
+const QUOTE_URL = '/policy/small-business/full-quote';
+const AUTH_URL = 'security/external-token/small-business';
+
+const LIMIT_CODES = [
+    'BlEachOcc',
+    'DisPol',
+    'DisEachEmpl'
+];
+
 module.exports = class CnaWC extends Integration {
 
 	/**
-	 * Requests a quote from Employers and returns. This request is not intended to be called directly.
+	 * Requests a quote from Employers. This request is not intended to be called directly.
 	 *
-	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
+	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an error if rejected
 	 */
     async _insurer_quote() {
-        console.log("---------------- DEBUG ----------------");
-        console.log("WE GOT HERE");  
-        console.log(this.app);
-        console.log(this.get_question_details());
-        console.log(this.determine_question_answer());
-        console.log(this.questions);
-        console.log(
-            Object.values(this.questions).forEach((question) => {
-                const questionAnswer = this.determine_question_answer(question, question.required);
-            })
-        );
-        console.log("---------------- DEBUG ----------------");
+
+        const business = this.app.business;
+        const policy = this.app.policies[0]; // currently just ['WC']
+
+        // import template WC request JSON object. Fields not set below are defaulted to values in the template
+        const wcRequest = require('./wc_request.json');
+
+        /*
+         * NOTE: Commented Lines below are defaulted from the template.
+         * They Follow the pattern: Property Path | Default Value
+        */
+
+        // API Information
+        wcRequest.SignonRq.SignonPswd.CustId.CustLoginId = "NOVUMAPI";
+        wcRequest.SignonRq.ClientApp.Org = "NOVUM";
+
+        // ====== Producer Information ======
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Producer[0].ProducerInfo.ContractNumber.value | "018297"
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Producer[0].ProducerInfo.ProducerSubCode.value | "AGT"
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Producer[0].ProducerInfo['com.cna_branchCode'][0].value | "010"
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Producer[0].ProducerInfo['com.cna_branchLabel'][0].value | "AI"
+
+        // ====== Agency API Information ======
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].ItemIdInfo.AgencyId.value | "018297-010" (reverse of producer-branch-code)
+
+        // ====== General Business Information ======
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].CommlName.CommercialName.value = business.name;
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].LegalEntityCd.value | "CP"
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].TaxIdentity[0].TaxIdTypeCd.value | "FEIN"
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].TaxIdentity[0].TaxId.value | "595976858"
+        // TODO: Determine if these are required. If not, then delete these properties unless we have a value for business.dba???
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryNameCd.value | "DBA"
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryName = business.dba;
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].SupplementaryNameInfo[0].id | "N001"
+
+        // ====== Address Information ======
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].Addr1 = `${business.mailing_address} ${business.mailing_address2}`.trim();
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].City = business.mailing_city;
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].StateProvCd = business.mailing_territory;
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].PostalCode = business.mailing_zipcode;
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].County = business.mailing_territory; // TODO: Should be full state name
+
+        // ====== Business Contact Information ======
+        // TODO: may need to be in format "+1-812-2222222"
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Communications.PhoneInfo[0].PhoneNumber = business.contacts[0].phone;
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Communications.EmailInfo[0].EmailAddr.value = business.contacts[0].email;
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Communications.WebsiteInfo[0].WebsiteURL.value = business.website;
+
+        // ====== Insured Or Principle Information ======
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].InsuredOrPrincipalInfo.InsuredOrPrincipalRoleCd[0].value | "Insured"
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].InsuredOrPrincipalInfo.BusinessInfo.SICCd.value | "55550_50" 
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].InsuredOrPrincipalInfo.BusinessInfo.NAICSCd.value | "315240"
+
+        // ====== Commercial Policy Information ======
+        const durationPeriod = policy.expiration_date.diff(policy.effective_date, 'months');
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.LOBCd.value = "WORK";
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.NAICCd.value | "448120"
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.ControllingStateProvCd.value = policy.appBusiness.primary_territory;
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.ContractTerm.EffectiveDt.value = policy.effective_date.format('YYYY-MM-DD');
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.ContractTerm.ExpirationDt.value = policy.expiration_date.format('YYYY-MM-DD');
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.ContractTerm.DurationPeriod.NumUnits.value = durationPeriod;
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.ContractTerm.DurationPeriod.UnitMeasurementCd.value = "MON";
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.NumLosses.value | 0
+        // Should properly fill this out IFF we support history of previous policies
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.OtherOrPriorPolicy[0].InsurerName.value = "None";
+
+        // ====== Supplemental Commercial Policy Information ======
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.CommlPolicySupplement.PolicyTypeCd.value | "SPC"
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.CommlPolicySupplement.LengthTimeInBusiness.NumUnits.value | 1
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.CommlPolicySupplement.OtherSafetyProgramInd.value | false
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.CommlPolicySupplement['com.cna_LengthTimeIndustyManagement'].NumUnits | {}
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.CommlPolicySupplement['com.cna_NumPowerUnitsOwned'].NumUnits.value | 0
+
+        // ====== Location Information ======
+        console.log("============ DEBUG =============");
+        console.log(business.locations);
+        console.log("============ DEBUG =============");
+        const locations = business.locations.map(location => {
+
+        });
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Location = locations;
+
+        // ====== Workers' Comp Line of Business Information ======
+        const numEmployees = policy.appBusiness.locations[0].full_time_employees + policy.appBusiness.locations[0].part_time_employees;
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.LOBCd.value = "WORK";
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.CurrentTermAmt.value | 10000
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness['com.cna_PremiumTypeCd'].value | "EST"
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness['com.cna_AnniversaryRatingDt'].value | "2020-09-27"
+
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].StateProvCd.value = business.business.mailing_territory;
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].NumEmployees.value = numEmployees;
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].RatingClassificationCd.value | "8008A"
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].RatingClassificationDescCd.value | "STORES-CLOTHING/DRY GOODS-RETAIL"
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].Exposure | "66000"
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].LocationRef | "L1"
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].NameInfoRef | "N001"
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].GoverningClassCd | "8008"
+
+        // ====== Coverage Information ======
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.CommlCoverage[0].CoverageCd.value | "WCEL"
+        if (this.policy.limits !== '') {
+            const coverageLimits = this.policy.limits.split('/');
+            coverageLimits.forEach((limit, i) => {
+                wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.CommlCoverage[0].Limit.push({
+                    FormatInteger: {
+                        value: limit
+                    },
+                    LimitAppliesToCd: [{
+                        value: LIMIT_CODES[i]
+                    }]
+                }); 
+            });
+        }
+        console.log("============ DEBUG =============");
+        console.log(wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.CommlCoverage[0].Limit);
+        console.log("============ DEBUG =============");
+
+        // ====== Questions ======
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.QuestionAnswer = this.getQuestionArray();
+
+
+
+        // authenticate with CNA before running quote
+        let jwt = await this.auth();
+        if (jwt === '') {
+            process.exit(-1);
+        }
+
+        const headers = {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${jwt.trim()}`,
+            'branch-producer-cd': '010000000',
+            'agentId': 'TEST19'
+        }
+
+        // Send JSON to the insurer
+        let quoteResult = null;
+        try {
+            console.log('sending quote');
+            //quoteResult = await this.send_json_request(HOST, QUOTE_URL, example, headers, 'POST', false);
+            quoteResult = await axios.post(`${HOST}${QUOTE_URL}`, example, headers);
+            console.log(quoteResult);
+        }
+        catch (error) {
+            log.error(`CNA Quote Endpoint Returned Error: ${util.inspect(error, false, null)}` + __location);
+            const errorString = JSON.stringify(error);
+            if (errorString.indexOf("No Carrier found for passed state and class code") > -1) {
+                this.reasons.push('CNA response with: No Carrier found for passed state and class code ');
+                return this.return_result('declined');
+            }
+            else {
+                this.reasons.push('Problem connecting to insurer CNA: ' + error);
+                return this.return_result('autodeclined');
+            }
+        }
+        return this.return_result('referred');
     }
 
+    // transform our questions into question objects array to be inserted into the WC Request Object
+    getQuestionArray() {
+        // convert question map to array
+        const questionArray = Object.values(this.questions);
+
+        // filtering questions to only those answered
+        const answeredQuestions = questionArray.filter(question => question.answer); // answer !== null
+
+        // mapping answered questions to request question objects
+        return answeredQuestions.map(question => {
+            let questionAnswerObj = {
+                QuestionCd: {
+                    value: this.question_identifiers[question.id]
+                }
+            };
+            question.type === 'Yes/No' ? 
+                questionAnswerObj.YesNoCd = { value: question.answer } :
+                questionAnswerObj['com.cna_OptionCd'] = { value: question.answer };
+
+            return questionAnswerObj;
+        });
+    }
+
+    async auth() {
+        const data = {
+            "id": "11248"
+        }
+        const headers = {
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Basic VEFMQUdBUEk6VEdhOTU4M2h3OTM3MTghIw=='
+            }
+        }
+        try {
+            // const result = await this.send_json_request(HOST, AUTH_URL, JSON.stringify(data), headers, 'POST', false);
+
+            const result = await axios.post('https://drt-apis.cna.com/security/external-token/small-business', data, headers);
+            return result.data.access_token;
+        } catch (err) {
+            log.error(`CNA API - Could Not Authorize: ${err}`);
+            return '';
+        }
+    }
 }
