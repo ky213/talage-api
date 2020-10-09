@@ -353,7 +353,7 @@ exports.parseBool = function(rawString, defaultValue) {
         let newBool = defaultValue;
         try {
             const lowerString = String(rawString).toLowerCase().trim();
-            newBool = lowerString === 'true';
+            newBool = (lowerString === 'true' || lowerString === '1');
         }
         catch (e) {
             log.error('Error converting to Boolean ' + rawString + ' error: ' + e + __location);

@@ -1076,7 +1076,7 @@ module.exports = class ApplicationModel {
             //     log.error(`Error getting agencyNetworkId, application - ${this.id} ` + err + __location)
             // }
             //Only process AF call if digalent.             
-            if(agencyNetworkId === 2){
+            if(agencyNetworkId === 2 && global.settings.ENV !== 'production'){
                 const businessInfoRequestJSON = {
                     "company_name": requestApplicationJSON.businessInfo.name
                 };

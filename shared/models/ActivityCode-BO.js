@@ -1,6 +1,5 @@
 'use strict';
 
-
 const DatabaseObject = require('./DatabaseObject.js');
 const crypt = requireShared('./services/crypt.js');
 // eslint-disable-next-line no-unused-vars
@@ -9,18 +8,18 @@ const moment = require('moment');
 const moment_timezone = require('moment-timezone');
 const { debug } = require('request');
 
-
-const tableName = 'clw_talage_industry_codes'
+const tableName = 'clw_talage_activity_codes';
 const skipCheckRequired = false;
-module.exports = class IndustryCodeBO{
+module.exports = class ActivityCodeBO{
 
     #dbTableORM = null;
+    // allowNulls = ["parent", "parent_answer"];
 
 	constructor(){
         this.id = 0;
         this.#dbTableORM = new DbTableOrm(tableName);
+        // this.#dbTableORM.allowNulls = this.allowNulls;
     }
-
 
     /**
 	 * Save Model 
@@ -55,7 +54,6 @@ module.exports = class IndustryCodeBO{
             this.updateProperty();
             this.id = this.#dbTableORM.id;
             //MongoDB
-
 
             resolve(true);
 
@@ -100,19 +98,34 @@ module.exports = class IndustryCodeBO{
         return new Promise(async (resolve, reject) => {
                 let rejected = false;
                 // Create the update query
+                let hasWhere = false;
+                let stateSet = false;
                 let sql = `
-                    select *  from ${tableName}  
+                    select * from ${tableName}  
                 `;
                 if(queryJSON){
-                    let hasWhere = false;
-                    if(queryJSON.description){
+                    if(queryJSON.include_insurers) {
+                        // TODO: HOW TO EDIT THE QUERY?
+                    }
+                    if(queryJSON.state) {
                         sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` name like ${db.escape(queryJSON.description)} `
+                        sql += ` state = ${db.escape(queryJSON.state)} `;
+                        stateSet = true;
                         hasWhere = true;
                     }
                 }
+
+                if(!stateSet) {
+                    sql += hasWhere ? " AND " : " WHERE ";
+                    sql += ` state >= 0 `;
+                    hasWhere = true;
+                }
+
+                // reverse the list to sort by id descending by default
+                sql += " GROUP BY id DESC"
+
                 // Run the query
-                log.debug("IndustryCodeBO getlist sql: " + sql);
+                log.debug("ActivityCodeBO getlist sql: " + sql);
                 const result = await db.query(sql).catch(function (error) {
                     // Check if this was
                     
@@ -126,16 +139,16 @@ module.exports = class IndustryCodeBO{
                 let boList = [];
                 if(result && result.length > 0 ){
                     for(let i=0; i < result.length; i++ ){
-                        let industryCodeBO = new IndustryCodeBO();
-                        await industryCodeBO.#dbTableORM.decryptFields(result[i]);
-                        await industryCodeBO.#dbTableORM.convertJSONColumns(result[i]);
-                        const resp = await industryCodeBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                        let activityCodeBO = new ActivityCodeBO();
+                        await activityCodeBO.#dbTableORM.decryptFields(result[i]);
+                        await activityCodeBO.#dbTableORM.convertJSONColumns(result[i]);
+                        const resp = await activityCodeBO.loadORM(result[i], skipCheckRequired).catch(function(err){
                             log.error(`getList error loading object: ` + err + __location);
                         })
                         if(!resp){
                             log.debug("Bad BO load" + __location)
                         }
-                        boList.push(industryCodeBO);
+                        boList.push(activityCodeBO);
                     }
                     resolve(boList);
                 }
@@ -143,8 +156,6 @@ module.exports = class IndustryCodeBO{
                     //Search so no hits ok.
                     resolve([]);
                 }
-               
-            
         });
     }
 
@@ -157,6 +168,7 @@ module.exports = class IndustryCodeBO{
                     reject(err);
                     return;
                 });
+                this.updateProperty();
                 resolve(this.#dbTableORM.cleanJSON());
             }
             else {
@@ -210,19 +222,17 @@ module.exports = class IndustryCodeBO{
         return true;
     }
 
-    
     /*****************************
      *   For administration site
      * 
      ***************************/
-   
     async getSelectionList(){
         
         let rejected = false;
         let responseLandingPageJSON = {};
         let reject  = false;
         const sql = `select id, name, logo  
-            from clw_talage_industry_codes
+            from clw_talage_activity_codes
             where state > 0
             order by name`
         const result = await db.query(sql).catch(function (error) {
@@ -236,9 +246,7 @@ module.exports = class IndustryCodeBO{
         else {
             return [];
         }
-       
     }
-   
 }
 
 const properties = {
@@ -260,24 +268,6 @@ const properties = {
         "type": "number",
         "dbType": "tinyint(1)"
     },
-    "featured": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "category": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
     "description": {
         "default": "",
         "encrypted": false,
@@ -285,52 +275,7 @@ const properties = {
         "required": true,
         "rules": null,
         "type": "string",
-        "dbType": "varchar(100)"
-    },
-    "cgl": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "mediumint(5) unsigned"
-    },
-    "sic": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "smallint(4) unsigned"
-    },
-    "naics": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "mediumint(6) unsigned"
-    },
-    "iso": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(10) unsigned"
-    },
-    "hiscox": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(3)"
+        "dbType": "varchar(150)"
     },
     "created": {
         "default": null,
@@ -393,7 +338,7 @@ const properties = {
         "required": true,
         "rules": null,
         "type": "number",
-        "dbType": "int(11) unsigned"
+        "dbType": "int(11)"
     },
     "checked_out_time": {
         "default": null,
@@ -407,9 +352,7 @@ const properties = {
 }
 
 class DbTableOrm extends DatabaseObject {
-
 	constructor(tableName){
 		super(tableName, properties);
 	}
-
 }
