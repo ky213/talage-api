@@ -1025,7 +1025,7 @@ module.exports = class ApplicationModel {
             let rejected = false;
 
             let sql = `
-            select agency_network from clw_talage_applications a
+            select ag.agency_network from clw_talage_applications a
             inner join clw_talage_agencies ag on ag.id = a.agency
             where a.id = ${db.escape(id)}
             `;
