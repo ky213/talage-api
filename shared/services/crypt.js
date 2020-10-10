@@ -141,11 +141,19 @@ exports.decrypt = function(val) {
 
         // Send a request to the encryption service
         let hadError = false;
-        const result = await decryptInternal(val).catch(function(err) {
+        let result = '';
+        try{
+            result = decryptInternal(val)
+        }
+        catch(err){
             log.error('decrypt err ' + err + __location)
             hadError = true;
-            resolve(false);
-        });
+        }
+        // const result = await decryptInternal(val).catch(function(err) {
+        //     log.error('decrypt err ' + err + __location)
+        //     hadError = true;
+        //     resolve(false);
+        // });
         if (hadError) {
             return;
         }
@@ -156,12 +164,56 @@ exports.decrypt = function(val) {
 };
 
 /**
+ * Decrypts a value. Must be called synchronously using 'await.'
+ *
+ * @param {string} val - The encrypted value
+ * @return {Promise.<string, boolean>} - The decrypted value on success, false otherwise
+ */
+exports.decryptSync = function(val) {
+    // If this is a buffer, convert it to a string
+    if(!val){
+        return null;
+    }
+
+    if (Buffer.isBuffer(val)) {
+        val = val.toString();
+    }
+
+    // Make sure this is a string and that it is not empty
+    if (typeof val !== 'string' || val === '') {
+        return false;
+    }
+
+    // Send a request to the encryption service
+    let hadError = false;
+    let result = '';
+    try{
+        result = decryptInternal(val)
+    }
+    catch(err){
+        log.error('decrypt err ' + err + __location)
+        hadError = true;
+    }
+    // const result = await decryptInternal(val).catch(function(err) {
+    //     log.error('decrypt err ' + err + __location)
+    //     hadError = true;
+    //     resolve(false);
+    // });
+    if (hadError) {
+        return;
+    }
+
+    // Return the decrypted result
+    return result;
+};
+
+/**
  * Decrypts a value
  *
  * @param {string} val - The encrypted value
  * @returns {mixed} - The decrypted value on success, false otherwise
  */
-var decryptInternal = async function(val) {
+var decryptInternal = function(val) {
     if (!val) {
         return val;
     }

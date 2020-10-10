@@ -99,6 +99,8 @@ exports.process = async function(requestJSON) {
             'state_abbr': state_abbr
         };
         requestJSON.businessInfo.locations = locationsList;
+        //for mongoose model
+        requestJSON.locations = locationsList;
         requestJSON.businessInfo.territories = territories;
         //application info
 
@@ -113,13 +115,14 @@ exports.process = async function(requestJSON) {
         }
         requestJSON.territories = territories;
         requestJSON.total_payroll = total_payroll;
+        requestJSON.totalPayroll = total_payroll;
         requestJSON.city = city;
         requestJSON.state_abbr = state_abbr;
         requestJSON.zip = zip;
         requestJSON.zipcode = zip;
 
         delete requestJSON.mailing;
-        delete requestJSON.locations;
+       // delete requestJSON.locations;
         log.debug("Location Parser requestJSON: " + JSON.stringify(requestJSON));
     }
     else {
