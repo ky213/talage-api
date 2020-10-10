@@ -15,3 +15,8 @@ mochawesome-report/
 /loadtestmysql.js
 /setAgencyNotifyTalage.js
 *.DS_Store
+/dataloadreportmartapp.js
+/add-agency-network-additionalInfo-customEmail.js
+/loadagencyportalusergroupsinmongo.js
+/pull-email-list.js
+/userGroupPermissionsAddingTalageStaff.js

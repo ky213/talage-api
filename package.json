@@ -3,6 +3,7 @@
     "version": "1.0.0",
     "description": "Talage API",
     "main": "index.js",
+    
     "scripts": {
         "serve": "node index.js",
         "dev": "nodemon --ext js,env,json,xmlt index.js",

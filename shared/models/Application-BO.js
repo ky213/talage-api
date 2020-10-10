@@ -96,7 +96,7 @@ module.exports = class ApplicationModel {
                 return;
             }
             let error = null;
-            log.debug("Beginning applicationJSON: " + JSON.stringify(applicationJSON));
+           // log.debug("Beginning applicationJSON: " + JSON.stringify(applicationJSON));
 
             const stepMap = {
                 'contact': 2,

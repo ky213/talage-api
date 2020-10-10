@@ -57,7 +57,6 @@ async function postApplication(req, res, next) {
     // Set the application progress to 'quoting'
     const applicationBO = new ApplicationBO();
     try{
-        log.debug("APPLICATION UPDATE PROGRESS - QUOTING " + __location);
         await applicationBO.updateProgress(req.body.id, "quoting");
     }
     catch(err){
@@ -95,9 +94,7 @@ async function runQuotes(application) {
     // Update the application quote progress to "complete"
     const applicationBO = new ApplicationBO();
     try{
-        log.debug(`updating progress to complete appId ${application.id} `)
         await applicationBO.updateProgress(application.id, "complete");
-        log.debug(`FINISHED updating progress to complete appId ${application.id} `)
     }
     catch(err){
         log.error(`Error update appication progress appId = ${application.id}  for complete. ` + err + __location);

@@ -18,6 +18,19 @@ exports.process = async function(requestJSON) {
     requestJSON.businessInfo.num_owners = stringFunctions.santizeNumber(requestJSON.num_owners, makeInt);
     requestJSON.owners_covered = stringFunctions.santizeNumber(requestJSON.owners_covered, makeInt);
 
+
+    if(requestJSON.owners_covered > 0){
+        if(requestJSON.activity_code && requestJSON.payroll){
+            requestJSON.owner_payroll = {}
+            requestJSON.owner_payroll.activity_code = stringFunctions.santizeNumber(requestJSON.activity_code, makeInt);
+            requestJSON.owner_payroll.payroll = stringFunctions.santizeNumber(requestJSON.payroll, makeInt);
+            requestJSON.businessInfo.owner_payroll = JSON.parse(JSON.stringify(requestJSON.owner_payroll));
+            requestJSON.owner_payroll = JSON.parse(JSON.stringify(requestJSON.owner_payroll));
+            delete requestJSON.activity_code
+            delete requestJSON.payroll
+        }
+    }
+
     if(requestJSON.owners){
         const ownersJSON = JSON.parse(requestJSON.owners);
         requestJSON.businessInfo.ownersJSON = ownersJSON;

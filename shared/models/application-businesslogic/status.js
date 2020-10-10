@@ -78,7 +78,7 @@ async function updateApplicationStatus(applicationID) {
         default:
             applicationStatus = getGenericApplicationStatus(application, quotes);
             break;
-            // Accident Fund
+        // Accident Fund
         case 2:
             applicationStatus = getAccidentFundApplicationStatus(application, quotes);
             break;
@@ -90,15 +90,15 @@ async function updateApplicationStatus(applicationID) {
     // Set the new application status
     const ApplicationBO = global.requireShared('models/Application-BO.js');
     const applicationBO = new ApplicationBO();
-    try{
+    try {
         await applicationBO.updateStatus(applicationID, applicationStatus.appStatusDesc, applicationStatus.appStatusId);
     }
-    catch(err){
+    catch (err) {
         log.error(`Error update appication status appId = ${applicationID}  ${db.escape(applicationStatus.appStatusDesc)} ` + err + __location);
     }
 
-   
-    
+
+
 
 }
 
@@ -149,60 +149,60 @@ function getGenericApplicationStatus(application, quotes) {
 
     if (application.last_step < 8) {
         //appStatusId = 0
-        return { appStatusId: 0, appStatusDesc:'incomplete'};
+        return { appStatusId: 0, appStatusDesc: 'incomplete' };
     }
     else if (application.solepro || application.wholesale) {
         //TODO separate status logic
         //appStatusId = 5
 
-        return { appStatusId: 5, appStatusDesc:'wholesale'};
+        return { appStatusId: 5, appStatusDesc: 'wholesale' };
     }
     else if (quotes.some((quote) => quote.aggregated_status === 'bound')) {
         //appStatusId = 100
         //return 'bound';
-        return { appStatusId: 90, appStatusDesc:'bound'};
+        return { appStatusId: 90, appStatusDesc: 'bound' };
     }
     else if (quotes.some((quote) => quote.aggregated_status === 'request_to_bind_referred')) {
         //appStatusId = 80
         //return 'request_to_bind_referred';
-        return { appStatusId: 80, appStatusDesc:'request_to_bind_referred'};
+        return { appStatusId: 80, appStatusDesc: 'request_to_bind_referred' };
     }
     else if (quotes.some((quote) => quote.aggregated_status === 'request_to_bind')) {
         //appStatusId = 70
         //return 'request_to_bind';
-        return { appStatusId: 70, appStatusDesc:'request_to_bind'};
+        return { appStatusId: 70, appStatusDesc: 'request_to_bind' };
     }
     else if (quotes.some((quote) => quote.aggregated_status === 'quoted')) {
         //appStatusId = 60
-       // return 'quoted';
-        return { appStatusId: 60, appStatusDesc:'quoted'};
+        // return 'quoted';
+        return { appStatusId: 60, appStatusDesc: 'quoted' };
     }
     else if (quotes.some((quote) => quote.aggregated_status === 'quoted_referred')) {
         //appStatusId = 50
         //return 'quoted_referred';
-        return { appStatusId: 50, appStatusDesc:'quoted_referred'};
+        return { appStatusId: 50, appStatusDesc: 'quoted_referred' };
     }
     else if (quotes.some((quote) => quote.aggregated_status === 'referred')) {
         //appStatusId = 40
         //return 'referred';
-        return { appStatusId: 50, appStatusDesc:'referred'};
+        return { appStatusId: 50, appStatusDesc: 'referred' };
     }
     else if (quotes.some((quote) => quote.aggregated_status === 'declined')) {
         //appStatusId = 30
-       // return 'declined';
-        return { appStatusId: 30, appStatusDesc:'declined'};
+        // return 'declined';
+        return { appStatusId: 30, appStatusDesc: 'declined' };
     }
     else if (quotes.some((quote) => quote.aggregated_status === 'error')) {
         //appStatusId = 20
-      //  return 'error';
-        return { appStatusId: 20, appStatusDesc:'error'};
+        //  return 'error';
+        return { appStatusId: 20, appStatusDesc: 'error' };
     }
-    else if(application.last_step === 8){
+    else if (application.last_step === 8) {
         //appStatusId = 10
-       // return 'questions_done';
-        return { appStatusId: 10, appStatusDesc:'questions_done'};
+        // return 'questions_done';
+        return { appStatusId: 10, appStatusDesc: 'questions_done' };
     }
-    return { appStatusId: 0, appStatusDesc:'incomplete'};
+    return { appStatusId: 0, appStatusDesc: 'incomplete' };
 }
 
 /**
@@ -218,7 +218,7 @@ function getAccidentFundApplicationStatus(application, quotes) {
     if (status === 'declined') {
         if (quotes.filter((quote) => quote.aggregated_status === 'error').length > 0) {
             //return 'error';
-            return { appStatusId: 20, appStatusDesc:'error'};
+            return { appStatusId: 20, appStatusDesc: 'error' };
         }
     }
     return status;

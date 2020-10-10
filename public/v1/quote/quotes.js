@@ -196,14 +196,17 @@ async function getQuotes(req, res, next) {
     // Retrieve if we are complete. Must be done first or we may miss quotes.
     let progress = null;
     const applicationBO = new ApplicationBO();
+    log.debug("Checkign Application progress  " + __location);
     try{
         progress = await applicationBO.getProgress(tokenPayload.applicationID);
+        log.debug("Application progress check " + progress + __location);
     }
     catch(err){
         log.error(`Error getting appication progress appId = ${req.body.id}. ` + err + __location);
     }
 
     const complete = progress !== 'quoting';
+    log.debug("Application progress status complete " + complete + __location);
 
     // Retrieve quotes newer than the last quote ID
     const sql = `
