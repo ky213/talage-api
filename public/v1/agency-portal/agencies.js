@@ -13,24 +13,24 @@ const serverHelper = require('../../../server.js');
  * @returns {void}
  */
 async function getAgencies(req, res, next){
-	let error = false;
+    let error = false;
 
-	// Get the agents that we are permitted to view
-	const agents = await auth.getAgents(req).catch(function(e){
-		error = e;
-	});
-	if (error){
-		return next(error);
-	}
+    // Get the agents that we are permitted to view
+    const agents = await auth.getAgents(req).catch(function(e){
+        error = e;
+    });
+    if (error){
+        return next(error);
+    }
 
-	// Make sure we got agents
-	if (!agents.length){
-		log.info('Bad Request: No agencies permitted');
-		return next(serverHelper.requestError('Bad Request: No agencies permitted'));
-	}
+    // Make sure we got agents
+    if (!agents.length){
+        log.info('Bad Request: No agencies permitted');
+        return next(serverHelper.requestError('Bad Request: No agencies permitted'));
+    }
 
-	// Define a query to get a list of agencies
-	const agenciesSQL = `
+    // Define a query to get a list of agencies
+    const agenciesSQL = `
 			SELECT
 				${db.quoteName('ag.id')},
 				${db.quoteName('ag.name')},
@@ -44,17 +44,17 @@ async function getAgencies(req, res, next){
 			GROUP BY ${db.quoteName('ag.id')};
 		`;
 
-	// Get the agencies from the database
-	const retAgencies = await db.query(agenciesSQL).catch(function(err){
-		log.error(err.message);
-		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-	});
+    // Get the agencies from the database
+    const retAgencies = await db.query(agenciesSQL).catch(function(err){
+        log.error(err.message);
+        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+    });
 
-	// Return the response
-	res.send(200, retAgencies);
-	return next();
+    // Return the response
+    res.send(200, retAgencies);
+    return next();
 }
 
 exports.registerEndpoint = (server, basePath) => {
-	server.addGetAuth('Get agencies', `${basePath}/agencies`, getAgencies, 'agencies', 'view');
+    server.addGetAuth('Get agencies', `${basePath}/agencies`, getAgencies, 'agencies', 'view');
 };

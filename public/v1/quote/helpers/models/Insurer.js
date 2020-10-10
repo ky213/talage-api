@@ -117,11 +117,11 @@ module.exports = class Insurer {
 
         // // Construct a query to get all of the payment plans for this insurer
         // const payment_plan_sql = `
-		// 		SELECT pp.id, pp.name, pp.description, ipp.premium_threshold
-		// 		FROM clw_talage_insurer_payment_plans AS ipp
-		// 		LEFT JOIN clw_talage_payment_plans AS pp ON pp.id = ipp.payment_plan
-		// 		WHERE ipp.insurer = ${db.escape(this.id)};
-		// 	`;
+        // 		SELECT pp.id, pp.name, pp.description, ipp.premium_threshold
+        // 		FROM clw_talage_insurer_payment_plans AS ipp
+        // 		LEFT JOIN clw_talage_payment_plans AS pp ON pp.id = ipp.payment_plan
+        // 		WHERE ipp.insurer = ${db.escape(this.id)};
+        // 	`;
         // let payment_plans = null;
         // try {
         //     payment_plans = await db.query(payment_plan_sql);
@@ -151,10 +151,10 @@ module.exports = class Insurer {
         // Construct a query to get all of the packages for this insurer
         // not used downsteam this.packages
         // const packages_sql = `
-		// 		SELECT id, description, name
-		// 		FROM clw_talage_insurer_package_types
-		// 		WHERE insurer = ${db.escape(this.id)};
-		// 	`;
+        // 		SELECT id, description, name
+        // 		FROM clw_talage_insurer_package_types
+        // 		WHERE insurer = ${db.escape(this.id)};
+        // 	`;
         // let packages = null;
         // try {
         //     packages = await db.query(packages_sql);

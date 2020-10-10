@@ -128,8 +128,8 @@ async function createAgencyLocation(req, res, next) {
     if (error) {
         return next(error);
     }
-  
-    
+
+
     // Return the response
     res.send(200, {
         'id': agencyLocationBO.id,
@@ -204,7 +204,7 @@ async function deleteAgencyLocation(req, res, next) {
         log.info('Forbidden: User is not authorized to manage this agency');
         return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
     }
-    
+
 
     const agencyLocationBO = new AgencyLocationBO();
     await agencyLocationBO.deleteSoftById(id).catch(function(err) {
@@ -365,7 +365,7 @@ async function updateAgencyLocation(req, res, next) {
     if (error) {
         return next(error);
     }
-  
+
     // //process insurers
     // // body.insurers
     // if(req.body.insurers){
@@ -380,7 +380,7 @@ async function updateAgencyLocation(req, res, next) {
     //         if (error) {
     //             return next(error);
     //         }
-            
+
     //     }
     // }
 
@@ -399,7 +399,7 @@ async function updateAgencyLocation(req, res, next) {
  * @returns {void}
  */
 async function getSelectionList(req, res, next) {
-	//log.debug('getSelectionList: ' + JSON.stringify(req.body))
+    //log.debug('getSelectionList: ' + JSON.stringify(req.body))
     let error = false;
     // Determine which permissions group to use (start with the default permission needed by an agency network)
     let permissionGroup = 'agencies';
@@ -418,44 +418,44 @@ async function getSelectionList(req, res, next) {
     }
 
 
-	// Determine the agency ID, if network id then we will have an agencyId in the query else not
-	let agencyId = parseInt(req.authentication.agents[0], 10);
-	
-	if(req.authentication.agencyNetwork){
-		    // Get the agencies that the user is permitted to manage
-			const agencies = await auth.getAgents(req).catch(function(e) {
-				log.error("auth.getAgents error " + e + __location);
-				error = e;
-			});
-			if (error) {
-				return next(error);
-			}
-			if(Object.prototype.hasOwnProperty.call(req.query, 'agencyId')){
-				agencyId = parseInt(req.query.agencyId, 10);
-			}
-		
-			// Security Check: Make sure this Agency Network has access to this Agency
-			if (!agencies.includes(agencyId)) {
-				log.info('Forbidden: User is not authorized to manage this agency');
-				return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
-			}
-	}
-	// Initialize
-	const agencyLocationBO = new AgencyLocationBO();
-    
-    let locationList = null;
-	const query = {"agency": agencyId}
-	const getChildren = true;
+    // Determine the agency ID, if network id then we will have an agencyId in the query else not
+    let agencyId = parseInt(req.authentication.agents[0], 10);
 
-	locationList = await  agencyLocationBO.getList(query, getChildren).catch(function(err){
-		log.error(err.message + __location);
-		error = err;
-		return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.')); 
-	});
-	locationList.forEach((location) => {
-		location.openTime = location.open_time;
-		location.closeTime = location.close_time;
-	});
+    if(req.authentication.agencyNetwork){
+        // Get the agencies that the user is permitted to manage
+        const agencies = await auth.getAgents(req).catch(function(e) {
+            log.error("auth.getAgents error " + e + __location);
+            error = e;
+        });
+        if (error) {
+            return next(error);
+        }
+        if(Object.prototype.hasOwnProperty.call(req.query, 'agencyId')){
+            agencyId = parseInt(req.query.agencyId, 10);
+        }
+
+        // Security Check: Make sure this Agency Network has access to this Agency
+        if (!agencies.includes(agencyId)) {
+            log.info('Forbidden: User is not authorized to manage this agency');
+            return next(serverHelper.forbiddenError('You are not authorized to manage this agency'));
+        }
+    }
+    // Initialize
+    const agencyLocationBO = new AgencyLocationBO();
+
+    let locationList = null;
+    const query = {"agency": agencyId}
+    const getChildren = true;
+
+    locationList = await agencyLocationBO.getList(query, getChildren).catch(function(err){
+        log.error(err.message + __location);
+        error = err;
+        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+    });
+    locationList.forEach((location) => {
+        location.openTime = location.open_time;
+        location.closeTime = location.close_time;
+    });
     // Send back a success response
     res.send(200, locationList);
     return next();

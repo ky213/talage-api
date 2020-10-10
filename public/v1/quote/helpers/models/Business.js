@@ -16,7 +16,7 @@ const validator = global.requireShared('./helpers/validator.js');
 const BusinessBO = global.requireShared('./models/Business-model.js');
 const BusinessContactBO = global.requireShared('./models/BusinessContact-model.js');
 const BusinessAddressBO = global.requireShared('./models/BusinessAddress-model.js');
-const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
+//const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
 
 
 module.exports = class Business {
@@ -237,7 +237,7 @@ module.exports = class Business {
                 else {
                     location.identification_number = `${location.identification_number.substr(0, 3)}-${location.identification_number.substr(3, 2)}-${location.identification_number.substr(5, 4)}`;
                 }
-               // log.debug('business location adding ' + JSON.stringify(location));
+                // log.debug('business location adding ' + JSON.stringify(location));
                 this.locations.push(location);
             }
         }
@@ -548,7 +548,7 @@ module.exports = class Business {
             if (this.mailing_zipcode) {
                 if (!validator.isZip(this.mailing_zipcode)) {
                     log.error('Invalid formatting for business: mailing_zip. Expected 5 digit format. actual zip: ' + this.mailing_zipcode + __location)
-                    reject(serverHelper.requestError('Invalid formatting for business: mailing_zip. Expected 5 digit format ' + this.mailing_zipcode ));
+                    reject(serverHelper.requestError('Invalid formatting for business: mailing_zip. Expected 5 digit format ' + this.mailing_zipcode));
                     return;
                 }
             }
