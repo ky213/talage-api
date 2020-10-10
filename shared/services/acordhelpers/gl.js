@@ -5,10 +5,10 @@ const PdfPrinter = require('pdfmake');
 const crypt = global.requireShared('./services/crypt.js');
 const moment = require('moment');
 
-const signature = require('./signature.js');
+//const signature = require('./signature.js');
 const styles = require('./document-style/acord-form-gl/styles.js');
 const pos = require('./document-style/acord-form-gl/positions.js');
-const {createLogger} = require('restify/lib/bunyan_helper');
+//const {createLogger} = require('restify/lib/bunyan_helper');
 
 exports.createGL = async function(application_id, insurer_id){
     // PREP THE PDF
@@ -119,7 +119,8 @@ exports.createGL = async function(application_id, insurer_id){
     }
 
     // Replace any null values with an empty string
-    application_data_List.forEach(row => Object.values(row).map(element => element === null ? '' : element))
+    // eslint-disable-next-line no-extra-parens
+    application_data_List.forEach(row => Object.values(row).map(element => (element === null ? '' : element)))
 
     // Check that the applicant applied for GL
     let gl_check = application_data_List.find(entry => entry.policy_type === 'GL');
@@ -247,6 +248,7 @@ exports.createGL = async function(application_id, insurer_id){
             })
         })
     }
+    // eslint-disable-next-line no-empty
     catch(e){}
 
     // Claims made
@@ -264,28 +266,28 @@ exports.createGL = async function(application_id, insurer_id){
     });
 
     // Question mapping
-    const questions = {
-        'contractors': {
-            1: 1160,
-            6: 1142,
-            7: 969,
-            '7a': 970,
-            '7b': 1045
-        },
-        'products': {
-            1: 671,
-            5: 789,
-            7: 1147,
-            8: 999
-        },
-        'general_info': {
-            2: 464,
-            3: 1145,
-            6: 997,
-            13: 1013,
-            17: 995
-        }
-    }
+    // const questions = {
+    //     'contractors': {
+    //         1: 1160,
+    //         6: 1142,
+    //         7: 969,
+    //         '7a': 970,
+    //         '7b': 1045
+    //     },
+    //     'products': {
+    //         1: 671,
+    //         5: 789,
+    //         7: 1147,
+    //         8: 999
+    //     },
+    //     'general_info': {
+    //         2: 464,
+    //         3: 1145,
+    //         6: 997,
+    //         13: 1013,
+    //         17: 995
+    //     }
+    // }
 
 
     const question_sql = `SELECT 
@@ -330,6 +332,7 @@ exports.createGL = async function(application_id, insurer_id){
 
         });
     }
+    // eslint-disable-next-line no-empty
     catch(e){}
 
     // PAGE 3

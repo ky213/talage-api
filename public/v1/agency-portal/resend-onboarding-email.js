@@ -8,7 +8,6 @@ const tracker = global.requireShared('./helpers/tracker.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 
 
-
 /**
  * Resends the onboarding email
  *
@@ -19,40 +18,40 @@ const AgencyBO = global.requireShared('models/Agency-BO.js');
  * @returns {void}
  */
 async function postResendOnboardingEmail(req, res, next){
-	// Check for data
-	if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0){
-		log.warn('No data was received');
-		return next(serverHelper.requestError('No data was received'));
-	}
+    // Check for data
+    if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0){
+        log.warn('No data was received');
+        return next(serverHelper.requestError('No data was received'));
+    }
 
-	// Log the entire request
-	log.verbose(util.inspect(req.body, false, null));
+    // Log the entire request
+    log.verbose(util.inspect(req.body, false, null));
 
-	// Make sure all information is present
-	if (!Object.prototype.hasOwnProperty.call(req.body, 'firstName') || typeof req.body.firstName !== 'string' || !req.body.firstName){
-		log.warn('firstName is required' + __location);
-		return next(serverHelper.requestError('You must enter an the First Name of the agent'));
-	}
-	if (!Object.prototype.hasOwnProperty.call(req.body, 'lastName') || typeof req.body.lastName !== 'string' || !req.body.lastName){
-		log.warn('lastName is required' + __location);
-		return next(serverHelper.requestError('You must enter an the Last Name of the agent'));
-	}
-	if (!Object.prototype.hasOwnProperty.call(req.body, 'agencyName') || typeof req.body.agencyName !== 'string' || !req.body.agencyName){
-		log.warn('agencyName is required' + __location);
-		return next(serverHelper.requestError('You must enter an Agency Name'));
-	}
-	if (!Object.prototype.hasOwnProperty.call(req.body, 'userEmail') || typeof req.body.userEmail !== 'string' || !req.body.userEmail){
-		log.warn('userEmail is required' + __location);
-		return next(serverHelper.requestError('You must enter a User Email Address'));
-	}
-	if (!Object.prototype.hasOwnProperty.call(req.body, 'slug') || typeof req.body.slug !== 'string' || !req.body.slug){
-		log.warn('slug is required' + __location);
-		return next(serverHelper.requestError('You must enter a slug'));
-	}
-	if (!Object.prototype.hasOwnProperty.call(req.body, 'userID') || typeof req.body.userID !== 'number' || !req.body.userID){
-		log.warn('userID is required' + __location);
-		return next(serverHelper.requestError('You must enter a UserID'));
-	}
+    // Make sure all information is present
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'firstName') || typeof req.body.firstName !== 'string' || !req.body.firstName){
+        log.warn('firstName is required' + __location);
+        return next(serverHelper.requestError('You must enter an the First Name of the agent'));
+    }
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'lastName') || typeof req.body.lastName !== 'string' || !req.body.lastName){
+        log.warn('lastName is required' + __location);
+        return next(serverHelper.requestError('You must enter an the Last Name of the agent'));
+    }
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'agencyName') || typeof req.body.agencyName !== 'string' || !req.body.agencyName){
+        log.warn('agencyName is required' + __location);
+        return next(serverHelper.requestError('You must enter an Agency Name'));
+    }
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'userEmail') || typeof req.body.userEmail !== 'string' || !req.body.userEmail){
+        log.warn('userEmail is required' + __location);
+        return next(serverHelper.requestError('You must enter a User Email Address'));
+    }
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'slug') || typeof req.body.slug !== 'string' || !req.body.slug){
+        log.warn('slug is required' + __location);
+        return next(serverHelper.requestError('You must enter a slug'));
+    }
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'userID') || typeof req.body.userID !== 'number' || !req.body.userID){
+        log.warn('userID is required' + __location);
+        return next(serverHelper.requestError('You must enter a UserID'));
+    }
 
 
     // Need AgencyNetworkId for sendOnboardingEmail. - broken before 7/12/2020.
@@ -81,27 +80,27 @@ async function postResendOnboardingEmail(req, res, next){
     // req.authentication.agencyNetwork = false for Agency user.
     //const onboardingEmailResponse = await sendOnboardingEmail(req.authentication.agencyNetwork,
 
-	const onboardingEmailResponse = await sendOnboardingEmail(agencyNetwork,
-		req.body.userID,
-		req.body.firstName,
-		req.body.lastName,
-		req.body.agencyName,
-		req.body.slug,
-		req.body.userEmail);
+    const onboardingEmailResponse = await sendOnboardingEmail(agencyNetwork,
+        req.body.userID,
+        req.body.firstName,
+        req.body.lastName,
+        req.body.agencyName,
+        req.body.slug,
+        req.body.userEmail);
 
-	if (onboardingEmailResponse){
-		return next(serverHelper.internalError(onboardingEmailResponse));
-	}
+    if (onboardingEmailResponse){
+        return next(serverHelper.internalError(onboardingEmailResponse));
+    }
 
-	// Return the response
-	res.send(200, {
-		"code": 'Success',
-		"message": 'Email sent'
-	});
-	return next();
+    // Return the response
+    res.send(200, {
+        "code": 'Success',
+        "message": 'Email sent'
+    });
+    return next();
 }
 
 exports.registerEndpoint = (server, basePath) => {
-	server.addPostAuth('Resend Onboarding Email', `${basePath}/resend-onboarding-email`, postResendOnboardingEmail, 'agencies', 'view');
-	server.addPostAuth('Resend Onboarding Email (depr)', `${basePath}/resendOnboardingEmail`, postResendOnboardingEmail, 'agencies', 'view');
+    server.addPostAuth('Resend Onboarding Email', `${basePath}/resend-onboarding-email`, postResendOnboardingEmail, 'agencies', 'view');
+    server.addPostAuth('Resend Onboarding Email (depr)', `${basePath}/resendOnboardingEmail`, postResendOnboardingEmail, 'agencies', 'view');
 };

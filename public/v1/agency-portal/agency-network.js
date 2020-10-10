@@ -1,3 +1,4 @@
+/* eslint-disable no-loop-func */
 /* eslint-disable prefer-const */
 /* eslint-disable array-element-newline */
 'use strict';
@@ -6,6 +7,7 @@ const serverHelper = global.requireRootPath('server.js');
 //const auth = require('./helpers/auth.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const InsurerPolicyTypeBO = global.requireShared('./models/InsurerPolicyType-BO.js');
+
 /**
  * Returns the record for a single Agency Network
  *
@@ -59,6 +61,7 @@ async function getAgencyNetwork(req, res, next) {
         return next(serverHelper.notFoundError('Agency Network not found'));
     }
 }
+
 /**
  * Retrieves the list of insurers, their logo, name, agencyId, agentId, polityTypes, and territoires
  *
@@ -69,20 +72,20 @@ async function getAgencyNetwork(req, res, next) {
  * @returns {void}
  */
 async function getAgencyNetworkInsurersList(req, res, next) {
-	// makesure agency network info avail
-	let error = false;
-	const agencyNetworkId = stringFunctions.santizeNumber(req.params.id, true);
-	if (!agencyNetworkId) {
-		return next(new Error("bad parameter"));
-	}
+    // makesure agency network info avail
+    let error = false;
+    const agencyNetworkId = stringFunctions.santizeNumber(req.params.id, true);
+    if (!agencyNetworkId) {
+        return next(new Error("bad parameter"));
+    }
 
-    const  authAgencyNetwork = req.authentication.agencyNetwork;
+    const authAgencyNetwork = req.authentication.agencyNetwork;
     if (authAgencyNetwork) {
         // agency network user.
         // check request matches rights.
         if (authAgencyNetwork !== agencyNetworkId) {
-			res.send(403);
-			log.error(`Error, the agency network id passed and one retrieved from auth do not match.`);
+            res.send(403);
+            log.error(`Error, the agency network id passed and one retrieved from auth do not match.`);
             return next(serverHelper.forbiddenError('Do Not have Permissions'));
         }
     }
@@ -94,7 +97,7 @@ async function getAgencyNetworkInsurersList(req, res, next) {
             return next(serverHelper.forbiddenError('Do Not have Permissions'));
         }
     }
-	const networkInsurersSQL = `
+    const networkInsurersSQL = `
 		SELECT
 			i.id,
 			i.logo,
@@ -115,56 +118,52 @@ async function getAgencyNetworkInsurersList(req, res, next) {
 		GROUP BY i.id
 		ORDER BY i.name ASC;
 	`;
-	const networkInsurers = await db.query(networkInsurersSQL).catch(function(err){
+    const networkInsurers = await db.query(networkInsurersSQL).catch(function(err){
         log.error('DB query failed: ' + err.message + __location);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-	});
+    });
 
-	    // Convert the network insurer territory data into an array
-		networkInsurers.map(function(networkInsurer) {
-			if(networkInsurer.territories){
-				networkInsurer.territories = networkInsurer.territories.split(',');
-			}
-			return networkInsurer;
-		});
-		// For each network insurer grab the policy_types
-		for (let i = 0; i < networkInsurers.length; i++) {
-			const insurer = networkInsurers[i];
-			// Grab all of the policy type and accord support for a given insurer
-			const policyTypeBO = new InsurerPolicyTypeBO();
-			const insurerId = insurer.id;
-			const queryJSON = {
-				insurer: insurerId
-			}
-			let policyTypesList = null;
-			policyTypesList = await policyTypeBO.getList(queryJSON).catch(function(err) {
-				log.error("insurerPolicyTypeBO load error " + err + __location);
-				error = err;
-			});
-			if (error) {
-				return next(error);
-			}
+    // Convert the network insurer territory data into an array
+    networkInsurers.map(function(networkInsurer) {
+        if(networkInsurer.territories){
+            networkInsurer.territories = networkInsurer.territories.split(',');
+        }
+        return networkInsurer;
+    });
+    // For each network insurer grab the policy_types
+    for (let i = 0; i < networkInsurers.length; i++) {
+        const insurer = networkInsurers[i];
+        // Grab all of the policy type and accord support for a given insurer
+        const policyTypeBO = new InsurerPolicyTypeBO();
+        const insurerId = insurer.id;
+        const queryJSON = {insurer: insurerId}
+        let policyTypesList = null;
+        policyTypesList = await policyTypeBO.getList(queryJSON).catch(function(err) {
+            log.error("insurerPolicyTypeBO load error " + err + __location);
+            error = err;
+        });
+        if (error) {
+            return next(error);
+        }
 
-			// Push policy types and accord support for said policy type into an array
-			insurer.policyTypes = [];
-			policyTypesList.forEach((policyTypeObj) => {
-				let reducedPolicyTypeObj = {};
-				if(typeof policyTypeObj.policy_type !== 'undefined'){
-					reducedPolicyTypeObj.policy_type = policyTypeObj.policy_type;
-				}
-				if( typeof policyTypeObj.acord_support !== 'undefined'){
-					reducedPolicyTypeObj.acord_support = policyTypeObj.acord_support;
-				}
-				insurer.policyTypes.push(reducedPolicyTypeObj);
-			});
-		}
-		const response = {
-			"networkInsurers": networkInsurers,
-		};
-	
-		// Return the response
-		res.send(200, response);
-		return next();
+        // Push policy types and accord support for said policy type into an array
+        insurer.policyTypes = [];
+        policyTypesList.forEach((policyTypeObj) => {
+            let reducedPolicyTypeObj = {};
+            if(typeof policyTypeObj.policy_type !== 'undefined'){
+                reducedPolicyTypeObj.policy_type = policyTypeObj.policy_type;
+            }
+            if(typeof policyTypeObj.acord_support !== 'undefined'){
+                reducedPolicyTypeObj.acord_support = policyTypeObj.acord_support;
+            }
+            insurer.policyTypes.push(reducedPolicyTypeObj);
+        });
+    }
+    const response = {"networkInsurers": networkInsurers};
+
+    // Return the response
+    res.send(200, response);
+    return next();
 }
 
 /**
@@ -239,7 +238,7 @@ async function updateAgencyNetwork(req, res, next) {
 }
 
 exports.registerEndpoint = (server, basePath) => {
-	server.addGetAuth('Get AgencyNetwork', `${basePath}/agency-network/:id`, getAgencyNetwork, 'agencies', 'view');
-	server.addPutAuth('PUT AgencyNetwork', `${basePath}/agency-network/:id`, updateAgencyNetwork, 'agencies', 'manage');
-	server.addGetAuth('Get AgencyNetworkInsurers', `${basePath}/agency-network/insurers-list/:id`, getAgencyNetworkInsurersList, 'agencies', 'view');
+    server.addGetAuth('Get AgencyNetwork', `${basePath}/agency-network/:id`, getAgencyNetwork, 'agencies', 'view');
+    server.addPutAuth('PUT AgencyNetwork', `${basePath}/agency-network/:id`, updateAgencyNetwork, 'agencies', 'manage');
+    server.addGetAuth('Get AgencyNetworkInsurers', `${basePath}/agency-network/insurers-list/:id`, getAgencyNetworkInsurersList, 'agencies', 'view');
 };

@@ -1,3 +1,4 @@
+/* eslint-disable array-element-newline */
 /**
  * General Liability Integration for Hiscox
  */
@@ -23,6 +24,7 @@ const hiscoxGLTemplate = require("jsrender").templates("./public/v1/quote/helper
 // }
 
 module.exports = class HiscoxGL extends Integration {
+
     /**
      * Requests a quote from Hiscox and returns. This request is not intended to be called directly.
      *

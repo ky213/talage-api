@@ -390,12 +390,12 @@ async function getApplications(req, res, next){
         log.info('Bad Request: No agencies permitted');
         return next(serverHelper.requestError('Bad Request: No agencies permitted'));
     }
-	
+
     // Begin by only allowing applications that are not deleted from agencies that are also not deleted
     let where = `${db.quoteName('a.state')} > 0 AND ${db.quoteName('ag.state')} > 0`;
-	
-	// Filter out any agencies with do_not_report value set to true
-	where += ` AND ag.do_not_report = 0`;
+
+    // Filter out any agencies with do_not_report value set to true
+    where += ` AND ag.do_not_report = 0`;
 
     // This is a very special case. If this is the agent 'Solepro' (ID 12) asking for applications, query differently
     if(!agencyNetwork && agents[0] === 12){
@@ -455,8 +455,8 @@ async function getApplications(req, res, next){
                 where += ` OR a.id  = ${db.escape(req.params.searchText)}`;
                 where += ` OR b.mailing_zipcode LIKE ${db.escape(`${req.params.searchText}%`)}`
             }
-            
-            
+
+
         }
         where += ')';
     }
