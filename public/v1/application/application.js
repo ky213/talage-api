@@ -514,10 +514,12 @@ async function AgencyEmail(req, res, next){
  */
 async function AppInfo(req, res, next){
     const responseAppInfoJSON = {};
+    // eslint-disable-next-line array-element-newline
     const propertyToNotSend = ['id','uuid','created', 'created_by', 'modified', 'deleted', 'dba_clear','file_num','checked_out', 'checked_out_time','state','mailing_zip', 'ein']
     if(req.query && req.query.appid){
         const appId = req.query.appid
         try{
+            //TODO switch to Mongo.....
             const applicationBO = new ApplicationBO();
             const appDBJSON = await applicationBO.getById(appId);
             if(appDBJSON){
@@ -526,12 +528,14 @@ async function AppInfo(req, res, next){
                 responseAppInfoJSON.city = appDBJSON.city;
                 responseAppInfoJSON.state = appDBJSON.state_abbr;
                 responseAppInfoJSON.zip = appDBJSON.zipcode;
+                responseAppInfoJSON.entityType = appDBJSON.entity_type;
                 //get business
                 const businessBO = new BusinessBO();
+                // eslint-disable-next-line prefer-const
                 let businessDBJSON = await businessBO.getById(appDBJSON.business);
                 if(businessDBJSON){
-                    for (let i =0; i< propertyToNotSend.length; i++){
-                        if(businessDBJSON[propertyToNotSend[i]]  !== 'undefined' || businessDBJSON[propertyToNotSend[i]] === 0 && businessDBJSON[propertyToNotSend[i]] === '' ){
+                    for (let i = 0; i < propertyToNotSend.length; i++){
+                        if(businessDBJSON[propertyToNotSend[i]] !== 'undefined' || businessDBJSON[propertyToNotSend[i]] === 0 && businessDBJSON[propertyToNotSend[i]] === ''){
                             delete businessDBJSON[propertyToNotSend[i]]
                         }
                     }
@@ -544,10 +548,11 @@ async function AppInfo(req, res, next){
         catch(err){
             log.error(`AppInfo error getting app info req.query ${JSON.stringify(req.query)} ` + err + __location)
         }
-       res.send(200,responseAppInfoJSON)
-       return next();
+        res.send(200,responseAppInfoJSON)
+        return next();
     }
     else {
+        const responseObj = {};
         responseObj['error'] = true;
         responseObj['message'] = 'Invalid input received.';
         res.send(400, responseObj);
