@@ -1,3 +1,4 @@
+/* eslint-disable array-element-newline */
 /* eslint-disable dot-notation */
 /* eslint-disable no-case-declarations */
 /**
@@ -19,7 +20,8 @@ const ownerStepParser = require('./parsers/owner-step-parser.js')
 const detailStepParser = require('./parsers/detail-step-parser.js')
 const claimStepParser = require('./parsers/claim-step-parser.js')
 const questionStepParser = require('./parsers/question-step-parser.js')
-const bindStepParser = require('./parsers/bindrequest-step-parse.js')
+const bindStepParser = require('./parsers/bindrequest-step-parse.js');
+const { WorkDocs } = require('aws-sdk');
 
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
@@ -155,6 +157,34 @@ async function Save(req, res, next){
                 // const token = jwt.sign(tokenPayload, global.settings.AUTH_SECRET_KEY, {expiresIn: '5m'});
                 // responseObj.demo = applicationRequestJson.demo;
                 responseObj.id = applicationModel.id;
+                //look for business data to send back.
+                try{
+                    const appDoc = applicationModel.getLoadedMongoDoc();
+                    //log.warn(JSON.stringify(appDoc));
+                    if(appDoc){
+                        const updateFields = ["entityType" , "founded", "yearsOfExp"]
+                        for(let i = 0; i < updateFields.length; i++){
+                            if(appDoc[updateFields[i]]){
+                                responseObj[updateFields[i]] = appDoc[updateFields[i]]
+                            }
+                        }
+                        //any deeper properties....
+                        if(appDoc.locations && appDoc.locations.length > 0){
+                            if(appDoc.locations[0].full_time_employees && appDoc.locations[0].full_time_employees > 0){
+                                responseObj.full_time_employees = appDoc.locations[0].full_time_employees;
+                            }
+                        }
+                    }
+                    else {
+                        log.warn(`no mongo doc for this application after save ${applicationModel.id}` + __location);
+                        log.warn(JSON.stringify(appDoc));
+                    }
+                }
+                catch(err){
+                    log.error("Error retreiving getLoadedMongoDoc " + err + __location);
+                }
+
+
                 responseObj.message = "saved";
                 //associations
                 res.send(200, responseObj);
