@@ -15,6 +15,7 @@ const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const QuestionBO = global.requireShared('./models/Question-BO.js');
 const QuestionAnswerBO = global.requireShared('./models/QuestionAnswer-BO.js');
 const QuestionTypeBO = global.requireShared('./models/QuestionType-BO.js');
+const MappingBO = global.requireShared('./models/Mapping-BO.js');
 
 const QuoteModel = require('./Quote-model.js');
 const taskWholesaleAppEmail = global.requireRootPath('tasksystem/task-wholesaleapplicationemail.js');
@@ -1582,9 +1583,55 @@ module.exports = class ApplicationModel {
             //validate
             if(id ){
                 const query = {"applicationId": id, active: true};
+                let applicationDoc = null;
+                try {
+                    applicationDoc = await Application.findOne(query, '-__v');
+                }
+                catch (err) {
+                    log.error("Getting Application error " + err + __location);
+                    reject(err);
+                }
+                resolve(applicationDoc);
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
+     loadfromMongoBymysqlId(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id ){
+                const query = {"mysqlId": id, active: true};
+                let applicationDoc = null;
+                try {
+                    applicationDoc = await Application.findOne(query, '-__v');
+                }
+                catch (err) {
+                    log.error("Getting Application error " + err + __location);
+                    reject(err);
+                }
+                resolve(applicationDoc);
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
+
+    getfromMongoByAppId(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id ){
+                const query = {"applicationId": id, active: true};
                 let appllicationDoc = null;
                 try {
-                    appllicationDoc = await Application.findOne(query, '-__v');
+                    let docDB = await Application.findOne(query, '-__v');
+                    if(docDB){
+                        appllicationDoc = mongoUtils.objCleanup(docDB);
+                    }
                 }
                 catch (err) {
                     log.error("Getting Application error " + err + __location);
@@ -1599,11 +1646,11 @@ module.exports = class ApplicationModel {
     }
 
 
-    getfromMongoByAppId(id) {
+    getfromMongoBymysqlId(id) {
         return new Promise(async (resolve, reject) => {
             //validate
             if(id ){
-                const query = {"applicationId": id, active: true};
+                const query = {"mysqlId": id, active: true};
                 let appllicationDoc = null;
                 try {
                     let docDB = await Application.findOne(query, '-__v');
@@ -1778,6 +1825,146 @@ module.exports = class ApplicationModel {
     // copyToMongo(id){
 
     // }
+
+    /***********************************
+     *   Question processing 
+     * 
+     * 
+     ***********************************/
+
+    async GetQuestionsForFrontend(appId, activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden = false){
+
+        log.debug("in AppBO.GetQuestionsForFrontend")
+        //Call questions.......
+        const questionSvc = global.requireShared('./services/questionsvc.js');
+        let getQuestionsResult = null;
+        try{
+            getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden);
+        }
+        catch(err){
+            log.error("Error call in question service " + err + __location);
+            throw new Error('An error occured while retrieving application questions. ' + err);
+        }
+        if(!getQuestionsResult){
+            log.error("No questions returned from question service " + __location);
+            throw new Error('An error occured while retrieving application questions.');
+            
+        }
+        
+        let applicationDoc = null;
+        try{
+            applicationDoc = await this.loadfromMongoBymysqlId(appId);
+        }
+        catch(err){
+            log.error("error calling loadfromMongoByAppId " + err +__location);
+        }
+        
+        //question answers from AF business data.
+        if(applicationDoc && applicationDoc.businessDataJSON && applicationDoc.businessDataJSON.afBusinessData 
+            && applicationDoc.businessDataJSON.afBusinessData.afgPreFill
+            && applicationDoc.businessDataJSON.afBusinessData.afgPreFill.company){
+
+            const afBusinessDataCompany = applicationDoc.businessDataJSON.afBusinessData.afgPreFill.company;
+
+            //Get mappings.
+            const mappingBO = new MappingBO();
+            let mappingJSON = null;
+            const mappingName = 'AFConvrDataMapp';
+            try{
+                const mappingDoc = await mappingBO.getByName(mappingName)
+                mappingJSON = mappingDoc.mapping;
+            }
+            catch(err){
+                log.error('Error getting AFConvrDataMapp Mapping ' + err +__location)
+            }
+            if(mappingJSON){
+                //get AF questions   
+                const compWestId = 12;
+                const sql = `select * 
+                                from clw_talage_insurer_questions 
+                                where insurer = ${compWestId}
+                        `;
+                let compWestQuestionList = null;
+                try{
+                    compWestQuestionList = await db.query(sql);
+                }
+                catch(err){
+                    log.error("Error get compWestQuestionList " + err + __location);
+                }
+                if(compWestQuestionList){
+                    let gotHit = false;
+                    let madeChange = false;
+                    //Limited data returned from AFBusiness Data api.  
+                    // so only process non null for question lookup.
+                    for (const businessDataProp in afBusinessDataCompany){
+                        try{
+                            if(afBusinessDataCompany[businessDataProp] || afBusinessDataCompany[businessDataProp] === false){
+                                //find in mapping
+                                let mapping = mappingJSON.find(mapping => mapping.afJsonTag === businessDataProp);
+                                if(mapping){
+                                    // log.debug(`Mapping for AF tag ${businessDataProp}`)
+                                    //find in compWestQuestionList
+                                    let compWestQuestion = compWestQuestionList.find(compWestQuestion => mapping.afgIndicator === compWestQuestion.identifier);
+                                    if(compWestQuestion){
+                                        //find in getQuestionsResult
+                                        let question = getQuestionsResult.find(question => compWestQuestion.question === question.id);
+                                        if(question && question.type === "Yes/No" && question.answers){
+                                            gotHit = true;
+                                            log.debug(`Mapped ${mapping.afJsonTag} questionId ${question.id} AF Data value ${afBusinessDataCompany[businessDataProp]}`)
+                                            const defaultAnswer = afBusinessDataCompany[businessDataProp] ? "Yes" : "No";
+                                            for(let i=0; i < question.answers.length; i++) {
+                                                let answerJSON = question.answers[i];
+                                                if(answerJSON.answer === defaultAnswer){
+                                                    if(!answerJSON.default){
+                                                        madeChange = true;
+                                                        answerJSON.default = true;
+                                                        log.info(`AF Data: appId ${appId} ${compWestQuestion.identifier} ${mapping.afJsonTag} Change question ${question.id} to ${answerJSON.answer}`)
+                                                    }
+                                                }
+                                                else {
+                                                    if(answerJSON.default){
+                                                        delete answerJSON.default;
+                                                    }
+                                                }
+                                            }
+                                            if(madeChange === false){
+                                                log.info(`NO CHANGE - AF Data: appId ${appId} ${compWestQuestion.identifier} ${mapping.afJsonTag} for question ${question.id} default ${defaultAnswer}`)
+                                            }
+                                        }
+                                        else {
+                                           // log.debug(`No Talage YES/NO question with answers for ${compWestQuestion.identifier} insurer question ${compWestQuestion.id} talage questionId ${compWestQuestion.question} ${compWestQuestion.text}`)    
+                                        }
+                                    }
+                                    else {
+                                        log.debug(`No compWestQuestion question with answers for ${businessDataProp} insurer question identifier ${mapping.afgIndicatora}`)
+                                    }
+                                } 
+                                // else {
+                                //     log.debug(`No Mapping for AF tag ${businessDataProp} `)
+                                // }
+                            }
+                        }
+                        catch(err){
+                            log.error(`Error mapping AF business data appId ${appId}` + err + __location )
+                        }
+                    }
+                }
+                else {
+                    log.error(`Error No CompWest Questions ` + __location )    
+                }
+            }
+            else{
+                log.error(`Error mapping AF business data Mapping ` + __location )
+            }
+        }
+        else {
+            //non-AF applications will not have data.
+            log.debug(`No AF business data for appId ${appId}` + __location )
+        }
+
+        return getQuestionsResult;
+
+    }
 }
 
 const properties = {
