@@ -35,7 +35,7 @@ module.exports = class BusinessBO{
                 reject(new Error("empty business object given"));
             }
             await this.cleanupInput(businessJSON);
-            log.debug("businessJSON: " + JSON.stringify(businessJSON));
+            // log.debug("businessJSON: " + JSON.stringify(businessJSON));
 
              //Populate Clear version of encrypted fields.
              for(var i=0;i < hashFields.length; i++){

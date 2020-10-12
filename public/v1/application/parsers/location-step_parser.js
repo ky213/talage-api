@@ -122,8 +122,8 @@ exports.process = async function(requestJSON) {
         requestJSON.zipcode = zip;
 
         delete requestJSON.mailing;
-       // delete requestJSON.locations;
-        log.debug("Location Parser requestJSON: " + JSON.stringify(requestJSON));
+        // delete requestJSON.locations;
+        // log.debug("Location Parser requestJSON: " + JSON.stringify(requestJSON));
     }
     else {
         log.error("No locations provided in location step" + __location)

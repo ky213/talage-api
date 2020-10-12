@@ -162,17 +162,25 @@ async function Save(req, res, next){
                     const appDoc = applicationModel.getLoadedMongoDoc();
                     //log.warn(JSON.stringify(appDoc));
                     if(appDoc){
-                        const updateFields = ["entityType" , "founded", "yearsOfExp"]
+                        let hasData = false;
+                        // eslint-disable-next-line prefer-const
+                        let businessData = {};
+                        const updateFields = ["entityType" , "founded", "yearsOfExp","grossSalesAmt"]
                         for(let i = 0; i < updateFields.length; i++){
                             if(appDoc[updateFields[i]]){
-                                responseObj[updateFields[i]] = appDoc[updateFields[i]]
+                                businessData[updateFields[i]] = appDoc[updateFields[i]]
+                                hasData = true;
                             }
                         }
                         //any deeper properties....
                         if(appDoc.locations && appDoc.locations.length > 0){
                             if(appDoc.locations[0].full_time_employees && appDoc.locations[0].full_time_employees > 0){
-                                responseObj.full_time_employees = appDoc.locations[0].full_time_employees;
+                                businessData.full_time_employees = appDoc.locations[0].full_time_employees;
+                                hasData = true;
                             }
+                        }
+                        if(hasData){
+                            responseObj.businessData = businessData;
                         }
                     }
                     else {
@@ -313,7 +321,7 @@ async function CheckZip(req, res, next){
             }
         }
 
-        log.debug("zipCodeBO: " + JSON.stringify(zipCodeBO.cleanJSON()))
+        // log.debug("zipCodeBO: " + JSON.stringify(zipCodeBO.cleanJSON()))
 
         // Check if we have coverage.
         const sql = `select  z.territory, t.name, t.licensed 
@@ -534,6 +542,82 @@ async function AgencyEmail(req, res, next){
 }
 
 /**
+ * GET returns questions from application 
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function GetQuestions(req, res, next){
+    log.debug("in App GetQuestions ")
+    /* ---=== Check Request Requirements ===--- */
+
+    // Check for data
+    if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
+        log.warn('Bad Request: Required data missing. Please see documentation.');
+        return next(serverHelper.requestError('Required data missing. Please see documentation.'));
+    }
+
+    //log.verbose(util.inspect(req.query));
+
+    // Make sure basic elements are present
+    if (!req.query.policy_types) {
+        log.warn('Bad Request: Missing Policy Types');
+        return next(serverHelper.requestError('You must supply one or more policy types'));
+    }
+
+    // Make sure the proper codes were supplied
+    if (req.query.policy_types.includes('BOP') || req.query.policy_types.includes('GL')) {
+        if (!req.query.industry_code) {
+            log.warn('Bad Request: Missing Industry Code');
+            return next(serverHelper.requestError('You must supply an industry code'));
+        }
+    }
+    if (req.query.policy_types.includes('WC')) {
+        if (!req.query.activity_codes) {
+            log.warn('Bad Request: Missing Activity Codes');
+            return next(serverHelper.requestError('You must supply one or more activity codes'));
+        }
+    }
+
+    // Make sure a zip code was provided
+    if (!Object.prototype.hasOwnProperty.call(req.query, 'zips') || !req.query.zips) {
+        log.warn('Bad Request: Missing Zip Codes');
+        return next(serverHelper.requestError('You must supply at least one zip code'));
+    }
+
+    // Check if we should return hidden questions also
+    let return_hidden = false;
+    if (req.query.hidden && req.query.hidden === 'true') {
+        // log.info('Returning hidden questions as well');
+        return_hidden = true;
+    }
+
+    let getQuestionsResult = null;
+    try{
+        // insurers is optional
+        const insurers = req.query.insurers ? req.query.insurers.split(',') : [];
+        const applicationBO = new ApplicationBO();
+
+        getQuestionsResult = await applicationBO.GetQuestionsForFrontend(req.query.appId, req.query.activity_codes.split(','), req.query.industry_code, req.query.zips.split(','), req.query.policy_types.split(','), insurers, return_hidden);
+    }
+    catch(error){
+        log.error("Error getting questions " + error + __location);
+        return next(serverHelper.internalError('An error occured while retrieving application questions.'));
+    }
+
+    if(!getQuestionsResult){
+        return next(serverHelper.requestError('An error occured while retrieving application questions.'));
+    }
+
+    res.send(200, getQuestionsResult);
+
+
+}
+
+/**
  * GET returns updated address and business info on App
  *
  * @param {object} req - HTTP request object
@@ -608,12 +692,14 @@ exports.registerEndpoint = (server, basePath) => {
     // server.addPost('Post Application agencyemail(depr)', `${basePath}wf/agencyemail`, AgencyEmail);
 
     // GETs for Quote App
-    server.addGet('Get Quote Engine Resources', `${basePath}/applicationwf/getresources`, GetResources)
-    server.addGet('Get Quote Engine Resources', `${basePath}wf/getresources`, GetResources)
-    server.addPost('Checkzip for Quote Engine', `${basePath}/applicationwf/checkzip`, CheckZip)
-    server.addPost('Checkzip for Quote Engine', `${basePath}wf/checkzip`, CheckZip)
-    server.addGet('GetAssociations for Quote Engine', `${basePath}/applicationwf/getassociations`, GetAssociations)
-    server.addGet('GetAssociations for Quote Engine', `${basePath}wf/getassociations`, GetAssociations)
+    server.addGetAuthAppWF('Get Quote Engine Resources', `${basePath}/applicationwf/getresources`, GetResources)
+    server.addGetAuthAppWF('Get Quote Engine Resources', `${basePath}wf/getresources`, GetResources)
+    server.addPostAuthAppWF('Checkzip for Quote Engine', `${basePath}/applicationwf/checkzip`, CheckZip)
+    server.addPostAuthAppWF('Checkzip for Quote Engine', `${basePath}wf/checkzip`, CheckZip)
+    server.addGetAuthAppWF('GetAssociations for Quote Engine', `${basePath}/applicationwf/getassociations`, GetAssociations)
+    server.addGetAuthAppWF('GetAssociations for Quote Engine', `${basePath}wf/getassociations`, GetAssociations)
+    server.addGetAuthAppWF('GetQuestions for Quote Engine', `${basePath}wf/question/v1`, GetQuestions)
+    server.addGetAuthAppWF('GetQuestions for Quote Engine', `${basePath}wf/question`, GetQuestions)
 
 };
 
