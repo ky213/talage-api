@@ -16,7 +16,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 let contactSchema = new Schema({
     email: {type: String, required: true},
-    fristName: {type: String, required: true},
+    firstName: {type: String, required: true},
     lastName: {type: String, required: true},
     phone: {type: String, required: true},
     primary: {type: Boolean, required: true, default: false }

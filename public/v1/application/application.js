@@ -633,6 +633,7 @@ async function AppInfo(req, res, next){
     if(req.query && req.query.appid){
         const appId = req.query.appid
         try{
+            //TODO switch to Mongo.....
             const applicationBO = new ApplicationBO();
             const appDBJSON = await applicationBO.getById(appId);
             if(appDBJSON){
@@ -641,6 +642,7 @@ async function AppInfo(req, res, next){
                 responseAppInfoJSON.city = appDBJSON.city;
                 responseAppInfoJSON.state = appDBJSON.state_abbr;
                 responseAppInfoJSON.zip = appDBJSON.zipcode;
+                responseAppInfoJSON.entityType = appDBJSON.entity_type;
                 //get business
                 const businessBO = new BusinessBO();
                 // eslint-disable-next-line prefer-const
