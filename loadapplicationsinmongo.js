@@ -216,7 +216,7 @@ async function processContacts(businessId, applicationJSON){
             let businessContact = businessConstactList[i]
             let contactJSON = {};
             contactJSON.email = businessContact.email;
-            contactJSON.fristName = businessContact.fname;
+            contactJSON.firstName = businessContact.fname;
             contactJSON.lastName = businessContact.lname;
             contactJSON.phone = businessContact.phone;
             contactJSON.primary = businessContact.primary;
