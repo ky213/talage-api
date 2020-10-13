@@ -7,14 +7,14 @@
 /* eslint multiline-comment-style: 0 */
 const axios = require('axios');
 const util = require('util');
+const cnaWCTemplate = require('jsrender').templates('./public/v1/quote/helpers/integrations/cna/wc_request.xmlt');
+const Integration = require('../Integration.js');
 
 /**
  * Workers' Comp Integration for CNA
  */
 
 'use strict';
-
-const Integration = require('../Integration.js');
 
 /*
  * Quote URL
@@ -28,6 +28,7 @@ const HOST = 'https://drt-apis.cna.com';
 const QUOTE_URL = '/policy/small-business/full-quote';
 const AUTH_URL = 'security/external-token/small-business';
 
+//TODO: Ensure this is the proper order
 const LIMIT_CODES = [
     'BlEachOcc',
     'DisPol',
@@ -49,14 +50,19 @@ module.exports = class CnaWC extends Integration {
         // import template WC request JSON object. Fields not set below are defaulted to values in the template
         const wcRequest = require('./wc_request.json');
 
+        // =================================================================
+        //                     FILL OUT REQUEST OBJECT
+        // =================================================================
+
         /*
          * NOTE: Commented Lines below are defaulted from the template.
          * They Follow the pattern: Property Path | Default Value
         */
 
         // API Information
-        wcRequest.SignonRq.SignonPswd.CustId.CustLoginId = "NOVUMAPI";
-        wcRequest.SignonRq.ClientApp.Org = "NOVUM";
+        wcRequest.SignonRq.SignonPswd.CustId.CustLoginId = "TALAGEAPI";
+        wcRequest.SignonRq.ClientApp.Org = "TALAGE";
+        // wcRequest.SignonRq.ClientApp.Name | "API"
 
         // ====== Producer Information ======
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Producer[0].ProducerInfo.ContractNumber.value | "018297"
@@ -116,13 +122,7 @@ module.exports = class CnaWC extends Integration {
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.CommlPolicySupplement['com.cna_NumPowerUnitsOwned'].NumUnits.value | 0
 
         // ====== Location Information ======
-        console.log("============ DEBUG =============");
-        console.log(business.locations);
-        console.log("============ DEBUG =============");
-        const locations = business.locations.map(location => {
-
-        });
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Location = locations;
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Location = this.getLocations();
 
         // ====== Workers' Comp Line of Business Information ======
         const numEmployees = policy.appBusiness.locations[0].full_time_employees + policy.appBusiness.locations[0].part_time_employees;
@@ -130,8 +130,7 @@ module.exports = class CnaWC extends Integration {
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.CurrentTermAmt.value | 10000
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness['com.cna_PremiumTypeCd'].value | "EST"
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness['com.cna_AnniversaryRatingDt'].value | "2020-09-27"
-
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].StateProvCd.value = business.business.mailing_territory;
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].StateProvCd.value = business.mailing_territory;
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].NumEmployees.value = numEmployees;
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].RatingClassificationCd.value | "8008A"
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].RatingClassificationDescCd.value | "STORES-CLOTHING/DRY GOODS-RETAIL"
@@ -142,30 +141,17 @@ module.exports = class CnaWC extends Integration {
 
         // ====== Coverage Information ======
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.CommlCoverage[0].CoverageCd.value | "WCEL"
-        if (this.policy.limits !== '') {
-            const coverageLimits = this.policy.limits.split('/');
-            coverageLimits.forEach((limit, i) => {
-                wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.CommlCoverage[0].Limit.push({
-                    FormatInteger: {
-                        value: limit
-                    },
-                    LimitAppliesToCd: [{
-                        value: LIMIT_CODES[i]
-                    }]
-                }); 
-            });
-        }
-        console.log("============ DEBUG =============");
-        console.log(wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.CommlCoverage[0].Limit);
-        console.log("============ DEBUG =============");
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.CommlCoverage[0].Limit = this.getLimits();
 
         // ====== Questions ======
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.QuestionAnswer = this.getQuestionArray();
 
-
+        // =================================================================
+        //                        START QUOTE PROCESS
+        // =================================================================
 
         // authenticate with CNA before running quote
-        let jwt = await this.auth();
+        const jwt = await this.auth();
         if (jwt === '') {
             process.exit(-1);
         }
@@ -174,31 +160,118 @@ module.exports = class CnaWC extends Integration {
             'Content-Type': 'application/json',
             'Accept': 'application/json',
             'Authorization': `Bearer ${jwt.trim()}`,
-            'branch-producer-cd': '010000000',
-            'agentId': 'TEST19'
+            'branch-producer-cd': '010018297',
+            'agentId': 'TALAGAPI'
         }
+        // ----- NEW -----
 
-        // Send JSON to the insurer
-        let quoteResult = null;
+        let xml = null;
         try {
-            console.log('sending quote');
-            //quoteResult = await this.send_json_request(HOST, QUOTE_URL, example, headers, 'POST', false);
-            quoteResult = await axios.post(`${HOST}${QUOTE_URL}`, example, headers);
-            console.log(quoteResult);
+            xml = cnaWCTemplate.render(this).replace(/\n\s*\n/g, '\n');
         }
         catch (error) {
-            log.error(`CNA Quote Endpoint Returned Error: ${util.inspect(error, false, null)}` + __location);
-            const errorString = JSON.stringify(error);
-            if (errorString.indexOf("No Carrier found for passed state and class code") > -1) {
-                this.reasons.push('CNA response with: No Carrier found for passed state and class code ');
-                return this.return_result('declined');
-            }
-            else {
-                this.reasons.push('Problem connecting to insurer CNA: ' + error);
-                return this.return_result('autodeclined');
-            }
+            return this.client_error(`Unable to create the request to send to the insurer: ${error}.`, __location);
         }
+
+        // Send the XML to the insurer
+        let result = null;
+        try {
+            result = await this.send_xml_request(host, path, xml, headers);
+        }
+        catch (error) {
+            return this.client_connection_error(__location, error);
+        }
+
+        console.log("=================== QUOTE RESULT ===================");
+        console.log(result);
+        console.log("=================== QUOTE RESULT ===================");
+
         return this.return_result('referred');
+
+        // ----- NEW -----
+
+        // // Send JSON to the insurer
+        // let quoteResult = null;
+        // try {
+        //     //quoteResult = await this.send_json_request(HOST, QUOTE_URL, example, headers, 'POST', false);
+        //     quoteResult = await axios.post(`${HOST}${QUOTE_URL}`, JSON.stringify(wcRequest), headers);
+        //     console.log("=================== QUOTE RESULT ===================");
+        //     console.log(quoteResult);
+        //     console.log("=================== QUOTE RESULT ===================");
+
+        //     // TODO: Extract CompanysQuoteNumber 
+
+        //     // look at data from PolicyStatusCd
+
+        //     // look for url param to get quote letter, otherwise hit https://drt-apis.cna.com/policy/small-business/quote-proposal-letter/8738376/options/00/proposals
+        //     // where 8738376 = policy number(?) and 00 = ???
+        // }
+        // catch (error) {
+        //     log.error(`CNA Quote Endpoint Returned Error: ${util.inspect(error.response.data.InsuranceSvcRs[0], false, null)}` + __location);
+        //     const errorString = JSON.stringify(error.response.data.InsuranceSvcRs[0]);
+        //     if (errorString.indexOf("No Carrier found for passed state and class code") > -1) {
+        //         this.reasons.push('CNA response with: No Carrier found for passed state and class code ');
+        //         return this.return_result('declined');
+        //     }
+        //     else {
+        //         this.reasons.push('Problem connecting to insurer CNA: ' + error);
+        //         return this.return_result('autodeclined');
+        //     }
+        // }
+        // return this.return_result('referred');
+    }
+
+    // transform our business locations array into location objects array to be inserted into the WC request Object
+    getLocations() {
+        // iterate over each location and transform it into a location object
+        return this.app.business.locations.map(location => {
+            return {
+                ItemIdInfo: {
+                    AgencyId: {
+                        value: this.app.agencyLocation.agencyId
+                    }
+                },
+                Addr: {
+                    AddrTypeCd: [{
+                        value: "MailingAddress"
+                    }],
+                    Addr1: {
+                        value: `${location.address} ${location.address2}`.trim()
+                    },
+                    City: {
+                        value: location.city
+                    },
+                    StateProvCd: {
+                        value: location.territory
+                    },
+                    PostalCode: {
+                        value: location.zipcode
+                    }
+                },
+                id: "L1" // What is this? 
+            }
+        });
+    }
+
+    // transform our policy limit selection into limit objects array to be inserted into the WC Request Object
+    getLimits() {
+        // split the policy limits string into individual limits array
+        const coverageLimits = this.policy.limits.split('/');
+        const limitArray = [];
+
+        // for each limit, create a limit object with the limit value and applyTo code
+        coverageLimits.forEach((limit, i) => {
+            limitArray.push({
+                FormatInteger: {
+                    value: parseInt(limit)
+                },
+                LimitAppliesToCd: [{
+                    value: LIMIT_CODES[i]
+                }]
+            }); 
+        });
+
+        return limitArray;
     }
 
     // transform our questions into question objects array to be inserted into the WC Request Object
