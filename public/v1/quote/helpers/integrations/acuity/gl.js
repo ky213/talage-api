@@ -19,19 +19,23 @@ module.exports = class AcuityGL extends Integration {
 	 */
     async _insurer_quote() {
 
+        // These are per Acuity's feedback in the QA process
+        const unreportedPayrollActivityCodes = [
+            2869 // Office Employees
+        ];
+
         // These are the limits supported by Acuity
         const carrierLimits = [
-            '100000/500000/100000',
-            '500000/500000/500000',
-            '500000/1000000/500000',
-            '1000000/1000000/1000000'
+            '1000000/1000000/1000000',
+            '1000000/2000000/1000000',
+            '1000000/2000000/2000000'
         ];
 
         // Define how legal entities are mapped for Acuity
         const entityMatrix = {
             Association: 'AS',
             Corporation: 'CP',
-            'Limited Liability Company': 'LLC',
+            'Limited Liability Company': 'LL',
             'Limited Partnership': 'LP',
             Partnership: 'PT',
             'Sole Proprietorship': 'IN'
@@ -52,6 +56,12 @@ module.exports = class AcuityGL extends Integration {
         if (!limits) {
             log.error(`Acuity (application ${this.app.id}): Could not get best limits for policy ${this.policy.type} ${this.industry_code.id} ${__location}`);
             this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
+            return this.return_result('autodeclined');
+        }
+
+        // Ensure we support this entity type
+        if (!(this.app.business.entity_type in entityMatrix)) {
+            log.error(`Acuity (application ${this.app.id}): Invalid Entity Type ${__location}`);
             return this.return_result('autodeclined');
         }
 
@@ -117,6 +127,15 @@ module.exports = class AcuityGL extends Integration {
         // </CommlName>
         // </NameInfo>
 
+        // Add full name for a sole proprietorship
+        if (this.app.business.entity_type === 'Sole Proprietorship') {
+            // <PersonName>
+            const PersonNameSP = NameInfo.ele('PersonName');
+            PersonNameSP.ele('GivenName', this.app.business.contacts[0].first_name);
+            PersonNameSP.ele('Surname', this.app.business.contacts[0].last_name);
+            // </PersonName>
+        }
+
         // <Addr>
         let Addr = GeneralPartyInfo.ele('Addr');
         Addr.ele('Addr1', '300 South Wells Ave., Suite 4');
@@ -156,10 +175,6 @@ module.exports = class AcuityGL extends Integration {
         NameInfo.ele('CommlName').ele('CommercialName', this.app.business.name);
         // </CommlName>
 
-        if (!(this.app.business.entity_type in entityMatrix)) {
-            log.error(`Acuity (application ${this.app.id}): Invalid Entity Type ${__location}`);
-            return this.return_result('autodeclined');
-        }
         NameInfo.ele('LegalEntityCd', entityMatrix[this.app.business.entity_type]);
 
         // <TaxIdentity>
@@ -467,9 +482,12 @@ module.exports = class AcuityGL extends Integration {
             if (!location.appPolicyTypeList.includes("GL") && location.activity_codes) {
                 return;
             }
-            // Calculate total payroll at this location
             let totalPayroll = 0;
             location.activity_codes.forEach((activityCode) => {
+                // Skip activity codes we shouldn't include in payroll
+                if (unreportedPayrollActivityCodes.includes(activityCode.id)) {
+                    return;
+                }
                 totalPayroll += activityCode.payroll;
             });
             if (totalPayroll === 0) {
@@ -492,6 +510,8 @@ module.exports = class AcuityGL extends Integration {
 
         // Get the XML structure as a string
         const xml = ACORD.end({pretty: true});
+
+        // console.log('request', xml);
 
         // Determine which URL to use
         let host = '';
@@ -518,7 +538,7 @@ module.exports = class AcuityGL extends Integration {
             this.reasons.push('Could not connect to the Acuity server');
             return this.return_error('error', "Could not connect to Acuity server");
         }
-        // console.log(JSON.stringify(res, null, 4));
+        // console.log('response', JSON.stringify(res, null, 4));
 
         // Check if there was an error
         if (res.errorResponse) {
@@ -540,12 +560,12 @@ module.exports = class AcuityGL extends Integration {
         // Find the PolicySummaryInfo, PolicySummaryInfo.PolicyStatusCode, and optionally the PolicySummaryInfo.FullTermAmt.Amt
         const policySummaryInfo = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.PolicySummaryInfo');
         if (!policySummaryInfo) {
-            log.error(`Acuity (application ${this.app.id}): Could not find PolicySummaryInfo: ${error} ${__location}`);
+            log.error(`Acuity (application ${this.app.id}): Could not find PolicySummaryInfo ${__location}`);
             return this.return_error('error', 'Acuity returned an unexpected reply');
         }
         const policyStatusCode = this.get_xml_child(policySummaryInfo, 'PolicyStatusCd');
         if (!policyStatusCode) {
-            log.error(`Acuity (application ${this.app.id}): Could not find PolicyStatusCode: ${error} ${__location}`);
+            log.error(`Acuity (application ${this.app.id}): Could not find PolicyStatusCode ${__location}`);
             return this.return_error('error', 'Acuity returned an unexpected reply');
         }
 
