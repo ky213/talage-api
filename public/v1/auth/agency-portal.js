@@ -9,7 +9,7 @@ const jwt = require('jsonwebtoken');
 const serverHelper = require('../../../server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const AgencyPortalUserBO = global.requireShared('./models/AgencyPortalUser-BO.js');
+//const AgencyPortalUserBO = global.requireShared('./models/AgencyPortalUser-BO.js');
 
 /**
  * Responds to get requests for an authorization token

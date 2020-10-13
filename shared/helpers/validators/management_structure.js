@@ -1,7 +1,7 @@
 'use strict';
 
 const valid_types = [
-	'manager', 'member'
+    'manager', 'member'
 ];
 
 /**
@@ -11,5 +11,5 @@ const valid_types = [
  * @returns {boolean} - True if valid, false otherwise
  */
 module.exports = function(management_structure){
-	return valid_types.includes(management_structure);
+    return valid_types.includes(management_structure);
 };

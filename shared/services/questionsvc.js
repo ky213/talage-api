@@ -1,7 +1,8 @@
+/* eslint-disable multiline-comment-style */
 'use strict'
 
-const util = require('util');
-const serverHelper = global.requireRootPath('server.js');
+//const util = require('util');
+//const serverHelper = global.requireRootPath('server.js');
 
 /**
  * @param {array} activityCodeStringArray - An array of all the activity codes in the applicaiton
@@ -76,7 +77,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
      * Validate Zip Codes
      */
 
-    const zipCodeArray = zipCodeStringArray.map(zip => (zip.replace(/[^0-9]/gi, '')))
+    const zipCodeArray = zipCodeStringArray.map(zip => zip.replace(/[^0-9]/gi, ''))
 
     // Check that the zip code is valid
     const territories = [];

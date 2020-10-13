@@ -1,9 +1,9 @@
 'use strict';
 
 const valid_deductibles = [
-	500,
-	1000,
-	1500
+    500,
+    1000,
+    1500
 ];
 
 /**
@@ -14,16 +14,16 @@ const valid_deductibles = [
  */
 module.exports = function(deductible){
 
-	// Check that we can use this type
-	if(typeof deductible !== 'string' && typeof deductible !== 'number'){
-		log.error('Deductible Validator encountered value it cannot check (must be number or string)' + __location);
-		return false;
-	}
+    // Check that we can use this type
+    if(typeof deductible !== 'string' && typeof deductible !== 'number'){
+        log.error('Deductible Validator encountered value it cannot check (must be number or string)' + __location);
+        return false;
+    }
 
-	// If this is a string, convert it to an integer before starting
-	if(typeof deductible === 'string'){
-		deductible = parseInt(deductible, 10);
-	}
+    // If this is a string, convert it to an integer before starting
+    if(typeof deductible === 'string'){
+        deductible = parseInt(deductible, 10);
+    }
 
-	return valid_deductibles.includes(deductible);
+    return valid_deductibles.includes(deductible);
 };

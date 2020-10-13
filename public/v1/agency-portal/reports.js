@@ -90,10 +90,8 @@ async function getReports(req, res, next) {
     // Begin by only allowing applications that are not deleted from agencies that are also not deleted
     let where = `${db.quoteName('a.state')} > 0 AND ${db.quoteName('ag.state')} > 0 `;
 
-    // If this is AF Group, filter out agency 42
-    if(agencyNetwork === 2){
-        where += ` AND ${db.quoteName('a.agency')} != 42`;
-    }
+    // Filter out any agencies with do_not_report value set to true
+    where += ` AND ag.do_not_report = 0`;
 
     // This is a very special case. If this is the agent 'Solepro' (ID 12) asking for applications, query differently
     if(!agencyNetwork && agents[0] === 12){

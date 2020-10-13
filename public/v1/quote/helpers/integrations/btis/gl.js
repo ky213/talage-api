@@ -123,7 +123,7 @@ module.exports = class BtisGL extends Integration {
                 return this.return_error('error', `Failed to retrieve credentials from BTIS for agency: ${this.app.agencyLocation.agency}. ` + error.message + __location);
             }
 
-            console.log(agency_credentials_response);
+            log.debug(agency_credentials_response + __location);
 
             token_request_data = JSON.stringify({
                 client_id: agency_credentials_response.client_id,

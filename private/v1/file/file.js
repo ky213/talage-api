@@ -154,13 +154,13 @@ function PutFile(req, res, next){
 
 // eslint-disable-next-line multiline-comment-style
 /*****************************************
- * 
+ *
  *  Secure Bucket medthods
- * 
- * 
+ *
+ *
  */
 
- /**
+/**
  * Responds to GET requests to return a single file
  *
  * @param {object} req - HTTP request object
