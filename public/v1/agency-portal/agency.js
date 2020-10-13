@@ -821,59 +821,53 @@ async function updateAgency(req, res, next) {
 async function postSocialMediaTags(req, res, next) {
     let error = false;
 
-    // Determine which permissions group to use (start with the default permission needed by an agency network)
-    let permissionGroup = 'agencies';
-
-    // If this is not an agency network, use the agency specific permissions
-    if (req.authentication.agencyNetwork === false) {
-        permissionGroup = 'settings';
-    }
-
-    // Make sure the authentication payload has everything we are expecting
-    await auth.validateJWT(req, permissionGroup, 'view').catch(function (e) {
-        error = e;
-    });
-    if (error) {
-        return next(error);
-    }
-
     // Check for data
-    if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
+    if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0 && !req.body.id) {
         log.warn('No data was received');
         return next(serverHelper.requestError('No data was received'));
     }
 
-    //Agency Model
-    const agencyBO = new AgencyBO();
-
-    const agencies = await agencyBO.getList().catch(function (error) {
-        log.error("error");
-        process.exit(1);
+    const agencies = await auth.getAgents(req).catch(function (e) {
+        error = e;
     });
+    const id = parseInt(req.body.id, 10);
 
-    for(let i = 0; i < agencies.length; i++) {
-        let agencyJSON = null;
-        const agency = new AgencyBO();
-        try {
-            agencyJSON = await agency.getById(agencies[i].id);
-        } catch(error) {
-            log.error("error");
-            process.exit(1);
-        }   
-        if (agencyJSON.id === req.body.id) {
-                agencyJSON.additionalInfo=[{socialMediaTags:{
-                    facebookPixel:req.body.pixelId
-                }}]
+        // Make sure this Agency Network has access to this Agency
+        if (!agencies.includes(id)) {
+            log.info('Forbidden: User is not authorized to delete this agency');
+            return next(serverHelper.forbiddenError('You are not authorized to delete this agency'));
         }
-        let result = await agency.saveModel(agencyJSON).catch(function(error) {
-            // Check if this was
-            log.error("error");
-            process.exit(1);
-        });
+
+    const agency = new AgencyBO();
+    let agencyJSON = null;
+    try {
+        agencyJSON = await agency.getById(req.body.id);
+
+    } catch (error) {
+        log.error(error + __location);
     }
 
-    res.send(200, 'socialMediaTags');
-    return next();
+    if(agencyJSON){
+
+        if (!agencyJSON.additionalInfo) {
+            agencyJSON.additionalInfo = {};
+        }
+        if (!agencyJSON.additionalInfo.socialMediaTags) {
+            agencyJSON.additionalInfo.socialMediaTags = {};
+        }
+        agencyJSON.additionalInfo.socialMediaTags.facebookPixel = req.body.pixelId;
+        
+        
+        let result = await agency.saveModel(agencyJSON).catch(function (error) {
+            log.error('Save Agency:',error, __location);
+        });
+        
+        
+        res.send(200, 'socialMediaTags');
+    }else{
+        res.send(404,'Not Found');
+    }
+        return next();
 
 }
 
