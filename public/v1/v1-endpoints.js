@@ -130,6 +130,8 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'administration', 'question-rt');
     registerEndpoint(server, 'administration', 'activity-code-rt');
     registerEndpoint(server, 'administration', 'insurer-ncci-code-rt');
+    registerEndpoint(server, 'administration', 'industry-code-rt');
+    registerEndpoint(server, 'administration', 'industry-code-association-rt');
     registerEndpoint(server, 'administration', 'insurer-question-rt');
     registerEndpoint(server, 'administration', 'question-answer-rt');
     registerEndpoint(server, 'administration', 'question-type-rt');
