@@ -71,7 +71,10 @@ async function add(req, res, next) {
     const activityCodeAssociationBO = new ActivityCodeAssociationBO();
     let error = null;
     const newRecord = true;
-    await activityCodeAssociationBO.saveModel(req.body,newRecord).catch(function(err) {
+    await activityCodeAssociationBO.saveModel({
+        insurer_code: req.body.ncciCodeId,
+        code: req.body.activityCodeId
+    }, newRecord).catch(function(err) {
         log.error("activity code association save error " + err + __location);
         error = err;
     });

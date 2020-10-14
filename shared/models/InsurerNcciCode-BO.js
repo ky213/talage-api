@@ -112,30 +112,33 @@ module.exports = class InsurerNcciCodeBO{
                                         WHERE code = ${db.escape(queryJSON.activityCode)}) `;
                         hasWhere = true;
                     }
+                    if(queryJSON.activityCodeNotLinked) {
+                        // map from the mapping table
+                        sql += hasWhere ? " AND " : " WHERE ";
+                        sql += ` id NOT IN (SELECT insurer_code 
+                                        FROM clw_talage_activity_code_associations 
+                                        WHERE code = ${db.escape(queryJSON.activityCodeNotLinked)}) `;
+                        hasWhere = true;
+                    }
                     // TODO: find a way to make this a valid sql list of ids (might just be json parse)
                     if(queryJSON.insurers) {
                         sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` insurer IN (${db.escape(JSON.stringify(queryJSON.insurers))}) `;
+                        sql += ` insurer IN (${db.escape(queryJSON.insurers)}) `;
                         hasWhere = true;
                     }
                     if(queryJSON.territory) {
                         sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` territory LIKE %${db.escape(queryJSON.territory)}% `;
+                        sql += ` territory LIKE '%${queryJSON.territory}%' `;
                         hasWhere = true;
                     }
                     if(queryJSON.code) {
                         sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` code LIKE %${db.escape(queryJSON.code)}% `;
-                        hasWhere = true;
-                    }
-                    if(queryJSON.sub) {
-                        sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` sub LIKE %${db.escape(queryJSON.sub)}% `;
+                        sql += ` code LIKE '%${queryJSON.code}%' `;
                         hasWhere = true;
                     }
                     if(queryJSON.description) {
                         sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` description LIKE %${db.escape(queryJSON.description)}% `;
+                        sql += ` description LIKE '%${queryJSON.description}%' `;
                         hasWhere = true;
                     }
                     if(queryJSON.state) {
