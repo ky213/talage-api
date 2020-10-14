@@ -233,15 +233,6 @@ ApplicationSchema.pre('validate', function (next) {
 });
 
 ApplicationSchema.pre('save', function (next) {
-    if (this.isNew) {
-         this.timestamp = moment().unix();
-    }
-    else {
-         //check timestamp is number not date.
-         if (isNaN(this.timestamp)) {
-              this.timestamp = moment().unix();
-         }
-    }
     next();
 });
 

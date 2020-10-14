@@ -1,6 +1,7 @@
 'use strict';
 
 const DatabaseObject = require('./DatabaseObject.js');
+const AgencyNetworkBO  = require('./AgencyNetwork-BO.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const fileSvc = global.requireShared('services/filesvc.js');
@@ -177,9 +178,20 @@ module.exports = class AgencyBO{
         });
     }
 
-    getList(queryJSON) {
+    getList(queryJSON, getAgencyNetwork = false){
       return new Promise(async (resolve, reject) => {
-         
+
+              let agencyNetworkList = null;
+              if(getAgencyNetwork === true){
+                const agencyNetworkBO = new AgencyNetworkBO();
+                try{
+                  agencyNetworkList = await agencyNetworkBO.getList()
+                }
+                catch(err){
+                  log.error("Error getting Agency Network List " + err + __location);
+                }
+              }
+              
               let rejected = false;
               // Create the update query
               let sql = `
@@ -216,7 +228,7 @@ module.exports = class AgencyBO{
               
              
               // Run the query
-              log.debug("AgencyLocationBO getlist sql: " + sql);
+              //log.debug("AgencyBO getlist sql: " + sql);
               const result = await db.query(sql).catch(function (error) {
                   // Check if this was
                   
@@ -239,6 +251,15 @@ module.exports = class AgencyBO{
                       if(!resp){
                           log.debug("Bad BO load" + __location)
                       }
+                      if(agencyBO.agency_network && getAgencyNetwork === true && agencyNetworkList && agencyNetworkList.length > 0 ){
+                        try{
+                          let agencyNetwork = agencyNetworkList.find(agencyNetwork => agencyNetwork.id === agencyBO.agency_network);
+                          agencyBO.agencyNetworkName = agencyNetwork.name;
+                        }
+                        catch(err){
+                          log.error("Error getting agency network name " +  err + __location);
+                        }
+                      }
                       boList.push(agencyBO);
                   }
                   resolve(boList);
@@ -251,7 +272,7 @@ module.exports = class AgencyBO{
           
       });
     }
-    getById(id) {
+    getById(id, getAgencyNetwork = false) {
         return new Promise(async (resolve, reject) => {
             //validate
             if(id && id >0 ){
@@ -260,8 +281,22 @@ module.exports = class AgencyBO{
                     reject(err);
                     return;
                 });
+
+
                 this.updateProperty();
-                resolve(this.#dbTableORM.cleanJSON());
+                let cleanObjJson = this.#dbTableORM.cleanJSON();
+                if(getAgencyNetwork === true){
+                  const agencyNetworkBO = new AgencyNetworkBO();
+                  try{
+                    const agencyNetworkJSON = await agencyNetworkBO.getById(this.agency_network);
+                    cleanObjJson.agencyNetworkName = agencyNetworkJSON.name;
+
+                  }
+                  catch(err){
+                    log.error("Error getting Agency Network List " + err + __location);
+                  }
+                }
+                resolve(cleanObjJson);
             }
             else {
                 reject(new Error('no id supplied'))
