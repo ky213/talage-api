@@ -7,7 +7,7 @@ const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
-const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
+const AgencyBO = global.requireShared('models/Agency-BO.js');
 
 /**
  * AbandonQuote Task processor
@@ -179,8 +179,8 @@ var processAbandonQuote = async function(applicationId){
     if(quotes && quotes.length > 0){
         const agencyNetwork = quotes[0].agency_network;
         let error = null;
-        const agencyNetworkBO = new AgencyNetworkBO();
-        const emailContentJSON = await agencyNetworkBO.getEmailContentAgencyAndCustomer(agencyNetwork, "abandoned_quotes_agency", "abandoned_quotes_customer").catch(function(err){
+        const agencyBO = new AgencyBO();
+        const emailContentJSON = await agencyBO.getEmailContentAgencyAndCustomer(quotes[0].agency, "abandoned_quotes_agency", "abandoned_quotes_customer").catch(function(err){
             log.error(`Email content Error Unable to get email content for abandon quote. appid: ${applicationId}.  error: ${err}` + __location);
             error = true;
         });
