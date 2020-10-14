@@ -275,50 +275,23 @@ const properties = {
         "type": "number",
         "dbType": "int(11) unsigned"
     },
-    "frequency": {
+    "code": {
         "default": 0,
         "encrypted": false,
         "hashed": false,
         "required": true,
         "rules": null,
         "type": "number",
-        "dbType": "int(3) unsigned"
+        "dbType": "int(11) unsigned"
     },
-    "industry_count": {
-        "default": null,
+    "insurer_code": {
+        "default": 0,
         "encrypted": false,
         "hashed": false,
-        "required": false,
+        "required": true,
         "rules": null,
         "type": "number",
-        "dbType": "int(6) unsigned"
-    },
-    "ncci_count": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(6) unsigned"
-    },
-    "activityCodeId": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(10) unsigned"
-    },
-    "industryCodeId": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(10) unsigned"
+        "dbType": "int(11) unsigned"
     }
 }
 
