@@ -1,6 +1,5 @@
 'use strict';
 
-
 const DatabaseObject = require('./DatabaseObject.js');
 const crypt = requireShared('./services/crypt.js');
 // eslint-disable-next-line no-unused-vars
@@ -9,18 +8,20 @@ const moment = require('moment');
 const moment_timezone = require('moment-timezone');
 const { debug } = require('request');
 
-
-const tableName = 'clw_talage_industry_codes'
+const tableName = 'clw_talage_activity_code_associations'
 const skipCheckRequired = false;
-module.exports = class IndustryCodeBO{
-
+module.exports = class ActivityCodeAssociationBO{
+    // doNotSnakeCase = ['industryCodeId', 'activityCodeId'];
     #dbTableORM = null;
+
+    // allowNulls = ["default"];
 
 	constructor(){
         this.id = 0;
         this.#dbTableORM = new DbTableOrm(tableName);
+        // this.#dbTableORM.doNotSnakeCase = this.doNotSnakeCase;
+        // this.#dbTableORM.allowNulls = this.allowNulls;
     }
-
 
     /**
 	 * Save Model 
@@ -55,7 +56,6 @@ module.exports = class IndustryCodeBO{
             this.updateProperty();
             this.id = this.#dbTableORM.id;
             //MongoDB
-
 
             resolve(true);
 
@@ -103,24 +103,18 @@ module.exports = class IndustryCodeBO{
                 let sql = `
                     select * from ${tableName}  
                 `;
+                let hasWhere = false;
                 if(queryJSON){
-                    let hasWhere = false;
-                    if(queryJSON.activityCode) {
-                        // map from the mapping table
-                        sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` id IN (SELECT industryCodeId 
-                                        FROM clw_talage_industry_code_associations 
-                                        WHERE activityCodeId = ${db.escape(queryJSON.activityCode)}) `;
-                        hasWhere = true;
-                    }
-                    if(queryJSON.description){
-                        sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` name like ${db.escape(queryJSON.description)} `
-                        hasWhere = true;
+                    
+                    if(queryJSON.state){
+                        // TODO: allow search on state
                     }
                 }
+                sql += hasWhere ? " AND " : " WHERE ";
+                sql += ` state > 0 `
+                hasWhere = true;
                 // Run the query
-                log.debug("IndustryCodeBO getlist sql: " + sql);
+                log.debug("ActivityCodeAssociationBO getlist sql: " + sql);
                 const result = await db.query(sql).catch(function (error) {
                     // Check if this was
                     
@@ -134,16 +128,16 @@ module.exports = class IndustryCodeBO{
                 let boList = [];
                 if(result && result.length > 0 ){
                     for(let i=0; i < result.length; i++ ){
-                        let industryCodeBO = new IndustryCodeBO();
-                        await industryCodeBO.#dbTableORM.decryptFields(result[i]);
-                        await industryCodeBO.#dbTableORM.convertJSONColumns(result[i]);
-                        const resp = await industryCodeBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                        let activityCodeAssociationBO = new ActivityCodeAssociationBO();
+                        await activityCodeAssociationBO.#dbTableORM.decryptFields(result[i]);
+                        await activityCodeAssociationBO.#dbTableORM.convertJSONColumns(result[i]);
+                        const resp = await activityCodeAssociationBO.loadORM(result[i], skipCheckRequired).catch(function(err){
                             log.error(`getList error loading object: ` + err + __location);
                         })
                         if(!resp){
                             log.debug("Bad BO load" + __location)
                         }
-                        boList.push(industryCodeBO);
+                        boList.push(activityCodeAssociationBO);
                     }
                     resolve(boList);
                 }
@@ -151,8 +145,6 @@ module.exports = class IndustryCodeBO{
                     //Search so no hits ok.
                     resolve([]);
                 }
-               
-            
         });
     }
 
@@ -165,10 +157,39 @@ module.exports = class IndustryCodeBO{
                     reject(err);
                     return;
                 });
+                this.updateProperty();
                 resolve(this.#dbTableORM.cleanJSON());
             }
             else {
                 reject(new Error('no id supplied'))
+            }
+        });
+    }
+
+    delete(ncciCodeId, activityCodeId) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(ncciCodeId > 0 && activityCodeId > 0){
+                //Remove old records.
+                // TODO: no state on this table?
+                const sql =`DELETE FROM ${tableName} 
+                        WHERE insurer_code = ${db.escape(ncciCodeId)}
+                        AND code = ${db.escape(activityCodeId)}
+                `;
+                let rejected = false;
+                const result = await db.query(sql).catch(function (error) {
+                    // Check if this was
+                    log.error(`Database Object ${tableName} UPDATE State error :` + error + __location);
+                    rejected = true;
+                    reject(error);
+                });
+                if (rejected) {
+                    return false;
+                }
+                resolve(true);
+            }
+            else {
+                reject(new Error('no ncciCodeId and activityCodeId supplied'))
             }
         });
     }
@@ -218,19 +239,16 @@ module.exports = class IndustryCodeBO{
         return true;
     }
 
-    
     /*****************************
      *   For administration site
      * 
      ***************************/
-   
     async getSelectionList(){
-        
         let rejected = false;
         let responseLandingPageJSON = {};
         let reject  = false;
         const sql = `select id, name, logo  
-            from clw_talage_industry_codes
+            from clw_talage_activity_code_associations
             where state > 0
             order by name`
         const result = await db.query(sql).catch(function (error) {
@@ -244,9 +262,7 @@ module.exports = class IndustryCodeBO{
         else {
             return [];
         }
-       
     }
-   
 }
 
 const properties = {
@@ -259,142 +275,7 @@ const properties = {
         "type": "number",
         "dbType": "int(11) unsigned"
     },
-    "state": {
-        "default": "1",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "featured": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "category": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "description": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(100)"
-    },
-    "cgl": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "mediumint(5) unsigned"
-    },
-    "sic": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "smallint(4) unsigned"
-    },
-    "naics": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "mediumint(6) unsigned"
-    },
-    "iso": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(10) unsigned"
-    },
-    "hiscox": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(3)"
-    },
-    "created": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "created_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "modified": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "modified_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "deleted": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "deleted_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "checked_out": {
+    "code": {
         "default": 0,
         "encrypted": false,
         "hashed": false,
@@ -403,21 +284,19 @@ const properties = {
         "type": "number",
         "dbType": "int(11) unsigned"
     },
-    "checked_out_time": {
-        "default": null,
+    "insurer_code": {
+        "default": 0,
         "encrypted": false,
         "hashed": false,
-        "required": false,
+        "required": true,
         "rules": null,
-        "type": "datetime",
-        "dbType": "datetime"
+        "type": "number",
+        "dbType": "int(11) unsigned"
     }
 }
 
 class DbTableOrm extends DatabaseObject {
-
 	constructor(tableName){
 		super(tableName, properties);
 	}
-
 }
