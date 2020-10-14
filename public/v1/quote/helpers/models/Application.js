@@ -41,9 +41,10 @@ module.exports = class Application {
 	 * Populates this object based on applicationId in the request
 	 *
 	 * @param {object} data - The application data
+     * @param {boolean} forceQuoting - if true age check is skipped.
 	 * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
 	 */
-    async load(data) {
+    async load(data, forceQuoting = false) {
         log.verbose('Loading data into Application');
         // ID
         this.id = parseInt(data.id, 10);
@@ -66,15 +67,17 @@ module.exports = class Application {
             throw new Error("Finished Application cannot be quoted")
 
         }
-        //age check - TODO add override Age parameter to allow requoting.
-        const bypassAgeCheck = global.settings.ENV === 'development' && global.settings.APPLICATION_AGE_CHECK_BYPASS === 'YES';
-        const dbCreated = moment(applicationBO.created);
-        const nowTime = moment().utc();
-        const ageInMinutes = nowTime.diff(dbCreated, 'minutes');
-        log.debug('Application age in minutes ' + ageInMinutes);
-        if(!bypassAgeCheck && ageInMinutes > 60){
-            log.warn(`Attempt to update an old application. appid ${this.id}` + __location);
-            throw new Error("Data Error: Application may not be updated do to age.");
+        //age check - add override Age parameter to allow requoting.
+        if (forceQuoting === false){
+            const bypassAgeCheck = global.settings.ENV === 'development' && global.settings.APPLICATION_AGE_CHECK_BYPASS === 'YES';
+            const dbCreated = moment(applicationBO.created);
+            const nowTime = moment().utc();
+            const ageInMinutes = nowTime.diff(dbCreated, 'minutes');
+            log.debug('Application age in minutes ' + ageInMinutes);
+            if (!bypassAgeCheck && ageInMinutes > 60) {
+                log.warn(`Attempt to update an old application. appid ${this.id}` + __location);
+                throw new Error("Data Error: Application may not be updated do to age.");
+            }
         }
         //log.debug("applicationBO: " + JSON.stringify(applicationBO));
 
