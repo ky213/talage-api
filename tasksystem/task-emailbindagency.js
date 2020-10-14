@@ -7,7 +7,7 @@ const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
-const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
+const AgencyBO = global.requireShared('models/Agency-BO.js');
 
 /**
  * AbandonQuote Task processor
@@ -138,8 +138,8 @@ var emailbindagency = async function(applicationId, quoteId) {
             //get email content.
             const agencyNetwork = applications[0].agency_network;
             let error = null;
-            const agencyNetworkBO = new AgencyNetworkBO();
-            const emailContentJSON = await agencyNetworkBO.getEmailContentAgencyAndCustomer(agencyNetwork, "policy_purchase_agency", "policy_purchase_customer").catch(function(err){
+            const agencyBO = new AgencyBO();
+            const emailContentJSON = await agencyBO.getEmailContentAgencyAndCustomer(applications[0].agencyId, "policy_purchase_agency", "policy_purchase_customer").catch(function(err){
                 log.error(`Email content Error Unable to get email content for  email bind agency. appid: ${applicationId}.  error: ${err}` + __location);
                 error = true;
             });

@@ -6,7 +6,7 @@ const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
+const AgencyBO = global.requireShared('models/Agency-BO.js');
 
 /**
  * AbandonQuote Task processor
@@ -75,7 +75,8 @@ var wholesaleApplicationEmailTask = async function(applicationId) {
             a.agency_location AS agencyLocation,
             ag.email AS agencyEmail,
             ag.agency_network,
-            al.email AS agencyLocationEmail
+            al.email AS agencyLocationEmail,
+            ag.id as agencyId
         FROM clw_talage_applications AS a
             INNER JOIN clw_talage_agency_locations AS al ON a.agency_location = al.id
             INNER JOIN clw_talage_agencies AS ag ON al.agency = ag.id
@@ -98,7 +99,7 @@ var wholesaleApplicationEmailTask = async function(applicationId) {
 
         let agencyLocationEmail = null;
 
-        const agencyNetworkBO = new AgencyNetworkBO();
+        const agencyBO = new AgencyBO();
         //decrypt info...
         if (applications[0].agencyLocationEmail) {
             agencyLocationEmail = await crypt.decrypt(applications[0].agencyLocationEmail);
@@ -112,7 +113,7 @@ var wholesaleApplicationEmailTask = async function(applicationId) {
 
         let error = null;
 
-        const emailContentJSON = await agencyNetworkBO.getEmailContent(agencyNetwork, "talage_wholesale").catch(function(err){
+        const emailContentJSON = await agencyBO.getEmailContent(applications[0].agencyId, "talage_wholesale").catch(function(err){
             log.error(`Unable to get email content for Talage WholeSale application. agency_network: ${agencyNetwork}.  error: ${err}` + __location);
             error = true;
         });
