@@ -89,17 +89,14 @@ async function createToken(req, res, next){
         res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
         return next();
     }
-    log.debug("checking mongo")
     //get Permissions from Mongo UserGroup Permission
     // if error go with mySQL permissions.
-    log.debug("mysql permissions " + agencyPortalUserResult[0].permissions)
     agencyPortalUserResult[0].permissions = JSON.parse(agencyPortalUserResult[0].permissions)
     try{
         const agencyPortalUserGroupBO = new AgencyPortalUserGroupBO();
 
         const agencyPortalUserGroupDB = await agencyPortalUserGroupBO.getById(agencyPortalUserResult[0].apugId);
         agencyPortalUserResult[0].permissions = agencyPortalUserGroupDB.permissions;
-        log.debug("Get permissions form mongo " + JSON.stringify(agencyPortalUserResult[0].permissions))
     }
     catch(err){
         log.error("Error get permissions from Mongo " + err + __location);
