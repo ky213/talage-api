@@ -30,6 +30,10 @@ let PermissionSchema = new Schema({
     applications: PermissionRightsSchema,
     dashboard: PermissionRightsSchema,
     owner: PermissionRightsSchema,
+    pages: PermissionRightsSchema,
+    settings: PermissionRightsSchema,
+    signingAuthority: PermissionRightsSchema,
+    users: PermissionRightsSchema,
     talageStaff: {type: Boolean, required: true, default: false }
 },{ _id : false })
 
