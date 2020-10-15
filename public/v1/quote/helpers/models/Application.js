@@ -22,7 +22,7 @@ const serverHelper = require('../../../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
 const helper = global.requireShared('./helpers/helper.js');
 
-const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
+const AgencyBO = global.requireShared('models/Agency-BO.js');
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
 const ApplicationPolicyTypeBO = global.requireShared('./models/ApplicationPolicyType-BO.js');
 const ApplicationQuestionBO = global.requireShared('./models/ApplicationQuestion-BO.js');
@@ -446,11 +446,13 @@ module.exports = class Application {
         // Send an emails if there were no quotes generated
         if (!some_quotes) {
             let error = null;
-            const agencyNetworkBO = new AgencyNetworkBO();
-            const emailContentJSON = await agencyNetworkBO.getEmailContentAgencyAndCustomer(this.agencyLocation.agencyNetwork, 'no_quotes_agency', 'no_quotes_customer').catch(function(err) {
+            const agencyBO = new AgencyBO();
+            const emailContentJSON = await agencyBO.getEmailContentAgencyAndCustomer(this.agencyLocation.agencyId, 'no_quotes_agency', 'no_quotes_customer').catch(function(err) {
                 log.error(`Email content Error Unable to get email content for no quotes.  error: ${err}` + __location);
                 error = true;
             });
+
+
             if (error) {
                 return false;
             }
