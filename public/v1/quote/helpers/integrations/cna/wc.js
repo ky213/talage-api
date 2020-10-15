@@ -47,6 +47,55 @@ const carrierLimits = [
     '1000000/1000000/1000000' // if state = CA, this is ONLY option
 ]
 
+const legalEntityCodes = {
+    "Government Entity": "FG",
+    "Non-profit Corporation": "NP",
+    "Unincorporated Association": "UA",
+    "Estate": "ES",
+    "Individual": "IN",
+    "Corporation": "CP",
+    "General Partnership": "PT",
+    "Limited Partnership": "LP",
+    "Trust": "TR",
+    "Joint Venture": "JV",
+    "Limited Liability Company": "LL",
+    "Sole Propietorship": "SP"
+}   
+
+// Dedubctible by state (no deductables for WC)
+const stateDeductables = {
+    "AL": [100, 200, 300, 400, 500, 1000, 1500, 2000, 2500],     
+    "AR": [1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000],     
+    "CO": [500, 1000, 1500, 2000, 2500, 5000, 10000, 13500],  
+    "CT": [1000, 5000, 10000],
+    "DE": [500],
+    "FL": [500, 1000, 1500, 2000, 2500, 5000, 10000, 15000, 20000, 21000],  
+    "GA": [100, 200, 300, 400, 500, 1000, 1500, 2000, 2500, 5000, 10,000, 20000],
+    "HI": [100, 150, 200, 300, 400, 500, 1000, 1500, 2000, 2500, 5000, 10000],  
+    "IA": [100, 150, 200, 250, 300, 400, 500, 1000, 1500, 2000, 2500],
+    "IL": [1,000],
+    "IN": [500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 21000],
+    "KS": [100, 200, 300, 400, 500, 1000, 1500, 2000, 2500, 5000, 10000],
+    "KY": [100, 200, 300, 400, 500, 1000, 1500, 2500, 5000, 7500, 10000],
+    "MA": [500, 1000, 2000, 2500, 5000],
+    "MD": [500, 1500, 2500],
+    "ME": [250, 500, 1000, 5000],
+    "MN": [100, 150, 200, 250, 500, 1000, 1500, 2000, 2500, 5000, 10000, 25000, 50000],
+    "MO": [100, 200, 300, 400, 500, 1000, 1500, 2000, 2500, 5000, 10000, 15000, 20000],
+    "MT": [500, 1000, 1500, 2000, 2500, 5000, 10000],
+    "NC": [100, 200, 300, 400, 500, 1000, 1500, 2000, 2500, 5000],
+    "NE": [500, 1000, 1500, 2000, 2500],
+    "NH": [500, 1000, 1500, 2000, 2500, 5000],
+    "NM": [500, 1000, 1500, 2000, 2500, 5000, 10000],
+    "NV": [100, 250, 500, 1000, 1500, 2000, 2500, 5000, 10000, 15000, 20000],
+    "SC": [100, 200, 300, 400, 500, 1000, 1500, 2000, 2500],
+    "SD": [500, 1000, 1500, 2000, 2500],
+    "TX": [500, 1000, 1500, 2000, 2500, 5000, 10000, 25000],
+    "UT": [500, 1000, 1500, 2000, 2500, 5000],
+    "VA": [100, 250, 500, 1000, 2500, 5000, 7500, 10000],
+    "WV": [100, 200, 300, 400, 500, 1000, 1500, 2000, 2500, 5000, 7500, 10000]
+}
+
 module.exports = class CnaWC extends Integration {
 
 	/**
@@ -71,11 +120,27 @@ module.exports = class CnaWC extends Integration {
             }
         }
 
-        // Prepare limits
-        const limits = this.getBestLimits(carrierLimits);
+        // Prepare limits (if CA, only accept 1,000,000/1,000,000/1,000,000)
+        const limits = policy.appBusiness.mailing_territory === "CA" ? 
+            carrierLimits[carrierLimits.length - 1] : 
+            this.getBestLimits(carrierLimits);
         if (!limits) {
             return this.client_autodeclined('The insurer does not support the request liability limits', {industryCode: this.industry_code.id});
         }
+
+        /*
+            TODO LIST: FIND OUT WHAT THESE VALUES ARE AND HOW TO GET THEM:
+            - Business Location Ref: Must be one of the location id values | "L1"
+            - Business Location Id: ... | "L1"
+            - Policy - Power Unit (Number Units, Exposure in Monopolistic States): [0 - 999]; and YES; NO; | 100 YES
+            |__> com.cna_NumPowerUnitsOwned.NumUnits.value
+            |__> QuestionCd.value='com.cna_MonopolisticInd'.YesNoCd
+            - NameInfo Id: ... | "N001"
+            - NameInfo Ref: Must be one of the NameInfo Id values | "L1"
+            - WC Class code ID: The "com.cna_LineOfBusinessAttributeValue" in the appetite for a given SIC code | "8820A"
+        */
+
+        // TODO: GO THROUGH DEFAULTED FIELDS IN TEMPLATE AND REMOVE OPTIONAL ONES, EXPLICITLY SET REQUIRED ONES (EVEN IF NO CHANGE)
 
         // =================================================================
         //                     FILL OUT REQUEST OBJECT
@@ -89,7 +154,12 @@ module.exports = class CnaWC extends Integration {
         // API Information
         wcRequest.SignonRq.SignonPswd.CustId.CustLoginId = "TALAGEAPI";
         wcRequest.SignonRq.ClientApp.Org = "TALAGE";
-        // wcRequest.SignonRq.ClientApp.Name | "API"
+        wcRequest.SignonRq.ClientApp.Name = "API"
+
+        // Transaction ID
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInq = [{
+            RqUID: this.generate_uuid()
+        }];
 
         // ====== Producer Information ======
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Producer[0].ProducerInfo.ContractNumber.value | "018297"
@@ -102,7 +172,7 @@ module.exports = class CnaWC extends Integration {
 
         // ====== General Business Information ======
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].CommlName.CommercialName.value = business.name;
-        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].LegalEntityCd.value | "CP"
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].LegalEntityCd.value = legalEntityCodes[business.entity_type];
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].TaxIdentity[0].TaxIdTypeCd.value | "FEIN"
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].TaxIdentity[0].TaxId.value | "595976858"
         // TODO: Determine if these are required. If not, then delete these properties unless we have a value for business.dba???
@@ -126,8 +196,9 @@ module.exports = class CnaWC extends Integration {
 
         // ====== Insured Or Principle Information ======
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].InsuredOrPrincipalInfo.InsuredOrPrincipalRoleCd[0].value | "Insured"
-        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].InsuredOrPrincipalInfo.BusinessInfo.SICCd.value | "55550_50" 
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].InsuredOrPrincipalInfo.BusinessInfo.SICCd.value = Object.values(this.app.insurer_wc_codes)[0];
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].InsuredOrPrincipalInfo.BusinessInfo.NAICSCd.value | "315240"
+        delete wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].InsuredOrPrincipalInfo.BusinessInfo.NAICSCd; // test if we need this or we can delete as so
 
         // ====== Commercial Policy Information ======
         const durationPeriod = policy.expiration_date.diff(policy.effective_date, 'months');
@@ -144,7 +215,7 @@ module.exports = class CnaWC extends Integration {
 
         // ====== Supplemental Commercial Policy Information ======
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.CommlPolicySupplement.PolicyTypeCd.value | "SPC"
-        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.CommlPolicySupplement.LengthTimeInBusiness.NumUnits.value | 1
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.CommlPolicySupplement.LengthTimeInBusiness.NumUnits.value = this.get_years_in_business();
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.CommlPolicySupplement.OtherSafetyProgramInd.value | false
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.CommlPolicySupplement['com.cna_LengthTimeIndustyManagement'].NumUnits | {}
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.CommlPolicySupplement['com.cna_NumPowerUnitsOwned'].NumUnits.value | 0
@@ -159,9 +230,9 @@ module.exports = class CnaWC extends Integration {
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness['com.cna_AnniversaryRatingDt'].value | "2020-09-27"
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].StateProvCd.value = business.mailing_territory;
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].NumEmployees.value = this.get_total_employees();
-        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].RatingClassificationCd.value | "8008A"
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].RatingClassificationCd.value | "8008A" // this comes from "com.cna_LineOfBusinessAttributeValue", we don't currently store this...
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].RatingClassificationDescCd.value | "STORES-CLOTHING/DRY GOODS-RETAIL"
-        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].Exposure | "66000"
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].Exposure = this.get_total_payroll();
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].LocationRef | "L1"
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].NameInfoRef | "N001"
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].GoverningClassCd | "8008"
