@@ -35,6 +35,7 @@ module.exports = class Application {
         this.insurers = [];
         this.policies = [];
         this.questions = {};
+        this.applicationData = {};
     }
 
     /**
@@ -60,13 +61,23 @@ module.exports = class Application {
         if (error) {
             throw error;
         }
-        //LastStep check.
+        //LastStep check. TODO which to appStatusId.
         // this.state > 15, 16 is finished.
         if(applicationBO.state > 15){
             log.warn("An attempt to quote application that is finished.")
             throw new Error("Finished Application cannot be quoted")
 
         }
+
+        try{
+            this.applicationData = await applicationBO.loadfromMongoBymysqlId(this.id);
+            log.debug("Quote Application added applicationData")
+        }
+        catch(err){
+            log.error("Unable to get applicationData for quoting appId: " + data.id + __location);
+        }
+
+
         //age check - add override Age parameter to allow requoting.
         if (forceQuoting === false){
             const bypassAgeCheck = global.settings.ENV === 'development' && global.settings.APPLICATION_AGE_CHECK_BYPASS === 'YES';
