@@ -1,3 +1,4 @@
+/* eslint-disable guard-for-in */
 /* eslint-disable array-element-newline */
 'use strict';
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
@@ -100,6 +101,33 @@ async function deleteAgency(req, res, next) {
 }
 
 /**
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function getTerritories(req, res, next) {
+
+    const allTerritoriesSQL = `
+		SELECT
+			abbr,
+			name
+		FROM clw_talage_territories
+		ORDER BY name ASC;
+	`;
+    // Query the database
+    const allTerritories = await db.query(allTerritoriesSQL).catch(function(err) {
+        log.error('DB query for territories list failed: ' + err.message + __location);
+        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+    });
+    // Return the response
+    res.send(200, {"territories": allTerritories});
+    return next();
+}
+
+/**
  * Returns the record for a single Agency
  *
  * @param {object} req - HTTP request object
@@ -171,7 +199,7 @@ async function getAgency(req, res, next) {
     error = null;
     const agencyBO = new AgencyBO();
     // Load the request data into it
-    let agency = await agencyBO.getById(agent).catch(function(err) {
+    const agency = await agencyBO.getById(agent).catch(function(err) {
         log.error("Location load error " + err + __location);
         error = err;
     });
@@ -191,14 +219,15 @@ async function getAgency(req, res, next) {
     }
 
     //do some cleanup
+    // eslint-disable-next-line guard-for-in
     for (const property in agency) {
-        if(property === 'ca_license_number'){
+        if (property === 'ca_license_number') {
             agency.caLicenseNumber = agency.ca_license_number
         }
-        else if(property === 'state'){
+        else if (property === 'state') {
             agency.state = agency.state > 0 ? "Active" : "Inactive";
-        }   
-        
+        }
+
 
         if (typeof agency[property] === 'object' && agency[property] !== null && agency[property].length === 0) {
             agency[property] = null;
@@ -214,7 +243,7 @@ async function getAgency(req, res, next) {
 		FROM \`clw_talage_territories\`
 		ORDER BY \`name\` ASC;
 	`;
-  
+
     const networkInsurersSQL = `
                 SELECT
                     i.id,
@@ -236,58 +265,63 @@ async function getAgency(req, res, next) {
                 GROUP BY i.id
                 ORDER BY i.name ASC;
 	`;
-  
-  
+
+
     let users = null;
-    try{
+    try {
         const agencyPortalUserBO = new AgencyPortalUserBO();
         users = await agencyPortalUserBO.getByAgencyId(agent);
     }
-    catch(err){
+    catch (err) {
         log.error('DB query failed: ' + err.message + __location);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     }
 
 
     // Query the database
-    const allTerritories = await db.query(allTerritoriesSQL).catch(function(err){
+    const allTerritories = await db.query(allTerritoriesSQL).catch(function(err) {
         log.error('DB query failed: ' + err.message + __location);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     });
 
+    //TODO Delete this next iteration start deletion section, logic moved to agency-locations
+    // START DELETE SECTION
     const agencyLocationBO = new AgencyLocationBO();
-    
+
     let locations = null;
-    try{
+    try {
         const query = {"agency": agent}
         const getChildren = true;
-        locations = await  agencyLocationBO.getList(query, getChildren)
+        locations = await agencyLocationBO.getList(query, getChildren)
         locations.forEach((location) => {
             location.openTime = location.open_time;
             location.closeTime = location.close_time;
         });
     }
-    catch(err){
+    catch (err) {
         log.error(err.message + __location);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.')); 
+        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     }
+
+    // END DELETE SECTION
+
     //log.debug("agency get locations: " + JSON.stringify(locations))
 
-    
-    const networkInsurers = await db.query(networkInsurersSQL).catch(function(err){
+
+    const networkInsurers = await db.query(networkInsurersSQL).catch(function(err) {
         log.error('DB query failed: ' + err.message + __location);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     });
-    
+
 
     const agencyLandingPageBO = new AgencyLandingPageBO();
-    const pageQuery =  {"agency": agent}
+    const pageQuery = {"agency": agent}
     const pages = await agencyLandingPageBO.getList(pageQuery).catch(function(err) {
         log.error("Add Agency - agencyLandingPageBO.getList error " + err + __location);
     });
-    if(pages){
+    if (pages) {
         pages.forEach((page) => {
-            if(page.color_scheme){
+            if (page.color_scheme) {
                 page.colorScheme = page.color_scheme
             }
         });
@@ -295,7 +329,7 @@ async function getAgency(req, res, next) {
 
     // Convert the network insurer territory data into an array
     networkInsurers.map(function(networkInsurer) {
-        if(networkInsurer.territories){
+        if (networkInsurer.territories) {
             networkInsurer.territories = networkInsurer.territories.split(',');
         }
         return networkInsurer;
@@ -420,7 +454,7 @@ async function postAgency(req, res, next) {
 
     // Convert the territories list into an array
     insurers.forEach(function(insurer) {
-        if(insurer.territories){
+        if (insurer.territories) {
             insurer.territories = insurer.territories.split(',');
             territoryAbbreviations = territoryAbbreviations.concat(insurer.territories);
         }
@@ -463,7 +497,7 @@ async function postAgency(req, res, next) {
             }
 
             // Make sure the agentId field wasn't left blank for insurers that require agent id
-            const maybeInsurer = insurers.filter((ins) => ins.id == insurerID);
+            const maybeInsurer = insurers.filter((ins) => ins.id === insurerID);
             const insurer = maybeInsurer.length > 0 ? maybeInsurer[0] : null;
             // if we find the insurer and the enable agent id is true and the agentId field is empty then throw error
             if (insurer !== null) {
@@ -548,15 +582,14 @@ async function postAgency(req, res, next) {
         }
     }
 
-  
 
     let wholesale = 0;
-    if(req.authentication.agencyNetwork === 2){
+    if (req.authentication.agencyNetwork === 2) {
         wholesale = 1;
     }
 
- 
-    let newAgencyJSON = {
+
+    const newAgencyJSON = {
         name: name,
         email: email,
         agency_network: req.authentication.agencyNetwork,
@@ -566,24 +599,22 @@ async function postAgency(req, res, next) {
         wholesale: wholesale
     }
     error = null;
-    let agencyBO = new AgencyBO();
+    const agencyBO = new AgencyBO();
     // Load the request data into it
     await agencyBO.saveModel(newAgencyJSON).catch(function(err) {
         log.error("agencyBO.save error " + err + __location);
         error = err;
     });
-    if(error){
-        
-    }
+
     // Get the ID of the new agency
     const agencyId = agencyBO.id;
 
     // Create Insurers array:
     // Defaults to WC being enbled only.
-    let insurerArray = [];
+    const insurerArray = [];
     for (const insurerID in agencyIds) {
         const insurerIdInt = parseInt(insurerID, 10)
-        let insurer = {
+        const insurer = {
             "insurer": insurerIdInt,
             "gl": 0,
             "wc": 1,
@@ -593,28 +624,22 @@ async function postAgency(req, res, next) {
                 "WC": {
                     "enabled": true,
                     "useAcord": false,
-                    "acordInfo": {
-                        "sendToEmail": ""
-                    }
+                    "acordInfo": {"sendToEmail": ""}
                 },
                 "GL": {
                     "enabled": false,
                     "useAcord": false,
-                    "acordInfo": {
-                        "sendToEmail": ""
-                    }
+                    "acordInfo": {"sendToEmail": ""}
                 },
                 "BOP": {
                     "enabled": false,
                     "useAcord": false,
-                    "acordInfo": {
-                        "sendToEmail": ""
-                    }
+                    "acordInfo": {"sendToEmail": ""}
                 },
                 "notifyTalage": false
             }
         };
-        if(agentIds[insurerID]){
+        if (agentIds[insurerID]) {
             insurer.agentId = agentIds[insurerID];
         }
         insurerArray.push(insurer);
@@ -627,9 +652,7 @@ async function postAgency(req, res, next) {
         fname: firstName,
         lname: lastName,
         insurers: insurerArray,
-        additionalInfo: {
-            territories: territories
-        }
+        additionalInfo: {territories: territories}
     }
 
     const agencyLocationBO = new AgencyLocationBO();
@@ -656,15 +679,15 @@ async function postAgency(req, res, next) {
 
 
     // Create a user for agency portal access
-      // // Encrypt the user's information
+    // // Encrypt the user's information
     const encrypted = {
         "email": email,
         "firstName": firstName,
         "lastName": lastName
     };
     await crypt.batchProcessObject(encrypted, 'encrypt', ['email',
-    'firstName',
-    'lastName']);
+        'firstName',
+        'lastName']);
     const password = generatePassword();
     const hashedPassword = await crypt.hashPassword(password);
     const createUserSQL = `
@@ -705,6 +728,7 @@ async function postAgency(req, res, next) {
  * @returns {void}
  */
 async function updateAgency(req, res, next) {
+
     let error = false;
 
     // Determine which permissions group to use (start with the default permission needed by an agency network)
@@ -760,25 +784,88 @@ async function updateAgency(req, res, next) {
     // Initialize an agency object
     error = null;
     log.debug("saving agency")
-    let agencyBO = new AgencyBO();
+    const agencyBO = new AgencyBO();
     // Load the request data into it
     await agencyBO.saveModel(req.body).catch(function(err) {
         log.error("agencyBO.save error " + err + __location);
         error = err;
     });
-    if(error){
-        
-    }
-   //deal with logo
+
+    //deal with logo
 
     // Send back a success response
     res.send(200, {"logo": agencyBO.logo});
     return next();
 }
 
+/**
+ *
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function postSocialMediaTags(req, res, next) {
+    let error = false;
+
+    // Check for data
+    if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0 && !req.body.id) {
+        log.warn('No data was received');
+        return next(serverHelper.requestError('No data was received'));
+    }
+
+    const agencies = await auth.getAgents(req).catch(function (e) {
+        error = e;
+    });
+    const id = parseInt(req.body.id, 10);
+
+        // Make sure this Agency Network has access to this Agency
+        if (!agencies.includes(id)) {
+            log.info('Forbidden: User is not authorized to delete this agency');
+            return next(serverHelper.forbiddenError('You are not authorized to delete this agency'));
+        }
+
+    const agency = new AgencyBO();
+    let agencyJSON = null;
+    try {
+        agencyJSON = await agency.getById(req.body.id);
+
+    } catch (error) {
+        log.error(error + __location);
+    }
+
+    if(agencyJSON){
+
+        if (!agencyJSON.additionalInfo) {
+            agencyJSON.additionalInfo = {};
+        }
+        if (!agencyJSON.additionalInfo.socialMediaTags) {
+            agencyJSON.additionalInfo.socialMediaTags = {};
+        }
+        agencyJSON.additionalInfo.socialMediaTags.facebookPixel = req.body.pixelId;
+        
+        
+        let result = await agency.saveModel(agencyJSON).catch(function (error) {
+            log.error('Save Agency:',error, __location);
+        });
+        
+        
+        res.send(200, 'socialMediaTags');
+    }else{
+        res.send(404,'Not Found');
+    }
+        return next();
+
+}
+
 exports.registerEndpoint = (server, basePath) => {
     server.addDeleteAuth('Delete Agency', `${basePath}/agency`, deleteAgency, 'agencies', 'manage');
     server.addGetAuth('Get Agency', `${basePath}/agency`, getAgency, 'agencies', 'view');
+    server.addGetAuth('Get Agency', `${basePath}/agency/territories`, getTerritories, 'agencies', 'view');
     server.addPostAuth('Post Agency', `${basePath}/agency`, postAgency, 'agencies', 'manage');
     server.addPutAuth('Put Agency', `${basePath}/agency`, updateAgency, 'agencies', 'manage');
+    server.addPostAuth('Post Agency', `${basePath}/agency/socialMediaTags`, postSocialMediaTags, 'agencies', 'manage');
+
 };

@@ -6,6 +6,10 @@ const auth = require('./helpers/auth.js');
 const serverHelper = require('../../../server.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const ApplicationBO = global.requireShared('models/Application-BO.js');
+const ApplicationQuoting = global.requireRootPath('public/v1/quote/helpers/models/Application.js');
+const status = global.requireShared('./models/application-businesslogic/status.js');
+const jwt = require('jsonwebtoken');
+
 
 /**
  * Responds to get requests for the certificate endpoint
@@ -16,39 +20,39 @@ const ApplicationBO = global.requireShared('models/Application-BO.js');
  *
  * @returns {void}
  */
-async function getApplication(req, res, next){
+async function getApplication(req, res, next) {
     let error = false;
 
     // Check for data
-    if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0){
+    if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
         log.error('Bad Request: No data received ' + __location);
         return next(serverHelper.requestError('Bad Request: No data received'));
     }
 
-    // Get the agents that we are permitted to view
-    const agents = await auth.getAgents(req).catch(function(e){
-        error = e;
-    });
-    if (error){
-        log.error('Error get application getAgents ' + error + __location);
-        return next(error);
-    }
-
     // Make sure basic elements are present
-    if (!req.query.id){
+    if (!req.query.id) {
         log.error('Bad Request: Missing ID ' + __location);
         return next(serverHelper.requestError('Bad Request: You must supply an ID'));
     }
 
     // Validate the application ID
-    if (!await validator.is_valid_id(req.query.id)){
+    if (!await validator.is_valid_id(req.query.id)) {
         log.error('Bad Request: Invalid id ' + __location);
         return next(serverHelper.requestError('Invalid id'));
     }
 
+    // Get the agents that we are permitted to view
+    const agents = await auth.getAgents(req).catch(function(e) {
+        error = e;
+    });
+    if (error) {
+        log.error('Error get application getAgents ' + error + __location);
+        return next(error);
+    }
+
     // Check if this is Solepro and grant them special access
     let where = `${db.quoteName('a.agency')} IN (${agents.join(',')})`;
-    if (agents.length === 1 && agents[0] === 12){
+    if (agents.length === 1 && agents[0] === 12) {
         // This is Solepro (no restriction on agency ID, just applications tagged to them)
         where = `${db.quoteName('a.solepro')} = 1`;
     }
@@ -116,13 +120,13 @@ async function getApplication(req, res, next){
 		`;
 
     // Query the database
-    const applicationData = await db.query(sql).catch(function(err){
+    const applicationData = await db.query(sql).catch(function(err) {
         log.error('Error get application database query ' + err.message + __location);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     });
 
     // Make sure an application was found
-    if (applicationData.length !== 1){
+    if (applicationData.length !== 1) {
         log.error('Error get application, application not found sql: ' + sql + __location);
         return next(serverHelper.notFoundError('The application could not be found.'));
     }
@@ -166,7 +170,7 @@ async function getApplication(req, res, next){
 		`;
 
     // Query the database
-    const addressData = await db.query(addressSQL).catch(function(err){
+    const addressData = await db.query(addressSQL).catch(function(err) {
         log.error(err.message);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     });
@@ -178,7 +182,7 @@ async function getApplication(req, res, next){
 
     // Only process addresses if some were returned
     application.locations = [];
-    if (addressData.length > 0){
+    if (addressData.length > 0) {
         // Get the activity codes for all addresses
         const codesSQL = `
 				SELECT
@@ -187,24 +191,24 @@ async function getApplication(req, res, next){
 					${db.quoteName('aac.payroll')}
 				FROM ${db.quoteName('#__address_activity_codes', 'aac')}
 				LEFT JOIN ${db.quoteName('#__activity_codes', 'ac')} ON ${db.quoteName('ac.id')} = ${db.quoteName('aac.ncci_code')}
-				WHERE ${db.quoteName('aac.address')} IN (${addressData.map(function(address){
+				WHERE ${db.quoteName('aac.address')} IN (${addressData.map(function(address) {
     return address.id;
 })});
 			`;
 
         // Query the database
-        const codesData = await db.query(codesSQL).catch(function(err){
+        const codesData = await db.query(codesSQL).catch(function(err) {
             log.error(err.message);
             return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
         });
 
         // Loop over each address and do a bit more work
-        addressData.forEach(function(address){
+        addressData.forEach(function(address) {
             // Get all codes that are associated with this address and add them
             address.activityCodes = [];
-            if (codesData.length > 0){
-                codesData.forEach(function(code){
-                    if (code.address === address.id){
+            if (codesData.length > 0) {
+                codesData.forEach(function(code) {
+                    if (code.address === address.id) {
                         address.activityCodes.push(code);
                     }
                 });
@@ -243,7 +247,7 @@ async function getApplication(req, res, next){
 		`;
 
 
-    const quotes = await db.query(quotesSQL).catch(function(err){
+    const quotes = await db.query(quotesSQL).catch(function(err) {
         log.error(err.message);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     });
@@ -251,34 +255,34 @@ async function getApplication(req, res, next){
 
     // Add the quotes to the return object and determine the application status
     application.quotes = [];
-    if (quotes.length > 0){
-        for(let i = 0; i < quotes.length; i++){
+    if (quotes.length > 0) {
+        for (let i = 0; i < quotes.length; i++) {
             // eslint-disable-next-line prefer-const
             let quote = quotes[i];
-            if(!quote.status && quote.api_result){
+            if (!quote.status && quote.api_result) {
                 quote.status = quote.api_result;
             }
 
             // Change the name of autodeclined
-            if(quote.status === 'autodeclined'){
+            if (quote.status === 'autodeclined') {
                 quote.status = 'Out of Market';
             }
-            if(quote.status === 'bind_requested'
+            if (quote.status === 'bind_requested'
                 || quote.bound
-                || quote.status === 'quoted'){
+                || quote.status === 'quoted') {
 
                 quote.reasons = '';
             }
             // can see log?
-            try{
-                if(req.authentication.permissions.applications.viewlogs){
+            try {
+                if (req.authentication.permissions.applications.viewlogs) {
                     quote.log = await crypt.decrypt(quote.log);
                 }
                 else {
                     delete quote.log;
                 }
             }
-            catch(e){
+            catch (e) {
                 delete quote.log;
             }
 
@@ -287,7 +291,7 @@ async function getApplication(req, res, next){
 
         // Add the quotes to the response
         application.quotes = quotes;
-        if(req.authentication.permissions.applications.viewlogs){
+        if (req.authentication.permissions.applications.viewlogs) {
             application.showLogs = true;
         }
     }
@@ -307,13 +311,13 @@ async function getApplication(req, res, next){
 		`;
 
     // Run query for claims
-    const claims = await db.query(claimsSQL).catch(function(err){
+    const claims = await db.query(claimsSQL).catch(function(err) {
         log.error('Error get application database query (claims) ' + err.message + __location);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     });
 
     application.claims = [];
-    if (claims.length > 0){
+    if (claims.length > 0) {
         // Add the claims to the response if they exist
         application.claims = claims;
     }
@@ -348,7 +352,7 @@ async function deleteObject(req, res, next) {
     if (error) {
         return next(error);
     }
-    if(appAgencyNetworkId !== agencyNetwork){
+    if (appAgencyNetworkId !== agencyNetwork) {
         log.warn("Application Delete agencynetowrk miss match")
         res.send(403);
         return next(serverHelper.forbiddenError('Do Not have Permissions'));
@@ -367,8 +371,143 @@ async function deleteObject(req, res, next) {
 
 }
 
+async function requote(req, res, next) {
+    //Double check it is TalageStaff user
+
+    // Check for data
+    if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
+        log.warn('No data was received' + __location);
+        return next(serverHelper.requestError('No data was received'));
+    }
+
+    // Make sure basic elements are present
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'id')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+
+    // Validate the application ID
+    if (!await validator.is_valid_id(req.body.id)) {
+        log.error('Bad Request: Invalid id ' + __location);
+        return next(serverHelper.requestError('Invalid id'));
+    }
+
+    const agencyNetwork = req.authentication.agencyNetwork;
+    if (!agencyNetwork) {
+        log.warn('App requote not agency network user ' + __location)
+        res.send(403);
+        return next(serverHelper.forbiddenError('Do Not have Permissions'));
+    }
+
+    const id = req.body.id;
+    //Get app and check status
+    let error = null;
+    const applicationBO = new ApplicationBO();
+    const applicationDB = await applicationBO.getById(id).catch(function(err) {
+        log.error("Location load error " + err + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+    if (!applicationDB) {
+        return next(serverHelper.requestError('Not Found'));
+    }
+    //TODO Check agency Network or Agency rights....
+    //  const agents = await auth.getAgents(req).catch(function(e) {
+    //     error = e;
+    // });
+    // if (error) {
+    //     log.error('Error get application getAgents ' + error + __location);
+    //     return next(error)
+
+    // }
+    if(agencyNetwork !== applicationDB.agency_network){
+        log.warn('App requote not agency network user does not match application agency_network ' + __location)
+        res.send(403);
+        return next(serverHelper.forbiddenError('Do Not have Permissions'));
+    }
+
+    if (applicationDB.appStatusId > 60) {
+        return next(serverHelper.requestError('Cannot Requote Application'));
+    }
+
+    const applicationQuoting = new ApplicationQuoting();
+    // Populate the Application object
+    // Load
+    try {
+        const forceQuoting = true;
+        await applicationQuoting.load(req.body, forceQuoting);
+    }
+    catch (err) {
+        log.error(`Error loading application ${req.body.id ? req.body.id : ''}: ${err.message}` + __location);
+        res.send(err);
+        return next();
+    }
+    // Validate
+    try {
+        await applicationQuoting.validate();
+    }
+    catch (err) {
+        log.error(`Error validating application ${req.body.id ? req.body.id : ''}: ${err.message}` + __location);
+        res.send(err);
+        return next();
+    }
+
+    // Set the application progress to 'quoting'
+    try {
+        await applicationBO.updateProgress(req.body.id, "quoting");
+    }
+    catch (err) {
+        log.error(`Error update appication progress appId = ${req.body.id}  for quoting. ` + err + __location);
+    }
+
+
+    // Build a JWT that contains the application ID that expires in 5 minutes.
+    const tokenPayload = {applicationID: req.body.id};
+    const token = jwt.sign(tokenPayload, global.settings.AUTH_SECRET_KEY, {expiresIn: '5m'});
+    // Send back the token
+    res.send(200, token);
+
+    // Begin running the quotes
+    runQuotes(applicationQuoting);
+
+    return next();
+
+
+}
+
+/**
+ * Runs the quote process for a given application
+ *
+ * @param {object} application - Application object
+ * @returns {void}
+ */
+async function runQuotes(application) {
+    log.debug('running quotes')
+    try {
+        await application.run_quotes();
+    }
+    catch (error) {
+        log.error(`Getting quotes on application ${application.id} failed: ${error} ${__location}`);
+    }
+
+    // Update the application quote progress to "complete"
+    const applicationBO = new ApplicationBO();
+    try {
+        await applicationBO.updateProgress(application.id, "complete");
+    }
+    catch (err) {
+        log.error(`Error update appication progress appId = ${application.id}  for complete. ` + err + __location);
+    }
+
+    // Update the application status
+    await status.updateApplicationStatus(application.id);
+}
+
 
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get application', `${basePath}/application`, getApplication, 'applications', 'view');
+    server.addPutAuth('PUT Re-Quote application', `${basePath}/application/:id/requote`, requote, 'applications', 'manage');
     server.addDeleteAuth('DELETE application', `${basePath}/application/:id`, deleteObject, 'applications', 'manage');
 };

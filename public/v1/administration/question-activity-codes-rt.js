@@ -21,29 +21,28 @@ async function getQuestionActivityCodes(req, res, next){
             SELECT DISTINCT
             clw_talage_activity_codes.id,
             clw_talage_activity_codes.description
-            from clw_talage_activity_codes
+            FROM clw_talage_activity_codes
             INNER JOIN (
                 SELECT 
                 clw_talage_activity_code_associations.insurer_code,
                 clw_talage_activity_code_associations.code
-                from clw_talage_activity_code_associations
+                FROM clw_talage_activity_code_associations
                 INNER JOIN (
                     SELECT 
                     clw_talage_insurer_ncci_codes.id, 
                     clw_talage_insurer_ncci_codes.insurer
-                    from clw_talage_insurer_ncci_codes
+                    FROM clw_talage_insurer_ncci_codes
                     INNER JOIN (
                         SELECT DISTINCT
                         ncci_code 
-                        from
-                        clw_talage_insurer_ncci_code_questions 
+                        FROM clw_talage_insurer_ncci_code_questions 
                         WHERE question = ${db.escape(req.query.question)}
                     ) b
-                    on clw_talage_insurer_ncci_codes.id = b.ncci_code
+                    ON clw_talage_insurer_ncci_codes.id = b.ncci_code
                 ) c
-                on c.id = clw_talage_activity_code_associations.insurer_code
+                ON c.id = clw_talage_activity_code_associations.insurer_code
             ) d
-            on d.code = clw_talage_activity_codes.id
+            ON d.code = clw_talage_activity_codes.id
             WHERE state = 1
             ORDER BY clw_talage_activity_codes.id ASC
 		`;

@@ -63,10 +63,10 @@ async function createAgency(req, res, next){
             SELECT \`abbr\`, \`name\`
             FROM \`#__territories\`
             WHERE \`abbr\` IN (${territoryAbbreviations.
-    map(function(abbr){
-        return db.escape(abbr);
-    }).
-    join(',')})
+        map(function(abbr){
+            return db.escape(abbr);
+        }).
+        join(',')})
             ORDER BY \`name\`;
         `;
 
@@ -80,7 +80,7 @@ async function createAgency(req, res, next){
     territories.forEach(function(territory){
         response.territories[territory.abbr] = territory.name;
     });
-    
+
 
     // Return the response
     res.send(200, response);

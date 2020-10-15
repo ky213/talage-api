@@ -8,7 +8,7 @@
 const ActivityCode = require('./ActivityCode.js');
 const serverHelper = require('../../../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
-const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
+//const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
 
 module.exports = class Location {
 

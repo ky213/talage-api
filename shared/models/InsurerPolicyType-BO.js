@@ -21,7 +21,6 @@ module.exports = class InsurerPolicyTypeBO{
         this.#dbTableORM = new DbTableOrm(tableName);
     }
 
-
     /**
 	 * Save Model 
      *
@@ -100,12 +99,12 @@ module.exports = class InsurerPolicyTypeBO{
         return new Promise(async (resolve, reject) => {
            
                 let rejected = false;
-                // Create the update query
+				// Create the update query
                 let sql = `
-                    select *  from ${tableName}  
+                    select * from ${tableName}  
                 `;
                 if(queryJSON){
-                    let hasWhere = false;
+					let hasWhere = false;
                     if(queryJSON.policy_type){
                         sql += hasWhere ? " AND " : " WHERE ";
                         sql += ` policy_type = ${db.escape(queryJSON.policy_type)} `
@@ -116,7 +115,20 @@ module.exports = class InsurerPolicyTypeBO{
                         sql += ` insurer = ${db.escape(queryJSON.insurer)} `
                         hasWhere = true;
                     }
-                }
+                    if(queryJSON.wheelhouse_support){
+                        sql += hasWhere ? " AND " : " WHERE ";
+                        sql += ` wheelhouse_support = ${db.escape(queryJSON.wheelhouse_support)} `
+                        hasWhere = true;
+                    }
+                    if(queryJSON.api_support){
+                        sql += hasWhere ? " AND " : " WHERE ";
+                        sql += ` api_support = ${db.escape(queryJSON.api_support)} `
+                        hasWhere = true;
+                    }
+                    if(queryJSON.distinct_insurer) {
+                        sql += ` GROUP BY insurer `
+                    }
+				}
                 sql += ` order by insurer `
                 // Run the query
                 const result = await db.query(sql).catch(function (error) {
@@ -129,7 +141,7 @@ module.exports = class InsurerPolicyTypeBO{
                 if (rejected) {
                     return;
                 }
-                let boList = [];
+				let boList = [];
                 if(result && result.length > 0 ){
                     for(let i=0; i < result.length; i++ ){
                         let insurerPolicyTypeBO = new InsurerPolicyTypeBO();
@@ -149,8 +161,6 @@ module.exports = class InsurerPolicyTypeBO{
                     //Search so no hits ok.
                     resolve([]);
                 }
-               
-            
         });
     }
 

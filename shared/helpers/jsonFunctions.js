@@ -10,7 +10,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
  * @return {JSON} - New independent JSON object
  */
 exports.jsonCopy = function(sourceJSON){
-	return JSON.parse(JSON.stringify(sourceJSON))
+    return JSON.parse(JSON.stringify(sourceJSON))
 };
 
 /**
