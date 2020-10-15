@@ -8,6 +8,7 @@ const crypt = global.requireShared('./services/crypt.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
+const AgencyBO = global.requireShared('./models/Agency-BO.js');
 
 /**
  * Parses the quote app request URL and extracts the agency and page slugs
@@ -394,12 +395,30 @@ async function getAgencySocialMetadata(req, res, next) {
         log.error(`Could not parse landingPageContent/defaultLandingPageContent in agency slug '${agencySlug}' for social metadata: ${error} ${__location}`);
         res.send(400, {error: 'Could not process agency data'});
         return next();
-	}
+    }
+    let additionalInfo = [];
+    try{
+        let additionalInfoSQL = `SELECT additionalInfo FROM clw_talage_agencies where name = '${agency.agencyName}'`;
+        const result = await db.query(additionalInfoSQL);
+        result.forEach(data => {
+            data.additionalInfo = JSON.parse(data.additionalInfo);
+            if(data.additionalInfo !== null){
+                additionalInfo.push(data.additionalInfo.socialMediaTags.facebookPixel);
+            }
+
+        })
+        agency.facebookPixel = additionalInfo;
+    }
+    catch(err){
+        log.error(err)
+    }
+
     res.send(200, {
         metaTitle: agency.agencyName,
         metaDescription: agency.landingPageContent.bannerHeadingDefault ? agency.landingPageContent.bannerHeadingDefault : agency.defaultLandingPageContent.bannerHeadingDefault,
-		metaImage: `${global.settings.IMAGE_URL}/public/agency-logos/${agency.logo}`,
-		metaURL: agency.website
+        metaImage: `${global.settings.IMAGE_URL}/public/agency-logos/${agency.logo}`,
+        metaURL: agency.website,
+        metaPixel: agency.facebookPixel
     });
     return next();
 }
