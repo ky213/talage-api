@@ -26,6 +26,7 @@ exports.process = async function(requestJSON) {
         try{
             const claim_date = moment(claim.date , 'MM/DD/YYYY');
             claim.date = claim_date.format(db.dbTimeFormat());
+            claim.eventDate = claim_date.format(db.dbTimeFormat());
         }
         catch(e){
             log.error("Claim claim.date convert error " + e + __location)

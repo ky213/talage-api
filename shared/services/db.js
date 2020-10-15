@@ -252,3 +252,13 @@ Object.defineProperty(String.prototype, 'toSnakeCase', {'value': function(){
 Object.defineProperty(String.prototype, 'toCamelCase', {'value': function(){
     return this.toLowerCase().replace(/[^a-zA-Z0-9]+(.)/g, (m, chr) => chr.toUpperCase());
 }});
+
+// eslint-disable-next-line no-extend-native
+Object.defineProperty(String.prototype, 'isSnakeCase', {'value': function(){
+    if (this.includes("_")){
+        return true;
+    }
+    else {
+        return false;
+    }
+}});

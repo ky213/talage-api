@@ -1,0 +1,256 @@
+<ACORD>
+    <SignonRq>
+        <SignonTransport>
+            <SignonRoleCd>Customer</SignonRoleCd>
+            <CustId>
+                <SPName>com.talage</SPName>
+                <CustLoginId>talage</CustLoginId>
+            </CustId>
+        </SignonTransport>
+        <CustLangPref>EN-US</CustLangPref>
+        <ClientApp>
+            <Org>Talage Insurance</Org>
+            <Name>Talage</Name>
+            <Version>2.0</Version>
+        </ClientApp>
+    </SignonRq>
+    <InsuranceSvcRq>
+        <RqUID>{{:transactionID}}</RqUID>
+        <WorkCompPolicyQuoteInqRq>
+            <RqUID>{{:transactionID}}</RqUID>
+            <TransactionRequestDt>{{:transactionRequestDate}}</TransactionRequestDt>
+            <TransactionEffectiveDt>{{:transactionEffectiveDate}}</TransactionEffectiveDt>
+            <CurCd>USD</CurCd>
+			{{!-- Producer is hard-coded in --}}
+            <Producer>
+                <GeneralPartyInfo>
+                    <NameInfo>
+                        <CommlName>
+                            <CommercialName>Talage Insurance</CommercialName>
+                        </CommlName>
+                    </NameInfo>
+                    <Addr>
+                        <Addr1>300 South Wells Ave., Suite 4</Addr1>
+                        <City>Reno</City>
+                        <StateProvCd>NV</StateProvCd>
+                        <PostalCode>89502</PostalCode>
+                    </Addr>
+                    <Communications>
+                        <PhoneInfo>
+                            <PhoneTypeCd>Phone</PhoneTypeCd>
+                            <PhoneNumber>+1-833-4825243</PhoneNumber>
+                        </PhoneInfo>
+                    </Communications>
+                </GeneralPartyInfo>
+                <ProducerInfo>
+                    <ContractNumber>8843</ContractNumber>
+                    <ProducerSubCode>AA</ProducerSubCode>
+                </ProducerInfo>
+            </Producer>
+			{{!-- Primary contact information --}}
+            <InsuredOrPrincipal>
+                <GeneralPartyInfo>
+                    <NameInfo>
+                        <CommlName>
+                            <CommercialName>{{:app.business.name}}</CommercialName>
+                        </CommlName>
+						{{if app.business.dba}}
+                        <SupplementaryNameInfo>
+                            <SupplementaryNameCd>DBA</SupplementaryNameCd>
+                            <SupplementaryName>{{:app.business.dba}}</SupplementaryName>
+                        </SupplementaryNameInfo>
+						{{/if}}
+                        <LegalEntityCd>{{:entityID}}</LegalEntityCd>
+                        <TaxIdentity>
+                            <TaxIdTypeCd>FEIN</TaxIdTypeCd>
+                            <TaxId>{{:app.business.locations[0].identification_number}}</TaxId>
+                        </TaxIdentity>
+                    </NameInfo>
+                    <Addr>
+                        <AddrTypeCd>MailingAddress</AddrTypeCd>
+                        <Addr1>{{:app.business.mailing_address}}</Addr1>
+						{{if app.business.mailing_address2}}
+                        <Addr2>{{:app.business.mailing_address2}}</Addr2>
+						{{/if}}
+                        <City>{{:app.business.mailing_city}}</City>
+                        <StateProvCd>{{:app.business.mailing_territory}}</StateProvCd>
+                        <PostalCode>{{:app.business.mailing_zip}}</PostalCode>
+                    </Addr>
+                    <Communications>
+                        <PhoneInfo>
+                            <PhoneTypeCd>Phone</PhoneTypeCd>
+                            <CommunicationUseCd>Day</CommunicationUseCd>
+                            <PhoneNumber>{{:primaryPhoneNumber}}</PhoneNumber>
+                        </PhoneInfo>
+                        <EmailInfo>
+                            <EmailAddr>{{:app.business.contacts[0].email}}</EmailAddr>
+                        </EmailInfo>
+						{{if app.business.website}}
+                        <WebsiteInfo>
+                            <WebsiteURL>{{:app.business.website}}</WebsiteURL>
+                        </WebsiteInfo>
+						{{/if}}
+                    </Communications>
+                </GeneralPartyInfo>
+                <InsuredOrPrincipalInfo>
+                    <InsuredOrPrincipalRoleCd>Insured</InsuredOrPrincipalRoleCd>
+                    <BusinessInfo>
+                        <NAICSCd>{{:industry_code.attributes.acuityNAICSCode}}</NAICSCd>
+                        <BusinessStartDt>{{:app.business.founded.format('YYYY-MM-DD')}}</BusinessStartDt>
+                        <NumOwners>{{:app.business.num_owners}}</NumOwners>
+                        <NumEmployeesFullTime>{{:get_total_full_time_employees()}}</NumEmployeesFullTime>
+                        <NumEmployeesPartTime>{{:get_total_part_time_employees()}}</NumEmployeesPartTime>
+                    </BusinessInfo>
+                </InsuredOrPrincipalInfo>
+            </InsuredOrPrincipal>
+            <CommlPolicy>
+                <LOBCd>WORK</LOBCd>
+                <ControllingStateProvCd>{{:app.business.primary_territory}}</ControllingStateProvCd>
+                <ContractTerm>
+                    <EffectiveDt>{{:policy.effective_date.format('YYYY-MM-DD')}}</EffectiveDt>
+                </ContractTerm>
+                <CommlPolicySupplement>
+                    <BusinessStartDt>{{:app.business.founded.format('YYYY-MM-DD')}}</BusinessStartDt>
+                    <OperationsDesc>{{:app.business.locations[0].activity_codes[0].description}}</OperationsDesc>
+                    <GeneralLiabilityCd>{{:industry_code.cgl}}</GeneralLiabilityCd>
+					{{if industry_code.attributes.nature_of_business_code}}
+                    <NatureBusinessCd>{{:industry_code.attributes.nature_of_business_code}}</NatureBusinessCd>
+					{{/if}}
+                    <NumEmployees>{{:get_total_employees()}}</NumEmployees>
+                    <LengthTimeInBusiness>
+                        <NumUnits>{{:timeInBusiness}}</NumUnits>
+                        <UnitMeasurementCd>MON</UnitMeasurementCd>
+                    </LengthTimeInBusiness>
+                </CommlPolicySupplement>
+				{{!-- Auto-answered questions --}}
+                <QuestionAnswer>
+                    <QuestionCd>CGL04</QuestionCd>
+                    <YesNoCd>NO</YesNoCd>
+                </QuestionAnswer>
+                <QuestionAnswer>
+                    <QuestionCd>CGL05</QuestionCd>
+                    <YesNoCd>NO</YesNoCd>
+                </QuestionAnswer>
+                <QuestionAnswer>
+                    <QuestionCd>com.acuity_999990013</QuestionCd>
+                    <YesNoCd>NO</YesNoCd>
+                </QuestionAnswer>
+                <QuestionAnswer>
+                    <QuestionCd>WORK16</QuestionCd>
+                    <YesNoCd>NO</YesNoCd>
+                </QuestionAnswer>
+                <QuestionAnswer>
+                    <QuestionCd>com.acuity_999990041</QuestionCd>
+                    <Num>1</Num>
+                </QuestionAnswer>
+                <QuestionAnswer>
+                    <QuestionCd>com.acuity_999990042</QuestionCd>
+                    <YesNoCd>NO</YesNoCd>
+                </QuestionAnswer>
+                <QuestionAnswer>
+                    <QuestionCd>com.acuity_999990050</QuestionCd>
+                    <YesNoCd>NO</YesNoCd>
+                </QuestionAnswer>
+                <QuestionAnswer>
+                    <QuestionCd>com.acuity_999990014</QuestionCd>
+                    <YesNoCd>NO</YesNoCd>
+                </QuestionAnswer>
+				{{if app.business.management_structure}}
+                <QuestionAnswer>
+                    <QuestionCd>WORK72</QuestionCd>
+                    <Explanation>{{:managementStructureMember}}</Explanation>
+                </QuestionAnswer>
+                <QuestionAnswer>
+                    <QuestionCd>WORK73</QuestionCd>
+                    <Explanation>{{:managementStructureManager}}</Explanation>
+                </QuestionAnswer>
+				{{/if}}
+				{{if corporationType}}
+                <QuestionAnswer>
+                    <QuestionCd>com.acuity_WORK209</QuestionCd>
+                    <Explanation>{{:corporationType}}</Explanation>
+                </QuestionAnswer>
+				{{/if}}
+
+				{{!-- User-answered questions --}}
+				{{for questionList itemVar='~question'}}
+                <QuestionAnswer>
+                    <QuestionCd>{{:~question.code}}</QuestionCd>
+                    <{{:~question.answerType}}>{{:~question.answer}}</{{:~question.answerType}}>
+                </QuestionAnswer>
+				{{/for}}
+            </CommlPolicy>
+			{{for app.business.locations itemVar='~location'}}
+            <Location id="L{{:#index + 1}}">
+                <Addr>
+                    <Addr1>{{:~location.address.substring(0, 30)}}</Addr1>
+					{{if ~location.address2}}
+                    <Addr2>{{:~location.address2.substring(0, 30)}}</Addr2>
+					{{/if}}
+                    <City>{{:~location.city}}</City>
+                    <StateProvCd>{{:~location.territory}}</StateProvCd>
+                    <PostalCode>{{:~location.zip}}</PostalCode>
+                </Addr>
+            </Location>
+			{{/for}}
+            <WorkCompLineBusiness>
+                <LOBCd>WORK</LOBCd>
+				{{for start=1 end=4 itemVar='~i'}}
+                <WorkCompLossOrPriorPolicy>
+                    <EffectiveDt>{{:~root.claims_by_year[~i].effective_date.format('YYYY-MM-DD')}}</EffectiveDt>
+                    <ExpirationDt>{{:~root.claims_by_year[~i].expiration_date.format('YYYY-MM-DD')}}</ExpirationDt>
+                    <TotalIncurredAmt>
+                        <Amt>{{:~root.claims_by_year[~i].amountPaid + ~root.claims_by_year[~i].amountReserved}}</Amt>
+                    </TotalIncurredAmt>
+                    <NumClaims>{{:~root.claims_by_year[~i].count}}</NumClaims>
+                </WorkCompLossOrPriorPolicy>
+				{{/for}}
+                <WorkCompIndividuals>
+                    <IncludedExcludedCd>{{:app.business.owners_included? 'I' : 'E'}}</IncludedExcludedCd>
+                </WorkCompIndividuals>
+                <WorkCompRateState>
+                    <StateProvCd>{{:app.business.primary_territory}}</StateProvCd>
+					{{if app.business.bureau_number}}
+                    <RiskID>{{:app.business.bureau_number}}</RiskID>
+					{{/if}}
+					{{if app.business.experience_modifier !== 1.0}}
+                    <CreditOrSurcharge>
+                        <CreditSurchargeCd>EXP</CreditSurchargeCd>
+                        <CreditSurchargeAmtDesc>Experience Modification Factor</CreditSurchargeAmtDesc>
+                        <NumericValue>
+                            <FormatModFactor>{{:app.business.experience_modifier}}</FormatModFactor>
+                        </NumericValue>
+                    </CreditOrSurcharge>
+					{{/if}}
+					{{for app.business.locations itemVar='~location'}}
+                    <WorkCompLocInfo LocationRef="L{{:#index + 1}}">
+						{{for ~location.activity_codes itemVar='~activityCode'}}
+                        <WorkCompRateClass>
+                            <RatingClassificationCd>{{:~activityCode.ncciCode}}</RatingClassificationCd>
+                            <Exposure>{{:~activityCode.payroll}}</Exposure>
+                            <RatingClassificationDesc>{{:~activityCode.ncciCodeDescription}}</RatingClassificationDesc>
+                        </WorkCompRateClass>
+						{{/for}}
+                    </WorkCompLocInfo>
+					{{/for}}
+                </WorkCompRateState>
+                <CommlCoverage>
+                    <CoverageCd>WCEL</CoverageCd>
+                    <CoverageDesc>Policy</CoverageDesc>
+                    <Limit>
+                        <FormatInteger>{{:requestLimits[0]}}</FormatInteger>
+                        <LimitAppliesToCd>PerAcc</LimitAppliesToCd>
+                    </Limit>
+                    <Limit>
+                        <FormatInteger>{{:requestLimits[1]}}</FormatInteger>
+                        <LimitAppliesToCd>DisPol</LimitAppliesToCd>
+                    </Limit>
+                    <Limit>
+                        <FormatInteger>{{:requestLimits[2]}}</FormatInteger>
+                        <LimitAppliesToCd>DisEachEmpl</LimitAppliesToCd>
+                    </Limit>
+                </CommlCoverage>
+            </WorkCompLineBusiness>
+        </WorkCompPolicyQuoteInqRq>
+    </InsuranceSvcRq>
+</ACORD>

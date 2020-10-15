@@ -1,3 +1,4 @@
+/* eslint-disable strict */
 module.exports = {
     'agency': {
         'x': 50,
@@ -68,7 +69,7 @@ module.exports = {
         'y': 172
     },
     'questions': {
-        'x': 71.5, 
+        'x': 71.5,
         'y': 125
     }
 }

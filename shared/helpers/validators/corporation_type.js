@@ -1,9 +1,9 @@
 'use strict';
 
 const valid_types = [
-	'c',
-	'n',
-	's'
+    'c',
+    'n',
+    's'
 ];
 
 /**
@@ -13,5 +13,5 @@ const valid_types = [
  * @returns {boolean} - True if valid, false otherwise
  */
 module.exports = function(corporation_type){
-	return valid_types.includes(corporation_type);
+    return valid_types.includes(corporation_type);
 };

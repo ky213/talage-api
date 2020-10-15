@@ -7,8 +7,8 @@
  * @returns {boolean} - True if valid, false otherwise
  */
 module.exports = function(time){
-	if(Number.isInteger(time) && time >= 7 && time <= 11){
-		return true;
-	}
-	return false;
+    if(Number.isInteger(time) && time >= 7 && time <= 11){
+        return true;
+    }
+    return false;
 };

@@ -3,7 +3,7 @@
 const crypt = global.requireShared('./services/crypt.js');
 const validator = global.requireShared('./helpers/validator.js');
 const serverHelper = require('../../../server.js');
-const {SharedIniFileCredentials} = require('aws-sdk');
+
 
 /**
  * Responds to GET requests for account information

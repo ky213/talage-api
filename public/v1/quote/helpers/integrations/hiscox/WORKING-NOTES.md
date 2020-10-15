@@ -5,6 +5,7 @@
 ```
 curl -X POST -H "Accept: application/json" -H "Content-Type: application/x-www-form-urlencoded" -d "client_id=X34Ta24BKwqB88nAwCFVAvWNXpRo3QPQ&client_secret=P7TwlBvyEk3Tk6GJ" "https://sdbx.hiscox.com/toolbox/auth/accesstoken"
 ```
+
 ### Response
 ```json
 {

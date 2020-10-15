@@ -51,7 +51,7 @@ async function PostResetPassword(req, res, next){
     });
     if(error){
         return next(false);
-    } 
+    }
 
     // Make sure we found a result before doing more processing
     if(result && result.length){
