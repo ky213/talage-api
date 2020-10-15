@@ -8,6 +8,7 @@ const fileSvc = global.requireShared('services/filesvc.js');
 const { 'v4': uuidv4 } = require('uuid');
 var AgencyEmail = require('mongoose').model('AgencyEmail');
 
+const additionalInfo2toplevel = ['donotShowEmailAddress'];
 
 const s3AgencyLogoPath = "public/agency-logos/";
 const tableName = 'clw_talage_agencies'
@@ -41,7 +42,6 @@ module.exports = class AgencyBO {
         newObjectJSON.ca_license_number = newObjectJSON.caLicenseNumber
       }
 
-
       if (newObjectJSON.id) {
         await this.#dbTableORM.getById(newObjectJSON.id).catch(function (err) {
           log.error(`Error getting ${tableName} from Database ` + err + __location);
@@ -50,6 +50,15 @@ module.exports = class AgencyBO {
         });
         this.updateProperty();
         this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
+        if(!this.#dbTableORM.additionalInfo){
+          this.#dbTableORM.additionalInfo= {}
+        }
+        for (let i = 0; i < additionalInfo2toplevel.length; i++) {
+          const featureName = additionalInfo2toplevel[i]
+          if (newObjectJSON[featureName] || newObjectJSON[featureName] === false) {
+            this.#dbTableORM.additionalInfo[featureName] = newObjectJSON[featureName];
+          }
+        }
 
         // Logo are not sent in during agency create
         // file naming requires agencyId
@@ -171,6 +180,7 @@ module.exports = class AgencyBO {
           return;
         });
         this.updateProperty();
+        this.moveAdditionalInfoFeatures(this)
         resolve(true);
       }
       else {
@@ -252,6 +262,7 @@ module.exports = class AgencyBO {
           if (!resp) {
             log.debug("Bad BO load" + __location)
           }
+          this.moveAdditionalInfoFeatures(agencyBO)
           if (agencyBO.agency_network && getAgencyNetwork === true && agencyNetworkList && agencyNetworkList.length > 0) {
             try {
               let agencyNetwork = agencyNetworkList.find(agencyNetwork => agencyNetwork.id === agencyBO.agency_network);
@@ -286,11 +297,13 @@ module.exports = class AgencyBO {
 
         this.updateProperty();
         let cleanObjJson = this.#dbTableORM.cleanJSON();
+        this.moveAdditionalInfoFeatures(cleanObjJson)
         if (getAgencyNetwork === true) {
           const agencyNetworkBO = new AgencyNetworkBO();
           try {
             const agencyNetworkJSON = await agencyNetworkBO.getById(this.agency_network);
             cleanObjJson.agencyNetworkName = agencyNetworkJSON.name;
+
 
           }
           catch (err) {
@@ -303,6 +316,26 @@ module.exports = class AgencyBO {
         reject(new Error('no id supplied'))
       }
     });
+  }
+
+  moveAdditionalInfoFeatures(jsonObject) {
+    if (jsonObject && jsonObject.additionalInfo) {
+      for (let i = 0; i < additionalInfo2toplevel.length; i++) {
+        const featureName = additionalInfo2toplevel[i]
+        if (jsonObject.additionalInfo[featureName]) {
+          jsonObject[featureName] = jsonObject.additionalInfo[featureName];
+        }
+        else {
+          jsonObject[featureName] = false;
+        }
+      }
+    }
+    else if (jsonObject) {
+      for (let i = 0; i < additionalInfo2toplevel.length; i++) {
+        const featureName = additionalInfo2toplevel[i]
+        jsonObject[featureName] = false;
+      }
+    }
   }
 
   async cleanupInput(inputJSON) {
@@ -416,12 +449,12 @@ module.exports = class AgencyBO {
         }
         if (agencyEmailDB) {
           if (agencyEmailDB[agencyContentProperty] && agencyEmailDB[agencyContentProperty].subject) {
-            
+
             emailTemplateJSON.agencyMessage = agencyEmailDB[agencyContentProperty].message;
             emailTemplateJSON.agencySubject = agencyEmailDB[agencyContentProperty].subject;
           }
           if (agencyEmailDB[customerContentProperty] && agencyEmailDB[customerContentProperty].subject) {
-            
+
             emailTemplateJSON.customerMessage = agencyEmailDB[customerContentProperty].message;
             emailTemplateJSON.customerSubject = agencyEmailDB[customerContentProperty].subject;
           }
@@ -492,232 +525,232 @@ module.exports = class AgencyBO {
 }
 
 const properties = {
-    "id": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
-    },
-    "state": {
-      "default": "1",
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "number",
-      "dbType": "tinyint(1)"
-    },
-    "agency_network": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
-    },
-    "ca_license_number": {
-      "default": null,
-      "encrypted": true,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "blob"
-    },
-    "email": {
-      "default": null,
-      "encrypted": true,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "blob"
-    },
-    "fname": {
-      "default": null,
-      "encrypted": true,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "blob"
-    },
-    "lname": {
-      "default": null,
-      "encrypted": true,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "blob"
-    },
-    "logo": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "varchar(75)"
-    },
-    "name": {
-      "default": "",
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "string",
-      "dbType": "varchar(50)"
-    },
-    "phone": {
-      "default": null,
-      "encrypted": true,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "blob"
-    },
-    "slug": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "varchar(30)"
-    },
-    "website": {
-      "default": null,
-      "encrypted": true,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "string",
-      "dbType": "blob"
-    },
-    "wholesale": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "tinyint(1)"
-    },
-    "wholesale_agreement_signed": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "datetime",
-      "dbType": "datetime"
-    },
-    "enable_optout": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "tinyint(1)"
-    },
-    "additionalInfo": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "json",
-      "dbType": "json"
-    },
-    "created": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "timestamp",
-      "dbType": "timestamp"
-    },
-    "created_by": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
-    },
-    "modified": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "timestamp",
-      "dbType": "timestamp"
-    },
-    "modified_by": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
-    },
-    "deleted": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "timestamp",
-      "dbType": "timestamp"
-    },
-    "deleted_by": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
-    },
-    "checked_out": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11)"
-    },
-    "checked_out_time": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "datetime",
-      "dbType": "datetime"
-    },
-    "do_not_report": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "tinyint(1)"
-    }
+  "id": {
+    "default": 0,
+    "encrypted": false,
+    "hashed": false,
+    "required": false,
+    "rules": null,
+    "type": "number",
+    "dbType": "int(11) unsigned"
+  },
+  "state": {
+    "default": "1",
+    "encrypted": false,
+    "hashed": false,
+    "required": true,
+    "rules": null,
+    "type": "number",
+    "dbType": "tinyint(1)"
+  },
+  "agency_network": {
+    "default": null,
+    "encrypted": false,
+    "hashed": false,
+    "required": false,
+    "rules": null,
+    "type": "number",
+    "dbType": "int(11) unsigned"
+  },
+  "ca_license_number": {
+    "default": null,
+    "encrypted": true,
+    "hashed": false,
+    "required": false,
+    "rules": null,
+    "type": "string",
+    "dbType": "blob"
+  },
+  "email": {
+    "default": null,
+    "encrypted": true,
+    "hashed": false,
+    "required": false,
+    "rules": null,
+    "type": "string",
+    "dbType": "blob"
+  },
+  "fname": {
+    "default": null,
+    "encrypted": true,
+    "hashed": false,
+    "required": false,
+    "rules": null,
+    "type": "string",
+    "dbType": "blob"
+  },
+  "lname": {
+    "default": null,
+    "encrypted": true,
+    "hashed": false,
+    "required": false,
+    "rules": null,
+    "type": "string",
+    "dbType": "blob"
+  },
+  "logo": {
+    "default": null,
+    "encrypted": false,
+    "hashed": false,
+    "required": false,
+    "rules": null,
+    "type": "string",
+    "dbType": "varchar(75)"
+  },
+  "name": {
+    "default": "",
+    "encrypted": false,
+    "hashed": false,
+    "required": true,
+    "rules": null,
+    "type": "string",
+    "dbType": "varchar(50)"
+  },
+  "phone": {
+    "default": null,
+    "encrypted": true,
+    "hashed": false,
+    "required": false,
+    "rules": null,
+    "type": "string",
+    "dbType": "blob"
+  },
+  "slug": {
+    "default": null,
+    "encrypted": false,
+    "hashed": false,
+    "required": false,
+    "rules": null,
+    "type": "string",
+    "dbType": "varchar(30)"
+  },
+  "website": {
+    "default": null,
+    "encrypted": true,
+    "hashed": false,
+    "required": false,
+    "rules": null,
+    "type": "string",
+    "dbType": "blob"
+  },
+  "wholesale": {
+    "default": 0,
+    "encrypted": false,
+    "hashed": false,
+    "required": false,
+    "rules": null,
+    "type": "number",
+    "dbType": "tinyint(1)"
+  },
+  "wholesale_agreement_signed": {
+    "default": null,
+    "encrypted": false,
+    "hashed": false,
+    "required": false,
+    "rules": null,
+    "type": "datetime",
+    "dbType": "datetime"
+  },
+  "enable_optout": {
+    "default": 0,
+    "encrypted": false,
+    "hashed": false,
+    "required": false,
+    "rules": null,
+    "type": "number",
+    "dbType": "tinyint(1)"
+  },
+  "additionalInfo": {
+    "default": null,
+    "encrypted": false,
+    "hashed": false,
+    "required": false,
+    "rules": null,
+    "type": "json",
+    "dbType": "json"
+  },
+  "created": {
+    "default": null,
+    "encrypted": false,
+    "hashed": false,
+    "required": false,
+    "rules": null,
+    "type": "timestamp",
+    "dbType": "timestamp"
+  },
+  "created_by": {
+    "default": null,
+    "encrypted": false,
+    "hashed": false,
+    "required": false,
+    "rules": null,
+    "type": "number",
+    "dbType": "int(11) unsigned"
+  },
+  "modified": {
+    "default": null,
+    "encrypted": false,
+    "hashed": false,
+    "required": false,
+    "rules": null,
+    "type": "timestamp",
+    "dbType": "timestamp"
+  },
+  "modified_by": {
+    "default": null,
+    "encrypted": false,
+    "hashed": false,
+    "required": false,
+    "rules": null,
+    "type": "number",
+    "dbType": "int(11) unsigned"
+  },
+  "deleted": {
+    "default": null,
+    "encrypted": false,
+    "hashed": false,
+    "required": false,
+    "rules": null,
+    "type": "timestamp",
+    "dbType": "timestamp"
+  },
+  "deleted_by": {
+    "default": null,
+    "encrypted": false,
+    "hashed": false,
+    "required": false,
+    "rules": null,
+    "type": "number",
+    "dbType": "int(11) unsigned"
+  },
+  "checked_out": {
+    "default": 0,
+    "encrypted": false,
+    "hashed": false,
+    "required": true,
+    "rules": null,
+    "type": "number",
+    "dbType": "int(11)"
+  },
+  "checked_out_time": {
+    "default": null,
+    "encrypted": false,
+    "hashed": false,
+    "required": false,
+    "rules": null,
+    "type": "datetime",
+    "dbType": "datetime"
+  },
+  "do_not_report": {
+    "default": 0,
+    "encrypted": false,
+    "hashed": false,
+    "required": false,
+    "rules": null,
+    "type": "number",
+    "dbType": "tinyint(1)"
   }
+}
 
 class DbTableOrm extends DatabaseObject {
 
