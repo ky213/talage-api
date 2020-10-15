@@ -653,11 +653,8 @@ module.exports = class CompwestWC extends Integration {
 
         // Check the status to determine what to do next
         let message_type = '';
-        const status = this.get_xml_child(result.ACORD, "SignonRs.Status.StatusCd");
-        let statusDescription = this.get_xml_child(result.ACORD, "SignonRs.Status.StatusDesc.Desc");
-        if (!statusDescription) {
-            statusDescription = "AFGroup/CompWest did not return an error description.";
-        }
+        const status = res.SignonRs[0].Status[0].StatusCd[0];
+        const statusDescription = res.SignonRs[0].Status[0].StatusDesc[0].Desc && res.SignonRs[0].Status[0].StatusDesc[0].Desc.length ? res.SignonRs[0].Status[0].StatusDesc[0].Desc[0] : "AFGroup/CompWest did not return an error description.";
         switch (status) {
             case 'DECLINE':
                 this.log += `--------======= Application Declined =======--------<br><br>Appid: ${this.app.id}  ${this.insurer.name} declined to write this business`;
