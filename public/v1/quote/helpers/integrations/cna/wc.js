@@ -7,8 +7,12 @@
 /* eslint multiline-comment-style: 0 */
 const axios = require('axios');
 const util = require('util');
-const cnaWCTemplate = require('jsrender').templates('./public/v1/quote/helpers/integrations/cna/wc_request.xmlt');
+// const cnaWCTemplate = require('jsrender').templates('./public/v1/quote/helpers/integrations/cna/wc_request.xmlt');
+// const converter = require('xml-js');
 const Integration = require('../Integration.js');
+
+// import template WC request JSON object. Fields not set below are defaulted to values in the template
+const wcRequest = require('./wc_request.json');
 
 /**
  * Workers' Comp Integration for CNA
@@ -24,16 +28,24 @@ const Integration = require('../Integration.js');
  *  Content-Type - application/json
  *  Accept - application/json
 */
-const HOST = 'https://drt-apis.cna.com';
+const HOST = 'drt-apis.cna.com';
 const QUOTE_URL = '/policy/small-business/full-quote';
-const AUTH_URL = 'security/external-token/small-business';
+const AUTH_URL = '/security/external-token/small-business';
 
 //TODO: Ensure this is the proper order
 const LIMIT_CODES = [
-    'BlEachOcc',
+    'BIEachOcc',
     'DisPol',
     'DisEachEmpl'
 ];
+
+const carrierLimits = [
+    '100000/500000/100000',
+    '100000/1000000/100000',
+    '500000/500000/500000',
+    '500000/1000000/500000',
+    '1000000/1000000/1000000' // if state = CA, this is ONLY option
+]
 
 module.exports = class CnaWC extends Integration {
 
@@ -47,8 +59,23 @@ module.exports = class CnaWC extends Integration {
         const business = this.app.business;
         const policy = this.app.policies[0]; // currently just ['WC']
 
-        // import template WC request JSON object. Fields not set below are defaulted to values in the template
-        const wcRequest = require('./wc_request.json');
+        // Check to ensure we have NCCI codes available for every provided activity code.
+        for (const location of this.app.business.locations) {
+            for (const activityCode of location.activity_codes) {
+                const ncciCode = await this.get_ncci_code_from_activity_code(location.territory, activityCode.id);
+                if (!ncciCode) {
+                    return this.client_error('We could not locate an NCCI code for one or more of the provided activities.', {activityCode: activityCode.id});
+                }
+                activityCode.ncciCode = `${ncciCode.code}${ncciCode.sub}`;
+                activityCode.ncciCodeDescription = ncciCode.description;
+            }
+        }
+
+        // Prepare limits
+        const limits = this.getBestLimits(carrierLimits);
+        if (!limits) {
+            return this.client_autodeclined('The insurer does not support the request liability limits', {industryCode: this.industry_code.id});
+        }
 
         // =================================================================
         //                     FILL OUT REQUEST OBJECT
@@ -80,19 +107,20 @@ module.exports = class CnaWC extends Integration {
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].TaxIdentity[0].TaxId.value | "595976858"
         // TODO: Determine if these are required. If not, then delete these properties unless we have a value for business.dba???
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryNameCd.value | "DBA"
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryName = business.dba;
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryName.value = business.dba;
+        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryNameCd | 'DBA'
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].SupplementaryNameInfo[0].id | "N001"
 
         // ====== Address Information ======
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].Addr1 = `${business.mailing_address} ${business.mailing_address2}`.trim();
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].City = business.mailing_city;
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].StateProvCd = business.mailing_territory;
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].PostalCode = business.mailing_zipcode;
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].County = business.mailing_territory; // TODO: Should be full state name
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].Addr1.value = `${business.mailing_address} ${business.mailing_address2}`.trim();
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].City.value = business.mailing_city;
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].StateProvCd.value = business.mailing_territory;
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].PostalCode.value = business.mailing_zipcode;
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].County.value = business.mailing_territory; // TODO: Should be full state name
 
         // ====== Business Contact Information ======
         // TODO: may need to be in format "+1-812-2222222"
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Communications.PhoneInfo[0].PhoneNumber = business.contacts[0].phone;
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Communications.PhoneInfo[0].PhoneNumber.value = `${business.contacts[0].phone}`;
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Communications.EmailInfo[0].EmailAddr.value = business.contacts[0].email;
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Communications.WebsiteInfo[0].WebsiteURL.value = business.website;
 
@@ -125,13 +153,12 @@ module.exports = class CnaWC extends Integration {
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Location = this.getLocations();
 
         // ====== Workers' Comp Line of Business Information ======
-        const numEmployees = policy.appBusiness.locations[0].full_time_employees + policy.appBusiness.locations[0].part_time_employees;
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.LOBCd.value = "WORK";
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.CurrentTermAmt.value | 10000
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness['com.cna_PremiumTypeCd'].value | "EST"
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness['com.cna_AnniversaryRatingDt'].value | "2020-09-27"
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].StateProvCd.value = business.mailing_territory;
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].NumEmployees.value = numEmployees;
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].NumEmployees.value = this.get_total_employees();
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].RatingClassificationCd.value | "8008A"
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].RatingClassificationDescCd.value | "STORES-CLOTHING/DRY GOODS-RETAIL"
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].Exposure | "66000"
@@ -141,7 +168,7 @@ module.exports = class CnaWC extends Integration {
 
         // ====== Coverage Information ======
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.CommlCoverage[0].CoverageCd.value | "WCEL"
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.CommlCoverage[0].Limit = this.getLimits();
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.CommlCoverage[0].Limit = this.getLimits(limits);
 
         // ====== Questions ======
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.QuestionAnswer = this.getQuestionArray();
@@ -156,69 +183,40 @@ module.exports = class CnaWC extends Integration {
             process.exit(-1);
         }
 
+        // create request headers using auth access token (jwt)
         const headers = {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'Authorization': `Bearer ${jwt.trim()}`,
+            'authorization': `Bearer ${jwt.trim()}`,
             'branch-producer-cd': '010018297',
-            'agentId': 'TALAGAPI'
-        }
-        // ----- NEW -----
-
-        let xml = null;
-        try {
-            xml = cnaWCTemplate.render(this).replace(/\n\s*\n/g, '\n');
-        }
-        catch (error) {
-            return this.client_error(`Unable to create the request to send to the insurer: ${error}.`, __location);
+            'agentid': 'TALAGAPI'
         }
 
-        // Send the XML to the insurer
         let result = null;
         try {
-            result = await this.send_xml_request(host, path, xml, headers);
+            result = await this.send_json_request(HOST, QUOTE_URL, JSON.stringify(wcRequest), headers, "POST");
         }
         catch (error) {
-            return this.client_connection_error(__location, error);
+            log.error(`CNA Quote Endpoint Returned Error: ${util.inspect(error.response.data.InsuranceSvcRs[0], false, null)}` + __location);
+            const errorString = JSON.stringify(error.response.data.InsuranceSvcRs[0]);
+            if (errorString.indexOf("No Carrier found for passed state and class code") > -1) {
+                this.reasons.push('CNA response with: No Carrier found for passed state and class code ');
+                return this.return_result('declined');
+            }
+            else {
+                this.reasons.push('Problem connecting to insurer CNA: ' + error);
+                return this.return_result('autodeclined');
+            }
         }
 
         console.log("=================== QUOTE RESULT ===================");
-        console.log(result);
+        console.log(JSON.stringify(result));
         console.log("=================== QUOTE RESULT ===================");
 
+        // TODO: Extract CompanysQuoteNumber 
+        // - look at data from PolicyStatusCd
+        // - look for url param to get quote letter, otherwise hit https://drt-apis.cna.com/policy/small-business/quote-proposal-letter/8738376/options/00/proposals
+        // -- where 8738376 = policy number(?) and 00 = ???
+
         return this.return_result('referred');
-
-        // ----- NEW -----
-
-        // // Send JSON to the insurer
-        // let quoteResult = null;
-        // try {
-        //     //quoteResult = await this.send_json_request(HOST, QUOTE_URL, example, headers, 'POST', false);
-        //     quoteResult = await axios.post(`${HOST}${QUOTE_URL}`, JSON.stringify(wcRequest), headers);
-        //     console.log("=================== QUOTE RESULT ===================");
-        //     console.log(quoteResult);
-        //     console.log("=================== QUOTE RESULT ===================");
-
-        //     // TODO: Extract CompanysQuoteNumber 
-
-        //     // look at data from PolicyStatusCd
-
-        //     // look for url param to get quote letter, otherwise hit https://drt-apis.cna.com/policy/small-business/quote-proposal-letter/8738376/options/00/proposals
-        //     // where 8738376 = policy number(?) and 00 = ???
-        // }
-        // catch (error) {
-        //     log.error(`CNA Quote Endpoint Returned Error: ${util.inspect(error.response.data.InsuranceSvcRs[0], false, null)}` + __location);
-        //     const errorString = JSON.stringify(error.response.data.InsuranceSvcRs[0]);
-        //     if (errorString.indexOf("No Carrier found for passed state and class code") > -1) {
-        //         this.reasons.push('CNA response with: No Carrier found for passed state and class code ');
-        //         return this.return_result('declined');
-        //     }
-        //     else {
-        //         this.reasons.push('Problem connecting to insurer CNA: ' + error);
-        //         return this.return_result('autodeclined');
-        //     }
-        // }
-        // return this.return_result('referred');
     }
 
     // transform our business locations array into location objects array to be inserted into the WC request Object
@@ -228,7 +226,7 @@ module.exports = class CnaWC extends Integration {
             return {
                 ItemIdInfo: {
                     AgencyId: {
-                        value: this.app.agencyLocation.agencyId
+                        value: `${this.app.agencyLocation.agencyId}`
                     }
                 },
                 Addr: {
@@ -254,16 +252,15 @@ module.exports = class CnaWC extends Integration {
     }
 
     // transform our policy limit selection into limit objects array to be inserted into the WC Request Object
-    getLimits() {
+    getLimits(limits) {
         // split the policy limits string into individual limits array
-        const coverageLimits = this.policy.limits.split('/');
         const limitArray = [];
 
         // for each limit, create a limit object with the limit value and applyTo code
-        coverageLimits.forEach((limit, i) => {
+        limits.forEach((limit, i) => {
             limitArray.push({
                 FormatInteger: {
-                    value: parseInt(limit)
+                    value: limit
                 },
                 LimitAppliesToCd: [{
                     value: LIMIT_CODES[i]

@@ -1508,7 +1508,7 @@ module.exports = class Integration {
             }
 
             // Set the length parameter
-            headers['Content-Length'] = data && data.length ? data.length : 0;
+            headers['Content-Length'] = data && data.length ? Buffer.byteLength(data) : 0;
 
             // Set the request options
             const options = {
@@ -1579,9 +1579,9 @@ module.exports = class Integration {
                 });
             });
 
-            req.on('error', () => {
+            req.on('error', (err) => {
                 this.log += `Connection to ${this.insurer.name} timedout.`;
-                reject(new Error(`Appid: ${this.app.id} Connection to ${this.insurer.name} timedout.`));
+                reject(new Error(`Appid: ${this.app.id} Connection to ${this.insurer.name} terminated. Reason: ${err.code}`));
             });
 
             if (data) {
