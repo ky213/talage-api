@@ -237,6 +237,15 @@ module.exports = class CompwestWC extends Integration {
 
         // Org (AF Group has asked us to send in the Channel ID in this field. 2 indicates Digalent Storefront. 1 indicates the Talage Digital Agency)
         ClientApp.ele('Org', this.app.agencyLocation.id === 2 || this.app.agencyLocation.agencyNetwork === 2 ? 2 : 1);
+        if(this.app.applicationData
+            && this.app.applicationData.businessDataJSON
+            && this.app.applicationData.businessDataJSON.afBusinessData
+            && this.app.applicationData.businessDataJSON.afBusinessData.requestResponseId){
+                ClientApp.ele('SubmissionId', this.app.applicationData.businessDataJSON.afBusinessData.requestResponseId);
+                log.debug("CompWest WC added SubmissionId");
+        }
+
+        //SubmissionId
 
         // </ClientApp>
         // </SignonRq>
