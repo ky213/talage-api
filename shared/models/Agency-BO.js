@@ -41,10 +41,6 @@ module.exports = class AgencyBO {
       if (newObjectJSON.caLicenseNumber) {
         newObjectJSON.ca_license_number = newObjectJSON.caLicenseNumber
       }
-      
-
-
-
 
       if (newObjectJSON.id) {
         await this.#dbTableORM.getById(newObjectJSON.id).catch(function (err) {
@@ -59,7 +55,7 @@ module.exports = class AgencyBO {
         }
         for (let i = 0; i < additionalInfo2toplevel.length; i++) {
           const featureName = additionalInfo2toplevel[i]
-          if (newObjectJSON[featureName]) {
+          if (newObjectJSON[featureName] || newObjectJSON[featureName] === false) {
             this.#dbTableORM.additionalInfo[featureName] = newObjectJSON[featureName];
           }
         }

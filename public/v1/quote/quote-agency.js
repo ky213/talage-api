@@ -9,6 +9,7 @@ const crypt = global.requireShared('./services/crypt.js');
 //const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
+const AgencyBO = global.requireShared('./models/Agency-BO.js');
 
 /**
  * Parses the quote app request URL and extracts the agency and page slugs
@@ -104,7 +105,8 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
 				ag.logo,
 				ag.enable_optout,
 				ag.website,
-				ag.wholesale
+                ag.wholesale,
+                ag.additionalInfo
 			FROM clw_talage_agency_landing_pages as alp
 			LEFT JOIN clw_talage_agencies AS ag ON alp.agency = ag.id
 			LEFT JOIN clw_talage_industry_code_categories AS icc ON alp.industry_code_category = icc.id
@@ -118,6 +120,9 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
     try {
         const result = await db.query(sql);
         agency = result[0];
+        agency.additionalInfo = JSON.parse(agency.additionalInfo);
+        const agencyBO = new AgencyBO();
+        agencyBO.moveAdditionalInfoFeatures(agency)
     }
     catch (error) {
         log.warn(`Could not retrieve quote engine agency ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${error} ${__location}`);
