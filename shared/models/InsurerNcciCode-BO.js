@@ -4,6 +4,7 @@ const DatabaseObject = require('./DatabaseObject.js');
 const crypt = requireShared('./services/crypt.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const moment = require('moment');
 const moment_timezone = require('moment-timezone');
 const { debug } = require('request');
@@ -99,10 +100,10 @@ module.exports = class InsurerNcciCodeBO{
                 let rejected = false;
                 // Create the update query
                 let hasWhere = false;
-                let sql = `
-                    SELECT * FROM ${tableName}
-                `;
+                let sql = `SELECT * FROM ${tableName} `;
+                
                 if(queryJSON){
+                    
                     if(queryJSON.activityCode) {
                         // map from the mapping table
                         sql += hasWhere ? " AND " : " WHERE ";
@@ -111,21 +112,51 @@ module.exports = class InsurerNcciCodeBO{
                                         WHERE code = ${db.escape(queryJSON.activityCode)}) `;
                         hasWhere = true;
                     }
+                    if(queryJSON.activityCodeNotLinked) {
+                        // map from the mapping table
+                        sql += hasWhere ? " AND " : " WHERE ";
+                        sql += ` id NOT IN (SELECT insurer_code 
+                                        FROM clw_talage_activity_code_associations 
+                                        WHERE code = ${db.escape(queryJSON.activityCodeNotLinked)}) `;
+                        hasWhere = true;
+                    }
+                    // TODO: find a way to make this a valid sql list of ids (might just be json parse)
+                    if(queryJSON.insurers) {
+                        sql += hasWhere ? " AND " : " WHERE ";
+                        sql += ` insurer IN (${db.escape(queryJSON.insurers)}) `;
+                        hasWhere = true;
+                    }
+                    if(queryJSON.territory) {
+                        sql += hasWhere ? " AND " : " WHERE ";
+                        sql += ` territory LIKE '%${queryJSON.territory}%' `;
+                        hasWhere = true;
+                    }
+                    if(queryJSON.code) {
+                        sql += hasWhere ? " AND " : " WHERE ";
+                        sql += ` code LIKE '%${queryJSON.code}%' `;
+                        hasWhere = true;
+                    }
+                    if(queryJSON.description) {
+                        sql += hasWhere ? " AND " : " WHERE ";
+                        sql += ` description LIKE '%${queryJSON.description}%' `;
+                        hasWhere = true;
+                    }
                     if(queryJSON.state) {
                         sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` state = ${db.escape(queryJSON.state)} `
+                        sql += ` state = ${db.escape(queryJSON.state)} `;
                     } else {
                         sql += hasWhere ? " AND " : " WHERE ";
                         sql += ` state > 0 `
                     }
                     hasWhere = true;
-                    // TODO
-                    // let hasWhere = false;
-                    // if(queryJSON.question){
-                    //     sql += hasWhere ? " AND " : " WHERE ";
-                    //     sql += ` like ${db.escape(queryJSON.question)} `
-                    //     hasWhere = true;
-                    // }
+
+                    const maxRows = stringFunctions.santizeNumber(queryJSON.maxRows, true);
+                    const page = stringFunctions.santizeNumber(queryJSON.page, true);
+                    if(maxRows && page) {
+                        sql += ` LIMIT ${db.escape(maxRows)} `;
+                        // offset by page number * max rows, so we go that many rows
+                        sql += ` OFFSET ${db.escape((page - 1) * maxRows)}`;
+                    }
                 }
                 
 

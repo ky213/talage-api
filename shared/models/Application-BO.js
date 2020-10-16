@@ -1,5 +1,7 @@
 'use strict';
 const moment = require('moment');
+const clonedeep = require('lodash.clonedeep');
+
 const DatabaseObject = require('./DatabaseObject.js');
 const BusinessModel = require('./Business-model.js');
 const ApplicationActivityCodesModel = require('./ApplicationActivityCodes-model.js');
@@ -9,16 +11,30 @@ const ApplicationClaimBO = require('./ApplicationClaim-BO.js');
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 const status = global.requireShared('./models/application-businesslogic/status.js');
 const afBusinessdataSvc = global.requireShared('services/af-businessdata-svc.js');
+const AgencyBO = global.requireShared('./models/Agency-BO.js');
+const QuestionBO = global.requireShared('./models/Question-BO.js');
+const QuestionAnswerBO = global.requireShared('./models/QuestionAnswer-BO.js');
+const QuestionTypeBO = global.requireShared('./models/QuestionType-BO.js');
+const MappingBO = global.requireShared('./models/Mapping-BO.js');
 
 const QuoteModel = require('./Quote-model.js');
 const taskWholesaleAppEmail = global.requireRootPath('tasksystem/task-wholesaleapplicationemail.js');
 const taskSoleProAppEmail = global.requireRootPath('tasksystem/task-soleproapplicationemail.js');
 const taskEmailBindAgency = global.requireRootPath('tasksystem/task-emailbindagency.js');
 
+
+// Mongo mOdels
+var Application = require('mongoose').model('Application');
+const mongoUtils = global.requireShared('./helpers/mongoutils.js');
+
 //const moment = require('moment');
 const { 'v4': uuidv4 } = require('uuid');
+const { debug } = require('request');
+const { loggers } = require('winston');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+
+
 
 
 const convertToIntFields = [];
@@ -30,6 +46,9 @@ module.exports = class ApplicationModel {
 
     #dbTableORM = null;
     doNotSnakeCase = ['appStatusId','businessDataJSON','additionalInfo'];
+
+    #applicationMongooseDB = null;
+    #applicationMongooseJSON = {};
 
     constructor() {
         this.agencyLocation = null;
@@ -52,8 +71,9 @@ module.exports = class ApplicationModel {
             'bindRequest': 10,
         };
 
-
-
+        this.#applicationMongooseDB = null;
+        this.#applicationMongooseJSON = {};
+    
 
         this.#dbTableORM = new ApplicationOrm();
         this.#dbTableORM.doNotSnakeCase = this.doNotSnakeCase;
@@ -73,8 +93,8 @@ module.exports = class ApplicationModel {
                 reject(new Error("empty application object given"));
                 return;
             }
-
-            //log.debug("Beginning applicationJSON: " + JSON.stringify(applicationJSON));
+            let error = null;
+           // log.debug("Beginning applicationJSON: " + JSON.stringify(applicationJSON));
 
             const stepMap = {
                 'contact': 2,
@@ -110,6 +130,10 @@ module.exports = class ApplicationModel {
                     return;
                 });
                 this.updateProperty();
+                applicationJSON.agency_network = this.agency_network;
+                //future mongo...
+                applicationJSON.agencyNetworkId = this.agency_network;
+                this.agencyNetworkId = this.agency_network;
                 //Check that is still updateable.
                 if (this.state > 15 && this.state < 1) {
                     log.warn(`Attempt to update a finished or deleted application. appid ${applicationJSON.id}` + __location);
@@ -137,10 +161,15 @@ module.exports = class ApplicationModel {
                     reject(new Error("Data Error:Application may not be updated."));
                     return;
                 }
-                //check for 
-
+                // Load Mongoose Model
+                this.#applicationMongooseDB = await this.loadfromMongoByAppId(this.uuid).catch(function(err) {
+                    log.error("Mongo application load error " + err + __location);
+                    error = err;
+                });  
+                //log.debug("load from mongo " + JSON.stringify(this.#applicationMongooseDB));
             }
             else {
+
                 //set uuid on new application
                 applicationJSON.uuid = uuidv4().toString();
                 //Agency Defaults
@@ -182,11 +211,25 @@ module.exports = class ApplicationModel {
                     }
 
                 }
+                //Agency Network check for new application
+                error = null;
+                const agencyBO = new AgencyBO();
+                // Load the request data into it
+                let agency = await agencyBO.getById(applicationJSON.agency).catch(function(err) {
+                    log.error("Agency load error " + err + __location);
+                    error = err;
+                });
+                if(agency){
+                    applicationJSON.agencyNetworkId = agency.agency_network;
+                    applicationJSON.agency_network = agency.agency_network;
+                } else {
+                    log.error(`no agency record for id ${applicationJSON.agency} ` + __location);
+                }
 
             }
 
             //log.debug("applicationJSON: " + JSON.stringify(applicationJSON));
-            let error = null;
+            error = null;
             let updateBusiness = false;
             switch (workflowStep) {
                 case "contact":
@@ -210,6 +253,7 @@ module.exports = class ApplicationModel {
                             reject(new Error('Error create Business record ' + __location))
                             return;
                         }
+                        await this.processMongooseBusiness(applicationJSON.businessInfo)
                     }
                     else {
                         log.info('No Business for Application ' + __location)
@@ -217,12 +261,18 @@ module.exports = class ApplicationModel {
                         return;
                     }
 
+
                     break;
                 case 'locations':
+                    if (applicationJSON.locations) {
+
+                        this.processLocationsMongo(applicationJSON.locations);
+                        
+                    }
                     // update business data
                     if (applicationJSON.total_payroll) {
                         await this.processActivityCodes(applicationJSON.total_payroll).catch(function (err) {
-                            log.error('Adding claims error:' + err + __location);
+                            log.error('Adding activity codes error:' + err + __location);
                             reject(err);
                         });
                     }
@@ -234,7 +284,7 @@ module.exports = class ApplicationModel {
                 case 'coverage':
                     //processPolicyTypes
                     if (applicationJSON.policy_types) {
-                        await this.processPolicyTypes(applicationJSON.policy_types).catch(function (err) {
+                        await this.processPolicyTypes(applicationJSON.policy_types, applicationJSON).catch(function (err) {
                             log.error('Adding claims error:' + err + __location);
                             reject(err);
                         });
@@ -244,9 +294,15 @@ module.exports = class ApplicationModel {
                     break;
                 case 'owners':
                     updateBusiness = true;
+                    this.processOwnersMongo(applicationJSON);
                     break;
                 case 'details':
                     updateBusiness = true;
+                    //TODO details setup Mapping to Mongoose Model not we already have one loaded.
+                    if(applicationJSON.coverage_lapse === 1){
+                        applicationJSON.coverageLapseWC = true;
+                        //TODO update policy info
+                    }
                     break;
                 case 'claims':
                     if (applicationJSON.claims) {
@@ -255,6 +311,7 @@ module.exports = class ApplicationModel {
                             reject(err);
                         });
                     }
+                    //TODO details setup Mapping to Mongoose Model not we already have one loaded.
                     break;
                 case 'questions':
                     if (applicationJSON.questions) {
@@ -262,6 +319,12 @@ module.exports = class ApplicationModel {
                             log.error('Adding Questions error:' + err + __location);
                             reject(err);
                         });
+                    
+                        await this.processQuestionsMongo(applicationJSON.questions).catch(function (err) {
+                            log.error('Adding Questions error:' + err + __location);
+                           // reject(err);
+                        });
+
                     }
                     await this.processLegalAcceptance(applicationJSON).catch(function (err) {
                         log.error('Adding Legal Acceptance error:' + err + __location);
@@ -297,10 +360,11 @@ module.exports = class ApplicationModel {
                     // Do nothing - we only save here to update the last step
                     workflowStep = "quotes";
 
-
+                    //TODO quotes (Status) setup Mapping to Mongoose Model not we already have one loaded.
                     break;
                 case 'bindRequest':
                     if (applicationJSON.quotes) {
+                        applicationJSON.progress = 'complete';
                         applicationJSON.appStatusId = this.appStatusId;
                         await this.processQuotes(applicationJSON).catch(function (err) {
                             log.error('Processing Quotes error:' + err + __location);
@@ -328,9 +392,11 @@ module.exports = class ApplicationModel {
 
             if (!this.#dbTableORM.last_step) {
                 this.#dbTableORM.last_step = stepNumber;
+                applicationJSON.lastStep = stepNumber;
             }
             else if (stepNumber > this.#dbTableORM.last_step) {
                 this.#dbTableORM.last_step = stepNumber;
+                applicationJSON.lastStep = stepNumber;
             }
 
             await this.cleanupInput(applicationJSON);
@@ -342,12 +408,23 @@ module.exports = class ApplicationModel {
             if (!this.#dbTableORM.uuid) {
                 this.#dbTableORM.uuid = applicationJSON.uuid;
             }
+           
             //save
             await this.#dbTableORM.save().catch(function (err) {
                 reject(err);
             });
             this.updateProperty();
             this.id = this.#dbTableORM.id;
+            applicationJSON.id = this.id;
+            // mongoose model save.
+            this.mapToMongooseJSON(applicationJSON)
+            if(this.#applicationMongooseDB){
+                //update
+                this.updateMongo(this.#applicationMongooseDB.applicationId, this.#applicationMongooseJSON)
+            } else {
+                //insert 
+                this.insertMongo(this.#applicationMongooseJSON)
+            }
 
             if(workflowStep === "contact"){
                 //async call do not await processing.
@@ -358,6 +435,34 @@ module.exports = class ApplicationModel {
 
 
         });
+    }
+
+    mapToMongooseJSON(sourceJSON){
+        const propMappings = { 
+            agency_location: "agencyLocationId",
+            agency: "agencyId",
+            name: "businessName",
+            "id": "mysqlId",
+            "state": "processStateOld"
+        }
+        for(const sourceProp in sourceJSON){
+            if(typeof sourceJSON[sourceProp] !== "object" ){
+                if(propMappings[sourceProp]){
+                    const appProp = propMappings[sourceProp]
+                    this.#applicationMongooseJSON[appProp] = sourceJSON[sourceProp];
+                }
+                else {
+                    //check if snake_case
+                    if(sourceProp.isSnakeCase()){
+                        this.#applicationMongooseJSON[sourceProp.toCamelCase()] =  sourceJSON[sourceProp];
+                    }
+                    else {
+                        this.#applicationMongooseJSON[sourceProp] = sourceJSON[sourceProp];
+                    }
+                }
+                
+            }
+        }
     }
 
     /**
@@ -378,8 +483,67 @@ module.exports = class ApplicationModel {
                 reject(err);
                 return;
             });
+            await this.processMongooseBusiness(businessInfo)
+            
+
+
             resolve(businessModel);
         });
+    }
+
+    async processMongooseBusiness(businessInfo){
+        //Process Mongoose Model
+            //this.#applicationMongooseJSON
+            // BusinessInfo to mongoose model
+            const businessInfoMapping = {
+                entity_type: "entityType",
+                "mailing_state_abbr": "mailingState"
+            } 
+        //owners if present needs to be removed.
+        if(businessInfo.owners){
+            delete businessInfo.owners;
+        }
+
+        for (const businessProp in businessInfo) {       
+            if(typeof businessInfo[businessProp] !== "object" ){
+                if(businessInfoMapping[businessProp]){
+                    const appProp = businessInfoMapping[businessProp]
+                    this.#applicationMongooseJSON[appProp] = businessInfo[businessProp];
+                }
+                else {
+                    if(businessProp.isSnakeCase()){
+                        this.#applicationMongooseJSON[businessProp.toCamelCase()] =  businessInfo[businessProp];
+                    }
+                    else {
+                        this.#applicationMongooseJSON[businessProp] = businessInfo[businessProp];
+                    }
+                }
+            }
+        }
+
+        if(businessInfo.contacts){
+            //setup mongoose contanct
+            this.#applicationMongooseJSON.contacts = [];
+            
+            for(var i = 0 ; i < businessInfo.contacts.length; i++){
+                let businessContact  = businessInfo.contacts[i]
+                let contactJSON = {};
+                contactJSON.email = businessContact.email;
+                contactJSON.firstName = businessContact.fname;
+                contactJSON.lastName = businessContact.lname;
+                contactJSON.phone = businessContact.phone;
+                contactJSON.primary = businessContact.primary;
+                this.#applicationMongooseJSON.contacts.push(contactJSON);                    
+            }
+
+        }
+        //save model if we have a model 
+        if(this.#applicationMongooseDB){
+            //save....
+            this.updateMongo(this.#applicationMongooseDB.applicationId, this.#applicationMongooseJSON)
+        }
+
+        return;
     }
 
 
@@ -391,6 +555,20 @@ module.exports = class ApplicationModel {
     */
     processClaimsWF(claims) {
         return new Promise(async (resolve, reject) => {
+                //copy to mongoose json
+                //clonedeep
+                this.#applicationMongooseJSON.claims = clonedeep(claims);
+                for(let i = 0; i <  this.#applicationMongooseJSON.claims.length; i++ ){
+                    let claim = this.#applicationMongooseJSON.claims[i];
+                    for (const prop in claim) {            
+                        //check if snake_case
+                        if(prop.isSnakeCase()){
+                            claim[prop.toCamelCase()] = claim[prop];
+                            delete  claim[prop];
+                        }
+                    }
+                }
+      
             //delete existing.
             const applicationClaimModelDelete = new ApplicationClaimBO();
             //remove existing addresss acivity codes. we do not get ids from UI.
@@ -415,6 +593,17 @@ module.exports = class ApplicationModel {
     processActivityCodes(activtyListJSON) {
 
         return new Promise(async (resolve, reject) => {
+
+           // this.#applicationMongooseJSON.activityCodes = clonedeep(activtyListJSON);
+            this.#applicationMongooseJSON.activityCodes = [];
+
+
+            // for(let i = 0; i <  activtyListJSON.length; i++ ){
+            //     let activityCodeJson = activtyListJSON[i];
+            //     activityCodeJson.ncciCode = activityCodeJson.ncci_code;
+            //     activityCodeJson.payroll = activityCodeJson.payroll;
+            // }
+
             //delete existing.
             const applicationActivityCodesModelDelete = new ApplicationActivityCodesModel();
             //remove existing addresss acivity codes. we do not get ids from UI.
@@ -430,6 +619,12 @@ module.exports = class ApplicationModel {
                     "ncci_code": activity,
                     "payroll": activtyListJSON[activity]
                 }
+                const activityCodeModelJSON = {
+                    "ncciCode": activity,
+                    "payroll": activtyListJSON[activity]
+                }
+
+                this.#applicationMongooseJSON.activityCodes.push(activityCodeModelJSON)
                 const applicationActivityCodesModel = new ApplicationActivityCodesModel();
                 await applicationActivityCodesModel.saveModel(activityCodeJSON).catch(function (err) {
                     log.error(`Adding new applicationActivityCodesModel for Appid ${this.id} error:` + err + __location);
@@ -445,9 +640,44 @@ module.exports = class ApplicationModel {
     }
 
 
-    processPolicyTypes(policyTypeArray) {
+    processPolicyTypes(policyTypeArray,applicationJSON) {
 
         return new Promise(async (resolve, reject) => {
+            
+            //this.#applicationMongooseJSON.policies = clonedeep(policyTypeArray);
+            
+            let policyList = [];
+            for (var i = 0; i < policyTypeArray.length; i++) {
+                const policyType = policyTypeArray[i];
+                let policyTypeJSON = {
+                    "policyType": policyType
+                }
+                if(policyType === "GL"){
+                    //GL limit and date fields.
+                    policyTypeJSON.effectiveDate = applicationJSON.gl_effective_date
+                    policyTypeJSON.expirationDate = applicationJSON.gl_expiration_date
+                    policyTypeJSON.limits = applicationJSON.limits
+                    policyTypeJSON.deductible = applicationJSON.deductible
+
+
+                } else if(policyType === "WC"){
+                    policyTypeJSON.effectiveDate = applicationJSON.wc_effective_date
+                    policyTypeJSON.expirationDate = applicationJSON.wc_expiration_date
+                    policyTypeJSON.limits = applicationJSON.wc_limits
+                    policyTypeJSON.coverageLapse = applicationJSON.coverageLapse
+                
+                } else if(policyType === "BOP"){
+                    policyTypeJSON.effectiveDate = applicationJSON.bop_effective_date
+                    policyTypeJSON.expirationDate = applicationJSON.bop_expiration_date
+                    policyTypeJSON.limits = applicationJSON.limits
+                    policyTypeJSON.coverage = applicationJSON.coverage
+                    policyTypeJSON.deductible = applicationJSON.deductible
+
+                }
+                policyList.push(policyTypeJSON);
+            }
+            this.#applicationMongooseJSON.policies = policyList
+            
             //delete existing.
             const applicationPolicyTypeModelDelete = new ApplicationPolicyTypeBO();
             //remove existing addresss acivity codes. we do not get ids from UI.
@@ -475,12 +705,139 @@ module.exports = class ApplicationModel {
         });
 
     }
+    processLocationsMongo(locations){
+        this.#applicationMongooseJSON.locations = locations
+        let businessInfoMapping = {};
+        for(let i =0 ;i <  this.#applicationMongooseJSON.locations.length; i++){
+            let location = this.#applicationMongooseJSON.locations[i];
+            for (const locationProp in location) {            
+                //not in map check....
+                if(!businessInfoMapping[locationProp]){
+                    if(locationProp.isSnakeCase()){
+                        this.#applicationMongooseJSON[locationProp.toCamelCase()] =  location[locationProp];
+                    }
+                    else {
+                        this.#applicationMongooseJSON[locationProp] = location[locationProp];
+                    }
+                    
+                }
+            }
+            location.activityPayrollList = [];
 
+            if(location.activity_codes && location.activity_codes.length > 0)
+            {
+                for(let j = 0; j < location.activity_codes.length; j++){
+                    const activity_code = location.activity_codes[j];
+                    let activityPayrollJSON = {};
+                    activityPayrollJSON.ncciCode = activity_code.id;
+                    activityPayrollJSON.payroll = activity_code.payroll;
+                    location.activityPayrollList.push(activityPayrollJSON)
+                }
+            }
+        }
+
+    }
+
+
+    processOwnersMongo(applicationJSON){
+        if(applicationJSON.owners_covered){
+            try{
+                const tempInt = parseInt(applicationJSON.owners_covered, 10);
+                this.#applicationMongooseJSON.ownersCovered = tempInt === 1 ? true : false;
+                if(this.#applicationMongooseJSON.ownersCovered > 0 && applicationJSON.owner_payroll){
+
+                    if(this.#applicationMongooseDB && this.#applicationMongooseDB.locations){
+                        //Find primary location and update payroll - ownerPayroll field.
+                        // applicationJSON.owner_payroll.activity_code = stringFunctions.santizeNumber(requestJSON.activity_code, makeInt);
+                        // applicationJSON.owner_payroll.payroll = stringFunctions.santizeNumber(requestJSON.payroll, makeInt);
+                        // applicationJSON.businessInfo.owner_payroll = JSON.parse(JSON.stringify(requestJSON.owner_payroll));
+                        // applicationJSON.owner_payroll = JSON.parse(JSON.stringify(requestJSON.owner_payroll));
+                        for(let i = 0; i< this.#applicationMongooseDB.locations.length; i++){
+                            let location = this.#applicationMongooseDB.locations[i];
+                            if(!location.activityPayrollList){
+                                location.activityPayrollList = [];
+                            }
+                            let activityPayroll = location.activityPayrollList.find(activityPayroll => activityPayroll.ncciCode === applicationJSON.owner_payroll.activity_code);
+                            if(activityPayroll){
+                                activityPayroll.ownerPayRoll = applicationJSON.owner_payroll.payroll
+                            }
+                            else {
+                                let activityPayrollJSON = {
+                                    ncciCode: applicationJSON.owner_payroll.activity_code,
+                                    ownerPayRoll: applicationJSON.owner_payroll.payroll
+                                };
+                                location.activityPayrollList.push(activityPayrollJSON);
+
+                            }
+                        }
+                        this.#applicationMongooseJSON.locations = this.#applicationMongooseDB.locations;
+                    }
+                    else {
+                        log.error(`Missing this.#applicationMongooseJSON.locations for owner payroll appId: ${applicationJSON.id} ` + __location);
+                    }
+                    
+                }
+            }
+            catch(err){
+                log.error(`Error Parsing appID: ${applicationJSON.id} applicationJSON.owners_covered ${applicationJSON.owners_covered}: ` + err + __location)
+            }
+        }
+
+        if(applicationJSON.businessInfo && applicationJSON.businessInfo.num_owners){
+            try{
+                this.#applicationMongooseJSON.numOwners = parseInt(applicationJSON.businessInfo.num_owners, 10);
+            }
+            catch(err){
+                log.error(`Error Parsing appID: ${applicationJSON.id} applicationJSON.owners_covered ${applicationJSON.businessInfo.num_owners}: ` + err + __location)
+            }
+        }
+
+        
+        if(applicationJSON.businessInfo && applicationJSON.businessInfo.ownersJSON){
+            try{
+                if(!this.#applicationMongooseJSON.owners){
+                    this.#applicationMongooseJSON.owners = [];
+                }
+                for(let i =0; i < applicationJSON.businessInfo.ownersJSON.length; i++){
+                    const sourceJSON = applicationJSON.businessInfo.ownersJSON[i];
+                    let ownerJSON = {};
+                    for(const sourceProp in sourceJSON){
+                        if(typeof sourceJSON[sourceProp] !== "object" ){
+                            //check if snake_case
+                            if(sourceProp.isSnakeCase()){
+                                ownerJSON[sourceProp.toCamelCase()] =  sourceJSON[sourceProp];
+                            }
+                            else {
+                                ownerJSON[sourceProp] = sourceJSON[sourceProp];
+                            }
+                            if(sourceProp === "ownership"){
+                                try{
+                                    ownerJSON[sourceProp] = parseInt(ownerJSON[sourceProp], 10);
+                                }
+                                catch(err){
+                                    log.error(`unable to convert ownership appId: ${applicationJSON.id} value: ${ownerJSON[sourceProp]} ` + err + __location);
+                                }
+                            }
+                        }
+                    }
+                    this.#applicationMongooseJSON.owners.push(ownerJSON);
+                }
+            }
+            catch(err){
+                log.error(`Error Parsing  owner for appID: ${applicationJSON.id} applicationJSON.owners_covered ${JSON.stringify(applicationJSON.owners)}: ` + err + __location)
+            }
+        }
+    }
 
     processQuestions(questions) {
 
         return new Promise(async (resolve, reject) => {
             ///delete existing ?? old system did not.
+
+           // this.#applicationMongooseJSON.questions = questions;
+            //TODO get text and turn into list of question objects.
+
+
             let valueList = []
             for (var i = 0; i < questions.length; i++) {
                 let question = questions[i];
@@ -523,6 +880,90 @@ module.exports = class ApplicationModel {
 
     }
 
+    processQuestionsMongo(questionsRequest) {
+
+        return new Promise(async (resolve, reject) => {
+            ///delete existing ?? old system did not.
+
+            const questionTypeBO = new QuestionTypeBO();
+            // Load the request data into it
+            let questionTypeListDB = await questionTypeBO.getList().catch(function(err) {
+                log.error("questionTypeBO load error " + err + __location);
+            });
+
+            this.#applicationMongooseJSON.questions = [];
+            //get text and turn into list of question objects.
+
+            for (var i = 0; i < questionsRequest.length; i++) {
+                let questionRequest = questionsRequest[i];
+                let questionJSON = {};
+                questionJSON.questionId = questionRequest.id 
+                questionsRequest.questionType = questionRequest.type;
+
+                //get Question def for Question Text and Yes
+                const questionBO = new QuestionBO();
+                // Load the request data into it
+                let questionDB = await questionBO.getById(questionJSON.questionId).catch(function(err) {
+                    log.error("questionBO load error " + err + __location);
+                });
+                if(questionDB){
+                    questionJSON.questionText = questionDB.question;
+                    questionJSON.hint = questionDB.hint;
+                    questionJSON.hidden = questionDB.hidden;
+                    questionJSON.questionType = questionDB.type;
+                    if(questionTypeListDB){
+                        let questionType = questionTypeListDB.find(questionType => questionType.id === questionDB.type);
+                        if(questionType){
+                            questionJSON.questionType = questionType.name;
+                        }
+                    }
+                } else {
+                    log.error(`no question record for id ${questionJSON.questionId} ` + __location);
+                }
+               
+                if (questionRequest.type === 'text') {
+                    //const cleanString = questionRequest.answer.replace(/\|/g, ',')
+                    questionJSON.answerValue = questionRequest.answer;
+                } else if (questionRequest.type === 'array') {
+                    const arrayString = "|" + questionRequest.answer.join('|');
+                    questionJSON.answerValue = arrayString;
+                    const questionAnswerBO = new QuestionAnswerBO();
+                    let questionAnswerListDB = await questionAnswerBO.getListByAnswerIDList(questionRequest.answer).catch(function(err) {
+                        log.error("questionBO load error " + err + __location);
+                    });
+                    if(questionAnswerListDB && questionAnswerListDB.length > 0){
+                        questionJSON.answerList = [];
+                        for (let j=0 ; j < questionAnswerListDB.length; j++){
+                            questionJSON.answerList.push(questionAnswerListDB[j].answer);
+                        }
+                        
+                    } else {
+                        log.error(`no questionAnswer record for ids ${JSON.stringify(questionRequest.answer)} ` + __location);
+                    }
+                }
+                else {
+                    questionJSON.answerId = questionRequest.answer;
+                    // Need answer value
+                    const questionAnswerBO = new QuestionAnswerBO();
+                    // Load the request data into it
+                    let questionAnswerDB = await questionAnswerBO.getById(questionJSON.answerId).catch(function(err) {
+                        log.error("questionBO load error " + err + __location);
+                    });
+                    if(questionAnswerDB){
+                        questionJSON.answerValue = questionAnswerDB.answer;
+                    } else {
+                        log.error(`no question record for id ${questionJSON.questionId} ` + __location);
+                    }
+
+                }
+                this.#applicationMongooseJSON.questions.push(questionJSON);
+            }
+            resolve(true);
+
+        });
+
+    }
+
     processLegalAcceptance(applicationJSON) {
 
         return new Promise(async (resolve, reject) => {
@@ -535,6 +976,7 @@ module.exports = class ApplicationModel {
                 'ip': applicationJSON.remoteAddress,
                 'version': version
             }
+            this.#applicationMongooseJSON.legalAcceptance = legalAcceptanceJSON;
 
             const legalAcceptanceModel = new LegalAcceptanceModel();
             await legalAcceptanceModel.saveModel(legalAcceptanceJSON).catch(function (err) {
@@ -625,14 +1067,14 @@ module.exports = class ApplicationModel {
                 newBusinessDataJSON.googleBusinessData = requestApplicationJSON.google_place;
                 saveBusinessData = true;
             }
-            let agencyNetworkId = 0;
-            try{
-                agencyNetworkId = await this.getAgencyNewtorkIdById(this.id);
-            }
-            catch(err){
-                log.error(`Error getting agencyNetworkId, application - ${this.id} ` + err + __location)
-            }
-            //Only process AF call if digalent.             
+            let agencyNetworkId = requestApplicationJSON.agencyNetworkId;
+            // try{
+            //     agencyNetworkId = await this.getAgencyNewtorkIdById(this.id);
+            // }
+            // catch(err){
+            //     log.error(`Error getting agencyNetworkId, application - ${this.id} ` + err + __location)
+            // }
+            //Only process AF call if digalent.   
             if(agencyNetworkId === 2 && global.settings.ENV !== 'production'){
                 const businessInfoRequestJSON = {
                     "company_name": requestApplicationJSON.businessInfo.name
@@ -678,6 +1120,7 @@ module.exports = class ApplicationModel {
                 }
             }
             if(saveBusinessData){
+                this.#applicationMongooseJSON.businessDataJSON = newBusinessDataJSON;
                 const sql = `Update ${tableName} 
                     SET businessDataJSON = ${db.escape(JSON.stringify(newBusinessDataJSON))}
                     WHERE id = ${db.escape(this.id)}
@@ -688,11 +1131,11 @@ module.exports = class ApplicationModel {
                     log.error("Database Object ${tableName} UPDATE businessDataJSON error :" + err + __location);
                     error = err;
                 });
+                 //TODO monogoose model save
                 log.info(`Application ${this.id} update BusinessDataJSON`);
                 currentAppDBJSON.businessDataJSON = newBusinessDataJSON;
                 if(afBusinessDataJSON && afBusinessDataJSON.Status === "SUCCESS"){
                     //update application Business and address.
-                    log.debug("updating application records from afBusinessDataJSON " + __location)
                     await this.updateFromAfBusinessData(currentAppDBJSON, afBusinessDataJSON)
                 } else if(requestApplicationJSON.google_place){
                     requestApplicationJSON.google_place.address = requestApplicationJSON.address;
@@ -733,6 +1176,8 @@ module.exports = class ApplicationModel {
                         throw err;
                     });
                     log.debug(`App ${this.id} updated from afBusinessDataJSON ` + __location);
+                    //TODO monogoose model save
+                    //this.#applicationMongooseJSON
                 }
                 catch(err){
                     log.error("Error update App from AFBusinessData " + err + __location);
@@ -744,7 +1189,17 @@ module.exports = class ApplicationModel {
                 //have businessId
                 let businessJSON = {"id": applicationJSON.business};
                 let locationJSON = {"business": applicationJSON.business}
+
+                
                 if(afBusinessDataJSON.afgCompany){
+                    
+                    //employees.
+                    if(afBusinessDataJSON.afgPreFill.number_of_employee){
+                        locationJSON.full_time_employees = afBusinessDataJSON.afgPreFill.number_of_employee;
+                    } else if(afBusinessDataJSON.afgPreFill.employee_count){
+                        locationJSON.full_time_employees = afBusinessDataJSON.afgPreFill.employee_count;
+                    }
+
                     const companyFieldList = ["street_addr1","street_addr2","city","state","zip", "website"];
                     const company2BOMap = {
                                 "street_addr1" : "mailing_address",
@@ -796,34 +1251,44 @@ module.exports = class ApplicationModel {
                     
                 }
             
-                if(afBusinessDataJSON.afgPreFill){
-                    if(afBusinessDataJSON.afgPreFill.legal_entity){
-                        businessJSON.entity_type = afBusinessDataJSON.afgPreFill.legal_entity;
+                if(afBusinessDataJSON.afgPreFill && afBusinessDataJSON.afgPreFill.company){
+                    if(afBusinessDataJSON.afgPreFill.company.legal_entity){
+                        businessJSON.entity_type = afBusinessDataJSON.afgPreFill.company.legal_entity;
                     }
-
-
+                    if(afBusinessDataJSON.afgPreFill.company.industry_experience){
+                        businessJSON.years_of_exp = afBusinessDataJSON.afgPreFill.company.industry_experience;
+                    }
+                    
                 }
-
                 businessJSON.locations = [];
                 businessJSON.locations.push(locationJSON)
 
 
                 try{
-                    log.debug("updating  application business records from afBusinessDataJSON " + + __location)
+                    log.debug(`updating  application business records from afBusinessDataJSON  appId: ${applicationJSON.id} ` + __location)
                     await this.processBusiness(businessJSON);
                 }
                 catch(err){
                     log.error("Error Mapping AF Business Data to BO Saving " + err + __location);
                 }
-
-
-
+                this.processLocationsMongo(businessJSON.locations);
+                try{
+                    this.updateMongo(this.#applicationMongooseDB.applicationId, this.#applicationMongooseJSON)
+                    // if(this.#applicationMongooseDB){
+                    //     this.#applicationMongooseDB.locations = this.#applicationMongooseJSON.locations;
+                    //     await this.#applicationMongooseDB.save()
+                    // }
+                }
+                catch(err){
+                     log.error("Error Mapping AF Business Data to Mongo Saving " + err + __location);
+                }
 
             }
             else {
                 log.error(`No business id for application ${this.id}`)
             }
             //clw_talage_application_activity_codes - default from industry_code???
+            // payroll ?????
         }
         else {
             log.warn("updateFromAfBusinessData missing parameters " +  __location)
@@ -852,12 +1317,13 @@ module.exports = class ApplicationModel {
                     });
                    
                     //save
-                    log.debug("saving application records from afBusinessDataJSON " + __location)
+                    log.debug("saving application records from GooglePlace " + __location)
                     await this.#dbTableORM.save().catch(function (err) {
                         log.error("Error Saving application orm " + err + __location);
                         throw err;
                     });
-                    log.debug(`App ${this.id} updated from afBusinessDataJSON ` + __location);
+                     //TODO monogoose model save
+                    log.debug(`App ${this.id} updated from GooglePlace ` + __location);
                 }
                 catch(err){
                     log.error("Error update App from AFBusinessData " + err + __location);
@@ -917,23 +1383,18 @@ module.exports = class ApplicationModel {
                     
                 }
             
-                if(googlePlaceJSON.afgPreFill){
-                    if(googlePlaceJSON.afgPreFill.legal_entity){
-                        businessJSON.entity_type = googlePlaceJSON.afgPreFill.legal_entity;
-                    }
-
-
-                }
 
                 businessJSON.locations = [];
                 businessJSON.locations.push(locationJSON)
                 try{
-                    log.debug("updating  application business records from afBusinessDataJSON " + + __location)
+                    log.debug(`updating  application business records from Google Place data appId: ${applicationJSON.id} ` + __location)
                     await this.processBusiness(businessJSON);
+
                 }
                 catch(err){
                     log.error("Error Mapping AF Business Data to BO Saving " + err + __location);
                 }
+                this.processLocationsMongo(businessJSON.locations);
             }
             else {
                 log.error(`No business id for application ${this.id}`)
@@ -945,6 +1406,89 @@ module.exports = class ApplicationModel {
         return true;
     }
 
+
+    async updateStatus(id,appStatusDesc, appStatusid){
+
+        if(id && id > 0 ){
+            try {
+                const sql = `
+                    UPDATE clw_talage_applications
+                    SET status = ${db.escape(appStatusDesc)}, appStatusid = ${db.escape(appStatusid)}
+                    WHERE id = ${id};
+                `;
+                const result = await db.query(sql);
+            }
+            catch (error) {
+                log.error(`Could not update application status mySql appId: ${id}  ${error} ${__location}`);
+            }
+            //mongo update.....
+            try{
+                const updateStatusJson = {status:  appStatusDesc, "appStatusId": appStatusid }
+                const query = {"mysqlId": id};
+                await Application.updateOne(query, updateStatusJson);
+            }
+            catch(error){
+                log.error(`Could not update application status mongo appId: ${id}  ${error} ${__location}`);
+            }
+            return true;
+        }
+        else {
+            log.error(`updateStatus missing id ` + __location);
+        }
+    }
+
+    async updateProgress(id,progress){
+
+        const sql = `
+		    UPDATE clw_talage_applications
+		    SET progress = ${db.escape(progress)}
+		    WHERE id = ${db.escape(id)}
+        `;
+        let result = null;
+        
+        try {
+            result = await db.query(sql);
+        }
+        catch (error) {
+            log.error(`Could not update the quote progress to ${progress} for application ${id}: ${error} ${__location}`);
+        }
+        if (result === null || result.affectedRows !== 1) {
+            log.error(`Could not update the quote ${progress} to 'quoting' for application ${id}: ${sql} ${__location}`);
+        }
+        //mongo update.....
+        try{
+            const updateStatusJson = {progress:  progress}
+            const query = {"mysqlId": id};
+            await Application.updateOne(query, updateStatusJson);
+        }
+        catch(error){
+            log.error(`Could not update application status mongo appId: ${id}  ${error} ${__location}`);
+        }
+        return true;
+    }
+
+    async getProgress(id){
+        
+        const sql = `
+            SELECT progress
+            FROM clw_talage_applications
+            WHERE id = ${id}
+        `;
+        let result = null;
+        try {
+            result = await db.query(sql);
+        }
+        catch (error) {
+            log.error(`Could not get the quote progress for application ${id}: ${error} ${__location}`);
+        }
+        if(result && result.length > 0 ){
+            return result[0].progress;
+        }
+        else {
+            log.error(`Could not get the quote progress for application ${id}: ${error} ${__location}`);
+            return "unknown";
+        }
+    }
   
     // save(asNew = false) {
     //     return new Promise(async (resolve, reject) => {
@@ -971,6 +1515,162 @@ module.exports = class ApplicationModel {
             }
         });
     }
+
+
+    async updateMongo(uuid, newObjectJSON){
+        if(uuid ){
+            if(typeof newObjectJSON === "object"){
+                const changeNotUpdateList = ["active", "id","mysqlId", "applicationId", "uuid"]
+                for(let i = 0;i < changeNotUpdateList.length; i++ ){
+                    if(newObjectJSON[changeNotUpdateList[i]]){
+                        delete newObjectJSON[changeNotUpdateList[i]];
+                    }
+                }
+                const query = {"applicationId": uuid};
+                let newApplicationJSON = null;
+                try {
+                    //because Virtual Sets.  new need to get the model and save.
+
+                    await Application.updateOne(query, newObjectJSON);
+                    let newApplicationdoc = await Application.findOne(query);
+                    this.#applicationMongooseDB = newApplicationdoc
+                    //because Virtual Sets. we need to updatemode land save it.
+                    // Only EIN is virtual...
+                    if(newObjectJSON.ein && newApplicationdoc){
+                        newApplicationdoc.ein = newObjectJSON.ein
+                        await newApplicationdoc.save().catch(function(err){
+                            log.error('Mongo Application Save for Virtuals err ' + err + __location);
+                            throw err;
+                        });
+                    }                   
+                    newApplicationJSON = mongoUtils.objCleanup(newApplicationdoc);
+                }
+                catch (err) {
+                    log.error("Updating Application error " + err + __location);
+                    throw err;
+                }
+                return newApplicationJSON;
+            }
+            else {
+                throw new Error('no newObjectJSON supplied')
+            }
+          
+        }
+        else {
+            throw new Error('no id supplied')
+        }
+        return true;
+
+    }
+
+    async insertMongo(newObjectJSON){
+            newObjectJSON.applicationId = newObjectJSON.uuid;
+            let application = new Application(newObjectJSON);
+            //log.debug("insert application: " + JSON.stringify(application))
+            //Insert a doc
+            await application.save().catch(function(err){
+                log.error('Mongo Application Save err ' + err + __location);
+                throw err;
+            });
+
+            this.#applicationMongooseDB = application;
+            
+            return  mongoUtils.objCleanup(application);
+    }
+
+    loadfromMongoByAppId(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id ){
+                const query = {"applicationId": id, active: true};
+                let applicationDoc = null;
+                try {
+                    applicationDoc = await Application.findOne(query, '-__v');
+                }
+                catch (err) {
+                    log.error("Getting Application error " + err + __location);
+                    reject(err);
+                }
+                resolve(applicationDoc);
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
+     loadfromMongoBymysqlId(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id ){
+                const query = {"mysqlId": id, active: true};
+                let applicationDoc = null;
+                try {
+                    applicationDoc = await Application.findOne(query, '-__v');
+                }
+                catch (err) {
+                    log.error("Getting Application error " + err + __location);
+                    reject(err);
+                }
+                resolve(applicationDoc);
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
+
+    getfromMongoByAppId(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id ){
+                const query = {"applicationId": id, active: true};
+                let appllicationDoc = null;
+                try {
+                    let docDB = await Application.findOne(query, '-__v');
+                    if(docDB){
+                        appllicationDoc = mongoUtils.objCleanup(docDB);
+                    }
+                }
+                catch (err) {
+                    log.error("Getting Application error " + err + __location);
+                    reject(err);
+                }
+                resolve(appllicationDoc);
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
+
+    getfromMongoBymysqlId(id) {
+        return new Promise(async (resolve, reject) => {
+            //validate
+            if(id ){
+                const query = {"mysqlId": id, active: true};
+                let appllicationDoc = null;
+                try {
+                    let docDB = await Application.findOne(query, '-__v');
+                    if(docDB){
+                        appllicationDoc = mongoUtils.objCleanup(docDB);
+                    }
+                }
+                catch (err) {
+                    log.error("Getting Application error " + err + __location);
+                    reject(err);
+                }
+                resolve(appllicationDoc);
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
+
 
     getById(id) {
         return new Promise(async (resolve, reject) => {
@@ -1045,6 +1745,43 @@ module.exports = class ApplicationModel {
             }
         });
     }
+     getLoadedMongoDoc(){
+         if(this.#applicationMongooseDB && this.#applicationMongooseDB.mysqlId){
+                return this.#applicationMongooseDB;        
+            }
+        else {
+            return null;
+        }
+    }
+
+    async getMongoDocbyMysqlId(mysqlId){
+        return new Promise(async (resolve, reject) => {
+            if(this.#applicationMongooseDB && this.#applicationMongooseDB.mysqlId){
+                return this.#applicationMongooseDB;        
+            }
+            else {
+                if(mysqlId ){
+                    const query = {"mysqlId": mysqlId, active: true};
+                    let appllicationDoc = null;
+                    try {
+                        let docDB = await Application.findOne(query, '-__v');
+                        if(docDB){
+                            this.#applicationMongooseDB = docDB
+                            appllicationDoc = mongoUtils.objCleanup(docDB);
+                        }
+                    }
+                    catch (err) {
+                        log.error("Getting Application error " + err + __location);
+                        reject(err);
+                    }
+                    resolve(appllicationDoc);
+                }
+                else {
+                    reject(new Error('no id supplied'))
+                }
+            }
+        });
+    }
 
 
     async cleanupInput(inputJSON) {
@@ -1084,6 +1821,149 @@ module.exports = class ApplicationModel {
                 this[property] = dbJSON[property];
             }
         }
+    }
+    // copyToMongo(id){
+
+    // }
+
+    /***********************************
+     *   Question processing 
+     * 
+     * 
+     ***********************************/
+
+    async GetQuestionsForFrontend(appId, activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden = false){
+
+        log.debug("in AppBO.GetQuestionsForFrontend")
+        //Call questions.......
+        const questionSvc = global.requireShared('./services/questionsvc.js');
+        let getQuestionsResult = null;
+        try{
+            getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden);
+        }
+        catch(err){
+            log.error("Error call in question service " + err + __location);
+            throw new Error('An error occured while retrieving application questions. ' + err);
+        }
+        if(!getQuestionsResult){
+            log.error("No questions returned from question service " + __location);
+            throw new Error('An error occured while retrieving application questions.');
+            
+        }
+        
+        let applicationDoc = null;
+        try{
+            applicationDoc = await this.loadfromMongoBymysqlId(appId);
+        }
+        catch(err){
+            log.error("error calling loadfromMongoByAppId " + err +__location);
+        }
+        
+        //question answers from AF business data.
+        if(applicationDoc && applicationDoc.businessDataJSON && applicationDoc.businessDataJSON.afBusinessData 
+            && applicationDoc.businessDataJSON.afBusinessData.afgPreFill
+            && applicationDoc.businessDataJSON.afBusinessData.afgPreFill.company){
+
+            const afBusinessDataCompany = applicationDoc.businessDataJSON.afBusinessData.afgPreFill.company;
+
+            //Get mappings.
+            const mappingBO = new MappingBO();
+            let mappingJSON = null;
+            const mappingName = 'AFConvrDataMapp';
+            try{
+                const mappingDoc = await mappingBO.getByName(mappingName)
+                mappingJSON = mappingDoc.mapping;
+            }
+            catch(err){
+                log.error('Error getting AFConvrDataMapp Mapping ' + err +__location)
+            }
+            if(mappingJSON){
+                //get AF questions   
+                const compWestId = 12;
+                const sql = `select * 
+                                from clw_talage_insurer_questions 
+                                where insurer = ${compWestId}
+                        `;
+                let compWestQuestionList = null;
+                try{
+                    compWestQuestionList = await db.query(sql);
+                }
+                catch(err){
+                    log.error("Error get compWestQuestionList " + err + __location);
+                }
+                if(compWestQuestionList){
+                    let gotHit = false;
+                    let madeChange = false;
+                    //Limited data returned from AFBusiness Data api.  
+                    // so only process non null for question lookup.
+                    for (const businessDataProp in afBusinessDataCompany){
+                        try{
+                            if(afBusinessDataCompany[businessDataProp] || afBusinessDataCompany[businessDataProp] === false){
+                                //find in mapping
+                                let mapping = mappingJSON.find(mapping => mapping.afJsonTag === businessDataProp);
+                                if(mapping){
+                                    // log.debug(`Mapping for AF tag ${businessDataProp}`)
+                                    //find in compWestQuestionList
+                                    let compWestQuestion = compWestQuestionList.find(compWestQuestion => mapping.afgIndicator === compWestQuestion.identifier);
+                                    if(compWestQuestion){
+                                        //find in getQuestionsResult
+                                        let question = getQuestionsResult.find(question => compWestQuestion.question === question.id);
+                                        if(question && question.type === "Yes/No" && question.answers){
+                                            gotHit = true;
+                                            log.debug(`Mapped ${mapping.afJsonTag} questionId ${question.id} AF Data value ${afBusinessDataCompany[businessDataProp]}`)
+                                            const defaultAnswer = afBusinessDataCompany[businessDataProp] ? "Yes" : "No";
+                                            for(let i=0; i < question.answers.length; i++) {
+                                                let answerJSON = question.answers[i];
+                                                if(answerJSON.answer === defaultAnswer){
+                                                    if(!answerJSON.default){
+                                                        madeChange = true;
+                                                        answerJSON.default = true;
+                                                        log.info(`AF Data: appId ${appId} ${compWestQuestion.identifier} ${mapping.afJsonTag} Change question ${question.id} to ${answerJSON.answer}`)
+                                                    }
+                                                }
+                                                else {
+                                                    if(answerJSON.default){
+                                                        delete answerJSON.default;
+                                                    }
+                                                }
+                                            }
+                                            if(madeChange === false){
+                                                log.info(`NO CHANGE - AF Data: appId ${appId} ${compWestQuestion.identifier} ${mapping.afJsonTag} for question ${question.id} default ${defaultAnswer}`)
+                                            }
+                                        }
+                                        else {
+                                           // log.debug(`No Talage YES/NO question with answers for ${compWestQuestion.identifier} insurer question ${compWestQuestion.id} talage questionId ${compWestQuestion.question} ${compWestQuestion.text}`)    
+                                        }
+                                    }
+                                    else {
+                                        log.debug(`No compWestQuestion question with answers for ${businessDataProp} insurer question identifier ${mapping.afgIndicatora}`)
+                                    }
+                                } 
+                                // else {
+                                //     log.debug(`No Mapping for AF tag ${businessDataProp} `)
+                                // }
+                            }
+                        }
+                        catch(err){
+                            log.error(`Error mapping AF business data appId ${appId}` + err + __location )
+                        }
+                    }
+                }
+                else {
+                    log.error(`Error No CompWest Questions ` + __location )    
+                }
+            }
+            else{
+                log.error(`Error mapping AF business data Mapping ` + __location )
+            }
+        }
+        else {
+            //non-AF applications will not have data.
+            log.debug(`No AF business data for appId ${appId}` + __location )
+        }
+
+        return getQuestionsResult;
+
     }
 }
 
@@ -1160,6 +2040,14 @@ const properties = {
         "rules": null,
         "type": "number",
         "dbType": "tinyint(1)"
+    },
+    "agency_network": {
+        "default": 1,
+        "encrypted": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "agency": {
         "default": 1,

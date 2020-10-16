@@ -101,10 +101,18 @@ module.exports = class IndustryCodeBO{
                 let rejected = false;
                 // Create the update query
                 let sql = `
-                    select *  from ${tableName}  
+                    select * from ${tableName}  
                 `;
                 if(queryJSON){
                     let hasWhere = false;
+                    if(queryJSON.activityCode) {
+                        // map from the mapping table
+                        sql += hasWhere ? " AND " : " WHERE ";
+                        sql += ` id IN (SELECT industryCodeId 
+                                        FROM clw_talage_industry_code_associations 
+                                        WHERE activityCodeId = ${db.escape(queryJSON.activityCode)}) `;
+                        hasWhere = true;
+                    }
                     if(queryJSON.description){
                         sql += hasWhere ? " AND " : " WHERE ";
                         sql += ` name like ${db.escape(queryJSON.description)} `

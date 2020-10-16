@@ -1,6 +1,7 @@
 'use strict';
 
-// TODO This business logic shoud move to a service or the Application-BO.
+
+
 
 /**
  * Ensures that a quote has a value for aggregated_status
@@ -36,14 +37,14 @@ async function updateQuoteAggregatedStatus(quote) {
  */
 async function updateApplicationStatus(applicationID) {
     // Get the application
+    //TODO call BO
     let sql = `
 		SELECT 
 			application.last_step,
 			application.solepro,
 			application.wholesale,
-			agency.agency_network
+			application.agency_network
 		FROM clw_talage_applications AS application
-		LEFT JOIN clw_talage_agencies AS agency ON agency.id = application.agency
 		WHERE application.id = ${applicationID};
 	`;
     let result = null;
@@ -77,7 +78,7 @@ async function updateApplicationStatus(applicationID) {
         default:
             applicationStatus = getGenericApplicationStatus(application, quotes);
             break;
-            // Accident Fund
+        // Accident Fund
         case 2:
             applicationStatus = getAccidentFundApplicationStatus(application, quotes);
             break;
@@ -87,17 +88,18 @@ async function updateApplicationStatus(applicationID) {
     // console.log('status', applicationStatus);
 
     // Set the new application status
-    sql = `
-		UPDATE clw_talage_applications
-		SET status = ${db.escape(applicationStatus.appStatusDesc)}, appStatusid = ${db.escape(applicationStatus.appStatusId)}
-		WHERE id = ${applicationID};
-	`;
+    const ApplicationBO = global.requireShared('models/Application-BO.js');
+    const applicationBO = new ApplicationBO();
     try {
-        result = await db.query(sql);
+        await applicationBO.updateStatus(applicationID, applicationStatus.appStatusDesc, applicationStatus.appStatusId);
     }
-    catch (error) {
-        log.error(`Could not retrieve quotes for application ${applicationID} ${__location}`);
+    catch (err) {
+        log.error(`Error update appication status appId = ${applicationID}  ${db.escape(applicationStatus.appStatusDesc)} ` + err + __location);
     }
+
+
+
+
 }
 
 /**
@@ -147,60 +149,60 @@ function getGenericApplicationStatus(application, quotes) {
 
     if (application.last_step < 8) {
         //appStatusId = 0
-        return { appStatusId: 0, appStatusDesc:'incomplete'};
+        return { appStatusId: 0, appStatusDesc: 'incomplete' };
     }
     else if (application.solepro || application.wholesale) {
         //TODO separate status logic
         //appStatusId = 5
 
-        return { appStatusId: 5, appStatusDesc:'wholesale'};
+        return { appStatusId: 5, appStatusDesc: 'wholesale' };
     }
     else if (quotes.some((quote) => quote.aggregated_status === 'bound')) {
         //appStatusId = 100
         //return 'bound';
-        return { appStatusId: 90, appStatusDesc:'bound'};
+        return { appStatusId: 90, appStatusDesc: 'bound' };
     }
     else if (quotes.some((quote) => quote.aggregated_status === 'request_to_bind_referred')) {
         //appStatusId = 80
         //return 'request_to_bind_referred';
-        return { appStatusId: 80, appStatusDesc:'request_to_bind_referred'};
+        return { appStatusId: 80, appStatusDesc: 'request_to_bind_referred' };
     }
     else if (quotes.some((quote) => quote.aggregated_status === 'request_to_bind')) {
         //appStatusId = 70
         //return 'request_to_bind';
-        return { appStatusId: 70, appStatusDesc:'request_to_bind'};
+        return { appStatusId: 70, appStatusDesc: 'request_to_bind' };
     }
     else if (quotes.some((quote) => quote.aggregated_status === 'quoted')) {
         //appStatusId = 60
-       // return 'quoted';
-        return { appStatusId: 60, appStatusDesc:'quoted'};
+        // return 'quoted';
+        return { appStatusId: 60, appStatusDesc: 'quoted' };
     }
     else if (quotes.some((quote) => quote.aggregated_status === 'quoted_referred')) {
         //appStatusId = 50
         //return 'quoted_referred';
-        return { appStatusId: 50, appStatusDesc:'quoted_referred'};
+        return { appStatusId: 50, appStatusDesc: 'quoted_referred' };
     }
     else if (quotes.some((quote) => quote.aggregated_status === 'referred')) {
         //appStatusId = 40
         //return 'referred';
-        return { appStatusId: 50, appStatusDesc:'referred'};
+        return { appStatusId: 50, appStatusDesc: 'referred' };
     }
     else if (quotes.some((quote) => quote.aggregated_status === 'declined')) {
         //appStatusId = 30
-       // return 'declined';
-        return { appStatusId: 30, appStatusDesc:'declined'};
+        // return 'declined';
+        return { appStatusId: 30, appStatusDesc: 'declined' };
     }
     else if (quotes.some((quote) => quote.aggregated_status === 'error')) {
         //appStatusId = 20
-      //  return 'error';
-        return { appStatusId: 20, appStatusDesc:'error'};
+        //  return 'error';
+        return { appStatusId: 20, appStatusDesc: 'error' };
     }
-    else if(application.last_step === 8){
+    else if (application.last_step === 8) {
         //appStatusId = 10
-       // return 'questions_done';
-        return { appStatusId: 10, appStatusDesc:'questions_done'};
+        // return 'questions_done';
+        return { appStatusId: 10, appStatusDesc: 'questions_done' };
     }
-    return { appStatusId: 0, appStatusDesc:'incomplete'};
+    return { appStatusId: 0, appStatusDesc: 'incomplete' };
 }
 
 /**
@@ -216,7 +218,7 @@ function getAccidentFundApplicationStatus(application, quotes) {
     if (status === 'declined') {
         if (quotes.filter((quote) => quote.aggregated_status === 'error').length > 0) {
             //return 'error';
-            return { appStatusId: 20, appStatusDesc:'error'};
+            return { appStatusId: 20, appStatusDesc: 'error' };
         }
     }
     return status;

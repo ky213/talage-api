@@ -7,7 +7,7 @@ const slack = global.requireShared('./services/slacksvc.js');
 // const outreachsvc = global.requireShared('./services/outreachsvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 
-const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
+const AgencyBO = global.requireShared('models/Agency-BO.js');
 
 /**
  * AbandonApplication Task processor
@@ -161,8 +161,8 @@ var processAbandonApp = async function(applicationId){
         //Get email content
         // TODO only uses customer...
         let error = null;
-        const agencyNetworkBO = new AgencyNetworkBO();
-        const emailContentJSON = await agencyNetworkBO.getEmailContentAgencyAndCustomer(agencyNetwork, "abandoned_applications_customer", "abandoned_applications_customer").catch(function(err){
+        const agencyBO = new AgencyBO();
+        const emailContentJSON = await agencyBO.getEmailContentAgencyAndCustomer(appDBJSON[0].agency, "abandoned_applications_customer", "abandoned_applications_customer").catch(function(err){
             log.error(`Email content Error Unable to get email content for abandon application. appid: ${applicationId}.  error: ${err}` + __location);
             error = true;
         });
@@ -218,7 +218,7 @@ var processAbandonApp = async function(applicationId){
             return true;
         }
         else {
-            log.error('AbandonApp missing emailcontent for agencynetwork: ' + agencyNetwork + __location);
+            log.error(`AbandonApp missing emailcontent for agencyid ${appDBJSON[0].agency} and  agencynetwork: ` + agencyNetwork + __location);
             return false;
         }
     }

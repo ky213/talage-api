@@ -24,7 +24,7 @@ async function findAll(req, res, next) {
     let options = {};
     let query = {};
     options.sort = {};
-   // log.debug("Message List req.query: " + JSON.stringify(req.query))
+    // log.debug("Message List req.query: " + JSON.stringify(req.query))
     if (req.query.sort) {
         var acs = 1;
         if (req.query.desc) {

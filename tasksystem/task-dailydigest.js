@@ -9,7 +9,7 @@ const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
+const AgencyBO = global.requireShared('models/Agency-BO.js');
 
 /**
  * DailyDigest Task processor
@@ -150,9 +150,9 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
     if(appDBJSON && appDBJSON.length > 0){
 
         let error = null;
-        const agencyNetworkBO = new AgencyNetworkBO();
-        const emailContentJSON = await agencyNetworkBO.getEmailContent(agencyNetwork, "daily_digest").catch(function(err){
-            log.error(`Unable to get email content for Daily Digest. agency_network: ${db.escape(agencyNetwork)}.  error: ${err}` + __location);
+        const agencyBO = new AgencyBO();
+        const emailContentJSON = await agencyBO.getEmailContent(agencyLocationDB.agency, "daily_digest").catch(function(err){
+            log.error(`Unable to get email content for Daily Digest. agency ${agencyLocationDB.agency} agency_network: ${db.escape(agencyNetwork)}.  error: ${err}` + __location);
             error = true;
         });
         if(error){

@@ -1,3 +1,4 @@
+/* eslint-disable no-return-await */
 /* eslint-disable require-jsdoc */
 'use strict';
 

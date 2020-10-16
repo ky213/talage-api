@@ -1,3 +1,4 @@
+/* eslint-disable array-element-newline */
 /* eslint-disable dot-notation */
 /* eslint-disable no-case-declarations */
 /**
@@ -19,7 +20,8 @@ const ownerStepParser = require('./parsers/owner-step-parser.js')
 const detailStepParser = require('./parsers/detail-step-parser.js')
 const claimStepParser = require('./parsers/claim-step-parser.js')
 const questionStepParser = require('./parsers/question-step-parser.js')
-const bindStepParser = require('./parsers/bindrequest-step-parse.js')
+const bindStepParser = require('./parsers/bindrequest-step-parse.js');
+const { WorkDocs } = require('aws-sdk');
 
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
@@ -155,6 +157,42 @@ async function Save(req, res, next){
                 // const token = jwt.sign(tokenPayload, global.settings.AUTH_SECRET_KEY, {expiresIn: '5m'});
                 // responseObj.demo = applicationRequestJson.demo;
                 responseObj.id = applicationModel.id;
+                //look for business data to send back.
+                try{
+                    const appDoc = applicationModel.getLoadedMongoDoc();
+                    //log.warn(JSON.stringify(appDoc));
+                    if(appDoc){
+                        let hasData = false;
+                        // eslint-disable-next-line prefer-const
+                        let businessData = {};
+                        const updateFields = ["entityType" , "founded", "yearsOfExp","grossSalesAmt"]
+                        for(let i = 0; i < updateFields.length; i++){
+                            if(appDoc[updateFields[i]]){
+                                businessData[updateFields[i]] = appDoc[updateFields[i]]
+                                hasData = true;
+                            }
+                        }
+                        //any deeper properties....
+                        if(appDoc.locations && appDoc.locations.length > 0){
+                            if(appDoc.locations[0].full_time_employees && appDoc.locations[0].full_time_employees > 0){
+                                businessData.full_time_employees = appDoc.locations[0].full_time_employees;
+                                hasData = true;
+                            }
+                        }
+                        if(hasData){
+                            responseObj.businessData = businessData;
+                        }
+                    }
+                    else {
+                        log.warn(`no mongo doc for this application after save ${applicationModel.id}` + __location);
+                        log.warn(JSON.stringify(appDoc));
+                    }
+                }
+                catch(err){
+                    log.error("Error retreiving getLoadedMongoDoc " + err + __location);
+                }
+
+
                 responseObj.message = "saved";
                 //associations
                 res.send(200, responseObj);
@@ -283,7 +321,7 @@ async function CheckZip(req, res, next){
             }
         }
 
-        log.debug("zipCodeBO: " + JSON.stringify(zipCodeBO.cleanJSON()))
+        // log.debug("zipCodeBO: " + JSON.stringify(zipCodeBO.cleanJSON()))
 
         // Check if we have coverage.
         const sql = `select  z.territory, t.name, t.licensed 
@@ -504,6 +542,82 @@ async function AgencyEmail(req, res, next){
 }
 
 /**
+ * GET returns questions from application 
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function GetQuestions(req, res, next){
+    log.debug("in App GetQuestions ")
+    /* ---=== Check Request Requirements ===--- */
+
+    // Check for data
+    if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
+        log.warn('Bad Request: Required data missing. Please see documentation.');
+        return next(serverHelper.requestError('Required data missing. Please see documentation.'));
+    }
+
+    //log.verbose(util.inspect(req.query));
+
+    // Make sure basic elements are present
+    if (!req.query.policy_types) {
+        log.warn('Bad Request: Missing Policy Types');
+        return next(serverHelper.requestError('You must supply one or more policy types'));
+    }
+
+    // Make sure the proper codes were supplied
+    if (req.query.policy_types.includes('BOP') || req.query.policy_types.includes('GL')) {
+        if (!req.query.industry_code) {
+            log.warn('Bad Request: Missing Industry Code');
+            return next(serverHelper.requestError('You must supply an industry code'));
+        }
+    }
+    if (req.query.policy_types.includes('WC')) {
+        if (!req.query.activity_codes) {
+            log.warn('Bad Request: Missing Activity Codes');
+            return next(serverHelper.requestError('You must supply one or more activity codes'));
+        }
+    }
+
+    // Make sure a zip code was provided
+    if (!Object.prototype.hasOwnProperty.call(req.query, 'zips') || !req.query.zips) {
+        log.warn('Bad Request: Missing Zip Codes');
+        return next(serverHelper.requestError('You must supply at least one zip code'));
+    }
+
+    // Check if we should return hidden questions also
+    let return_hidden = false;
+    if (req.query.hidden && req.query.hidden === 'true') {
+        // log.info('Returning hidden questions as well');
+        return_hidden = true;
+    }
+
+    let getQuestionsResult = null;
+    try{
+        // insurers is optional
+        const insurers = req.query.insurers ? req.query.insurers.split(',') : [];
+        const applicationBO = new ApplicationBO();
+
+        getQuestionsResult = await applicationBO.GetQuestionsForFrontend(req.query.appId, req.query.activity_codes.split(','), req.query.industry_code, req.query.zips.split(','), req.query.policy_types.split(','), insurers, return_hidden);
+    }
+    catch(error){
+        log.error("Error getting questions " + error + __location);
+        return next(serverHelper.internalError('An error occured while retrieving application questions.'));
+    }
+
+    if(!getQuestionsResult){
+        return next(serverHelper.requestError('An error occured while retrieving application questions.'));
+    }
+
+    res.send(200, getQuestionsResult);
+
+
+}
+
+/**
  * GET returns updated address and business info on App
  *
  * @param {object} req - HTTP request object
@@ -514,10 +628,12 @@ async function AgencyEmail(req, res, next){
  */
 async function AppInfo(req, res, next){
     const responseAppInfoJSON = {};
+    // eslint-disable-next-line array-element-newline
     const propertyToNotSend = ['id','uuid','created', 'created_by', 'modified', 'deleted', 'dba_clear','file_num','checked_out', 'checked_out_time','state','mailing_zip', 'ein']
     if(req.query && req.query.appid){
         const appId = req.query.appid
         try{
+            //TODO switch to Mongo.....
             const applicationBO = new ApplicationBO();
             const appDBJSON = await applicationBO.getById(appId);
             if(appDBJSON){
@@ -526,12 +642,14 @@ async function AppInfo(req, res, next){
                 responseAppInfoJSON.city = appDBJSON.city;
                 responseAppInfoJSON.state = appDBJSON.state_abbr;
                 responseAppInfoJSON.zip = appDBJSON.zipcode;
+                responseAppInfoJSON.entityType = appDBJSON.entity_type;
                 //get business
                 const businessBO = new BusinessBO();
+                // eslint-disable-next-line prefer-const
                 let businessDBJSON = await businessBO.getById(appDBJSON.business);
                 if(businessDBJSON){
-                    for (let i =0; i< propertyToNotSend.length; i++){
-                        if(businessDBJSON[propertyToNotSend[i]]  !== 'undefined' || businessDBJSON[propertyToNotSend[i]] === 0 && businessDBJSON[propertyToNotSend[i]] === '' ){
+                    for (let i = 0; i < propertyToNotSend.length; i++){
+                        if(businessDBJSON[propertyToNotSend[i]] !== 'undefined' || businessDBJSON[propertyToNotSend[i]] === 0 && businessDBJSON[propertyToNotSend[i]] === ''){
                             delete businessDBJSON[propertyToNotSend[i]]
                         }
                     }
@@ -544,10 +662,11 @@ async function AppInfo(req, res, next){
         catch(err){
             log.error(`AppInfo error getting app info req.query ${JSON.stringify(req.query)} ` + err + __location)
         }
-       res.send(200,responseAppInfoJSON)
-       return next();
+        res.send(200,responseAppInfoJSON)
+        return next();
     }
     else {
+        const responseObj = {};
         responseObj['error'] = true;
         responseObj['message'] = 'Invalid input received.';
         res.send(400, responseObj);
@@ -575,12 +694,14 @@ exports.registerEndpoint = (server, basePath) => {
     // server.addPost('Post Application agencyemail(depr)', `${basePath}wf/agencyemail`, AgencyEmail);
 
     // GETs for Quote App
-    server.addGet('Get Quote Engine Resources', `${basePath}/applicationwf/getresources`, GetResources)
-    server.addGet('Get Quote Engine Resources', `${basePath}wf/getresources`, GetResources)
-    server.addPost('Checkzip for Quote Engine', `${basePath}/applicationwf/checkzip`, CheckZip)
-    server.addPost('Checkzip for Quote Engine', `${basePath}wf/checkzip`, CheckZip)
-    server.addGet('GetAssociations for Quote Engine', `${basePath}/applicationwf/getassociations`, GetAssociations)
-    server.addGet('GetAssociations for Quote Engine', `${basePath}wf/getassociations`, GetAssociations)
+    server.addGetAuthAppWF('Get Quote Engine Resources', `${basePath}/applicationwf/getresources`, GetResources)
+    server.addGetAuthAppWF('Get Quote Engine Resources', `${basePath}wf/getresources`, GetResources)
+    server.addPostAuthAppWF('Checkzip for Quote Engine', `${basePath}/applicationwf/checkzip`, CheckZip)
+    server.addPostAuthAppWF('Checkzip for Quote Engine', `${basePath}wf/checkzip`, CheckZip)
+    server.addGetAuthAppWF('GetAssociations for Quote Engine', `${basePath}/applicationwf/getassociations`, GetAssociations)
+    server.addGetAuthAppWF('GetAssociations for Quote Engine', `${basePath}wf/getassociations`, GetAssociations)
+    server.addGetAuthAppWF('GetQuestions for Quote Engine', `${basePath}wf/question/v1`, GetQuestions)
+    server.addGetAuthAppWF('GetQuestions for Quote Engine', `${basePath}wf/question`, GetQuestions)
 
 };
 
