@@ -128,47 +128,49 @@ async function retrieveCustomColorScheme(data, next) {
     return exisitingColorId.length === 0 ? newColorId : exisitingColorId[0].id;
 
 }
+
 /**
  * Conditionally authenticates based on whether network making call or agency making call
  * @param {Object} req -- HTTP request object
  * @param {Object} data -- Data object can be req.query or req.params
  * @param {Function} next -- The next function to execute
- * @return {int}  -- The agency id 
+ * @return {int}  -- The agency id
  */
-async function retrieveAuthenticatedAgency( req, data, next){
-	let error = false;
-	let agency = null;
-	const jwtErrorMessage = await auth.validateJWT(req, req.authentication.agencyNetwork ? 'agencies' : 'pages', 'manage');
+async function retrieveAuthenticatedAgency(req, data, next){
+    let error = false;
+    let agency = null;
+    const jwtErrorMessage = await auth.validateJWT(req, req.authentication.agencyNetwork ? 'agencies' : 'pages', 'manage');
     if (jwtErrorMessage) {
         return next(serverHelper.forbiddenError(jwtErrorMessage));
-	}
-	if (req.authentication.agencyNetwork) {
+    }
+    if (req.authentication.agencyNetwork) {
         // This is an agency network user, they can only modify agencies in their network
         // Get the agencies that we are permitted to manage
         const agencies = await auth.getAgents(req).catch(function(e) {
             error = e;
-		});
+        });
         if (error) {
             return next(error);
         }
         // Validate the Agency ID
         if (!Object.prototype.hasOwnProperty.call(data, 'agency')) {
             return next(serverHelper.requestError('Agency missing'));
-		}
+        }
         if (!await validator.agent(data.agency)) {
             return next(serverHelper.requestError('Agency is invalid'));
-		}
+        }
         if (!agencies.includes(parseInt(data.agency, 10))) {
             return next(serverHelper.requestError('Agency is invalid'));
         }
-        agency =  data.agency;
+        agency = data.agency;
     }
     else {
-		// This is an agency user, they can only handle their own agency
+        // This is an agency user, they can only handle their own agency
         agency = req.authentication.agents[0];
-	}
-	return agency;
+    }
+    return agency;
 }
+
 /**
  * Validates a landing page and returns a clean data object
  *
@@ -193,15 +195,15 @@ async function validate(request, next, agency) {
         slug: '',
         customColorScheme: null
     };
-	
-	// Validate each parameter
-	// HACK: Adding backward compatibility so if typeof request.body.landingPage === 'undefined' old ui use case else updated UI
-	const landingPage = typeof request.body.landingPage === 'undefined' ? request.body : request.body.landingPage;
+
+    // Validate each parameter
+    // HACK: Adding backward compatibility so if typeof request.body.landingPage === 'undefined' old ui use case else updated UI
+    const landingPage = typeof request.body.landingPage === 'undefined' ? request.body : request.body.landingPage;
 
     // About (optional)
-    if (Object.prototype.hasOwnProperty.call( landingPage, 'about') && landingPage.about) {
+    if (Object.prototype.hasOwnProperty.call(landingPage, 'about') && landingPage.about) {
         // Strip out HTML
-		landingPage.about = landingPage.about.replace(/(<([^>]+)>)/gi, '');
+        landingPage.about = landingPage.about.replace(/(<([^>]+)>)/gi, '');
 
         // Check lengths
         if (landingPage.about.length > 400) {
@@ -269,7 +271,7 @@ async function validate(request, next, agency) {
     // Intro Text (optional)
     if (Object.prototype.hasOwnProperty.call(landingPage, 'introText') && landingPage.introText) {
         // Strip out HTML
-		landingPage.introText = landingPage.introText.replace(/(<([^>]+)>)/gi, '');
+        landingPage.introText = landingPage.introText.replace(/(<([^>]+)>)/gi, '');
 
         // Check lengths
         if (landingPage.introText.length > 400) {
@@ -353,9 +355,9 @@ async function validate(request, next, agency) {
 async function createLandingPage(req, res, next) {
     let error = false;
     // Determine the agency ID
-	const agency = await retrieveAuthenticatedAgency(req, req.body, next);
-	// HACK: Adding backward compatibility so if typeof request.body.landingPage === 'undefined' old ui use case else updated UI
-	const landingPage = typeof req.body.landingPage === 'undefined' ? req.body : req.body.landingPage;
+    const agency = await retrieveAuthenticatedAgency(req, req.body, next);
+    // HACK: Adding backward compatibility so if typeof request.body.landingPage === 'undefined' old ui use case else updated UI
+    const landingPage = typeof req.body.landingPage === 'undefined' ? req.body : req.body.landingPage;
     // Check that at least some post parameters were received
     if (!req.body || typeof landingPage !== 'object' || Object.keys(landingPage).length === 0) {
         log.info('Bad Request: Parameters missing');
@@ -365,13 +367,13 @@ async function createLandingPage(req, res, next) {
     // Validate the request and get back the data
     const data = await validate(req, next, agency).catch(function(err) {
         error = err.message;
-	});
-	
+    });
+
     if (error) {
         log.warn(`Error: ${error} ${__location}`);
         return next(serverHelper.requestError(error));
-	}
-	
+    }
+
 
     // showIntroText update additional_info json
     if(landingPage.additionalInfo && landingPage.showIntroText){
@@ -445,13 +447,13 @@ async function createLandingPage(req, res, next) {
  */
 async function deleteLandingPage(req, res, next) {
     let error = false;
-	
-	// Check that query parameters were received
-	if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
-		log.info('Bad Request: Query parameters missing');
-		return next(serverHelper.requestError('Query parameters missing'));
-	}
-	const agency = await retrieveAuthenticatedAgency(req, req.query, next);
+
+    // Check that query parameters were received
+    if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
+        log.info('Bad Request: Query parameters missing');
+        return next(serverHelper.requestError('Query parameters missing'));
+    }
+    const agency = await retrieveAuthenticatedAgency(req, req.query, next);
     // Validate the Landing Page ID
     if (!Object.prototype.hasOwnProperty.call(req.query, 'id')) {
         return next(serverHelper.requestError('ID missing'));
@@ -519,7 +521,7 @@ async function getLandingPage(req, res, next) {
         return next(serverHelper.requestError('You must specify a page'));
     }
 
-    
+
     const agency = await retrieveAuthenticatedAgency(req, req.query,next);
     // Build a query that will return all of the landing pages
     const landingPageSQL = `
@@ -616,9 +618,9 @@ async function updateLandingPage(req, res, next) {
     log.debug("update landing page " + JSON.stringify(req.body));
     let error = false;
     // Determine the agency ID
-	const agency = await retrieveAuthenticatedAgency(req, req.body, next);
-	// HACK: Adding backward compatibility so if typeof request.body.landingPage === 'undefined' old ui use case else updated UI
-	const landingPage = typeof req.body.landingPage === 'undefined' ? req.body : req.body.landingPage;
+    const agency = await retrieveAuthenticatedAgency(req, req.body, next);
+    // HACK: Adding backward compatibility so if typeof request.body.landingPage === 'undefined' old ui use case else updated UI
+    const landingPage = typeof req.body.landingPage === 'undefined' ? req.body : req.body.landingPage;
     // Check that at least some post parameters were received
     if (!req.body || typeof landingPage !== 'object' || Object.keys(landingPage).length === 0) {
         log.info('Bad Request: Parameters missing' + __location);

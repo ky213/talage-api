@@ -1,3 +1,4 @@
+/* eslint-disable prefer-const */
 /**
  * Handles all tasks related to managing quotes
  */
@@ -5,7 +6,7 @@
 'use strict';
 
 const crypt = global.requireShared('./services/crypt.js');
-const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+//const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
@@ -104,7 +105,8 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
 				ag.logo,
 				ag.enable_optout,
 				ag.website,
-				ag.wholesale
+                ag.wholesale,
+                ag.additionalInfo
 			FROM clw_talage_agency_landing_pages as alp
 			LEFT JOIN clw_talage_agencies AS ag ON alp.agency = ag.id
 			LEFT JOIN clw_talage_industry_code_categories AS icc ON alp.industry_code_category = icc.id
@@ -118,6 +120,9 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
     try {
         const result = await db.query(sql);
         agency = result[0];
+        agency.additionalInfo = JSON.parse(agency.additionalInfo);
+        const agencyBO = new AgencyBO();
+        agencyBO.moveAdditionalInfoFeatures(agency)
     }
     catch (error) {
         log.warn(`Could not retrieve quote engine agency ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${error} ${__location}`);
@@ -186,17 +191,18 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
         log.error(`Could not parse landingPageContent/meta in agency ${agencySlug}: ${error} ${__location}`);
         return null;
     }
-    
+
     let locations = null;
     try{
         const query = {"agency": agency.id}
         const getChildren = true;
         const agencyLocationBO = new AgencyLocationBO();
-        locations = await  agencyLocationBO.getList(query, getChildren);
+        locations = await agencyLocationBO.getList(query, getChildren);
         let insurerList = [];
+        // eslint-disable-next-line array-element-newline
         let removeList = ["doNotSnakeCase", "territories", "created", "modified", "modified_by","checked_out", "checked_out_time"]
         if(locations){
-            for(let j=0; j < locations.length ; j++) {
+            for(let j = 0; j < locations.length; j++) {
                 let location = locations[j];
                 location.openTime = location.open_time;
                 location.closeTime = location.close_time;
@@ -204,21 +210,21 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
                 location.zip = location.zipcode;
                 location.appointments = location.territories;
                 if(location.insurers){
-                    for(let i=0; i < location.insurers.length ; i++) {
+                    for(let i = 0; i < location.insurers.length; i++) {
                         let insurer = location.insurers[i];
                         insurer.agencylocation = location.id;
                         insurerList.push(insurer);
-                    };
-                    delete location.insurers;    
+                    }
+                    delete location.insurers;
                 }
                 else {
                     log.error("No insurers for location " + __location)
                 }
-                for(let i =0;i< removeList.length ; i++) {
+                for(let i = 0; i < removeList.length; i++) {
                     if(location[removeList[i]]){
                         delete location[removeList[i]]
                     }
-                }                
+                }
             }
         }
         else {
@@ -229,20 +235,20 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
     }
     catch(err){
         log.error(err.message + __location);
-        return null; 
+        return null;
     }
-	// Retrieve Officer Titles
-	const officerTitlesSql = `SELECT officerTitle from \`officer_titles\``;
+    // Retrieve Officer Titles
+    const officerTitlesSql = `SELECT officerTitle from \`officer_titles\``;
 
-	// Including an require statements.
-	const officerTitlesResult = await db.query(officerTitlesSql).catch(function(err){
-		log.error('officer_titles ' + err + __location);
-	});
-	const officerTitleArr = [];
-	officerTitlesResult.forEach(officerTitleObj => officerTitleArr.push(officerTitleObj.officerTitle));
-	if(officerTitleArr.length > 0){
-		agency.officerTitles = officerTitleArr;
-	}
+    // Including an require statements.
+    const officerTitlesResult = await db.query(officerTitlesSql).catch(function(err){
+        log.error('officer_titles ' + err + __location);
+    });
+    const officerTitleArr = [];
+    officerTitlesResult.forEach(officerTitleObj => officerTitleArr.push(officerTitleObj.officerTitle));
+    if(officerTitleArr.length > 0){
+        agency.officerTitles = officerTitleArr;
+    }
     // Update the landing page hit counter
     sql = `
 			UPDATE clw_talage_agency_landing_pages

@@ -13,8 +13,8 @@ const uppercase = /[A-Z]/;
  * @returns {boolean} - True if valid, false otherwise
  */
 module.exports = function(password){
-	if(typeof password !== 'string' || !lowercase.test(password) || !number.test(password) || !special_characters.test(password) || !uppercase.test(password) || password.length < 8){
-		return false;
-	}
-	return true;
+    if(typeof password !== 'string' || !lowercase.test(password) || !number.test(password) || !special_characters.test(password) || !uppercase.test(password) || password.length < 8){
+        return false;
+    }
+    return true;
 };

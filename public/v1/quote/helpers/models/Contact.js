@@ -16,7 +16,7 @@ module.exports = class Contact {
         this.phone = 0;
     }
 
-	/**
+    /**
 	 * Populates this object with data from the request
 	 *
 	 * @param {object} data - The business data
@@ -44,7 +44,7 @@ module.exports = class Contact {
         });
     }
 
-	/**
+    /**
 	 * Checks that the data supplied is valid
 	 *
 	 * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected

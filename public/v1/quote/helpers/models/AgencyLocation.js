@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 /**
  * Defines a single agent
  */
@@ -5,7 +6,7 @@
 'use strict';
 
 const crypt = global.requireShared('./services/crypt.js');
-const { JsonWebTokenError } = require('jsonwebtoken');
+const {JsonWebTokenError} = require('jsonwebtoken');
 const serverHelper = require('../../../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
@@ -52,7 +53,7 @@ module.exports = class AgencyLocation {
             let hadError = false;
 
             // Array for tracking queries
-            const queries = [];
+            //const queries = [];
             //fix zero or null agency_location id in application
             // eslint-disable-next-line space-in-parens
             // eslint-disable-next-line no-extra-parens
@@ -61,55 +62,57 @@ module.exports = class AgencyLocation {
             }
             const agencyLocationId = this.id;
             // Define the where clause
-            
-           
+
+
             // Stop if there was an error
             if (hadError) {
                 return;
             }
             let alInsurerList = null;
             let alTerritoyList = null;
-            
+
             let agencyLocation = null;
             try{
                 const agencyLocationBO = new AgencyLocationBO();
-                agencyLocation = await  agencyLocationBO.getById(this.id);
+                agencyLocation = await agencyLocationBO.getById(this.id);
                 if(agencyLocation.insurers){
                     alInsurerList = agencyLocation.insurers;
-                } else {
+                }
+                else {
                     log.error(`Agency location Missing insurers ${this.id} ` + JSON.stringify(agencyLocation) + __location);
                 }
                 if(agencyLocation.territories){
                     alTerritoyList = agencyLocation.territories;
                     this.territories = agencyLocation.territories;
-                    log.debug("alTerritoyList: " + JSON.stringify(alTerritoyList));
-                } else {
+                    //log.debug("alTerritoyList: " + JSON.stringify(alTerritoyList));
+                }
+                else {
                     log.error(`Agency territories Missing insurers ${this.id} ` + JSON.stringify(agencyLocation) + __location);
                 }
             }
             catch(err){
                 log.error("Error Getting AgencyLocationBO error: " + err + __location);
-                reject(error);
+                reject(err);
                 hadError = true;
             }
             //AgencyBO
-            
+
             let agencyInfo = null;
             try{
-                const agencyBO = new AgencyBO();  
+                const agencyBO = new AgencyBO();
                 agencyInfo = await agencyBO.getById(agencyLocation.agency);
-                  agencyInfo.email = agencyLocation.email;
-                  agencyInfo.fname = agencyLocation.fname;
-                  agencyInfo.additionalInfo = agencyLocation.additionalInfo;
+                agencyInfo.email = agencyLocation.email;
+                agencyInfo.fname = agencyLocation.fname;
+                agencyInfo.additionalInfo = agencyLocation.additionalInfo;
             }
             catch(err){
                 log.error("Error Getting Agency error: " + err + __location);
-                reject(error);
+                reject(err);
                 hadError = true;
             }
             // Get the query results
             const insurers = alInsurerList;
-            
+
             const agency_network = agencyInfo.agency_network;
             const agencyNetworkBO = new AgencyNetworkBO();
             const agencyNetworkJSON = await agencyNetworkBO.getById(agencyInfo.agency_network).catch(function(err){
@@ -122,7 +125,7 @@ module.exports = class AgencyLocation {
 
             // Extract the agent info, decrypting as necessary
             this.agency = agencyInfo.name;
-            this.agencyEmail =agencyInfo.email;
+            this.agencyEmail = agencyInfo.email;
             this.agencyId = agencyInfo.id;
             this.agencyNetwork = agencyInfo.agency_network;
             this.agencyPhone = agencyInfo.phone;
@@ -158,7 +161,7 @@ module.exports = class AgencyLocation {
                         if (!insurer.agent_id) {
                             log.error(`Agency missing Agent ID in configuration.  ${JSON.stringify(insurer)}` + __location);
                             //Do not stop quote because one insurer is miss configured.
-                           // return;
+                            // return;
                         }
                     }
                     this.insurers[insurer.id] = insurer;
@@ -247,7 +250,7 @@ module.exports = class AgencyLocation {
         return new Promise((fulfill, reject) => {
             // Territories
             this.business.locations.forEach((location) => {
-               // log.debug(`this.territories` + JSON.stringify(this.territories))
+                // log.debug(`this.territories` + JSON.stringify(this.territories))
                 if (!this.territories.includes(location.state_abbr)) {
                     log.error(`Agent does not have ${location.state_abbr} enabled` + __location);
                     reject(serverHelper.requestError(`The specified agent is not setup to support this application in territory ${location.state_abbr}.`));

@@ -22,7 +22,7 @@ const serverHelper = require('../../../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
 const helper = global.requireShared('./helpers/helper.js');
 
-const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
+const AgencyBO = global.requireShared('models/Agency-BO.js');
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
 const ApplicationPolicyTypeBO = global.requireShared('./models/ApplicationPolicyType-BO.js');
 const ApplicationQuestionBO = global.requireShared('./models/ApplicationQuestion-BO.js');
@@ -35,15 +35,17 @@ module.exports = class Application {
         this.insurers = [];
         this.policies = [];
         this.questions = {};
+        this.applicationData = {};
     }
 
     /**
 	 * Populates this object based on applicationId in the request
 	 *
 	 * @param {object} data - The application data
+     * @param {boolean} forceQuoting - if true age check is skipped.
 	 * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
 	 */
-    async load(data) {
+    async load(data, forceQuoting = false) {
         log.verbose('Loading data into Application');
         // ID
         this.id = parseInt(data.id, 10);
@@ -59,22 +61,34 @@ module.exports = class Application {
         if (error) {
             throw error;
         }
-        //LastStep check.
+        //LastStep check. TODO which to appStatusId.
         // this.state > 15, 16 is finished.
         if(applicationBO.state > 15){
             log.warn("An attempt to quote application that is finished.")
             throw new Error("Finished Application cannot be quoted")
 
         }
-        //age check - TODO add override Age parameter to allow requoting.
-        const bypassAgeCheck = global.settings.ENV === 'development' && global.settings.APPLICATION_AGE_CHECK_BYPASS === 'YES';
-        const dbCreated = moment(applicationBO.created);
-        const nowTime = moment().utc();
-        const ageInMinutes = nowTime.diff(dbCreated, 'minutes');
-        log.debug('Application age in minutes ' + ageInMinutes);
-        if(!bypassAgeCheck && ageInMinutes > 60){
-            log.warn(`Attempt to update an old application. appid ${this.id}` + __location);
-            throw new Error("Data Error: Application may not be updated do to age.");
+
+        try{
+            this.applicationData = await applicationBO.loadfromMongoBymysqlId(this.id);
+            log.debug("Quote Application added applicationData")
+        }
+        catch(err){
+            log.error("Unable to get applicationData for quoting appId: " + data.id + __location);
+        }
+
+
+        //age check - add override Age parameter to allow requoting.
+        if (forceQuoting === false){
+            const bypassAgeCheck = global.settings.ENV === 'development' && global.settings.APPLICATION_AGE_CHECK_BYPASS === 'YES';
+            const dbCreated = moment(applicationBO.created);
+            const nowTime = moment().utc();
+            const ageInMinutes = nowTime.diff(dbCreated, 'minutes');
+            log.debug('Application age in minutes ' + ageInMinutes);
+            if (!bypassAgeCheck && ageInMinutes > 60) {
+                log.warn(`Attempt to update an old application. appid ${this.id}` + __location);
+                throw new Error("Data Error: Application may not be updated do to age.");
+            }
         }
         //log.debug("applicationBO: " + JSON.stringify(applicationBO));
 
@@ -164,7 +178,7 @@ module.exports = class Application {
         // requestedInsureres not longer sent from Web app.
         //get_insurers(requestedInsurers) {
         return new Promise(async(fulfill, reject) => {
-            log.debug("IN GET INSURERS FROM REQUESTED INSURERS FOR Agency Location ID "  + this.agencyLocation.id )
+            log.debug("IN GET INSURERS FROM REQUESTED INSURERS FOR Agency Location ID " + this.agencyLocation.id)
             // Get a list of desired insurers
             let desired_insurers = [];
             let stop = false;
@@ -446,11 +460,13 @@ module.exports = class Application {
         // Send an emails if there were no quotes generated
         if (!some_quotes) {
             let error = null;
-            const agencyNetworkBO = new AgencyNetworkBO();
-            const emailContentJSON = await agencyNetworkBO.getEmailContentAgencyAndCustomer(this.agencyLocation.agencyNetwork, 'no_quotes_agency', 'no_quotes_customer').catch(function(err) {
+            const agencyBO = new AgencyBO();
+            const emailContentJSON = await agencyBO.getEmailContentAgencyAndCustomer(this.agencyLocation.agencyId, 'no_quotes_agency', 'no_quotes_customer').catch(function(err) {
                 log.error(`Email content Error Unable to get email content for no quotes.  error: ${err}` + __location);
                 error = true;
             });
+
+
             if (error) {
                 return false;
             }

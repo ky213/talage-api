@@ -25,143 +25,143 @@ const year = /^[1|2]{1}[7|8|9|0]{1}[0-9]{2}/;
 // Load in validators from the sub file
 const normalizedPath = require('path').join(global.sharedPath, 'helpers', 'validators');
 require('fs').readdirSync(normalizedPath).forEach(function(file){
-	module.exports[file.replace('.js', '')] = global.requireShared(`helpers/validators/${file}`);
+    module.exports[file.replace('.js', '')] = global.requireShared(`helpers/validators/${file}`);
 });
 
 // ============================================================
 // Agency-portal/api
 
 exports.is_valid_id = function(id){
-	if(typeof id === 'string'){
-		return Number.isInteger(parseInt(id, 10));
-	}
-else if(typeof id === 'number'){
-		return Number.isInteger(id);
-	}
-	return false;
+    if(typeof id === 'string'){
+        return Number.isInteger(parseInt(id, 10));
+    }
+    else if(typeof id === 'number'){
+        return Number.isInteger(id);
+    }
+    return false;
 };
 
 exports.is_valid_business = async function(id){
-	if(positive_integer.test(id)){
-		let had_error = false;
-		const sql = `SELECT COUNT(id) FROM #__businesses WHERE id = ${parseInt(id, 10)};`;
-		const rows = await db.query(sql).catch(function(error){
-			log.error(error + __location);
-			had_error = true;
-		});
-		if(had_error){
-			return false;
-		}
-		if(!rows || rows.length !== 1 || !Object.prototype.hasOwnProperty.call(rows[0], 'COUNT(id)') || rows[0]['COUNT(id)'] !== 1){
-			return false;
-		}
-		return true;
-	}
-	return false;
+    if(positive_integer.test(id)){
+        let had_error = false;
+        const sql = `SELECT COUNT(id) FROM #__businesses WHERE id = ${parseInt(id, 10)};`;
+        const rows = await db.query(sql).catch(function(error){
+            log.error(error + __location);
+            had_error = true;
+        });
+        if(had_error){
+            return false;
+        }
+        if(!rows || rows.length !== 1 || !Object.prototype.hasOwnProperty.call(rows[0], 'COUNT(id)') || rows[0]['COUNT(id)'] !== 1){
+            return false;
+        }
+        return true;
+    }
+    return false;
 };
 
 exports.is_valid_zip = function(given_zip){
-	return positive_integer.test(given_zip) && zip.test(given_zip);
+    return positive_integer.test(given_zip) && zip.test(given_zip);
 };
 
 // ============================================================
 // Auth-api, code-api, quote-api (different), slack-api
 
 exports.isID = function(val){
-	if(isNaN(val) || val < 1){
-		return false;
-	}
-	return true;
+    if(isNaN(val) || val < 1){
+        return false;
+    }
+    return true;
 };
 
 // ============================================================
 // Docs-api
 
 exports.is_valid_application = async function(id){
-	if(positive_integer.test(id)){
-		let had_error = false;
-		const sql = `SELECT COUNT(id) FROM #__applications WHERE id = ${parseInt(id, 10)};`;
-		const rows = await db.query(sql).catch(function(error){
-			log.error(error + __location);
-			had_error = true;
-		});
-		if(had_error){
-			return false;
-		}
-		return !(!rows || rows.length !== 1 || !Object.prototype.hasOwnProperty.call(rows[0], 'COUNT(id)') || rows[0]['COUNT(id)'] !== 1);
+    if(positive_integer.test(id)){
+        let had_error = false;
+        const sql = `SELECT COUNT(id) FROM #__applications WHERE id = ${parseInt(id, 10)};`;
+        const rows = await db.query(sql).catch(function(error){
+            log.error(error + __location);
+            had_error = true;
+        });
+        if(had_error){
+            return false;
+        }
+        return !(!rows || rows.length !== 1 || !Object.prototype.hasOwnProperty.call(rows[0], 'COUNT(id)') || rows[0]['COUNT(id)'] !== 1);
 
-	}
-	return false;
+    }
+    return false;
 };
 
 exports.isValidInsurer = async function(id){
-	if(positive_integer.test(id)){
-		let had_error = false;
-		const sql = `SELECT COUNT(id) FROM #__insurers WHERE id = ${parseInt(id, 10)};`;
-		const rows = await db.query(sql).catch(function(error){
-			log.error(error + __location);
-			had_error = true;
-		});
-		if(had_error){
-			return false;
-		}
-		return !(!rows || rows.length !== 1 || !Object.prototype.hasOwnProperty.call(rows[0], 'COUNT(id)') || rows[0]['COUNT(id)'] !== 1);
+    if(positive_integer.test(id)){
+        let had_error = false;
+        const sql = `SELECT COUNT(id) FROM #__insurers WHERE id = ${parseInt(id, 10)};`;
+        const rows = await db.query(sql).catch(function(error){
+            log.error(error + __location);
+            had_error = true;
+        });
+        if(had_error){
+            return false;
+        }
+        return !(!rows || rows.length !== 1 || !Object.prototype.hasOwnProperty.call(rows[0], 'COUNT(id)') || rows[0]['COUNT(id)'] !== 1);
 
-	}
-	return false;
+    }
+    return false;
 };
 
 // ============================================================
 // Quote-api
 
 exports.isBusinessName = function(val){
-	return Boolean(business_name.test(val));
+    return Boolean(business_name.test(val));
 };
 
 exports.isEffectiveDate = function(val){
-	return Boolean(effective_date.test(val));
+    return Boolean(effective_date.test(val));
 };
 
 exports.isFoundedDate = function(val){
-	return Boolean(founded_date.test(val));
+    return Boolean(founded_date.test(val));
 };
 
 exports.isFullName = function(val){
-	return Boolean(full_name.test(val));
+    return Boolean(full_name.test(val));
 };
 
 exports.isInYearRange = function(minimumYear, maximumYear, testYear){
-	return Boolean(testYear <= maximumYear && testYear > minimumYear);
+    return Boolean(testYear <= maximumYear && testYear > minimumYear);
 };
 
 exports.isName = function(val){
-	return Boolean(name.test(val));
+    return Boolean(name.test(val));
 };
 
 exports.isSqFtg = function(val){
-	return Boolean(sqFtg.test(val));
+    return Boolean(sqFtg.test(val));
 };
 
 exports.isWebsite = function(val){
-	return Boolean(website.test(val));
+    return Boolean(website.test(val));
 };
 
 exports.isValidYear = function(val){
-	return Boolean(year.test(val));
+    return Boolean(year.test(val));
 };
 
 exports.isZip = function(val){
-	return Boolean(zip.test(val));
+    return Boolean(zip.test(val));
 };
 
 exports.isBureauNumberCA = function(val){
-	return Boolean(bureau_number_CA.test(val));
+    return Boolean(bureau_number_CA.test(val));
 };
 
 exports.isBureauNumberNotCA = function(val){
-	return Boolean(bureau_number_not_CA.test(val));
+    return Boolean(bureau_number_not_CA.test(val));
 };
 
 exports.isInsurerId = function(val){
-	return Boolean(insurerID.test(val));
+    return Boolean(insurerID.test(val));
 };

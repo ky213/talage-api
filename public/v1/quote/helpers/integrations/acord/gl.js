@@ -100,7 +100,7 @@ module.exports = class ACORDGL extends Integration{
         let policyTypeInfoJSON = '';
         try{
             const agencyLocationBO = new AgencyLocationBO();
-            policyTypeInfoJSON =  await  agencyLocationBO.getPolicyInfo(this.app.agencyLocation.id, this.insurer.id);
+            policyTypeInfoJSON = await agencyLocationBO.getPolicyInfo(this.app.agencyLocation.id, this.insurer.id);
         }
         catch(err){
             log.error(`Appid: ${this.app.id} Database error retrieving ACORD email for agency location: ${this.app.agencyLocation.id} insurer: ${this.insurer.id} ` + err + __location);
