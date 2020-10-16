@@ -18,7 +18,7 @@ module.exports = class AcuityGL extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
     async _insurer_quote() {
-        // These are per Acuity's feedback in the QA process
+        // Don't report certain activities in the payroll exposure
         const unreportedPayrollActivityCodes = [
             2869 // Office Employees
         ];
@@ -474,20 +474,19 @@ module.exports = class AcuityGL extends Integration {
         Limit.ele('FormatInteger', limits[2]);
         // </Limit>
         // </CommlCoverage>
-
         // Exposures
         for (let i = 0; i < this.app.business.locations.length; i++) {
             const location = this.app.business.locations[i];
             // Ensure we have a GL policy and activity codes exist
             if (!location.appPolicyTypeList.includes("GL") && location.activity_codes) {
-                return;
+                continue;
             }
             // let totalPayroll = 0;
             const cobPayrollMap = {};
             for (const activityCode of location.activity_codes) {
                 // Skip activity codes we shouldn't include in payroll
                 if (unreportedPayrollActivityCodes.includes(activityCode.id)) {
-                    return;
+                    continue;
                 }
                 const cglCode = await this.get_cgl_code_from_activity_code(location.territory, activityCode.id);
                 if (cglCode) {
@@ -496,11 +495,8 @@ module.exports = class AcuityGL extends Integration {
                     }
                     cobPayrollMap[cglCode] += activityCode.payroll;
                 }
-                // console.log(cglCode);
-                // totalPayroll += activityCode.payroll;
             }
-            // Fill in the exposure. The Acuity CGL spreadsheet does not specify exposures per class code so we send PAYROLL for now until
-            // we get clarity.
+            // Fill in the exposure. The Acuity CGL spreadsheet does not specify exposures per class code so we send PAYROLL for now until we get clarity.
             Object.keys(cobPayrollMap).forEach((cglCode) => {
                 const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification');
                 GeneralLiabilityClassification.att('LocationRef', `L${i + 1}`);
@@ -519,7 +515,7 @@ module.exports = class AcuityGL extends Integration {
         // Get the XML structure as a string
         const xml = ACORD.end({pretty: true});
 
-        console.log('request', xml);
+        // console.log('request', xml);
 
         // Determine which URL to use
         let host = '';
@@ -546,7 +542,8 @@ module.exports = class AcuityGL extends Integration {
             this.reasons.push('Could not connect to the Acuity server');
             return this.return_error('error', "Could not connect to Acuity server");
         }
-        console.log('response', JSON.stringify(res, null, 4));
+
+        // console.log('response', JSON.stringify(res, null, 4));
 
         // Check if there was an error
         if (res.errorResponse) {
