@@ -330,7 +330,9 @@ async function getAgencySocialMetadata(req, res, next) {
             ag.agency_network as agencyNetwork,
             ag.name as agencyName,
 			ag.logo,
-			ag.website
+            ag.website,
+            ag.id,
+            ag.additionalInfo
 		FROM clw_talage_agency_landing_pages as alp
 		LEFT JOIN clw_talage_agencies AS ag ON alp.agency = ag.id
 		WHERE
@@ -396,21 +398,19 @@ async function getAgencySocialMetadata(req, res, next) {
         res.send(400, {error: 'Could not process agency data'});
         return next();
     }
-    let additionalInfo = [];
-    try{
-        let additionalInfoSQL = `SELECT additionalInfo FROM clw_talage_agencies where name = '${agency.agencyName}'`;
-        const result = await db.query(additionalInfoSQL);
-        result.forEach(data => {
-            data.additionalInfo = JSON.parse(data.additionalInfo);
-            if(data.additionalInfo !== null){
-                additionalInfo.push(data.additionalInfo.socialMediaTags.facebookPixel);
-            }
+    let fbPixelIds = [];
+    try {
+        agency.additionalInfo = JSON.parse(agency.additionalInfo);
+        console.log(agency.additionalInfo);
+        if (agency.additionalInfo !== null) {
+            fbPixelIds.push(agency.additionalInfo.socialMediaTags.facebookPixel);
+        }
 
-        })
-        agency.facebookPixel = additionalInfo;
+        agency.facebookPixel = fbPixelIds;
+
     }
     catch(err){
-        log.error(err)
+        log.error(__location,err);
     }
 
     res.send(200, {
