@@ -714,12 +714,12 @@ module.exports = class ApplicationModel {
                 //not in map check....
                 if(!businessInfoMapping[locationProp]){
                     if(locationProp.isSnakeCase()){
-                        this.#applicationMongooseJSON[locationProp.toCamelCase()] =  location[locationProp];
+                        location[locationProp.toCamelCase()] =  location[locationProp];
                     }
-                    else {
-                        this.#applicationMongooseJSON[locationProp] = location[locationProp];
+                    //some condition where client sends null;
+                    if(!location.billing || location.billing === false|| location.billing === 0){
+                        location.billing = false;
                     }
-                    
                 }
             }
             location.activityPayrollList = [];
