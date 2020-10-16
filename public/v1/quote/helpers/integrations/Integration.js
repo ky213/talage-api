@@ -201,13 +201,9 @@ module.exports = class Integration {
      * @param {number} activityCode - The 4 digit Talage activity code
      * @returns {number} The 4 digit NCCI code
      */
-    async get_ncci_code_from_activity_code(territory, activityCode) {
-        // NOTE: Right now, we do not have a mapping of NCCI codes -> Activity codes because
-        // most insurers use their own standard... except for Employers.
-        // Employers sticks to the NCCI standard so we use  NCCI code -> Activity code mappings.
-        // This should be addressed in the next system similar to how we do GL/BOP mappings.
+    async get_employers_code_for_activity_code(territory, activityCode) {
         const sql = `
-            SELECT inc.code, inc.sub
+            SELECT inc.code, inc.sub, inc.attributes
             FROM clw_talage_insurer_ncci_codes AS inc 
             LEFT JOIN clw_talage_activity_code_associations AS aca ON aca.insurer_code = inc.id
             WHERE
@@ -223,29 +219,86 @@ module.exports = class Integration {
         catch (error) {
             return null;
         }
+        // Return if no results
         if (result.length === 0) {
             return null;
         }
-        return {
-            code: result[0].code,
-            sub: result[0].sub
+        // Parse the attributes if they exist (non-fatal)
+        if (result[0].attributes) {
+            try {
+                result[0].attributes = JSON.parse(result[0].attributes);
+            }
+            catch (error) {
+                // continue. We may not need the attributes column
+                result[0].attributes = {};
+            }
         }
+        return result[0];
     }
 
     /**
-     * Retrieves an NCCI code string (code concatenated with subcode) from a given activity code
+     * Retrieves an NCCI code from a given activity code
      *
      * @param {string} territory - The 2 character territory code
      * @param {number} activityCode - The 4 digit Talage activity code
-     * @returns {number} The 4 digit NCCI code
+     * @returns {object} The code and sub(code)
      */
-    async get_ncci_code_string_from_activity_code(territory, activityCode) {
-        const result = await this.get_ncci_code_from_activity_code(territory, activityCode);
-        if (!result) {
-            return '';
+    async get_ncci_code_from_activity_code(territory, activityCode) {
+        const employersRecord = await this.get_employers_code_for_activity_code(territory, activityCode);
+        if (!employersRecord) {
+            return null;
         }
-        return `${result.code}${result.sub}`;
+        return {
+            code: employersRecord.code,
+            sub: employersRecord.sub
+        };
     }
+
+    /**
+     * Retrieves an NAICS industry code from a given activity code
+     *
+     * @param {string} territory - The 2 character territory code
+     * @param {number} activityCode - The 4 digit Talage activity code
+     * @returns {number} The 6+ digit naics code
+     */
+    async get_naics_code_from_activity_code(territory, activityCode) {
+        const employersRecord = await this.get_employers_code_for_activity_code(territory, activityCode);
+        if (!employersRecord) {
+            return null;
+        }
+        return parseInt(employersRecord.attributes.naicsCode, 10);
+    }
+
+    /**
+     * Retrieves an CGL code from a given activity code
+     *
+     * @param {string} territory - The 2 character territory code
+     * @param {number} activityCode - The 4 digit Talage activity code
+     * @returns {string} The CGL code
+     */
+    async get_cgl_code_from_activity_code(territory, activityCode) {
+        const naicsCode = await this.get_naics_code_from_activity_code(territory, activityCode);
+        if (!naicsCode) {
+            return null;
+        }
+        const sql = `
+            SELECT * FROM clw_talage_industry_codes
+            WHERE naics = ${naicsCode};
+        `;
+        let result = null;
+        try {
+            result = await db.query(sql);
+        }
+        catch (error) {
+            return null;
+        }
+        // Return if no results
+        if (result.length === 0 || !result[0].cgl) {
+            return null;
+        }
+        return result[0].cgl;
+    }
+
 
     /**
      * Returns an XML node child from parsed XML data. It will iterate down the node children, getting element 0 of each node's child.
