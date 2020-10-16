@@ -228,144 +228,17 @@ async function getAgency(req, res, next) {
             agency.state = agency.state > 0 ? "Active" : "Inactive";
         }
 
-
         if (typeof agency[property] === 'object' && agency[property] !== null && agency[property].length === 0) {
             agency[property] = null;
         }
     }
     const agencyNetworkId = agency.agency_network
     log.debug('agencyNetworkId: ' + agencyNetworkId);
-    // Define some queries to get locations, pages and users
-    const allTerritoriesSQL = `
-		SELECT
-			\`abbr\`,
-			\`name\`
-		FROM \`clw_talage_territories\`
-		ORDER BY \`name\` ASC;
-	`;
 
-    const networkInsurersSQL = `
-                SELECT
-                    i.id,
-                    i.logo,
-                    i.name,
-                    i.agency_id_label,
-                    i.agent_id_label,
-                    i.enable_agent_id,
-                    GROUP_CONCAT(it.territory) AS territories
-                FROM clw_talage_agency_network_insurers AS agi
-                LEFT JOIN clw_talage_insurers AS i ON agi.insurer = i.id
-                LEFT JOIN clw_talage_insurer_territories AS it ON i.id = it.insurer
-                LEFT JOIN clw_talage_insurer_policy_types AS pti ON i.id = pti.insurer
-                WHERE
-                    i.id IN (select insurer from clw_talage_agency_network_insurers where agency_network = ${agencyNetworkId}) AND
-                    i.state = 1 AND
-                    pti.wheelhouse_support = 1
-
-                GROUP BY i.id
-                ORDER BY i.name ASC;
-	`;
-
-
-    let users = null;
-    try {
-        const agencyPortalUserBO = new AgencyPortalUserBO();
-        users = await agencyPortalUserBO.getByAgencyId(agent);
-    }
-    catch (err) {
-        log.error('DB query failed: ' + err.message + __location);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    }
-
-
-    // Query the database
-    const allTerritories = await db.query(allTerritoriesSQL).catch(function(err) {
-        log.error('DB query failed: ' + err.message + __location);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    });
-
-    //TODO Delete this next iteration start deletion section, logic moved to agency-locations
-    // START DELETE SECTION
-    const agencyLocationBO = new AgencyLocationBO();
-
-    let locations = null;
-    try {
-        const query = {"agency": agent}
-        const getChildren = true;
-        locations = await agencyLocationBO.getList(query, getChildren)
-        locations.forEach((location) => {
-            location.openTime = location.open_time;
-            location.closeTime = location.close_time;
-        });
-    }
-    catch (err) {
-        log.error(err.message + __location);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    }
-
-    // END DELETE SECTION
-
-    //log.debug("agency get locations: " + JSON.stringify(locations))
-
-
-    const networkInsurers = await db.query(networkInsurersSQL).catch(function(err) {
-        log.error('DB query failed: ' + err.message + __location);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    });
-
-
-    const agencyLandingPageBO = new AgencyLandingPageBO();
-    const pageQuery = {"agency": agent}
-    const pages = await agencyLandingPageBO.getList(pageQuery).catch(function(err) {
-        log.error("Add Agency - agencyLandingPageBO.getList error " + err + __location);
-    });
-    if (pages) {
-        pages.forEach((page) => {
-            if (page.color_scheme) {
-                page.colorScheme = page.color_scheme
-            }
-        });
-    }
-
-    // Convert the network insurer territory data into an array
-    networkInsurers.map(function(networkInsurer) {
-        if (networkInsurer.territories) {
-            networkInsurer.territories = networkInsurer.territories.split(',');
-        }
-        return networkInsurer;
-    });
-    // For each network insurer grab the policy_types
-    for (let i = 0; i < networkInsurers.length; i++) {
-        const insurer = networkInsurers[i];
-        // Grab all of the policy type and accord support for a given insurer
-        const policyTypeSql = `
-			SELECT policy_type, acord_support
-			FROM clw_talage_insurer_policy_types
-			WHERE
-				insurer = ${insurer.id}
-		`
-        let policyTypesResults = null;
-        try {
-            policyTypesResults = await db.query(policyTypeSql);
-        }
-        catch (err) {
-            log.error(`Could not retrieve policy and accord_support for insurer ${insurer} :  ${err}  ${__location}`);
-            return next(serverHelper.internalError('Internal Error'));
-        }
-        // Push policy types and accord support for said policy type into an array
-        insurer.policyTypes = [];
-        policyTypesResults.forEach((policyType) => {
-            insurer.policyTypes.push(policyType);
-        });
-    }
+    
     // Build the response
     const response = {
-        ...agency,
-        "locations": locations,
-        "networkInsurers": networkInsurers,
-        "pages": pages,
-        "territories": allTerritories,
-        "users": users
+        ...agency
     };
     //log.debug('Get Agency ' + JSON.stringify(response))
 
@@ -774,13 +647,8 @@ async function updateAgency(req, res, next) {
     if (!agencies.includes(id)) {
         log.info('Forbidden: User is not authorized to delete this agency');
         return next(serverHelper.forbiddenError('You are not authorized to delete this agency'));
-    }
-
-    // Ensure the primary location is loaded LAST in the array to prevent MySQL unique constraint errors when saving
-    req.body.locations.sort(function(a) {
-        return a.primary ? 1 : -1;
-    });
-
+	}
+	
     // Initialize an agency object
     error = null;
     log.debug("saving agency")
