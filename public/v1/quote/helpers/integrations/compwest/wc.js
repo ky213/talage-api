@@ -237,6 +237,15 @@ module.exports = class CompwestWC extends Integration {
 
         // Org (AF Group has asked us to send in the Channel ID in this field. 2 indicates Digalent Storefront. 1 indicates the Talage Digital Agency)
         ClientApp.ele('Org', this.app.agencyLocation.id === 2 || this.app.agencyLocation.agencyNetwork === 2 ? 2 : 1);
+        if(this.app.applicationData
+            && this.app.applicationData.businessDataJSON
+            && this.app.applicationData.businessDataJSON.afBusinessData
+            && this.app.applicationData.businessDataJSON.afBusinessData.requestResponseId){
+                ClientApp.ele('SubmissionId', this.app.applicationData.businessDataJSON.afBusinessData.requestResponseId);
+                log.debug("CompWest WC added SubmissionId");
+        }
+
+        //SubmissionId
 
         // </ClientApp>
         // </SignonRq>
@@ -654,10 +663,11 @@ module.exports = class CompwestWC extends Integration {
         // Check the status to determine what to do next
         let message_type = '';
         const status = res.SignonRs[0].Status[0].StatusCd[0];
+        const statusDescription = res.SignonRs[0].Status[0].StatusDesc[0].Desc && res.SignonRs[0].Status[0].StatusDesc[0].Desc.length ? res.SignonRs[0].Status[0].StatusDesc[0].Desc[0] : "AFGroup/CompWest did not return an error description.";
         switch (status) {
             case 'DECLINE':
                 this.log += `--------======= Application Declined =======--------<br><br>Appid: ${this.app.id}  ${this.insurer.name} declined to write this business`;
-                this.reasons.push(`${status} - ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`);
+                this.reasons.push(`${status} - ${statusDescription}`);
                 return this.return_result(status);
             case 'UNAUTHENTICATED':
             case 'UNAUTHORIZED':
@@ -668,20 +678,20 @@ module.exports = class CompwestWC extends Integration {
                 this.reasons.push(`${status} - ${message_type} Agency ID`);
                 return this.return_result('error');
             case 'ERRORED':
-                    this.log += `--------======= Application error =======--------<br><br> ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`;
-                    log.error(`Appid: ${this.app.id}  ${this.insurer.name} ${this.policy.type} Integration Error(s):\n--- ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}` + __location);
-                    this.reasons.push(`${status} - ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`);
-                    // Send notification email if we get an E Mod error back from carrier
-                    if (res.SignonRs[0].Status[0].StatusDesc[0].Desc[0].toLowerCase().includes("experience mod")) {
-                        wcEmodEmail.sendEmodEmail(this.app.id);
-                    }
-                    return this.return_result('error');
-            case 'SMARTEDITS':
-                this.log += `--------======= Application SMARTEDITS =======--------<br><br>${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`;
-                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Carrier returned SMARTEDITS :\n--- ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}` + __location);
-                this.reasons.push(`${status} - ${res.SignonRs[0].Status[0].StatusDesc[0].Desc[0]}`);
+                this.log += `--------======= Application error =======--------<br><br> ${statusDescription}`;
+                log.error(`Appid: ${this.app.id}  ${this.insurer.name} ${this.policy.type} Integration Error(s):\n--- ${statusDescription}` + __location);
+                this.reasons.push(`${status} - ${statusDescription}`);
                 // Send notification email if we get an E Mod error back from carrier
-                if (res.SignonRs[0].Status[0].StatusDesc[0].Desc[0].toLowerCase().includes("experience mod")) {
+                if (statusDescription.toLowerCase().includes("experience mod")) {
+                    wcEmodEmail.sendEmodEmail(this.app.id);
+                }
+                return this.return_result('error');
+            case 'SMARTEDITS':
+                this.log += `--------======= Application SMARTEDITS =======--------<br><br>${statusDescription}`;
+                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Carrier returned SMARTEDITS :\n--- ${statusDescription}` + __location);
+                this.reasons.push(`${status} - ${statusDescription}`);
+                // Send notification email if we get an E Mod error back from carrier
+                if (statusDescription.toLowerCase().includes("experience mod")) {
                     wcEmodEmail.sendEmodEmail(this.app.id);
                 }
                 return this.return_result('referred');

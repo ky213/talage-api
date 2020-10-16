@@ -9,22 +9,22 @@ const dollar_amount = /^\$?[1-9]\d{0,2}(,?\d{3})*(\.[0-9]{2})?$/;
  * @returns {boolean} - True if valid, false otherwise
  */
 module.exports = function(amount){
-	if(typeof amount !== 'string'){
-		amount = amount.toString();
-	}
+    if(typeof amount !== 'string'){
+        amount = amount.toString();
+    }
 
-	// Check that this is a valid dollar amount
-	if(!dollar_amount.test(amount)){
-		return false;
-	}
+    // Check that this is a valid dollar amount
+    if(!dollar_amount.test(amount)){
+        return false;
+    }
 
-	// Cleanup
-	amount = Math.round(parseFloat(amount.toString().replace('$', '').replace(/,/g, '')));
+    // Cleanup
+    amount = Math.round(parseFloat(amount.toString().replace('$', '').replace(/,/g, '')));
 
-	// Check that we are within limits
-	if(amount > 15000000){
-		return false;
-	}
+    // Check that we are within limits
+    if(amount > 15000000){
+        return false;
+    }
 
-	return true;
+    return true;
 };

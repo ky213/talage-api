@@ -3,6 +3,7 @@
     "version": "1.0.0",
     "description": "Talage API",
     "main": "index.js",
+    
     "scripts": {
         "serve": "node index.js",
         "dev": "nodemon --ext js,env,json,xmlt index.js",
@@ -39,6 +40,7 @@
         "image-size": "^0.8.3",
         "jsonwebtoken": "^8.5.1",
         "jsrender": "^1.0.6",
+        "lodash.clonedeep": "^4.5.0",
         "moment": "^2.24.0",
         "moment-timezone": "^0.5.31",
         "mongoose": "^5.9.26",

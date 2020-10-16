@@ -9,7 +9,7 @@ const jwt = require('jsonwebtoken');
 const serverHelper = require('../../../server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const AgencyPortalUserBO = global.requireShared('./models/AgencyPortalUser-BO.js');
+const AgencyPortalUserGroupBO = global.requireShared('models/AgencyPortalUserGroup-BO.js');
 
 /**
  * Responds to get requests for an authorization token
@@ -57,7 +57,8 @@ async function createToken(req, res, next){
 			\`apu\`.\`last_login\`,
 			\`apu\`.\`password\`,
 			\`apu\`.\`reset_required\`,
-			\`apug\`.\`permissions\`,
+            \`apug\`.\`permissions\`,
+            apug.id as apugId,
 			\`la\`.\`version\` AS 'termsOfServiceVersion'
 		FROM \`#__agency_portal_users\` AS \`apu\`
 		LEFT JOIN \`#__agency_portal_user_groups\` AS \`apug\` ON \`apu\`.\`group\` = \`apug\`.\`id\`
@@ -88,6 +89,20 @@ async function createToken(req, res, next){
         res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
         return next();
     }
+    //get Permissions from Mongo UserGroup Permission
+    // if error go with mySQL permissions.
+    agencyPortalUserResult[0].permissions = JSON.parse(agencyPortalUserResult[0].permissions)
+    try{
+        const agencyPortalUserGroupBO = new AgencyPortalUserGroupBO();
+
+        const agencyPortalUserGroupDB = await agencyPortalUserGroupBO.getById(agencyPortalUserResult[0].apugId);
+        agencyPortalUserResult[0].permissions = agencyPortalUserGroupDB.permissions;
+    }
+    catch(err){
+        log.error("Error get permissions from Mongo " + err + __location);
+    }
+
+
 
     // Begin constructing the payload
     const payload = {
@@ -183,7 +198,7 @@ async function createToken(req, res, next){
     payload.agencyNetworkId = agencyNetworkId;
 
     // Add the permissions to the payload
-    payload.permissions = JSON.parse(agencyPortalUserResult[0].permissions);
+    payload.permissions = agencyPortalUserResult[0].permissions;
 
     // Check whether or not this is the first time the user is logging in
     payload.firstLogin = Boolean(agencyPortalUserResult[0].last_login);

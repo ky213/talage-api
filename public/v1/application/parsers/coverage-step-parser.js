@@ -38,7 +38,7 @@ exports.process = async function(requestJSON) {
                 requestJSON.limits = stringFunctions.santizeNumber(typeQuestionJSON.limits);
                 requestJSON.deductible = stringFunctions.santizeNumber(typeQuestionJSON.deductible);
                 if(policy_typesJSON.includes('WC') === false){
-                    log.debug("has not WC");
+                    // log.debug("has not WC");
                     const num_of_ownersStr = typeQuestionJSON.num_owners.replace("/[^0-9]/", '');
                     try{
                         const num_of_owner = parseInt(num_of_ownersStr, 10);

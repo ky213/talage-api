@@ -8,11 +8,11 @@ const regex = /^[0-9]{3}[-]?[0-9]{2}[-]?[0-9]{4}$/;
  * @returns {boolean} - Boolean true if valid, false otherwise
  */
 module.exports = function(ssn){
-	if(ssn){
-		// Check formatting
-		if(regex.test(ssn)){
-			return true;
-		}
-	}
-	return false;
+    if(ssn){
+        // Check formatting
+        if(regex.test(ssn)){
+            return true;
+        }
+    }
+    return false;
 };

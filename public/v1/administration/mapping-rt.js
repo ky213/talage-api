@@ -14,7 +14,7 @@ const serverHelper = global.requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+//const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 async function findAll(req, res, next) {
     let error = null;
@@ -42,7 +42,6 @@ async function findAll(req, res, next) {
 async function findOne(req, res, next) {
     const id = req.params.id;
     //TODO check it is a uuid.
-    
     if (!id) {
         return next(new Error("bad parameter"));
     }

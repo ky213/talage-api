@@ -16,7 +16,8 @@ const serverHelper = require('../../../../../server.js');
 const xmlFormatter = require('xml-formatter');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const {getQuoteAggregatedStatus} = global.requireShared('./models/application-businesslogic/status.js');
+//const {getQuoteAggregatedStatus} = global.requireShared('./models/application-businesslogic/status.js');
+const status = global.requireShared('./models/application-businesslogic/status.js');
 
 module.exports = class Integration {
 
@@ -1126,7 +1127,7 @@ module.exports = class Integration {
 
         // Aggregated Status.
         columns.push('aggregated_status');
-        values.push(getQuoteAggregatedStatus(false, '', api_result));
+        values.push(status.getQuoteAggregatedStatus(false, '', api_result));
 
         // Insert the quote record
         const quoteResult = await db.query(`INSERT INTO \`#__quotes\` (\`${columns.join('`,`')}\`) VALUES (${values.map(db.escape).join(',')});`).catch(function(err) {

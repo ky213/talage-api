@@ -78,8 +78,11 @@ function generateCSV(agents, agencyNetwork){
             'request_to_bind': 'Request to bind',
             'request_to_bind_referred': 'Request to bind (referred)',
             'wholesale': 'Wholesale'
-        };
-
+		};
+		let whereAddition = '';
+		if(agencyNetwork){
+			whereAddition += 'AND ag.do_not_report = 0'
+		}
         // Prepare to get all application data
         let sql = `
             SELECT
@@ -115,7 +118,8 @@ function generateCSV(agents, agencyNetwork){
             WHERE
                 a.state > 0
 				AND ag.state > 0
-				AND ag.do_not_report = 0
+				${whereAddition}
+				
 		`;
 
         // This is a very special case. If this is the agency 'Solepro' (ID 12) is asking for applications, query differently
@@ -370,6 +374,7 @@ async function getApplications(req, res, next){
 
     if(!req.params.endDate || (req.params.endDate && req.params.endDate.startsWith('T23:59:59.999'))){
         // now....
+        log.debug('AP Application Search resetting end date' + __location);
         req.params.endDate = moment().toISOString();
     }
 
@@ -381,20 +386,22 @@ async function getApplications(req, res, next){
     // All parameters and their values have been validated at this point -SF
 
     // Create MySQL date strings
-    const startDateSQL = moment(req.params.startDate).format('YYYY-MM-DD HH:mm:ss');
-    const endDateSQL = moment(req.params.endDate).format('YYYY-MM-DD HH:mm:ss');
+    const startDateSQL = moment(req.params.startDate).utc().format('YYYY-MM-DD HH:mm:ss');
+    const endDateSQL = moment(req.params.endDate).utc().format('YYYY-MM-DD HH:mm:ss');
 
     // Make sure we got agents
     if (!agents.length){
         log.info('Bad Request: No agencies permitted');
         return next(serverHelper.requestError('Bad Request: No agencies permitted'));
     }
-	
+
     // Begin by only allowing applications that are not deleted from agencies that are also not deleted
     let where = `${db.quoteName('a.state')} > 0 AND ${db.quoteName('ag.state')} > 0`;
-	
+
 	// Filter out any agencies with do_not_report value set to true
-	where += ` AND ag.do_not_report = 0`;
+	if(req.authentication.agencyNetwork){
+		where += ` AND ag.do_not_report = 0`;
+	}
 
     // This is a very special case. If this is the agent 'Solepro' (ID 12) asking for applications, query differently
     if(!agencyNetwork && agents[0] === 12){
@@ -454,8 +461,8 @@ async function getApplications(req, res, next){
                 where += ` OR a.id  = ${db.escape(req.params.searchText)}`;
                 where += ` OR b.mailing_zipcode LIKE ${db.escape(`${req.params.searchText}%`)}`
             }
-            
-            
+
+
         }
         where += ')';
     }

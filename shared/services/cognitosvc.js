@@ -73,7 +73,7 @@ exports.getUserByToken = function(accessToken,callback) {
             }
         }
         else {
-           // log.debug("Cognito response: " + JSON.stringify(data));           // successful response
+            // log.debug("Cognito response: " + JSON.stringify(data));           // successful response
             if (data) {
                 var userInfo = {username: data.Username};
                 internalGetUserGroups(userInfo, function(err2, groupData) {

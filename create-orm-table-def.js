@@ -46,11 +46,11 @@ global.tracker = tracker;
  * @returns {void}
  */
 function logLocalErrorMessage(message){
-	if(global.log){
-		log.error(message);
-	}
-	// eslint-disable-next-line no-console
-	console.log(colors.red(message));
+    if(global.log){
+        log.error(message);
+    }
+    // eslint-disable-next-line no-console
+    console.log(colors.red(message));
 }
 
 let tableName = "clw_talage_applications"
@@ -62,30 +62,30 @@ let tableName = "clw_talage_applications"
  */
 async function main(){
     // Load the settings from a .env file - Settings are loaded first
-	if(!globalSettings.load()){
-		logLocalErrorMessage('Error loading variables. Stopping.');
-		return;
-	}
+    if(!globalSettings.load()){
+        logLocalErrorMessage('Error loading variables. Stopping.');
+        return;
+    }
 
-	// Initialize the version
-	if(!await version.load()){
-		logLocalErrorMessage('Error initializing version. Stopping.');
-		return;
-	}
+    // Initialize the version
+    if(!await version.load()){
+        logLocalErrorMessage('Error initializing version. Stopping.');
+        return;
+    }
 
-	// Connect to the logger
-	if(!logger.connect()){
-		logLocalErrorMessage('Error connecting to logger. Stopping.');
-		return;
-	}
+    // Connect to the logger
+    if(!logger.connect()){
+        logLocalErrorMessage('Error connecting to logger. Stopping.');
+        return;
+    }
 
-	// Connect to the database
-	if(!await db.connect()){
-		logLocalErrorMessage('Error connecting to database. Stopping.');
-		return;
-	}
+    // Connect to the database
+    if(!await db.connect()){
+        logLocalErrorMessage('Error connecting to database. Stopping.');
+        return;
+    }
 
-	// Load the database module and make it globally available
+    // Load the database module and make it globally available
     global.db = global.requireShared('./services/db.js');
 
     if(process.argv.length > 2){
@@ -98,7 +98,7 @@ async function main(){
         process.exit(1);
     });
     const numberFieldTypeList = ['int', 'float'];
-  //  log.debug(JSON.stringify(tableDef));
+    //  log.debug(JSON.stringify(tableDef));
     const ormTableDef = {};
     for (var i = 0; i < tableDef.length; i++) {
         const fieldDef = tableDef[i];
