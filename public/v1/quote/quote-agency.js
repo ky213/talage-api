@@ -347,7 +347,9 @@ async function getAgencySocialMetadata(req, res, next) {
         if (result.length === 0) {
             throw new Error('zero-length query result');
         }
-        agency = result[0];
+        if(result && result.length > 0){
+            agency = result[0];
+        }
     }
     catch (error) {
         log.warn(`Could not retrieve quote engine agency slug '${agencySlug}' (${pageSlug ? 'page ' + pageSlug : 'no page'}) for social metadata: ${error} ${__location}`);
@@ -355,7 +357,7 @@ async function getAgencySocialMetadata(req, res, next) {
         return next();
     }
     if (!agency) {
-        res.send(400, {error: 'Could not retrieve agency'});
+        res.send(404, {error: 'Could not retrieve agency'});
         return next();
     }
     try {
@@ -398,19 +400,17 @@ async function getAgencySocialMetadata(req, res, next) {
         res.send(400, {error: 'Could not process agency data'});
         return next();
     }
-    let fbPixelIds = [];
+
     try {
         agency.additionalInfo = JSON.parse(agency.additionalInfo);
-        console.log(agency.additionalInfo);
-        if (agency.additionalInfo !== null) {
-            fbPixelIds.push(agency.additionalInfo.socialMediaTags.facebookPixel);
-        }
 
-        agency.facebookPixel = fbPixelIds;
+        if (agency.additionalInfo && agency.additionalInfo.socialMediaTags && agency.additionalInfo.socialMediaTags.facebookPixel) {
+            agency.facebookPixel = agency.additionalInfo.socialMediaTags.facebookPixel;
+        }
 
     }
     catch(err){
-        log.error(__location,err);
+        log.error(`Getting Facebook Pixel ${err} ${__location}`);
     }
 
     res.send(200, {
