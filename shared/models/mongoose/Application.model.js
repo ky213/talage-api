@@ -40,7 +40,7 @@ let locationSchema = new Schema({
     part_time_employees:  {type: Number, required: false},
     square_footage:  {type: Number, required: false},
     unemployment_num:  {type: Number, required: false},
-    billing: {type: Boolean, required: true, default: false },
+    billing: {type: Boolean, required: false, default: false },
     activityPayrollList: [ActivtyCodePayrollSchema]
 })
 
