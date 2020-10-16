@@ -336,7 +336,9 @@ async function getAgencySocialMetadata(req, res, next) {
             ag.agency_network as agencyNetwork,
             ag.name as agencyName,
 			ag.logo,
-			ag.website
+            ag.website,
+            ag.id,
+            ag.additionalInfo
 		FROM clw_talage_agency_landing_pages as alp
 		LEFT JOIN clw_talage_agencies AS ag ON alp.agency = ag.id
 		WHERE
@@ -351,7 +353,9 @@ async function getAgencySocialMetadata(req, res, next) {
         if (result.length === 0) {
             throw new Error('zero-length query result');
         }
-        agency = result[0];
+        if(result && result.length > 0){
+            agency = result[0];
+        }
     }
     catch (error) {
         log.warn(`Could not retrieve quote engine agency slug '${agencySlug}' (${pageSlug ? 'page ' + pageSlug : 'no page'}) for social metadata: ${error} ${__location}`);
@@ -359,7 +363,7 @@ async function getAgencySocialMetadata(req, res, next) {
         return next();
     }
     if (!agency) {
-        res.send(400, {error: 'Could not retrieve agency'});
+        res.send(404, {error: 'Could not retrieve agency'});
         return next();
     }
     try {
@@ -402,11 +406,25 @@ async function getAgencySocialMetadata(req, res, next) {
         res.send(400, {error: 'Could not process agency data'});
         return next();
     }
+
+    try {
+        agency.additionalInfo = JSON.parse(agency.additionalInfo);
+
+        if (agency.additionalInfo && agency.additionalInfo.socialMediaTags && agency.additionalInfo.socialMediaTags.facebookPixel) {
+            agency.facebookPixel = agency.additionalInfo.socialMediaTags.facebookPixel;
+        }
+
+    }
+    catch(err){
+        log.error(`Getting Facebook Pixel ${err} ${__location}`);
+    }
+
     res.send(200, {
         metaTitle: agency.agencyName,
         metaDescription: agency.landingPageContent.bannerHeadingDefault ? agency.landingPageContent.bannerHeadingDefault : agency.defaultLandingPageContent.bannerHeadingDefault,
         metaImage: `${global.settings.IMAGE_URL}/public/agency-logos/${agency.logo}`,
-        metaURL: agency.website
+        metaURL: agency.website,
+        metaPixel: agency.facebookPixel
     });
     return next();
 }

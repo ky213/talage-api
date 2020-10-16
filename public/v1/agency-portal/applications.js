@@ -78,8 +78,11 @@ function generateCSV(agents, agencyNetwork){
             'request_to_bind': 'Request to bind',
             'request_to_bind_referred': 'Request to bind (referred)',
             'wholesale': 'Wholesale'
-        };
-
+		};
+		let whereAddition = '';
+		if(agencyNetwork){
+			whereAddition += 'AND ag.do_not_report = 0'
+		}
         // Prepare to get all application data
         let sql = `
             SELECT
@@ -115,7 +118,8 @@ function generateCSV(agents, agencyNetwork){
             WHERE
                 a.state > 0
 				AND ag.state > 0
-				AND ag.do_not_report = 0
+				${whereAddition}
+				
 		`;
 
         // This is a very special case. If this is the agency 'Solepro' (ID 12) is asking for applications, query differently
@@ -394,8 +398,10 @@ async function getApplications(req, res, next){
     // Begin by only allowing applications that are not deleted from agencies that are also not deleted
     let where = `${db.quoteName('a.state')} > 0 AND ${db.quoteName('ag.state')} > 0`;
 
-    // Filter out any agencies with do_not_report value set to true
-    where += ` AND ag.do_not_report = 0`;
+	// Filter out any agencies with do_not_report value set to true
+	if(req.authentication.agencyNetwork){
+		where += ` AND ag.do_not_report = 0`;
+	}
 
     // This is a very special case. If this is the agent 'Solepro' (ID 12) asking for applications, query differently
     if(!agencyNetwork && agents[0] === 12){
