@@ -9,5 +9,5 @@ const positive_integer = /^\d*$/;
  * @returns {boolean} - True if valid, false otherwise
  */
 module.exports = function(integer){
-	return positive_integer.test(integer);
+    return positive_integer.test(integer);
 };

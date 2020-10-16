@@ -41,7 +41,7 @@ async function findOne(req, res, next) {
     let error = null;
     const questionAnswerBO = new QuestionAnswerBO();
     // Load the request data into it
-    const questionAnswerJSON = await questionAnswerBO.getByAbbr(id).catch(function(err) {
+    const questionAnswerJSON = await questionAnswerBO.getById(id).catch(function(err) {
         log.error("question answer load error " + err + __location);
         error = err;
     });

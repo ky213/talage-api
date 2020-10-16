@@ -8,7 +8,7 @@ const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 const { 'v4': uuidv4 } = require('uuid');
 
-
+const featureList = ["notifyTalage", "applicationOptOut",'donotShowEmailAddress'];
 
 const tableName = 'clw_talage_agency_networks'
 const skipCheckRequired = false;
@@ -140,6 +140,8 @@ module.exports = class AgencyNetworkBO{
                     return;
                 });
                 this.updateProperty();
+                //process featureList
+                this.fillInFeatureList(this.feature_json)
                 resolve(true);
             }
             else {
@@ -158,6 +160,8 @@ module.exports = class AgencyNetworkBO{
                     return;
                 });
                 this.updateProperty();
+                //process featureList
+                this.fillInFeatureList(this.#dbTableORM.feature_json)
                 resolve(this.#dbTableORM.cleanJSON());
             }
             else {
@@ -206,6 +210,8 @@ module.exports = class AgencyNetworkBO{
                         if(!resp){
                             log.debug("Bad BO load" + __location)
                         }
+                        //process featureList
+                        this.fillInFeatureList(agencyNetworkBO.feature_json)
                         boList.push(agencyNetworkBO);
                     }
                     resolve(boList);
@@ -217,6 +223,17 @@ module.exports = class AgencyNetworkBO{
                
             
         });
+    }
+    fillInFeatureList(featureJson){
+        if(featureJson){
+            for(let i = 0; i < featureList.length; i++){
+                const featureName = featureList[i];
+                if(!featureJson[featureName]){
+                    featureJson[featureName] = false;
+                }
+            }
+
+        }
     }
 
     cleanJSON(noNulls = true){

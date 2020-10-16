@@ -1,6 +1,3 @@
-/* eslint indent: 0 */
-/* eslint multiline-comment-style: 0 */
-
 /**
  * General Liability for Acuity
  */
@@ -8,7 +5,6 @@
 'use strict';
 
 const builder = require('xmlbuilder');
-const moment = require('moment');
 const moment_timezone = require('moment-timezone');
 const Integration = require('../Integration.js');
 
@@ -16,14 +12,14 @@ global.requireShared('./helpers/tracker.js');
 
 module.exports = class AcuityGL extends Integration {
 
-	/**
+    /**
 	 * Requests a quote from Acuity and returns. This request is not intended to be called directly.
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
-	async _insurer_quote() {
+    async _insurer_quote() {
 
-		// These are the limits supported by Acuity
+        // These are the limits supported by Acuity
         const carrierLimits = [
             '100000/500000/100000',
             '500000/500000/500000',
@@ -31,19 +27,19 @@ module.exports = class AcuityGL extends Integration {
             '1000000/1000000/1000000'
         ];
 
-		// Define how legal entities are mapped for Acuity
-		const entityMatrix = {
-			Association: 'AS',
-			Corporation: 'CP',
-			'Limited Liability Company': 'LLC',
-			'Limited Partnership': 'LP',
-			Partnership: 'PT',
-			'Sole Proprietorship': 'IN'
-		};
+        // Define how legal entities are mapped for Acuity
+        const entityMatrix = {
+            Association: 'AS',
+            Corporation: 'CP',
+            'Limited Liability Company': 'LLC',
+            'Limited Partnership': 'LP',
+            Partnership: 'PT',
+            'Sole Proprietorship': 'IN'
+        };
 
-		// These are special questions that are not handled the same as other class questions. They will be skipped when generating QuestionAnswer values.
-		// They are likely that they are hard-coded in below somewhere
-		const skipQuestions = [1036, 1037];
+        // These are special questions that are not handled the same as other class questions. They will be skipped when generating QuestionAnswer values.
+        // They are likely that they are hard-coded in below somewhere
+        const skipQuestions = [1036, 1037];
 
         // Check Industry Code Support
         if (!this.industry_code.cgl) {
@@ -542,29 +538,19 @@ module.exports = class AcuityGL extends Integration {
         }
 
         // Find the PolicySummaryInfo, PolicySummaryInfo.PolicyStatusCode, and optionally the PolicySummaryInfo.FullTermAmt.Amt
-        const policySummaryInfo = this.get_xml_child(res.ACORD, [
-                'InsuranceSvcRs',
-                'GeneralLiabilityPolicyQuoteInqRs',
-                'PolicySummaryInfo'
-        ]);
+        const policySummaryInfo = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.PolicySummaryInfo');
         if (!policySummaryInfo) {
             log.error(`Acuity (application ${this.app.id}): Could not find PolicySummaryInfo: ${error} ${__location}`);
             return this.return_error('error', 'Acuity returned an unexpected reply');
         }
-        const policyStatusCode = this.get_xml_child(policySummaryInfo, ['PolicyStatusCd']);
+        const policyStatusCode = this.get_xml_child(policySummaryInfo, 'PolicyStatusCd');
         if (!policyStatusCode) {
             log.error(`Acuity (application ${this.app.id}): Could not find PolicyStatusCode: ${error} ${__location}`);
             return this.return_error('error', 'Acuity returned an unexpected reply');
         }
 
         // If the first message status begins with "Rating is not available ...", it is an autodecline
-        const extendedStatusDescription = this.get_xml_child(res.ACORD, [
-            'InsuranceSvcRs',
-            'GeneralLiabilityPolicyQuoteInqRs',
-            'MsgStatus',
-            'ExtendedStatus',
-            'ExtendedStatusDesc'
-        ]);
+        const extendedStatusDescription = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.MsgStatus.ExtendedStatus.ExtendedStatusDesc');
         if (extendedStatusDescription && extendedStatusDescription.startsWith("Rating is not available for this type of business")) {
             this.reasons.push('Rating is not available for this type of business.');
             return this.return_result('autodeclined');
@@ -575,19 +561,13 @@ module.exports = class AcuityGL extends Integration {
             case "com.acuity_BindableModifiedQuote":
             case "com.acuity_NonBindableQuote":
                 let policyAmount = 0;
-                const policyAmountNode = this.get_xml_child(policySummaryInfo, ['FullTermAmt', 'Amt']);
+                const policyAmountNode = this.get_xml_child(policySummaryInfo, 'FullTermAmt.Amt');
                 if (policyAmountNode) {
                     policyAmount = parseFloat(policyAmountNode);
                 }
                 // Get the returned limits
                 let foundLimitsCount = 0;
-                const commlCoverage = this.get_xml_child(res.ACORD, [
-                    'InsuranceSvcRs',
-                    'GeneralLiabilityPolicyQuoteInqRs',
-                    'GeneralLiabilityLineBusiness',
-                    'LiabilityInfo',
-                    'CommlCoverage'
-                ], true);
+                const commlCoverage = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.GeneralLiabilityLineBusiness.LiabilityInfo.CommlCoverage', true);
                 if (!commlCoverage) {
                     this.reasons.push(`Could not find CommlCoverage node in response.`);
                     log.error(`Acuity (application ${this.app.id}): Could not find the CommlCoverage node. ${__location}`);
@@ -636,11 +616,7 @@ module.exports = class AcuityGL extends Integration {
                     return this.return_error('error', 'Acuity returned an unexpected result for a bindable quote.');
                 }
                 // Look for a quote letter
-                const fileAttachmentInfo = this.get_xml_child(res.ACORD, [
-                    'InsuranceSvcRs',
-                    'GeneralLiabilityPolicyQuoteInqRs',
-                    'FileAttachmentInfo'
-                ]);
+                const fileAttachmentInfo = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.FileAttachmentInfo');
                 if (fileAttachmentInfo) {
                     log.info(`Acuity: Found a quote letter and saving it.`);
                     // Try to save the letter. This is a non-fatal event if we can't save it, but we log it as an error.
@@ -665,5 +641,5 @@ module.exports = class AcuityGL extends Integration {
                 log.error(`Acuity (application ${this.app.id}): Returned unknown policy code '${policyStatusCode}' ${__location}`);
                 return this.return_error('error', 'Acuity returned an unexpected result for a bindable quote.');
         }
-	}
+    }
 };

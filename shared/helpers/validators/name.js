@@ -2,7 +2,7 @@
 const name = /^[a-zA-Z' -]*$/;
 
 module.exports = function(val){
-	return Boolean(name.test(val));
+    return Boolean(name.test(val));
 };
 
 // Docusign-api

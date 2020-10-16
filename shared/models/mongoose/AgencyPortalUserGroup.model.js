@@ -19,7 +19,8 @@ let PermissionRightsSchema = new Schema({
     manage: {type: Boolean, required: false, default: false},
     view: {type: Boolean, required: true, default: true},
     viewlogs: {type: Boolean, required: false},
-    delete: {type: Boolean, required: false}
+    delete: {type: Boolean, required: false},
+    requote: {type: Boolean, required: false}
 },{ _id : false })
 
 
@@ -29,6 +30,10 @@ let PermissionSchema = new Schema({
     applications: PermissionRightsSchema,
     dashboard: PermissionRightsSchema,
     owner: PermissionRightsSchema,
+    pages: PermissionRightsSchema,
+    settings: PermissionRightsSchema,
+    signingAuthority: PermissionRightsSchema,
+    users: PermissionRightsSchema,
     talageStaff: {type: Boolean, required: true, default: false }
 },{ _id : false })
 

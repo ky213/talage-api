@@ -10,5 +10,5 @@ const helper = global.requireShared('helpers/helper.js');
  * @returns {boolean} - True if valid, false otherwise
  */
 module.exports = function(limits, policyType){
-	return helper.supportedLimits[policyType].includes(limits);
+    return helper.supportedLimits[policyType].includes(limits);
 };

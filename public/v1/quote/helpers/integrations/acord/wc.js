@@ -96,7 +96,7 @@ module.exports = class ACORDWC extends Integration {
         let policyTypeInfoJSON = '';
         try {
             const agencyLocationBO = new AgencyLocationBO();
-            policyTypeInfoJSON =  await  agencyLocationBO.getPolicyInfo(this.app.agencyLocation.id, this.insurer.id);
+            policyTypeInfoJSON = await agencyLocationBO.getPolicyInfo(this.app.agencyLocation.id, this.insurer.id);
         }
         catch (err) {
             log.error(`Database error retrieving ACORD email for agency location: ${this.app.agencyLocation.id} insurer: ${this.insurer.id} ` + err + __location);
@@ -108,7 +108,7 @@ module.exports = class ACORDWC extends Integration {
             log.error(`Appid: ${this.app.id} not policyTypeInfo found for ACORD email for agency location: ${this.app.agencyLocation.id} insurer: ${this.insurer.id}` + __location);
             return false;
         }
-       
+
         let email_address = null;
         try {
             email_address = policyTypeInfoJSON.GL.acordInfo.sendToEmail;
