@@ -24,7 +24,7 @@ async function getToken(req, res, next) {
 
     // Joolma not supported anymore.
     if (req.query.joomla_user) {
-        res.send(403, serverHelper.badRequestError('Invalid Joomla! User'));
+        res.send(403, serverHelper.forbiddenError('forbidden user'));
         return next();
     }
 
