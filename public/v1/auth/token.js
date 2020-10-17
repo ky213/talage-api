@@ -22,28 +22,10 @@ async function getToken(req, res, next) {
     // Query parameters user, key, and joomla_user are all optional now since the quoting engine was broken out
     const payload = {};
 
-    // Read in the optional joomla_user
+    // Joolma not supported anymore.
     if (req.query.joomla_user) {
-        // Makre sure this is a number
-        req.query.joomla_user = Number(req.query.joomla_user);
-
-        // Query the database for this joomla_user
-        const user_sql = `SELECT \`id\` FROM \`clw_users\` WHERE \`id\` = ${db.escape(req.query.joomla_user)} LIMIT 1;`;
-        const user_result = await db.query(user_sql).catch(function(e) {
-            log.error(e.message);
-            res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
-            error = true;
-        });
-        if (error) {
-            return next(false);
-        }
-
-        // Check that the joomla_user was valid
-        if (!user_result.length) {
-            res.send(401, serverHelper.badRequestError('Invalid Joomla! User'));
-            return next();
-        }
-        payload.joomla_user = req.query.joomla_user;
+        res.send(403, serverHelper.badRequestError('Invalid Joomla! User'));
+        return next();
     }
 
     // Validate the passed-in user and key
