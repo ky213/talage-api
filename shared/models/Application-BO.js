@@ -1652,18 +1652,18 @@ module.exports = class ApplicationModel {
             //validate
             if(id ){
                 const query = {"applicationId": id, active: true};
-                let appllicationDoc = null;
+                let applicationDoc = null;
                 try {
                     let docDB = await Application.findOne(query, '-__v');
                     if(docDB){
-                        appllicationDoc = mongoUtils.objCleanup(docDB);
+                        applicationDoc = mongoUtils.objCleanup(docDB);
                     }
                 }
                 catch (err) {
                     log.error("Getting Application error " + err + __location);
                     reject(err);
                 }
-                resolve(appllicationDoc);
+                resolve(applicationDoc);
             }
             else {
                 reject(new Error('no id supplied'))
@@ -1677,18 +1677,18 @@ module.exports = class ApplicationModel {
             //validate
             if(id ){
                 const query = {"mysqlId": id, active: true};
-                let appllicationDoc = null;
+                let applicationDoc = null;
                 try {
                     let docDB = await Application.findOne(query, '-__v');
                     if(docDB){
-                        appllicationDoc = mongoUtils.objCleanup(docDB);
+                        applicationDoc = mongoUtils.objCleanup(docDB);
                     }
                 }
                 catch (err) {
                     log.error("Getting Application error " + err + __location);
                     reject(err);
                 }
-                resolve(appllicationDoc);
+                resolve(applicationDoc);
             }
             else {
                 reject(new Error('no id supplied'))
