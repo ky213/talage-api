@@ -200,7 +200,7 @@ module.exports = class ApplicationModel {
                     log.info(`Setting App agency location to primary ${applicationJSON.uuid}` + __location)
                     let agencyLocationBO = new AgencyLocationBO();
                     const locationPrimaryJSON = await agencyLocationBO.getByAgencyPrimary(applicationJSON.agency).catch(function (err) {
-                        log.error("Error getting Agency Primary Location ${applicationJSON.uuid} " + err + __location);
+                        log.error(`Error getting Agency Primary Location ${applicationJSON.uuid} ` + err + __location);
                     });
                     if (locationPrimaryJSON && locationPrimaryJSON.id) {
                         applicationJSON.agency_location = locationPrimaryJSON.id
@@ -1516,6 +1516,25 @@ module.exports = class ApplicationModel {
         });
     }
 
+    async updateMongoWithMysqlId(mysqlId, newObjectJSON){
+        //TODO ----
+        //Get applicationId.
+        let applicationDoc = null;
+        try{
+            applicationDoc = await this.loadfromMongoBymysqlId(mysqlId);
+        }
+        catch(err){
+            log.error("Error get applicationId from mysqlId " + err + __location);
+            throw err;
+        }
+        if(applicationDoc && applicationDoc.applicationId){
+            return await this.updateMongo(applicationDoc.applicationId, newObjectJSON)
+        }
+        else {
+            log.error(`Error no ApplicationDoc or Application.applicationID. mysqlId ${mysqlId}` + __location)
+            throw new Error(`mysqlId ${mysqlId} not found`);
+        }
+    }
 
     async updateMongo(uuid, newObjectJSON){
         if(uuid ){
@@ -1564,7 +1583,15 @@ module.exports = class ApplicationModel {
     }
 
     async insertMongo(newObjectJSON){
-            newObjectJSON.applicationId = newObjectJSON.uuid;
+            if(!newObjectJSON){
+                throw new Error("no data supplied");
+            }
+
+            //covers quote app WF where mysql saves first.
+            if(!newObjectJSON.applicationId && newObjectJSON.uuid){
+                newObjectJSON.applicationId = newObjectJSON.uuid;
+            }
+    
             let application = new Application(newObjectJSON);
             //log.debug("insert application: " + JSON.stringify(application))
             //Insert a doc
@@ -1572,7 +1599,6 @@ module.exports = class ApplicationModel {
                 log.error('Mongo Application Save err ' + err + __location);
                 throw err;
             });
-
             this.#applicationMongooseDB = application;
             
             return  mongoUtils.objCleanup(application);

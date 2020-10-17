@@ -518,12 +518,9 @@ module.exports = class AgencyLocationBO{
                 let agencyLocationBO = new AgencyLocationBO();
                 await agencyLocationBO.#dbTableORM.decryptFields(locationJSON);
                 await agencyLocationBO.#dbTableORM.convertJSONColumns(locationJSON);
-                // const resp = await agencyLocationBO.loadORM(locationJSON, skipCheckRequired).catch(function(err){
-                //     log.error(`getList error loading object: ` + err + __location);
-                // })
-                if(children === true ){
-                    await this.loadChildren(agencyLocationBO.id, agencyLocationBO)
-                }
+                const resp = await agencyLocationBO.loadORM(locationJSON, skipCheckRequired).catch(function(err){
+                    log.error(`getList error loading object: ` + err + __location);
+                })
                 return agencyLocationBO;
             }
             else {
