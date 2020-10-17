@@ -49,7 +49,7 @@ let ownerSchema = new Schema({
     fname: {type: String, required: true},
     lname: {type: String, required: true},
     ownership: {type: Number, required: true},
-    officerTitle: {type: String, required: true}
+    officerTitle: {type: String,}
 })
 
 
@@ -96,8 +96,8 @@ let claimSchema = new Schema({
     amountPaid: {type: Number, required: false},
     amountReserved: {type: Number, required: false},
     eventDate: {type: Date, required: true},
-    open: {type: Boolean, required: true, default: false },
-    missedWork: {type: Boolean, required: true, default: false }
+    open: {type: Boolean, default: false },
+    missedWork: {type: Boolean, default: false }
 
 })
 
@@ -110,8 +110,8 @@ let PolicySchema = new Schema({
     limits: {type: String, required: false},
     deductible: {type: Number, required: false}, //1500,
     coverage: {type: Number, required: false}, // BOP field
-    coverageLapse:  {type: Boolean, required: true, default: false },
-    waiverSubrogation: {type: Boolean, required: true, default: false },
+    coverageLapse:  {type: Boolean,  default: false },
+    waiverSubrogation: {type: Boolean,  default: false },
     claims:  [claimSchema]
 
 })
@@ -121,7 +121,7 @@ let QuestionSchema = new Schema ({
     questionType: {type: String, required: false},
     questionText: {type: String, required: false},
     hint: {type: String, required: false},
-    hidden: {type: Boolean, required: true, default: false },
+    hidden: {type: Boolean, default: false },
     answerId: {type: Number, required: false},
     answerValue: {type: String, required: false},
     answerList: [String]
@@ -133,26 +133,27 @@ let ApplicationSchema = new Schema({
     mysqlId: {type: Number, required: false},
     agencyNetworkId: {type: Number, required: true},
     agencyId: {type: Number, required: true},
-    agencyLocationId: {type: Number, required: true},
+    agencyLocationId: {type: Number, default: 0},
     appStatusId: {type: Number, required: true, default: 0},
-    lastStep: {type: Number, required: true, default: 0},
-    progress: {type: String, required: true},
+    lastStep: {type: Number,  default: 0},
+    progress: {type: String, default: "unknown"},
     status: {type: String, required: false},
-    solepro:  {type: Boolean, required: true, default: false },
-    wholesale:  {type: Boolean, required: true, default: false },
-    coverageLapseWC:  {type: Boolean, required: true, default: false },
-    abandoned_email:  {type: Boolean, required: true, default: false },
-    abandoned_app_email:  {type: Boolean, required: true, default: false },
-    opted_out_online_emailsent:  {type: Boolean, required: true, default: false },
-    opted_out_online:  {type: Boolean, required: true, default: false },
-    processStateOld: {type: Number, required: true, default: 1},
+    solepro:  {type: Boolean,  default: false },
+    wholesale:  {type: Boolean, default: false },
+    coverageLapseWC:  {type: Boolean, default: false },
+    agencyPortalCreated:  {type: Boolean, required: false, default: false },
+    abandoned_email:  {type: Boolean,  default: false },
+    abandoned_app_email:  {type: Boolean,  default: false },
+    opted_out_online_emailsent:  {type: Boolean,  default: false },
+    opted_out_online:  {type: Boolean,  default: false },
+    processStateOld: {type: Number, default: 1},
     referrer: {type: String, required: false},
     industryCode: {type: String, required: false},
     entityType: {type: String, required: false},
     businessName: {type: String, required: false},
     fileNum: {type: String, required: false},
     founded: {type: Date, required: false},
-    hasEin: {type: Boolean, required: true, default: true },
+    hasEin: {type: Boolean, default: true },
     einEncrypted: {type: String, required: false},
     einHash: {type: String, required: false},
     mailingAddress: {type: String, required: false},
@@ -187,6 +188,8 @@ let ApplicationSchema = new Schema({
     legalAcceptance: legalAcceptanceSchema,
     additionalInfo: { type: Schema.Types.Mixed },
     businessDataJSON: { type: Schema.Types.Mixed },
+    agencyPortalCreatedUser: { type: String },
+    agencyPortalModifiedUser: { type: String },
     active: { type: Boolean, default: true }
 })
 
@@ -227,6 +230,7 @@ ApplicationSchema.pre('validate', function (next) {
     if (this.isNew) {
          if (!this.applicationId) {
               this.applicationId = uuid.v4();
+              this.uuid = this.applicationId;
          }
     }
     next();

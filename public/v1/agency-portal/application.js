@@ -7,8 +7,10 @@ const serverHelper = require('../../../server.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const ApplicationBO = global.requireShared('models/Application-BO.js');
 const ApplicationQuoting = global.requireRootPath('public/v1/quote/helpers/models/Application.js');
+const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const status = global.requireShared('./models/application-businesslogic/status.js');
 const jwt = require('jsonwebtoken');
+const {loggers} = require('winston');
 
 
 /**
@@ -327,6 +329,125 @@ async function getApplication(req, res, next) {
     return next();
 }
 
+//Both POST and PUT
+async function applicationSave(req, res, next) {
+    log.debug("Application Post: " + JSON.stringify(req.body));
+    if (!req.body || typeof req.body !== 'object') {
+        log.error('Bad Request: No data received ' + __location);
+        return next(serverHelper.requestError('Bad Request: No data received'));
+    }
+
+    if (!req.body.applicationId && !req.body.uuid && req.body.id) {
+        log.error('Bad Request: Missing applicationId ' + __location);
+        return next(serverHelper.requestError('Bad Request: Missing applicationId'));
+    }
+
+    //uuid -> applicationId
+    if (!req.body.applicationId && req.body.uuid) {
+        req.body.applicationId = req.body.uuid
+    }
+
+
+    //get user's agency List
+    let error = null
+    const agencies = await auth.getAgents(req).catch(function(e) {
+        error = e;
+    });
+    if (error) {
+        return next(error);
+    }
+
+    const applicationBO = new ApplicationBO();
+
+    //Insert checks
+    if (!req.body.applicationId) {
+        //Required fields for an insert.
+        // eslint-disable-next-line array-element-newline
+        const requiredPropertyList = ["agencyId", "agencyNetworkId","businessName"];
+        for(let i = 0; i < requiredPropertyList.length; i++){
+            if (!req.body[requiredPropertyList[i]]) {
+                log.error(`Bad Request: Missing ${requiredPropertyList[i]}` + __location);
+                return next(serverHelper.requestError(`Bad Request: Missing ${requiredPropertyList[i]}`));
+            }
+        }
+        //Insert agency check.
+        if (!agencies.includes(req.body.agencyId)) {
+            log.info('Forbidden: User is not authorized for this agency' + __location);
+            return next(serverHelper.forbiddenError('You are not authorized for this agency'));
+        }
+        //if agencyLocationId is not sent for insert get primary
+        if(!req.body.agencyLocationId){
+            const agencyLocationBO = new AgencyLocationBO();
+            const locationPrimaryJSON = await agencyLocationBO.getByAgencyPrimary(req.body.agencyId).catch(function(err) {
+                log.error(`Error getting Agency Primary Location ${req.body.agencyId} ` + err + __location);
+            });
+            if(locationPrimaryJSON && locationPrimaryJSON.id){
+                req.body.agencyLocationId = locationPrimaryJSON.id;
+            }
+        }
+    }
+    else {
+        //get application and valid agency
+        let passedAgencyCheck = false;
+        try{
+            const applicationDB = await applicationBO.loadfromMongoByAppId(req.body.applicationId);
+            if(applicationDB && agencies.includes(applicationDB.agencyId)){
+                passedAgencyCheck = true;
+            }
+        }
+        catch(err){
+            log.error("Error checking application doc " + err + __location)
+            return next(serverHelper.requestError(`Bad Request: check error ${err}`));
+        }
+
+        if(passedAgencyCheck === false){
+            log.info('Forbidden: User is not authorized for this agency' + __location);
+            return next(serverHelper.forbiddenError('You are not authorized for this agency'));
+        }
+    }
+
+
+    let responseAppDoc = null;
+    let userId = null;
+    try{
+        userId = req.authentication.userID;
+    }
+    catch(err){
+        loggers.error("Error gettign userID " + err + __location);
+    }
+
+
+    try{
+        if(req.body.applicationId){
+            //update
+            req.body.agencyPortalModifiedUser = userId
+            responseAppDoc = await applicationBO.updateMongo(req.body.applicationId, req.body);
+        }
+        else {
+            //insert.
+            req.body.agencyPortalCreatedUser = userId
+            req.body.agencyPortalCreated = true;
+            responseAppDoc = await applicationBO.insertMongo(req.body);
+        }
+    }
+    catch(err){
+        //mongoose parse errors will end up there.
+        log.error("Error saving application " + err + __location)
+        return next(serverHelper.requestError(`Bad Request: Save error ${err}`));
+    }
+    finally{
+
+    }
+    if(responseAppDoc){
+        res.send(200, responseAppDoc);
+        return next();
+    }
+    else{
+        res.send(500, "No updated document");
+        return next(serverHelper.internalError("No updated document"));
+    }
+}
+
 
 async function deleteObject(req, res, next) {
     const id = stringFunctions.santizeNumber(req.params.id, true);
@@ -385,6 +506,8 @@ async function requote(req, res, next) {
         log.warn('Some required data is missing' + __location);
         return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
     }
+
+    //TODO accept applicationId or uuid also.
 
     // Validate the application ID
     if (!await validator.is_valid_id(req.body.id)) {
@@ -507,7 +630,9 @@ async function runQuotes(application) {
 
 
 exports.registerEndpoint = (server, basePath) => {
-    server.addGetAuth('Get application', `${basePath}/application`, getApplication, 'applications', 'view');
-    server.addPutAuth('PUT Re-Quote application', `${basePath}/application/:id/requote`, requote, 'applications', 'manage');
-    server.addDeleteAuth('DELETE application', `${basePath}/application/:id`, deleteObject, 'applications', 'manage');
+    server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
+    server.addPostAuth('POST Create Application', `${basePath}/application`, applicationSave, 'applications', 'manage');
+    server.addPutAuth('PUT Save Application', `${basePath}/application`, applicationSave, 'applications', 'manage');
+    server.addPutAuth('PUT Re-Quote Application', `${basePath}/application/:id/requote`, requote, 'applications', 'manage');
+    server.addDeleteAuth('DELETE Application', `${basePath}/application/:id`, deleteObject, 'applications', 'manage');
 };
