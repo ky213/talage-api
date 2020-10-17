@@ -492,7 +492,7 @@ module.exports = class AgencyBO {
       if (this.id) {
         //get AgencyNetwork 1st than replace with Agency overwrites
         const agencyNetworkBO = new AgencyNetworkBO();
-        const emailTemplateJSON = await agencyNetworkBO.getEmailContent(this.agency_network, contentProperty, customerContentProperty).catch(function (err) {
+        const emailTemplateJSON = await agencyNetworkBO.getEmailContent(this.agency_network, contentProperty).catch(function (err) {
           log.error(`Email content Error Unable to get email content for no quotes.  error: ${err}` + __location);
           throw new Error(`Email content Error Unable to get email content for no quotes.  error: ${err}`)
         });
