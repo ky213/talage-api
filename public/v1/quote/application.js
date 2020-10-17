@@ -106,6 +106,7 @@ async function runQuotes(application) {
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
+    //TODO - JWT check need to request authencation from Quote APP
     server.addPost('Post Application', `${basePath}/application`, postApplication);
     server.addPost('Post Application (depr)', `${basePath}/`, postApplication);
 };
