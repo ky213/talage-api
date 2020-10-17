@@ -8,6 +8,7 @@ const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const ApplicationBO = global.requireShared('models/Application-BO.js');
 const ApplicationQuoting = global.requireRootPath('public/v1/quote/helpers/models/Application.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
+const AgencyBO = global.requireShared('models/Agency-BO.js');
 const status = global.requireShared('./models/application-businesslogic/status.js');
 const jwt = require('jsonwebtoken');
 const {loggers} = require('winston');
@@ -363,7 +364,7 @@ async function applicationSave(req, res, next) {
     if (!req.body.applicationId) {
         //Required fields for an insert.
         // eslint-disable-next-line array-element-newline
-        const requiredPropertyList = ["agencyId", "agencyNetworkId","businessName"];
+        const requiredPropertyList = ["agencyId", "businessName"];
         for(let i = 0; i < requiredPropertyList.length; i++){
             if (!req.body[requiredPropertyList[i]]) {
                 log.error(`Bad Request: Missing ${requiredPropertyList[i]}` + __location);
@@ -375,6 +376,25 @@ async function applicationSave(req, res, next) {
             log.info('Forbidden: User is not authorized for this agency' + __location);
             return next(serverHelper.forbiddenError('You are not authorized for this agency'));
         }
+
+        //Get AgencyNetworkID
+        try{
+            const agencyBO = new AgencyBO()
+            const agencyDB = await agencyBO.getById(req.body.agencyId)
+            if(agencyDB){
+                req.body.agencyNetworkId = agencyDB.agency_network;
+            }
+            else {
+                log.warn("Application Save agencyId not found in db " + req.body.agencyId + __location)
+                return next(serverHelper.requestError('Not Found Agency'));
+            }
+        }
+        catch(err){
+            log.error(`Application Save get agencyNetworkId  agencyID: ${req.body.agencyId} ` + err + __location)
+            return next(serverHelper.internalError("error checking agency"));
+        }
+
+
         //if agencyLocationId is not sent for insert get primary
         if(!req.body.agencyLocationId){
             const agencyLocationBO = new AgencyLocationBO();
@@ -393,6 +413,9 @@ async function applicationSave(req, res, next) {
             const applicationDB = await applicationBO.loadfromMongoByAppId(req.body.applicationId);
             if(applicationDB && agencies.includes(applicationDB.agencyId)){
                 passedAgencyCheck = true;
+            }
+            if(!applicationDB){
+                return next(serverHelper.requestError('Not Found'));
             }
         }
         catch(err){
@@ -435,9 +458,7 @@ async function applicationSave(req, res, next) {
         log.error("Error saving application " + err + __location)
         return next(serverHelper.requestError(`Bad Request: Save error ${err}`));
     }
-    finally{
 
-    }
     if(responseAppDoc){
         res.send(200, responseAppDoc);
         return next();
