@@ -235,7 +235,7 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
 
         }
         else {
-            log.error(`DB Error Unable to get email content for Daily Digest. agency_network: ${db.escape(agencyLocationDB.agency_network)}.` + __location);
+            log.error(`DB Error Unable to get email content for Daily Digest. agency_network: ${db.escape(agencyLocationDB.agency_network)} agency:  ${agencyLocationDB.agency}.` + __location);
             return false;
         }
     }
