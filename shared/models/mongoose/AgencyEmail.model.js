@@ -1,3 +1,9 @@
+/* eslint-disable strict */
+/* eslint-disable no-invalid-this */
+/* eslint-disable no-mixed-requires */
+/* eslint-disable object-curly-newline */
+/* eslint-disable object-property-newline */
+/* eslint-disable one-var */
 // Invoke 'strict' JavaScript mode
 /* jshint -W097 */ // don't warn about "use strict"
 /*jshint esversion: 6 */
@@ -5,21 +11,19 @@
 
 var mongoose = require('mongoose'), Schema = mongoose.Schema;
 var timestamps = require('mongoose-timestamp');
-var moment = require('moment');
 var uuid = require('uuid');
 var mongooseHistory = require('mongoose-history');
-const { stringify } = require('csv');
 
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
 
-let EmailContentSchema = new Schema({
+const EmailContentSchema = new Schema({
     subject: {type: String, required: false},
     message: {type: String, required: false}
 })
 
-let AgencyEmailSchema = new Schema({
+const AgencyEmailSchema = new Schema({
     agencyEmailId: { type: String, required: [true, 'agencyEmailId required'], unique: true },
     agencyMySqlId: {type: Number, required: true, unique: true},
     abandoned_applications_customer: EmailContentSchema,
