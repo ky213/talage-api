@@ -24,7 +24,7 @@ const EmailContentSchema = new Schema({
 })
 
 const AgencyEmailSchema = new Schema({
-    agencyEmailId: { type: String, required: [true, 'agencyEmailId required'], unique: true },
+    agencyEmailId: {type: String, required: [true, 'agencyEmailId required'], unique: true},
     agencyMySqlId: {type: Number, required: true, unique: true},
     abandoned_applications_customer: EmailContentSchema,
     abandoned_quotes_agency: EmailContentSchema,
@@ -38,26 +38,25 @@ const AgencyEmailSchema = new Schema({
     policy_purchase_agency: EmailContentSchema,
     policy_purchase_customer: EmailContentSchema,
     talage_wholesale: EmailContentSchema,
-    active: { type: Boolean, default: true }
+    active: {type: Boolean, default: true}
 })
 
 AgencyEmailSchema.plugin(timestamps);
 AgencyEmailSchema.plugin(mongooseHistory);
 
 
-AgencyEmailSchema.pre('validate', function (next) {
+AgencyEmailSchema.pre('validate', function(next) {
     if (this.isNew) {
-         if (!this.agencyEmailId) {
-              this.agencyEmailId = uuid.v4();
-         }
+        if (!this.agencyEmailId) {
+            this.agencyEmailId = uuid.v4();
+        }
     }
     next();
 });
 
-AgencyEmailSchema.pre('save', function (next) {
+AgencyEmailSchema.pre('save', function(next) {
     next();
 });
-
 
 
 // Configure the 'AgencyEmailSchema' to use getters and virtuals when transforming to JSON
