@@ -38,6 +38,12 @@ async function getApplication(req, res, next) {
         return next(serverHelper.requestError('Bad Request: You must supply an ID'));
     }
 
+    //check if it for the Application Document
+    if (req.query.mode && req.query.mode === "doc") {
+        return getApplicationDoc(req, res, next);
+    }
+
+
     // Validate the application ID
     if (!await validator.is_valid_id(req.query.id)) {
         log.error('Bad Request: Invalid id ' + __location);
@@ -328,6 +334,64 @@ async function getApplication(req, res, next) {
     // Return the response
     res.send(200, application);
     return next();
+}
+async function getApplicationDoc(req, res ,next){
+    let appId = null;
+    if(req.params.id) {
+        appId = req.params.id;
+    }
+    else {
+        // Check for data
+        if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
+            log.error('Bad Request: No data received ' + __location);
+            return next(serverHelper.requestError('Bad Request: No data received'));
+        }
+
+        // Make sure basic elements are present
+        if (!req.query.id) {
+            log.error('Bad Request: Missing ID ' + __location);
+            return next(serverHelper.requestError('Bad Request: You must supply an ID'));
+        }
+        appId = req.query.id
+    }
+    //Get agency List check after getting application doc
+    let error = null
+    const agencies = await auth.getAgents(req).catch(function(e) {
+        error = e;
+    });
+    if (error) {
+        return next(error);
+    }
+    let passedAgencyCheck = false;
+    let applicationDB = null;
+    const applicationBO = new ApplicationBO();
+    try{
+        applicationDB = await applicationBO.loadfromMongoByAppId(appId);
+        if(applicationDB && agencies.includes(applicationDB.agencyId)){
+            passedAgencyCheck = true;
+        }
+    }
+    catch(err){
+        log.error("Error checking application doc " + err + __location)
+        return next(serverHelper.requestError(`Bad Request: check error ${err}`));
+    }
+
+    if(passedAgencyCheck === false){
+        log.info('Forbidden: User is not authorized for this agency' + __location);
+        return next(serverHelper.forbiddenError('You are not authorized for this agency'));
+    }
+
+    if(applicationDB){
+        res.send(200, applicationDB);
+        return next();
+
+    }
+    else {
+        res.send(404,"Not found")
+        return next(serverHelper.requestError('Not Found'));
+    }
+
+
 }
 
 //Both POST and PUT
@@ -652,6 +716,7 @@ async function runQuotes(application) {
 
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
+    server.addGetAuth('Get Application Doc', `${basePath}/application/:id`, getApplicationDoc, 'applications', 'view');
     server.addPostAuth('POST Create Application', `${basePath}/application`, applicationSave, 'applications', 'manage');
     server.addPutAuth('PUT Save Application', `${basePath}/application`, applicationSave, 'applications', 'manage');
     server.addPutAuth('PUT Re-Quote Application', `${basePath}/application/:id/requote`, requote, 'applications', 'manage');
