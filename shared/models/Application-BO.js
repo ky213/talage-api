@@ -16,8 +16,8 @@ const QuestionBO = global.requireShared('./models/Question-BO.js');
 const QuestionAnswerBO = global.requireShared('./models/QuestionAnswer-BO.js');
 const QuestionTypeBO = global.requireShared('./models/QuestionType-BO.js');
 const MappingBO = global.requireShared('./models/Mapping-BO.js');
+const QuoteBO = global.requireShared('./models/Quote-BO.js');
 
-const QuoteModel = require('./Quote-model.js');
 const taskWholesaleAppEmail = global.requireRootPath('tasksystem/task-wholesaleapplicationemail.js');
 const taskSoleProAppEmail = global.requireRootPath('tasksystem/task-soleproapplicationemail.js');
 const taskEmailBindAgency = global.requireRootPath('tasksystem/task-emailbindagency.js');
@@ -1002,7 +1002,7 @@ module.exports = class ApplicationModel {
                     taskEmailBindAgency.emailbindagency(this.id, quote.quote);
 
                     //load quote from database.
-                    let quoteModel = new QuoteModel();
+                    let quoteModel = new QuoteBO();
                     //update quote record.
                     await quoteModel.loadFromId(quote.quote).catch(function (err) {
                         log.error(`Loading quote for status and payment plan update quote ${quote.quote} error:` + err + __location);
