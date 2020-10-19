@@ -20,7 +20,6 @@ const tracker = global.requireShared('./helpers/tracker.js');
 const status = global.requireShared('./models/application-businesslogic/status.js');
 
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
-const QuoteLimitBO = global.requireShared('./models/QuoteLimit-BO.js');
 
 
 module.exports = class Integration {
@@ -1073,39 +1072,53 @@ module.exports = class Integration {
             this.seconds,
             moment().format('YYYY-MM-DD HH:mm:ss')
         ];
+        //build mongo Document
+        const quoteJSON = {
+            mysqlAppId: this.app.id,
+            insurerId: this.insurer.id,
+            log: this.log,
+            policyType: this.policy.type,
+            quoteTimeSeconds: this.seconds
+        }
 
         // Amount
         if (amount) {
             columns.push('amount');
             values.push(amount);
+            quoteJSON.amount = amount;
         }
 
         // Number
         if (this.number) {
             columns.push('number');
             values.push(this.number);
+            quoteJSON.quoteNumber = this.number
         }
 
         // Request ID
         if (this.request_id) {
             columns.push('request_id');
             values.push(this.request_id);
+            quoteJSON.requestId = this.request_id
         }
 
         // Writer
         if (this.writer) {
             columns.push('writer');
             values.push(this.writer);
+            quoteJSON.writer = this.writer
         }
 
         // Error
         columns.push('api_result');
         values.push(api_result);
+        quoteJSON.apiResult = api_result
 
         // Reasons
         if (this.reasons.length > 0) {
             columns.push('reasons');
             values.push(this.reasons.join(',').replace(/'/g, "\\'").substring(0, 500));
+            quoteJSON.reasons = this.reasons.join(',').replace(/'/g, "\\'")
         }
 
         // Quote Letter
@@ -1122,6 +1135,7 @@ module.exports = class Integration {
                 if (result && Object.prototype.hasOwnProperty.call(result, 'code') && result.code === 'Success') {
                     columns.push('quote_letter');
                     values.push(fileName);
+                    quoteJSON.quoteLetter = this.fileName
                 }
             }
             catch (err) {
@@ -1131,42 +1145,27 @@ module.exports = class Integration {
 
         // Aggregated Status.
         columns.push('aggregated_status');
-        values.push(status.getQuoteAggregatedStatus(false, '', api_result));
+        const aggregatedStatus = status.getQuoteAggregatedStatus(false, '', api_result);
+        values.push(aggregatedStatus);
+        quoteJSON.aggregatedStatus = aggregatedStatus
 
-        //QuoteBO
-        const quoteBO = new QuoteBO();
-        const quoteID = await quoteBO.insertByColumnValue(columns, values).catch(function(err){
-            log.error("Error quoteBO.insertByColumnValue " + err + __location);
-        });
-        // // Insert the quote record
-        // const quoteResult = await db.query(`INSERT INTO \`#__quotes\` (\`${columns.join('`,`')}\`) VALUES (${values.map(db.escape).join(',')});`).catch(function(err) {
-        //     return err;
-        // });
-        // const quoteID = quoteResult.insertId;
-
-
-        if(quoteID > 0){
-            // Insert the limit records
-            if (Object.keys(this.limits).length) {
-                const limitValues = [];
-                for (const limitId in this.limits) {
-                    if (Object.prototype.hasOwnProperty.call(this.limits, limitId)) {
-                        limitValues.push(`(${quoteID}, ${limitId}, ${this.limits[limitId]})`);
+        if (Object.keys(this.limits).length) {
+            quoteJSON.limits = []
+            for (const limitId in this.limits) {
+                if (Object.prototype.hasOwnProperty.call(this.limits, limitId)) {
+                    const limitJSON = {
+                        limitId: limitId,
+                        amount: this.limits[limitId]
                     }
+                    quoteJSON.limits.push(limitJSON);
                 }
-                // db.query(`INSERT INTO \`#__quote_limits\` (\`quote\`, \`limit\`, \`amount\`) VALUES ${limitValues.join(',')};`).catch(function(err) {
-                //     log.error(err + __location);
-                // });
-                const quoteLimitBO = new QuoteLimitBO();
-                // eslint-disable-next-line array-element-newline
-                const limitcolumns = ['quote', 'limit', 'amount']
-                await quoteLimitBO.insertByColumnValue(limitcolumns, limitValues).catch(function(err){
-                    log.error("Error quoteLimitBO.insertByColumnValue " + err + __location);
-                });
-
-
             }
         }
+        //QuoteBO
+        const quoteBO = new QuoteBO();
+        const quoteID = await quoteBO.saveIntegrationQuote(quoteJSON, columns, values).catch(function(err){
+            log.error("Error quoteBO.insertByColumnValue " + err + __location);
+        });
 
         return quoteID;
     }

@@ -1,3 +1,4 @@
+/* eslint-disable guard-for-in */
 /* eslint-disable lines-between-class-members */
 'use strict';
 const moment = require('moment');
@@ -24,7 +25,7 @@ const taskSoleProAppEmail = global.requireRootPath('tasksystem/task-soleproappli
 const taskEmailBindAgency = global.requireRootPath('tasksystem/task-emailbindagency.js');
 
 
-// Mongo mOdels
+// Mongo Models
 var Application = require('mongoose').model('Application');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 

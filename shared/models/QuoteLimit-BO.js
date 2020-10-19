@@ -71,9 +71,7 @@ module.exports = class ApplicationClaimModel {
     insertByColumnValue(columns, values) {
         return new Promise(async(resolve, reject) => {
             let error = null;
-
-
-            await db.query(`INSERT INTO ${tableName} (\`${columns.join('`,`')}\`) VALUES ${values.join(',')};;`).catch(function(err) {
+            const Result = await db.query(`INSERT INTO ${tableName} (\`${columns.join('`,`')}\`) VALUES ${values.join(',')};;`).catch(function(err) {
                 log.error("Error QuoteBO insertByColumnValue " + err + __location);
                 error = err;
             });
@@ -81,6 +79,7 @@ module.exports = class ApplicationClaimModel {
                 reject(error);
             }
             else {
+                log.debug(`${tableName} saved ids ` + Result.insertId);
                 resolve(true);
             }
         });

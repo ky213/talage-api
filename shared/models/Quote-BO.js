@@ -1,8 +1,14 @@
 
 
+const QuoteLimitBO = global.requireShared('./models/QuoteLimit-BO.js');
 const DatabaseObject = require('./DatabaseObject.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+
+
+// Mongo Models
+var Quote = require('mongoose').model('Quote');
+//const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 
 const tableName = 'clw_talage_quotes'
@@ -23,36 +29,36 @@ module.exports = class ApplicationClaimModel {
    * @param {object} newObjectJSON - newObjectJSON JSON
    * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
    */
-    saveModel(newObjectJSON) {
-        return new Promise(async(resolve, reject) => {
-            if (!newObjectJSON) {
-                reject(new Error(`empty ${tableName} object given`));
-            }
-            await this.cleanupInput(newObjectJSON);
-            if (newObjectJSON.id) {
-                await this.#dbTableORM.getById(newObjectJSON.id).catch(function(err) {
-                    log.error(`Error getting ${tableName} from Database ` + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
-            }
-            else {
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
-            }
-            //save
-            await this.#dbTableORM.save().catch(function(err) {
-                reject(err);
-            });
-            this.updateProperty();
-            this.id = this.#dbTableORM.id;
+    // saveModel(newObjectJSON) {
+    //     return new Promise(async(resolve, reject) => {
+    //         if (!newObjectJSON) {
+    //             reject(new Error(`empty ${tableName} object given`));
+    //         }
+    //         await this.cleanupInput(newObjectJSON);
+    //         if (newObjectJSON.id) {
+    //             await this.#dbTableORM.getById(newObjectJSON.id).catch(function(err) {
+    //                 log.error(`Error getting ${tableName} from Database ` + err + __location);
+    //                 reject(err);
+    //                 return;
+    //             });
+    //             this.updateProperty();
+    //             this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
+    //         }
+    //         else {
+    //             this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
+    //         }
+    //         //save
+    //         await this.#dbTableORM.save().catch(function(err) {
+    //             reject(err);
+    //         });
+    //         this.updateProperty();
+    //         this.id = this.#dbTableORM.id;
 
 
-            resolve(true);
+    //         resolve(true);
 
-        });
-    }
+    //     });
+    // }
 
     /**
    * saves businessContact.
@@ -68,7 +74,7 @@ module.exports = class ApplicationClaimModel {
         });
     }
 
-    insertByColumnValue(columns, values) {
+    saveIntegrationQuote(quoteJSON, columns, values) {
         return new Promise(async(resolve, reject) => {
 
             const quoteResult = await db.query(`INSERT INTO \`#__quotes\` (\`${columns.join('`,`')}\`) VALUES (${values.map(db.escape).join(',')});`).catch(function(err) {
@@ -76,6 +82,38 @@ module.exports = class ApplicationClaimModel {
                 reject(err);
             });
             const quoteID = quoteResult.insertId;
+            log.debug(`${tableName} saved id ` + quoteID);
+            quoteJSON.mysqlId = quoteID;
+            //mongo save.
+            try{
+                const ApplicationBO = global.requireShared('models/Application-BO.js');
+                const applicationBO = new ApplicationBO();
+                //Get ApplicationID.
+                const applicationData = await applicationBO.loadfromMongoBymysqlId(quoteJSON.mysqlAppId);
+                quoteJSON.applicationId = applicationData.applicationId;
+                const quote = new Quote(quoteJSON);
+                await quote.save().catch(function(err){
+                    log.error('Mongo Quote Save err ' + err + __location);
+                });
+            }
+            catch(err){
+                log.error("Error saving Mongo quote " + err + __location);
+            }
+
+            //limit save
+            if(quoteJSON.limits && quoteJSON.limits.length > 0){
+                const limitValues = [];
+                for (let i = 0; i < quoteJSON.limits.length; i++){
+                    const limitJSON = quoteJSON.limits[i];
+                    limitValues.push(`(${quoteID}, ${limitJSON.limitId}, ${limitJSON.amount})`);
+                }
+                const quoteLimitBO = new QuoteLimitBO();
+                // eslint-disable-next-line array-element-newline
+                const limitcolumns = ['quote', 'limit', 'amount']
+                await quoteLimitBO.insertByColumnValue(limitcolumns, limitValues).catch(function(err){
+                    log.error("Error quoteLimitBO.insertByColumnValue " + err + __location);
+                });
+            }
             resolve(quoteID);
         });
     }

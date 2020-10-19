@@ -65,6 +65,7 @@ module.exports = function() {
     require('./shared/models/mongoose/AgencyPortalUserGroup.model');
     require('./shared/models/mongoose/Mapping.model');
     require('./shared/models/mongoose/AgencyEmail.model');
+    require('./shared/models/mongoose/Quote.model');
 
     return mongodb;
 
