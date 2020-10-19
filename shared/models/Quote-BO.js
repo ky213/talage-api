@@ -29,36 +29,36 @@ module.exports = class ApplicationClaimModel {
    * @param {object} newObjectJSON - newObjectJSON JSON
    * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
    */
-    // saveModel(newObjectJSON) {
-    //     return new Promise(async(resolve, reject) => {
-    //         if (!newObjectJSON) {
-    //             reject(new Error(`empty ${tableName} object given`));
-    //         }
-    //         await this.cleanupInput(newObjectJSON);
-    //         if (newObjectJSON.id) {
-    //             await this.#dbTableORM.getById(newObjectJSON.id).catch(function(err) {
-    //                 log.error(`Error getting ${tableName} from Database ` + err + __location);
-    //                 reject(err);
-    //                 return;
-    //             });
-    //             this.updateProperty();
-    //             this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
-    //         }
-    //         else {
-    //             this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
-    //         }
-    //         //save
-    //         await this.#dbTableORM.save().catch(function(err) {
-    //             reject(err);
-    //         });
-    //         this.updateProperty();
-    //         this.id = this.#dbTableORM.id;
+    saveModel(newObjectJSON) {
+        return new Promise(async(resolve, reject) => {
+            if (!newObjectJSON) {
+                reject(new Error(`empty ${tableName} object given`));
+            }
+            await this.cleanupInput(newObjectJSON);
+            if (newObjectJSON.id) {
+                await this.#dbTableORM.getById(newObjectJSON.id).catch(function(err) {
+                    log.error(`Error getting ${tableName} from Database ` + err + __location);
+                    reject(err);
+                    return;
+                });
+                this.updateProperty();
+                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
+            }
+            else {
+                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
+            }
+            //save
+            await this.#dbTableORM.save().catch(function(err) {
+                reject(err);
+            });
+            this.updateProperty();
+            this.id = this.#dbTableORM.id;
 
 
-    //         resolve(true);
+            resolve(true);
 
-    //     });
-    // }
+        });
+    }
 
     /**
    * saves businessContact.
