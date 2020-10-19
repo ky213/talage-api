@@ -1548,7 +1548,7 @@ module.exports = class ApplicationModel {
             throw err;
         }
         if(applicationDoc && applicationDoc.applicationId){
-            return await this.updateMongo(applicationDoc.applicationId, newObjectJSON)
+            return this.updateMongo(applicationDoc.applicationId, newObjectJSON)
         }
         else {
             log.error(`Error no ApplicationDoc or Application.applicationID. mysqlId ${mysqlId}` + __location)
@@ -1624,6 +1624,7 @@ module.exports = class ApplicationModel {
             throw err;
         });
         this.#applicationMongooseDB = application;
+        //TODO save mysql applicaition
 
         return mongoUtils.objCleanup(application);
     }
