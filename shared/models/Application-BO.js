@@ -1633,11 +1633,11 @@ module.exports = class ApplicationModel {
                             throw err;
                         });
                     }
-                    const postUpdate = true;
 
+                    const postInsert = false;
                     // eslint-disable-next-line prefer-const
                     let applicationMysqlJSON = {};
-                    await this.mongoDoc2MySqlUpdate(newApplicationdoc, applicationMysqlJSON,postUpdate).catch(function(err){
+                    await this.mongoDoc2MySqlUpdate(newApplicationdoc, applicationMysqlJSON,postInsert).catch(function(err){
                         log.error("Error in mongoDoc2MySqlUpdate " + err + __location);
                     })
 
@@ -1798,9 +1798,14 @@ module.exports = class ApplicationModel {
     }
 
 
-    async mongoDoc2MySqlUpdate(applicationDoc, applicationJSON, postInsert = false) {
+    async mongoDoc2MySqlUpdate(applicationDoc, applicationJSONInbound, postInsert = false) {
 
+        let applicationJSON = {};
+        if(applicationJSONInbound){
+            applicationJSON = JSON.parse(JSON.stringify(applicationJSONInbound));
+        }
         let error = null;
+        let businessJSON = null;
         if (postInsert === false) {
             // eslint-disable-next-line prefer-const
             let newAppRecJson = JSON.parse(JSON.stringify(applicationDoc))
@@ -1823,12 +1828,16 @@ module.exports = class ApplicationModel {
                 log.error('Mongo Application Save for mysqlId err ' + err + __location);
             })
             //get mysqlDB application
-            applicationJSON = this.getById(applicationDoc.mysqlId).catch(function(err){
+            applicationJSON = await this.getById(applicationDoc.mysqlId).catch(function(err){
                 log.error('Mongo Application Getfor mysqlId err ' + err + __location);
                 error = err;
             });
+            if(!applicationJSON.business){
+                log.error("Mysql application missing business reference " + __location + ": " + JSON.stringify(applicationJSON));
+            }
             // eslint-disable-next-line prefer-const
-            let businessJSON = JSON.parse(JSON.stringify(applicationDoc))
+            businessJSON = JSON.parse(JSON.stringify(applicationDoc))
+            businessJSON.id = applicationJSON.business;
             //save business
             const businessModel = new BusinessModel();
 
@@ -1990,7 +1999,7 @@ module.exports = class ApplicationModel {
         const businessContactModel = new BusinessContactModel();
 
         //remove existing addresss. we do not get ids from UI.
-        await businessContactModel.DeleteBusinessContacts(this.id).catch(function(err){
+        await businessContactModel.DeleteBusinessContacts(applicationJSON.business).catch(function(err){
             log.error("Error deleting businessContactModel " + err + __location)
         });
 
@@ -2018,7 +2027,7 @@ module.exports = class ApplicationModel {
 
         const businessAddressModel = new BusinessAddressModel();
         //remove existing addresss. we do not get ids from UI.
-        await businessAddressModel.DeleteBusinessAddresses(this.id).catch(function(err){
+        await businessAddressModel.DeleteBusinessAddresses(applicationJSON.business).catch(function(err){
             log.error("Error deleting businessAddressModel " + err + __location)
         });
 
@@ -2162,7 +2171,7 @@ module.exports = class ApplicationModel {
                     Values  ${valueListString} 
                     ON DUPLICATE KEY UPDATE answer = VALUES (answer), text_answer = VALUES( text_answer );
                     `;
-        log.debug("question InsertSQL:\n" + insertSQL);
+        //log.debug("question InsertSQL:\n" + insertSQL);
         let rejected = false;
         await db.query(insertSQL).catch(function(error) {
             // Check if this was
