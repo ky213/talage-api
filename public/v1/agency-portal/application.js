@@ -539,12 +539,14 @@ async function applicationSave(req, res, next) {
 
     try{
         if(req.body.applicationId){
+            log.debug("App Doc UPDATE.....")
             //update
             req.body.agencyPortalModifiedUser = userId
             responseAppDoc = await applicationBO.updateMongo(req.body.applicationId, req.body);
         }
         else {
             //insert.
+            log.debug("App Doc INSERT.....")
             req.body.agencyPortalCreatedUser = userId
             req.body.agencyPortalCreated = true;
             responseAppDoc = await applicationBO.insertMongo(req.body);
