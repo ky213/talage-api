@@ -18,20 +18,23 @@ module.exports = class AcuityGL extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
     async _insurer_quote() {
+        // Don't report certain activities in the payroll exposure
+        const unreportedPayrollActivityCodes = [
+            2869 // Office Employees
+        ];
 
         // These are the limits supported by Acuity
         const carrierLimits = [
-            '100000/500000/100000',
-            '500000/500000/500000',
-            '500000/1000000/500000',
-            '1000000/1000000/1000000'
+            '1000000/1000000/1000000',
+            '1000000/2000000/1000000',
+            '1000000/2000000/2000000'
         ];
 
         // Define how legal entities are mapped for Acuity
         const entityMatrix = {
             Association: 'AS',
             Corporation: 'CP',
-            'Limited Liability Company': 'LLC',
+            'Limited Liability Company': 'LL',
             'Limited Partnership': 'LP',
             Partnership: 'PT',
             'Sole Proprietorship': 'IN'
@@ -52,6 +55,12 @@ module.exports = class AcuityGL extends Integration {
         if (!limits) {
             log.error(`Acuity (application ${this.app.id}): Could not get best limits for policy ${this.policy.type} ${this.industry_code.id} ${__location}`);
             this.reasons.push(`${this.insurer.name} does not support the requested liability limits`);
+            return this.return_result('autodeclined');
+        }
+
+        // Ensure we support this entity type
+        if (!(this.app.business.entity_type in entityMatrix)) {
+            log.error(`Acuity (application ${this.app.id}): Invalid Entity Type ${__location}`);
             return this.return_result('autodeclined');
         }
 
@@ -117,6 +126,15 @@ module.exports = class AcuityGL extends Integration {
         // </CommlName>
         // </NameInfo>
 
+        // Add full name for a sole proprietorship
+        if (this.app.business.entity_type === 'Sole Proprietorship') {
+            // <PersonName>
+            const PersonNameSP = NameInfo.ele('PersonName');
+            PersonNameSP.ele('GivenName', this.app.business.contacts[0].first_name);
+            PersonNameSP.ele('Surname', this.app.business.contacts[0].last_name);
+            // </PersonName>
+        }
+
         // <Addr>
         let Addr = GeneralPartyInfo.ele('Addr');
         Addr.ele('Addr1', '300 South Wells Ave., Suite 4');
@@ -156,10 +174,6 @@ module.exports = class AcuityGL extends Integration {
         NameInfo.ele('CommlName').ele('CommercialName', this.app.business.name);
         // </CommlName>
 
-        if (!(this.app.business.entity_type in entityMatrix)) {
-            log.error(`Acuity (application ${this.app.id}): Invalid Entity Type ${__location}`);
-            return this.return_result('autodeclined');
-        }
         NameInfo.ele('LegalEntityCd', entityMatrix[this.app.business.entity_type]);
 
         // <TaxIdentity>
@@ -460,30 +474,38 @@ module.exports = class AcuityGL extends Integration {
         Limit.ele('FormatInteger', limits[2]);
         // </Limit>
         // </CommlCoverage>
-
         // Exposures
-        this.app.business.locations.forEach((location, index) => {
+        for (let i = 0; i < this.app.business.locations.length; i++) {
+            const location = this.app.business.locations[i];
             // Ensure we have a GL policy and activity codes exist
             if (!location.appPolicyTypeList.includes("GL") && location.activity_codes) {
-                return;
+                continue;
             }
-            // Calculate total payroll at this location
-            let totalPayroll = 0;
-            location.activity_codes.forEach((activityCode) => {
-                totalPayroll += activityCode.payroll;
+            // let totalPayroll = 0;
+            const cobPayrollMap = {};
+            for (const activityCode of location.activity_codes) {
+                // Skip activity codes we shouldn't include in payroll
+                if (unreportedPayrollActivityCodes.includes(activityCode.id)) {
+                    continue;
+                }
+                const cglCode = await this.get_cgl_code_from_activity_code(location.territory, activityCode.id);
+                if (cglCode) {
+                    if (!cobPayrollMap.hasOwnProperty(cglCode)) {
+                        cobPayrollMap[cglCode] = 0;
+                    }
+                    cobPayrollMap[cglCode] += activityCode.payroll;
+                }
+            }
+            // Fill in the exposure. The Acuity CGL spreadsheet does not specify exposures per class code so we send PAYROLL for now until we get clarity.
+            Object.keys(cobPayrollMap).forEach((cglCode) => {
+                const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification');
+                GeneralLiabilityClassification.att('LocationRef', `L${i + 1}`);
+                GeneralLiabilityClassification.ele('ClassCd', cglCode);
+                // GeneralLiabilityClassification.ele('ClassCdDesc', this.industry_code.description);
+                GeneralLiabilityClassification.ele('PremiumBasisCd', 'PAYRL');
+                GeneralLiabilityClassification.ele('Exposure', cobPayrollMap[cglCode]);
             });
-            if (totalPayroll === 0) {
-                return;
-            }
-            // Fill in the exposure. The Acuity CGL spreadsheet does not specify exposures per class code so we send PAYROLL for now until
-            // we get clarity.
-            const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification');
-            GeneralLiabilityClassification.att('LocationRef', `L${index + 1}`);
-            GeneralLiabilityClassification.ele('ClassCd', this.industry_code.cgl);
-            GeneralLiabilityClassification.ele('ClassCdDesc', this.industry_code.description);
-            GeneralLiabilityClassification.ele('Exposure', totalPayroll);
-            GeneralLiabilityClassification.ele('PremiumBasisCd', 'PAYRL');
-        });
+        }
 
         // </GeneralLiabilityLineBusiness>
         // </GeneralLiabilityPolicyQuoteInqRq>
@@ -492,6 +514,8 @@ module.exports = class AcuityGL extends Integration {
 
         // Get the XML structure as a string
         const xml = ACORD.end({pretty: true});
+
+        // console.log('request', xml);
 
         // Determine which URL to use
         let host = '';
@@ -518,7 +542,8 @@ module.exports = class AcuityGL extends Integration {
             this.reasons.push('Could not connect to the Acuity server');
             return this.return_error('error', "Could not connect to Acuity server");
         }
-        // console.log(JSON.stringify(res, null, 4));
+
+        // console.log('response', JSON.stringify(res, null, 4));
 
         // Check if there was an error
         if (res.errorResponse) {
@@ -540,12 +565,12 @@ module.exports = class AcuityGL extends Integration {
         // Find the PolicySummaryInfo, PolicySummaryInfo.PolicyStatusCode, and optionally the PolicySummaryInfo.FullTermAmt.Amt
         const policySummaryInfo = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.PolicySummaryInfo');
         if (!policySummaryInfo) {
-            log.error(`Acuity (application ${this.app.id}): Could not find PolicySummaryInfo: ${error} ${__location}`);
+            log.error(`Acuity (application ${this.app.id}): Could not find PolicySummaryInfo ${__location}`);
             return this.return_error('error', 'Acuity returned an unexpected reply');
         }
         const policyStatusCode = this.get_xml_child(policySummaryInfo, 'PolicyStatusCd');
         if (!policyStatusCode) {
-            log.error(`Acuity (application ${this.app.id}): Could not find PolicyStatusCode: ${error} ${__location}`);
+            log.error(`Acuity (application ${this.app.id}): Could not find PolicyStatusCode ${__location}`);
             return this.return_error('error', 'Acuity returned an unexpected reply');
         }
 
