@@ -1909,6 +1909,11 @@ module.exports = class ApplicationModel {
 
 
         //questions
+        if(applicationDoc.questions && applicationDoc.questions.length > 0){
+            await this.mongoDoc2MySqlQuestions(applicationDoc.questions, applicationJSON).catch(function(err){
+                log.error("Error in mongoDoc2MySqlClaims " + err + __location);
+            });
+        }
 
     }
 
@@ -2124,6 +2129,52 @@ module.exports = class ApplicationModel {
         }
 
         return;
+
+    }
+
+    async mongoDoc2MySqlQuestions(questionListDoc, applicationJSON){
+
+
+        //?? delete old questions in case question list is reduced ??
+
+        const valueList = []
+        for (var i = 0; i < questionListDoc.length; i++) {
+            const questionDocItem = questionListDoc[i];
+            let valueLine = '';
+            if (questionDocItem.questionType.toLowerCase().startsWith('text')) {
+                const cleanString = questionDocItem.answerValue.replace(/\|/g, ',')
+                valueLine = `(${applicationJSON.id}, ${questionDocItem.questionId}, NULL, ${db.escape(cleanString)})`
+
+            }
+            else if (questionDocItem.questionType === 'array') {
+                const arrayString = "|" + questionDocItem.answerList.join('|');
+                valueLine = `(${applicationJSON.id}, ${questionDocItem.questionId}, NULL, ${db.escape(arrayString)})`
+            }
+            else {
+                valueLine = `(${applicationJSON.id}, ${questionDocItem.questionId}, ${questionDocItem.answerId}, NULL)`
+            }
+            valueList.push(valueLine);
+        }
+        const valueListString = valueList.join(",\n");
+        //Set process the insert, Do nots
+        const insertSQL = `INSERT INTO clw_talage_application_questions 
+                        (application, question, answer, text_answer)
+                    Values  ${valueListString} 
+                    ON DUPLICATE KEY UPDATE answer = VALUES (answer), text_answer = VALUES( text_answer );
+                    `;
+        log.debug("question InsertSQL:\n" + insertSQL);
+        let rejected = false;
+        await db.query(insertSQL).catch(function(error) {
+            // Check if this was
+            log.error("Database Object clw_talage_application_questions INSERT error :" + error + __location);
+            rejected = true;
+        });
+        if (rejected) {
+            return false;
+        }
+
+
+        return true;
 
     }
 
