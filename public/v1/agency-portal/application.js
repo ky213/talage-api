@@ -12,6 +12,7 @@ const AgencyBO = global.requireShared('models/Agency-BO.js');
 const status = global.requireShared('./models/application-businesslogic/status.js');
 const jwt = require('jsonwebtoken');
 const {loggers} = require('winston');
+const moment = require('moment');
 
 
 /**
@@ -157,7 +158,33 @@ async function getApplication(req, res, next) {
         'website']);
 
     // Decode the owners
-    application.owners = JSON.parse(application.owners);
+    try{
+        if(typeof application.owners !== "object"){
+            application.owners = JSON.parse(application.owners);
+        }
+        else {
+            log.debug("Application Owner: " + JSON.stringify(application.owners))
+        }
+        if(application.owners && application.owners.length > 0){
+            for(let i = 0; i < application.owners.length; i++){
+                // eslint-disable-next-line prefer-const
+                let owner = application.owners[i];
+                if(owner._id){
+                    delete owner._id;
+                }
+                if(owner.ownership){
+                    owner.ownership = owner.ownership.toString();
+                }
+                if(owner.birthdate && owner.birthdate.includes("Z")){
+                    owner.birthdate = moment(owner.birthdate).format("MM/DD/YYYY");
+                }
+            }
+        }
+    }
+    catch(err){
+        log.error("Application Owner parse error " + err + __location)
+    }
+
 
     // Get all addresses for this business
     const addressSQL = `
@@ -185,9 +212,15 @@ async function getApplication(req, res, next) {
     });
 
     // Decrypt the encrypted fields
-    await crypt.batchProcessObjectArray(addressData, 'decrypt', ['address',
-        'address2',
-        'ein']);
+    try{
+        await crypt.batchProcessObjectArray(addressData, 'decrypt', ['address',
+            'address2',
+            'ein']);
+    }
+    catch(err){
+        log.error("Get Application decrypt error " + err + __location);
+    }
+
 
     // Only process addresses if some were returned
     application.locations = [];

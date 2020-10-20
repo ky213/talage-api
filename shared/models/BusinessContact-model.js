@@ -6,7 +6,6 @@ const tracker = global.requireShared('./helpers/tracker.js');
 const crypt = global.requireShared('./services/crypt.js');
 
 
-
 const hashFields = ["email"];
 const tableName = 'clw_talage_contacts'
 const skipCheckRequired = false;
@@ -15,7 +14,7 @@ module.exports = class BusinessContactModel{
 
     #dbTableORM = null;
 
-	constructor(){
+    constructor(){
         this.id = 0;
         this.#dbTableORM = new BusinessContactOrm();
     }
@@ -36,16 +35,16 @@ module.exports = class BusinessContactModel{
             await this.cleanupInput(businessContactJSON);
             //have id load businessContact data.
             //let businessContactDBJSON = {};
-            
+
             //Populate Clear version of encrypted fields.
-            for(var i=0;i < hashFields.length; i++){
+            for(var i = 0; i < hashFields.length; i++){
                 if(businessContactJSON[hashFields[i]]){
                     businessContactJSON[hashFields[i] + "_clear"] = businessContactJSON[hashFields[i]]
                 }
             }
 
             if(businessContactJSON.id){
-                await this.#dbTableORM.getById(businessContactJSON.id).catch(function (err) {
+                await this.#dbTableORM.getById(businessContactJSON.id).catch(function(err) {
                     log.error("Error getting businessContact from Database " + err + __location);
                     reject(err);
                     return;
@@ -57,7 +56,6 @@ module.exports = class BusinessContactModel{
                 this.#dbTableORM.load(businessContactJSON);
             }
 
-             
 
             //save
             await this.#dbTableORM.save().catch(function(err){
@@ -66,10 +64,10 @@ module.exports = class BusinessContactModel{
             this.updateProperty();
             this.id = this.#dbTableORM.id;
             resolve(true);
-            
+
         });
     }
-    
+
 
     /**
 	 * saves businessContact.
@@ -86,10 +84,10 @@ module.exports = class BusinessContactModel{
     }
 
     loadFromId(id) {
-        return new Promise(async (resolve, reject) => {
+        return new Promise(async(resolve, reject) => {
             //validate
-            if(id && id >0 ){
-                await this.#dbTableORM.getById(id).catch(function (err) {
+            if(id && id > 0){
+                await this.#dbTableORM.getById(id).catch(function(err) {
                     log.error("Error getting businessContact from Database " + err + __location);
                     reject(err);
                     return;
@@ -104,8 +102,8 @@ module.exports = class BusinessContactModel{
     }
 
     loadFromBusinessId(businessId) {
-        return new Promise(async (resolve, reject) => {
-            if(businessId && businessId >0 ){
+        return new Promise(async(resolve, reject) => {
+            if(businessId && businessId > 0){
                 let rejected = false;
                 // Create the update query
                 const sql = `
@@ -113,9 +111,9 @@ module.exports = class BusinessContactModel{
                 `;
 
                 // Run the query
-                const result = await db.query(sql).catch(function (error) {
+                const result = await db.query(sql).catch(function(error) {
                     // Check if this was
-                
+
                     rejected = true;
                     log.error(`getById ${tableName} id: ${db.escape(this.id)}  error ` + error + __location)
                     reject(error);
@@ -123,14 +121,14 @@ module.exports = class BusinessContactModel{
                 if (rejected) {
                     return;
                 }
-                let contactList = [];
-                if(result && result.length > 0 ){
-                    for(let i=0; i < result.length; i++ ){
+                const contactList = [];
+                if(result && result.length > 0){
+                    for(let i = 0; i < result.length; i++){
                         //Decrypt encrypted fields.
-                        let contactBO = new BusinessContactModel();
+                        const contactBO = new BusinessContactModel();
                         await contactBO.#dbTableORM.decryptFields(result[i]);
                         await contactBO.#dbTableORM.convertJSONColumns(result[i]);
-                      
+
                         const resp = await contactBO.loadORM(result[i], skipCheckRequired).catch(function(err){
                             log.error(`loadFromBusinessId error loading object: ` + err + __location);
                             //not reject on issues from database object.
@@ -148,7 +146,7 @@ module.exports = class BusinessContactModel{
                     reject(new Error("not found"));
                     return
                 }
-               
+
             }
             else {
                 reject(new Error('no businessid supplied'))
@@ -164,28 +162,28 @@ module.exports = class BusinessContactModel{
                 data[property] = await crypt.decrypt(data[property]);
             }
         }
-        return 
+        return
     }
 
 
     DeleteBusinessContacts(businessId) {
         return new Promise(async(resolve, reject) => {
             //Remove old records.
-            const sql =`DELETE FROM clw_talage_contacts
+            const sql = `DELETE FROM clw_talage_contacts
                    WHERE business = ${businessId}
             `;
             let rejected = false;
-			const result = await db.query(sql).catch(function (error) {
-				// Check if this was
-				log.error("Database Object clw_talage_contacts DELETE error :" + error + __location);
-				rejected = true;
-				reject(error);
-			});
-			if (rejected) {
-				return false;
-			}
+            const result = await db.query(sql).catch(function(error) {
+                // Check if this was
+                log.error("Database Object clw_talage_contacts DELETE error :" + error + __location);
+                rejected = true;
+                reject(error);
+            });
+            if (rejected) {
+                return false;
+            }
             resolve(true);
-       })
+        })
     }
 
 
@@ -207,22 +205,23 @@ module.exports = class BusinessContactModel{
         for (const property in properties) {
             if(noNulls === true){
                 if(dbJSON[property]){
-                  this[property] = dbJSON[property];
-                } else if(this[property]){
+                    this[property] = dbJSON[property];
+                }
+                else if(this[property]){
                     delete this[property];
                 }
             }
             else {
                 this[property] = dbJSON[property];
-              }
+            }
         }
-      }
+    }
 
     /**
 	 * Load new object JSON into ORM. can be used to filter JSON to object properties
      *
 	 * @param {object} inputJSON - input JSON
-	 * @returns {void} 
+	 * @returns {void}
 	 */
     async loadORM(inputJSON){
         await this.#dbTableORM.load(inputJSON, skipCheckRequired);
@@ -231,47 +230,47 @@ module.exports = class BusinessContactModel{
     }
 
     cleanJSON(noNulls = true){
-		return this.#dbTableORM.cleanJSON(noNulls);
-	}
+        return this.#dbTableORM.cleanJSON(noNulls);
+    }
 
 }
 
-const properties ={
+const properties = {
     "id": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
+        "default": 0,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "state": {
-      "default": "1",
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "number",
-      "dbType": "tinyint(1)"
+        "default": "1",
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "tinyint(1)"
     },
     "business": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
+        "default": 0,
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "email": {
-      "default": "",
-      "encrypted": true,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "string",
-      "dbType": "blob"
+        "default": "",
+        "encrypted": true,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "string",
+        "dbType": "blob"
     },
     "email_clear": {
         "default": "",
@@ -281,58 +280,58 @@ const properties ={
         "rules": null,
         "type": "string",
         "dbType": "varchar(150)"
-      },
+    },
     "email_hash": {
-      "default": "",
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "string",
-      "dbType": "varchar(40)"
+        "default": "",
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(40)"
     },
     "fname": {
-      "default": "",
-      "encrypted": true,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "string",
-      "dbType": "blob"
+        "default": "",
+        "encrypted": true,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "string",
+        "dbType": "blob"
     },
     "lname": {
-      "default": "",
-      "encrypted": true,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "string",
-      "dbType": "blob"
+        "default": "",
+        "encrypted": true,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "string",
+        "dbType": "blob"
     },
     "phone": {
-      "default": "",
-      "encrypted": true,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "string",
-      "dbType": "blob"
+        "default": "",
+        "encrypted": true,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "string",
+        "dbType": "blob"
     },
     "primary": {
-      "default": "1",
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "number",
-      "dbType": "tinyint(1)"
+        "default": "1",
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "number",
+        "dbType": "tinyint(1)"
     }
-  }
+}
 
 class BusinessContactOrm extends DatabaseObject {
 
-	constructor(){
-		super('clw_talage_contacts', properties);
-	}
+    constructor(){
+        super('clw_talage_contacts', properties);
+    }
 
 }
