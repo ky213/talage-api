@@ -108,6 +108,9 @@ module.exports = class CnaWC extends Integration {
         const business = this.app.business;
         const policy = this.app.policies[0]; // currently just ['WC']
 
+        //TODO: Right now we're leaving this hard-coded.
+        const nameInfoRefId = "N001";
+
         // Check to ensure we have NCCI codes available for every provided activity code.
         for (const location of this.app.business.locations) {
             for (const activityCode of location.activity_codes) {
@@ -132,7 +135,7 @@ module.exports = class CnaWC extends Integration {
             TODO LIST: FIND OUT WHAT THESE VALUES ARE AND HOW TO GET THEM:
             - Business Location Ref: Must be one of the location id values | "L1"
             - Business Location Id: ... | "L1"
-            - Policy - Power Unit (Number Units, Exposure in Monopolistic States): [0 - 999]; and YES; NO; | 100 YES
+            - Policy - Power Unit (Number Units, Exposure in Monopolistic States): [0 - 999]; and YES; NO; | 100 YES (Ask Adam and Christen)
             |__> com.cna_NumPowerUnitsOwned.NumUnits.value
             |__> QuestionCd.value='com.cna_MonopolisticInd'.YesNoCd
             - NameInfo Id: ... | "N001"
@@ -150,6 +153,11 @@ module.exports = class CnaWC extends Integration {
          * NOTE: Commented Lines below are defaulted from the template.
          * They Follow the pattern: Property Path | Default Value
         */
+
+        // console.log("---------- LOCATIONS -----------");
+        // console.log(JSON.stringify(business.locations, null, 4));
+        // return null;
+        // console.log("---------- LOCATIONS -----------");
 
         // API Information
         wcRequest.SignonRq.SignonPswd.CustId.CustLoginId = "TALAGEAPI";
@@ -176,10 +184,10 @@ module.exports = class CnaWC extends Integration {
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].TaxIdentity[0].TaxIdTypeCd.value | "FEIN"
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].TaxIdentity[0].TaxId.value | "595976858"
         // TODO: Determine if these are required. If not, then delete these properties unless we have a value for business.dba???
-        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryNameCd.value | "DBA"
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryNameCd.value = 'DBA';
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryName.value = business.dba;
-        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryNameCd | 'DBA'
-        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].SupplementaryNameInfo[0].id | "N001"
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryNameCd = 'DBA'
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].SupplementaryNameInfo[0].id = nameInfoRefId
 
         // ====== Address Information ======
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].Addr1.value = `${business.mailing_address} ${business.mailing_address2}`.trim();
@@ -234,7 +242,7 @@ module.exports = class CnaWC extends Integration {
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].RatingClassificationDescCd.value | "STORES-CLOTHING/DRY GOODS-RETAIL"
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].Exposure = this.get_total_payroll();
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].LocationRef | "L1"
-        // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].NameInfoRef | "N001"
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].NameInfoRef = nameInfoRefId;
         // wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].GoverningClassCd | "8008"
 
         // ====== Coverage Information ======
@@ -293,7 +301,7 @@ module.exports = class CnaWC extends Integration {
     // transform our business locations array into location objects array to be inserted into the WC request Object
     getLocations() {
         // iterate over each location and transform it into a location object
-        return this.app.business.locations.map(location => {
+        return this.app.business.locations.map((location, i) => { //TODO: Check that .map guarantees order of iteration
             return {
                 ItemIdInfo: {
                     AgencyId: {
@@ -317,7 +325,7 @@ module.exports = class CnaWC extends Integration {
                         value: location.zipcode
                     }
                 },
-                id: "L1" // What is this? 
+                id: `L${i}` 
             }
         });
     }

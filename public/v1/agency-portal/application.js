@@ -462,7 +462,6 @@ async function requote(req, res, next) {
         log.error(`Error update appication progress appId = ${req.body.id}  for quoting. ` + err + __location);
     }
 
-
     // Build a JWT that contains the application ID that expires in 5 minutes.
     const tokenPayload = {applicationID: req.body.id};
     const token = jwt.sign(tokenPayload, global.settings.AUTH_SECRET_KEY, {expiresIn: '5m'});
@@ -473,8 +472,6 @@ async function requote(req, res, next) {
     runQuotes(applicationQuoting);
 
     return next();
-
-
 }
 
 /**
@@ -504,7 +501,6 @@ async function runQuotes(application) {
     // Update the application status
     await status.updateApplicationStatus(application.id);
 }
-
 
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get application', `${basePath}/application`, getApplication, 'applications', 'view');
