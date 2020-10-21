@@ -1765,9 +1765,13 @@ module.exports = class ApplicationModel {
         const propMappingsApp = {
             mailingCity: "city",
             "mailingState": "state_abbr",
-            mailingZipcode: "zipcode"
+            mailingZipcode: "zipcode",
+            "agencyId": "agency",
+            "agencyLocationId": "agency_location",
+            "agencyNetworkId": "agency_network"
         };
         this.jsonToSnakeCase(applicationJSON, propMappingsApp);
+
         //$app->created_by = $user->id;
         this.#dbTableORM.load(applicationJSON, false).catch(function(err) {
             log.error("Error loading application orm " + err + __location);
