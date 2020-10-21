@@ -17,7 +17,7 @@
  */
 async function GetQuestions(activityCodeStringArray, industryCodeString, zipCodeStringArray, policyTypeArray, insurerStringArray, return_hidden = false) {
 
-    log.debug(`GetQuestions: activityCodeStringArray:  ${activityCodeStringArray}, industryCodeString:  ${industryCodeString}, zipCodeStringArray:  ${zipCodeStringArray}, policyTypeArray:  ${policyTypeArray}, insurerStringArray:  ${return_hidden}, return_hidden: ${return_hidden}` + __location)
+    log.debug(`GetQuestions: activityCodeStringArray:  ${activityCodeStringArray}, industryCodeString:  ${industryCodeString}, zipCodeStringArray:  ${zipCodeStringArray}, policyTypeArray:  ${policyTypeArray}, insurerStringArray:  ${insurerStringArray}, return_hidden: ${return_hidden}` + __location)
 
     const policy_types = [];
 
@@ -154,9 +154,13 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     /*
      * Validate Insurers
      */
-
-    // Convert insurer id strings to ints
-    const insurerArray = insurerStringArray.map(insurer => parseInt(insurer, 10));
+    let insurerArray = insurerStringArray;
+    try{
+        insurerArray = insurerStringArray.map(insurer => parseInt(insurer, 10));
+    }
+    catch(err){
+        log.info("error parsing insurerStringArray " + err + __location);
+    }
 
     // Check for anything that was not successfully converted
     if(insurerArray.includes(NaN)){
@@ -179,6 +183,8 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             return false;
         }
     }
+
+    // Convert insurer id strings to ints (already int array from agency portal route.)
 
 
     /* ---=== Get The Applicable Questions ===--- */
@@ -436,16 +442,15 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
  * @param {string} industryCodeString - The industry code of the application
  * @param {array} zipCodeArray - An array of all the zipcodes (stored as strings) in which the business operates
  * @param {array} policyTypeArray - An array containing of all the policy types applied for
- * @param {array} insurerArray - An array containing the IDs of the relevant insurers for the application
+ * @param {array} insurerStringArray - An array containing the IDs of the relevant insurers for the application
  * @param {boolean} return_hidden - true to return hidden questions, false to only return visible questions
  *
  * @returns {array|false} An array of questions structured the way the front end is expecting them, false otherwise
  *
  */
-exports.GetQuestionsForFrontend = async function(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden = false){
+exports.GetQuestionsForFrontend = async function(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerStringArray, return_hidden = false){
 
-
-    const questions = await GetQuestions(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden);
+    const questions = await GetQuestions(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerStringArray, return_hidden);
 
     if(!questions){
         return false;
