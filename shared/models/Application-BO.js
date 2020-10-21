@@ -1604,7 +1604,7 @@ module.exports = class ApplicationModel {
         }
     }
 
-    async updateMongo(uuid, newObjectJSON) {
+    async updateMongo(uuid, newObjectJSON, updateMysql = false) {
         if (uuid) {
             if (typeof newObjectJSON === "object") {
                 const changeNotUpdateList = ["active",
@@ -1635,12 +1635,14 @@ module.exports = class ApplicationModel {
                         });
                     }
 
-                    const postInsert = false;
-                    // eslint-disable-next-line prefer-const
-                    let applicationMysqlJSON = {};
-                    await this.mongoDoc2MySqlUpdate(newApplicationdoc, applicationMysqlJSON,postInsert).catch(function(err){
-                        log.error("Error in mongoDoc2MySqlUpdate " + err + __location);
-                    })
+                    if(updateMysql === true){
+                        const postInsert = false;
+                        // eslint-disable-next-line prefer-const
+                        let applicationMysqlJSON = {};
+                        await this.mongoDoc2MySqlUpdate(newApplicationdoc, applicationMysqlJSON,postInsert).catch(function(err){
+                            log.error("Error in mongoDoc2MySqlUpdate " + err + __location);
+                        })
+                    }
 
                     newApplicationJSON = mongoUtils.objCleanup(newApplicationdoc);
                 }
@@ -1665,7 +1667,7 @@ module.exports = class ApplicationModel {
 
     }
 
-    async insertMongo(newObjectJSON) {
+    async insertMongo(newObjectJSON, updateMysql = false) {
         if (!newObjectJSON) {
             throw new Error("no data supplied");
         }
@@ -1683,8 +1685,11 @@ module.exports = class ApplicationModel {
             throw err;
         });
         this.#applicationMongooseDB = application;
-        //TODO save mysql applicaition
-        await this.applicationDoc2MySqlInsert(application);
+        if(updateMysql === true){
+            //TODO save mysql applicaition
+            await this.applicationDoc2MySqlInsert(application);
+        }
+        
 
         return mongoUtils.objCleanup(application);
     }

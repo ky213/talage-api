@@ -538,18 +538,19 @@ async function applicationSave(req, res, next) {
 
 
     try{
+        const updateMysql = true;
         if(req.body.applicationId){
             log.debug("App Doc UPDATE.....")
             //update
             req.body.agencyPortalModifiedUser = userId
-            responseAppDoc = await applicationBO.updateMongo(req.body.applicationId, req.body);
+            responseAppDoc = await applicationBO.updateMongo(req.body.applicationId, req.body, updateMysql);
         }
         else {
             //insert.
             log.debug("App Doc INSERT.....")
             req.body.agencyPortalCreatedUser = userId
             req.body.agencyPortalCreated = true;
-            responseAppDoc = await applicationBO.insertMongo(req.body);
+            responseAppDoc = await applicationBO.insertMongo(req.body, updateMysql);
         }
     }
     catch(err){
