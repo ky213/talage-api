@@ -1,3 +1,4 @@
+/* eslint-disable prefer-const */
 /* eslint-disable dot-notation */
 /* eslint-disable radix */
 /* eslint-disable guard-for-in */
@@ -2458,7 +2459,117 @@ module.exports = class ApplicationModel {
     //
     //
     // *********************************
+    //For AgencyPortal
 
+    async GetQuestions(appId, userAgencyList){
+
+        let passedAgencyCheck = false;
+        let applicationDocDB = null;
+        let questionsObject = {};
+        try{
+            applicationDocDB = await this.loadfromMongoByAppId(appId);
+            if(applicationDocDB && userAgencyList.includes(applicationDocDB.agencyId)){
+                passedAgencyCheck = true;
+            }
+        }
+        catch(err){
+            log.error("Error checking application doc " + err + __location)
+            throw new Error("Error checking application doc ");
+        }
+        if(passedAgencyCheck === false){
+            throw new Error("permission denied");
+        }
+        if(!applicationDocDB){
+            throw new Error("not found");
+        }
+        if(applicationDocDB.questions && applicationDocDB.questions.length > 0){
+            questionsObject.answeredList = applicationDocDB.questions;
+        }
+
+        //get activitycodes.
+        let activityCodeArray = [];
+        if(applicationDocDB.activityCodes && applicationDocDB.activityCodes.length > 0){
+            for(let i = 0; i < applicationDocDB.activityCodes.length; i++){
+                activityCodeArray.push(applicationDocDB.activityCodes[i].ncciCode);
+            }
+
+        }
+        else {
+            throw new Error("Incomplete Application: Missing Application Activity Codes")
+        }
+        //industrycode
+        let industryCodeString = '';
+        if(applicationDocDB.industryCode){
+            industryCodeString = applicationDocDB.industryCode;
+
+        }
+        else {
+            throw new Error("Incomplete Application: Application Industry Code")
+        }
+        //policyType.
+        let policyTypeArray = [];
+        if(applicationDocDB.policies && applicationDocDB.policies.length > 0){
+            for(let i = 0; i < applicationDocDB.policies.length; i++){
+                policyTypeArray.push(applicationDocDB.policies[i].policyType);
+            }
+        }
+        else {
+            throw new Error("Incomplete Application: Application Policy Types")
+        }
+        //zipCodes
+        let zipCodeArray = [];
+        if(applicationDocDB.locations && applicationDocDB.locations.length > 0){
+            for(let i = 0; i < applicationDocDB.locations.length; i++){
+                zipCodeArray.push(applicationDocDB.locations[i].zipcode);
+            }
+
+        }
+        else {
+            throw new Error("Incomplete Application: Application locations")
+        }
+        //Agency Location insurer list.
+        let insurerArray = [];
+        if(applicationDocDB.agencyLocationId && applicationDocDB.agencyLocationId > 0){
+            const agencyLocationBO = new AgencyLocationBO();
+            const agencylocationJSON = await agencyLocationBO.getById(applicationDocDB.agencyId).catch(function(err) {
+                log.error(`Error getting Agency Primary Location ${applicationDocDB.uuid} ` + err + __location);
+            });
+            if (agencylocationJSON && agencylocationJSON.insurers && agencylocationJSON.insurers.length > 0) {
+                for(let i = 0; i < agencylocationJSON.insurers.length; i++){
+                    insurerArray.push(agencylocationJSON.insurers[i].insurer)
+                }
+            }
+            else {
+                log.error(`Data problem prevented getting App agency location for ${applicationDocDB.uuid} agency ${applicationDocDB.agencyId} Location ${applicationDocDB.agencyLocationId}` + __location)
+            }
+
+        }
+        else {
+            throw new Error("Incomplete Application: Missing AgencyLocation")
+        }
+
+        const returnHidden = false;
+
+        const questionSvc = global.requireShared('./services/questionsvc.js');
+        let getQuestionsResult = null;
+        
+        try {
+            log.debug("insurerArray: " + insurerArray);
+            getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, returnHidden);
+        }
+        catch (err) {
+            log.error("Error call in question service " + err + __location);
+            throw new Error('An error occured while retrieving application questions. ' + err);
+        }
+
+        questionsObject.questionList = getQuestionsResult
+
+        return questionsObject;
+
+
+    }
+
+    // for Quote App
     async GetQuestionsForFrontend(appId, activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden = false) {
 
         log.debug("in AppBO.GetQuestionsForFrontend")

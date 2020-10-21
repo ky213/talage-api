@@ -749,6 +749,39 @@ async function runQuotes(application) {
 }
 
 
+async function GetQuestions(req, res, next){
+
+    // insurers is optional
+    let error = null
+    const agencies = await auth.getAgents(req).catch(function(e) {
+        error = e;
+    });
+    if (error) {
+        return next(error);
+    }
+
+
+    let getQuestionsResult = null;
+    try{
+        const applicationBO = new ApplicationBO();
+        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies);
+    }
+    catch(err){
+        //Incomplete Applications throw errors. those error message need to got to client
+        log.info("Error getting questions " + err + __location);
+        return next(serverHelper.requestError('An error occured while retrieving application questions. ' + err));
+    }
+
+    if(!getQuestionsResult){
+        return next(serverHelper.requestError('An error occured while retrieving application questions.'));
+    }
+
+    res.send(200, getQuestionsResult);
+
+
+}
+
+
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
     server.addGetAuth('Get Application Doc', `${basePath}/application/:id`, getApplicationDoc, 'applications', 'view');
@@ -756,4 +789,6 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPutAuth('PUT Save Application', `${basePath}/application`, applicationSave, 'applications', 'manage');
     server.addPutAuth('PUT Re-Quote Application', `${basePath}/application/:id/requote`, requote, 'applications', 'manage');
     server.addDeleteAuth('DELETE Application', `${basePath}/application/:id`, deleteObject, 'applications', 'manage');
+
+    server.addGetAuth('GetQuestions for AP Application', `${basePath}/application/:id/questions`, GetQuestions, 'applications', 'manage')
 };
