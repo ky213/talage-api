@@ -45,7 +45,6 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             error = 'One or more of the activity codes supplied is invalid';
         }
         if (error) {
-            //return next(serverHelper.requestError(error));
             return false;
         }
     }
@@ -68,7 +67,6 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             error = 'The industry code supplied is invalid';
         }
         if (error) {
-            //return next(serverHelper.requestError(error));
             return false;
         }
     }
@@ -83,7 +81,6 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     const territories = [];
     if (!zipCodeArray || !zipCodeArray.length) {
         log.warn('Bad Request: Zip Codes');
-        //return next(serverHelper.requestError('You must supply at least one zip code'));
         return false;
     }
     // zip code table does not support 9-digit zips.  zipcode array need to make sure any 9 digit zips
@@ -93,7 +90,6 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         error = err.message;
     });
     if (error) {
-        //return next(serverHelper.requestError(error));
         return false;
     }
     if (zip_result && zip_result.length >= 1) {
@@ -103,7 +99,6 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     }
     else {
         log.warn('Bad Request: Zip Code');
-        //return next(serverHelper.requestError('The zip code(s) supplied is/are invalid'));
         return false;
     }
 
@@ -128,7 +123,6 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         error = err.message;
     });
     if (error) {
-        //return next(serverHelper.requestError(error));
         return false;
     }
 
@@ -146,7 +140,6 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         }
     });
     if (error) {
-        //return next(serverHelper.requestError(error));
         return false;
     }
 
@@ -179,25 +172,20 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             error = 'One or more of the insurers supplied is invalid';
         }
         if (error) {
-            //return next(serverHelper.requestError(error));
             return false;
         }
     }
 
-    // Convert insurer id strings to ints (already int array from agency portal route.)
-
-
-    /* ---=== Get The Applicable Questions ===--- */
-
-    // The following is a temporary hack while questions are in transition
-
     // Build the select and where statements
     const select = `q.id, q.parent, q.parent_answer, q.sub_level, q.question AS \`text\`, q.hint, q.type AS type_id, qt.name AS type, q.hidden${return_hidden ? ', GROUP_CONCAT(DISTINCT CONCAT(iq.insurer, "-", iq.policy_type)) AS insurers' : ''}`;
-    let where = `q.state = 1${insurerArray.length ? ` AND iq.insurer IN (${insurerArray.join(',')})` : ''}`;
+    let where = `q.state = 1
+        ${insurerArray.length ? `AND iq.insurer IN (${insurerArray.join(',')})` : ''}
+    `;
 
     let questions = [];
 
-    // GET All UNIVERSAL Questions
+    // ============================================================
+    // Get universal questions
     sql = `
 		SELECT ${select}
 		FROM clw_talage_questions AS q
@@ -210,92 +198,89 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         error = err.message;
     });
     if (error) {
-        //return next(serverHelper.requestError(error));
         return false;
     }
-
-    // Add these questions to the array
     questions = questions.concat(universal_questions);
 
     // From this point forward, only get non-universal questions
     where += ' AND iq.universal = 0';
 
-    // GET BOP and GL Questions
-    if (policy_types.includes('BOP') || policy_types.includes('GL')) {
-        // Get the ISO questions
-        sql = `
-			SELECT ${select}
-			FROM clw_talage_industry_code_questions AS icq
-			LEFT JOIN clw_talage_questions AS q ON (q.id = icq.question)
-			LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
-			LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
-			WHERE icq.insurer_industry_code = (SELECT code FROM clw_talage_industry_codes_iso WHERE id = (SELECT iso FROM clw_talage_industry_codes WHERE id = ${db.escape(industry_code)}) LIMIT 1)
-			AND ${where} GROUP BY q.id;
-		`;
-        const iso_questions = await db.query(sql).catch(function(err) {
-            error = err.message;
-        });
-        if (error) {
-            //return next(serverHelper.requestError(error));
-            return false;
-        }
+    // ============================================================
+    // Get industry-based questions
+    // Notes:
+    //      - pull in all insurer questions which are for the requested policy types (clw_talage_insurer_questions.policy_type IN policy_types)
+    //      - group by clw_talage_insurer_questions.question (Talage question) to ensure we don't get duplicate questions
 
-        // Add these questions to the array
-        questions = questions.concat(iso_questions);
-
-        // Get the CGL questions
-        sql = `
-			SELECT ${select}
-			FROM clw_talage_industry_code_questions AS icq
-			LEFT JOIN clw_talage_questions AS q ON (q.id = icq.question)
-			LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
-			LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
-			LEFT JOIN clw_talage_insurer_industry_codes AS iic ON icq.insurer_industry_code = iic.id
-            LEFT JOIN clw_talage_industry_codes AS ic ON 
-                (
-                    (ic.cgl = iic.code AND iic.type = 'c')
-                    OR (ic.hiscox = iic.code AND iic.type = 'h')
-                )
-			WHERE ic.id = ${db.escape(industry_code)} AND ${where} GROUP BY q.id;
-		`;
-        const cgl_questions = await db.query(sql).catch(function(err) {
-            error = err.message;
-        });
-        if (error) {
-            //return next(serverHelper.requestError(error));
-            return false;
-        }
-
-        // Add these questions to the array
-        questions = questions.concat(cgl_questions);
+    // Get ISO questions
+    sql = `
+        SELECT ${select}
+        FROM clw_talage_industry_code_questions AS icq
+        LEFT JOIN clw_talage_questions AS q ON (q.id = icq.question)
+        LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
+        LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
+        WHERE
+            icq.insurer_industry_code = (SELECT code FROM clw_talage_industry_codes_iso WHERE id = (SELECT iso FROM clw_talage_industry_codes WHERE id = ${db.escape(industry_code)}) LIMIT 1)
+            AND iq.policy_type IN ("${policy_types.join("\",\"")}")
+            AND ${where} 
+            GROUP BY iq.question;
+    `;
+    const iso_questions = await db.query(sql).catch(function(err) {
+        error = err.message;
+    });
+    if (error) {
+        return false;
     }
+    questions = questions.concat(iso_questions);
 
-    // GET WC Questions
-    if (policy_types.includes('WC')) {
-        sql = `
-			SELECT ${select}
-			FROM clw_talage_questions AS q
-			LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
-			INNER JOIN clw_talage_insurer_ncci_code_questions AS ncq ON q.id = ncq.question AND ncq.ncci_code IN(
-				SELECT nca.insurer_code FROM clw_talage_activity_code_associations AS nca
-				LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON nca.insurer_code = inc.id
-				WHERE nca.code IN (${activityCodeArray.join(',')})
-				AND inc.state = 1${territories && territories.length ? ` AND inc.territory IN (${territories.map(db.escape).join(',')})` : ``}
-			)
-			LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
-			WHERE iq.policy_type IN ('WC') AND ${where} GROUP BY q.id;
-		`;
-        const wc_questions = await db.query(sql).catch(function(err) {
-            error = err.message;
-        });
-        if (error) {
-            //return next(serverHelper.requestError(error));
-            return false;
-        }
-
-        // Add these questions to the array
-        questions = questions.concat(wc_questions);
+    // Get CGL, Hiscox questions
+    sql = `
+        SELECT ${select}
+        FROM clw_talage_industry_code_questions AS icq
+        LEFT JOIN clw_talage_questions AS q ON (q.id = icq.question)
+        LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
+        LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
+        LEFT JOIN clw_talage_insurer_industry_codes AS iic ON icq.insurer_industry_code = iic.id
+        LEFT JOIN clw_talage_industry_codes AS ic ON 
+            (
+                (ic.cgl = iic.code AND iic.type = 'c')
+                OR (ic.hiscox = iic.code AND iic.type = 'h')
+            )
+        WHERE
+            ic.id = ${db.escape(industry_code)} 
+            AND iq.policy_type IN ("${policy_types.join("\",\"")}")            
+            AND ${where}
+            GROUP BY iq.question;
+    `;
+    const cgl_questions = await db.query(sql).catch(function(err) {
+        error = err.message;
+    });
+    if (error) {
+        return false;
     }
+    questions = questions.concat(cgl_questions);
+
+    // ============================================================
+    // Get activity-based questions
+    sql = `
+        SELECT ${select}
+        FROM clw_talage_questions AS q
+        LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
+        INNER JOIN clw_talage_insurer_ncci_code_questions AS ncq ON q.id = ncq.question AND ncq.ncci_code IN(
+            SELECT nca.insurer_code FROM clw_talage_activity_code_associations AS nca
+            LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON nca.insurer_code = inc.id
+            WHERE nca.code IN (${activityCodeArray.join(',')})
+            AND inc.state = 1${territories && territories.length ? ` AND inc.territory IN (${territories.map(db.escape).join(',')})` : ``}
+        )
+        LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
+        WHERE iq.policy_type IN ('WC') AND ${where} GROUP BY q.id;
+    `;
+    const wc_questions = await db.query(sql).catch(function(err) {
+        error = err.message;
+    });
+    if (error) {
+        return false;
+    }
+    questions = questions.concat(wc_questions);
 
     // Remove Duplicates
     if (questions) {
@@ -308,6 +293,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     }
 
     // Check for missing questions
+    // NOTE: This iterative approach is expensive. Candidate for refactoring. -SF
     let missing_questions = find_missing_questions(questions);
     while (missing_questions) {
         // Query to get all missing questions
@@ -325,7 +311,6 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             error2 = err.message;
         });
         if (error2) {
-            //return next(serverHelper.requestError(error));
             return false;
         }
         questions = questions.concat(added_questions);
@@ -393,7 +378,6 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             error = err.message;
         });
         if (error) {
-            //return next(serverHelper.requestError(error));
             return false;
         }
 
