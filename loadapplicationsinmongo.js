@@ -40,11 +40,16 @@ const QuestionBO = global.requireShared('./models/Question-BO.js');
 const QuestionAnswerBO = global.requireShared('./models/QuestionAnswer-BO.js');
 const QuestionTypeBO = global.requireShared('./models/QuestionType-BO.js');
 
+const ApplicationQuestionBO = global.requireShared('./models/ApplicationQuestion-BO.js');
+
+
 const colors = require('colors');
+
 
 const logger = global.requireShared('/services/logger.js');
 const db = global.requireShared('/services/db.js');
 const globalSettings = require('./settings.js');
+const { debug } = require('request');
 
 
 /**
@@ -161,16 +166,169 @@ function mapToMongooseJSON(sourceJSON, targetJSON, propMappings){
 
 
 async function processQuestions(appId, applicationJSON){
+    const applicationQuestionBO = new ApplicationQuestionBO()
+    let appQuestionListMysql = null
+    try{
+        appQuestionListMysql = await applicationQuestionBO.loadFromApplicationId(appId);
+    }
+    catch(err){
+        log.error("get application questions " + err + __location);
+    }
+    if(appQuestionListMysql && appQuestionListMysql.length > 0){
+        const questionTypeBO = new QuestionTypeBO();
+        // Load the request data into it
+        const questionTypeListDB = await questionTypeBO.getList().catch(function(err) {
+            log.error("questionTypeBO load error " + err + __location);
+        });
 
+        applicationJSON.questions = [];
+        //get text and turn into list of question objects.
+
+        for (var i = 0; i < appQuestionListMysql.length; i++) {
+            const appQuestionMysql = appQuestionListMysql[i];
+            const questionJSON = {};
+            questionJSON.questionId = appQuestionMysql.question;
+
+            //get Question def for Question Text and Yes
+            const questionBO = new QuestionBO();
+            // Load the request data into it
+            const questionDB = await questionBO.getById(questionJSON.questionId).catch(function(err) {
+                log.error("questionBO load error " + err + __location);
+            });
+            if (questionDB) {
+                questionJSON.questionText = questionDB.question;
+                questionJSON.hint = questionDB.hint;
+                questionJSON.hidden = questionDB.hidden;
+                questionJSON.questionType = questionDB.type;
+                if (questionTypeListDB) {
+                    const questionType = questionTypeListDB.find(questionTypeTest => questionTypeTest.id === questionDB.type);
+                    if (questionType) {
+                        questionJSON.questionType = questionType.name;
+                    }
+                }
+            }
+            else {
+                log.error(`no question record for id ${questionJSON.questionId} ` + __location);
+            }
+
+            if (questionJSON.questionType.toLowerCase().startsWith('text')) {
+                //const cleanString = questionRequest.answer.replace(/\|/g, ',')
+                questionJSON.answerValue = appQuestionMysql.text_answer;
+            }
+            else if (questionJSON.questionType === 'Checkboxes') {
+                //  const arrayString = "|" + appQuestionMysql.answer.join('|');
+                const arrayString = appQuestionMysql.text_answer;
+                questionJSON.answerValue = arrayString;
+                const answerList = appQuestionMysql.text_answer.split("|");
+                const questionAnswerBO = new QuestionAnswerBO();
+                const questionAnswerListDB = await questionAnswerBO.getListByAnswerIDList(answerList).catch(function(err) {
+                    log.error(`questionBO load error questionId ${questionJSON.questionId} appId ${appId}  ` + err + __location);
+                });
+                if (questionAnswerListDB && questionAnswerListDB.length > 0) {
+                    questionJSON.answerList = [];
+                    for (let j = 0; j < questionAnswerListDB.length; j++) {
+                        questionJSON.answerList.push(questionAnswerListDB[j].answer);
+                    }
+
+                }
+                else {
+                    log.error(`no questionAnswer record for ids ${JSON.stringify(appQuestionMysql.answer)} ` + __location);
+                }
+            }
+            else {
+                questionJSON.answerId = appQuestionMysql.answer;
+                // Need answer value
+                const questionAnswerBO = new QuestionAnswerBO();
+                // Load the request data into it
+                const questionAnswerDB = await questionAnswerBO.getById(questionJSON.answerId).catch(function(err) {
+                    log.error("questionBO load error " + err + __location);
+                });
+                if (questionAnswerDB) {
+                    questionJSON.answerValue = questionAnswerDB.answer;
+                }
+                else {
+                    log.error(`no question record for id ${questionJSON.questionId} ` + __location);
+                }
+
+            }
+            applicationJSON.questions.push(questionJSON);
+        }
+
+
+    }
 
 }
 
-async function processPolicies(appId, applicationJSON) {
+async function processPolicies(appId, applicationJSON, applicationBO) {
+    const applicationPolicyTypeBO = new ApplicationPolicyTypeBO()
+    let policyListMysql = null
+    try{
+        policyListMysql = await applicationPolicyTypeBO.loadFromApplicationId(appId);
+    }
+    catch(err){
+        log.error("get policyType " + err + __location);
+    }
+    if(policyListMysql && policyListMysql.length > 0){
+        applicationJSON.policies = [];
+        for(let i = 0; i < policyListMysql.length; i++){
+            const policyMysql = policyListMysql[i];
+            const policyType = policyMysql.policy_type
+            const policyTypeJSON = {"policyType": policyType}
+            if (policyType === "GL") {
+                //GL limit and date fields.
+                policyTypeJSON.effectiveDate = applicationBO.gl_effective_date
+                policyTypeJSON.expirationDate = applicationBO.gl_expiration_date
+                policyTypeJSON.limits = applicationBO.limits
+                policyTypeJSON.deductible = applicationBO.deductible
+
+
+            }
+            else if (policyType === "WC") {
+                policyTypeJSON.effectiveDate = applicationBO.wc_effective_date
+                policyTypeJSON.expirationDate = applicationBO.wc_expiration_date
+                policyTypeJSON.limits = applicationBO.wc_limits
+                policyTypeJSON.coverageLapse = applicationBO.coverageLapse
+
+            }
+            else if (policyType === "BOP") {
+                policyTypeJSON.effectiveDate = applicationBO.bop_effective_date
+                policyTypeJSON.expirationDate = applicationBO.bop_expiration_date
+                policyTypeJSON.limits = applicationBO.limits
+                policyTypeJSON.coverage = applicationBO.coverage
+                policyTypeJSON.deductible = applicationBO.deductible
+
+            }
+            applicationJSON.policies.push(policyTypeJSON);
+        }
+    }
 
     return;
+
 }
 
 async function processActivityCodes(appId, applicationJSON){
+    const applicationActivityCodesModel = new ApplicationActivityCodesModel()
+    let activityCodeListMysql = null
+    try{
+        activityCodeListMysql = await applicationActivityCodesModel.loadFromApplicationId(appId);
+    }
+    catch(err){
+        log.error("get policyType " + err + __location);
+    }
+    log.debug("activityCodeListMysql " + JSON.stringify(activityCodeListMysql));
+    if(activityCodeListMysql && activityCodeListMysql.length > 0){
+        applicationJSON.activityCodes = [];
+        for(let i = 0; i < activityCodeListMysql.length; i++){
+            const activityCodeMysql = activityCodeListMysql[i];
+            const activityCodeModelJSON = {
+                "ncciCode": activityCodeMysql.ncci_code,
+                "payroll": activityCodeMysql.payroll
+            }
+            applicationJSON.activityCodes.push(activityCodeModelJSON);
+        }
+    }
+
+
     return;
 }
 
@@ -178,7 +336,7 @@ async function processClaims(appId, applicationJSON){
     const applicationClaimBO = new ApplicationClaimBO()
     let claimList = null
     try{
-        claimList = applicationClaimBO.loadFromApplicationId(appId);
+        claimList = await applicationClaimBO.loadFromApplicationId(appId);
     }
     catch(err){
         log.error("get claims " + err + __location);
@@ -246,11 +404,26 @@ async function processLocations(businessId, applicationJSON){
         for(var i = 0; i < businessAddressList.length; i++){
             let businessAddress = businessAddressList[i]
             let locationJSON = {};
-            const businessInfoMapping = {"mailing_state_abbr": "mailingState"}
+            const businessInfoMapping = {"state_abbr": "state"};
             mapToMongooseJSON(businessAddress, locationJSON, businessInfoMapping);
-            //TODO load activity Codes
+            //load activity Codes
+            locationJSON.activityPayrollList = [];
+            const businessAddressActivityCodeModel = new BusinessAddressActivityCodeModel();
+            try{
+                const query = {address: businessAddress.id}
+                const addressActivityCodeList = await businessAddressActivityCodeModel.getList(query);
+                for(let j = 0; j < addressActivityCodeList.length; j++){
+                    const activity_code = addressActivityCodeList[j];
+                    const activityPayrollJSON = {};
+                    activityPayrollJSON.ncciCode = activity_code.id;
+                    activityPayrollJSON.payroll = activity_code.payroll;
+                    locationJSON.activityPayrollList.push(activityPayrollJSON)
 
-
+                }
+            }
+            catch(err){
+                log.error(`Error procesing Address ActivityCodes businessId  ${businessId} ${err}` + __location);
+            }
             applicationJSON.locations.push(locationJSON);
         }
     }
@@ -258,12 +431,10 @@ async function processLocations(businessId, applicationJSON){
         log.error("no business contact businessId " + businessId)
     }
 
-
-    //activity payroll....
     return;
 }
 
-async function processBusiness(businessId, applicationJSON){
+async function processBusinessToMongo(businessId, applicationJSON){
     const businessModel = new BusinessModel();
     let businessJSON = null;
     try{
@@ -274,7 +445,7 @@ async function processBusiness(businessId, applicationJSON){
     }
 
     if(businessJSON.owners){
-        applicationJSON.owner = JSON.parse(businessJSON.owners);
+        applicationJSON.owners = JSON.parse(businessJSON.owners);
         delete businessJSON.owners;
     }
     if(businessJSON.ein){
@@ -292,6 +463,123 @@ async function processBusiness(businessId, applicationJSON){
 
 
     //map address to app.locations
+    return;
+}
+
+async function processQuotes(appId, applicationDoc){
+    const QuoteBO = global.requireShared('./models/Quote-BO.js');
+    const QuoteLimitBO = global.requireShared('./models/QuoteLimit-BO.js');
+    var Quote = require('mongoose').model('Quote');
+    const quoteBO = new QuoteBO()
+    const quoteLimitBO = new QuoteLimitBO();
+    let quoteList = null
+    try{
+        quoteList = await quoteBO.loadFromApplicationId(appId);
+    }
+    catch(err){
+        log.error("get quotes " + err + __location);
+    }
+    // log.debug("quoteList: " + JSON.stringify(quoteList));
+    if(quoteList && quoteList.length > 0){
+
+        for(let i = 0; i < quoteList.length; i++){
+            let quoteMysql = quoteList[i];
+            const mysqlId = quoteMysql.id;
+            let quoteJSON = {};
+            let newMongoDoc = true;
+            let applicationJSON = {};
+            try{
+                const mongoApp = await quoteBO.getMongoDocbyMysqlId(mysqlId)
+                if(mongoApp){
+                    quoteJSON = mongoApp;
+                    newMongoDoc = false;
+                }
+            }
+            catch(err){
+                log.error("Getting mongo application error " + err + __location)
+            }
+            quoteJSON.applicationId = applicationDoc.applicationId;
+            quoteJSON.mysqlId = quoteMysql.id;
+            quoteJSON.mysqlAppId = quoteMysql.application;
+            quoteJSON.insurerId = quoteMysql.insurer;
+
+            for (const prop in quoteMysql) {
+                //check if snake_case
+                if(prop.isSnakeCase()){
+                    quoteJSON[prop.toCamelCase()] = quoteMysql[prop];
+                }
+                else {
+                    quoteJSON[prop] = quoteMysql[prop];
+                }
+            }
+            quoteJSON.applicationId = applicationDoc.applicationId;
+            quoteJSON.mysqlId = quoteMysql.id;
+            quoteJSON.mysqlAppId = quoteMysql.application;
+            quoteJSON.insurerId = quoteMysql.insurer;
+
+            quoteJSON.packageTypeId = quoteMysql.package_type;
+            quoteJSON.quoteNumber = quoteMysql.number;
+            quoteJSON.paymentPlanId = quoteMysql.payment_plan;
+            quoteJSON.policyType = quoteMysql.policy_type;
+
+            //limit procressing
+            
+            try{
+                const quoteLimitMysqlList = await quoteLimitBO.loadFromQuoteId(mysqlId)
+                
+                if(quoteLimitMysqlList.length > 0){
+                    if(!quoteJSON.limits){
+                        quoteJSON.limits = [];
+                    }
+                    for(let j = 0; j < quoteLimitMysqlList.length; j++){
+                        const limitJSON = {
+                            limitId: quoteLimitMysqlList[j].limit,
+                            amount:  quoteLimitMysqlList[j].amount
+                        }
+                        quoteJSON.limits.push(limitJSON)
+                    }
+                }
+            }
+            catch(err){
+                log.error("Error processing limits")
+            }
+
+            //save QuoteDoc
+            const quote = new Quote(quoteJSON)
+
+            if(newMongoDoc){
+                await quote.save().catch(function(err){
+                    log.error('Mongo Quote Save err ' + err + __location);
+                });
+                log.debug("inserted quote " + quote.quoteId);
+            }
+            else {
+                try {
+                    const updatequoteDoc = JSON.parse(JSON.stringify(quote));
+                    const changeNotUpdateList = ["active",
+                        "_id",
+                        "id",
+                        "mysqlId",
+                        "quoteId",
+                        "uuid"]
+                    for (let j = 0; j < changeNotUpdateList.length; j++) {
+                        if (updatequoteDoc[changeNotUpdateList[j]]) {
+                            delete updatequoteDoc[changeNotUpdateList[j]];
+                        }
+                    }
+                    const query = {"quoteId": quoteJSON.quoteId};
+                    await Quote.updateOne(query, updatequoteDoc);
+                    log.debug("UPDATED: quote " + quote.quoteId);
+                }
+                catch(err){
+                    log.error("Updating Application error " + err + __location);
+                    throw err;
+                }
+
+            }
+        }
+    }
+
     return;
 }
 
@@ -334,24 +622,36 @@ async function runFunction() {
     });
     log.debug("Got MySql applications - result.length - " + result.length);
     for(let i = 0; i < result.length; i++){
-
+        let newMongoDoc = true;
         //load applicationBO
         const applicationBO = new ApplicationBO();
         let loadResp = false;
+        const mysqlId = result[i].id;
         try{
-            loadResp = await applicationBO.loadFromId(result[i].id);
+            loadResp = await applicationBO.loadFromId(mysqlId);
         }
         catch(err){
             log.error("load application error " + err)
         }
         if(loadResp){
             let applicationJSON = {};
+            try{
+                const mongoApp = await applicationBO.getMongoDocbyMysqlId(mysqlId)
+                if(mongoApp){
+                    applicationJSON = mongoApp;
+                    newMongoDoc = false;
+                }
+            }
+            catch(err){
+                log.error("Getting mongo application error " + err + __location)
+            }
             applicationJSON.mysqlId = applicationBO.id;
             applicationJSON.applicationId = applicationBO.uuid;
             //mapp app to app
             const appPropMappings = {
                 agency_location: "agencyLocationId",
                 agency: "agencyId",
+                agency_network: "agencyNetworkId",
                 name: "businessName",
                 "id": "mysqlId",
                 "state": "processStateOld",
@@ -361,7 +661,7 @@ async function runFunction() {
             mapToMongooseJSON(applicationBO, applicationJSON, appPropMappings);
             //map buiness to app
             //load business..
-            await processBusiness(applicationBO.business,applicationJSON)
+            await processBusinessToMongo(applicationBO.business,applicationJSON)
 
             //map contacts to app.contact.
             await processContacts(applicationBO.business, applicationJSON)
@@ -371,10 +671,10 @@ async function runFunction() {
 
 
             //map app.policyt to app.policytes
-            await processPolicies(applicationBO.id, applicationJSON)
+            await processPolicies(applicationBO.id, applicationJSON, applicationBO)
 
             //map app.activitycode to app.activitycode
-            processActivityCodes(applicationBO.id, applicationJSON)
+            await processActivityCodes(applicationBO.id, applicationJSON)
 
             //map app.claims to app.claims
             await processClaims(applicationBO.id, applicationJSON)
@@ -383,14 +683,50 @@ async function runFunction() {
             await processQuestions(applicationBO.id, applicationJSON)
 
 
-            log.debug("applicationMongo: ")
-            log.debug("")
-            //log.debug(JSON.stringify(applicationJSON))
-
+            //log.debug("applicationMongo: ")
+            // log.debug("")
+            // log.debug(JSON.stringify(applicationJSON))
+            // log.debug("")
             let application = new Application(applicationJSON);
-            log.debug("insert application: " + JSON.stringify(application))
+            // log.debug("insert application Doc: " + JSON.stringify(application))
+            if(newMongoDoc){
+                await application.save().catch(function(err) {
+                    log.error('Mongo Application Save err ' + err + __location);
+                    throw err;
+                });
+                log.debug("inserted applicationId " + application.applicationId);
+            }
+            else {
+                try {
+                    const updateAppDoc = JSON.parse(JSON.stringify(application));
+                    const changeNotUpdateList = ["active",
+                        "_id",
+                        "id",
+                        "mysqlId",
+                        "applicationId",
+                        "uuid"]
+                    for (let j = 0; j < changeNotUpdateList.length; j++) {
+                        if (updateAppDoc[changeNotUpdateList[j]]) {
+                            delete updateAppDoc[changeNotUpdateList[j]];
+                        }
+                    }
+                    const query = {"applicationId": application.uuid};
+                    await Application.updateOne(query, updateAppDoc);
+                    log.debug("UPDATED: applicationId " + application.applicationId);
+                }
+                catch(err){
+                    log.error("Updating Application error " + err + __location);
+                    throw err;
+                }
+
+            }
+
+
+            //Process Quotes
+            await processQuotes(applicationBO.id, application)
 
             //update mysql as copied
+            //updateMysqlRecord
         }
 
 
