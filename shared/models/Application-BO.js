@@ -1686,10 +1686,9 @@ module.exports = class ApplicationModel {
         });
         this.#applicationMongooseDB = application;
         if(updateMysql === true){
-            //TODO save mysql applicaition
+            // save mysql applicaition
             await this.applicationDoc2MySqlInsert(application);
         }
-        
 
         return mongoUtils.objCleanup(application);
     }

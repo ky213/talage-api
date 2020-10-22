@@ -155,6 +155,7 @@ const ApplicationSchema = new Schema({
     industryCode: {type: String, required: false},
     entityType: {type: String, required: false},
     businessName: {type: String, required: false},
+    dba: {type: String, required: false},
     fileNum: {type: String, required: false},
     founded: {type: Date, required: false},
     hasEin: {type: Boolean, default: true},
