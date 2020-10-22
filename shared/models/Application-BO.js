@@ -35,9 +35,12 @@ const taskEmailBindAgency = global.requireRootPath('tasksystem/task-emailbindage
 var Application = require('mongoose').model('Application');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
+const crypt = global.requireShared('./services/crypt.js');
+
 //const moment = require('moment');
 const {'v4': uuidv4} = require('uuid');
-const {loggers} = require('winston');
+ 
+//const {loggers} = require('winston');
 // const { debug } = require('request');
 // const { loggers } = require('winston');
 // eslint-disable-next-line no-unused-vars
@@ -491,10 +494,13 @@ module.exports = class ApplicationModel {
     mapToMongooseJSON(sourceJSON) {
         const propMappings = {
             agency_location: "agencyLocationId",
+            agency_network: "agencyNetworkId",
             agency: "agencyId",
             name: "businessName",
             "id": "mysqlId",
-            "state": "processStateOld"
+            "state": "processStateOld",
+            "coverage_lapse": "coverageLapseWC",
+            "primary_territory": "primaryState"
         }
         for (const sourceProp in sourceJSON) {
             if (typeof sourceJSON[sourceProp] !== "object") {
@@ -948,7 +954,7 @@ module.exports = class ApplicationModel {
                 const questionRequest = questionsRequest[i];
                 const questionJSON = {};
                 questionJSON.questionId = questionRequest.id
-                questionsRequest.questionType = questionRequest.type;
+                questionJSON.questionType = questionRequest.type;
 
                 //get Question def for Question Text and Yes
                 const questionBO = new QuestionBO();
@@ -1034,7 +1040,7 @@ module.exports = class ApplicationModel {
 
             const legalAcceptanceModel = new LegalAcceptanceModel();
             await legalAcceptanceModel.saveModel(legalAcceptanceJSON).catch(function(err) {
-                log.error(`Adding new Legal Acceptance for Appid ${this.id} error:` + err + __location);
+                log.error(`Adding new Legal Acceptance for Appid ${applicationJSON.id} error:` + err + __location);
                 reject(err);
                 return;
             });
@@ -1084,6 +1090,8 @@ module.exports = class ApplicationModel {
                         applicationJSON.status = 'request_to_bind';
                         applicationJSON.appStatusId = 70;
                     }
+
+                    //mongo update...
                 }
             }
             else {
@@ -2556,7 +2564,7 @@ module.exports = class ApplicationModel {
 
         const questionSvc = global.requireShared('./services/questionsvc.js');
         let getQuestionsResult = null;
-        
+
         try {
             log.debug("insurerArray: " + insurerArray);
             getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, returnHidden);
