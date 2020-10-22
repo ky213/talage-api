@@ -7,7 +7,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 const tableName = 'clw_talage_quote_limits'
 const skipCheckRequired = false;
-module.exports = class ApplicationClaimModel {
+module.exports = class QuoteLimitBO {
 
     #dbTableORM = null;
 
@@ -104,11 +104,61 @@ module.exports = class ApplicationClaimModel {
         });
     }
 
-    DeleteByApplicationId(applicationId) {
+    loadFromQuoteId(quoteId) {
+        return new Promise(async(resolve, reject) => {
+            if(quoteId && quoteId > 0){
+                let rejected = false;
+                // Create the update query
+                const sql = `
+                    select *  from ${tableName} where quote = ${quoteId}
+                `;
+
+                // Run the query
+                log.debug("sql " + sql);
+                const result = await db.query(sql).catch(function(error) {
+                    // Check if this was
+
+                    rejected = true;
+                    log.error(`loadFromApplicationId ${tableName} applicationId: ${db.escape(quoteId)}  error ` + error + __location)
+                    reject(error);
+                });
+                if (rejected) {
+                    return;
+                }
+                const boList = [];
+                if(result && result.length > 0){
+                    for(let i = 0; i < result.length; i++){
+                        const quoteLimitBO = new QuoteLimitBO();
+                        const resp = await quoteLimitBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                            log.error(`loadFromQuoteId error loading object: ` + err + __location);
+                            //not reject on issues from database object.
+                            //reject(err);
+                        })
+                        if(!resp){
+                            log.debug("Bad BO load" + __location)
+                        }
+                        boList.push(quoteLimitBO);
+                    }
+                    resolve(boList);
+                }
+                else {
+                    // no records is normal.
+                    resolve([]);
+                }
+
+            }
+            else {
+                reject(new Error('no applicationId supplied'))
+            }
+        });
+    }
+
+
+    DeleteByQuoteId(applicationId) {
         return new Promise(async(resolve, reject) => {
             //Remove old records.
             const sql = `DELETE FROM ${tableName} 
-                   WHERE application = ${applicationId}
+                   WHERE quote = ${applicationId}
             `;
             let rejected = false;
             await db.query(sql).catch(function(error) {
@@ -162,6 +212,7 @@ module.exports = class ApplicationClaimModel {
    */
     async loadORM(inputJSON) {
         await this.#dbTableORM.load(inputJSON, skipCheckRequired);
+        this.updateProperty();
         return true;
     }
 

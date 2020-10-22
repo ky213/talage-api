@@ -4,16 +4,17 @@ const QuoteLimitBO = global.requireShared('./models/QuoteLimit-BO.js');
 const DatabaseObject = require('./DatabaseObject.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+const crypt = global.requireShared('./services/crypt.js');
 
 
 // Mongo Models
 var Quote = require('mongoose').model('Quote');
-//const mongoUtils = global.requireShared('./helpers/mongoutils.js');
+const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 
 const tableName = 'clw_talage_quotes'
 const skipCheckRequired = false;
-module.exports = class ApplicationClaimModel {
+module.exports = class QuoteBO {
 
     #dbTableORM = null;
 
@@ -137,6 +138,62 @@ module.exports = class ApplicationClaimModel {
         });
     }
 
+    loadFromApplicationId(applicationId, policy_type = null) {
+        return new Promise(async(resolve, reject) => {
+            if(applicationId && applicationId > 0){
+                let rejected = false;
+                // Create the update query
+                let sql = `
+                    select *  from ${tableName} where application = ${applicationId}
+                `;
+                if(policy_type){
+                    sql += ` AND  policy_type = '${policy_type}'`
+                }
+                // Run the query
+                // eslint-disable-next-line prefer-const
+                let result = await db.query(sql).catch(function(error) {
+                    // Check if this was
+
+                    rejected = true;
+                    log.error(`loadFromApplicationId ${tableName} applicationId: ${db.escape(applicationId)}  error ` + error + __location)
+                    reject(error);
+                });
+                if (rejected) {
+                    return;
+                }
+                const boList = [];
+                if(result && result.length > 0){
+                    for(let i = 0; i < result.length; i++){
+                        const quoteBO = new QuoteBO();
+                        if(result[i].log){
+                            result[i].log = await crypt.decrypt(result[i].log)
+                        }
+                        await quoteBO.#dbTableORM.convertJSONColumns(result[i]);
+                        const resp = await quoteBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                            log.error(`loadFromApplicationId error loading object: ` + err + __location);
+                            //not reject on issues from database object.
+                            //reject(err);
+                        })
+                        if(!resp){
+                            log.debug("Bad BO load" + __location)
+                        }
+                        boList.push(quoteBO);
+                    }
+                    resolve(boList);
+                }
+                else {
+                    // no records is normal.
+                    resolve([]);
+                }
+
+            }
+            else {
+                reject(new Error('no applicationId supplied'))
+            }
+        });
+    }
+
+
     DeleteByApplicationId(applicationId) {
         return new Promise(async(resolve, reject) => {
             //Remove old records.
@@ -157,6 +214,32 @@ module.exports = class ApplicationClaimModel {
         });
     }
 
+
+    async getMongoDocbyMysqlId(mysqlId) {
+        return new Promise(async(resolve, reject) => {
+            if (mysqlId) {
+                const query = {
+                    "mysqlId": mysqlId,
+                    active: true
+                };
+                let quoteDoc = null;
+                try {
+                    const docDB = await Quote.findOne(query, '-__v');
+                    if (docDB) {
+                        quoteDoc = mongoUtils.objCleanup(docDB);
+                    }
+                }
+                catch (err) {
+                    log.error("Getting Application error " + err + __location);
+                    reject(err);
+                }
+                resolve(quoteDoc);
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
 
     async cleanupInput(inputJSON) {
         for (const property in properties) {
@@ -195,6 +278,7 @@ module.exports = class ApplicationClaimModel {
    */
     async loadORM(inputJSON) {
         await this.#dbTableORM.load(inputJSON, skipCheckRequired);
+        this.updateProperty();
         return true;
     }
 
@@ -291,6 +375,15 @@ const properties = {
         "type": "number",
         "dbType": "tinyint(4) unsigned"
     },
+    "aggregated_status": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(50)"
+    },
     "status": {
         "default": null,
         "encrypted": false,
@@ -320,12 +413,12 @@ const properties = {
     },
     "log": {
         "default": "",
-        "encrypted": false,
+        "encrypted": true,
         "hashed": false,
         "required": true,
         "rules": null,
         "type": "string",
-        "dbType": "mediumblob"
+        "dbType": "blob"
     },
     "payment_plan": {
         "default": null,
@@ -418,6 +511,7 @@ const properties = {
         "dbType": "int(11) unsigned"
     }
 }
+
 
 class DbTableOrm extends DatabaseObject {
 

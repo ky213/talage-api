@@ -42,11 +42,14 @@ const QuestionTypeBO = global.requireShared('./models/QuestionType-BO.js');
 
 const ApplicationQuestionBO = global.requireShared('./models/ApplicationQuestion-BO.js');
 
+
 const colors = require('colors');
+
 
 const logger = global.requireShared('/services/logger.js');
 const db = global.requireShared('/services/db.js');
 const globalSettings = require('./settings.js');
+const { debug } = require('request');
 
 
 /**
@@ -333,7 +336,7 @@ async function processClaims(appId, applicationJSON){
     const applicationClaimBO = new ApplicationClaimBO()
     let claimList = null
     try{
-        claimList = applicationClaimBO.loadFromApplicationId(appId);
+        claimList = await applicationClaimBO.loadFromApplicationId(appId);
     }
     catch(err){
         log.error("get claims " + err + __location);
@@ -463,6 +466,123 @@ async function processBusinessToMongo(businessId, applicationJSON){
     return;
 }
 
+async function processQuotes(appId, applicationDoc){
+    const QuoteBO = global.requireShared('./models/Quote-BO.js');
+    const QuoteLimitBO = global.requireShared('./models/QuoteLimit-BO.js');
+    var Quote = require('mongoose').model('Quote');
+    const quoteBO = new QuoteBO()
+    const quoteLimitBO = new QuoteLimitBO();
+    let quoteList = null
+    try{
+        quoteList = await quoteBO.loadFromApplicationId(appId);
+    }
+    catch(err){
+        log.error("get quotes " + err + __location);
+    }
+    // log.debug("quoteList: " + JSON.stringify(quoteList));
+    if(quoteList && quoteList.length > 0){
+
+        for(let i = 0; i < quoteList.length; i++){
+            let quoteMysql = quoteList[i];
+            const mysqlId = quoteMysql.id;
+            let quoteJSON = {};
+            let newMongoDoc = true;
+            let applicationJSON = {};
+            try{
+                const mongoApp = await quoteBO.getMongoDocbyMysqlId(mysqlId)
+                if(mongoApp){
+                    quoteJSON = mongoApp;
+                    newMongoDoc = false;
+                }
+            }
+            catch(err){
+                log.error("Getting mongo application error " + err + __location)
+            }
+            quoteJSON.applicationId = applicationDoc.applicationId;
+            quoteJSON.mysqlId = quoteMysql.id;
+            quoteJSON.mysqlAppId = quoteMysql.application;
+            quoteJSON.insurerId = quoteMysql.insurer;
+
+            for (const prop in quoteMysql) {
+                //check if snake_case
+                if(prop.isSnakeCase()){
+                    quoteJSON[prop.toCamelCase()] = quoteMysql[prop];
+                }
+                else {
+                    quoteJSON[prop] = quoteMysql[prop];
+                }
+            }
+            quoteJSON.applicationId = applicationDoc.applicationId;
+            quoteJSON.mysqlId = quoteMysql.id;
+            quoteJSON.mysqlAppId = quoteMysql.application;
+            quoteJSON.insurerId = quoteMysql.insurer;
+
+            quoteJSON.packageTypeId = quoteMysql.package_type;
+            quoteJSON.quoteNumber = quoteMysql.number;
+            quoteJSON.paymentPlanId = quoteMysql.payment_plan;
+            quoteJSON.policyType = quoteMysql.policy_type;
+
+            //limit procressing
+            
+            try{
+                const quoteLimitMysqlList = await quoteLimitBO.loadFromQuoteId(mysqlId)
+                
+                if(quoteLimitMysqlList.length > 0){
+                    if(!quoteJSON.limits){
+                        quoteJSON.limits = [];
+                    }
+                    for(let j = 0; j < quoteLimitMysqlList.length; j++){
+                        const limitJSON = {
+                            limitId: quoteLimitMysqlList[j].limit,
+                            amount:  quoteLimitMysqlList[j].amount
+                        }
+                        quoteJSON.limits.push(limitJSON)
+                    }
+                }
+            }
+            catch(err){
+                log.error("Error processing limits")
+            }
+
+            //save QuoteDoc
+            const quote = new Quote(quoteJSON)
+
+            if(newMongoDoc){
+                await quote.save().catch(function(err){
+                    log.error('Mongo Quote Save err ' + err + __location);
+                });
+                log.debug("inserted quote " + quote.quoteId);
+            }
+            else {
+                try {
+                    const updatequoteDoc = JSON.parse(JSON.stringify(quote));
+                    const changeNotUpdateList = ["active",
+                        "_id",
+                        "id",
+                        "mysqlId",
+                        "quoteId",
+                        "uuid"]
+                    for (let j = 0; j < changeNotUpdateList.length; j++) {
+                        if (updatequoteDoc[changeNotUpdateList[j]]) {
+                            delete updatequoteDoc[changeNotUpdateList[j]];
+                        }
+                    }
+                    const query = {"quoteId": quoteJSON.quoteId};
+                    await Quote.updateOne(query, updatequoteDoc);
+                    log.debug("UPDATED: quote " + quote.quoteId);
+                }
+                catch(err){
+                    log.error("Updating Application error " + err + __location);
+                    throw err;
+                }
+
+            }
+        }
+    }
+
+    return;
+}
+
 
 // update clw_talage_applications record.
 async function updateMysqlRecord(id) {
@@ -563,12 +683,12 @@ async function runFunction() {
             await processQuestions(applicationBO.id, applicationJSON)
 
 
-            log.debug("applicationMongo: ")
+            //log.debug("applicationMongo: ")
             // log.debug("")
             // log.debug(JSON.stringify(applicationJSON))
-            log.debug("")
+            // log.debug("")
             let application = new Application(applicationJSON);
-            log.debug("insert application Doc: " + JSON.stringify(application))
+            // log.debug("insert application Doc: " + JSON.stringify(application))
             if(newMongoDoc){
                 await application.save().catch(function(err) {
                     log.error('Mongo Application Save err ' + err + __location);
@@ -603,7 +723,7 @@ async function runFunction() {
 
 
             //Process Quotes
-
+            await processQuotes(applicationBO.id, application)
 
             //update mysql as copied
             //updateMysqlRecord

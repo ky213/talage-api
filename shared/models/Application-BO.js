@@ -35,7 +35,7 @@ const taskEmailBindAgency = global.requireRootPath('tasksystem/task-emailbindage
 var Application = require('mongoose').model('Application');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
-const crypt = global.requireShared('./services/crypt.js');
+//const crypt = global.requireShared('./services/crypt.js');
 
 //const moment = require('moment');
 const {'v4': uuidv4} = require('uuid');
