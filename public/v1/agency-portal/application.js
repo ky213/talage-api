@@ -1,3 +1,4 @@
+/* eslint-disable dot-notation */
 /* eslint-disable require-jsdoc */
 'use strict';
 const crypt = global.requireShared('./services/crypt.js');
@@ -9,6 +10,7 @@ const ApplicationBO = global.requireShared('models/Application-BO.js');
 const ApplicationQuoting = global.requireRootPath('public/v1/quote/helpers/models/Application.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
+const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
 const status = global.requireShared('./models/application-businesslogic/status.js');
 const jwt = require('jsonwebtoken');
 const {loggers} = require('winston');
@@ -782,6 +784,248 @@ async function GetQuestions(req, res, next){
 
 }
 
+/**
+ * GET returns resources Quote Engine needs
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function GetResources(req, res, next){
+    const responseObj = {};
+    let rejected = false;
+    const sql = `select id, introtext from clw_content where id in (10,11)`
+    const result = await db.query(sql).catch(function(error) {
+        // Check if this was
+        rejected = true;
+        log.error(`clw_content error on select ` + error + __location);
+    });
+    if (!rejected) {
+        const legalArticles = {};
+        for(let i = 0; i < result.length; i++){
+            const dbRec = result[0];
+            legalArticles[dbRec.id] = dbRec
+        }
+        responseObj.legalArticles = legalArticles;
+    }
+    rejected = false;
+    const sql2 = `select abbr as type,description,heading, name from clw_talage_policy_types where abbr in ('BOP', 'GL', 'WC')`
+    const result2 = await db.query(sql2).catch(function(error) {
+        // Check if this was
+        rejected = true;
+        log.error(`clw_talage_policy_types error on select ` + error + __location);
+    });
+    if (!rejected) {
+        responseObj.policyTypes = result2;
+    }
+
+    rejected = false;
+    const sql3 = `select abbr, name from clw_talage_territories`
+    const result3 = await db.query(sql3).catch(function(error) {
+        // Check if this was
+        rejected = true;
+        log.error(`clw_talage_territories error on select ` + error + __location);
+    });
+    if (!rejected) {
+        responseObj.territories = result3;
+    }
+    responseObj.limits = {
+        "GL": [
+            {
+                "key": "1000000/1000000/1000000",
+                "value": "$1,000,000 / $1,000,000 / $1,000,000"
+            },
+            {
+                "key": "1000000/2000000/1000000",
+                "value": "$1,000,000 / $2,000,000 / $1,000,000"
+            },
+            {
+                "key": "1000000/2000000/2000000",
+                "value": "$1,000,000 / $2,000,000 / $2,000,000"
+            }
+        ],
+        "WC": [
+            {
+                "key": "100000/500000/100000",
+                "value": "$100,000 / $500,000 / $100,000"
+            },
+            {
+                "key": "500000/500000/500000",
+                "value": "$500,000 / $500,000 / $500,000"
+            },
+            {
+                "key": "500000/1000000/500000",
+                "value": "$500,000 / $1,000,000 / $500,000"
+            },
+            {
+                "key": "1000000/1000000/1000000",
+                "value": "$1,000,000 / $1,000,000 / $1,000,000"
+            }
+        ]
+    };
+
+
+    res.send(200, responseObj);
+    return next();
+
+
+}
+
+/**
+ * GET returns resources Quote Engine needs
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function CheckZip(req, res, next){
+    const responseObj = {};
+    if(req.body && req.body.zip){
+        let rejected = false;
+        //make sure we have a valid zip code
+        const zipCodeBO = new ZipCodeBO();
+        let error = null;
+        const zipCode = stringFunctions.santizeNumber(req.body.zip, false);
+        if(!zipCode){
+            responseObj['error'] = true;
+            responseObj['message'] = 'The zip code you entered is invalid.';
+            res.send(404, responseObj);
+            return next(serverHelper.requestError('The zip code you entered is invalid.'));
+        }
+
+        await zipCodeBO.loadByZipCode(zipCode).catch(function(err) {
+            error = err;
+            log.error("Unable to get ZipCode records for " + req.body.zip + err + __location);
+        });
+        if (error) {
+            if(error.message === "not found"){
+                responseObj['error'] = true;
+                responseObj['message'] = 'The zip code you entered is invalid.';
+                res.send(404, responseObj);
+                return next(serverHelper.requestError('The zip code you entered is invalid.'));
+
+            }
+            else {
+                responseObj['error'] = true;
+                responseObj['message'] = 'internal error.';
+                res.send(500, responseObj);
+                return next(serverHelper.requestError('internal error'));
+            }
+        }
+
+        // log.debug("zipCodeBO: " + JSON.stringify(zipCodeBO.cleanJSON()))
+
+        // Check if we have coverage.
+        const sql = `select  z.territory, t.name, t.licensed 
+            from clw_talage_zip_codes z
+            inner join clw_talage_territories t  on z.territory = t.abbr
+            where z.zip  = ${db.escape(req.body.zip)}`;
+        const result = await db.query(sql).catch(function(err) {
+            // Check if this was
+            rejected = true;
+            log.error(`clw_content error on select ` + err + __location);
+        });
+        if (!rejected) {
+            if(result && result.length > 0){
+                responseObj.territory = result[0].territory
+                if(result[0].licensed === 1){
+                    responseObj['error'] = false;
+                    responseObj['message'] = '';
+                }
+                else {
+                    responseObj['error'] = true;
+                    responseObj['message'] = 'We do not currently provide coverage in ' + responseObj.territory;
+                }
+                res.send(200, responseObj);
+                return next();
+
+            }
+            else {
+                responseObj['error'] = true;
+                responseObj['message'] = 'The zip code you entered is invalid.';
+                res.send(404, responseObj);
+                return next(serverHelper.requestError('The zip code you entered is invalid.'));
+            }
+        }
+        else {
+            responseObj['error'] = true;
+            responseObj['message'] = 'internal error.';
+            res.send(500, responseObj);
+            return next(serverHelper.requestError('internal error'));
+        }
+    }
+    else {
+        responseObj['error'] = true;
+        responseObj['message'] = 'Invalid input received.';
+        res.send(400, responseObj);
+        return next(serverHelper.requestError('Bad request'));
+    }
+
+}
+
+/**
+ * GET returns associations Quote Engine needs
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function GetAssociations(req, res, next){
+    const responseObj = {};
+    if(req.query && req.query.territories){
+
+        const territoryList = req.query.territories.split(',')
+        var inList = new Array(territoryList.length).fill('?').join(',');
+        let rejected = false;
+        const sql = `select  a.id, a.name
+            from clw_talage_associations a
+            inner join clw_talage_association_territories at on at.association = a.id
+            where a.state  = 1
+            AND at.territory in (${inList})
+            order by a.name ASC`;
+
+        const result = await db.queryParam(sql,territoryList).catch(function(error) {
+            // Check if this was
+            rejected = true;
+            log.error(`clw_content error on select ` + error + __location);
+        });
+        if (!rejected) {
+            if(result && result.length > 0){
+                responseObj['error'] = false;
+                responseObj['message'] = '';
+                responseObj['associations'] = result;
+                res.send(200, responseObj);
+                return next();
+
+            }
+            else {
+                responseObj['error'] = true;
+                responseObj['message'] = 'No associations returned.';
+                res.send(404, responseObj);
+            }
+        }
+        else {
+            responseObj['error'] = true;
+            responseObj['message'] = 'internal error.';
+            res.send(500, responseObj);
+            return next(serverHelper.requestError('internal error'));
+        }
+    }
+    else {
+        responseObj['error'] = true;
+        responseObj['message'] = 'Invalid input received.';
+        res.send(400, responseObj);
+        return next(serverHelper.requestError('Bad request'));
+    }
+
+}
+
 
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
@@ -792,4 +1036,9 @@ exports.registerEndpoint = (server, basePath) => {
     server.addDeleteAuth('DELETE Application', `${basePath}/application/:id`, deleteObject, 'applications', 'manage');
 
     server.addGetAuth('GetQuestions for AP Application', `${basePath}/application/:id/questions`, GetQuestions, 'applications', 'manage')
+
+    server.addGetAuth('Get Agency Application Resources', `${basePath}/application/getresources`, GetResources)
+    server.addGetAuth('GetAssociations', `${basePath}/application/getassociations`, GetAssociations)
+    server.addPostAuth('Checkzip for Quote Engine', `${basePath}/application/checkzip`, CheckZip)
+
 };
