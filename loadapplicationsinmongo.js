@@ -49,7 +49,7 @@ const colors = require('colors');
 const logger = global.requireShared('/services/logger.js');
 const db = global.requireShared('/services/db.js');
 const globalSettings = require('./settings.js');
-const { debug } = require('request');
+const {debug} = require('request');
 
 
 /**
@@ -523,10 +523,10 @@ async function processQuotes(appId, applicationDoc){
             quoteJSON.policyType = quoteMysql.policy_type;
 
             //limit procressing
-            
+
             try{
                 const quoteLimitMysqlList = await quoteLimitBO.loadFromQuoteId(mysqlId)
-                
+
                 if(quoteLimitMysqlList.length > 0){
                     if(!quoteJSON.limits){
                         quoteJSON.limits = [];
