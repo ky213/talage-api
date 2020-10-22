@@ -2,7 +2,6 @@
 /* eslint-disable require-jsdoc */
 'use strict';
 
-//const PdfPrinter = require('pdfmake');
 //const crypt = global.requireShared('./services/crypt.js');
 const wc = require('./acordhelpers/wc.js');
 const gl = require('./acordhelpers/gl.js');

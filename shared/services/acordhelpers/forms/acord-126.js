@@ -3,9 +3,9 @@
 const pdftk = require('node-pdftk');
 const path = require('path');
 
-exports.createACORD126 = async function(dataObj){
+exports.create = async function(dataObj){
 
-    const sourcePDFString = path.resolve(__dirname, 'pdf/acord-126.pdf');
+    const sourcePDFString = path.resolve(__dirname, '../pdf/acord-126.pdf');
 
     let form = null;
     try{

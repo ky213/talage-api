@@ -6,7 +6,6 @@ const insurerBO = global.requireShared('./models/Insurer-BO.js');
 const businessBO = global.requireShared('./models/Business-model.js');
 const businessAddressBO = global.requireShared('./models/BusinessAddress-model.js');
 const applicationQuestionBO = global.requireShared('./models/ApplicationQuestion-BO.js');
-const questionBO = global.requireShared('./models/Question-BO.js');
 
 
 exports.dataInit = async function(applicationId, insurerId){
@@ -28,7 +27,7 @@ exports.dataInit = async function(applicationId, insurerId){
     const addresses = await businessAddresses.loadFromBusinessId(application.business);
 
     const applicationQuestionsBO = new applicationQuestionBO();
-    const applicationQuestionList = await questionsBO.loadFromApplicationId(applicationId);
+    const applicationQuestionList = await applicationQuestionsBO.loadFromApplicationId(applicationId);
 
 
     const dataObj = {
@@ -38,6 +37,8 @@ exports.dataInit = async function(applicationId, insurerId){
         business: business,
         businessAddressList: addresses
     }
+
+    return dataObj;
 
 }
 
