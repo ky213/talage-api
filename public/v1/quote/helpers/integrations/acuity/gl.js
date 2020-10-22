@@ -126,15 +126,6 @@ module.exports = class AcuityGL extends Integration {
         // </CommlName>
         // </NameInfo>
 
-        // Add full name for a sole proprietorship
-        if (this.app.business.entity_type === 'Sole Proprietorship') {
-            // <PersonName>
-            const PersonNameSP = NameInfo.ele('PersonName');
-            PersonNameSP.ele('GivenName', this.app.business.contacts[0].first_name);
-            PersonNameSP.ele('Surname', this.app.business.contacts[0].last_name);
-            // </PersonName>
-        }
-
         // <Addr>
         let Addr = GeneralPartyInfo.ele('Addr');
         Addr.ele('Addr1', '300 South Wells Ave., Suite 4');
@@ -175,6 +166,15 @@ module.exports = class AcuityGL extends Integration {
         // </CommlName>
 
         NameInfo.ele('LegalEntityCd', entityMatrix[this.app.business.entity_type]);
+
+        // Add full name for a sole proprietorship
+        if (this.app.business.entity_type === 'Sole Proprietorship') {
+            // <PersonName>
+            const PersonNameSP = NameInfo.ele('PersonName');
+            PersonNameSP.ele('GivenName', this.app.business.contacts[0].first_name);
+            PersonNameSP.ele('Surname', this.app.business.contacts[0].last_name);
+            // </PersonName>
+        }
 
         // <TaxIdentity>
         const TaxIdentity = NameInfo.ele('TaxIdentity');
