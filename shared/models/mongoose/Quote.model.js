@@ -26,7 +26,7 @@ const QuoteSchema = new Schema({
     mysqlAppId: {type: Number},
     policyType: {type: String, required: true},
     insurerId: {type: Number, required: true},
-    quoteNumber: {type: Number},
+    quoteNumber: {type: String},
     packageTypeId: {type: Number},
     requestId: {type: String},
     amount: {type: Number},
