@@ -184,7 +184,7 @@ async function Save(req, res, next){
                         }
                     }
                     else {
-                        log.warn(`no mongo doc for this application after save ${applicationModel.id}` + __location);
+                        log.warn(`no mongo doc for this application after save ${applicationModel.id} step: ${applicationRequestJson.step} ` + __location);
                         log.warn(JSON.stringify(appDoc));
                     }
                 }

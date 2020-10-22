@@ -420,10 +420,11 @@ module.exports = class ApplicationModel {
             this.mapToMongooseJSON(applicationJSON)
             if(this.#applicationMongooseDB){
                 //update
-                this.updateMongo(this.#applicationMongooseDB.applicationId, this.#applicationMongooseJSON)
-            } else {
-                //insert 
-                this.insertMongo(this.#applicationMongooseJSON)
+                await this.updateMongo(this.#applicationMongooseDB.applicationId, this.#applicationMongooseJSON)
+            }
+            else {
+                //insert
+                await this.insertMongo(this.#applicationMongooseJSON)
             }
 
             if(workflowStep === "contact"){
