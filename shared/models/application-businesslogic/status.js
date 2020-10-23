@@ -1,5 +1,5 @@
 'use strict';
-
+const QuoteBO = global.requireShared('./models/Quote-BO.js');
 
 
 
@@ -13,13 +13,9 @@ async function updateQuoteAggregatedStatus(quote) {
     const aggregatedStatus = getQuoteAggregatedStatus(quote.bound, quote.status, quote.api_result);
     if (aggregatedStatus !== quote.aggregated_status) {
         quote.aggregated_status = aggregatedStatus;
-        const sql = `
-			UPDATE clw_talage_quotes
-			SET aggregated_status = ${db.escape(aggregatedStatus)}
-			WHERE id = ${quote.id}
-		`;
+        const quoteBO = new QuoteBO();
         try {
-            await db.query(sql);
+            await quoteBO.updateQuoteAggregatedStatus(quote.id, aggregatedStatus);
         }
         catch (error) {
             log.error(`Could not update quote ${quote.id} aggregated status: ${error} ${__location}`);

@@ -1071,8 +1071,10 @@ module.exports = class ApplicationModel {
 
                     });
                     const quoteUpdate = {
+                        "id": quoteModel.id,
                         "status": "bind_requested",
-                        "payment_plan": quote.payment
+                        "payment_plan": quote.payment,
+                        "applicationId": this.#applicationMongooseDB.applicationId
                     }
                     await quoteModel.saveModel(quoteUpdate).catch(function(err) {
                         log.error(`Updating  quote with status and payment plan quote ${quote.quote} error:` + err + __location);
