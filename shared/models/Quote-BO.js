@@ -32,9 +32,12 @@ module.exports = class QuoteBO {
    */
     saveModel(newObjectJSON) {
         return new Promise(async(resolve, reject) => {
+
             if (!newObjectJSON) {
                 reject(new Error(`empty ${tableName} object given`));
             }
+            let newDoc = true;
+            let quoteDocDB = null;
             await this.cleanupInput(newObjectJSON);
             if (newObjectJSON.id) {
                 await this.#dbTableORM.getById(newObjectJSON.id).catch(function(err) {
@@ -44,6 +47,13 @@ module.exports = class QuoteBO {
                 });
                 this.updateProperty();
                 this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
+                newDoc = false;
+                const query = {"mysqlId": newObjectJSON.id}
+                quoteDocDB = await Quote.findOne(query).catch(function(err) {
+                    log.error("Mongo quote load error " + err + __location);
+                });
+
+
             }
             else {
                 this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
@@ -55,6 +65,20 @@ module.exports = class QuoteBO {
             this.updateProperty();
             this.id = this.#dbTableORM.id;
 
+            //save mongo.
+            try{
+                if(newDoc){
+                    newObjectJSON.mysqlId = this.id;
+                    newObjectJSON.mysqlAppId = this.application;
+                    await this.insertMongo(newObjectJSON);
+                }
+                else {
+                    await this.updateMongo(quoteDocDB.quoteId, newObjectJSON);
+                }
+            }
+            catch(err){
+                log.error("Error Saving Mongo Quote " + err + __location);
+            }
 
             resolve(true);
 
@@ -241,6 +265,103 @@ module.exports = class QuoteBO {
         });
     }
 
+    async updateMongo(quoteId, newObjectJSON) {
+        if (quoteId) {
+            if (typeof newObjectJSON === "object") {
+                const changeNotUpdateList = ["active",
+                    "id",
+                    "mysqlId",
+                    "mysqlAppId",
+                    "quoteId",
+                    "applicationId",
+                    "uuid"]
+                for (let i = 0; i < changeNotUpdateList.length; i++) {
+                    if (newObjectJSON[changeNotUpdateList[i]]) {
+                        delete newObjectJSON[changeNotUpdateList[i]];
+                    }
+                }
+                const query = {"quoteId": quoteId};
+                let newQuoteJSON = null;
+                try {
+                    //because Virtual Sets.  new need to get the model and save.
+                    // const quote = new Quote(newObjectJSON);
+                    await Quote.updateOne(query, newObjectJSON);
+                    const newQuotedoc = await Quote.findOne(query);
+                    newQuoteJSON = mongoUtils.objCleanup(newQuotedoc);
+                }
+                catch (err) {
+                    log.error("Updating Application error " + err + __location);
+                    throw err;
+                }
+                //
+
+
+                return newQuoteJSON;
+            }
+            else {
+                throw new Error('no newObjectJSON supplied')
+            }
+
+        }
+        else {
+            throw new Error('no id supplied')
+        }
+        // return true;
+
+    }
+
+    async insertMongo(newObjectJSON) {
+        if (!newObjectJSON) {
+            throw new Error("no data supplied");
+        }
+
+        //covers quote app WF where mysql saves first.
+        if (!newObjectJSON.applicationId && newObjectJSON.uuid) {
+            newObjectJSON.applicationId = newObjectJSON.uuid;
+        }
+
+        const quote = new Quote(newObjectJSON);
+        //log.debug("insert application: " + JSON.stringify(application))
+        //Insert a doc
+        await quote.save().catch(function(err) {
+            log.error('Mongo Application Save err ' + err + __location);
+            throw err;
+        });
+
+
+        return mongoUtils.objCleanup(application);
+    }
+
+    async updateQuoteAggregatedStatus(quoteId, aggregatedStatus) {
+        if(quoteId && aggregatedStatus){
+            const sql = `
+                UPDATE clw_talage_quotes
+                SET aggregated_status = ${db.escape(aggregatedStatus)}
+                WHERE id = ${quoteId}
+            `;
+            try {
+                await db.query(sql);
+                log.info(`Updated Mysql clw_talage_quotes.aggregated_status on  ${quoteId}` + __location);
+            }
+            catch (err) {
+                log.error(`Could not mysql update quote ${quoteId} aggregated status: ${err} ${__location}`);
+
+            }
+            // update Mongo
+            try{
+                const query = {"mysqlId": quoteId};
+                const updateJSON = {"aggregatedStatus": aggregatedStatus};
+                await Quote.updateOne(query, updateJSON);
+                log.info(`Update Mongo QuoteDoc aggregated status on mysqlId: ${quoteId}` + __location);
+            }
+            catch(err){
+                log.error(`Could not update mongo quote ${quoteId} aggregated status: ${err} ${__location}`);
+                throw err;
+            }
+        }
+        return true;
+    }
+
     async cleanupInput(inputJSON) {
         for (const property in properties) {
             if (inputJSON[property]) {
@@ -269,6 +390,7 @@ module.exports = class QuoteBO {
             this[property] = dbJSON[property];
         }
     }
+
 
     /**
    * Load new object JSON into ORM. can be used to filter JSON to object properties
