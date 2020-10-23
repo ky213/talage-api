@@ -65,6 +65,12 @@
                             <TaxIdTypeCd>FEIN</TaxIdTypeCd>
                             <TaxId>{{:app.business.locations[0].identification_number}}</TaxId>
                         </TaxIdentity>
+                        {{if app.business.entity_type === 'Sole Proprietorship'}}
+                        <PersonName>
+                            <GivenName>{{:app.business.contacts[0].first_name}}</GivenName>
+                            <Surname>{{:app.business.contacts[0].last_name}}</Surname>
+                        </PersonName>
+                        {{/if}}
                     </NameInfo>
                     <Addr>
                         <AddrTypeCd>MailingAddress</AddrTypeCd>
@@ -226,9 +232,10 @@
                     <WorkCompLocInfo LocationRef="L{{:#index + 1}}">
 						{{for ~location.activity_codes itemVar='~activityCode'}}
                         <WorkCompRateClass>
-                            <RatingClassificationCd>{{:~activityCode.ncciCode}}</RatingClassificationCd>
+                            {{!--                            <RatingClassificationCd>{{:~activityCode.ncciCode}}</RatingClassificationCd> --}}
+                            <RatingClassificationCd>561720</RatingClassificationCd>
                             <Exposure>{{:~activityCode.payroll}}</Exposure>
-                            <RatingClassificationDesc>{{:~activityCode.ncciCodeDescription}}</RatingClassificationDesc>
+                            {{!--                            <RatingClassificationDesc>{{:~activityCode.ncciCodeDescription}}</RatingClassificationDesc> --}}
                         </WorkCompRateClass>
 						{{/for}}
                     </WorkCompLocInfo>

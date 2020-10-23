@@ -1716,9 +1716,10 @@ module.exports = class Integration {
 	 * @param {string} path - The path at the host name we are sending to (the parts after the /, including the query string, if any)
 	 * @param {string} xml - The XML to be sent
 	 * @param {object} additional_headers (optional) - Additional headers to be sent with the request
+	 * @param {boolean} dumpRawXML (optional) - Dump the raw XML response to the console
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
 	 */
-    async send_xml_request(host, path, xml, additional_headers) {
+    async send_xml_request(host, path, xml, additional_headers, dumpRawXML = false) {
         // return new Promise(async(fulfill, reject) => {
         // If we don't have additional headers, start an object to append
         if (!additional_headers) {
@@ -1745,6 +1746,11 @@ module.exports = class Integration {
         }
         // Convert the data to a string
         const str_data = raw_data.toString();
+
+        if (dumpRawXML) {
+            // eslint-disable-next-line no-console
+            console.log(xmlFormatter(str_data, {collapseContent: true}));
+        }
 
         // Convert the response to XML
         let result = null;

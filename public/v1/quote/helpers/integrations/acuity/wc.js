@@ -167,7 +167,7 @@ module.exports = class AcuityWC extends Integration {
         catch (error) {
             return this.client_error('Unable to create the request to send to the insurer', __location);
         }
-
+        console.log("Request", xml);
         // Determine which URL to use
         let host = '';
         if (this.insurer.useSandbox) {
@@ -186,7 +186,7 @@ module.exports = class AcuityWC extends Integration {
             result = await this.send_xml_request(host, path, xml, {
                 'X-IBM-Client-Id': this.username,
                 'X-IBM-Client-Secret': this.password
-            });
+            }, true);
         }
         catch (error) {
             return this.client_connection_error(__location);
