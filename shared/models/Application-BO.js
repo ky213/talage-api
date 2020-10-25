@@ -1624,7 +1624,7 @@ module.exports = class ApplicationModel {
     }
 
     async updateMongoWithMysqlId(mysqlId, newObjectJSON) {
-        
+
         //Get applicationId.
         let applicationDoc = null;
         try {
@@ -1711,6 +1711,14 @@ module.exports = class ApplicationModel {
         if (!newObjectJSON) {
             throw new Error("no data supplied");
         }
+        //force mongo/mongoose insert
+        if(newObjectJSON._id) {
+            delete newObjectJSON._id
+        }
+        if(newObjectJSON.id) {
+            delete newObjectJSON.id
+        }
+
 
         //covers quote app WF where mysql saves first.
         if (!newObjectJSON.applicationId && newObjectJSON.uuid) {
@@ -1808,6 +1816,8 @@ module.exports = class ApplicationModel {
         //save application
         await this.cleanupInput(applicationJSON);
         const propMappingsApp = {
+            processStateOld: "state",
+            lastStep: "last_step",
             mailingCity: "city",
             "mailingState": "state_abbr",
             mailingZipcode: "zipcode",
@@ -2424,7 +2434,7 @@ module.exports = class ApplicationModel {
         }
     }
 
-    async getMongoDocbyMysqlId(mysqlId) {
+    async getMongoDocbyMysqlId(mysqlId, returnMongooseModel = false) {
         return new Promise(async(resolve, reject) => {
             if (this.#applicationMongooseDB && this.#applicationMongooseDB.mysqlId) {
                 return this.#applicationMongooseDB;
@@ -2435,8 +2445,9 @@ module.exports = class ApplicationModel {
                     active: true
                 };
                 let appllicationDoc = null;
+                let docDB = null;
                 try {
-                    const docDB = await Application.findOne(query, '-__v');
+                    docDB = await Application.findOne(query, '-__v');
                     if (docDB) {
                         this.#applicationMongooseDB = docDB
                         appllicationDoc = mongoUtils.objCleanup(docDB);
@@ -2446,7 +2457,13 @@ module.exports = class ApplicationModel {
                     log.error("Getting Application error " + err + __location);
                     reject(err);
                 }
-                resolve(appllicationDoc);
+                if(returnMongooseModel){
+                    resolve(docDB);
+                }
+                else {
+                    resolve(appllicationDoc);
+                }
+
             }
             else {
                 reject(new Error('no id supplied'))
@@ -2493,6 +2510,18 @@ module.exports = class ApplicationModel {
                 this[property] = dbJSON[property];
             }
         }
+    }
+
+    //
+    // Load new object JSON into ORM. can be used to filter JSON to object properties
+    //
+    // @param {object} inputJSON - input JSON
+    // @returns {void}
+    //
+    async loadORM(inputJSON) {
+        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
+        this.updateProperty();
+        return true;
     }
     // copyToMongo(id){
 

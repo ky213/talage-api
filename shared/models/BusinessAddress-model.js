@@ -162,7 +162,7 @@ module.exports = class BusinessAddressModel{
                     resolve(addressList);
                 }
                 else {
-                    log.debug("not found loadFromBusinessId: " + sql);
+                    //log.debug("not found loadFromBusinessId: " + sql);
                     reject(new Error("not found"));
                     return
                 }

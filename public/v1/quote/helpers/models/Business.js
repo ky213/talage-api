@@ -11,6 +11,7 @@ const Location = require('./Location.js');
 const moment = require('moment');
 //const {reject} = require('async');
 const validator = global.requireShared('./helpers/validator.js');
+const crypt = global.requireShared('./services/crypt.js');
 
 //const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
 
@@ -211,7 +212,7 @@ module.exports = class Business {
 
     }
 
- /**
+    /**
 	 * Populates this object with data from the database
 	 *
 	 * @param {int} id - The id of the business

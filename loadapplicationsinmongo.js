@@ -493,7 +493,8 @@ async function processBusinessToMongo(businessId, applicationJSON){
     if(businessJSON){
         const businessInfoMapping = {
             entity_type: "entityType",
-            "mailing_state_abbr": "mailingState"
+            "mailing_state_abbr": "mailingState",
+            "name": "businessName"
         }
         mapToMongooseJSON(businessJSON, applicationJSON, businessInfoMapping);
     }

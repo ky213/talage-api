@@ -49,10 +49,10 @@ const locationSchema = new Schema({
 })
 
 const ownerSchema = new Schema({
-    birthdate: {type: Date, required: true},
+    birthdate: {type: Date, required: false},
     fname: {type: String, required: true},
     lname: {type: String, required: true},
-    ownership: {type: Number, required: true},
+    ownership: {type: Number, required: false},
     officerTitle: {type: String}
 })
 
