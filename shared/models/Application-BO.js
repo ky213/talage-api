@@ -205,7 +205,7 @@ module.exports = class ApplicationModel {
                         return;
                     }
                 }
-                else {
+                else if(bypassAgeCheck === false){
                     log.warn(`Application missing created value. appid ${applicationJSON.id}` + __location);
                 }
                 // if Application has been Quoted and this is an earlier step
@@ -355,6 +355,7 @@ module.exports = class ApplicationModel {
                     //TODO details setup Mapping to Mongoose Model not we already have one loaded.
                     let updatePolicies = false;
                     //defaults
+                    this.#applicationMongooseJSON.ein = applicationJSON.ein
                     applicationJSON.coverageLapseWC = false;
                     applicationJSON.coverageLapseNonPayment = false;
                     if (applicationJSON.coverage_lapse === 1) {
@@ -1380,10 +1381,6 @@ module.exports = class ApplicationModel {
                 this.processLocationsMongo(businessJSON.locations);
                 try {
                     this.updateMongo(this.#applicationMongooseDB.applicationId, this.#applicationMongooseJSON)
-                    // if(this.#applicationMongooseDB){
-                    //     this.#applicationMongooseDB.locations = this.#applicationMongooseJSON.locations;
-                    //     await this.#applicationMongooseDB.save()
-                    // }
                 }
                 catch (err) {
                     log.error("Error Mapping AF Business Data to Mongo Saving " + err + __location);
@@ -1627,7 +1624,7 @@ module.exports = class ApplicationModel {
     }
 
     async updateMongoWithMysqlId(mysqlId, newObjectJSON) {
-        //TODO ----
+        
         //Get applicationId.
         let applicationDoc = null;
         try {
@@ -1671,6 +1668,7 @@ module.exports = class ApplicationModel {
                     // Only EIN is virtual...
                     if (newObjectJSON.ein && newApplicationdoc) {
                         newApplicationdoc.ein = newObjectJSON.ein
+                        log.debug("updating ein ");
                         await newApplicationdoc.save().catch(function(err) {
                             log.error('Mongo Application Save for Virtuals err ' + err + __location);
                             throw err;
