@@ -81,7 +81,8 @@ module.exports = class QuoteBind{
             // }
 
             this.send_slack_notification('requested');
-            resolve("NotBound");
+            fulfill("NotBound");
+            return
         });
     }
 
@@ -106,9 +107,6 @@ module.exports = class QuoteBind{
                 return;
             }
 
-            // Add an agent and business to the application
-            // this.app.agencyLocation = new AgencyLocation();
-            // this.app.business = new Business();
 
             // Attempt to get the details of this quote from the database
             let had_error = false;
@@ -145,73 +143,6 @@ module.exports = class QuoteBind{
             });
 
 
-            // const sql = `
-            // 	SELECT
-            // 		\`a\`.\`agency_location\`,
-            // 		\`a\`.\`business\`,
-            // 		\`a\`.\`wholesale\`,
-            // 		\`q\`.\`insurer\`,
-            // 		\`q\`.\`amount\`,
-            // 		\`q\`.\`api_result\`,
-            // 		\`q\`.\`application\`,
-            // 		\`q\`.\`bound\`,
-            // 		\`q\`.\`id\`,
-            // 		\`q\`.\`policy_type\`
-            // 	FROM \`#__quotes\` AS \`q\`
-            // 	LEFT JOIN \`#__applications\` AS \`a\` ON \`a\`.\`id\` = \`q\`.\`application\`
-            // 	WHERE \`q\`.\`id\` = ${db.escape(parseInt(id, 10))} AND \`q\`.\`state\` = 1 LIMIT 1;`;
-            // const rows = await db.query(sql).catch(function(error){
-            //     log.error("load quote error " + error + __location);
-            //     had_error = true;
-            // });
-
-            // // Make sure we found the quote, if nott, the ID is bad
-            // if(had_error || !rows || rows.length !== 1){
-            //     reject(new Error('Invalid quote ID'));
-            //     return;
-            // }
-
-            // // Store the data locally
-            // for(const property in rows[0]){
-            //     // Make sure this property is part of the rows[0] object
-            //     if(!Object.prototype.hasOwnProperty.call(rows[0], property)){
-            //         continue;
-            //     }
-
-            //     switch(property){
-            //         case 'agency_location':
-            //             // Add the agent as an ID of the agent
-            //             this.app.agencyLocation.id = rows[0].wholesale === 1 || rows[0][property] === null ? 1 : rows[0][property];
-            //             continue;
-            //         case 'application':
-            //             // Store the application as the ID of the application object
-            //             this.app.id = rows[0][property];
-            //             continue;
-            //         case 'business':
-            //             // Initialize the business with this ID
-            //             await this.app.business.load_by_id(rows[0][property]).catch(function(error){// eslint-disable-line no-await-in-loop,no-loop-func
-            //                 reject(error);
-            //                 had_error = true;
-            //             });
-            //             continue;
-            //         default:
-            //             // Check if this is an policy property
-            //             if(property.startsWith('policy_')){
-            //                 const policy_property = property.replace('policy_', '');
-
-            //                 // Check if this is a property of the insurer object, and if it is, add it
-            //                 if(Object.prototype.hasOwnProperty.call(this.policy, policy_property)){
-            //                     this.policy[policy_property] = rows[0][property];
-            //                 }
-            //             }
-
-            //             // This may be a property of this object, if it is, save the property locally
-            //             if(Object.prototype.hasOwnProperty.call(this, property)){
-            //                 this[property] = rows[0][property];
-            //             }
-            //             break;
-            //     }
-            // }
             if(had_error){
                 return;
             }
@@ -239,14 +170,6 @@ module.exports = class QuoteBind{
             }
             this.payment_plan = payment_plan;
 
-            // // Initialize the agent
-            // await this.agencyLocation.init().catch(function(error){
-            //     reject(error);
-            //     had_error = true;
-            // });
-            // if(had_error){
-            //     return;
-            // }
             fulfill();
         });
     }
