@@ -39,7 +39,7 @@ const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 //const moment = require('moment');
 const {'v4': uuidv4} = require('uuid');
- 
+
 //const {loggers} = require('winston');
 // const { debug } = require('request');
 // const { loggers } = require('winston');
@@ -193,7 +193,8 @@ module.exports = class ApplicationModel {
                     return;
                 }
                 // //Check that it is too old (1 hours) from creation
-                if (this.created) {
+                const bypassAgeCheck = global.settings.ENV === 'development' && global.settings.APPLICATION_AGE_CHECK_BYPASS === 'YES';
+                if (this.created && bypassAgeCheck === false) {
                     const dbCreated = moment(this.created);
                     const nowTime = moment().utc();
                     const ageInMinutes = nowTime.diff(dbCreated, 'minutes');
@@ -352,9 +353,30 @@ module.exports = class ApplicationModel {
                 case 'details':
                     updateBusiness = true;
                     //TODO details setup Mapping to Mongoose Model not we already have one loaded.
+                    let updatePolicies = false;
+                    //defaults
+                    applicationJSON.coverageLapseWC = false;
+                    applicationJSON.coverageLapseNonPayment = false;
                     if (applicationJSON.coverage_lapse === 1) {
                         applicationJSON.coverageLapseWC = true;
-                        //TODO update policy info
+                        updatePolicies = true;
+                    }
+                    if (applicationJSON.coverage_lapse_non_payment === 1) {
+                        applicationJSON.coverageLapseNonPayment = true;
+                        updatePolicies = true;
+                    }
+                    if(updatePolicies){
+                        if(this.#applicationMongooseDB.policies && this.#applicationMongooseDB.policies.length > 0){
+                            for(let i = 0; i < this.#applicationMongooseDB.policies.length; i++){
+                                let policy = this.#applicationMongooseDB.policies[i];
+                                //if(policy.policyType === "WC"){
+                                policy.coverageLapse = applicationJSON.coverageLapseWC;
+                                policy.coverageLapseNonPayment = applicationJSON.coverageLapseNonPayment;
+                                //}
+                            }
+                            //update working/request applicationMongooseJSON so it saves.
+                            this.#applicationMongooseJSON.policies = this.#applicationMongooseDB.policies
+                        }
                     }
                     break;
                 case 'claims':
@@ -500,8 +522,10 @@ module.exports = class ApplicationModel {
             "id": "mysqlId",
             "state": "processStateOld",
             "coverage_lapse": "coverageLapseWC",
+            coverage_lapse_non_payment: "coverageLapseNonPayment",
             "primary_territory": "primaryState"
         }
+
         for (const sourceProp in sourceJSON) {
             if (typeof sourceJSON[sourceProp] !== "object") {
                 if (propMappings[sourceProp]) {
@@ -705,6 +729,7 @@ module.exports = class ApplicationModel {
             for (let i = 0; i < policyTypeArray.length; i++) {
                 const policyType = policyTypeArray[i];
                 const policyTypeJSON = {"policyType": policyType}
+
                 if (policyType === "GL") {
                     //GL limit and date fields.
                     policyTypeJSON.effectiveDate = applicationJSON.gl_effective_date
@@ -718,8 +743,12 @@ module.exports = class ApplicationModel {
                     policyTypeJSON.effectiveDate = applicationJSON.wc_effective_date
                     policyTypeJSON.expirationDate = applicationJSON.wc_expiration_date
                     policyTypeJSON.limits = applicationJSON.wc_limits
-                    policyTypeJSON.coverageLapse = applicationJSON.coverageLapse
-
+                    if(applicationJSON.coverageLapse || applicationJSON.coverageLapse === false){
+                        policyTypeJSON.coverageLapse = applicationJSON.coverageLapse
+                    }
+                    if(applicationJSON.coverage_lapse_non_payment || applicationJSON.coverage_lapse_non_payment === false){
+                        policyTypeJSON.coverageLapseNonPayment = applicationJSON.coverage_lapse_non_payment
+                    }
                 }
                 else if (policyType === "BOP") {
                     policyTypeJSON.effectiveDate = applicationJSON.bop_effective_date
@@ -767,7 +796,10 @@ module.exports = class ApplicationModel {
             const location = this.#applicationMongooseJSON.locations[i];
             for (const locationProp in location) {
                 //not in map check....
-                if (!businessInfoMapping[locationProp]) {
+                if (businessInfoMapping[locationProp]) {
+                    location[businessInfoMapping[locationProp]] = location[locationProp];
+                }
+                else {
                     if (locationProp.isSnakeCase()) {
                         location[locationProp.toCamelCase()] = location[locationProp];
                     }
@@ -2780,7 +2812,6 @@ const properties = {
         "required": false,
         "rules": null,
         "type": "number",
-        "dbType": "tinyint(1)",
         "dbType": "tinyint(1)"
     },
     "additional_insured": {
@@ -2900,14 +2931,6 @@ const properties = {
         "required": false,
         "rules": null,
         "type": "string",
-        "dbType": "date"
-    },
-    "eo_effective_date": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "date",
         "dbType": "date"
     },
     "eo_expiration_date": {

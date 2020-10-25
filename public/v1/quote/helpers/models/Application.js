@@ -24,7 +24,6 @@ const helper = global.requireShared('./helpers/helper.js');
 
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
-const ApplicationPolicyTypeBO = global.requireShared('./models/ApplicationPolicyType-BO.js');
 const ApplicationQuestionBO = global.requireShared('./models/ApplicationQuestion-BO.js');
 
 module.exports = class Application {
@@ -35,7 +34,7 @@ module.exports = class Application {
         this.insurers = [];
         this.policies = [];
         this.questions = {};
-        this.applicationData = {};
+        this.applicationDocData = {};
     }
 
     /**
@@ -46,42 +45,44 @@ module.exports = class Application {
 	 * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
 	 */
     async load(data, forceQuoting = false) {
-        log.verbose('Loading data into Application');
+        log.debug('Loading data into Application');
         // ID
+        //TODO detect ID type integer or uuid
         this.id = parseInt(data.id, 10);
 
         // load application from database.
         let error = null
         let applicationBO = new ApplicationBO();
-        await applicationBO.loadFromId(this.id).catch(function(err) {
-            error = err;
-            log.error("Unable to get application for quoting appId: " + data.id + __location);
-        });
+        // await applicationBO.loadFromId(this.id).catch(function(err) {
+        //     error = err;
+        //     log.error("Unable to get application for quoting appId: " + data.id + __location);
+        // });
 
-        if (error) {
-            throw error;
-        }
-        //LastStep check. TODO which to appStatusId.
-        // this.state > 15, 16 is finished.
-        if(applicationBO.state > 15){
-            log.warn("An attempt to quote application that is finished.")
-            throw new Error("Finished Application cannot be quoted")
-
-        }
+        // if (error) {
+        //     throw error;
+        // }
 
         try{
-            this.applicationData = await applicationBO.loadfromMongoBymysqlId(this.id);
+            this.applicationDocData = await applicationBO.loadfromMongoBymysqlId(this.id);
             log.debug("Quote Application added applicationData")
         }
         catch(err){
             log.error("Unable to get applicationData for quoting appId: " + data.id + __location);
+            throw err;
         }
 
+
+        //LastStep check. TODO which to appStatusId.
+        // appStatusId > 70 is finished.(request to bind)
+        if(this.applicationDocData.appStatusId >= 70){
+            log.warn("An attempt to quote application that is finished.")
+            throw new Error("Finished Application cannot be quoted")
+        }
 
         //age check - add override Age parameter to allow requoting.
         if (forceQuoting === false){
             const bypassAgeCheck = global.settings.ENV === 'development' && global.settings.APPLICATION_AGE_CHECK_BYPASS === 'YES';
-            const dbCreated = moment(applicationBO.created);
+            const dbCreated = moment(this.applicationDocData.createdAt);
             const nowTime = moment().utc();
             const ageInMinutes = nowTime.diff(dbCreated, 'minutes');
             log.debug('Application age in minutes ' + ageInMinutes);
@@ -95,7 +96,7 @@ module.exports = class Application {
         // Load the business information
         this.business = new Business();
         try {
-            await this.business.load(applicationBO.business, applicationBO);
+            await this.business.load(this.applicationDocData);
         }
         catch (err) {
             log.error(`Unable to load the business for application ${this.id}: ${err} ${__location}`);
@@ -106,44 +107,40 @@ module.exports = class Application {
         // eslint-disable-next-line prefer-const
         let appPolicyTypeList = [];
         // Load the policy information
-
-        let applicationPolicyTypeBO = new ApplicationPolicyTypeBO()
-        let policyTypeList = await applicationPolicyTypeBO.loadFromApplicationId(this.id).catch(function(err) {
-            error = err;
-            log.error("Unable to load list of applicationPolicyTypeBO for quoting appId: " + data.id + __location);
-        });
-        if (error) {
-            throw error;
+        try{
+            for (let i = 0; i < this.applicationDocData.policies.length; i++) {
+                //const policyTypeBO = policyTypeList[i];
+                const policyJSON = this.applicationDocData.policies[i];
+                const p = new Policy();
+                await p.load(policyJSON, this.business,this.applicationDocData);
+                this.policies.push(p);
+                appPolicyTypeList.push(policyJSON.policyType);
+            }
         }
-        for (let i = 0; i < policyTypeList.length; i++) {
-            const policyTypeBO = policyTypeList[i];
-            const p = new Policy(this.business);
-            await p.load(policyTypeBO, this.id, applicationBO);
-            this.policies.push(p);
-            appPolicyTypeList.push(policyTypeBO.policy_type);
+        catch(err){
+            log.error("Quote Application Model loading policy err " + err + __location);
+            throw err;
         }
 
-        // data.policies.forEach((policy) => {
-        //     const p = new Policy(this.business);
-        //     p.load(policy);
-        //     this.policies.push(p);
-        //     appPolicyTypeList.push(p.type);
-        // });
+
+
         //update business with policy type list.
         this.business.setPolicyTypeList(appPolicyTypeList);
         // Agent
         this.agencyLocation = new AgencyLocation(this.business, this.policies);
         // Note: The front-end is sending in 'agent' but this is really a reference to the 'agency location'
-        if (applicationBO.agency_location) {
-            await this.agencyLocation.load({id: applicationBO.agency_location});
+        if (this.applicationDocData.agencyLocationId) {
+            await this.agencyLocation.load({id: this.applicationDocData.agencyLocationId});
         }
         else {
-            await this.agencyLocation.load({id: 1}); // This is Talage's agency location record
+            log.error(`Missing agencyLocationId application ${this.id} ${__location}`);
+            throw new Error(`Missing agencyLocationId application ${this.id}`);
         }
 
         //this.questions = data.questions;
         let applicationQuestionBO = new ApplicationQuestionBO();
         const GET_QUESTION_LIST = true;
+        //TODO bet frm ApplicationBO applicationDocData
         this.questions = await applicationQuestionBO.loadFromApplicationId(this.id,GET_QUESTION_LIST).catch(function(err){
             log.error("Quote Application error get question list " + err + __location);
             error = err;

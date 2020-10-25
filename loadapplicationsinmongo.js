@@ -287,7 +287,8 @@ async function processPolicies(appId, applicationJSON, applicationBO) {
                 policyTypeJSON.effectiveDate = applicationBO.wc_effective_date
                 policyTypeJSON.expirationDate = applicationBO.wc_expiration_date
                 policyTypeJSON.limits = applicationBO.wc_limits
-                policyTypeJSON.coverageLapse = applicationBO.coverageLapse
+                policyTypeJSON.coverageLapse = applicationBO.coverage_lapse
+                policyTypeJSON.coverageLapseNonPayment = applicationBO.coverage_lapse_non_payment
 
             }
             else if (policyType === "BOP") {

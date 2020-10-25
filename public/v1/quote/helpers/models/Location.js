@@ -39,69 +39,69 @@ module.exports = class Location {
     /**
 	 * Populates this object with data from the request
 	 *
-	 * @param {object} data - The business data
+	 * @param {object} locationDocJson - The Location from Mongoose Application Model
 	 * @returns {void}
 	 */
-    async load(data) {
+    async load(locationDocJson) {
         Object.keys(this).forEach((property) => {
-            if (!Object.prototype.hasOwnProperty.call(data, property)) {
+            if (!Object.prototype.hasOwnProperty.call(locationDocJson, property)) {
                 return;
             }
 
             // Trim whitespace
-            if (typeof data[property] === 'string') {
-                data[property] = data[property].trim();
+            if (typeof locationDocJson[property] === 'string') {
+                locationDocJson[property] = locationDocJson[property].trim();
             }
 
             // Perform property specific tasks
-            switch (property) {
-                case "identification_number":
-                    this[property] = data.ein;
-                    break;
-                case 'activity_codes':
-                    if (data.activity_codes) {
-                        data.activity_codes.forEach((c) => {
-                            // Check if we have already seen this activity code
-                            let match = false;
-                            const tmp_id = parseInt(c.id, 10);
-                            this.activity_codes.forEach(function(code) {
-                                if (tmp_id === code.id) {
-                                    match = true;
+            if (locationDocJson[property] && typeof locationDocJson[property] !== 'object') {
+                switch (property) {
+                    case "identification_number":
+                        this[property] = locationDocJson.ein;
+                        break;
 
-                                    // Seems convoluted, but we need to sanitize this payroll value
-                                    const tmp_payroll = code.payroll;
-                                    code.load(c);
-                                    code.payroll += tmp_payroll;
-                                }
-                            });
-
-                            // If the activity code is new, add it
-                            if (!match) {
-                                const activity_code = new ActivityCode();
-                                activity_code.load(c);
-                                this.activity_codes.push(activity_code);
-                            }
-                        });
-                    }
-                    break;
-                case 'full_time_employees':
-                case 'part_time_employees':
-                case 'square_footage':
-                case 'year_built':
-                    this[property] = parseInt(data[property], 10);
-                    break;
-                default:
-                    if(data[property]){
-                        this[property] = data[property];
-                    }
-                    break;
+                    case 'full_time_employees':
+                    case 'part_time_employees':
+                    case 'square_footage':
+                    case 'year_built':
+                        this[property] = parseInt(locationDocJson[property], 10);
+                        break;
+                    default:
+                        if(locationDocJson[property]){
+                            this[property] = locationDocJson[property];
+                        }
+                        break;
+                }
             }
         }); //object loop
         //backward compatible for integration code.
-        this.zip = this.zipcode;
-        this.territory = this.state_abbr;
+        this.zip = locationDocJson.zipcode;
+        this.territory = locationDocJson.state;
+         this.state_abbr = locationDocJson.state;
         this.unemployment_number = this.unemployment_num;
         //log.debug("Location finished load " + JSON.stringify(this));
+        // 'activity_codes':
+        if (locationDocJson.activityPayrollList && locationDocJson.activityPayrollList.length > 0) {
+            locationDocJson.activityPayrollList.forEach((c) => {
+                // Check if we have already seen this activity code
+                let match = false;
+                const tmp_id = parseInt(c.ncciCode, 10);
+                this.activity_codes.forEach(function(code) {
+                    if (tmp_id === code.ncciCode) {
+                        match = true;
+                        code.load(c);
+                    }
+                });
+
+                // If the activity code is new, add it
+                if (!match) {
+                    const activity_code = new ActivityCode();
+                    activity_code.load(c);
+                    this.activity_codes.push(activity_code);
+                }
+            });
+        }
+
     }
 
     setPolicyTypeList(appPolicyTypeList){

@@ -20,42 +20,18 @@ module.exports = class ActivityCode{
     /**
 	 * Populates this object with data from the request
 	 *
-	 * @param {object} data - The business data
+	 * @param {object} locationActiviyCodeDocJson - The business data
 	 * @returns {void}
 	 */
-    load(data){
-        Object.keys(this).forEach((property) => {
-            if(!Object.prototype.hasOwnProperty.call(data, property)){
-                return;
-            }
-
-            // Trim whitespace
-            if(typeof data[property] === 'string'){
-                data[property] = data[property].trim();
-            }
-
-            switch(property){
-                case 'id':
-                    this[property] = parseInt(data.ncci_code, 10);
-                    break;
-                case 'payroll':
-                    if(typeof data[property] === 'string'){
-                        // Strip out dollar signs or commas
-                        data[property] = data[property].replace('$', '').replace(/,/g, '');
-
-                        // Parse the string as a Float
-                        data[property] = parseFloat(data[property]);
-                    }
-
-                    // Round to the nearest integer
-                    this[property] = Math.round(data[property]);
-                    break;
-                default:
-                    this[property] = data[property];
-                    break;
-            }
-
-        });
+    load(locationActiviyCodeDocJson){
+        // locationActiviyCodeDocJson from Mongoose Application Model
+        this.id = locationActiviyCodeDocJson.ncciCode;
+        if(locationActiviyCodeDocJson.payroll > 0){
+            this.payroll += locationActiviyCodeDocJson.payroll;
+        }
+        if(locationActiviyCodeDocJson.ownerPayRoll > 0){
+            this.payroll += locationActiviyCodeDocJson.ownerPayRoll;
+        }
     }
 
     /**

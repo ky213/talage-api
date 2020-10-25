@@ -3,28 +3,26 @@
  */
 
 'use strict';
-
-const AgencyLocation = require('./AgencyLocation.js');
-const Business = require('./Business.js');
-const Application = require('./Application.js');
+const ApplicationBO = global.requireShared('./models/Application-BO.js');
+const QuoteBO = global.requireShared('./models/Quote-BO.js');
+const AgencyBO = global.requireShared('./models/Agency-BO.js');
+const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 const Insurer = require('./Insurer.js');
-const Policy = require('./Policy.js');
-const fs = require('fs');
+
+//const fs = require('fs');
+const { resolve } = require('path');
 const slack = global.requireShared('./services/slacksvc.js');
-const serverHelper = require('../../../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
 
 module.exports = class QuoteBind{
 
     constructor(){
-        this.amount = 0;
-        this.api_result = '';
-        this.app = new Application();
-        this.bound = 0;
-        this.id = 0;
+        this.applicationDoc = {}
+        this.quoteDoc = {};
+        this.agencyJSON = {};
         this.insurer = {};
         this.paymnet_plan = 0;
-        this.policy = new Policy(null);
+        this.agencyLocation = null;
     }
 
     /**
@@ -34,49 +32,56 @@ module.exports = class QuoteBind{
 	 */
     bind(){
         return new Promise(async(fulfill, reject) => {
-
+            if(!this.quoteDoc){
+                log.error('Missing QuoteDoc ' + __location);
+                reject(new Error('Qoute not Found. No action taken.'));
+                return;
+            }
             // Make sure this quote is not already bound
-            if(this.bound){
+            if(this.quoteDoc && this.quoteDoc.bound){
                 log.info('Quote already bound' + __location);
-                reject(serverHelper.requestError('Quote already bound. No action taken.'));
+                reject(new Error('Quote already bound. No action taken.'));
                 return;
             }
 
             // Make sure that this quote was quoted by the API
-            if(this.api_result !== 'quoted'){
+            if(this.quoteDoc.apiResult !== 'quoted'){
                 // If this was a price indication, let's send a Slack message
-                if(this.api_result === 'referred_with_price'){
+                if(this.quoteDoc.apiResult === 'referred_with_price'){
                     this.send_slack_notification('indication');
                 }
 
                 // Return an error
-                log.info(`Quotes with an api_result of '${this.api_result}' are not eligible to be bound.`);
-                reject(serverHelper.requestError('Quote not eligible for binding'));
+                log.info(`Quotes with an api_result of '$this.quoteDoc.apiResult}' are not eligible to be bound.`);
+                reject(new Error('Quote not eligible for binding'));
                 return;
             }
+            // NO auto binding as of Oct 24, 2020.
+            // // Check that an integration file exists for this insurer and store a reference to it for later use
+            // const path = `${__dirname}/../integrations/${this.insurer.slug}/${this.quoteDoc.policyType.toLowerCase()}.js`;
+            // if(fs.existsSync(path)){
 
-            // Check that an integration file exists for this insurer and store a reference to it for later use
-            const path = `${__dirname}/../integrations/${this.insurer.slug}/${this.policy.type.toLowerCase()}.js`;
-            if(fs.existsSync(path)){
+            //     // Create an instance of the Integration class
+            //     const IntegrationClass = require(path);
+            //     const integration = new IntegrationClass(this.app, this.insurer, this.policy);
+            //     // Begin the binding process
+            //     await integration.bind().then((result) => {
+            //         this.send_slack_notification(result.toLowerCase());
+            //         fulfill(result);
+            //     }, (error) => {
+            //         this.send_slack_notification('requested');
+            //         reject(error);
+            //     });
+            // }
+            // else{
+            //     // The insurer does not support bind, just send a requested Slack message
+            //     log.error(`bind request: Invalid path to integration ${path}` + __location);
+            //     this.send_slack_notification('requested');
+            //     reject(new Error("Invalid path to integration"));
+            // }
 
-                // Create an instance of the Integration class
-                const IntegrationClass = require(path);
-                const integration = new IntegrationClass(this.app, this.insurer, this.policy);
-                // Begin the binding process
-                await integration.bind().then((result) => {
-                    this.send_slack_notification(result.toLowerCase());
-                    fulfill(result);
-                }, (error) => {
-                    this.send_slack_notification('requested');
-                    reject(error);
-                });
-            }
-            else{
-                // The insurer does not support bind, just send a requested Slack message
-                log.error(`bind request: Invalid path to integration ${path}` + __location);
-                this.send_slack_notification('requested');
-                reject(new Error("Invalid path to integration"));
-            }
+            this.send_slack_notification('requested');
+            resolve("NotBound");
         });
     }
 
@@ -91,96 +96,129 @@ module.exports = class QuoteBind{
         return new Promise(async(fulfill, reject) => {
             // Validate the ID
             if(!await validator.isID(id)){
-                reject(serverHelper.requestError('Invalid quote ID'));
+                reject(new Error('Invalid quote ID'));
                 return;
             }
 
             // Validate the payment plan
             if(!await validator.payment_plan(payment_plan)){
-                reject(serverHelper.requestError('Invalid payment plan'));
+                reject(new Error('Invalid payment plan'));
                 return;
             }
 
             // Add an agent and business to the application
-            this.app.agencyLocation = new AgencyLocation();
-            this.app.business = new Business();
+            // this.app.agencyLocation = new AgencyLocation();
+            // this.app.business = new Business();
 
             // Attempt to get the details of this quote from the database
             let had_error = false;
-            const sql = `
-				SELECT
-					\`a\`.\`agency_location\`,
-					\`a\`.\`business\`,
-					\`a\`.\`wholesale\`,
-					\`q\`.\`insurer\`,
-					\`q\`.\`amount\`,
-					\`q\`.\`api_result\`,
-					\`q\`.\`application\`,
-					\`q\`.\`bound\`,
-					\`q\`.\`id\`,
-					\`q\`.\`policy_type\`
-				FROM \`#__quotes\` AS \`q\`
-				LEFT JOIN \`#__applications\` AS \`a\` ON \`a\`.\`id\` = \`q\`.\`application\`
-				WHERE \`q\`.\`id\` = ${db.escape(parseInt(id, 10))} AND \`q\`.\`state\` = 1 LIMIT 1;`;
-            const rows = await db.query(sql).catch(function(error){
-                log.error("load quote error " + error + __location);
+            //USE BO's
+            const quoteModel = new QuoteBO();
+            this.quoteDoc = await quoteModel.getMongoDocbyMysqlId(parseInt(id, 10)).catch(function(err) {
+                log.error(`Loading quote for bind request quote ${id} error:` + err + __location);
+                //reject(err);
+                //return;
                 had_error = true;
             });
 
-            // Make sure we found the quote, if nott, the ID is bad
-            if(had_error || !rows || rows.length !== 1){
-                reject(serverHelper.requestError('Invalid quote ID'));
+            if(had_error){
                 return;
             }
 
-            // Store the data locally
-            for(const property in rows[0]){
-                // Make sure this property is part of the rows[0] object
-                if(!Object.prototype.hasOwnProperty.call(rows[0], property)){
-                    continue;
-                }
 
-                switch(property){
-                    case 'agency_location':
-                        // Add the agent as an ID of the agent
-                        this.app.agencyLocation.id = rows[0].wholesale === 1 || rows[0][property] === null ? 1 : rows[0][property];
-                        continue;
-                    case 'application':
-                        // Store the application as the ID of the application object
-                        this.app.id = rows[0][property];
-                        continue;
-                    case 'business':
-                        // Initialize the business with this ID
-                        await this.app.business.load_by_id(rows[0][property]).catch(function(error){// eslint-disable-line no-await-in-loop,no-loop-func
-                            reject(error);
-                            had_error = true;
-                        });
-                        continue;
-                    default:
-                        // Check if this is an policy property
-                        if(property.startsWith('policy_')){
-                            const policy_property = property.replace('policy_', '');
-
-                            // Check if this is a property of the insurer object, and if it is, add it
-                            if(Object.prototype.hasOwnProperty.call(this.policy, policy_property)){
-                                this.policy[policy_property] = rows[0][property];
-                            }
-                        }
-
-                        // This may be a property of this object, if it is, save the property locally
-                        if(Object.prototype.hasOwnProperty.call(this, property)){
-                            this[property] = rows[0][property];
-                        }
-                        break;
-                }
+            const applicationBO = new ApplicationBO();
+            try{
+                this.applicationDoc = await applicationBO.getfromMongoByAppId(this.quoteDoc.applicationId);
+                log.debug("Quote Application added applicationData")
             }
+            catch(err){
+                log.error("Unable to get applicationData for binding appId: " + id + __location);
+                return;
+
+            }
+
+            const agencyBO = new AgencyBO();
+            // Load the request data into it
+            this.agencyJSON = await agencyBO.getById(this.applicationDoc.agencyId).catch(function(err) {
+                log.error("Agency load for bind error " + err + __location);
+                had_error = true;
+            });
+
+
+            // const sql = `
+            // 	SELECT
+            // 		\`a\`.\`agency_location\`,
+            // 		\`a\`.\`business\`,
+            // 		\`a\`.\`wholesale\`,
+            // 		\`q\`.\`insurer\`,
+            // 		\`q\`.\`amount\`,
+            // 		\`q\`.\`api_result\`,
+            // 		\`q\`.\`application\`,
+            // 		\`q\`.\`bound\`,
+            // 		\`q\`.\`id\`,
+            // 		\`q\`.\`policy_type\`
+            // 	FROM \`#__quotes\` AS \`q\`
+            // 	LEFT JOIN \`#__applications\` AS \`a\` ON \`a\`.\`id\` = \`q\`.\`application\`
+            // 	WHERE \`q\`.\`id\` = ${db.escape(parseInt(id, 10))} AND \`q\`.\`state\` = 1 LIMIT 1;`;
+            // const rows = await db.query(sql).catch(function(error){
+            //     log.error("load quote error " + error + __location);
+            //     had_error = true;
+            // });
+
+            // // Make sure we found the quote, if nott, the ID is bad
+            // if(had_error || !rows || rows.length !== 1){
+            //     reject(new Error('Invalid quote ID'));
+            //     return;
+            // }
+
+            // // Store the data locally
+            // for(const property in rows[0]){
+            //     // Make sure this property is part of the rows[0] object
+            //     if(!Object.prototype.hasOwnProperty.call(rows[0], property)){
+            //         continue;
+            //     }
+
+            //     switch(property){
+            //         case 'agency_location':
+            //             // Add the agent as an ID of the agent
+            //             this.app.agencyLocation.id = rows[0].wholesale === 1 || rows[0][property] === null ? 1 : rows[0][property];
+            //             continue;
+            //         case 'application':
+            //             // Store the application as the ID of the application object
+            //             this.app.id = rows[0][property];
+            //             continue;
+            //         case 'business':
+            //             // Initialize the business with this ID
+            //             await this.app.business.load_by_id(rows[0][property]).catch(function(error){// eslint-disable-line no-await-in-loop,no-loop-func
+            //                 reject(error);
+            //                 had_error = true;
+            //             });
+            //             continue;
+            //         default:
+            //             // Check if this is an policy property
+            //             if(property.startsWith('policy_')){
+            //                 const policy_property = property.replace('policy_', '');
+
+            //                 // Check if this is a property of the insurer object, and if it is, add it
+            //                 if(Object.prototype.hasOwnProperty.call(this.policy, policy_property)){
+            //                     this.policy[policy_property] = rows[0][property];
+            //                 }
+            //             }
+
+            //             // This may be a property of this object, if it is, save the property locally
+            //             if(Object.prototype.hasOwnProperty.call(this, property)){
+            //                 this[property] = rows[0][property];
+            //             }
+            //             break;
+            //     }
+            // }
             if(had_error){
                 return;
             }
 
             // Load up an insurer based on the ID found
             const insurer = new Insurer();
-            this.insurer = await insurer.init(this.insurer).catch(function(error){
+            this.insurer = await insurer.init(this.quoteDoc.insurerId).catch(function(error){
                 had_error = true;
                 reject(error);
             });
@@ -188,10 +226,6 @@ module.exports = class QuoteBind{
                 return;
             }
 
-            // Translate JSON - does not look like policy.json is used any more.
-            if(this.policy.json){
-                this.policy.json = JSON.parse(this.policy.json);
-            }
 
             // Check that this payment plan belongs to the insurer
             const payment_plan_sql = `SELECT COUNT(\`id\`) FROM \`#__insurer_payment_plans\` WHERE \`payment_plan\` = ${db.escape(parseInt(payment_plan, 10))} AND \`insurer\` = ${db.escape(parseInt(this.insurer.id, 10))} LIMIT 1;`;
@@ -200,19 +234,19 @@ module.exports = class QuoteBind{
                 had_error = true;
             });
             if(had_error || !payment_plan_rows || payment_plan_rows.length !== 1 || !Object.prototype.hasOwnProperty.call(payment_plan_rows[0], 'COUNT(`id`)') || payment_plan_rows[0]['COUNT(`id`)'] !== 1){
-                reject(serverHelper.requestError('Payment plan does not belong to the insurer who provided this quote'));
+                reject(new Error('Payment plan does not belong to the insurer who provided this quote'));
                 return;
             }
             this.payment_plan = payment_plan;
 
-            // Initialize the agent
-            await this.app.agencyLocation.init().catch(function(error){
-                reject(error);
-                had_error = true;
-            });
-            if(had_error){
-                return;
-            }
+            // // Initialize the agent
+            // await this.agencyLocation.init().catch(function(error){
+            //     reject(error);
+            //     had_error = true;
+            // });
+            // if(had_error){
+            //     return;
+            // }
             fulfill();
         });
     }
@@ -227,22 +261,23 @@ module.exports = class QuoteBind{
 
         // Only send a Slack notification if the agent is Talage or if Agency is marked to notify Talage (channel partners)
         //Determine if notifyTalage is enabled for this AgencyLocation Insurer.
-        const notifiyTalage = this.app.agencyLocation.shouldNotifyTalage(this.insurer.id);
+        const agencyLocationBO = new AgencyLocationBO()
+        const notifiyTalage = agencyLocationBO.shouldNotifyTalage(this.applicationDoc.agencyLocationId, this.insurer.id);
         // notifyTalage force a hard match on true. in case something beside a boolan got in there
-        if(this.app.agencyLocation.agencyId <= 2 || notifiyTalage === true){
+        if(this.applicationDoc.agencyId <= 2 || notifiyTalage === true){
             // Build out the 'attachment' for the Slack message
             const attachment = {
-                'application_id': this.app.id,
+                'application_id': this.applicationDoc.applicationId,
                 'fields': [
                     {
                         short: false,
                         title: 'Agency Name',
-                        value: this.app.agencyLocation.agency
+                        value: this.agencyJSON.name
                     },
                     {
                         'short': false,
                         'title': 'Business Name',
-                        'value': this.app.business.name + (this.app.business.dba ? ` (dba. ${this.app.business.dba})` : '')
+                        'value': this.applicationDoc.businessName + (this.applicationDoc.dba ? ` (dba. ${this.applicationDoc.dba})` : '')
                     },
                     {
                         'short': true,
@@ -252,12 +287,12 @@ module.exports = class QuoteBind{
                     {
                         'short': true,
                         'title': 'Premium',
-                        'value': `$${this.amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`
+                        'value': `$${this.quoteDoc.amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`
                     },
                     {
                         'short': true,
                         'title': 'Policy Type',
-                        'value': this.policy.type
+                        'value': this.quoteDoc.policyType
                     }
                 ]
             };

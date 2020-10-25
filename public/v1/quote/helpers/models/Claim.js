@@ -23,18 +23,18 @@ module.exports = class Claim{
     /**
 	 * Populates this object with data from the request
 	 *
-	 * @param {object} claimBO - The business data
+	 * @param {object} claimJSON - The business data
 	 * @returns {void}
 	 */
-    load(claimBO){
+    load(claimJSON){
 
-        this.amountPaid = claimBO.amount_paid;
-        this.amountReserved = claimBO.amount_reserved;
-        this.date = moment(claimBO.date);
+        this.amountPaid = claimJSON.amountPaid;
+        this.amountReserved = claimJSON.amountReserved;
+        this.date = moment(claimJSON.eventDate);
 
         // Worker's Compensation Claims
-        this.missedWork = Boolean(claimBO.missed_work);
-        this.open = Boolean(claimBO.open);
+        this.missedWork = claimJSON.missedWork;
+        this.open = claimJSON.open;
     }
 
     /**

@@ -249,11 +249,12 @@ module.exports = class AgencyLocation {
     supports_application() {
         return new Promise((fulfill, reject) => {
             // Territories
+            //Todo use app applicationDoc
             this.business.locations.forEach((location) => {
                 // log.debug(`this.territories` + JSON.stringify(this.territories))
-                if (!this.territories.includes(location.state_abbr)) {
-                    log.error(`Agent does not have ${location.state_abbr} enabled` + __location);
-                    reject(serverHelper.requestError(`The specified agent is not setup to support this application in territory ${location.state_abbr}.`));
+                if (!this.territories.includes(location.state)) {
+                    log.error(`Agent does not have ${location.state} enabled` + __location);
+                    reject(serverHelper.requestError(`The specified agent is not setup to support this application in territory ${location.state}.`));
 
                 }
             });

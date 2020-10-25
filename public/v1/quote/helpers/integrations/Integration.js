@@ -1766,7 +1766,7 @@ module.exports = class Integration {
                 location.activity_codes.forEach(function(activity_code) {
                     // Check if this code already existed
                     if (!Object.prototype.hasOwnProperty.call(wcCodes, `${location.territory}${activity_code.id}`)) {
-                        wcCodes[`${location.territory}${activity_code.id}`] = {
+                        wcCodes[`${location.state}${activity_code.id}`] = {
                             id: activity_code.id,
                             territory: location.territory
                         };
