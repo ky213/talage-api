@@ -1,3 +1,4 @@
+/* eslint-disable array-element-newline */
 /* eslint-disable object-property-newline */
 /* eslint-disable no-lonely-if */
 /* eslint-disable require-jsdoc */
@@ -158,9 +159,13 @@ async function runFunction() {
 
     const quote_promises = [];
     // eslint-disable-next-line array-element-newline
-    //const appIdList = [11672,11667,11663,11613,11545];
+    //const appIdList = [11672,11667,11663,11613,11545,11685,11426,11428];
+    // const appIdList = [11426,11428,11423,11414,11401,11365];  //older should be on DEV.
+    //Wheelhouse
+    const appIdList = [11426,11428,11423,11414,11401,11365,11333];
 
-    const appIdList = [11545];
+    //Digalent apps
+    //const appIdList = [11477,11472, 11329];
 
     const ApplicationBO = global.requireShared('models/Application-BO.js');
     //var Application = require('mongoose').model('Application');
@@ -187,7 +192,8 @@ async function runFunction() {
                 delete mongoApp.mysqlId
                 //update policies dates
                 const newEffectiveDate = moment().add(1,"months");
-                const newExpirationDate = moment().add(1,"months").add(1,'months');
+                const newExpirationDate = newEffectiveDate.clone().add(1,'years');
+
                 if(mongoApp.policies && mongoApp.policies.length > 0){
                     for(let j = 0; j < mongoApp.policies.length; j++){
                         mongoApp.policies[j].effectiveDate = newEffectiveDate;
