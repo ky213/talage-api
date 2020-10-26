@@ -29,6 +29,7 @@ module.exports = class Location {
         this.square_footage = 0;
         this.territory = '';
         this.zipcode = '';
+        this.state = '';
         this.state_abbr = '';
 
         // WC Only
@@ -77,7 +78,8 @@ module.exports = class Location {
         //backward compatible for integration code.
         this.zip = locationDocJson.zipcode;
         this.territory = locationDocJson.state;
-         this.state_abbr = locationDocJson.state;
+        this.state_abbr = locationDocJson.state;
+        this.state = locationDocJson.state;
         this.unemployment_number = this.unemployment_num;
         //log.debug("Location finished load " + JSON.stringify(this));
         // 'activity_codes':
