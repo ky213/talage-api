@@ -169,6 +169,12 @@ module.exports = class Business {
         this.owners_included = applicationDocJSON.ownersCovered;
         this.years_of_exp = applicationDocJSON.yearsOfExp;
         this.primary_territory = applicationDocJSON.mailingState;
+        this.num_owners = applicationDocJSON.numOwners;
+        //owner number fix
+        if(applicationDocJSON.owners && applicationDocJSON.owners.length > 0 ){
+            this.num_owners = applicationDocJSON.owners.length;
+        }
+
 
         if (applicationDocJSON.contacts && applicationDocJSON.contacts.length > 0) {
             this.phone = applicationDocJSON.contacts[0].phone;
