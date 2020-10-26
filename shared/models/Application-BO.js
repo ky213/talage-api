@@ -225,6 +225,8 @@ module.exports = class ApplicationModel {
 
                 //set uuid on new application
                 applicationJSON.uuid = uuidv4().toString();
+                //prevent overwriting records during import
+                applicationJSON.copied_to_mongo = 1;
                 //Agency Defaults
                 if (applicationJSON.agency_id && !applicationJSON.agency) {
                     applicationJSON.agency = applicationJSON.agency_id
@@ -492,6 +494,7 @@ module.exports = class ApplicationModel {
             this.updateProperty();
             this.id = this.#dbTableORM.id;
             applicationJSON.id = this.id;
+            
             // mongoose model save.
             this.mapToMongooseJSON(applicationJSON)
             if (this.#applicationMongooseDB) {
@@ -793,6 +796,7 @@ module.exports = class ApplicationModel {
     processLocationsMongo(locations) {
         this.#applicationMongooseJSON.locations = locations
         const businessInfoMapping = {"state_abbr": "state"};
+        // Note: square_footage full_time_employees part_time_employees are part of the model.
         for (let i = 0; i < this.#applicationMongooseJSON.locations.length; i++) {
             const location = this.#applicationMongooseJSON.locations[i];
             for (const locationProp in location) {
@@ -1826,7 +1830,8 @@ module.exports = class ApplicationModel {
             "agencyNetworkId": "agency_network"
         };
         this.jsonToSnakeCase(applicationJSON, propMappingsApp);
-
+        //prevent mongo import form overwriting doc.
+        applicationJSON.copied_to_mongo = 1;
         //$app->created_by = $user->id;
         this.#dbTableORM.load(applicationJSON, false).catch(function(err) {
             log.error("Error loading application orm " + err + __location);
