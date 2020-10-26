@@ -41,6 +41,8 @@ const QuoteSchema = new Schema({
     quoteTimeSeconds: {type: Number},
     writer: {type: String},
     limits: [QouteLimitSchema],
+    quoteLink: {type: String},
+    additionalInfo: {type: Schema.Types.Mixed},
     active: {type: Boolean, default: true}
 })
 

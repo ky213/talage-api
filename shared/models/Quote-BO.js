@@ -578,6 +578,24 @@ const properties = {
         "type": "string",
         "dbType": "varchar(50)"
     },
+    "quote_link": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(500)"
+    },
+    "additionalInfo": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "json",
+        "dbType": "json"
+    },
     "created": {
         "default": null,
         "encrypted": false,

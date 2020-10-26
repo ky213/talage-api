@@ -49,6 +49,7 @@ module.exports = class Integration {
         this.seconds = 0;
         this.universal_questions = [];
         this.writer = '';
+        this.quoteLink = '';
 
         // These are set in our insurer integration
         this.possible_api_responses = {};
@@ -1080,6 +1081,7 @@ module.exports = class Integration {
             policyType: this.policy.type,
             quoteTimeSeconds: this.seconds
         }
+        //additionalInfo example
 
         // Amount
         if (amount) {
@@ -1107,6 +1109,11 @@ module.exports = class Integration {
             columns.push('writer');
             values.push(this.writer);
             quoteJSON.writer = this.writer
+        }
+        if(this.quoteLink){
+            columns.push('quote_link');
+            values.push(this.quoteLink);
+            quoteJSON.quoteLink = this.quoteLink
         }
 
         // Error
