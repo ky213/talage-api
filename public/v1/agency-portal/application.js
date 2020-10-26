@@ -831,6 +831,17 @@ async function GetResources(req, res, next){
     if (!rejected) {
         responseObj.territories = result3;
     }
+    rejected = false;
+    const sql4 = `SELECT officerTitle FROM \`officer_titles\``;
+    const result4 = await db.query(sql4).catch(function(error) {
+        // Check if this was
+        rejected = true;
+        log.error(`officer_titles error on select ` + error + __location);
+    });
+    if (!rejected) {
+        responseObj.officerTitles = result4.map(officerTitleObj => officerTitleObj.officerTitle);
+    }
+
     responseObj.limits = {
 		"BOP": [
             {
@@ -880,11 +891,8 @@ async function GetResources(req, res, next){
         ]
     };
 
-
     res.send(200, responseObj);
     return next();
-
-
 }
 
 /**
