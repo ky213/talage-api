@@ -39,7 +39,7 @@ const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 //const moment = require('moment');
 const {'v4': uuidv4} = require('uuid');
- 
+
 //const {loggers} = require('winston');
 // const { debug } = require('request');
 // const { loggers } = require('winston');
@@ -193,7 +193,8 @@ module.exports = class ApplicationModel {
                     return;
                 }
                 // //Check that it is too old (1 hours) from creation
-                if (this.created) {
+                const bypassAgeCheck = global.settings.ENV === 'development' && global.settings.APPLICATION_AGE_CHECK_BYPASS === 'YES';
+                if (this.created && bypassAgeCheck === false) {
                     const dbCreated = moment(this.created);
                     const nowTime = moment().utc();
                     const ageInMinutes = nowTime.diff(dbCreated, 'minutes');
@@ -204,7 +205,7 @@ module.exports = class ApplicationModel {
                         return;
                     }
                 }
-                else {
+                else if(bypassAgeCheck === false){
                     log.warn(`Application missing created value. appid ${applicationJSON.id}` + __location);
                 }
                 // if Application has been Quoted and this is an earlier step
@@ -224,6 +225,8 @@ module.exports = class ApplicationModel {
 
                 //set uuid on new application
                 applicationJSON.uuid = uuidv4().toString();
+                //prevent overwriting records during import
+                applicationJSON.copied_to_mongo = 1;
                 //Agency Defaults
                 if (applicationJSON.agency_id && !applicationJSON.agency) {
                     applicationJSON.agency = applicationJSON.agency_id
@@ -352,9 +355,31 @@ module.exports = class ApplicationModel {
                 case 'details':
                     updateBusiness = true;
                     //TODO details setup Mapping to Mongoose Model not we already have one loaded.
+                    let updatePolicies = false;
+                    //defaults
+                    this.#applicationMongooseJSON.ein = applicationJSON.ein
+                    applicationJSON.coverageLapseWC = false;
+                    applicationJSON.coverageLapseNonPayment = false;
                     if (applicationJSON.coverage_lapse === 1) {
                         applicationJSON.coverageLapseWC = true;
-                        //TODO update policy info
+                        updatePolicies = true;
+                    }
+                    if (applicationJSON.coverage_lapse_non_payment === 1) {
+                        applicationJSON.coverageLapseNonPayment = true;
+                        updatePolicies = true;
+                    }
+                    if(updatePolicies){
+                        if(this.#applicationMongooseDB.policies && this.#applicationMongooseDB.policies.length > 0){
+                            for(let i = 0; i < this.#applicationMongooseDB.policies.length; i++){
+                                let policy = this.#applicationMongooseDB.policies[i];
+                                //if(policy.policyType === "WC"){
+                                policy.coverageLapse = applicationJSON.coverageLapseWC;
+                                policy.coverageLapseNonPayment = applicationJSON.coverageLapseNonPayment;
+                                //}
+                            }
+                            //update working/request applicationMongooseJSON so it saves.
+                            this.#applicationMongooseJSON.policies = this.#applicationMongooseDB.policies
+                        }
                     }
                     break;
                 case 'claims':
@@ -469,6 +494,7 @@ module.exports = class ApplicationModel {
             this.updateProperty();
             this.id = this.#dbTableORM.id;
             applicationJSON.id = this.id;
+            
             // mongoose model save.
             this.mapToMongooseJSON(applicationJSON)
             if (this.#applicationMongooseDB) {
@@ -500,8 +526,10 @@ module.exports = class ApplicationModel {
             "id": "mysqlId",
             "state": "processStateOld",
             "coverage_lapse": "coverageLapseWC",
+            coverage_lapse_non_payment: "coverageLapseNonPayment",
             "primary_territory": "primaryState"
         }
+
         for (const sourceProp in sourceJSON) {
             if (typeof sourceJSON[sourceProp] !== "object") {
                 if (propMappings[sourceProp]) {
@@ -705,6 +733,7 @@ module.exports = class ApplicationModel {
             for (let i = 0; i < policyTypeArray.length; i++) {
                 const policyType = policyTypeArray[i];
                 const policyTypeJSON = {"policyType": policyType}
+
                 if (policyType === "GL") {
                     //GL limit and date fields.
                     policyTypeJSON.effectiveDate = applicationJSON.gl_effective_date
@@ -718,8 +747,12 @@ module.exports = class ApplicationModel {
                     policyTypeJSON.effectiveDate = applicationJSON.wc_effective_date
                     policyTypeJSON.expirationDate = applicationJSON.wc_expiration_date
                     policyTypeJSON.limits = applicationJSON.wc_limits
-                    policyTypeJSON.coverageLapse = applicationJSON.coverageLapse
-
+                    if(applicationJSON.coverageLapse || applicationJSON.coverageLapse === false){
+                        policyTypeJSON.coverageLapse = applicationJSON.coverageLapse
+                    }
+                    if(applicationJSON.coverage_lapse_non_payment || applicationJSON.coverage_lapse_non_payment === false){
+                        policyTypeJSON.coverageLapseNonPayment = applicationJSON.coverage_lapse_non_payment
+                    }
                 }
                 else if (policyType === "BOP") {
                     policyTypeJSON.effectiveDate = applicationJSON.bop_effective_date
@@ -763,11 +796,15 @@ module.exports = class ApplicationModel {
     processLocationsMongo(locations) {
         this.#applicationMongooseJSON.locations = locations
         const businessInfoMapping = {"state_abbr": "state"};
+        // Note: square_footage full_time_employees part_time_employees are part of the model.
         for (let i = 0; i < this.#applicationMongooseJSON.locations.length; i++) {
             const location = this.#applicationMongooseJSON.locations[i];
             for (const locationProp in location) {
                 //not in map check....
-                if (!businessInfoMapping[locationProp]) {
+                if (businessInfoMapping[locationProp]) {
+                    location[businessInfoMapping[locationProp]] = location[locationProp];
+                }
+                else {
                     if (locationProp.isSnakeCase()) {
                         location[locationProp.toCamelCase()] = location[locationProp];
                     }
@@ -1348,10 +1385,6 @@ module.exports = class ApplicationModel {
                 this.processLocationsMongo(businessJSON.locations);
                 try {
                     this.updateMongo(this.#applicationMongooseDB.applicationId, this.#applicationMongooseJSON)
-                    // if(this.#applicationMongooseDB){
-                    //     this.#applicationMongooseDB.locations = this.#applicationMongooseJSON.locations;
-                    //     await this.#applicationMongooseDB.save()
-                    // }
                 }
                 catch (err) {
                     log.error("Error Mapping AF Business Data to Mongo Saving " + err + __location);
@@ -1595,7 +1628,7 @@ module.exports = class ApplicationModel {
     }
 
     async updateMongoWithMysqlId(mysqlId, newObjectJSON) {
-        //TODO ----
+
         //Get applicationId.
         let applicationDoc = null;
         try {
@@ -1639,6 +1672,7 @@ module.exports = class ApplicationModel {
                     // Only EIN is virtual...
                     if (newObjectJSON.ein && newApplicationdoc) {
                         newApplicationdoc.ein = newObjectJSON.ein
+                        log.debug("updating ein ");
                         await newApplicationdoc.save().catch(function(err) {
                             log.error('Mongo Application Save for Virtuals err ' + err + __location);
                             throw err;
@@ -1681,6 +1715,14 @@ module.exports = class ApplicationModel {
         if (!newObjectJSON) {
             throw new Error("no data supplied");
         }
+        //force mongo/mongoose insert
+        if(newObjectJSON._id) {
+            delete newObjectJSON._id
+        }
+        if(newObjectJSON.id) {
+            delete newObjectJSON.id
+        }
+
 
         //covers quote app WF where mysql saves first.
         if (!newObjectJSON.applicationId && newObjectJSON.uuid) {
@@ -1778,6 +1820,8 @@ module.exports = class ApplicationModel {
         //save application
         await this.cleanupInput(applicationJSON);
         const propMappingsApp = {
+            processStateOld: "state",
+            lastStep: "last_step",
             mailingCity: "city",
             "mailingState": "state_abbr",
             mailingZipcode: "zipcode",
@@ -1786,7 +1830,8 @@ module.exports = class ApplicationModel {
             "agencyNetworkId": "agency_network"
         };
         this.jsonToSnakeCase(applicationJSON, propMappingsApp);
-
+        //prevent mongo import form overwriting doc.
+        applicationJSON.copied_to_mongo = 1;
         //$app->created_by = $user->id;
         this.#dbTableORM.load(applicationJSON, false).catch(function(err) {
             log.error("Error loading application orm " + err + __location);
@@ -2394,7 +2439,7 @@ module.exports = class ApplicationModel {
         }
     }
 
-    async getMongoDocbyMysqlId(mysqlId) {
+    async getMongoDocbyMysqlId(mysqlId, returnMongooseModel = false) {
         return new Promise(async(resolve, reject) => {
             if (this.#applicationMongooseDB && this.#applicationMongooseDB.mysqlId) {
                 return this.#applicationMongooseDB;
@@ -2405,8 +2450,9 @@ module.exports = class ApplicationModel {
                     active: true
                 };
                 let appllicationDoc = null;
+                let docDB = null;
                 try {
-                    const docDB = await Application.findOne(query, '-__v');
+                    docDB = await Application.findOne(query, '-__v');
                     if (docDB) {
                         this.#applicationMongooseDB = docDB
                         appllicationDoc = mongoUtils.objCleanup(docDB);
@@ -2416,7 +2462,13 @@ module.exports = class ApplicationModel {
                     log.error("Getting Application error " + err + __location);
                     reject(err);
                 }
-                resolve(appllicationDoc);
+                if(returnMongooseModel){
+                    resolve(docDB);
+                }
+                else {
+                    resolve(appllicationDoc);
+                }
+
             }
             else {
                 reject(new Error('no id supplied'))
@@ -2463,6 +2515,18 @@ module.exports = class ApplicationModel {
                 this[property] = dbJSON[property];
             }
         }
+    }
+
+    //
+    // Load new object JSON into ORM. can be used to filter JSON to object properties
+    //
+    // @param {object} inputJSON - input JSON
+    // @returns {void}
+    //
+    async loadORM(inputJSON) {
+        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
+        this.updateProperty();
+        return true;
     }
     // copyToMongo(id){
 
@@ -2780,7 +2844,6 @@ const properties = {
         "required": false,
         "rules": null,
         "type": "number",
-        "dbType": "tinyint(1)",
         "dbType": "tinyint(1)"
     },
     "additional_insured": {
@@ -2900,14 +2963,6 @@ const properties = {
         "required": false,
         "rules": null,
         "type": "string",
-        "dbType": "date"
-    },
-    "eo_effective_date": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "date",
         "dbType": "date"
     },
     "eo_expiration_date": {

@@ -49,45 +49,12 @@ const locationSchema = new Schema({
 })
 
 const ownerSchema = new Schema({
-    birthdate: {type: Date, required: true},
+    birthdate: {type: Date, required: false},
     fname: {type: String, required: true},
     lname: {type: String, required: true},
-    ownership: {type: Number, required: true},
+    ownership: {type: Number, required: false},
     officerTitle: {type: String}
 })
-
-
-// let BusinessSchema = new Schema({
-//     name: {type: String, required: false},
-//     entityType: {type: String, required: false},
-//     fileNum: {type: String, required: false},
-//     founded: {type: Date, required: false},
-//     hasEin: {type: Boolean, required: true, default: true },
-//     ein: {type: String, required: false},
-//     "mailingAddress": {type: String, required: false},
-//     "mailingAddress2": {type: String, required: false},
-//     "mailingCity": {type: String, required: false},
-//     "mailingState": {type: String, required: false},
-//     "mailingZipcode": {type: String, required: false},
-//     "phone": {type: String, required: false},
-//     "primaryTerritory": {type: String, required: false},
-//     "primaryState": {type: String, required: false},
-//     "website": {type: String, required: false},
-//     "yearsOfExp": {type: Number, required: false},
-//     management_structure: {type: String, required: false},
-//     "numOwners": {type: Number, required: false},
-//     "ownersIncluded": true,
-//     "owners": [ownerSchema],
-//     "unincorporated_association": {type: String, required: false},
-//     experience_modifier: {type: Number, required: false},
-//     ncciNumber: {type: String, required: false},
-//     association: {type: String, required: false},
-//     associationId: {type: String, required: false},
-//     affiliate: {type: String, required: false},
-//     bureauNumber: {type: String, required: false},
-//     locations: [locationSchema]
-
-// })
 
 
 const legalAcceptanceSchema = new Schema({
@@ -115,6 +82,7 @@ const PolicySchema = new Schema({
     deductible: {type: Number, required: false}, //1500,
     coverage: {type: Number, required: false}, // BOP field
     coverageLapse:  {type: Boolean, default: false},
+    coverageLapseNonPayment: {type: Boolean, default: false},
     waiverSubrogation: {type: Boolean, default: false},
     claims:  [claimSchema]
 

@@ -235,11 +235,9 @@ async function getAgency(req, res, next) {
     const agencyNetworkId = agency.agency_network
     log.debug('agencyNetworkId: ' + agencyNetworkId);
 
-    
+
     // Build the response
-    const response = {
-        ...agency
-    };
+    const response = {...agency};
     //log.debug('Get Agency ' + JSON.stringify(response))
 
     // Return the response
@@ -647,8 +645,8 @@ async function updateAgency(req, res, next) {
     if (!agencies.includes(id)) {
         log.info('Forbidden: User is not authorized to delete this agency');
         return next(serverHelper.forbiddenError('You are not authorized to delete this agency'));
-	}
-	
+    }
+
     // Initialize an agency object
     error = null;
     log.debug("saving agency")
@@ -684,24 +682,25 @@ async function postSocialMediaTags(req, res, next) {
         return next(serverHelper.requestError('No data was received'));
     }
 
-    const agencies = await auth.getAgents(req).catch(function (e) {
+    const agencies = await auth.getAgents(req).catch(function(e) {
         error = e;
     });
     const id = parseInt(req.body.id, 10);
 
-        // Make sure this Agency Network has access to this Agency
-        if (!agencies.includes(id)) {
-            log.info('Forbidden: User is not authorized to delete this agency');
-            return next(serverHelper.forbiddenError('You are not authorized to delete this agency'));
-        }
+    // Make sure this Agency Network has access to this Agency
+    if (!agencies.includes(id)) {
+        log.info('Forbidden: User is not authorized to delete this agency');
+        return next(serverHelper.forbiddenError('You are not authorized to delete this agency'));
+    }
 
     const agency = new AgencyBO();
     let agencyJSON = null;
     try {
         agencyJSON = await agency.getById(req.body.id);
 
-    } catch (error) {
-        log.error(error + __location);
+    }
+    catch (err) {
+        log.error(err + __location);
     }
 
     if(agencyJSON){
@@ -713,18 +712,19 @@ async function postSocialMediaTags(req, res, next) {
             agencyJSON.additionalInfo.socialMediaTags = {};
         }
         agencyJSON.additionalInfo.socialMediaTags.facebookPixel = req.body.pixelId;
-        
-        
-        let result = await agency.saveModel(agencyJSON).catch(function (error) {
-            log.error('Save Agency:',error, __location);
+
+
+        const result = await agency.saveModel(agencyJSON).catch(function(err) {
+            log.error('Save Agency:',err, __location);
         });
-        
-        
+
+
         res.send(200, 'socialMediaTags');
-    }else{
+    }
+    else{
         res.send(404,'Not Found');
     }
-        return next();
+    return next();
 
 }
 

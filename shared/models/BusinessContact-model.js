@@ -142,7 +142,6 @@ module.exports = class BusinessContactModel{
                     resolve(contactList);
                 }
                 else {
-                    log.debug("not found loadFromBusinessId: " + sql);
                     reject(new Error("not found"));
                     return
                 }

@@ -147,8 +147,8 @@ module.exports = class ApplicationQuestionBO{
 
                 }
                 else {
-                    log.debug("not found loadFromApplicationId: " + sql);
-                    reject(new Error("not found"));
+                    // Application can have no questions
+                   resolve(boList);
                     return
                 }
 
