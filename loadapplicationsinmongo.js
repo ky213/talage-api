@@ -426,6 +426,9 @@ async function processLocations(businessId, applicationJSON){
             let locationJSON = {};
             const businessInfoMapping = {"state_abbr": "state"};
             mapToMongooseJSON(businessAddress, locationJSON, businessInfoMapping);
+            locationJSON.square_footage = businessAddress.square_footage;
+            locationJSON.full_time_employees = businessAddress.full_time_employees;
+            locationJSON.part_time_employees = businessAddress.part_time_employees;
             //load activity Codes
             locationJSON.activityPayrollList = [];
             const businessAddressActivityCodeModel = new BusinessAddressActivityCodeModel();
@@ -466,37 +469,49 @@ async function processBusinessToMongo(businessId, applicationJSON){
         return;
     }
 
-    if(businessJSON.owners){
-        try{
-            //applicationJSON.owners = JSON.parse(businessJSON.owners);
-            const testOwners = JSON.parse(businessJSON.owners);
-            if(testOwners && testOwners.length > 0){
-                applicationJSON.owners = [];
-                for(let i = 0; i < testOwners.length; i++){
-                    const owner = testOwners[i];
-                    if(owner.fname && owner.lname){
-                        applicationJSON.owners.push(owner)
-                    }
-                }
-            }
-            delete businessJSON.owners;
-        }
-        catch(err){
-            //applicationJSON.owners = businessJSON.owners;
-        }
-    }
-    if(businessJSON.ein){
-        applicationJSON.einEncrypted = await crypt.encrypt(businessJSON.ein);
-        delete businessJSON.ein
-    }
-
     if(businessJSON){
         const businessInfoMapping = {
             entity_type: "entityType",
             "mailing_state_abbr": "mailingState",
-            "name": "businessName"
+            "name_clear": "businessName",
+            "num_owners": "numOwners"
         }
         mapToMongooseJSON(businessJSON, applicationJSON, businessInfoMapping);
+
+        applicationJSON.owners = [];
+        if(businessJSON.owners){
+            try{
+            //applicationJSON.owners = JSON.parse(businessJSON.owners);
+                let testOwners = [];
+                try{
+                    testOwners = JSON.parse(businessJSON.owners);
+                }
+                catch(err){
+                    testOwners = JSON.parse(JSON.stringify(businessJSON.owners));
+                }
+                if(testOwners && testOwners.length > 0){
+                    for(let i = 0; i < testOwners.length; i++){
+                        let owner = testOwners[i];
+                        if(owner.fname && owner.lname){
+                            applicationJSON.owners.push(owner)
+                        }
+                    }
+                    // log.debug(" applicationJSON.owners " + JSON.stringify(applicationJSON.owners));
+                }
+                //delete businessJSON.owners;
+            }
+            catch(err){
+                log.error(`Error Parseing owners ${businessJSON.owners}`)
+            }
+        }
+        if(businessJSON.ein){
+            applicationJSON.einEncrypted = await crypt.encrypt(businessJSON.ein);
+        }
+
+
+        if((!applicationJSON.numOwners || applicationJSON.numOwners) && applicationJSON.owners.length > 0){
+            applicationJSON.numOwners = applicationJSON.owners.length;
+        }
     }
 
 
@@ -673,7 +688,9 @@ async function runFunction() {
     //load message model and get message list.
     //const sql = "SELECT id from clw_talage_applications where state > 0 AND copied_to_mongo = 0 AND id > 11500 AND appStatusId > 50 limit 10";
     //const sql = "SELECT id from clw_talage_applications where state > 0 AND copied_to_mongo = 0 AND id > 11500 limit 20";
-    const sql = "SELECT id from clw_talage_applications where state > 0 AND copied_to_mongo = 0 limit 1000";
+    //const sql = "SELECT id from clw_talage_applications where state > 0 AND copied_to_mongo = 0 limit 1000";
+
+    const sql = "SELECT id from clw_talage_applications where state > 0 AND copied_to_mongo = 0";
 
     const result = await db.query(sql).catch(function(error) {
         // Check if this was
@@ -751,6 +768,7 @@ async function runFunction() {
             // log.debug(JSON.stringify(applicationJSON))
             // log.debug("")
             let application = new Application(applicationJSON);
+
             // log.debug("insert application Doc: " + JSON.stringify(application))
             if(newMongoDoc){
                 await application.save().catch(function(err) {
@@ -776,6 +794,7 @@ async function runFunction() {
                     const query = {"applicationId": application.uuid};
                     await Application.updateOne(query, updateAppDoc);
                     log.debug("UPDATED: applicationId " + application.applicationId + " status: " + applicationBO.status + " mysqlId: " + mysqlId);
+
                 }
                 catch(err){
                     log.error("Updating Application error " + err + __location);
