@@ -1408,7 +1408,8 @@ module.exports = class Integration {
             outage: 'Insurer System Outage',
             quoted: 'Quote Recieved',
             referred: 'Application Referred',
-            referred_with_price: 'Application Referred With Price'
+            referred_with_price: 'Application Referred With Price',
+            acord_emailed: 'Acord Form Emailed'
         };
 
         // Make sure we have a result
@@ -1520,7 +1521,8 @@ module.exports = class Integration {
                     });
                 }
                 return this.return_error('referred', `Appid: ${this.app.id} ${this.insurer.name} needs a little more time to make a decision`);
-
+            case 'acord_emailed':
+                return this.return_error('acord_emailed', `Appid: ${this.app.id} ${this.insurer.name} AgencyLocation ${this.app.agencyLocation.id} acord form sent`);
             case 'referred_with_price':
                 log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Referred To Underwriting, But Provided An Indication`);
                 return this.return_indication(this.amount);
