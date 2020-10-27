@@ -9,8 +9,8 @@ const businessBO = global.requireShared('./models/Business-model.js');
 const businessAddressBO = global.requireShared('./models/BusinessAddress-model.js');
 const applicationQuestionBO = global.requireShared('./models/ApplicationQuestion-BO.js');
 
-const wc = require('./acordhelpers/wc.js');
-const gl = require('./acordhelpers/gl.js');
+const wc = require('./acord/wc.js');
+const gl = require('./acord/gl.js');
 
 const validator = global.requireShared('./helpers/validator.js');
 
