@@ -123,7 +123,7 @@ module.exports = class AgencyLocation {
                 this.emailBrand = agencyNetworkJSON.email_brand;
             }
 
-            // Extract the agent info, decrypting as necessary
+            // Extract the agent info
             this.agency = agencyInfo.name;
             this.agencyEmail = agencyInfo.email;
             this.agencyId = agencyInfo.id;
@@ -254,7 +254,7 @@ module.exports = class AgencyLocation {
                 // log.debug(`this.territories` + JSON.stringify(this.territories))
                 if (!this.territories.includes(location.state)) {
                     log.error(`Agent does not have ${location.state} enabled` + __location);
-                    reject(serverHelper.requestError(`The specified agent is not setup to support this application in territory ${location.state}.`));
+                    reject(new Error(`The specified agent is not setup to support this application in territory ${location.state}.`));
 
                 }
             });
@@ -271,7 +271,7 @@ module.exports = class AgencyLocation {
                 }
                 if (!match_found) {
                     log.error(`Agent does not have ${policy.type} policies enabled`);
-                    reject(serverHelper.requestError('The specified agent is not setup to support this application.'));
+                    reject(new Error('The specified agent is not setup to support this application.'));
 
                 }
             });
@@ -294,7 +294,7 @@ module.exports = class AgencyLocation {
             if (this.key) {
                 // Check formatting
                 if (!await validator.agent(this.key)) {
-                    reject(serverHelper.requestError('Invalid agent provided.'));
+                    reject(new Error('Invalid agent provided.'));
                     return;
                 }
             }

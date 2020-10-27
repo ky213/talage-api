@@ -41,8 +41,8 @@ async function postApplication(req, res, next) {
     }
     catch (error) {
         log.error(`Error loading application ${req.params.id ? req.params.id : ''}: ${error.message}` + __location);
-        res.send(error);
-        return next();
+        //res.send(error);
+        return next(serverHelper.requestError(error));
     }
     // Validate
     try {
@@ -50,14 +50,15 @@ async function postApplication(req, res, next) {
     }
     catch (error) {
         log.error(`Error validating application ${req.params.id ? req.params.id : ''}: ${error.message}` + __location);
-        res.send(error);
-        return next();
+        //res.send(error);
+        return next(serverHelper.requestError(error));
     }
 
     // Set the application progress to 'quoting'
     const applicationBO = new ApplicationBO();
     try{
         await applicationBO.updateProgress(req.body.id, "quoting");
+        //TODO change status to quoting - New Status
     }
     catch(err){
         log.error(`Error update appication progress appId = ${req.body.id}  for quoting. ` + err + __location);

@@ -4,8 +4,6 @@
 
 'use strict';
 
-const serverHelper = require('../../../../../server.js');
-
 module.exports = class ActivityCode{
 
     constructor(){
@@ -45,14 +43,14 @@ module.exports = class ActivityCode{
 
             // ID
             if(isNaN(this.id)){
-                reject(serverHelper.requestError('You must supply a valid ID with each class code.'));
+                reject(new Error('You must supply a valid ID with each class code.'));
                 return;
             }
 
             // Check that the ID is valid
             await db.query(`SELECT \`description\`FROM \`#__activity_codes\` WHERE \`id\` = ${this.id} LIMIT 1;`).then((rows) => {
                 if(rows.length !== 1){
-                    reject(serverHelper.requestError(`The activity code you selected (ID: ${this.id}) is not valid.`));
+                    reject(new Error(`The activity code you selected (ID: ${this.id}) is not valid.`));
                     rejected = true;
                     return;
                 }
@@ -65,13 +63,13 @@ module.exports = class ActivityCode{
 
             // Payroll
             if(isNaN(this.payroll)){
-                reject(serverHelper.requestError(`Invalid payroll amount (Activity Code ${this.id})`));
+                reject(new Error(`Invalid payroll amount (Activity Code ${this.id})`));
                 return;
             }
 
             if(this.appPolicyTypeList.includes('WC')){
                 if(this.payroll < 1){
-                    reject(serverHelper.requestError(`You must provide a payroll for each activity code (Activity Code ${this.id})`));
+                    reject(new Error(`You must provide a payroll for each activity code (Activity Code ${this.id})`));
                     return;
                 }
             }
