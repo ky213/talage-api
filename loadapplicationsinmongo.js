@@ -409,7 +409,6 @@ async function processContacts(businessId, applicationJSON){
 
 async function processLocations(businessId, applicationJSON){
 
-
     const businessAddressModel = new BusinessAddressModel()
     let businessAddressList = null;
     try{
@@ -429,6 +428,7 @@ async function processLocations(businessId, applicationJSON){
             locationJSON.square_footage = businessAddress.square_footage;
             locationJSON.full_time_employees = businessAddress.full_time_employees;
             locationJSON.part_time_employees = businessAddress.part_time_employees;
+            locationJSON.unemployment_num = businessAddress.unemployment_num;
             //load activity Codes
             locationJSON.activityPayrollList = [];
             const businessAddressActivityCodeModel = new BusinessAddressActivityCodeModel();
@@ -481,7 +481,6 @@ async function processBusinessToMongo(businessId, applicationJSON){
         applicationJSON.owners = [];
         if(businessJSON.owners){
             try{
-            //applicationJSON.owners = JSON.parse(businessJSON.owners);
                 let testOwners = [];
                 try{
                     testOwners = JSON.parse(businessJSON.owners);
@@ -496,9 +495,7 @@ async function processBusinessToMongo(businessId, applicationJSON){
                             applicationJSON.owners.push(owner)
                         }
                     }
-                    // log.debug(" applicationJSON.owners " + JSON.stringify(applicationJSON.owners));
                 }
-                //delete businessJSON.owners;
             }
             catch(err){
                 log.error(`Error Parseing owners ${businessJSON.owners}`)

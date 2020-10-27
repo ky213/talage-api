@@ -90,21 +90,21 @@ module.exports = class Location {
         //log.debug("Location finished load " + JSON.stringify(this));
         // 'activity_codes':
         if (locationDocJson.activityPayrollList && locationDocJson.activityPayrollList.length > 0) {
-            locationDocJson.activityPayrollList.forEach((c) => {
+            locationDocJson.activityPayrollList.forEach((actvityPayroll) => {
                 // Check if we have already seen this activity code
                 let match = false;
-                const tmp_id = parseInt(c.ncciCode, 10);
-                this.activity_codes.forEach(function(code) {
-                    if (tmp_id === code.ncciCode) {
+                const tmp_id = parseInt(actvityPayroll.ncciCode, 10);
+                this.activity_codes.forEach(function(modelActivityCode) {
+                    if (tmp_id === modelActivityCode.ncciCode) {
                         match = true;
-                        code.load(c);
+                        modelActivityCode.load(actvityPayroll);
                     }
                 });
 
                 // If the activity code is new, add it
                 if (!match) {
                     const activity_code = new ActivityCode();
-                    activity_code.load(c);
+                    activity_code.load(actvityPayroll);
                     this.activity_codes.push(activity_code);
                 }
             });
