@@ -159,10 +159,10 @@ async function runFunction() {
 
     const quote_promises = [];
     // eslint-disable-next-line array-element-newline
-    //const appIdList = [11672,11667,11663,11613,11545,11685,11426,11428];
+    //const appIdList = [11672,11667,11663,11613,11545,11685,11426,11428,11421];
     // const appIdList = [11426,11428,11423,11414,11401,11365];  //older should be on DEV.
     //Wheelhouse
-    const appIdList = [11426,11428,11423,11414,11401,11365,11333];
+    const appIdList = [11426,11428,11414,11401,11365,11333];
 
     //Digalent apps
     //const appIdList = [11477,11472, 11329];
