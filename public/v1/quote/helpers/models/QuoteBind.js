@@ -10,7 +10,6 @@ const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 const Insurer = require('./Insurer.js');
 
 //const fs = require('fs');
-const { resolve } = require('path');
 const slack = global.requireShared('./services/slacksvc.js');
 const validator = global.requireShared('./helpers/validator.js');
 

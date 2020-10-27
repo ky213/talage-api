@@ -123,7 +123,6 @@ module.exports = class Application {
         }
 
 
-
         //update business with policy type list.
         this.business.setPolicyTypeList(appPolicyTypeList);
         // Agent
@@ -202,7 +201,7 @@ module.exports = class Application {
                             }
                             else {
                                 log.info(`Agent does not support ${policy.type} policies through insurer ${insurer}`);
-                                reject(serverHelper.requestError('Agent does not support this request'));
+                                reject(new Error('Agent does not support this request'));
                                 stop = true;
                             }
                         }
@@ -226,7 +225,7 @@ module.exports = class Application {
                 });
                 if (some_unsupported) {
                     log.info('Agent does not support one or more of the insurers requested.');
-                    reject(serverHelper.requestError('Agent does not support this request'));
+                    reject(new Error('Agent does not support this request'));
                     return;
                 }
             }
@@ -645,6 +644,7 @@ module.exports = class Application {
             }
 
             // Initialize the agent so it is ready for later
+            //TODO move to application load.  init loads data.
             await this.agencyLocation.init().catch(function(error) {
                 log.error('Location.init() error ' + error + __location);
                 reject(error);
@@ -654,7 +654,7 @@ module.exports = class Application {
             // Validate the ID
             if (!await validator.application(this.id)) {
                 log.error('validator.application() ' + this.id + __location);
-                reject(serverHelper.requestError('Invalid application ID specified.'));
+                reject(new Error('Invalid application ID specified.'));
                 return;
             }
 
@@ -679,7 +679,7 @@ module.exports = class Application {
                         return this.get_insurers();
                     }
 
-                    reject(serverHelper.requestError('The Agent specified cannot support this policy.'));
+                    reject(new Error('The Agent specified cannot support this policy.'));
                     stop = true;
                 }
                 else {
@@ -693,7 +693,7 @@ module.exports = class Application {
             }
             if (!insurers || insurers.length === 0 || Object.prototype.toString.call(insurers) !== '[object Array]') {
                 log.error('Invalid insurer(s) specified in policy. ' + __location);
-                reject(serverHelper.requestError('Invalid insurer(s) specified in policy.'));
+                reject(new Error('Invalid insurer(s) specified in policy.'));
                 return;
             }
 
@@ -716,12 +716,12 @@ module.exports = class Application {
                 if (this.business.management_structure) {
                     if (!validator.management_structure(this.business.management_structure)) {
                         log.warn(`Invalid management structure. Must be either "member" or "manager."` + this.id + __location)
-                        reject(serverHelper.requestError('Invalid management structure. Must be either "member" or "manager."'));
+                        reject(new Error('Invalid management structure. Must be either "member" or "manager."'));
                         return;
                     }
                 }
                 else {
-                    reject(serverHelper.requestError('Missing required field: management_structure'));
+                    reject(new Error('Missing required field: management_structure'));
                     return;
                 }
             }
@@ -732,14 +732,16 @@ module.exports = class Application {
 			 */
             if (this.has_policy_type('WC') && this.business.entity_type === 'Corporation' && this.business.primary_territory === 'PA' && !this.business.owners_included) {
                 if (this.business.corporation_type) {
-                    if (!validator.corporation_type(this.business.corporation_type)) {
+                    // eslint-disable-next-line array-element-newline
+                    const pa_corp_valid_types = ['c','n','s'];
+                    if (!pa_corp_valid_types.includes(this.business.corporation_type)) {
                         log.warn(`Invalid corporation type. Must be "c" (c-corp), "n" (non-profit), or "s" (s-corp)." ` + this.id + __location)
-                        reject(serverHelper.requestError('Invalid corporation type. Must be "c" (c-corp), "n" (non-profit), or "s" (s-corp).'));
+                        reject(new Error('Invalid corporation type. Must be "c" (c-corp), "n" (non-profit), or "s" (s-corp).'));
                         return;
                     }
                 }
                 else {
-                    reject(serverHelper.requestError('Missing required field: corporation_type'));
+                    reject(new Error('Missing required field: corporation_type'));
                     return;
                 }
             }
@@ -754,7 +756,7 @@ module.exports = class Application {
                     // TO DO: Owner validation is needed here
                 }
                 else {
-                    reject(serverHelper.requestError('The names of owners must be supplied if they are not included in this policy.'));
+                    reject(new Error('The names of owners must be supplied if they are not included in this policy.'));
                     return;
                 }
             }
@@ -766,13 +768,13 @@ module.exports = class Application {
 
                 // This is required
                 if (this.business.unincorporated_association === null) {
-                    reject(serverHelper.requestError('Missing required field: unincorporated_association'));
+                    reject(new Error('Missing required field: unincorporated_association'));
                     return;
                 }
 
                 // Validate
                 if (!validator.boolean(this.business.unincorporated_association)) {
-                    reject(serverHelper.requestError('Invalid value for unincorporated_association, please use a boolean value'));
+                    reject(new Error('Invalid value for unincorporated_association, please use a boolean value'));
                     return;
                 }
 
@@ -856,7 +858,7 @@ module.exports = class Application {
                             if (!parent_question) {
                                 log.error(`Question ${question.id} has invalid parent setting. (${htmlentities.decode(question.text).replace('%', '%%')})` + __location);
                                 // No one question issue stop quoting with all insureres - BP 2020-10-04
-                                // reject(serverHelper.requestError('An unexpected error has occurred. Our team has been alerted and will contact you.'));
+                                // reject(new Error('An unexpected error has occurred. Our team has been alerted and will contact you.'));
                                 // return;
                             }
                         }

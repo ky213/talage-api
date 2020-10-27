@@ -19,6 +19,7 @@ const crypt = global.requireShared('./services/crypt.js');
 module.exports = class Business {
 
     constructor() {
+        this.appId = '';
         this.appPolicyTypeList = [];
         this.association = 0;
         this.association_id = '';
@@ -121,6 +122,7 @@ module.exports = class Business {
 	 * @returns  returns true , or an Error if rejected
 	 */
     async load(applicationDoc) {
+        this.appId = applicationDoc.applicationId;
         let data2 = {}
         const applicationDocJSON = JSON.parse(JSON.stringify(applicationDoc))
         const propMappings = {}
@@ -171,7 +173,7 @@ module.exports = class Business {
         this.primary_territory = applicationDocJSON.mailingState;
         this.num_owners = applicationDocJSON.numOwners;
         //owner number fix
-        if(applicationDocJSON.owners && applicationDocJSON.owners.length > 0 ){
+        if(applicationDocJSON.owners && applicationDocJSON.owners.length > 0){
             this.num_owners = applicationDocJSON.owners.length;
         }
 
@@ -292,39 +294,39 @@ module.exports = class Business {
 			 * - Must be an integer >= 1
 			 * - Maximum of 11 digits
 			 */
-            if (this.association) {
-                if(typeof this.association === 'string'){
-                    try{
-                        this.association = parseInt(this.association, 10);
-                    }
-                    catch(err){
-                        log.error("Error converting association to integer " + err + __location);
-                    }
-                }
-                // We have association data...
-                if (!Number.isInteger(this.association) || !(this.association >= 1) || this.association.toString().length > 11) {
-                    reject(new Error('Association must be a positive integer between 1 and 11 digits'));
-                    return;
-                }
-            }
+            // if (this.association) {
+            //     if(typeof this.association === 'string'){
+            //         try{
+            //             this.association = parseInt(this.association, 10);
+            //         }
+            //         catch(err){
+            //             log.error("Error converting association to integer " + err + __location);
+            //         }
+            //     }
+            //     // We have association data...
+            //     if (!Number.isInteger(this.association) || !(this.association >= 1) || this.association.toString().length > 11) {
+            //         reject(new Error('Association must be a positive integer between 1 and 11 digits'));
+            //         return;
+            //     }
+            // }
 
             /**
 			 * Association ID (conditionally required)
 			 * - Required if Association is set
 			 * - Cannot exceed 20 characters
 			 */
-            if (this.association) {
-                // Required if association is present
-                if (this.association_id === '') {
-                    reject(new Error('Association ID is required'));
-                    return;
-                }
-                // Max length 20 characters
-                if (this.association_id.toString().length > 20) {
-                    reject(new Error('Association ID must be less than 20 characters'));
-                    return;
-                }
-            }
+            // if (this.association) {
+            //     // Required if association is present
+            //     if (this.association_id === '') {
+            //         reject(new Error('Association ID is required'));
+            //         return;
+            //     }
+            //     // Max length 20 characters
+            //     if (this.association_id.toString().length > 20) {
+            //         reject(new Error('Association ID must be less than 20 characters'));
+            //         return;
+            //     }
+            // }
 
             /**
 			 * Bureau Number (optional)
@@ -632,14 +634,15 @@ module.exports = class Business {
             if (this.website) {
                 // Check formatting
                 if (!validator.isWebsite(this.website)) {
-                    reject(new Error('Invalid formatting for property: website. Expected a valid URL'));
+                    log.info(`Invalid formatting for property: website. Expected a valid UR for ${this.appId}`)
+                    this.website = '';
                     return;
                 }
 
-                // Check length
+                // Check length if too long eliminate from qoute app
                 if (this.website.length > 100) {
-                    reject(new Error('Website exceeds max length of 100 characters'));
-                    return;
+                    log.info(`Invalid value for property: website. over 100 characters for ${this.appId}`)
+                    this.website = '';
                 }
             }
 
@@ -648,7 +651,9 @@ module.exports = class Business {
             // - Must be a number between 0 and 99
             if (this.founded.isAfter(moment().subtract(3, 'years'))) {
                 if (this.years_of_exp < 0 || this.years_of_exp > 99) {
-                    reject(new Error('Invalid value for property: years_of_exp. Value must be between 0 and 100 (not inclusive)'));
+                    log.info(`Invalid value for property: years_of_exp. Value must be between 0 and 100 (not inclusive) for ${this.appId}`)
+                    //let it quote and the insurer reject it.
+                    //reject(new Error('Invalid value for property: years_of_exp. Value must be between 0 and 100 (not inclusive)'));
                     return;
                 }
             }

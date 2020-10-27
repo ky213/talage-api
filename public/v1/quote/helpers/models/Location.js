@@ -6,7 +6,6 @@
 'use strict';
 
 const ActivityCode = require('./ActivityCode.js');
-const serverHelper = require('../../../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
 //const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
 
@@ -33,7 +32,7 @@ module.exports = class Location {
         this.state_abbr = '';
 
         // WC Only
-        this.unemployment_num = 0;
+        //this.unemployment_num = 0;
         this.unemployment_number = 0;
     }
 
@@ -80,7 +79,14 @@ module.exports = class Location {
         this.territory = locationDocJson.state;
         this.state_abbr = locationDocJson.state;
         this.state = locationDocJson.state;
-        this.unemployment_number = this.unemployment_num;
+        if(this.unemployment_num){
+            try{
+                this.unemployment_number = parseInt(this.unemployment_num, 10);
+            }
+            catch(err){
+                log.error(`Int Parse error on unemployment_num s${this.unemployment_num} ` + err + __location)
+            }
+        }
         //log.debug("Location finished load " + JSON.stringify(this));
         // 'activity_codes':
         if (locationDocJson.activityPayrollList && locationDocJson.activityPayrollList.length > 0) {
@@ -125,12 +131,12 @@ module.exports = class Location {
             if (this.address) {
                 // Check for maximum length
                 if (this.address.length > 100) {
-                    reject(serverHelper.requestError('Address exceeds maximum of 100 characters'));
+                    reject(new Error('Address exceeds maximum of 100 characters'));
                     return;
                 }
             }
             else {
-                reject(serverHelper.requestError('Missing required field: address'));
+                reject(new Error('Missing required field: address'));
                 return;
             }
 
@@ -138,7 +144,7 @@ module.exports = class Location {
             if (this.address2) {
                 // Check for maximum length
                 if (this.address2.length > 20) {
-                    reject(serverHelper.requestError('Address exceeds maximum of 20 characters'));
+                    reject(new Error('Address exceeds maximum of 20 characters'));
                     return;
                 }
             }
@@ -155,7 +161,7 @@ module.exports = class Location {
                     });
                 }
                 else {
-                    reject(serverHelper.requestError('At least 1 class code must be provided per location'));
+                    reject(new Error('At least 1 class code must be provided per location'));
                     return;
                 }
             }
@@ -169,7 +175,7 @@ module.exports = class Location {
                     this.identification_number_type = 'SSN';
                 }
                 else {
-                    reject(serverHelper.requestError('Invalid formatting for property: identification number.'));
+                    reject(new Error('Invalid formatting for property: identification number.'));
                     return;
                 }
 
@@ -177,7 +183,7 @@ module.exports = class Location {
                 this.identification_number = this.identification_number.replace(/-/g, '');
             }
             else {
-                reject(serverHelper.requestError('Identification Number is required'));
+                reject(new Error('Identification Number is required'));
                 return;
             }
 
@@ -188,7 +194,7 @@ module.exports = class Location {
 			 * - <= 99,999
 			 */
             if (isNaN(this.full_time_employees) || this.full_time_employees < 0 || this.full_time_employees > 255) {
-                reject(serverHelper.requestError('full_time_employees must be an integer between 0 and 255 inclusive'));
+                reject(new Error('full_time_employees must be an integer between 0 and 255 inclusive'));
                 return;
             }
 
@@ -199,7 +205,7 @@ module.exports = class Location {
 			 * - <= 99,999
 			 */
             if (isNaN(this.part_time_employees) || this.part_time_employees < 0 || this.part_time_employees > 255) {
-                reject(serverHelper.requestError('part_time_employees must be an integer between 0 and 255 inclusive'));
+                reject(new Error('part_time_employees must be an integer between 0 and 255 inclusive'));
                 return;
             }
 
@@ -210,7 +216,7 @@ module.exports = class Location {
             // - <= 99,999
             if (this.appPolicyTypeList.includes('BOP')) {
                 if (!validator.isSqFtg(this.square_footage) || this.square_footage < 100 || this.square_footage > 99999) {
-                    return reject(serverHelper.requestError('square_footage must be an integer between 100 and 99,999 inclusive'));
+                    return reject(new Error('square_footage must be an integer between 100 and 99,999 inclusive'));
                 }
             }
 
@@ -218,13 +224,13 @@ module.exports = class Location {
             if (this.zipcode) {
                 if (!validator.isZip(this.zipcode)) {
                     log.error('Invalid formatting for location: mailing_zip. Expected 5 digit format. actual zip: ' + this.zipcode + __location)
-                    reject(serverHelper.requestError('Invalid formatting for location: zip. Expected 5 digit format'));
+                    reject(new Error('Invalid formatting for location: zip. Expected 5 digit format'));
                     return;
                 }
             }
             else {
                 log.error('Missing required field: zip' + __location)
-                reject(serverHelper.requestError('Missing required field: zip'));
+                reject(new Error('Missing required field: zip'));
                 return;
             }
 
@@ -238,24 +244,25 @@ module.exports = class Location {
                     'MN',
                     'NJ',
                     'RI',
-                    'UT'
+                    'UT',
+                    'MI'
                 ];
 
                 // Check if an unemployment number is required
                 if (unemployment_number_states.includes(this.state_abbr)) {
                     log.debug("this.unemployment_number " + this.unemployment_number + __location)
                     if (this.unemployment_number === 0) {
-                        reject(serverHelper.requestError(`Unemployment Number is required for all locations in ${unemployment_number_states.join(', ')}` + __location));
+                        reject(new Error(`Unemployment Number is required for all locations in ${unemployment_number_states.join(', ')}`));
                         return;
                     }
                     if (!Number.isInteger(this.unemployment_number)) {
-                        reject(serverHelper.requestError('Unemployment Number must be an integer'));
+                        reject(new Error('Unemployment Number must be an integer'));
                         return;
                     }
                 }
                 else {
                     if (this.territory === 'MI' && this.unemployment_number && !Number.isInteger(this.unemployment_number)) {
-                        reject(serverHelper.requestError('Unemployment Number must be an integer'));
+                        reject(new Error('Unemployment Number must be an integer in MI'));
                         return;
                     }
                     this.unemployment_number = 0;
