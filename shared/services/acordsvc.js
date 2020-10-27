@@ -2,12 +2,19 @@
 /* eslint-disable require-jsdoc */
 'use strict';
 
-//const crypt = global.requireShared('./services/crypt.js');
+const applicationBO = global.requireShared('./models/Application-BO.js');
+const agencyBO = global.requireShared('./models/Agency-BO.js');
+const insurerBO = global.requireShared('./models/Insurer-BO.js');
+const businessBO = global.requireShared('./models/Business-model.js');
+const businessAddressBO = global.requireShared('./models/BusinessAddress-model.js');
+const applicationQuestionBO = global.requireShared('./models/ApplicationQuestion-BO.js');
+
 const wc = require('./acordhelpers/wc.js');
 const gl = require('./acordhelpers/gl.js');
 
 const validator = global.requireShared('./helpers/validator.js');
-//const {createLogger} = require('restify/lib/bunyan_helper');
+
+const pdftk = require('node-pdftk');
 
 /**
  * @typedef generatedAcord
@@ -42,11 +49,67 @@ exports.create = async function(application_id, insurer_id, policy_type){
         return {'error': message};
     }
 
+    const dataObj = dataInit(application_id, insurer_id);
+
     if(policy_type.toLowerCase() === 'wc'){
         return await wc.createWC(application_id, insurer_id);
     }
     else if(policy_type.toLowerCase() === 'gl'){
-        return await gl.createGL(application_id, insurer_id);
+        return await gl.createGL(dataObj);
     }
 
+}
+
+async function dataInit(applicationId, insurerId){
+
+    const application = new applicationBO();
+    await application.getById(applicationId);
+    await application.getAgencyNewtorkIdById(applicationId);
+
+    const agency = new agencyBO();
+    await agency.loadFromId(application.agency);
+
+    const insurer = new insurerBO();
+    await insurer.loadFromId(insurerId);
+
+    const business = new businessBO();
+    await business.loadFromId(application.business);
+
+    const businessAddresses = new businessAddressBO();
+    const addresses = await businessAddresses.loadFromBusinessId(application.business);
+
+    const applicationQuestionsBO = new applicationQuestionBO();
+    const applicationQuestionList = await applicationQuestionsBO.loadFromApplicationId(applicationId);
+
+
+    const dataObj = {
+        application: application,
+        agency: agency,
+        insurer: insurer,
+        business: business,
+        businessAddressList: addresses
+    }
+
+    return dataObj;
+
+}
+exports.createACORDPDF = async function(pdfList){
+
+    let pdfKey = 0;
+    const pdfObj = {};
+    pdfList.forEach(pdf => {
+        pdfObj[String.fromCharCode(65 + pdfKey)] = pdf;
+        pdfKey += 1;
+    })
+
+    const concatPdfsString = Object.keys(pdfObj).join(' ');
+
+    let form = null
+
+    form = pdftk.
+        input(pdfObj).
+        cat(concatPdfsString).
+        output();
+
+    return form;
 }

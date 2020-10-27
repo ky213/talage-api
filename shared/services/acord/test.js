@@ -50,19 +50,7 @@ exports.createGL = async function(application_id, insurer_id){
     // console.log(business);
     // console.log(addresses);
 
-    const limitsArray = helpers.getLimitsAsDollarAmounts(app.limits);
-
-    let pdfDataFieldsObj = {
-        "Form_CompletionDate_A": moment().format('L'),
-        "Producer_FullName_A": agency.name,
-        "Insurer_FullName_A": insurer.name,
-        "NamedInsured_FullName_A": business.name,
-        "GeneralLiability_CoverageIndicator_A": 1,
-        "GeneralLiability_GeneralAggregate_LimitAppliesPerPolicyIndicator_A": 1,
-        "GeneralLiability_EachOccurrence_LimitAmount_A": limitsArray[0],
-        "GeneralLiability_GeneralAggregate_LimitAmount_A": limitsArray[1],
-        "GeneralLiability_ProductsAndCompletedOperations_AggregateLimitAmount_A": limitsArray[2]
-    };
+    
 
     if(app.gl_effective_date !== '0000-00-00'){
         pdfDataFieldsObj.Policy_EffectiveDate_A = moment(app.gl_effective_date).format('L');

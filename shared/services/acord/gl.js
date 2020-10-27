@@ -3,6 +3,7 @@
 
 const pdftk = require('node-pdftk');
 
+
 const helpers = require('./helpers.js');
 const acord125 = require('./forms/acord-125.js');
 const acord126 = require('./forms/acord-126.js');
@@ -10,57 +11,72 @@ const questionTable = require('./forms/question-table.js');
 
 
 exports.createGL = async function(applicationId, insurerId){
-    
-    // let dataObj = null;
-    // try{
-    //     dataObj = await helpers.dataInit(applicationId, insurerId);
-    // }
-    // catch(err){
-    //     console.log(err + 'BOOOOO');
-    // }
+
+    /**
+     * Get all data
+     */
     let dataObj = null;
+    try{
+        dataObj = await helpers.dataInit(applicationId, insurerId);
+    }
+    catch(error){
+        log.error('Failed to retrieve data for ACORD generation: ' + error + __location);
+    }
+
+    //List of all PDFs going into GL ACORD form
+    const pdfList = [];
+
+    /**
+     * Create ACORD 125
+     */
     let acord125Buffer = null;
     try{
         acord125Buffer = await acord125.create(dataObj);
     }
-    catch(err){
-        console.log(err + 'No 125 :(');
+    catch(error){
+        log.error('Failed to generate ACORD form 125: ' + error + __location);
+    }
+    pdfList.push(acord125Buffer);
+
+
+    /**
+     * Create ACORD 126
+     */
+    let acord126Buffer = null;
+    try{
+        acord126Buffer = await acord126.create(dataObj);
+    }
+    catch(error){
+        log.error('Failed to generate ACORD form 126: ' + error + __location);
+    }
+    pdfList.push(acord126Buffer);
+
+
+    /**
+     * Create Question Table
+     */
+    let questionTableBuffer = null;
+    try{
+        questionTableBuffer = await questionTable.create(dataObj);
+    }
+    catch(error){
+        log.error('Failed to generate Question Table: ' + error + __location);
+    }
+    pdfList.push(questionTableBuffer);
+
+
+    /**
+     * Generate full PDF composed of all generated forms
+     */
+    let form = null;
+    try{
+        form = helpers.createPDF(pdfList);
+    }
+    catch(error){
+        log.error('Failed to create GL ACORD PDF: ' + error + __location);
     }
 
-    return acord125Buffer;
-    
-    // let acord126Buffer = null;
-    // try{
-    //     acord126Buffer = await acord126.create(dataObj);
-    // }
-    // catch(err){
-    //     console.log(err + 'No 126 :(');
-    // }
-
-    // let questionTableBuffer = null;
-    // try{
-    //     questionTableBuffer = await questionTable.create(dataObj);
-    // }
-    // catch(err){
-    //     console.log(err + 'No question table :(');
-    // }
-
-    // let form = null;
-    // try{
-    //     form = pdftk.
-    //         input({
-    //             A: acord125Buffer,
-    //             B: acord126Buffer,
-    //             C: questionTableBuffer
-    //         }).
-    //         cat('A B C').
-    //         output();
-    // }
-    // catch(err){
-    //     console.log(err + 'pdftk sadness :(');
-    // }
-
-    //return form;
+    return form;
 
 }
 //     // PREP THE PDF
