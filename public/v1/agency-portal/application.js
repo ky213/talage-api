@@ -703,6 +703,8 @@ async function requote(req, res, next) {
     // Set the application progress to 'quoting'
     try {
         await applicationBO.updateProgress(req.body.id, "quoting");
+        const appStatusIdQuoting = 15;
+        await applicationBO.updateStatus(req.body.id, "quoting", appStatusIdQuoting);
     }
     catch (err) {
         log.error(`Error update appication progress appId = ${req.body.id}  for quoting. ` + err + __location);

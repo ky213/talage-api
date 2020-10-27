@@ -935,19 +935,21 @@ module.exports = class ApplicationModel {
                 const question = questions[i];
                 questions.application = this.id;
                 let valueLine = '';
-                if (question.type === 'text') {
-                    const cleanString = question.answer.replace(/\|/g, ',')
-                    valueLine = `(${this.id}, ${question.id}, NULL, ${db.escape(cleanString)})`
+                if(question.answer){
+                    if (question.type === 'text') {
+                        const cleanString = question.answer.replace(/\|/g, ',')
+                        valueLine = `(${this.id}, ${question.id}, NULL, ${db.escape(cleanString)})`
 
+                    }
+                    else if (question.type === 'array') {
+                        const arrayString = "|" + question.answer.join('|');
+                        valueLine = `(${this.id}, ${question.id},NULL, ${db.escape(arrayString)})`
+                    }
+                    else {
+                        valueLine = `(${this.id}, ${question.id}, ${question.answer}, NULL)`
+                    }
+                    valueList.push(valueLine);
                 }
-                else if (question.type === 'array') {
-                    const arrayString = "|" + question.answer.join('|');
-                    valueLine = `(${this.id}, ${question.id},NULL, ${db.escape(arrayString)})`
-                }
-                else {
-                    valueLine = `(${this.id}, ${question.id}, ${question.answer}, NULL)`
-                }
-                valueList.push(valueLine);
             }
             const valueListString = valueList.join(",\n");
             //Set process the insert, Do not
@@ -2219,14 +2221,16 @@ module.exports = class ApplicationModel {
                 valueLine = `(${applicationJSON.id}, ${questionDocItem.questionId}, NULL, ${db.escape(cleanString)})`
 
             }
-            else if (questionDocItem.questionType === 'array') {
+            else if (questionDocItem.questionType === 'array' || questionDocItem.questionType === 'Checkboxes') {
                 const arrayString = "|" + questionDocItem.answerList.join('|');
                 valueLine = `(${applicationJSON.id}, ${questionDocItem.questionId}, NULL, ${db.escape(arrayString)})`
             }
-            else {
+            else if (questionDocItem.questionType === 'Yes/No'){
                 valueLine = `(${applicationJSON.id}, ${questionDocItem.questionId}, ${questionDocItem.answerId}, NULL)`
             }
-            valueList.push(valueLine);
+            if(valueLine){
+                valueList.push(valueLine);
+            }
         }
         const valueListString = valueList.join(",\n");
         //Set process the insert, Do nots

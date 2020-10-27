@@ -350,8 +350,12 @@ async function getApplications(req, res, next){
                 'request_to_bind',
                 'quoted_referred',
                 'quoted',
+                "acord_emailed",
                 'referred',
                 'declined',
+                'quoting',
+                "questions_done",
+                "incomplete",
                 'error']
         },
         {
