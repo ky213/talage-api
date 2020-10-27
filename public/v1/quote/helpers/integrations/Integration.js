@@ -49,6 +49,7 @@ module.exports = class Integration {
         this.seconds = 0;
         this.universal_questions = [];
         this.writer = '';
+        this.quoteLink = '';
 
         // These are set in our insurer integration
         this.possible_api_responses = {};
@@ -1080,6 +1081,7 @@ module.exports = class Integration {
             policyType: this.policy.type,
             quoteTimeSeconds: this.seconds
         }
+        //additionalInfo example
 
         // Amount
         if (amount) {
@@ -1107,6 +1109,11 @@ module.exports = class Integration {
             columns.push('writer');
             values.push(this.writer);
             quoteJSON.writer = this.writer
+        }
+        if(this.quoteLink){
+            columns.push('quote_link');
+            values.push(this.quoteLink);
+            quoteJSON.quoteLink = this.quoteLink
         }
 
         // Error
@@ -1401,7 +1408,8 @@ module.exports = class Integration {
             outage: 'Insurer System Outage',
             quoted: 'Quote Recieved',
             referred: 'Application Referred',
-            referred_with_price: 'Application Referred With Price'
+            referred_with_price: 'Application Referred With Price',
+            acord_emailed: 'Acord Form Emailed'
         };
 
         // Make sure we have a result
@@ -1513,7 +1521,8 @@ module.exports = class Integration {
                     });
                 }
                 return this.return_error('referred', `Appid: ${this.app.id} ${this.insurer.name} needs a little more time to make a decision`);
-
+            case 'acord_emailed':
+                return this.return_error('acord_emailed', `Appid: ${this.app.id} ${this.insurer.name} AgencyLocation ${this.app.agencyLocation.id} acord form sent`);
             case 'referred_with_price':
                 log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Referred To Underwriting, But Provided An Indication`);
                 return this.return_indication(this.amount);
@@ -1766,7 +1775,7 @@ module.exports = class Integration {
                 location.activity_codes.forEach(function(activity_code) {
                     // Check if this code already existed
                     if (!Object.prototype.hasOwnProperty.call(wcCodes, `${location.territory}${activity_code.id}`)) {
-                        wcCodes[`${location.territory}${activity_code.id}`] = {
+                        wcCodes[`${location.state}${activity_code.id}`] = {
                             id: activity_code.id,
                             territory: location.territory
                         };

@@ -84,7 +84,7 @@ module.exports = class ACORDGL extends Integration{
         // always referred regardless of email .
         // eslint-disable-next-line no-unused-vars
         const email_sent = generated_acord.doc.end();
-        return this.return_result('referred');
+        return this.return_result('acord_emailed');
     }
 
 

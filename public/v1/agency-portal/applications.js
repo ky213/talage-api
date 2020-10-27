@@ -120,7 +120,7 @@ function generateCSV(agents, agencyNetwork){
 				AND ag.state > 0
 				${whereAddition}
 				
-		`;
+		`; 
 
         // This is a very special case. If this is the agency 'Solepro' (ID 12) is asking for applications, query differently
         if(!agencyNetwork && agents[0] === 12){
@@ -350,8 +350,12 @@ async function getApplications(req, res, next){
                 'request_to_bind',
                 'quoted_referred',
                 'quoted',
+                "acord_emailed",
                 'referred',
                 'declined',
+                'quoting',
+                "questions_done",
+                "incomplete",
                 'error']
         },
         {

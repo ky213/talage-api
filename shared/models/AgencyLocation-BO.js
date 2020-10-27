@@ -3,7 +3,7 @@
 const DatabaseObject = require('./DatabaseObject.js');
 const AgencyLocationInsurerBO = require('./AgencyLocationInsurer-BO.js');
 const AgencyLocationTerritory = require('./AgencyLocationTerritory-BO.js');
-const TerritoryBO = global.requireShared('./models/Territory-BO.js');
+//const TerritoryBO = global.requireShared('./models/Territory-BO.js');
 const InsurerBO = require('./Insurer-BO.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
@@ -543,6 +543,30 @@ module.exports = class AgencyLocationBO{
             throw err;
         }
         return policyInfoJSON;
+    }
+
+    async shouldNotifyTalage(agencyLocationId,insurerId){
+        //  const insurerIdTest = insureId.toString;
+
+
+        let notifyTalage = false;
+        try{
+            const agencyLocationJSON = await this.getById(agencyLocationId);
+            const insurerJSON = agencyLocationJSON.insurers.find(insurer => insurerId === insurer.insurer);
+            if(insurerJSON){
+                const policyInfoJSON = insurerJSON.policy_type_info;
+                if(policyInfoJSON.notifyTalage){
+                    notifyTalage = true;
+                }
+            }
+        }
+        catch(err){
+            log.error(`Error shouldNotifyTalage agencyLocationId ${agencyLocationId} ` + err + __location)
+        }
+
+        return notifyTalage;
+
+
     }
 
 
