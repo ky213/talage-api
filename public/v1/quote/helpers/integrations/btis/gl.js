@@ -445,7 +445,6 @@ module.exports = class BtisGL extends Integration {
                 return this.return_error('error');
             }
 
-            console.log('HI IM HERE   ' + quoteInfo.ratingdetailsId);
             //Get the quote link
             this.quoteLink = quoteInfo.ratingdetailsId ? quoteInfo.ratingdetailsId : null;
 
