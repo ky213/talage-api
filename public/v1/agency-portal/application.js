@@ -411,12 +411,12 @@ async function getApplicationDoc(req, res ,next){
         return next(serverHelper.requestError(`Bad Request: check error ${err}`));
     }
 
-    if(passedAgencyCheck === false){
+    if(applicationDB && applicationDB.applicationId && passedAgencyCheck === false){
         log.info('Forbidden: User is not authorized for this agency' + __location);
         return next(serverHelper.forbiddenError('You are not authorized for this agency'));
     }
 
-    if(applicationDB){
+    if(applicationDB && applicationDB.applicationId){
         res.send(200, applicationDB);
         return next();
 
