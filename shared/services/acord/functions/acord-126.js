@@ -2,14 +2,20 @@
 
 const pdftk = require('node-pdftk');
 const path = require('path');
-const helpers = require('../helpers.js');
 const moment = require('moment');
+
+const limitHelper = global.requireShared('./helpers/formatLimits.js');
 
 exports.create = async function(dataObj){
 
     const sourcePDFString = path.resolve(__dirname, '../pdf/acord-126.pdf');
 
-    const limitsArray = helpers.getLimitsAsDollarAmounts(dataObj.application.limits);
+    /*
+     * Process data that needs special processing
+     */
+
+    // Get individual limits formatted as dollar amounts (ex. ['1,000,000' , '2,000,000' , '1,000,000'])
+    const limitsArray = limitHelper.getLimitsAsDollarAmounts(dataObj.application.limits);
 
     const pdfDataFieldsObj = {
         "Form_CompletionDate_A": moment().format('L'),
@@ -23,6 +29,15 @@ exports.create = async function(dataObj){
         "GeneralLiability_ProductsAndCompletedOperations_AggregateLimitAmount_A": limitsArray[2]
     };
 
+
+    /*
+     * Add properties to the data fields object that are conditional
+     */
+
+    // Add effective date if there was one set for this application
+    if(dataObj.application.gl_effective_date !== '0000-00-00'){
+        pdfDataFieldsObj.Policy_EffectiveDate_A = moment(dataObj.application.gl_effective_date).format('L');
+    }
 
     let form = null;
     try{

@@ -8,6 +8,7 @@ const insurerBO = global.requireShared('./models/Insurer-BO.js');
 const businessBO = global.requireShared('./models/Business-model.js');
 const businessAddressBO = global.requireShared('./models/BusinessAddress-model.js');
 const applicationQuestionBO = global.requireShared('./models/ApplicationQuestion-BO.js');
+const applicationActivityCodes = global.requireShared('./models/ApplicationActivityCodes-model.js');
 
 const wc = require('./acord/wc.js');
 const gl = require('./acord/gl.js');
@@ -15,6 +16,8 @@ const gl = require('./acord/gl.js');
 const validator = global.requireShared('./helpers/validator.js');
 
 const pdftk = require('node-pdftk');
+
+const util = require('util');
 
 /**
  * @typedef generatedAcord
@@ -49,51 +52,32 @@ exports.create = async function(application_id, insurer_id, policy_type){
         return {'error': message};
     }
 
-    const dataObj = dataInit(application_id, insurer_id);
+    const dataObj = await dataInit(application_id, insurer_id);
+    let pdfList = null;
 
     if(policy_type.toLowerCase() === 'wc'){
         return await wc.createWC(application_id, insurer_id);
     }
     else if(policy_type.toLowerCase() === 'gl'){
-        return await gl.createGL(dataObj);
+        pdfList = await gl.createGL(dataObj);
     }
+
+    return createACORDPDF(pdfList);
 
 }
 
 async function dataInit(applicationId, insurerId){
 
     const application = new applicationBO();
-    await application.getById(applicationId);
-    await application.getAgencyNewtorkIdById(applicationId);
-
-    const agency = new agencyBO();
-    await agency.loadFromId(application.agency);
-
-    const insurer = new insurerBO();
-    await insurer.loadFromId(insurerId);
-
-    const business = new businessBO();
-    await business.loadFromId(application.business);
-
-    const businessAddresses = new businessAddressBO();
-    const addresses = await businessAddresses.loadFromBusinessId(application.business);
-
-    const applicationQuestionsBO = new applicationQuestionBO();
-    const applicationQuestionList = await applicationQuestionsBO.loadFromApplicationId(applicationId);
+    await application.loadFromId(applicationId);
 
 
-    const dataObj = {
-        application: application,
-        agency: agency,
-        insurer: insurer,
-        business: business,
-        businessAddressList: addresses
-    }
+    const dataObj = {};
 
     return dataObj;
 
 }
-exports.createACORDPDF = async function(pdfList){
+function createACORDPDF(pdfList){
 
     let pdfKey = 0;
     const pdfObj = {};

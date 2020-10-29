@@ -1,27 +1,11 @@
 /* eslint-disable require-jsdoc */
 'use strict';
 
-const pdftk = require('node-pdftk');
+const acord125 = require('./functions/acord-125.js');
+const acord126 = require('./functions/acord-126.js');
+const questionTable = require('./functions/question-table.js');
 
-
-const helpers = require('./helpers.js');
-const acord125 = require('./forms/acord-125.js');
-const acord126 = require('./forms/acord-126.js');
-const questionTable = require('./forms/question-table.js');
-
-
-exports.createGL = async function(applicationId, insurerId){
-
-    /**
-     * Get all data
-     */
-    let dataObj = null;
-    try{
-        dataObj = await helpers.dataInit(applicationId, insurerId);
-    }
-    catch(error){
-        log.error('Failed to retrieve data for ACORD generation: ' + error + __location);
-    }
+exports.createGL = async function(dataObj){
 
     //List of all PDFs going into GL ACORD form
     const pdfList = [];
@@ -64,19 +48,7 @@ exports.createGL = async function(applicationId, insurerId){
     }
     pdfList.push(questionTableBuffer);
 
-
-    /**
-     * Generate full PDF composed of all generated forms
-     */
-    let form = null;
-    try{
-        form = helpers.createPDF(pdfList);
-    }
-    catch(error){
-        log.error('Failed to create GL ACORD PDF: ' + error + __location);
-    }
-
-    return form;
+    return pdfList;
 
 }
 //     // PREP THE PDF
