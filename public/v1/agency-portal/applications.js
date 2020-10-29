@@ -86,6 +86,7 @@ function generateCSV(agents, agencyNetwork){
         // Prepare to get all application data
         let sql = `
             SELECT
+                a.appStatusId,
                 a.status,
                 ad.address,
                 ad.address2,
@@ -120,7 +121,7 @@ function generateCSV(agents, agencyNetwork){
 				AND ag.state > 0
 				${whereAddition}
 				
-		`; 
+		`;
 
         // This is a very special case. If this is the agency 'Solepro' (ID 12) is asking for applications, query differently
         if(!agencyNetwork && agents[0] === 12){
@@ -517,7 +518,8 @@ async function getApplications(req, res, next){
     // Get the requested applications
     const applicationsSQL = `
 			SELECT
-				DISTINCT ${db.quoteName('a.id')},
+                DISTINCT ${db.quoteName('a.id')},
+                 a.appStatusId,
 				${db.quoteName('a.status')},
 				${db.quoteName('a.agency')},
 				${db.quoteName('a.created', 'date')},
