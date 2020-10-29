@@ -253,10 +253,7 @@ module.exports = class Integration {
         if (!employersRecord) {
             return null;
         }
-        return {
-            code: employersRecord.code,
-            sub: employersRecord.sub
-        };
+        return employersRecord.code;
     }
 
     /**
@@ -976,32 +973,12 @@ module.exports = class Integration {
             }
 
             // Check that all of the selected codes are supported by the insurer
-            let are_codes_supported = null;
-            switch (this.policy.type) {
-                case 'BOP':
-                case 'GL':
-                    are_codes_supported = await this._insurer_supports_industry_codes();
-                    if (are_codes_supported !== true) {
-                        fulfill(are_codes_supported);
-                        return;
-                    }
-                    break;
-                case 'WC':
-                    // Check code support
-                    are_codes_supported = await this._insurer_supports_activity_codes();
-                    if (this.insurer.id === 10) {
-                        // Acuity requires CGL for WC also
-                        are_codes_supported = are_codes_supported === true ? await this._insurer_supports_industry_codes() : are_codes_supported;
-                    }
-                    if (are_codes_supported !== true) {
-                        fulfill(are_codes_supported);
-                        return;
-                    }
-                    break;
-                default:
-                    log.error(`Appid: ${this.app.id} Unexpected policy type of ${this.policy.type} in Integration` + __location);
-                    fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-                    return;
+            const industryCodesSupported = await this._insurer_supports_industry_codes();
+            const activityCodesSupported = await this._insurer_supports_activity_codes();
+            // If this integration doesn't support any industry codes or activity codes, return autodecline.
+            if (!industryCodesSupported && !activityCodesSupported) {
+                fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
+                return;
             }
 
             // Localize the questions and restrict them to only ones that are applicable to this insurer and policy type
@@ -1798,47 +1775,45 @@ module.exports = class Integration {
             let hadError = false;
             const sql = `
             SELECT
-                    ac.id,
-                    inc.state,
-                    inc.territory,
-                    inc.code,
-                    inc.sub,
-                    inc.result
+                ac.id,
+                inc.state,
+                inc.territory,
+                inc.code,
+                inc.sub,
+                inc.result
             FROM clw_talage_activity_codes AS ac
-                LEFT JOIN clw_talage_activity_code_associations AS aca ON ac.id = aca.code
-                LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON aca.insurer_code = inc.id
-            WHERE inc.insurer = ${this.insurer.id} AND (${whereCombinations.join(' OR ')});
+            LEFT JOIN clw_talage_activity_code_associations AS aca ON ac.id = aca.code
+            LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON aca.insurer_code = inc.id
+            WHERE
+                inc.insurer = ${this.insurer.id} 
+                AND (${whereCombinations.join(' OR ')});
             `;
-            //log.debug("_insurer_supports_activity_codes sql: " + sql);
             const appId = this.app.id;
             const insurerId = this.insurer.id;
             const codes = await db.query(sql).catch((error) => {
-                log.error(`AppId: ${appId} InsurerId: ${insurerId} ` + error + __location);
-                this.reasons.push('System Error: insurer_supports_activity_codes() failed to get codes.');
-                fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+                log.error(`AppId: ${appId} InsurerId: ${insurerId} Could not retrieve industry codes: ${error} ${__location}`);
+                hadError = true;
             });
-
+            if (hadError) {
+                // Query error
+                fulfill(false);
+                return;
+            }
             if (!codes.length) {
-                log.warn(`Appid: ${this.app.id} and Insurer ${insurerId}  autodeclined: no codes where ${whereCombinations.join(' OR ')}` + __location);
-                this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code and state');
-                fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
+                // No activity codes
+                fulfill(false);
                 return;
             }
 
             // Make sure the number of codes matched (otherwise there were codes unsupported by this insurer)
             if (Object.keys(wcCodes).length !== codes.length) {
-                log.warn(`Appid: ${this.app.id} and Insurer ${insurerId} autodeclined: Code length do not match wcCodes.length ${Object.keys(wcCodes).length} where ${whereCombinations.join(' OR ')}, wcCodes ${Object.keys(JSON.stringify(wcCodes))}   ` + __location);
-                this.reasons.push('Out of Appetite: The insurer does not support one or more of the selected activity codes and state');
-                fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
+                fulfill(false);
                 return;
             }
 
             // Load the codes locally
             codes.forEach((code) => {
                 if (code.result === 0) {
-                    log.error(`Appid: ${this.app.id} and Insurer ${insurerId} autodeclined: Code does not match where ${whereCombinations.join(' OR ')}, code ${JSON.stringify(code)} ` + __location);
-                    this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code and state');
-                    fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                     hadError = true;
                     return;
                 }
@@ -1846,13 +1821,10 @@ module.exports = class Integration {
                     this.insurer_wc_codes[code.territory + code.id] = code.code + (code.sub ? code.sub : '');
                     return;
                 }
-                log.error(`Appid: ${this.app.id}  and Insurer ${insurerId} autodeclined: Failed activity codes and state check on code ${JSON.stringify(code)} where ${whereCombinations.join(' OR ')}` + __location);
-                this.reasons.push('Out of Appetite: The insurer does not support one or more of the selected activity codes and state');
-                fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 hadError = true;
             });
-
             if (hadError) {
+                fulfill(false);
                 return;
             }
 
@@ -1870,19 +1842,30 @@ module.exports = class Integration {
             // Query the database to see if this insurer supports this industry code
             const sql = `SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso, iic.attributes 
                         FROM clw_talage_industry_codes AS ic 
-                            INNER JOIN  clw_talage_insurer_industry_codes AS iic ON ((iic.type = 'i' AND iic.code = ic.iso) OR (iic.type = 'c' AND iic.code = ic.cgl) OR (iic.type = 'h' AND iic.code = ic.hiscox) OR (iic.type = 'n' AND iic.code = ic.naics) OR (iic.type = 's' AND iic.code = ic.sic)) 
-                                                                                    AND  iic.insurer = ${this.insurer.id} AND iic.territory = '${this.app.business.primary_territory}'
+                        INNER JOIN  clw_talage_insurer_industry_codes AS iic ON
+                            (
+                                (iic.type = 'i' AND iic.code = ic.iso) 
+                                OR (iic.type = 'c' AND iic.code = ic.cgl)
+                                OR (iic.type = 'h' AND iic.code = ic.hiscox) 
+                                OR (iic.type = 'n' AND iic.code = ic.naics) 
+                                OR (iic.type = 's' AND iic.code = ic.sic)
+                            ) 
+                            AND  iic.insurer = ${this.insurer.id} 
+                            AND iic.territory = '${this.app.business.primary_territory}'
                         WHERE  ic.id = ${this.app.business.industry_code}  LIMIT 1;`;
-            // log.debug("_insurer_supports_industry_codes sql: " + sql);
-            const result = await db.query(sql).catch((err) => {
-                log.error(`Integration: _insurer_supports_industry_codes query error ${err} ` + __location);
-                fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-                return;
+            let hadError = false;
+            const result = await db.query(sql).catch((error) => {
+                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not retrieve industry codes: ${error} ${__location}`);
+                hadError = true;
             });
+            if (hadError) {
+                // Query error
+                fulfill(false);
+                return;
+            }
             if (!result || !result.length) {
-                log.warn(`Appid: ${this.app.id} autodeclined: No Insurer industry code for insurer: ${this.insurer.id} ${this.app.business.primary_territory} talage industry code = ${this.app.business.industry_code} ` + __location);
-                this.reasons.push('Out of Appetite: The insurer does not support the industry code selected');
-                fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
+                // No industry codes
+                fulfill(false);
                 return;
             }
 
@@ -1893,8 +1876,8 @@ module.exports = class Integration {
                 this.industry_code.attributes = JSON.parse(this.industry_code.attributes);
             }
             else {
-                this.industry_code.attributes = '';
                 log.warn(`Appid: ${this.app.id} No Industry_code attributes:  ${this.insurer.id} and ${this.app.business.primary_territory}` + __location);
+                this.industry_code.attributes = {};
             }
 
             fulfill(true);
