@@ -494,7 +494,7 @@ module.exports = class ApplicationModel {
             this.updateProperty();
             this.id = this.#dbTableORM.id;
             applicationJSON.id = this.id;
-            
+
             // mongoose model save.
             this.mapToMongooseJSON(applicationJSON)
             if (this.#applicationMongooseDB) {
@@ -2225,7 +2225,7 @@ module.exports = class ApplicationModel {
                 const arrayString = "|" + questionDocItem.answerList.join('|');
                 valueLine = `(${applicationJSON.id}, ${questionDocItem.questionId}, NULL, ${db.escape(arrayString)})`
             }
-            else if (questionDocItem.questionType === 'Yes/No'){
+            else if (questionDocItem.questionType === 'Yes/No' || questionDocItem.questionType === 'Select List'){
                 valueLine = `(${applicationJSON.id}, ${questionDocItem.questionId}, ${questionDocItem.answerId}, NULL)`
             }
             if(valueLine){
