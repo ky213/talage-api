@@ -3,7 +3,6 @@
     "version": "1.0.0",
     "description": "Talage API",
     "main": "index.js",
-    
     "scripts": {
         "serve": "node index.js",
         "dev": "nodemon --ext js,env,json,xmlt index.js",
@@ -66,10 +65,13 @@
         "xml-formatter": "^2.3.0"
     },
     "devDependencies": {
+        "babel-eslint": "^10.1.0",
         "chai": "^4.2.0",
         "eslint": "6.8.0",
         "eslint-config-prettier": "^6.11.0",
+        "eslint-plugin-babel": "^5.3.1",
         "eslint-plugin-deprecate": "0.7.0",
+        "eslint-plugin-talage": "file:eslint",
         "jshint": "^2.11.0",
         "mocha": "^7.2.0",
         "mochawesome": "^6.1.1",
@@ -105,15 +107,13 @@
             "afterEach": true,
             "it": true
         },
+        "parser": "babel-eslint",
         "parserOptions": {
-            "ecmaVersion": 9
+            "ecmaVersion": 2019
         },
         "plugins": [
-            "deprecate"
-        ],
-        "ignorePatterns": [
-            "shared/models/DatabaseObject.js",
-            "shared/models/"
+            "deprecate",
+            "babel"
         ],
         "rules": {
             "accessor-pairs": "error",
@@ -419,7 +419,7 @@
             "space-infix-ops": "error",
             "space-unary-ops": "error",
             "spaced-comment": "off",
-            "strict": "error",
+            "strict": "off",
             "switch-colon-spacing": "error",
             "symbol-description": "error",
             "template-curly-spacing": "error",

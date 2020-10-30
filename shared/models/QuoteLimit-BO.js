@@ -1,35 +1,35 @@
-'use strict';
+
 
 const DatabaseObject = require('./DatabaseObject.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
 
-const tableName = 'clw_talage_claims'
+const tableName = 'clw_talage_quote_limits'
 const skipCheckRequired = false;
-module.exports = class ApplicationClaimBO{
+module.exports = class QuoteLimitBO {
 
     #dbTableORM = null;
 
-    constructor(){
+    constructor() {
         this.id = 0;
         this.#dbTableORM = new DbTableOrm(tableName);
     }
 
 
     /**
-	 * Save Model
+   * Save Model
      *
-	 * @param {object} newObjectJSON - newObjectJSON JSON
-	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
-	 */
-    saveModel(newObjectJSON){
+   * @param {object} newObjectJSON - newObjectJSON JSON
+   * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
+   */
+    saveModel(newObjectJSON) {
         return new Promise(async(resolve, reject) => {
-            if(!newObjectJSON){
+            if (!newObjectJSON) {
                 reject(new Error(`empty ${tableName} object given`));
             }
             await this.cleanupInput(newObjectJSON);
-            if(newObjectJSON.id){
+            if (newObjectJSON.id) {
                 await this.#dbTableORM.getById(newObjectJSON.id).catch(function(err) {
                     log.error(`Error getting ${tableName} from Database ` + err + __location);
                     reject(err);
@@ -38,12 +38,11 @@ module.exports = class ApplicationClaimBO{
                 this.updateProperty();
                 this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
             }
-            else{
+            else {
                 this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
             }
-
             //save
-            await this.#dbTableORM.save().catch(function(err){
+            await this.#dbTableORM.save().catch(function(err) {
                 reject(err);
             });
             this.updateProperty();
@@ -56,23 +55,41 @@ module.exports = class ApplicationClaimBO{
     }
 
     /**
-	 * saves businessContact.
+   * saves businessContact.
      *
-	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
-	 */
+   * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
+   */
 
-    save(asNew = false){
-        return new Promise(async(resolve, reject) => {
-        //validate
+    save() {
+        return new Promise(async(resolve) => {
+            //validate
 
             resolve(true);
         });
     }
 
+    insertByColumnValue(columns, values) {
+        return new Promise(async(resolve, reject) => {
+            let error = null;
+            const Result = await db.query(`INSERT INTO ${tableName} (\`${columns.join('`,`')}\`) VALUES ${values.join(',')};;`).catch(function(err) {
+                log.error("Error QuoteBO insertByColumnValue " + err + __location);
+                error = err;
+            });
+            if(error){
+                reject(error);
+            }
+            else {
+                log.debug(`${tableName} saved ids ` + Result.insertId);
+                resolve(true);
+            }
+        });
+    }
+
+
     loadFromId(id) {
         return new Promise(async(resolve, reject) => {
             //validate
-            if(id && id > 0){
+            if (id && id > 0) {
                 await this.#dbTableORM.getById(id).catch(function(err) {
                     log.error(`Error getting  ${tableName} from Database ` + err + __location);
                     reject(err);
@@ -85,26 +102,23 @@ module.exports = class ApplicationClaimBO{
                 reject(new Error('no id supplied'))
             }
         });
-
     }
 
-    loadFromApplicationId(applicationId, policy_type = null) {
+    loadFromQuoteId(quoteId) {
         return new Promise(async(resolve, reject) => {
-            if(applicationId && applicationId > 0){
+            if(quoteId && quoteId > 0){
                 let rejected = false;
                 // Create the update query
-                let sql = `
-                    select *  from ${tableName} where application = ${applicationId}
+                const sql = `
+                    select *  from ${tableName} where quote = ${quoteId}
                 `;
-                if(policy_type){
-                    sql += ` AND  policy_type = '${policy_type}'`
-                }
+
                 // Run the query
                 const result = await db.query(sql).catch(function(error) {
                     // Check if this was
 
                     rejected = true;
-                    log.error(`loadFromApplicationId ${tableName} applicationId: ${db.escape(applicationId)}  error ` + error + __location)
+                    log.error(`loadFromApplicationId ${tableName} applicationId: ${db.escape(quoteId)}  error ` + error + __location)
                     reject(error);
                 });
                 if (rejected) {
@@ -113,20 +127,16 @@ module.exports = class ApplicationClaimBO{
                 const boList = [];
                 if(result && result.length > 0){
                     for(let i = 0; i < result.length; i++){
-                        //Decrypt encrypted fields.
-                        const applicationClaimBO = new ApplicationClaimBO();
-                        await applicationClaimBO.#dbTableORM.decryptFields(result[i]);
-                        await applicationClaimBO.#dbTableORM.convertJSONColumns(result[i]);
-
-                        const resp = await applicationClaimBO.loadORM(result[i], skipCheckRequired).catch(function(err){
-                            log.error(`loadFromApplicationId error loading object: ` + err + __location);
+                        const quoteLimitBO = new QuoteLimitBO();
+                        const resp = await quoteLimitBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                            log.error(`loadFromQuoteId error loading object: ` + err + __location);
                             //not reject on issues from database object.
                             //reject(err);
                         })
                         if(!resp){
                             log.debug("Bad BO load" + __location)
                         }
-                        boList.push(applicationClaimBO);
+                        boList.push(quoteLimitBO);
                     }
                     resolve(boList);
                 }
@@ -142,16 +152,17 @@ module.exports = class ApplicationClaimBO{
         });
     }
 
-    DeleteClaimsByApplicationId(applicationId) {
+
+    DeleteByQuoteId(applicationId) {
         return new Promise(async(resolve, reject) => {
             //Remove old records.
             const sql = `DELETE FROM ${tableName} 
-                   WHERE application = ${applicationId}
+                   WHERE quote = ${applicationId}
             `;
             let rejected = false;
-            const result = await db.query(sql).catch(function(error) {
+            await db.query(sql).catch(function(error) {
                 // Check if this was
-                log.error("Database Object ${tableName} DELETE error :" + error + __location);
+                log.error(`Database Object ${tableName} DELETE error : ` + error + __location);
                 rejected = true;
                 reject(error);
             });
@@ -163,32 +174,28 @@ module.exports = class ApplicationClaimBO{
     }
 
 
-    async cleanupInput(inputJSON){
+    async cleanupInput(inputJSON) {
         for (const property in properties) {
-            if(inputJSON[property]){
+            if (inputJSON[property]) {
                 // Convert to number
-                try{
-                    if (properties[property].type === "number" && typeof inputJSON[property] === "string"){
-                        if (properties[property].dbType.indexOf("int") > -1){
+                try {
+                    if (properties[property].type === "number" && typeof inputJSON[property] === "string") {
+                        if (properties[property].dbType.indexOf("int") > -1) {
                             inputJSON[property] = parseInt(inputJSON[property], 10);
                         }
-                        else if (properties[property].dbType.indexOf("float") > -1){
+                        else if (properties[property].dbType.indexOf("float") > -1) {
                             inputJSON[property] = parseFloat(inputJSON[property]);
                         }
                     }
                 }
-                catch(e){
+                catch (e) {
                     log.error(`Error converting property ${property} value: ` + inputJSON[property] + __location)
                 }
             }
         }
     }
 
-    cleanJSON(noNulls = true){
-        return this.#dbTableORM.cleanJSON(noNulls);
-    }
-
-    updateProperty(){
+    updateProperty() {
         const dbJSON = this.#dbTableORM.cleanJSON()
         // eslint-disable-next-line guard-for-in
         for (const property in properties) {
@@ -197,16 +204,17 @@ module.exports = class ApplicationClaimBO{
     }
 
     /**
-	 * Load new object JSON into ORM. can be used to filter JSON to object properties
+   * Load new object JSON into ORM. can be used to filter JSON to object properties
      *
-	 * @param {object} inputJSON - input JSON
-	 * @returns {void}
-	 */
-    async loadORM(inputJSON){
+   * @param {object} inputJSON - input JSON
+   * @returns {void}
+   */
+    async loadORM(inputJSON) {
         await this.#dbTableORM.load(inputJSON, skipCheckRequired);
         this.updateProperty();
         return true;
     }
+
 }
 
 const properties = {
@@ -219,25 +227,7 @@ const properties = {
         "type": "number",
         "dbType": "int(11) unsigned"
     },
-    "amount_paid": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "mediumint(10) unsigned"
-    },
-    "amount_reserved": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "mediumint(10) unsigned"
-    },
-    "application": {
+    "quote": {
         "default": 0,
         "encrypted": false,
         "hashed": false,
@@ -246,47 +236,30 @@ const properties = {
         "type": "number",
         "dbType": "int(11) unsigned"
     },
-    "date": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "date",
-        "dbType": "date"
-    },
-    "missed_work": {
+    "limit": {
         "default": 0,
         "encrypted": false,
         "hashed": false,
         "required": true,
         "rules": null,
         "type": "number",
-        "dbType": "tinyint(1) unsigned"
+        "dbType": "tinyint(2) unsigned"
     },
-    "open": {
+    "amount": {
         "default": 0,
         "encrypted": false,
         "hashed": false,
         "required": true,
         "rules": null,
         "type": "number",
-        "dbType": "tinyint(1) unsigned"
-    },
-    "policy_type": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(3)"
+        "dbType": "mediumint(7) unsigned"
     }
 }
 
 class DbTableOrm extends DatabaseObject {
 
-    constructor(tableName){
+    // eslint-disable-next-line no-shadow
+    constructor(tableName) {
         super(tableName, properties);
     }
 

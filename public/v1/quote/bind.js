@@ -76,5 +76,6 @@ async function PutBind(req, res, next){
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
+    // TODO Security/JWT
     server.addPut('Bind Quote', `${basePath}/bind`, PutBind);
 };

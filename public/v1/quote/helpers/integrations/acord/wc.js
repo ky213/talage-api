@@ -82,7 +82,7 @@ module.exports = class ACORDWC extends Integration {
         });
         // eslint-disable-next-line no-unused-vars
         const email_sent = generated_acord.doc.end();
-        return this.return_result('referred');
+        return this.return_result('acord_emailed');
     }
     // TODO BP - Move logic ot Agency location BO is it alread in 2 places in the code.
 

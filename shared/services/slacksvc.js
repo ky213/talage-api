@@ -303,11 +303,6 @@ var send2SlackInternal = async function(slackReqJSON) {
         }
     }
 
-    // App ID sanitization
-    if (slackReqJSON.attachment && slackReqJSON.attachment.application_id && !/^\d{3,5}$/.test(slackReqJSON.attachment.application_id)) {
-        log.error(`send2SlackInternal: Application id ${slackReqJSON.attachment.application_id} is not valid` + __location);
-        throw new Error(`Application id ${slackReqJSON.attachment.application_id} is not valid`);
-    }
 
     // Add a message for testing
     if (global.settings.ENV !== 'production' && slackReqJSON.channel !== '#debug') {
