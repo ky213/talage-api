@@ -19,6 +19,9 @@ const tracker = global.requireShared('./helpers/tracker.js');
 //const {getQuoteAggregatedStatus} = global.requireShared('./models/application-businesslogic/status.js');
 const status = global.requireShared('./models/application-businesslogic/status.js');
 
+const QuoteBO = global.requireShared('./models/Quote-BO.js');
+
+
 module.exports = class Integration {
 
     /**
@@ -46,6 +49,7 @@ module.exports = class Integration {
         this.seconds = 0;
         this.universal_questions = [];
         this.writer = '';
+        this.quoteLink = '';
 
         // These are set in our insurer integration
         this.possible_api_responses = {};
@@ -202,13 +206,9 @@ module.exports = class Integration {
      * @param {number} activityCode - The 4 digit Talage activity code
      * @returns {number} The 4 digit NCCI code
      */
-    async get_ncci_code_from_activity_code(territory, activityCode) {
-        // NOTE: Right now, we do not have a mapping of NCCI codes -> Activity codes because
-        // most insurers use their own standard... except for Employers.
-        // Employers sticks to the NCCI standard so we use  NCCI code -> Activity code mappings.
-        // This should be addressed in the next system similar to how we do GL/BOP mappings.
+    async get_employers_code_for_activity_code(territory, activityCode) {
         const sql = `
-            SELECT inc.code, inc.sub
+            SELECT inc.code, inc.sub, inc.attributes
             FROM clw_talage_insurer_ncci_codes AS inc 
             LEFT JOIN clw_talage_activity_code_associations AS aca ON aca.insurer_code = inc.id
             WHERE
@@ -224,29 +224,86 @@ module.exports = class Integration {
         catch (error) {
             return null;
         }
+        // Return if no results
         if (result.length === 0) {
             return null;
         }
-        return {
-            code: result[0].code,
-            sub: result[0].sub
+        // Parse the attributes if they exist (non-fatal)
+        if (result[0].attributes) {
+            try {
+                result[0].attributes = JSON.parse(result[0].attributes);
+            }
+            catch (error) {
+                // continue. We may not need the attributes column
+                result[0].attributes = {};
+            }
         }
+        return result[0];
     }
 
     /**
-     * Retrieves an NCCI code string (code concatenated with subcode) from a given activity code
+     * Retrieves an NCCI code from a given activity code
      *
      * @param {string} territory - The 2 character territory code
      * @param {number} activityCode - The 4 digit Talage activity code
-     * @returns {number} The 4 digit NCCI code
+     * @returns {object} The code and sub(code)
      */
-    async get_ncci_code_string_from_activity_code(territory, activityCode) {
-        const result = await this.get_ncci_code_from_activity_code(territory, activityCode);
-        if (!result) {
-            return '';
+    async get_ncci_code_from_activity_code(territory, activityCode) {
+        const employersRecord = await this.get_employers_code_for_activity_code(territory, activityCode);
+        if (!employersRecord) {
+            return null;
         }
-        return `${result.code}${result.sub}`;
+        return {
+            code: employersRecord.code,
+            sub: employersRecord.sub
+        };
     }
+
+    /**
+     * Retrieves an NAICS industry code from a given activity code
+     *
+     * @param {string} territory - The 2 character territory code
+     * @param {number} activityCode - The 4 digit Talage activity code
+     * @returns {number} The 6+ digit naics code
+     */
+    async get_naics_code_from_activity_code(territory, activityCode) {
+        const employersRecord = await this.get_employers_code_for_activity_code(territory, activityCode);
+        if (!employersRecord) {
+            return null;
+        }
+        return parseInt(employersRecord.attributes.naicsCode, 10);
+    }
+
+    /**
+     * Retrieves an CGL code from a given activity code
+     *
+     * @param {string} territory - The 2 character territory code
+     * @param {number} activityCode - The 4 digit Talage activity code
+     * @returns {string} The CGL code
+     */
+    async get_cgl_code_from_activity_code(territory, activityCode) {
+        const naicsCode = await this.get_naics_code_from_activity_code(territory, activityCode);
+        if (!naicsCode) {
+            return null;
+        }
+        const sql = `
+            SELECT * FROM clw_talage_industry_codes
+            WHERE naics = ${naicsCode};
+        `;
+        let result = null;
+        try {
+            result = await db.query(sql);
+        }
+        catch (error) {
+            return null;
+        }
+        // Return if no results
+        if (result.length === 0 || !result[0].cgl) {
+            return null;
+        }
+        return result[0].cgl;
+    }
+
 
     /**
      * Returns an XML node child from parsed XML data. It will iterate down the node children, getting element 0 of each node's child.
@@ -1016,39 +1073,59 @@ module.exports = class Integration {
             this.seconds,
             moment().format('YYYY-MM-DD HH:mm:ss')
         ];
+        //build mongo Document
+        const quoteJSON = {
+            mysqlAppId: this.app.id,
+            insurerId: this.insurer.id,
+            log: this.log,
+            policyType: this.policy.type,
+            quoteTimeSeconds: this.seconds
+        }
+        //additionalInfo example
 
         // Amount
         if (amount) {
             columns.push('amount');
             values.push(amount);
+            quoteJSON.amount = amount;
         }
 
         // Number
         if (this.number) {
             columns.push('number');
             values.push(this.number);
+            quoteJSON.quoteNumber = this.number
         }
 
         // Request ID
         if (this.request_id) {
             columns.push('request_id');
             values.push(this.request_id);
+            quoteJSON.requestId = this.request_id
         }
 
         // Writer
         if (this.writer) {
             columns.push('writer');
             values.push(this.writer);
+            quoteJSON.writer = this.writer
+        }
+        if(this.quoteLink){
+            columns.push('quote_link');
+            values.push(this.quoteLink);
+            quoteJSON.quoteLink = this.quoteLink
         }
 
         // Error
         columns.push('api_result');
         values.push(api_result);
+        quoteJSON.apiResult = api_result
 
         // Reasons
         if (this.reasons.length > 0) {
             columns.push('reasons');
             values.push(this.reasons.join(',').replace(/'/g, "\\'").substring(0, 500));
+            quoteJSON.reasons = this.reasons.join(',').replace(/'/g, "\\'")
         }
 
         // Quote Letter
@@ -1059,12 +1136,13 @@ module.exports = class Integration {
             // Store the quote letter in our cloud storage
             try {
                 // Store the quote letter in our cloud storage
-                // TODO Secure
+                // Secure
                 const result = await fileSvc.PutFileSecure(`secure/quote-letters/${fileName}`, this.quote_letter.data);
                 // The file was successfully saved, store the file name in the database
                 if (result && Object.prototype.hasOwnProperty.call(result, 'code') && result.code === 'Success') {
                     columns.push('quote_letter');
                     values.push(fileName);
+                    quoteJSON.quoteLetter = this.fileName
                 }
             }
             catch (err) {
@@ -1074,26 +1152,28 @@ module.exports = class Integration {
 
         // Aggregated Status.
         columns.push('aggregated_status');
-        values.push(status.getQuoteAggregatedStatus(false, '', api_result));
+        const aggregatedStatus = status.getQuoteAggregatedStatus(false, '', api_result);
+        values.push(aggregatedStatus);
+        quoteJSON.aggregatedStatus = aggregatedStatus
 
-        // Insert the quote record
-        const quoteResult = await db.query(`INSERT INTO \`#__quotes\` (\`${columns.join('`,`')}\`) VALUES (${values.map(db.escape).join(',')});`).catch(function(err) {
-            return err;
-        });
-        const quoteID = quoteResult.insertId;
-
-        // Insert the limit records
         if (Object.keys(this.limits).length) {
-            const limitValues = [];
+            quoteJSON.limits = []
             for (const limitId in this.limits) {
                 if (Object.prototype.hasOwnProperty.call(this.limits, limitId)) {
-                    limitValues.push(`(${quoteID}, ${limitId}, ${this.limits[limitId]})`);
+                    const limitJSON = {
+                        limitId: limitId,
+                        amount: this.limits[limitId]
+                    }
+                    quoteJSON.limits.push(limitJSON);
                 }
             }
-            db.query(`INSERT INTO \`#__quote_limits\` (\`quote\`, \`limit\`, \`amount\`) VALUES ${limitValues.join(',')};`).catch(function(err) {
-                log.error(err + __location);
-            });
         }
+        //QuoteBO
+        const quoteBO = new QuoteBO();
+        const quoteID = await quoteBO.saveIntegrationQuote(quoteJSON, columns, values).catch(function(err){
+            log.error("Error quoteBO.insertByColumnValue " + err + __location);
+        });
+
         return quoteID;
     }
 
@@ -1328,7 +1408,8 @@ module.exports = class Integration {
             outage: 'Insurer System Outage',
             quoted: 'Quote Recieved',
             referred: 'Application Referred',
-            referred_with_price: 'Application Referred With Price'
+            referred_with_price: 'Application Referred With Price',
+            acord_emailed: 'Acord Form Emailed'
         };
 
         // Make sure we have a result
@@ -1440,7 +1521,8 @@ module.exports = class Integration {
                     });
                 }
                 return this.return_error('referred', `Appid: ${this.app.id} ${this.insurer.name} needs a little more time to make a decision`);
-
+            case 'acord_emailed':
+                return this.return_error('acord_emailed', `Appid: ${this.app.id} ${this.insurer.name} AgencyLocation ${this.app.agencyLocation.id} acord form sent`);
             case 'referred_with_price':
                 log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Referred To Underwriting, But Provided An Indication`);
                 return this.return_indication(this.amount);
@@ -1693,7 +1775,7 @@ module.exports = class Integration {
                 location.activity_codes.forEach(function(activity_code) {
                     // Check if this code already existed
                     if (!Object.prototype.hasOwnProperty.call(wcCodes, `${location.territory}${activity_code.id}`)) {
-                        wcCodes[`${location.territory}${activity_code.id}`] = {
+                        wcCodes[`${location.state}${activity_code.id}`] = {
                             id: activity_code.id,
                             territory: location.territory
                         };

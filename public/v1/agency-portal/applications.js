@@ -86,6 +86,7 @@ function generateCSV(agents, agencyNetwork){
         // Prepare to get all application data
         let sql = `
             SELECT
+                a.appStatusId,
                 a.status,
                 ad.address,
                 ad.address2,
@@ -350,8 +351,12 @@ async function getApplications(req, res, next){
                 'request_to_bind',
                 'quoted_referred',
                 'quoted',
+                "acord_emailed",
                 'referred',
                 'declined',
+                'quoting',
+                "questions_done",
+                "incomplete",
                 'error']
         },
         {
@@ -513,7 +518,8 @@ async function getApplications(req, res, next){
     // Get the requested applications
     const applicationsSQL = `
 			SELECT
-				DISTINCT ${db.quoteName('a.id')},
+                DISTINCT ${db.quoteName('a.id')},
+                 a.appStatusId,
 				${db.quoteName('a.status')},
 				${db.quoteName('a.agency')},
 				${db.quoteName('a.created', 'date')},
@@ -523,7 +529,7 @@ async function getApplications(req, res, next){
 				${db.quoteName('b.name_clear', 'business')},
 				${db.quoteName('a.last_step', 'lastStep')},
 				${db.quoteName('ic.description', 'industry')},
-				RIGHT(${db.quoteName('uuid')}, 5) AS 'uuid',
+				${db.quoteName('uuid')} AS 'uuid',
 				CONCAT(LOWER(${db.quoteName('b.mailing_city')}), ', ', ${db.quoteName('b.mailing_state_abbr')}, ' ',b.mailing_zipcode) AS ${db.quoteName('location')}
 			${commonSQL}
 			ORDER BY ${db.quoteName(req.params.sort)} ${req.params.sortDescending ? 'DESC' : 'ASC'}
