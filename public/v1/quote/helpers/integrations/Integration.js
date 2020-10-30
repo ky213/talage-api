@@ -19,6 +19,9 @@ const tracker = global.requireShared('./helpers/tracker.js');
 //const {getQuoteAggregatedStatus} = global.requireShared('./models/application-businesslogic/status.js');
 const status = global.requireShared('./models/application-businesslogic/status.js');
 
+const QuoteBO = global.requireShared('./models/Quote-BO.js');
+
+
 module.exports = class Integration {
 
     /**
@@ -46,6 +49,7 @@ module.exports = class Integration {
         this.seconds = 0;
         this.universal_questions = [];
         this.writer = '';
+        this.quoteLink = '';
 
         // These are set in our insurer integration
         this.possible_api_responses = {};
@@ -1069,39 +1073,59 @@ module.exports = class Integration {
             this.seconds,
             moment().format('YYYY-MM-DD HH:mm:ss')
         ];
+        //build mongo Document
+        const quoteJSON = {
+            mysqlAppId: this.app.id,
+            insurerId: this.insurer.id,
+            log: this.log,
+            policyType: this.policy.type,
+            quoteTimeSeconds: this.seconds
+        }
+        //additionalInfo example
 
         // Amount
         if (amount) {
             columns.push('amount');
             values.push(amount);
+            quoteJSON.amount = amount;
         }
 
         // Number
         if (this.number) {
             columns.push('number');
             values.push(this.number);
+            quoteJSON.quoteNumber = this.number
         }
 
         // Request ID
         if (this.request_id) {
             columns.push('request_id');
             values.push(this.request_id);
+            quoteJSON.requestId = this.request_id
         }
 
         // Writer
         if (this.writer) {
             columns.push('writer');
             values.push(this.writer);
+            quoteJSON.writer = this.writer
+        }
+        if(this.quoteLink){
+            columns.push('quote_link');
+            values.push(this.quoteLink);
+            quoteJSON.quoteLink = this.quoteLink
         }
 
         // Error
         columns.push('api_result');
         values.push(api_result);
+        quoteJSON.apiResult = api_result
 
         // Reasons
         if (this.reasons.length > 0) {
             columns.push('reasons');
             values.push(this.reasons.join(',').replace(/'/g, "\\'").substring(0, 500));
+            quoteJSON.reasons = this.reasons.join(',').replace(/'/g, "\\'")
         }
 
         // Quote Letter
@@ -1112,12 +1136,13 @@ module.exports = class Integration {
             // Store the quote letter in our cloud storage
             try {
                 // Store the quote letter in our cloud storage
-                // TODO Secure
+                // Secure
                 const result = await fileSvc.PutFileSecure(`secure/quote-letters/${fileName}`, this.quote_letter.data);
                 // The file was successfully saved, store the file name in the database
                 if (result && Object.prototype.hasOwnProperty.call(result, 'code') && result.code === 'Success') {
                     columns.push('quote_letter');
                     values.push(fileName);
+                    quoteJSON.quoteLetter = this.fileName
                 }
             }
             catch (err) {
@@ -1127,26 +1152,28 @@ module.exports = class Integration {
 
         // Aggregated Status.
         columns.push('aggregated_status');
-        values.push(status.getQuoteAggregatedStatus(false, '', api_result));
+        const aggregatedStatus = status.getQuoteAggregatedStatus(false, '', api_result);
+        values.push(aggregatedStatus);
+        quoteJSON.aggregatedStatus = aggregatedStatus
 
-        // Insert the quote record
-        const quoteResult = await db.query(`INSERT INTO \`#__quotes\` (\`${columns.join('`,`')}\`) VALUES (${values.map(db.escape).join(',')});`).catch(function(err) {
-            return err;
-        });
-        const quoteID = quoteResult.insertId;
-
-        // Insert the limit records
         if (Object.keys(this.limits).length) {
-            const limitValues = [];
+            quoteJSON.limits = []
             for (const limitId in this.limits) {
                 if (Object.prototype.hasOwnProperty.call(this.limits, limitId)) {
-                    limitValues.push(`(${quoteID}, ${limitId}, ${this.limits[limitId]})`);
+                    const limitJSON = {
+                        limitId: limitId,
+                        amount: this.limits[limitId]
+                    }
+                    quoteJSON.limits.push(limitJSON);
                 }
             }
-            db.query(`INSERT INTO \`#__quote_limits\` (\`quote\`, \`limit\`, \`amount\`) VALUES ${limitValues.join(',')};`).catch(function(err) {
-                log.error(err + __location);
-            });
         }
+        //QuoteBO
+        const quoteBO = new QuoteBO();
+        const quoteID = await quoteBO.saveIntegrationQuote(quoteJSON, columns, values).catch(function(err){
+            log.error("Error quoteBO.insertByColumnValue " + err + __location);
+        });
+
         return quoteID;
     }
 
@@ -1381,7 +1408,8 @@ module.exports = class Integration {
             outage: 'Insurer System Outage',
             quoted: 'Quote Recieved',
             referred: 'Application Referred',
-            referred_with_price: 'Application Referred With Price'
+            referred_with_price: 'Application Referred With Price',
+            acord_emailed: 'Acord Form Emailed'
         };
 
         // Make sure we have a result
@@ -1493,7 +1521,8 @@ module.exports = class Integration {
                     });
                 }
                 return this.return_error('referred', `Appid: ${this.app.id} ${this.insurer.name} needs a little more time to make a decision`);
-
+            case 'acord_emailed':
+                return this.return_error('acord_emailed', `Appid: ${this.app.id} ${this.insurer.name} AgencyLocation ${this.app.agencyLocation.id} acord form sent`);
             case 'referred_with_price':
                 log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Referred To Underwriting, But Provided An Indication`);
                 return this.return_indication(this.amount);
@@ -1746,7 +1775,7 @@ module.exports = class Integration {
                 location.activity_codes.forEach(function(activity_code) {
                     // Check if this code already existed
                     if (!Object.prototype.hasOwnProperty.call(wcCodes, `${location.territory}${activity_code.id}`)) {
-                        wcCodes[`${location.territory}${activity_code.id}`] = {
+                        wcCodes[`${location.state}${activity_code.id}`] = {
                             id: activity_code.id,
                             territory: location.territory
                         };

@@ -4,7 +4,6 @@
 
 'use strict';
 
-const serverHelper = require('../../../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
 
 module.exports = class Contact {
@@ -24,23 +23,22 @@ module.exports = class Contact {
 	 */
     load(data) {
         Object.keys(this).forEach((property) => {
-            if (!Object.prototype.hasOwnProperty.call(data, property)) {
-                return;
-            }
-            if(data.fname){
-                this.first_name = data.fname;
+
+            if(data.firstName){
+                this.first_name = data.firstName;
             }
 
-            if(data.lname){
-                this.last_name = data.lname;
+            if(data.lastName){
+                this.last_name = data.lastName;
             }
 
             // Trim whitespace
             if (typeof data[property] === 'string') {
                 data[property] = data[property].trim();
             }
-
-            this[property] = data[property];
+            if(data[property]){
+                this[property] = data[property];
+            }
         });
     }
 
@@ -56,43 +54,49 @@ module.exports = class Contact {
             // Store the most recent validation message in the 'error' property
 
             // Validate email
-            const email_result = validator.email(this.email);
-            if (email_result !== true) {
-                reject(serverHelper.requestError(email_result));
+            if(this.email){
+                const email_result = validator.email(this.email);
+                if (email_result !== true) {
+                    reject(new Error('Invalid email'));
+                    return;
+                }
+            }
+            else {
+                reject(new Error('Missing required field in contact: email'));
                 return;
             }
 
             // Validate first_name
             if (this.first_name) {
                 if (!validator.isName(this.first_name)) {
-                    reject(serverHelper.requestError('Invalid characters in first_name'));
+                    reject(new Error('Invalid characters in first_name'));
                     return;
                 }
 
                 if (this.first_name.length > 30) {
-                    reject(serverHelper.requestError('First name exceeds maximum length of 30 characters'));
+                    reject(new Error('First name exceeds maximum length of 30 characters'));
                     return;
                 }
             }
             else {
-                reject(serverHelper.requestError('Missing required field in contact: first_name'));
+                reject(new Error('Missing required field in contact: first_name'));
                 return;
             }
 
             // Validate last_name
             if (this.last_name) {
                 if (!validator.isName(this.last_name)) {
-                    reject(serverHelper.requestError('Invalid characters in last_name'));
+                    reject(new Error('Invalid characters in last_name'));
                     return;
                 }
 
                 if (this.last_name.length > 30) {
-                    reject(serverHelper.requestError('Last name exceeds maximum length of 30 characters'));
+                    reject(new Error('Last name exceeds maximum length of 30 characters'));
                     return;
                 }
             }
             else {
-                reject(serverHelper.requestError('Missing required field in contact: last_name'));
+                reject(new Error('Missing required field in contact: last_name'));
                 return;
             }
 
@@ -101,7 +105,7 @@ module.exports = class Contact {
 
                 // Check that it is valid
                 if (!validator.phone(this.phone)) {
-                    reject(serverHelper.requestError('The phone number you provided is not valid. Please try again.'));
+                    reject(new Error('The phone number you provided is not valid. Please try again.'));
                     return;
                 }
 
@@ -119,7 +123,7 @@ module.exports = class Contact {
                 this.phone = parseInt(this.phone, 10);
             }
             else {
-                reject(serverHelper.requestError('Phone number is required'));
+                reject(new Error('Phone number is required'));
                 return;
             }
 

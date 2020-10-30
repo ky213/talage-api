@@ -626,5 +626,6 @@ async function PostCertificate(req, res, next){
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
+    //TODO JWT checking.
     server.addPost('Get Certificate', `${basePath}/certificate`, PostCertificate);
 };

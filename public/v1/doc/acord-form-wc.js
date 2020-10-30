@@ -111,5 +111,6 @@ async function GetACORDFormWC(req, res, next){
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
+    // TODO JWT checking
     server.addGet('Get Acord', `${basePath}/acord-form-wc`, GetACORDFormWC);
 };

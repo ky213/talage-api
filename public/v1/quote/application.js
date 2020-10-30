@@ -41,8 +41,8 @@ async function postApplication(req, res, next) {
     }
     catch (error) {
         log.error(`Error loading application ${req.params.id ? req.params.id : ''}: ${error.message}` + __location);
-        res.send(error);
-        return next();
+        //res.send(error);
+        return next(serverHelper.requestError(error));
     }
     // Validate
     try {
@@ -50,17 +50,22 @@ async function postApplication(req, res, next) {
     }
     catch (error) {
         log.error(`Error validating application ${req.params.id ? req.params.id : ''}: ${error.message}` + __location);
-        res.send(error);
-        return next();
+        //res.send(error);
+        return next(serverHelper.requestError(error));
     }
 
     // Set the application progress to 'quoting'
     const applicationBO = new ApplicationBO();
     try{
         await applicationBO.updateProgress(req.body.id, "quoting");
+
+        const appStatusIdQuoting = 15;
+        await applicationBO.updateStatus(application.id, "quoting", appStatusIdQuoting);
+
+
     }
     catch(err){
-        log.error(`Error update appication progress appId = ${req.body.id}  for quoting. ` + err + __location);
+        log.error(`Error update appication progress and status appId = ${req.body.id}  for quoting. ` + err + __location);
     }
 
 
@@ -106,6 +111,7 @@ async function runQuotes(application) {
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
+    //TODO - JWT check need to request authencation from Quote APP
     server.addPost('Post Application', `${basePath}/application`, postApplication);
     server.addPost('Post Application (depr)', `${basePath}/`, postApplication);
 };
