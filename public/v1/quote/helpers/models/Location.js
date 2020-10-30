@@ -244,8 +244,7 @@ module.exports = class Location {
                     'MN',
                     'NJ',
                     'RI',
-                    'UT',
-                    'MI'
+                    'UT'
                 ];
 
                 // Check if an unemployment number is required
