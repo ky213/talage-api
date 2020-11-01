@@ -12,7 +12,7 @@ module.exports = class MessageBO{
     //constructor(){}
 
 
-    async saveMessage(columns, recipients, sendGridResp, attachments){
+    async saveMessage(columns, recipients, sendGridResp, attachments, applicationDoc){
         const mongoModelMapping = {
             application: "applicationId",
             business: "businessId",
@@ -35,6 +35,10 @@ module.exports = class MessageBO{
             delete columns.sent;
         }
 
+        if(applicationDoc){
+            mongoMessageDoc.agencyId = applicationDoc.agencyId;
+            mongoMessageDoc.agencyNetworkId = applicationDoc.agencyNetworkId;
+        }
         if(attachments){
             mongoMessageDoc.attachments = attachments;
         }
@@ -46,7 +50,7 @@ module.exports = class MessageBO{
             }
             mongoMessageDoc[mongoProp] = value;
         });
-        //log.debug("mongoMessageDoc: " + JSON.stringify(mongoMessageDoc));
+        log.debug("mongoMessageDoc: " + JSON.stringify(mongoMessageDoc));
 
         var message = new Message(mongoMessageDoc);
 
