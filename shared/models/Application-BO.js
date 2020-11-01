@@ -145,6 +145,7 @@ module.exports = class ApplicationModel {
                 reject(new Error("empty application object given"));
                 return;
             }
+            // eslint-disable-next-line no-unused-vars
             let error = null;
             // log.debug("Beginning applicationJSON: " + JSON.stringify(applicationJSON));
 
@@ -454,7 +455,6 @@ module.exports = class ApplicationModel {
                     // not from old Web application application flow.
                     reject(new Error("Unknown Application Workflow Step"))
                     return;
-                    break;
             }
             if (updateBusiness === true) {
                 if (applicationJSON.businessInfo) {
@@ -693,7 +693,7 @@ module.exports = class ApplicationModel {
             await applicationActivityCodesModelDelete.DeleteByApplicationId(this.id).catch(function(err) {
                 log.error("Error deleting ApplicationActivityCodesModel " + err + __location);
             });
-
+            const appId = this.id
             for (const activity in activtyListJSON) {
                 //for(var i=0; i < total_payrollJSON.length;i++){
                 //activityPayrollJSON = total_payrollJSON[i];
@@ -710,7 +710,7 @@ module.exports = class ApplicationModel {
                 this.#applicationMongooseJSON.activityCodes.push(activityCodeModelJSON)
                 const applicationActivityCodesModel = new ApplicationActivityCodesModel();
                 await applicationActivityCodesModel.saveModel(activityCodeJSON).catch(function(err) {
-                    log.error(`Adding new applicationActivityCodesModel for Appid ${this.id} error:` + err + __location);
+                    log.error(`Adding new applicationActivityCodesModel for Appid ${appId} error:` + err + __location);
                     reject(err);
                     return;
                 });
@@ -960,7 +960,7 @@ module.exports = class ApplicationModel {
                         `;
             //log.debug("question InsertSQL:\n" + insertSQL);
             let rejected = false;
-            const result = await db.query(insertSQL).catch(function(error) {
+            await db.query(insertSQL).catch(function(error) {
                 // Check if this was
                 log.error("Database Object clw_talage_application_questions INSERT error :" + error + __location);
                 rejected = true;
@@ -977,7 +977,7 @@ module.exports = class ApplicationModel {
 
     processQuestionsMongo(questionsRequest) {
 
-        return new Promise(async(resolve, reject) => {
+        return new Promise(async(resolve) => {
             ///delete existing ?? old system did not.
 
             const questionTypeBO = new QuestionTypeBO();
@@ -1007,7 +1007,7 @@ module.exports = class ApplicationModel {
                     questionJSON.hidden = questionDB.hidden;
                     questionJSON.questionType = questionDB.type;
                     if (questionTypeListDB) {
-                        const questionType = questionTypeListDB.find(questionType => questionType.id === questionDB.type);
+                        const questionType = questionTypeListDB.find(questionTypeTest => questionTypeTest.id === questionDB.type);
                         if (questionType) {
                             questionJSON.questionType = questionType.name;
                         }
@@ -1091,7 +1091,7 @@ module.exports = class ApplicationModel {
 
     processQuotes(applicationJSON) {
 
-        return new Promise(async(resolve, reject) => {
+        return new Promise(async(resolve) => {
             if (applicationJSON.quotes) {
                 for (var i = 0; i < applicationJSON.quotes.length; i++) {
                     const quote = applicationJSON.quotes[i];
@@ -1222,7 +1222,7 @@ module.exports = class ApplicationModel {
                     saveBusinessData = true;
                 }
                 else {
-                    log.warn(`AF Business Data API returned no data., appid ${this.id} error:` + e + __location)
+                    log.warn(`AF Business Data API returned no data., appid ${this.id} error:` + __location)
                 }
             }
             if (saveBusinessData) {
@@ -1598,7 +1598,7 @@ module.exports = class ApplicationModel {
             return result[0].progress;
         }
         else {
-            log.error(`Could not get the quote progress for application ${id}: ${error} ${__location}`);
+            log.error(`Could not get the quote progress for application ${id}: ${__location}`);
             return "unknown";
         }
     }
@@ -2915,7 +2915,7 @@ module.exports = class ApplicationModel {
                     log.error("Error get compWestQuestionList " + err + __location);
                 }
                 if (compWestQuestionList) {
-                    let gotHit = false;
+                    //let gotHit = false;
                     let madeChange = false;
                     //Limited data returned from AFBusiness Data api.
                     // so only process non null for question lookup.
@@ -2923,16 +2923,16 @@ module.exports = class ApplicationModel {
                         try {
                             if (afBusinessDataCompany[businessDataProp] || afBusinessDataCompany[businessDataProp] === false) {
                                 //find in mapping
-                                const mapping = mappingJSON.find(mapping => mapping.afJsonTag === businessDataProp);
+                                const mapping = mappingJSON.find(mappingTest => mappingTest.afJsonTag === businessDataProp);
                                 if (mapping) {
                                     // log.debug(`Mapping for AF tag ${businessDataProp}`)
                                     //find in compWestQuestionList
-                                    const compWestQuestion = compWestQuestionList.find(compWestQuestion => mapping.afgIndicator === compWestQuestion.identifier);
+                                    const compWestQuestion = compWestQuestionList.find(compWestQuestionTest => mapping.afgIndicator === compWestQuestionTest.identifier);
                                     if (compWestQuestion) {
                                         //find in getQuestionsResult
-                                        const question = getQuestionsResult.find(question => compWestQuestion.question === question.id);
+                                        const question = getQuestionsResult.find(questionTest => compWestQuestion.question === questionTest.id);
                                         if (question && question.type === "Yes/No" && question.answers) {
-                                            gotHit = true;
+                                            //gotHit = true;
                                             log.debug(`Mapped ${mapping.afJsonTag} questionId ${question.id} AF Data value ${afBusinessDataCompany[businessDataProp]}`)
                                             const defaultAnswer = afBusinessDataCompany[businessDataProp] ? "Yes" : "No";
                                             for (let i = 0; i < question.answers.length; i++) {
