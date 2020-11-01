@@ -50,7 +50,6 @@ module.exports = class MessageBO{
             }
             mongoMessageDoc[mongoProp] = value;
         });
-        log.debug("mongoMessageDoc: " + JSON.stringify(mongoMessageDoc));
 
         var message = new Message(mongoMessageDoc);
 
