@@ -110,7 +110,7 @@ var abandonquotetask = async function(){
         }
         let policyTypeList = null;
         const policyTypeBO = new PolicyTypeBO()
-         try{
+        try{
             policyTypeList = await policyTypeBO.getList();
         }
         catch(err){
@@ -150,56 +150,6 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
     if(!applicationDoc){
         return;
     }
-    //get
-    // const quoteAppSQL = `
-    //     SELECT
-    //         a.agency_location AS agencyLocation,
-    //         a.wholesale,
-    //         ag.agency_network,
-    //         ag.name AS agencyName,
-    //         ag.website AS agencyWebsite,
-    //         ag.email AS agencyEmail,
-    //         al.agency,
-    //         al.email AS agencyLocationEmail,
-    //         al.phone AS agencyPhone,
-    //         b.name AS businessName,
-    //         c.email,
-    //         c.fname,
-    //         c.lname,
-    //         c.phone,
-    //         i.agent_login,
-    //         i.logo,
-    //         i.name AS insurer,
-    //         ic.description AS industryCode,
-    //         pt.name AS policyType,
-    //         q.amount,
-    //         q.apiResult,
-    //         q.application,
-    //         q.number
-    //     FROM clw_talage_applications AS a
-    //         LEFT JOIN clw_talage_quotes AS q ON a.id = q.application
-    //         LEFT JOIN clw_talage_businesses AS b ON b.id = a.business
-    //         LEFT JOIN clw_talage_insurers AS i ON q.insurer = i.id
-    //         LEFT JOIN clw_talage_policy_types AS pt ON q.policy_type = pt.abbr
-    //         LEFT JOIN clw_talage_contacts AS c ON a.business = c.business
-    //         LEFT JOIN clw_talage_industry_codes AS ic ON a.industry_code = ic.id
-    //         LEFT JOIN clw_talage_agency_locations AS al ON a.agency_location = al.id
-    //         LEFT JOIN clw_talage_agencies AS ag ON al.agency = ag.id
-    //     WHERE
-    //     a.id =  ${applicationId}
-    //     AND q.apiResult in ("quoted", "referred_with_price")
-    // `;
-
-    // let quotes = null;
-    // try{
-    //     quotes = await db.query(quoteAppSQL);
-    // }
-    // catch(err){
-    //     log.error(`Error get abandon quotes from DB for ${applicationDoc.applicationId} error:  ${err}` + __location);
-    //     // Do not throw error other abandon quotes may need to be processed.
-    //     return false;
-    // }
-    //
 
     const quoteBO = new QuoteBO()
     let quoteList = null;
@@ -266,7 +216,7 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
             const customerContact = applicationDoc.contacts.find(contactTest => contactTest.primary === true);
 
             const customerEmail = customerContact.email;
-            let agencyPhone = agencyBO.hone;
+            let agencyPhone = agencyBO.phone;
             let agencyWebsite = agencyBO.website;
 
 
