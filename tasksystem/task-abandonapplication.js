@@ -125,7 +125,7 @@ var processAbandonApp = async function(applicationDoc){
         let error = null;
         const agencyBO = new AgencyBO();
         try{
-            agencyBO.loadFromId(applicationDoc.agencyId)
+            await agencyBO.loadFromId(applicationDoc.agencyId)
         }
         catch(err){
             error = true;

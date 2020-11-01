@@ -173,9 +173,10 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
         let error = null;
         const agencyBO = new AgencyBO();
         try{
-            agencyBO.loadFromId(applicationDoc.agencyId)
+            await agencyBO.loadFromId(applicationDoc.agencyId)
         }
         catch(err){
+            log.error("Error getting agencyBO " + err + __location);
             error = true;
 
         }
@@ -195,9 +196,10 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
             let agencyLocationEmail = null;
             const agencyLocationBO = new AgencyLocationBO();
             try{
-                agencyLocationBO.loadFromId(applicationDoc.agencyLocationId)
+                await agencyLocationBO.loadFromId(applicationDoc.agencyLocationId)
             }
             catch(err){
+                log.error("Error getting agencyLocationBO " + err + __location);
                 error = true;
 
             }
