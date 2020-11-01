@@ -125,7 +125,7 @@ var emailbindagency = async function(applicationId, quoteId) {
         if (applications && applications.length > 0) {
 
             let agencyLocationEmail = null;
-  
+
 
             //decrypt info...
             if (applications[0].agencyLocationEmail) {
@@ -195,8 +195,8 @@ var emailbindagency = async function(applicationId, quoteId) {
 
                 // Send the email
                 const keyData = {
-                    'application': applicationId,
-                    'agency_location': applications[0].agencyLocation
+                    'applicationId': applicationId,
+                    'agencyLocationId': applications[0].agencyLocation
                 };
                 if (agencyLocationEmail) {
                     const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData, agencyNetwork, "Networkdefault");

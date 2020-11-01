@@ -131,8 +131,8 @@ var wholesaleApplicationEmailTask = async function(applicationId) {
 
             // Send the email
             const keyData2 = {
-                'application': applicationId,
-                'agency_location': applications[0].agencyLocation
+                'applicationId': applicationId,
+                'agencyLocationId': applications[0].agencyLocation
             };
             if (agencyLocationEmail) {
                 const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData2,applications[0].agency_network, emailContentJSON.emailBrand);
