@@ -408,8 +408,8 @@ module.exports = class ApplicationModel {
                         log.error('Adding Legal Acceptance error:' + err + __location);
                         reject(err);
                     });
-                    //applicationJSON.status = 'incomplete';
-                    //applicationJSON.appStatusId = 10;
+                    applicationJSON.status = 'questions_done';
+                    applicationJSON.appStatusId = 10;
                     if (applicationJSON.wholesale === 1 || applicationJSON.solepro === 1) {
                         //save the app for the email.
                         this.#dbTableORM.load(applicationJSON, false).catch(function(err) {
