@@ -115,8 +115,6 @@ var wholesaleApplicationEmailTask = async function(applicationId) {
             return false;
         }
 
-
-        //decrypt info...
         let agencyLocationEmail = null;
         if(agencyLocationBO.email){
             agencyLocationEmail = agencyLocationBO.email
