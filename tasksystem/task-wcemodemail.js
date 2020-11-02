@@ -191,8 +191,8 @@ const sendEmodEmail = async function(applicationId) {
             message = message.replace(/{{Brand}}/g, agencyNetworkEnvSettings.brandName);
 
             const keyData = {
-                'application': applicationId,
-                'agency_location': applications[0].agencyLocation
+                'applicationId': applicationId,
+                'agencyLocationId': applications[0].agencyLocation
             };
 
             // Send the email

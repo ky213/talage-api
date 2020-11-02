@@ -142,6 +142,8 @@ const ApplicationSchema = new Schema({
     management_structure: {type: String, required: false},
     unincorporatedAssociation: {type: Boolean, required: false},
     experienceModifier: {type: Number, required: false},
+    unincorporated_association: {type: String, required: false},
+    experience_modifier: {type: Number, required: false},
     ncciNumber: {type: String, required: false},
     association: {type: String, required: false},
     associationId: {type: String, required: false},

@@ -18,7 +18,6 @@ const Business = require('./Business.js');
 const Insurer = require('./Insurer.js');
 const Policy = require('./Policy.js');
 const Question = require('./Question.js');
-const serverHelper = require('../../../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
 const helper = global.requireShared('./helpers/helper.js');
 
@@ -495,8 +494,8 @@ module.exports = class Application {
                     subject,
                     message,
                     {
-                        agencyLocation: this.agencyLocation.id,
-                        application: this.id
+                        agencyLocationId: this.agencyLocation.id,
+                        applicationId: this.id
                     },
                     this.agencyLocation.agencyNetwork,
                     brand,
@@ -533,8 +532,8 @@ module.exports = class Application {
                         subject,
                         message,
                         {
-                            agencyLocation: this.agencyLocation.id,
-                            application: this.id
+                            agencyLocationId: this.agencyLocation.id,
+                            applicationId: this.id
                         },
                         this.agencyLocation.agencyNetwork,
                         emailContentJSON.emailBrand,
