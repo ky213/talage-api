@@ -572,6 +572,106 @@ async function applicationSave(req, res, next) {
 }
 
 
+async function applicationCopy(req, res, next) {
+    //const exampleBody = {"applicationId": "cb3b4d82-7bb6-438d-82cb-9f520c3db925", includeQuestions: true}
+    log.debug("Application Copy Post: " + JSON.stringify(req.body));
+    if (!req.body || typeof req.body !== 'object') {
+        log.error('Bad Request: No data received ' + __location);
+        return next(serverHelper.requestError('Bad Request: No data received'));
+    }
+
+    if (!req.body.applicationId && !req.body.uuid && req.body.id) {
+        log.error('Bad Request: Missing applicationId ' + __location);
+        return next(serverHelper.requestError('Bad Request: Missing applicationId'));
+    }
+
+    //uuid -> applicationId
+    if (!req.body.applicationId && req.body.uuid) {
+        req.body.applicationId = req.body.uuid
+    }
+
+
+    //get user's agency List
+    let error = null
+    const agencies = await auth.getAgents(req).catch(function(e) {
+        error = e;
+    });
+    if (error) {
+        return next(error);
+    }
+
+    const applicationBO = new ApplicationBO();
+
+
+    //get application and valid agency
+    let passedAgencyCheck = false;
+    let responseAppDoc = null;
+    try{
+        const applicationDocDB = await applicationBO.loadfromMongoByAppId(req.body.applicationId);
+        if(applicationDocDB && agencies.includes(applicationDocDB.agencyId)){
+            passedAgencyCheck = true;
+        }
+        if(!applicationDocDB){
+            return next(serverHelper.requestError('Not Found'));
+        }
+        if(passedAgencyCheck === false){
+            log.info('Forbidden: User is not authorized for this agency' + __location);
+            return next(serverHelper.forbiddenError('You are not authorized for this agency'));
+        }
+        // eslint-disable-next-line prefer-const
+        let newApplicationDoc = JSON.parse(JSON.stringify(applicationDocDB));
+        // eslint-disable-next-line array-element-newline
+        const propsToRemove = ["_id","id","applicationId", "uuid","mysqlId"]
+        for(let i = 0; i < propsToRemove.length; i++){
+            if(newApplicationDoc[propsToRemove[i]]){
+                delete newApplicationDoc[propsToRemove[i]]
+            }
+        }
+
+        //include Questions
+        if(req.body.includeQuestions === false){
+            newApplicationDoc.questions = [];
+            if(newApplicationDoc.appStatusId >= 10){
+                newApplicationDoc.appStatusId = 0;
+                newApplicationDoc.status = 'incomplete';
+            }
+        }
+        else if (newApplicationDoc.questions && newApplicationDoc.questions.length > 0) {
+            newApplicationDoc.appStatusId = 10;
+            newApplicationDoc.status = 'questions_done';
+        }
+        else {
+            newApplicationDoc.appStatusId = 0;
+            newApplicationDoc.status = 'incomplete';
+        }
+
+        let userId = null;
+        try{
+            userId = req.authentication.userID;
+        }
+        catch(err){
+            loggers.error("Error gettign userID " + err + __location);
+        }
+        req.body.agencyPortalCreatedUser = userId
+        req.body.agencyPortalCreated = true;
+        const updateMysql = true;
+        responseAppDoc = await applicationBO.insertMongo(newApplicationDoc, updateMysql);
+    }
+    catch(err){
+        log.error("Error checking application doc " + err + __location)
+        return next(serverHelper.requestError(`Bad Request: check error ${err}`));
+    }
+
+    if(responseAppDoc){
+        res.send(200, responseAppDoc);
+        return next();
+    }
+    else{
+        res.send(500, "No copied Application");
+        return next(serverHelper.internalError("No copied Application"));
+    }
+}
+
 async function deleteObject(req, res, next) {
     const id = stringFunctions.santizeNumber(req.params.id, true);
     if (!id) {
@@ -845,7 +945,7 @@ async function GetResources(req, res, next){
     }
 
     responseObj.limits = {
-		"BOP": [
+        "BOP": [
             {
                 "key": "1000000/1000000/1000000",
                 "value": "$1,000,000 / $1,000,000 / $1,000,000"
@@ -1058,6 +1158,8 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPutAuth('PUT Save Application', `${basePath}/application`, applicationSave, 'applications', 'manage');
     server.addPutAuth('PUT Re-Quote Application', `${basePath}/application/:id/requote`, requote, 'applications', 'manage');
     server.addDeleteAuth('DELETE Application', `${basePath}/application/:id`, deleteObject, 'applications', 'manage');
+
+    server.addPostAuth('POST Copy Application', `${basePath}/application/copy`, applicationCopy, 'applications', 'manage');
 
     server.addGetAuth('GetQuestions for AP Application', `${basePath}/application/:id/questions`, GetQuestions, 'applications', 'manage')
 
