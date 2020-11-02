@@ -38,6 +38,7 @@ const locationSchema = new Schema({
     city: {type: String, required: false},
     state: {type: String, required: false},
     zipcode: {type: String, required: false},
+    county: {type: String, required: false},
     phone: {type: String, required: false},
     ein: {type: String, required: false},
     full_time_employees:  {type: Number, required: false},
