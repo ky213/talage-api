@@ -59,25 +59,25 @@ module.exports = class Integration {
         this.quote_letter = {};
         this.reasons = [];
 
-        // Process payroll caps for Nevada
-        const nv_payroll_cap = 36000;
-        if (this.app.business) {
-            if (app.business.primary_territory === 'NV') {
-                // Loop through each location
-                app.business.locations.forEach(function(location, location_index) {
-                    // Total the employees
-                    const total_employees = location.full_time_employees + location.part_time_employees;
+        // Apply WC payroll caps for Nevada
+        if (this.policy.type === 'WC' && this.app.business && app.business.primary_territory === 'NV') {
+            const nv_payroll_cap = 36000;
 
-                    // Loop through each class code
-                    location.activity_codes.forEach(function(code, code_index) {
-                        // If the payroll is over the cap, set it to the cap
-                        if (code.payroll / total_employees > nv_payroll_cap) {
-                            app.business.locations[location_index].activity_codes[code_index].payroll = nv_payroll_cap * total_employees;
-                        }
-                    });
+            // Loop through each location
+            app.business.locations.forEach(function(location, location_index) {
+                // Total the employees
+                const total_employees = location.full_time_employees + location.part_time_employees;
+
+                // Loop through each class code
+                location.activity_codes.forEach(function(code, code_index) {
+                    // If the payroll is over the cap, set it to the cap
+                    if (code.payroll / total_employees > nv_payroll_cap) {
+                        app.business.locations[location_index].activity_codes[code_index].payroll = nv_payroll_cap * total_employees;
+                    }
                 });
-            }
+            });
         }
+
     }
 
     /**
