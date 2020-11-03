@@ -280,6 +280,9 @@ module.exports = class QuoteBO {
                     return;
                 }
             }
+            if(queryJSON.insurerId && Array.isArray(queryJSON.insurerId)){
+                queryJSON.insurerId = {$in: queryJSON.insurerId};
+            }
             //Status check for multiple Values
             if(queryJSON.status && Array.isArray(queryJSON.status)){
                 queryJSON.status = {$in: queryJSON.status};
