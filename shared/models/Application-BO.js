@@ -1829,7 +1829,8 @@ module.exports = class ApplicationModel {
             mailingZipcode: "zipcode",
             "agencyId": "agency",
             "agencyLocationId": "agency_location",
-            "agencyNetworkId": "agency_network"
+            "agencyNetworkId": "agency_network",
+            "industryCode": "industry_code"
         };
         this.jsonToSnakeCase(applicationJSON, propMappingsApp);
         //prevent mongo import form overwriting doc.
@@ -1879,7 +1880,8 @@ module.exports = class ApplicationModel {
             const propMappingsApp = {
                 mailingCity: "city",
                 "mailingState": "state_abbr",
-                mailingZipcode: "zipcode"
+                mailingZipcode: "zipcode",
+                "industryCode": "industry_code"
             };
             this.jsonToSnakeCase(applicationJSON, propMappingsApp);
             if(error){
