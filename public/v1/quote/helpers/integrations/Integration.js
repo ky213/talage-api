@@ -460,8 +460,8 @@ module.exports = class Integration {
         // Default required
         required = required ? required : false;
 
-        // If this question has a parent that belongs to the same insurer, this question is not required, and the parent question was answered 'NO', skip this question
-        if (question.parent && Object.prototype.hasOwnProperty.call(this.questions, question.parent) && !required && !this.questions[question.parent].get_answer_as_boolean()) {
+        // If this question has a parent, is not required, and the parent question answer does not trigger this question
+        if (question.parent && Object.prototype.hasOwnProperty.call(this.questions, question.parent) && !required && this.questions[question.parent].answer_id !== question.parent_answer) {
             return false;
         }
 
