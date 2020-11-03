@@ -112,6 +112,7 @@ module.exports = class QuoteBO {
             quoteJSON.mysqlId = quoteID;
             //mongo save.
             try{
+                // eslint-disable-next-line no-unused-vars
                 const ApplicationBO = global.requireShared('models/Application-BO.js');
                 const applicationBO = new ApplicationBO();
                 //Get ApplicationID.
@@ -279,6 +280,9 @@ module.exports = class QuoteBO {
                     return;
                 }
             }
+            if(queryJSON.insurerId && Array.isArray(queryJSON.insurerId)){
+                queryJSON.insurerId = {$in: queryJSON.insurerId};
+            }
             //Status check for multiple Values
             if(queryJSON.status && Array.isArray(queryJSON.status)){
                 queryJSON.status = {$in: queryJSON.status};
@@ -306,12 +310,7 @@ module.exports = class QuoteBO {
                 let docList = null;
                 try {
                     log.debug("QuoteList query " + JSON.stringify(query))
-                    // log.debug("QuoteList options " + JSON.stringify(queryOptions))
-                    // log.debug("queryProjection: " + JSON.stringify(queryProjection))
                     docList = await Quote.find(query, queryProjection, queryOptions);
-                    //docList = await ApplicationMongooseModel.findOne(query,'-__v');
-                    // log.debug("docList.length: " + docList.length);
-                    // log.debug("docList: " + JSON.stringify(docList));
                     if(getListOptions.getInsurerName === true && docList.length > 0){
                         //TODO loop doclist adding InsurerName
 
