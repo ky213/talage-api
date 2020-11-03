@@ -1748,7 +1748,7 @@ module.exports = class ApplicationModel {
     }
 
     //only top level
-    jsonToSnakeCase(sourceJSON, propMappings) {
+    jsonToSnakeCase(sourceJSON,propMappings) {
         for (const sourceProp in sourceJSON) {
             if (typeof sourceJSON[sourceProp] !== "object") {
                 if (propMappings[sourceProp]) {
@@ -1883,7 +1883,7 @@ module.exports = class ApplicationModel {
                 mailingZipcode: "zipcode",
                 "industryCode": "industry_code"
             };
-            this.jsonToSnakeCase(applicationJSON, propMappingsApp);
+            this.jsonToSnakeCase(newAppRecJson, propMappingsApp);
             if(error){
                 return false;
             }
