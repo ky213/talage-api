@@ -199,7 +199,7 @@ const sendEmodEmail = async function(applicationId) {
             message = message.replace(/{{Contact Name}}/g, fullName);
             message = message.replace(/{{Contact Phone}}/g, customerPhone);
             message = message.replace(/{{Agency Portal}}/g, `<a href=\"${portalLink}\" rel=\"noopener noreferrer\" target=\"_blank\">Agency Portal</a>`);
-            message = message.replace(/{{STATE}}/g, applicationDoc.primaryState);
+            message = message.replace(/{{STATE}}/g, applicationDoc.mailingState);
 
             message = message.replace(/{{Brand}}/g, agencyNetworkEnvSettings.brandName);
 
