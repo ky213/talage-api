@@ -2,6 +2,8 @@
 
 const moment = require('moment');
 
+// NOTE: This is no longer being used.
+// Event Bridge rules have been disable.  2020-11-05
 
 /**
  * Checkin Records Task processor
