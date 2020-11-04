@@ -945,8 +945,9 @@ async function requote(req, res, next) {
         await applicationQuoting.validate();
     }
     catch (err) {
-        log.error(`Error validating application ${req.body.id ? req.body.id : ''}: ${err.message}` + __location);
-        res.send(err);
+        const errMessage = `Error validating application ${id ? id : ''}: ${err.message}`
+        log.error(errMessage + __location);
+        res.send(400, errMessage);
         return next();
     }
 
