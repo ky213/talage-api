@@ -44,7 +44,7 @@ module.exports = class Application {
 	 * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
 	 */
     async load(data, forceQuoting = false) {
-        log.debug('Loading data into Application');
+        log.debug('Loading data into Application' + __location);
         // ID
         //TODO detect ID type integer or uuid
         this.id = parseInt(data.id, 10);
@@ -70,13 +70,6 @@ module.exports = class Application {
             throw err;
         }
 
-
-        //LastStep check. TODO which to appStatusId.
-        // appStatusId > 70 is finished.(request to bind)
-        if(this.applicationDocData.appStatusId >= 70){
-            log.warn("An attempt to quote application that is finished.")
-            throw new Error("Finished Application cannot be quoted")
-        }
 
         //age check - add override Age parameter to allow requoting.
         if (forceQuoting === false){
@@ -296,6 +289,13 @@ module.exports = class Application {
 	 * @returns {void}
 	 */
     async run_quotes() {
+
+        // appStatusId > 70 is finished.(request to bind)
+        if(this.applicationDocData.appStatusId >= 70){
+            log.warn("An attempt to quote application that is finished.")
+            throw new Error("Finished Application cannot be quoted")
+        }
+
         // Generate quotes for each policy type
         const fs = require('fs');
         const quote_promises = [];
