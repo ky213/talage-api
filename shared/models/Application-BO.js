@@ -2329,6 +2329,7 @@ module.exports = class ApplicationModel {
                 resolve(applicationDoc);
             }
             else {
+                log.error("getfromMongoByAppId no id supplied");
                 reject(new Error('no id supplied'))
             }
         });
