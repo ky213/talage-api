@@ -75,40 +75,6 @@ var quoteReportTask = async function(){
     const sevenDaysAgoBegin = moment.tz("America/Los_Angeles").subtract(7,'d').startOf('day');
     const yesterdayEnd = moment.tz("America/Los_Angeles").subtract(1,'d').endOf('day');
 
-    // //S QLAgency locations
-    // const quoteSQL = `
-    // SELECT
-    // q.application as application,
-    // q.policy_type as policy_type,
-    // i.name as name,
-    // ag.name as agencyName,
-    // b.name_clear as businessName,
-    // a.state_abbr as territory,
-    // q.api_result as api_result,
-    // q.reasons as reasons,
-    // q.seconds as seconds,
-    // q.insurer,
-    // q.created,
-    // ag.agency_network as agencyNetworkId,
-    // GROUP_CONCAT(DISTINCT ac.description) AS activity_codes
-    // FROM clw_talage_quotes AS q
-    //     LEFT JOIN clw_talage_insurers AS i ON q.insurer = i.id
-    //     LEFT JOIN clw_talage_applications AS a ON a.id = q.application
-    //     LEFT JOIN clw_talage_agencies AS ag ON a.agency = ag.id
-    //     LEFT JOIN clw_talage_businesses AS b ON b.id = a.business
-    //     LEFT JOIN clw_talage_application_activity_codes as acc on a.id = acc.application
-    //     LEFT JOIN clw_talage_activity_codes as ac on acc.ncci_code = ac.id
-    // WHERE
-    //     q.created BETWEEN  '${sevenDaysAgoBegin.utc().format()}' AND '${yesterdayEnd.utc().format()}'
-    //     AND q.insurer IN (12,15)
-    // GROUP BY
-    //     q.id
-    // Order by
-    //     q.application
-    // `;
-    //log.debug(quoteSQL);
-
-
     const quoteBO = new QuoteBO()
     let quoteList = null;
     try {
