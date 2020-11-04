@@ -406,7 +406,7 @@ module.exports = class Application {
                 policyTypeReferred[quote.policy_type] = true;
             }
         });
-        // Update the application state
+        // Update the application state  - TODO Us BO.
         await this.updateApplicationState(this.policies.length, Object.keys(policyTypeQuoted).length, Object.keys(policyTypeReferred).length);
 
         // Send a notification to Slack about this application
@@ -607,6 +607,7 @@ module.exports = class Application {
         }
 
         // Update the application status in the database (1 is default, so that can be skipped)
+        // TODO update via BO.  Update Mongo.
         if (state > 1) {
             const sql = `
 				UPDATE #__applications
