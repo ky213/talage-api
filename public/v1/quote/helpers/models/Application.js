@@ -608,6 +608,7 @@ module.exports = class Application {
 
         // Update the application status in the database (1 is default, so that can be skipped)
         // TODO update via BO.  Update Mongo.
+        //make sure not to roll state backwards.
         if (state > 1) {
             const sql = `
 				UPDATE #__applications
