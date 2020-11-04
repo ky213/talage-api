@@ -6,8 +6,6 @@ const moment = require('moment');
 // Event Bridge rules have been disable.  2020-11-05
 
 
-
-
 /**
  * Expire Policies Task processor
  *
