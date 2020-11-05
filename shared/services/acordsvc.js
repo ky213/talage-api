@@ -68,9 +68,10 @@ exports.create = async function(application_id, insurer_id, policy_type){
 
 async function dataInit(applicationId, insurerId){
 
-    const application = new applicationBO();
-    await application.loadFromId(applicationId);
+    const applicationDoc = new applicationBO();
+    await applicationDoc.getMongoDocbyMysqlId(applicationId);
 
+    console.log(applicationDoc);
 
     const dataObj = {};
 

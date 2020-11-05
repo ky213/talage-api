@@ -35,6 +35,10 @@ exports.create = async function(dataObj){
      */
 
     // Add effective date if there was one set for this application
+
+    //---------------------------------------------------------------------------------------------------------------
+    // NOTE - CHANGE THIS TO CHECK THE TYPE MAYBE? MAKE IT A POSITIVE CHECK!!!!!!!
+    //---------------------------------------------------------------------------------------------------------------
     if(dataObj.application.gl_effective_date !== '0000-00-00'){
         pdfDataFieldsObj.Policy_EffectiveDate_A = moment(dataObj.application.gl_effective_date).format('L');
     }
