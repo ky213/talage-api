@@ -9,6 +9,7 @@
 const builder = require('xmlbuilder');
 const moment_timezone = require('moment-timezone');
 const Integration = require('../Integration.js');
+const moment = require('moment');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
@@ -588,20 +589,23 @@ module.exports = class MarkelWC extends Integration {
         }
 
         // These are the statuses returned by the insurer and how they map to our Talage statuses
-        // this.possible_api_responses.Declined = 'declined';
-        // this.possible_api_responses.Incomplete = 'error';
-        // this.possible_api_responses.Submitted = 'referred';
-        // this.possible_api_responses.Quoted = 'quoted';
+        this.possible_api_responses.Declined = 'declined';
+        this.possible_api_responses.Incomplete = 'error';
+        this.possible_api_responses.Submitted = 'referred';
+        this.possible_api_responses.Quoted = 'quoted';
 
-        // These are the limits supported by Markel
-        // const carrierLimits = [ '100/500/100', '500/500/500', '1000/1000/1000', '1500/1500/1500', '2000/2000/2000' ];
+        // These are the limits supported by Markel * 1000
+        const carrierLimits = [ '100000/500000/100000', '500000/500000/500000', '1000000/1000000/1000000', '1500000/1500000/1500000', '2000000/2000000/2000000' ];
+        let yearsInsured = moment().diff(this.app.business.founded, 'years');
 
-        const carrierLimits = [
-            '100000/500000/100000',
-            '500000/500000/500000',
-            '500000/1000000/500000',
-            '1000000/1000000/1000000'
-        ];
+        let mapCarrierLimits = {
+            '100000/500000/100000': '100/500/100', 
+            '500000/500000/500000': '500/500/500', 
+            '1000000/1000000/1000000': '1000/1000/1000',
+            '1500000/1500000/1500000': '1500/1500/1500', 
+            '2000000/2000000/2000000': '2000/2000/2000'
+        }
+
         // Check for excessive losses in DE, HI, MI, PA and VT
         const excessive_loss_states = [
             'DE',
@@ -610,13 +614,22 @@ module.exports = class MarkelWC extends Integration {
             'PA',
             'VT'
         ];
-
+        console.log('yearsinsured', yearsInsured)
+        if (yearsInsured > 10) {
+            yearsInsured = 10;
+        }
+        else if (yearsInsured === 0) {
+            yearsInsured = 1
+        };
+console.log('yearsinsured', yearsInsured)
         // Prepare limits
+        let markelLimits = mapCarrierLimits[this.app.policies[0].limits];
         const limits = this.getBestLimits(carrierLimits);
+
         if (!limits) {
             log.warn(`Appid: ${this.app.id} Markel WC autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location);
             this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} does not support the requested liability limits`);
-            // return this.return_result('autodeclined');
+            return this.return_result('autodeclined');
         }
 
         // Check the number of claims
@@ -624,7 +637,7 @@ module.exports = class MarkelWC extends Integration {
             if (this.policy.claims.length > 2) {
                 log.info(`Appid: ${this.app.id} autodeclined: ${this.insurer.name} Too many claims ` + __location);
                 this.reasons.push(`Too many past claims`);
-                // return this.return_result('autodeclined');
+                return this.return_result('autodeclined');
             }
         }
 
@@ -633,7 +646,7 @@ module.exports = class MarkelWC extends Integration {
             if (this.policy.claims.length > 4) {
                 log.info(`Appid: ${this.app.id} autodeclined: ${this.insurer.name} Too many claims ` + __location);
                 this.reasons.push(`Too many past claims`);
-                // return this.return_result('autodeclined');
+                return this.return_result('autodeclined');
             }
         }
 
@@ -726,7 +739,7 @@ module.exports = class MarkelWC extends Integration {
                 catch (error) {
                     log.error(`Appid: ${this.app.id} Markel WC: Unable to determine answer for question ${question.id}. error: ${error} ` + __location);
                     this.reasons.push(`Unable to determine answer for question ${question.id}`);
-                    // return this.return_result('error');
+                    return this.return_result('error');
                 }
 
                 // This question was not answered
@@ -758,7 +771,7 @@ module.exports = class MarkelWC extends Integration {
                     else {
                         log.error(`Appid: ${this.app.id} Markel WC: User provided an invalid percentage for the subcontractors question (not numeric) ` + __location);
                         this.reasons.push('User provided an invalid percentage for the subcontractors question (not numeric)');
-                        // return this.return_result('error');
+                        return this.return_result('error');
                     }
                 }
 
@@ -1118,6 +1131,8 @@ module.exports = class MarkelWC extends Integration {
             }
         }
 
+
+
         let response = '';
         let jsonRequest = {
             submissions: [
@@ -1162,8 +1177,8 @@ module.exports = class MarkelWC extends Integration {
                             ]
                         },
                         "Policy Info": {
-                            "Employer Liability Limit": "1000/1000/1000",
-                            "Years Insured": 1,
+                            "Employer Liability Limit": markelLimits,
+                            "Years Insured": yearsInsured,
                             "Exp Mod NCCI": {
                                 "Exp Mod NCCI Factor": this.app.business.experience_modifier
                             },
@@ -1212,9 +1227,29 @@ module.exports = class MarkelWC extends Integration {
 
         }
         let rquIdKey = Object.keys(response)[0]
+
         try {
-            if (response && response[rquIdKey].premium && response[rquIdKey].underwritingDecisionCode === 'QUOTED') {
-                this.amount = response[rquIdKey].premium.totalPremium;
+            if (response && response[rquIdKey].underwritingDecisionCode === 'SUBMITTED') {
+
+                if(response[rquIdKey].premium){
+                    this.amount = response[rquIdKey].premium.totalPremium;
+                }
+
+                // Get the quote limits
+                if (response[rquIdKey]["Policy Info"]) {
+
+                    const limitsString = response[rquIdKey].application["Policy Info"]["Employer Liability Limit"].replace(/,/g, '');
+                    const limitsArray = limitsString.split('/');
+                    this.limits = {
+                        '1': limitsArray[0],
+                        '2': limitsArray[1],
+                        '3': limitsArray[2]
+                    }
+                }
+                else {
+                    log.error('Markel Quote structure changed. Unable to find limits. ' + __location);
+                    this.reasons.push('Quote structure changed. Unable to find limits.');
+                }
 
                 // Return with the quote
                 return this.return_result('referred_with_price');
@@ -1236,18 +1271,12 @@ module.exports = class MarkelWC extends Integration {
                 declinedReasons = response[rquIdKey].errors[1].DeclineReasons;
             }
         }
-        // Get the quote value
-        if (response[rquIdKey] && response[rquIdKey].underwritingDecisionCode === 'QUOTED') {
-            return this.return_result('referred');
-        }
 
         if (response[rquIdKey].underwritingDecisionCode === 'DECLINED') {
             this.reasons.push(declinedReasons);
             return this.return_result('declined');
         }
-
         this.reasons.push(`Markel does not cover ${this.app.business.industry_code_description} in ${primaryAddress.territory}`);
         return this.return_result('error');
-
     }
 };
