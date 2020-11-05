@@ -1,12 +1,17 @@
 'use strict';
 
 const moment = require('moment');
-const crypt = global.requireShared('./services/crypt.js');
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
+
+const AgencyBO = global.requireShared('models/Agency-BO.js');
+const ApplicationBO = global.requireShared('models/Application-BO.js');
+const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
+const QuoteBO = global.requireShared('models/Quote-BO.js');
+
 
 /**
  * Task processor
@@ -70,49 +75,10 @@ exports.sendEmodEmail = async function(applicationId) {
 
 const sendEmodEmail = async function(applicationId) {
     if (applicationId) {
-
-        // filter out wholesale apps.
-        // NEED insurer, codes
-        const appSQL = `
-            SELECT
-                a.id,
-                a.agency_location AS agencyLocation,
-                al.phone as agencyLocationPhone,
-                ag.id as agencyId,
-                ag.email AS agencyEmail,
-                ag.name AS agencyName,
-                ag.agency_network,
-                al.email AS agencyLocationEmail,
-                c.email,
-                c.fname,
-                c.lname,
-                c.phone,
-                b.name as businessName,
-                b.mailing_zipcode,
-                q.id as quoteId,
-                q.number as quoteNumber,
-                q.api_result,
-                q.amount,
-                i.agent_login,
-                i.name as insurer_name,
-                i.logo as insurer_logo,
-                ic.description as codeDescription,
-                b.mailing_state_abbr AS territory_state
-            FROM clw_talage_applications AS a
-                INNER JOIN clw_talage_quotes AS q ON a.id = q.application
-                INNER JOIN clw_talage_agency_locations AS al ON a.agency_location = al.id
-                INNER JOIN clw_talage_agencies AS ag ON al.agency = ag.id
-                INNER JOIN clw_talage_industry_codes AS ic  ON ic.id = a.industry_code
-                INNER JOIN clw_talage_insurers AS i  ON i.id = q.insurer
-                INNER JOIN clw_talage_businesses AS b ON b.id = a.business
-                INNER JOIN clw_talage_contacts AS c ON a.business = c.business
-            WHERE 
-            a.id = ${applicationId}
-        `;
-
-        let applications = null;
+        let applicationDoc = null;
+        const applicationBO = new ApplicationBO();
         try {
-            applications = await db.query(appSQL);
+            applicationDoc = await applicationBO.getMongoDocbyMysqlId(applicationId);
         }
         catch (err) {
             log.error(`Error get opt out applications from DB for ${applicationId} error:  ${err}`);
@@ -120,39 +86,82 @@ const sendEmodEmail = async function(applicationId) {
             return false;
         }
 
-        if (applications && applications.length > 0) {
+        if (applicationDoc) {
 
-            let agencyLocationEmail = null;
-            //Get AgencyNetworkBO settings
+            //get Quote
             let error = null;
+            const quoteBO = new QuoteBO();
+            let quoteDoc = {quoteNumber: ""};
+
+            try {
+                const quoteQuery = {"applicationId": applicationId}
+                const quoteList = await quoteBO.getList(quoteQuery);
+                if(quoteList && quoteList.length > 0){
+                    //need AF (15) or compuwest(12) quote.
+                    for(let i = 0; i < quoteList.length; i++){
+                        const quote = quoteList[i];
+                        if((quote.insurerId === 15 || quote.insurerId === 12) && quote.quoteNumber){
+                            quoteDoc = quote;
+                            break;
+                        }
+                    }
+                }
+            }
+            catch(err){
+                log.error("Error getting quote for emailbindagency " + err + __location);
+            }
+
+
+            //Get AgencyNetworkBO settings
             const agencyNetworkBO = new AgencyNetworkBO();
-            const agencyNetworkEnvSettings = await agencyNetworkBO.getEnvSettingbyId(applications[0].agency_network).catch(function(err){
-                log.error(`Unable to get env settings for New Agency Portal User. agency_network: ${applications[0].agency_network}.  error: ${err}` + __location);
+            const agencyNetworkEnvSettings = await agencyNetworkBO.getEnvSettingbyId(applicationDoc.agencyNetworkId).catch(function(err){
+                log.error(`Unable to get env settings for New Agency Portal User. agency_network: ${applicationDoc.agencyNetworkId}.  error: ${err}` + __location);
                 error = true;
             });
             if(error){
                 return false;
             }
             if(!agencyNetworkEnvSettings || !agencyNetworkEnvSettings.PORTAL_URL){
-                log.error(`Unable to get env settings for New Agency Portal User. agency_network: ${applications[0].agency_network}.  missing additionalInfo ` + __location);
+                log.error(`Unable to get env settings for New Agency Portal User. agency_network: ${applicationDoc.agencyNetworkId}.  missing additionalInfo ` + __location);
                 return false;
             }
-            log.debug("agencyNetworkEnvSettings: " + JSON.stringify(agencyNetworkEnvSettings))
-            // decrypt info...
-            if (applications[0].agencyLocationEmail) {
-                agencyLocationEmail = await crypt.decrypt(applications[0].agencyLocationEmail);
+            // log.debug("agencyNetworkEnvSettings: " + JSON.stringify(agencyNetworkEnvSettings))
+
+            const agencyBO = new AgencyBO();
+            try{
+                await agencyBO.loadFromId(applicationDoc.agencyId)
             }
-            else if (applications[0].agencyEmail) {
-                agencyLocationEmail = await crypt.decrypt(applications[0].agencyEmail);
+            catch(err){
+                log.error("Error getting agencyBO " + err + __location);
+                error = true;
+
+            }
+            if(error){
+                return false;
             }
 
-            // decrypt necessary application fields
-            applications[0].email = await crypt.decrypt(applications[0].email);
-            applications[0].phone = await crypt.decrypt(applications[0].phone);
-            applications[0].fname = await crypt.decrypt(applications[0].fname);
-            applications[0].lname = await crypt.decrypt(applications[0].lname);
-            applications[0].businessName = await crypt.decrypt(applications[0].businessName);
-            applications[0].agencyEmail = await crypt.decrypt(applications[0].agencyEmail);
+            //get AgencyLocationBO
+            const agencyLocationBO = new AgencyLocationBO();
+            try{
+                await agencyLocationBO.loadFromId(applicationDoc.agencyLocationId)
+            }
+            catch(err){
+                log.error("Error getting agencyLocationBO " + err + __location);
+                error = true;
+
+            }
+            if(error){
+                return false;
+            }
+
+
+            let agencyLocationEmail = null;
+            if(agencyLocationBO.email){
+                agencyLocationEmail = agencyLocationBO.email
+            }
+            else if(agencyBO.email){
+                agencyLocationEmail = agencyBO.email;
+            }
 
             // Get AgencyNetwork's portal url
             const portalLink = agencyNetworkEnvSettings.PORTAL_URL;
@@ -171,44 +180,45 @@ const sendEmodEmail = async function(applicationId) {
             `;
             const subject = "New Customer Tried to Get a Quote but Encountered an Issue with their E-Mod";
 
+            const customerContact = applicationDoc.contacts.find(contactTest => contactTest.primary === true);
+
+            const customerEmail = customerContact.email;
+
             let customerPhone = '';
-            if (applications[0].phone) {
-                customerPhone = formatPhone(applications[0].phone);
+            if(customerContact.phone){
+                customerPhone = formatPhone(customerContact.phone);
             }
 
-            const fullName = stringFunctions.ucwords(stringFunctions.strtolower(applications[0].fname) + ' ' + stringFunctions.strtolower(applications[0].lname));
+            const fullName = stringFunctions.ucwords(stringFunctions.strtolower(customerContact.firstName) + ' ' + stringFunctions.strtolower(customerContact.lastName));
 
             // replace fields in template w/ actual values
             message = message.replace(/{{Business Owner}}/g, fullName);
-            message = message.replace(/{{Business Name}}/g, applications[0].businessName);
-            message = message.replace(/{{Quote Number}}/g, applications[0].quoteId);
-            message = message.replace(/{{Contact Email}}/g, applications[0].email);
+            message = message.replace(/{{Business Name}}/g, applicationDoc.businessName);
+            message = message.replace(/{{Quote Number}}/g, quoteDoc.quoteNumber);
+            message = message.replace(/{{Contact Email}}/g, customerEmail);
             message = message.replace(/{{Contact Name}}/g, fullName);
             message = message.replace(/{{Contact Phone}}/g, customerPhone);
             message = message.replace(/{{Agency Portal}}/g, `<a href=\"${portalLink}\" rel=\"noopener noreferrer\" target=\"_blank\">Agency Portal</a>`);
-            message = message.replace(/{{STATE}}/g, applications[0].territory_state);
+            message = message.replace(/{{STATE}}/g, applicationDoc.mailingState);
 
             message = message.replace(/{{Brand}}/g, agencyNetworkEnvSettings.brandName);
 
-            const keyData = {
-                'application': applicationId,
-                'agency_location': applications[0].agencyLocation
-            };
+            const keyData = {'applicationDoc': applicationDoc};
 
             // Send the email
             if (agencyLocationEmail) {
-                const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData, applications[0].agency_network,"");
+                const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData, applicationDoc.agencyNetworkId,"");
                 if (emailResp === false) {
                     slack.send('#alerts', 'warning', `The system failed to inform an agency of the sendEmodEmail for application ${applicationId}. Please follow-up manually.`);
                 }
             }
             else {
-                log.error("sendEmodEmail no email address for data: " + JSON.stringify(keyData) + __location);
+                log.error(`sendEmodEmail no email address for applicationId: ${applicationId} ` + __location);
             }
             return true;
         }
         else {
-            log.error('sendEmodEmail No application quotes pulled from database applicationId : ' + applicationId + "  SQL: \n" + appSQL + '\n' + __location);
+            log.error('sendEmodEmail No application quotes pulled from database applicationId : ' + applicationId + __location);
             return false;
         }
     }

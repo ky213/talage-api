@@ -32,7 +32,7 @@ const taskEmailBindAgency = global.requireRootPath('tasksystem/task-emailbindage
 
 
 // Mongo Models
-var Application = require('mongoose').model('Application');
+var ApplicationMongooseModel = require('mongoose').model('Application');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 //const crypt = global.requireShared('./services/crypt.js');
@@ -145,6 +145,7 @@ module.exports = class ApplicationModel {
                 reject(new Error("empty application object given"));
                 return;
             }
+            // eslint-disable-next-line no-unused-vars
             let error = null;
             // log.debug("Beginning applicationJSON: " + JSON.stringify(applicationJSON));
 
@@ -408,8 +409,8 @@ module.exports = class ApplicationModel {
                         log.error('Adding Legal Acceptance error:' + err + __location);
                         reject(err);
                     });
-                    //applicationJSON.status = 'incomplete';
-                    //applicationJSON.appStatusId = 10;
+                    applicationJSON.status = 'questions_done';
+                    applicationJSON.appStatusId = 10;
                     if (applicationJSON.wholesale === 1 || applicationJSON.solepro === 1) {
                         //save the app for the email.
                         this.#dbTableORM.load(applicationJSON, false).catch(function(err) {
@@ -454,7 +455,6 @@ module.exports = class ApplicationModel {
                     // not from old Web application application flow.
                     reject(new Error("Unknown Application Workflow Step"))
                     return;
-                    break;
             }
             if (updateBusiness === true) {
                 if (applicationJSON.businessInfo) {
@@ -494,7 +494,7 @@ module.exports = class ApplicationModel {
             this.updateProperty();
             this.id = this.#dbTableORM.id;
             applicationJSON.id = this.id;
-            
+
             // mongoose model save.
             this.mapToMongooseJSON(applicationJSON)
             if (this.#applicationMongooseDB) {
@@ -693,7 +693,7 @@ module.exports = class ApplicationModel {
             await applicationActivityCodesModelDelete.DeleteByApplicationId(this.id).catch(function(err) {
                 log.error("Error deleting ApplicationActivityCodesModel " + err + __location);
             });
-
+            const appId = this.id
             for (const activity in activtyListJSON) {
                 //for(var i=0; i < total_payrollJSON.length;i++){
                 //activityPayrollJSON = total_payrollJSON[i];
@@ -710,7 +710,7 @@ module.exports = class ApplicationModel {
                 this.#applicationMongooseJSON.activityCodes.push(activityCodeModelJSON)
                 const applicationActivityCodesModel = new ApplicationActivityCodesModel();
                 await applicationActivityCodesModel.saveModel(activityCodeJSON).catch(function(err) {
-                    log.error(`Adding new applicationActivityCodesModel for Appid ${this.id} error:` + err + __location);
+                    log.error(`Adding new applicationActivityCodesModel for Appid ${appId} error:` + err + __location);
                     reject(err);
                     return;
                 });
@@ -960,7 +960,7 @@ module.exports = class ApplicationModel {
                         `;
             //log.debug("question InsertSQL:\n" + insertSQL);
             let rejected = false;
-            const result = await db.query(insertSQL).catch(function(error) {
+            await db.query(insertSQL).catch(function(error) {
                 // Check if this was
                 log.error("Database Object clw_talage_application_questions INSERT error :" + error + __location);
                 rejected = true;
@@ -977,7 +977,7 @@ module.exports = class ApplicationModel {
 
     processQuestionsMongo(questionsRequest) {
 
-        return new Promise(async(resolve, reject) => {
+        return new Promise(async(resolve) => {
             ///delete existing ?? old system did not.
 
             const questionTypeBO = new QuestionTypeBO();
@@ -1007,7 +1007,7 @@ module.exports = class ApplicationModel {
                     questionJSON.hidden = questionDB.hidden;
                     questionJSON.questionType = questionDB.type;
                     if (questionTypeListDB) {
-                        const questionType = questionTypeListDB.find(questionType => questionType.id === questionDB.type);
+                        const questionType = questionTypeListDB.find(questionTypeTest => questionTypeTest.id === questionDB.type);
                         if (questionType) {
                             questionJSON.questionType = questionType.name;
                         }
@@ -1091,7 +1091,7 @@ module.exports = class ApplicationModel {
 
     processQuotes(applicationJSON) {
 
-        return new Promise(async(resolve, reject) => {
+        return new Promise(async(resolve) => {
             if (applicationJSON.quotes) {
                 for (var i = 0; i < applicationJSON.quotes.length; i++) {
                     const quote = applicationJSON.quotes[i];
@@ -1222,7 +1222,7 @@ module.exports = class ApplicationModel {
                     saveBusinessData = true;
                 }
                 else {
-                    log.warn(`AF Business Data API returned no data., appid ${this.id} error:` + e + __location)
+                    log.warn(`AF Business Data API returned no data., appid ${this.id} error:` + __location)
                 }
             }
             if (saveBusinessData) {
@@ -1538,7 +1538,7 @@ module.exports = class ApplicationModel {
                     "appStatusId": appStatusid
                 }
                 const query = {"mysqlId": id};
-                await Application.updateOne(query, updateStatusJson);
+                await ApplicationMongooseModel.updateOne(query, updateStatusJson);
             }
             catch (error) {
                 log.error(`Could not update application status mongo appId: ${id}  ${error} ${__location}`);
@@ -1566,19 +1566,53 @@ module.exports = class ApplicationModel {
             log.error(`Could not update the quote progress to ${progress} for application ${id}: ${error} ${__location}`);
         }
         if (result === null || result.affectedRows !== 1) {
-            log.error(`Could not update the quote ${progress} to 'quoting' for application ${id}: ${sql} ${__location}`);
+            log.warn(`Could not update the application progress to ${progress} for application ${id}: ${sql} ${__location}`);
         }
         //mongo update.....
         try {
             const updateStatusJson = {progress: progress}
             const query = {"mysqlId": id};
-            await Application.updateOne(query, updateStatusJson);
+            await ApplicationMongooseModel.updateOne(query, updateStatusJson);
+        }
+        catch (error) {
+            log.error(`Could not update application progress mongo appId: ${id}  ${error} ${__location}`);
+        }
+        return true;
+    }
+
+    async updateState(id, newState) {
+
+        const sql = `
+		    UPDATE clw_talage_applications
+		    SET state = ${db.escape(newState)}
+		    WHERE id = ${db.escape(id)} and state < ${db.escape(newState)}
+        `;
+        let result = null;
+
+        try {
+            result = await db.query(sql);
+        }
+        catch (error) {
+            log.error(`Could not update the quote state to ${newState} for application ${id}: ${error} ${__location}`);
+        }
+        if (result === null || result.affectedRows !== 1) {
+            log.error(`Could not update the quote ${newState} to 'quoting' for application ${id}: ${sql} ${__location}`);
+        }
+        //mongo update.....
+        try {
+            const updateStatusJson = {processStateOld: newState}
+            const query = {
+                "mysqlId": id,
+                processStateOld: {$lt: newState}
+            };
+            await ApplicationMongooseModel.updateOne(query, updateStatusJson);
         }
         catch (error) {
             log.error(`Could not update application status mongo appId: ${id}  ${error} ${__location}`);
         }
         return true;
     }
+
 
     async getProgress(id) {
 
@@ -1598,7 +1632,7 @@ module.exports = class ApplicationModel {
             return result[0].progress;
         }
         else {
-            log.error(`Could not get the quote progress for application ${id}: ${error} ${__location}`);
+            log.error(`Could not get the quote progress for application ${id}: ${__location}`);
             return "unknown";
         }
     }
@@ -1667,8 +1701,8 @@ module.exports = class ApplicationModel {
                 try {
                     //because Virtual Sets.  new need to get the model and save.
 
-                    await Application.updateOne(query, newObjectJSON);
-                    const newApplicationdoc = await Application.findOne(query);
+                    await ApplicationMongooseModel.updateOne(query, newObjectJSON);
+                    const newApplicationdoc = await ApplicationMongooseModel.findOne(query);
                     this.#applicationMongooseDB = newApplicationdoc
                     //because Virtual Sets. we need to updatemode land save it.
                     // Only EIN is virtual...
@@ -1731,7 +1765,7 @@ module.exports = class ApplicationModel {
             newObjectJSON.applicationId = newObjectJSON.uuid;
         }
 
-        const application = new Application(newObjectJSON);
+        const application = new ApplicationMongooseModel(newObjectJSON);
         //log.debug("insert application: " + JSON.stringify(application))
         //Insert a doc
         await application.save().catch(function(err) {
@@ -1748,7 +1782,7 @@ module.exports = class ApplicationModel {
     }
 
     //only top level
-    jsonToSnakeCase(sourceJSON, propMappings) {
+    jsonToSnakeCase(sourceJSON,propMappings) {
         for (const sourceProp in sourceJSON) {
             if (typeof sourceJSON[sourceProp] !== "object") {
                 if (propMappings[sourceProp]) {
@@ -1829,7 +1863,8 @@ module.exports = class ApplicationModel {
             mailingZipcode: "zipcode",
             "agencyId": "agency",
             "agencyLocationId": "agency_location",
-            "agencyNetworkId": "agency_network"
+            "agencyNetworkId": "agency_network",
+            "industryCode": "industry_code"
         };
         this.jsonToSnakeCase(applicationJSON, propMappingsApp);
         //prevent mongo import form overwriting doc.
@@ -1879,9 +1914,10 @@ module.exports = class ApplicationModel {
             const propMappingsApp = {
                 mailingCity: "city",
                 "mailingState": "state_abbr",
-                mailingZipcode: "zipcode"
+                mailingZipcode: "zipcode",
+                "industryCode": "industry_code"
             };
-            this.jsonToSnakeCase(applicationJSON, propMappingsApp);
+            this.jsonToSnakeCase(newAppRecJson, propMappingsApp);
             if(error){
                 return false;
             }
@@ -2225,7 +2261,7 @@ module.exports = class ApplicationModel {
                 const arrayString = "|" + questionDocItem.answerList.join('|');
                 valueLine = `(${applicationJSON.id}, ${questionDocItem.questionId}, NULL, ${db.escape(arrayString)})`
             }
-            else if (questionDocItem.questionType === 'Yes/No'){
+            else if (questionDocItem.questionType === 'Yes/No' || questionDocItem.questionType === 'Select List'){
                 valueLine = `(${applicationJSON.id}, ${questionDocItem.questionId}, ${questionDocItem.answerId}, NULL)`
             }
             if(valueLine){
@@ -2266,7 +2302,7 @@ module.exports = class ApplicationModel {
                 };
                 let applicationDoc = null;
                 try {
-                    applicationDoc = await Application.findOne(query, '-__v');
+                    applicationDoc = await ApplicationMongooseModel.findOne(query, '-__v');
                 }
                 catch (err) {
                     log.error("Getting Application error " + err + __location);
@@ -2290,7 +2326,7 @@ module.exports = class ApplicationModel {
                 };
                 let applicationDoc = null;
                 try {
-                    applicationDoc = await Application.findOne(query, '-__v');
+                    applicationDoc = await ApplicationMongooseModel.findOne(query, '-__v');
                 }
                 catch (err) {
                     log.error("Getting Application error " + err + __location);
@@ -2315,7 +2351,7 @@ module.exports = class ApplicationModel {
                 };
                 let applicationDoc = null;
                 try {
-                    const docDB = await Application.findOne(query, '-__v');
+                    const docDB = await ApplicationMongooseModel.findOne(query, '-__v');
                     if (docDB) {
                         applicationDoc = mongoUtils.objCleanup(docDB);
                     }
@@ -2327,6 +2363,7 @@ module.exports = class ApplicationModel {
                 resolve(applicationDoc);
             }
             else {
+                log.error("getfromMongoByAppId no id supplied");
                 reject(new Error('no id supplied'))
             }
         });
@@ -2343,7 +2380,7 @@ module.exports = class ApplicationModel {
                 };
                 let applicationDoc = null;
                 try {
-                    const docDB = await Application.findOne(query, '-__v');
+                    const docDB = await ApplicationMongooseModel.findOne(query, '-__v');
                     if (docDB) {
                         applicationDoc = mongoUtils.objCleanup(docDB);
                     }
@@ -2356,6 +2393,209 @@ module.exports = class ApplicationModel {
             }
             else {
                 reject(new Error('no id supplied'))
+            }
+        });
+    }
+
+    getList(queryJSON, getOptions = null) {
+        return new Promise(async(resolve, reject) => {
+            //
+            let getListOptions = {
+                getQuestions: false,
+                getAgencyName: false
+            }
+
+            if(getOptions){
+                for(const prop in getOptions){
+                    getListOptions[prop] = getOptions[prop];
+                }
+            }
+            let queryProjection = {"__v": 0}
+            if(getListOptions.getQuestions === false){
+                queryProjection.questions = 0;
+            }
+            let findCount = false;
+
+            let rejected = false;
+            let query = {};
+            let error = null;
+
+            var queryOptions = {lean:true};
+            queryOptions.sort = {};
+            if (queryJSON.sort) {
+                var acs = 1;
+                if (queryJSON.desc) {
+                    acs = -1;
+                    delete queryJSON.desc
+                }
+                queryOptions.sort[queryJSON.sort] = acs;
+                delete queryJSON.sort
+            }
+            else {
+                // default to DESC on sent
+                queryOptions.sort.createdAt = -1;
+
+            }
+            const queryLimit = 500;
+            if (queryJSON.limit) {
+                var limitNum = parseInt(queryJSON.limit, 10);
+                delete queryJSON.limit
+                if (limitNum < queryLimit) {
+                    queryOptions.limit = limitNum;
+                }
+                else {
+                    queryOptions.limit = queryLimit;
+                }
+            }
+            else {
+                queryOptions.limit = queryLimit;
+            }
+            if (queryJSON.count) {
+                if (queryJSON.count === "1") {
+                    findCount = true;
+                }
+                delete queryJSON.count;
+            }
+            if (queryJSON.ltAppStatusId && queryJSON.gtAppStatusId) {
+                query.appStatusId = {
+                    $lt: parseInt(queryJSON.ltAppStatusId, 10),
+                    $gt: parseInt(queryJSON.gtAppStatusId, 10)
+                };
+                delete queryJSON.ltAppStatusId;
+                delete queryJSON.gtAppStatusId;
+            }
+            else if (queryJSON.ltAppStatusId) {
+                query.appStatusId = {$lt: parseInt(queryJSON.ltAppStatusId, 10)};
+                delete queryJSON.ltAppStatusId;
+            }
+            else if (queryJSON.gtAppStatusId) {
+                query.appStatusId = {$gt: parseInt(queryJSON.minid, 10)};
+                delete queryJSON.gtAppStatusId;
+            }
+
+
+            let flippedSort = false;
+            if (queryJSON.maxid && queryJSON.minid) {
+                query.mysqlId = {
+                    $lte: parseInt(queryJSON.maxid, 10),
+                    $gte: parseInt(queryJSON.minid, 10)
+                };
+                delete queryJSON.maxid;
+                delete queryJSON.minid;
+            }
+            else if (queryJSON.maxid) {
+                query.mysqlId = {$lte: parseInt(queryJSON.maxid, 10)};
+                delete queryJSON.maxid;
+            }
+            else if (queryJSON.minid) {
+                query.mysqlId = {$gte: parseInt(queryJSON.minid, 10)};
+                delete queryJSON.minid;
+                //change sort
+                queryOptions.sort.mysqlId = 1;
+                flippedSort = true;
+            }
+            if (queryJSON.searchbegindate && queryJSON.searchenddate) {
+                let fromDate = moment(queryJSON.searchbegindate);
+                let toDate = moment(queryJSON.searchenddate);
+                if (fromDate.isValid() && toDate.isValid()) {
+                    query.createdAt = {
+                        $lte: toDate,
+                        $gte: fromDate
+                    };
+                    delete queryJSON.searchbegindate;
+                    delete queryJSON.searchenddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.searchbegindate) {
+                // eslint-disable-next-line no-redeclare
+                let fromDate = moment(queryJSON.searchbegindate);
+                if (fromDate.isValid()) {
+                    query.createdAt = {$gte: fromDate};
+                    delete queryJSON.searchbegindate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.searchenddate) {
+                // eslint-disable-next-line no-redeclare
+                let toDate = moment(queryJSON.searchenddate);
+                if (toDate.isValid()) {
+                    query.createdAt = {$lte: toDate};
+                    delete queryJSON.searchenddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+
+
+            if (queryJSON) {
+                for (var key in queryJSON) {
+                    if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
+                        let clearString = queryJSON[key].replace("%", "");
+                        clearString = clearString.replace("%", "");
+                        query[key] = {
+                            "$regex": clearString,
+                            "$options": "i"
+                        };
+                    }
+                    else {
+                        query[key] = queryJSON[key];
+                    }
+                }
+            }
+
+
+            if (findCount === false) {
+                let docList = null;
+                try {
+                    log.debug("ApplicationList query " + JSON.stringify(query))
+                    log.debug("ApplicationList options " + JSON.stringify(queryOptions))
+                    log.debug("queryProjection: " + JSON.stringify(queryProjection))
+                    docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions);
+                    // log.debug("docList.length: " + docList.length);
+                    // log.debug("docList: " + JSON.stringify(docList));
+                    if(getListOptions.getAgencyName === true && docList.length > 0){
+                        //loop doclist adding agencyName
+
+                    }
+                }
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    rejected = true;
+                }
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                if (flippedSort === true) {
+                    docList.sort((a, b) => parseInt(b.mysqlId, 10) - parseInt(a.mysqlId, 10));
+                }
+
+
+                resolve(mongoUtils.objListCleanup(docList));
+                return;
+            }
+            else {
+                const docCount = await ApplicationMongooseModel.countDocuments(query).catch(err => {
+                    log.error("Application.countDocuments error " + err + __location);
+                    error = null;
+                    rejected = true;
+                })
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                resolve({count: docCount});
+                return;
             }
         });
     }
@@ -2456,7 +2696,7 @@ module.exports = class ApplicationModel {
                 let appllicationDoc = null;
                 let docDB = null;
                 try {
-                    docDB = await Application.findOne(query, '-__v');
+                    docDB = await ApplicationMongooseModel.findOne(query, '-__v');
                     if (docDB) {
                         this.#applicationMongooseDB = docDB
                         appllicationDoc = mongoUtils.objCleanup(docDB);
@@ -2712,7 +2952,7 @@ module.exports = class ApplicationModel {
                     log.error("Error get compWestQuestionList " + err + __location);
                 }
                 if (compWestQuestionList) {
-                    let gotHit = false;
+                    //let gotHit = false;
                     let madeChange = false;
                     //Limited data returned from AFBusiness Data api.
                     // so only process non null for question lookup.
@@ -2720,16 +2960,16 @@ module.exports = class ApplicationModel {
                         try {
                             if (afBusinessDataCompany[businessDataProp] || afBusinessDataCompany[businessDataProp] === false) {
                                 //find in mapping
-                                const mapping = mappingJSON.find(mapping => mapping.afJsonTag === businessDataProp);
+                                const mapping = mappingJSON.find(mappingTest => mappingTest.afJsonTag === businessDataProp);
                                 if (mapping) {
                                     // log.debug(`Mapping for AF tag ${businessDataProp}`)
                                     //find in compWestQuestionList
-                                    const compWestQuestion = compWestQuestionList.find(compWestQuestion => mapping.afgIndicator === compWestQuestion.identifier);
+                                    const compWestQuestion = compWestQuestionList.find(compWestQuestionTest => mapping.afgIndicator === compWestQuestionTest.identifier);
                                     if (compWestQuestion) {
                                         //find in getQuestionsResult
-                                        const question = getQuestionsResult.find(question => compWestQuestion.question === question.id);
+                                        const question = getQuestionsResult.find(questionTest => compWestQuestion.question === questionTest.id);
                                         if (question && question.type === "Yes/No" && question.answers) {
-                                            gotHit = true;
+                                            //gotHit = true;
                                             log.debug(`Mapped ${mapping.afJsonTag} questionId ${question.id} AF Data value ${afBusinessDataCompany[businessDataProp]}`)
                                             const defaultAnswer = afBusinessDataCompany[businessDataProp] ? "Yes" : "No";
                                             for (let i = 0; i < question.answers.length; i++) {

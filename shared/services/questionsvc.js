@@ -261,27 +261,28 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
 
     // ============================================================
     // Get activity-based questions
-    sql = `
-        SELECT ${select}
-        FROM clw_talage_questions AS q
-        LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
-        INNER JOIN clw_talage_insurer_ncci_code_questions AS ncq ON q.id = ncq.question AND ncq.ncci_code IN(
-            SELECT nca.insurer_code FROM clw_talage_activity_code_associations AS nca
-            LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON nca.insurer_code = inc.id
-            WHERE nca.code IN (${activityCodeArray.join(',')})
-            AND inc.state = 1${territories && territories.length ? ` AND inc.territory IN (${territories.map(db.escape).join(',')})` : ``}
-        )
-        LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
-        WHERE iq.policy_type IN ('WC') AND ${where} GROUP BY q.id;
-    `;
-    const wc_questions = await db.query(sql).catch(function(err) {
-        error = err.message;
-    });
-    if (error) {
-        return false;
+    if(activityCodeArray && activityCodeArray.length > 0){
+        sql = `
+            SELECT ${select}
+            FROM clw_talage_questions AS q
+            LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
+            INNER JOIN clw_talage_insurer_ncci_code_questions AS ncq ON q.id = ncq.question AND ncq.ncci_code IN(
+                SELECT nca.insurer_code FROM clw_talage_activity_code_associations AS nca
+                LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON nca.insurer_code = inc.id
+                WHERE nca.code IN (${activityCodeArray.join(',')})
+                AND inc.state = 1${territories && territories.length ? ` AND inc.territory IN (${territories.map(db.escape).join(',')})` : ``}
+            )
+            LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
+            WHERE iq.policy_type IN ('WC') AND ${where} GROUP BY q.id;
+        `;
+        const wc_questions = await db.query(sql).catch(function(err) {
+            error = err.message;
+        });
+        if (error) {
+            return false;
+        }
+        questions = questions.concat(wc_questions);
     }
-    questions = questions.concat(wc_questions);
-
     // Remove Duplicates
     if (questions) {
         questions = questions.filter((question, index, self) => index === self.findIndex((t) => t.id === question.id));

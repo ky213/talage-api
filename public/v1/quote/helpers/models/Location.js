@@ -21,6 +21,7 @@ module.exports = class Location {
         this.address = '';
         this.address2 = '';
         this.city = '';
+        this.county = '';
         this.full_time_employees = 0;
         this.identification_number = '';
         this.identification_number_type = null;
@@ -79,6 +80,7 @@ module.exports = class Location {
         this.territory = locationDocJson.state;
         this.state_abbr = locationDocJson.state;
         this.state = locationDocJson.state;
+        this.county = locationDocJson.county;
         if(this.unemployment_num){
             try{
                 this.unemployment_number = parseInt(this.unemployment_num, 10);
@@ -244,8 +246,7 @@ module.exports = class Location {
                     'MN',
                     'NJ',
                     'RI',
-                    'UT',
-                    'MI'
+                    'UT'
                 ];
 
                 // Check if an unemployment number is required

@@ -411,12 +411,12 @@ async function getApplicationDoc(req, res ,next){
         return next(serverHelper.requestError(`Bad Request: check error ${err}`));
     }
 
-    if(passedAgencyCheck === false){
+    if(applicationDB && applicationDB.applicationId && passedAgencyCheck === false){
         log.info('Forbidden: User is not authorized for this agency' + __location);
         return next(serverHelper.forbiddenError('You are not authorized for this agency'));
     }
 
-    if(applicationDB){
+    if(applicationDB && applicationDB.applicationId){
         res.send(200, applicationDB);
         return next();
 
@@ -572,6 +572,106 @@ async function applicationSave(req, res, next) {
 }
 
 
+async function applicationCopy(req, res, next) {
+    //const exampleBody = {"applicationId": "cb3b4d82-7bb6-438d-82cb-9f520c3db925", includeQuestions: true}
+    log.debug("Application Copy Post: " + JSON.stringify(req.body));
+    if (!req.body || typeof req.body !== 'object') {
+        log.error('Bad Request: No data received ' + __location);
+        return next(serverHelper.requestError('Bad Request: No data received'));
+    }
+
+    if (!req.body.applicationId && !req.body.uuid && req.body.id) {
+        log.error('Bad Request: Missing applicationId ' + __location);
+        return next(serverHelper.requestError('Bad Request: Missing applicationId'));
+    }
+
+    //uuid -> applicationId
+    if (!req.body.applicationId && req.body.uuid) {
+        req.body.applicationId = req.body.uuid
+    }
+
+
+    //get user's agency List
+    let error = null
+    const agencies = await auth.getAgents(req).catch(function(e) {
+        error = e;
+    });
+    if (error) {
+        return next(error);
+    }
+
+    const applicationBO = new ApplicationBO();
+
+
+    //get application and valid agency
+    let passedAgencyCheck = false;
+    let responseAppDoc = null;
+    try{
+        const applicationDocDB = await applicationBO.loadfromMongoByAppId(req.body.applicationId);
+        if(applicationDocDB && agencies.includes(applicationDocDB.agencyId)){
+            passedAgencyCheck = true;
+        }
+        if(!applicationDocDB){
+            return next(serverHelper.requestError('Not Found'));
+        }
+        if(passedAgencyCheck === false){
+            log.info('Forbidden: User is not authorized for this agency' + __location);
+            return next(serverHelper.forbiddenError('You are not authorized for this agency'));
+        }
+        // eslint-disable-next-line prefer-const
+        let newApplicationDoc = JSON.parse(JSON.stringify(applicationDocDB));
+        // eslint-disable-next-line array-element-newline
+        const propsToRemove = ["_id","id","applicationId", "uuid","mysqlId"]
+        for(let i = 0; i < propsToRemove.length; i++){
+            if(newApplicationDoc[propsToRemove[i]]){
+                delete newApplicationDoc[propsToRemove[i]]
+            }
+        }
+
+        //include Questions
+        if(req.body.includeQuestions === false){
+            newApplicationDoc.questions = [];
+            if(newApplicationDoc.appStatusId >= 10){
+                newApplicationDoc.appStatusId = 0;
+                newApplicationDoc.status = 'incomplete';
+            }
+        }
+        else if (newApplicationDoc.questions && newApplicationDoc.questions.length > 0) {
+            newApplicationDoc.appStatusId = 10;
+            newApplicationDoc.status = 'questions_done';
+        }
+        else {
+            newApplicationDoc.appStatusId = 0;
+            newApplicationDoc.status = 'incomplete';
+        }
+
+        let userId = null;
+        try{
+            userId = req.authentication.userID;
+        }
+        catch(err){
+            loggers.error("Error gettign userID " + err + __location);
+        }
+        req.body.agencyPortalCreatedUser = userId
+        req.body.agencyPortalCreated = true;
+        const updateMysql = true;
+        responseAppDoc = await applicationBO.insertMongo(newApplicationDoc, updateMysql);
+    }
+    catch(err){
+        log.error("Error checking application doc " + err + __location)
+        return next(serverHelper.requestError(`Bad Request: check error ${err}`));
+    }
+
+    if(responseAppDoc){
+        res.send(200, responseAppDoc);
+        return next();
+    }
+    else{
+        res.send(500, "No copied Application");
+        return next(serverHelper.internalError("No copied Application"));
+    }
+}
+
 async function deleteObject(req, res, next) {
     const id = stringFunctions.santizeNumber(req.params.id, true);
     if (!id) {
@@ -615,7 +715,7 @@ async function deleteObject(req, res, next) {
 
 }
 
-async function requote(req, res, next) {
+async function validate(req, res, next) {
     //Double check it is TalageStaff user
 
     // Check for data
@@ -630,12 +730,36 @@ async function requote(req, res, next) {
         return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
     }
 
-    //TODO accept applicationId or uuid also.
-
-    // Validate the application ID
-    if (!await validator.is_valid_id(req.body.id)) {
-        log.error('Bad Request: Invalid id ' + __location);
-        return next(serverHelper.requestError('Invalid id'));
+    let error = null;
+    //accept applicationId or uuid also.
+    const applicationBO = new ApplicationBO();
+    let id = req.body.id;
+    if(id > 0){
+        // Validate the application ID
+        if (!await validator.is_valid_id(req.body.id)) {
+            log.error(`Bad Request: Invalid id ${id}` + __location);
+            return next(serverHelper.requestError('Invalid id'));
+        }
+    }
+    else {
+        //assume uuid input
+        log.debug("Getting id from mongo")
+        const appDoc = await applicationBO.getfromMongoByAppId(id).catch(function(err) {
+            log.error(`Error getting application Doc for validate ${id} ` + err + __location);
+            log.error('Bad Request: Invalid id ' + __location);
+            error = err;
+        });
+        if (error) {
+            return next(error);
+        }
+        if(appDoc){
+            log.debug("Have doc for " + appDoc.mysqlId)
+            id = appDoc.mysqlId;
+        }
+        else {
+            log.error(`Did not find application Doc for validate ${id}` + __location);
+            return next(serverHelper.requestError('Invalid id'));
+        }
     }
 
     const agencyNetwork = req.authentication.agencyNetwork;
@@ -645,10 +769,8 @@ async function requote(req, res, next) {
         return next(serverHelper.forbiddenError('Do Not have Permissions'));
     }
 
-    const id = req.body.id;
     //Get app and check status
-    let error = null;
-    const applicationBO = new ApplicationBO();
+    log.debug("Loading Application by mysqlId")
     const applicationDB = await applicationBO.getById(id).catch(function(err) {
         log.error("Location load error " + err + __location);
         error = err;
@@ -660,19 +782,146 @@ async function requote(req, res, next) {
         return next(serverHelper.requestError('Not Found'));
     }
     //TODO Check agency Network or Agency rights....
-    //  const agents = await auth.getAgents(req).catch(function(e) {
-    //     error = e;
-    // });
-    // if (error) {
-    //     log.error('Error get application getAgents ' + error + __location);
-    //     return next(error)
+    const agents = await auth.getAgents(req).catch(function(e) {
+        error = e;
+    });
+    if (error) {
+        log.error('Error get application getAgents ' + error + __location);
+        return next(error)
 
-    // }
-    if(agencyNetwork !== applicationDB.agency_network){
-        log.warn('App requote not agency network user does not match application agency_network ' + __location)
-        res.send(403);
-        return next(serverHelper.forbiddenError('Do Not have Permissions'));
     }
+
+    // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
+    if (!agents.includes(parseInt(applicationDB.agency, 10))) {
+        log.info('Forbidden: User is not authorized to access the requested application');
+        return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
+    }
+
+    // if(agencyNetwork !== applicationDB.agency_network){
+    //     log.warn('App requote not agency network user does not match application agency_network ' + __location)
+    //     res.send(403);
+    //     return next(serverHelper.forbiddenError('Do Not have Permissions'));
+    // }
+
+
+    const applicationQuoting = new ApplicationQuoting();
+    // Populate the Application object
+    // Load
+    try {
+        const forceQuoting = true;
+        const loadJson = {"id": id};
+        await applicationQuoting.load(loadJson, forceQuoting);
+    }
+    catch (err) {
+        log.error(`Error loading application ${id ? id : ''}: ${err.message}` + __location);
+        res.send(err);
+        return next();
+    }
+    // Validate
+    let passValidation = false
+    try {
+        passValidation = await applicationQuoting.validate();
+    }
+    catch (err) {
+        const errMessage = `Error validating application ${id ? id : ''}: ${err.message}`
+        log.error(errMessage + __location);
+        const responseJSON = {
+            "passedValidation": passValidation,
+            "validationError":errMessage
+        }
+        res.send(200,responseJSON);
+        return next();
+    }
+
+    // Send back the token
+    res.send(200, {"passedValidation": passValidation});
+
+
+    return next();
+
+
+}
+
+
+async function requote(req, res, next) {
+    //Double check it is TalageStaff user
+
+    // Check for data
+    if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
+        log.warn('No data was received' + __location);
+        return next(serverHelper.requestError('No data was received'));
+    }
+
+    // Make sure basic elements are present
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'id')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+    let error = null;
+    //accept applicationId or uuid also.
+    const applicationBO = new ApplicationBO();
+    let id = req.body.id;
+    if(id > 0){
+        // Validate the application ID
+        if (!await validator.is_valid_id(req.body.id)) {
+            log.error(`Bad Request: Invalid id ${id}` + __location);
+            return next(serverHelper.requestError('Invalid id'));
+        }
+    }
+    else {
+        //assume uuid input
+        log.debug("Getting id from mongo")
+        const appDoc = await applicationBO.getfromMongoByAppId(id).catch(function(err) {
+            log.error(`Error getting application Doc for validate ${id} ` + err + __location);
+            log.error('Bad Request: Invalid id ' + __location);
+            error = err;
+        });
+        if (error) {
+            return next(error);
+        }
+        if(appDoc){
+            log.debug("Have doc for " + appDoc.mysqlId)
+            id = appDoc.mysqlId;
+        }
+        else {
+            log.error(`Did not find application Doc for validate ${id}` + __location);
+            return next(serverHelper.requestError('Invalid id'));
+        }
+    }
+
+    //Get app and check status
+    const applicationDB = await applicationBO.getById(id).catch(function(err) {
+        log.error("Location load error " + err + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+    if (!applicationDB) {
+        return next(serverHelper.requestError('Not Found'));
+    }
+    // Check agency Network or Agency rights....
+    const agents = await auth.getAgents(req).catch(function(e) {
+        error = e;
+    });
+    if (error) {
+        log.error('Error get application getAgents ' + error + __location);
+        return next(error)
+
+    }
+
+    // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
+    if (!agents.includes(parseInt(applicationDB.agency, 10))) {
+        log.info('Forbidden: User is not authorized to access the requested application');
+        return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
+    }
+
+    // if(agencyNetwork !== applicationDB.agency_network){
+    //     log.warn('App requote not agency network user does not match application agency_network ' + __location)
+    //     res.send(403);
+    //     return next(serverHelper.forbiddenError('Do Not have Permissions'));
+    // }
+
 
     if (applicationDB.appStatusId > 60) {
         return next(serverHelper.requestError('Cannot Requote Application'));
@@ -683,7 +932,8 @@ async function requote(req, res, next) {
     // Load
     try {
         const forceQuoting = true;
-        await applicationQuoting.load(req.body, forceQuoting);
+        const loadJson = {"id": id};
+        await applicationQuoting.load(loadJson, forceQuoting);
     }
     catch (err) {
         log.error(`Error loading application ${req.body.id ? req.body.id : ''}: ${err.message}` + __location);
@@ -695,8 +945,9 @@ async function requote(req, res, next) {
         await applicationQuoting.validate();
     }
     catch (err) {
-        log.error(`Error validating application ${req.body.id ? req.body.id : ''}: ${err.message}` + __location);
-        res.send(err);
+        const errMessage = `Error validating application ${id ? id : ''}: ${err.message}`
+        log.error(errMessage + __location);
+        res.send(400, errMessage);
         return next();
     }
 
@@ -845,7 +1096,7 @@ async function GetResources(req, res, next){
     }
 
     responseObj.limits = {
-		"BOP": [
+        "BOP": [
             {
                 "key": "1000000/1000000/1000000",
                 "value": "$1,000,000 / $1,000,000 / $1,000,000"
@@ -1057,7 +1308,11 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPostAuth('POST Create Application', `${basePath}/application`, applicationSave, 'applications', 'manage');
     server.addPutAuth('PUT Save Application', `${basePath}/application`, applicationSave, 'applications', 'manage');
     server.addPutAuth('PUT Re-Quote Application', `${basePath}/application/:id/requote`, requote, 'applications', 'manage');
+    server.addPutAuth('PUT Re-Quote Application', `${basePath}/application/:id/validate`, validate, 'applications', 'manage');
+
     server.addDeleteAuth('DELETE Application', `${basePath}/application/:id`, deleteObject, 'applications', 'manage');
+
+    server.addPostAuth('POST Copy Application', `${basePath}/application/copy`, applicationCopy, 'applications', 'manage');
 
     server.addGetAuth('GetQuestions for AP Application', `${basePath}/application/:id/questions`, GetQuestions, 'applications', 'manage')
 
