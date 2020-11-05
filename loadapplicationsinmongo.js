@@ -683,10 +683,6 @@ async function runFunction() {
     // local development of tasks run one of the task.
 
     //load message model and get message list.
-    //const sql = "SELECT id from clw_talage_applications where state > 0 AND copied_to_mongo = 0 AND id > 11500 AND appStatusId > 50 limit 10";
-    //const sql = "SELECT id from clw_talage_applications where state > 0 AND copied_to_mongo = 0 AND id > 11500 limit 20";
-    //const sql = "SELECT id from clw_talage_applications where state > 0 AND copied_to_mongo = 0 limit 1000";
-
     const sql = "SELECT id from clw_talage_applications where state > 0 AND copied_to_mongo = 0";
 
     const result = await db.query(sql).catch(function(error) {

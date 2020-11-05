@@ -606,21 +606,12 @@ module.exports = class Application {
             state = 12; // Referred
         }
 
-        // Update the application status in the database (1 is default, so that can be skipped)
-        // TODO update via BO.  Update Mongo.
-        if (state > 1) {
-            const sql = `
-				UPDATE #__applications
-				SET state = ${state}
-				WHERE id = ${this.id}
-				LIMIT 1;
-			`;
-            try {
-                await db.query(sql);
-            }
-            catch (error) {
-                log.error(`Unable to update application ${this.id} state: ${error} ${__location}`);
-            }
+        const applicationBO = new ApplicationBO();
+        try{
+            await applicationBO.updateState(this.id, state)
+        }
+        catch(err){
+            log.error(`Could not update the application state to ${state} for application ${this.id}: ${err} ${__location}`);
         }
     }
 
