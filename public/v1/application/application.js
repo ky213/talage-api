@@ -21,7 +21,7 @@ const detailStepParser = require('./parsers/detail-step-parser.js')
 const claimStepParser = require('./parsers/claim-step-parser.js')
 const questionStepParser = require('./parsers/question-step-parser.js')
 const bindStepParser = require('./parsers/bindrequest-step-parse.js');
-const { WorkDocs } = require('aws-sdk');
+//const { WorkDocs } = require('aws-sdk');
 
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
@@ -184,7 +184,7 @@ async function Save(req, res, next){
                         }
                     }
                     else {
-                        log.warn(`no mongo doc for this application after save ${applicationModel.id}` + __location);
+                        log.warn(`no mongo doc for this application after save ${applicationModel.id} step: ${applicationRequestJson.step} ` + __location);
                         log.warn(JSON.stringify(appDoc));
                     }
                 }
@@ -494,7 +494,7 @@ async function AgencyEmail(req, res, next){
         const name = req.body.name;
         //DB for Agency
         const agencyLocationId = stringFunctions.santizeNumber(req.body.agency,true);
-        const messageKeys = {agency_location: agencyLocationId};
+        const messageKeys = {agencyLocationId: agencyLocationId};
         let error = null;
         const agencyLocationBO = new AgencyLocationBO();
         await agencyLocationBO.loadFromId(agencyLocationId).catch(function(err) {
@@ -542,7 +542,7 @@ async function AgencyEmail(req, res, next){
 }
 
 /**
- * GET returns questions from application 
+ * GET returns questions from application
  *
  * @param {object} req - HTTP request object
  * @param {object} res - HTTP response object
@@ -551,7 +551,8 @@ async function AgencyEmail(req, res, next){
  * @returns {void}
  */
 async function GetQuestions(req, res, next){
-    log.debug("in App GetQuestions ")
+    log.debug("in App GetQuestions")
+
     /* ---=== Check Request Requirements ===--- */
 
     // Check for data

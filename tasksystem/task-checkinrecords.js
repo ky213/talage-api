@@ -2,6 +2,8 @@
 
 const moment = require('moment');
 
+// NOTE: This is no longer being used.
+// Event Bridge rules have been disable.  2020-11-05
 
 /**
  * Checkin Records Task processor
@@ -25,7 +27,7 @@ exports.processtask = async function(queueMessage){
                 error = err;
             });
             if(error){
-                log.error("Error checkinRecordsTask deleteTaskQueueItem " + error +  __location);
+                log.error("Error checkinRecordsTask deleteTaskQueueItem " + error + __location);
             }
             return;
         }
@@ -33,13 +35,13 @@ exports.processtask = async function(queueMessage){
             log.warn('removing old checkinRecordsTask Message from queue');
             await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(err => error = err)
             if(error){
-                log.error("Error checkinRecordsTask deleteTaskQueueItem old " + error +  __location);
+                log.error("Error checkinRecordsTask deleteTaskQueueItem old " + error + __location);
             }
             return;
         }
     }
     else {
-        log.error("Task Checkin bad queueMessage " + JSON.stringify(queueMessage) +  __location);
+        log.error("Task Checkin bad queueMessage " + JSON.stringify(queueMessage) + __location);
         return
     }
 }
@@ -93,7 +95,7 @@ var checkinRecordsTask = async function(){
         `;
         log.info("removing checkouts from " + tables[i])
         await db.query(updateSQL).catch(function(e){
-            log.error(`Checkin records for table ${tables[i]} caused an error: ` + e.message +  __location);
+            log.error(`Checkin records for table ${tables[i]} caused an error: ` + e.message + __location);
 
         });
     }

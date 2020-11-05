@@ -1,6 +1,8 @@
+/* eslint-disable object-property-newline */
+/* eslint-disable object-curly-spacing */
+/* eslint-disable object-curly-newline */
 'use strict';
-
-
+const QuoteBO = global.requireShared('./models/Quote-BO.js');
 
 
 /**
@@ -13,13 +15,9 @@ async function updateQuoteAggregatedStatus(quote) {
     const aggregatedStatus = getQuoteAggregatedStatus(quote.bound, quote.status, quote.api_result);
     if (aggregatedStatus !== quote.aggregated_status) {
         quote.aggregated_status = aggregatedStatus;
-        const sql = `
-			UPDATE clw_talage_quotes
-			SET aggregated_status = ${db.escape(aggregatedStatus)}
-			WHERE id = ${quote.id}
-		`;
+        const quoteBO = new QuoteBO();
         try {
-            await db.query(sql);
+            await quoteBO.updateQuoteAggregatedStatus(quote.id, aggregatedStatus);
         }
         catch (error) {
             log.error(`Could not update quote ${quote.id} aggregated status: ${error} ${__location}`);
@@ -130,6 +128,9 @@ function getQuoteAggregatedStatus(bound, status, api_result) {
     else if (api_result === 'referred') {
         return 'referred';
     }
+    else if (api_result === 'acord_emailed') {
+        return 'acord_emailed';
+    }
     else if (api_result === 'declined' || api_result === 'autodeclined') {
         return 'declined';
     }
@@ -182,10 +183,15 @@ function getGenericApplicationStatus(application, quotes) {
         //return 'quoted_referred';
         return { appStatusId: 50, appStatusDesc: 'quoted_referred' };
     }
+    else if (quotes.some((quote) => quote.aggregated_status === 'acord_emailed')) {
+        //appStatusId = 45
+        //return 'acord_emailed';
+        return { appStatusId: 45, appStatusDesc: 'acord_emailed' };
+    }
     else if (quotes.some((quote) => quote.aggregated_status === 'referred')) {
         //appStatusId = 40
         //return 'referred';
-        return { appStatusId: 50, appStatusDesc: 'referred' };
+        return { appStatusId: 40, appStatusDesc: 'referred' };
     }
     else if (quotes.some((quote) => quote.aggregated_status === 'declined')) {
         //appStatusId = 30

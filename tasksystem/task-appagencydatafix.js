@@ -5,6 +5,9 @@
 
 const moment = require('moment');
 
+// NOTE: This is no longer being used.
+// Event Bridge rules have been disable.  2020-11-05
+
 
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');

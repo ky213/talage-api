@@ -138,6 +138,11 @@ exports.decrypt = function(val) {
             resolve(false);
             return;
         }
+        //min length check
+        if (val.length < 2) {
+            resolve(false);
+            return;
+        }
 
         // Send a request to the encryption service
         let hadError = false;
@@ -146,7 +151,7 @@ exports.decrypt = function(val) {
             result = decryptInternal(val)
         }
         catch(err){
-            log.error('decrypt err ' + err + __location)
+            log.error(`decrypt val ${val} err ` + err + __location)
             hadError = true;
         }
         // const result = await decryptInternal(val).catch(function(err) {

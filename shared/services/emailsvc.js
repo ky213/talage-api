@@ -40,10 +40,14 @@ exports.send = async function(recipients, subject, content, keys = {}, agencyNet
     if(global.settings.ENV === 'test'){
         return true;
     }
-    log.debug("EmailSvc: agencyNetworkId:  " + agencyNetworkId);
-    log.debug("EmailSvc: brandOverride:  " + brandOverride);
-    log.debug("EmailSvc: agencyId:  " + agencyId);
+    // log.debug("EmailSvc: agencyNetworkId:  " + agencyNetworkId);
+    // log.debug("EmailSvc: brandOverride:  " + brandOverride);
+    // log.debug("EmailSvc: agencyId:  " + agencyId);
     //check agencyNetworkId is number
+    let applicationDoc = null;
+    if(keys && keys.applicationDoc){
+        applicationDoc = keys.applicationDoc;
+    }
     try{
         agencyNetworkId = parseInt(agencyNetworkId,10);
     }
@@ -174,31 +178,30 @@ exports.send = async function(recipients, subject, content, keys = {}, agencyNet
     const sentDtm = moment();
     // Begin populating a list of columns to insert into the database
     const columns = {
-        checked_out: '0',
-        message: await crypt.encrypt(content),
+        message: content,
         sent: sentDtm,
         subject: emailJSON.subject
     };
-
-    // If there were keys supplied, write the appropriate records to the database
+    //keys.applicationDoc
+    if(applicationDoc && applicationDoc.applicationId){
+        columns.applicationId = applicationDoc.applicationId;
+        columns.businessName = applicationDoc.businessName;
+        columns.agencyLocationId = applicationDoc.agencyLocationId;
+    }
+    // TODO Eliminate when rest of emails about Apps move to AppDoc. If there were keys supplied, write the appropriate records to the database
     if (keys && typeof keys === 'object' && Object.keys(keys).length) {
         // Handle the Application key
-        if (Object.prototype.hasOwnProperty.call(keys, 'application') && typeof keys.application === 'number' && keys.application > 0) {
+        if (Object.prototype.hasOwnProperty.call(keys, 'applicationId')) {
             // Add the application to the columns list
             columns.application = keys.application;
-
-            // Since we know the application, we can determine the business, and we want both
-            const businessQuery = `SELECT business FROM #__applications WHERE id = ${db.escape(columns.application)} LIMIT 1;`;
-            const result = await db.query(businessQuery).catch(function(err) {
-                log.error(`Email helper send() unable to get business ID from database for application ${columns.application} ` + err + __location);
-            });
-            columns.business = result[0].business;
+            if(keys.applicationDoc && keys.applicationDoc.businessName){
+                columns.business = keys.applicationDoc.businessName;
+            }
         }
-
         // Handle the agencyLocation key
-        if (Object.prototype.hasOwnProperty.call(keys, 'agencyLocation') && typeof keys.agencyLocation === 'number' && keys.agencyLocation > 0) {
+        if (Object.prototype.hasOwnProperty.call(keys, 'agencyLocationId')) {
             // Add the agencyLocation to the columns list
-            columns.agency_location = keys.agencyLocation;
+            columns.agencyLocationId = keys.agencyLocationId;
         }
     }
 
@@ -261,7 +264,7 @@ exports.send = async function(recipients, subject, content, keys = {}, agencyNet
         log.error('SendUsingSendGrid error: ' + err + __location);
         sendGridResp = {"sendGridRespError": err};
     });
-    log.debug('sendGridResp:  ' + JSON.stringify(sendGridResp))
+    // log.debug('sendGridResp:  ' + JSON.stringify(sendGridResp))
 
     // Store mail before sending to SendGrid
     // Store a record of this sent message
@@ -269,7 +272,7 @@ exports.send = async function(recipients, subject, content, keys = {}, agencyNet
     //     log.error('saveEmailToDb error: ' + err + __location);
     // });
     const messageBO = new MessageBO();
-    await messageBO.saveMessage(columns,recipients,sendGridResp, attachments).catch(function(err){
+    await messageBO.saveMessage(columns,recipients,sendGridResp, attachments, applicationDoc).catch(function(err){
         log.error('saveMessage error: ' + err + __location);
     });
 

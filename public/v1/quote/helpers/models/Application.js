@@ -18,13 +18,11 @@ const Business = require('./Business.js');
 const Insurer = require('./Insurer.js');
 const Policy = require('./Policy.js');
 const Question = require('./Question.js');
-const serverHelper = require('../../../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
 const helper = global.requireShared('./helpers/helper.js');
 
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
-const ApplicationPolicyTypeBO = global.requireShared('./models/ApplicationPolicyType-BO.js');
 const ApplicationQuestionBO = global.requireShared('./models/ApplicationQuestion-BO.js');
 
 module.exports = class Application {
@@ -35,7 +33,7 @@ module.exports = class Application {
         this.insurers = [];
         this.policies = [];
         this.questions = {};
-        this.applicationData = {};
+        this.applicationDocData = {};
     }
 
     /**
@@ -46,42 +44,37 @@ module.exports = class Application {
 	 * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
 	 */
     async load(data, forceQuoting = false) {
-        log.verbose('Loading data into Application');
+        log.debug('Loading data into Application' + __location);
         // ID
+        //TODO detect ID type integer or uuid
         this.id = parseInt(data.id, 10);
 
         // load application from database.
         let error = null
         let applicationBO = new ApplicationBO();
-        await applicationBO.loadFromId(this.id).catch(function(err) {
-            error = err;
-            log.error("Unable to get application for quoting appId: " + data.id + __location);
-        });
+        // await applicationBO.loadFromId(this.id).catch(function(err) {
+        //     error = err;
+        //     log.error("Unable to get application for quoting appId: " + data.id + __location);
+        // });
 
-        if (error) {
-            throw error;
-        }
-        //LastStep check. TODO which to appStatusId.
-        // this.state > 15, 16 is finished.
-        if(applicationBO.state > 15){
-            log.warn("An attempt to quote application that is finished.")
-            throw new Error("Finished Application cannot be quoted")
-
-        }
+        // if (error) {
+        //     throw error;
+        // }
 
         try{
-            this.applicationData = await applicationBO.loadfromMongoBymysqlId(this.id);
+            this.applicationDocData = await applicationBO.loadfromMongoBymysqlId(this.id);
             log.debug("Quote Application added applicationData")
         }
         catch(err){
             log.error("Unable to get applicationData for quoting appId: " + data.id + __location);
+            throw err;
         }
 
 
         //age check - add override Age parameter to allow requoting.
         if (forceQuoting === false){
             const bypassAgeCheck = global.settings.ENV === 'development' && global.settings.APPLICATION_AGE_CHECK_BYPASS === 'YES';
-            const dbCreated = moment(applicationBO.created);
+            const dbCreated = moment(this.applicationDocData.createdAt);
             const nowTime = moment().utc();
             const ageInMinutes = nowTime.diff(dbCreated, 'minutes');
             log.debug('Application age in minutes ' + ageInMinutes);
@@ -95,7 +88,7 @@ module.exports = class Application {
         // Load the business information
         this.business = new Business();
         try {
-            await this.business.load(applicationBO.business, applicationBO);
+            await this.business.load(this.applicationDocData);
         }
         catch (err) {
             log.error(`Unable to load the business for application ${this.id}: ${err} ${__location}`);
@@ -106,44 +99,39 @@ module.exports = class Application {
         // eslint-disable-next-line prefer-const
         let appPolicyTypeList = [];
         // Load the policy information
-
-        let applicationPolicyTypeBO = new ApplicationPolicyTypeBO()
-        let policyTypeList = await applicationPolicyTypeBO.loadFromApplicationId(this.id).catch(function(err) {
-            error = err;
-            log.error("Unable to load list of applicationPolicyTypeBO for quoting appId: " + data.id + __location);
-        });
-        if (error) {
-            throw error;
+        try{
+            for (let i = 0; i < this.applicationDocData.policies.length; i++) {
+                //const policyTypeBO = policyTypeList[i];
+                const policyJSON = this.applicationDocData.policies[i];
+                const p = new Policy();
+                await p.load(policyJSON, this.business,this.applicationDocData);
+                this.policies.push(p);
+                appPolicyTypeList.push(policyJSON.policyType);
+            }
         }
-        for (let i = 0; i < policyTypeList.length; i++) {
-            const policyTypeBO = policyTypeList[i];
-            const p = new Policy(this.business);
-            await p.load(policyTypeBO, this.id, applicationBO);
-            this.policies.push(p);
-            appPolicyTypeList.push(policyTypeBO.policy_type);
+        catch(err){
+            log.error("Quote Application Model loading policy err " + err + __location);
+            throw err;
         }
 
-        // data.policies.forEach((policy) => {
-        //     const p = new Policy(this.business);
-        //     p.load(policy);
-        //     this.policies.push(p);
-        //     appPolicyTypeList.push(p.type);
-        // });
+
         //update business with policy type list.
         this.business.setPolicyTypeList(appPolicyTypeList);
         // Agent
         this.agencyLocation = new AgencyLocation(this.business, this.policies);
         // Note: The front-end is sending in 'agent' but this is really a reference to the 'agency location'
-        if (applicationBO.agency_location) {
-            await this.agencyLocation.load({id: applicationBO.agency_location});
+        if (this.applicationDocData.agencyLocationId) {
+            await this.agencyLocation.load({id: this.applicationDocData.agencyLocationId});
         }
         else {
-            await this.agencyLocation.load({id: 1}); // This is Talage's agency location record
+            log.error(`Missing agencyLocationId application ${this.id} ${__location}`);
+            throw new Error(`Missing agencyLocationId application ${this.id}`);
         }
 
         //this.questions = data.questions;
         let applicationQuestionBO = new ApplicationQuestionBO();
         const GET_QUESTION_LIST = true;
+        //TODO bet frm ApplicationBO applicationDocData
         this.questions = await applicationQuestionBO.loadFromApplicationId(this.id,GET_QUESTION_LIST).catch(function(err){
             log.error("Quote Application error get question list " + err + __location);
             error = err;
@@ -205,7 +193,7 @@ module.exports = class Application {
                             }
                             else {
                                 log.info(`Agent does not support ${policy.type} policies through insurer ${insurer}`);
-                                reject(serverHelper.requestError('Agent does not support this request'));
+                                reject(new Error('Agent does not support this request'));
                                 stop = true;
                             }
                         }
@@ -229,7 +217,7 @@ module.exports = class Application {
                 });
                 if (some_unsupported) {
                     log.info('Agent does not support one or more of the insurers requested.');
-                    reject(serverHelper.requestError('Agent does not support this request'));
+                    reject(new Error('Agent does not support this request'));
                     return;
                 }
             }
@@ -301,6 +289,13 @@ module.exports = class Application {
 	 * @returns {void}
 	 */
     async run_quotes() {
+
+        // appStatusId > 70 is finished.(request to bind)
+        if(this.applicationDocData.appStatusId >= 70){
+            log.warn("An attempt to quote application that is finished.")
+            throw new Error("Finished Application cannot be quoted")
+        }
+
         // Generate quotes for each policy type
         const fs = require('fs');
         const quote_promises = [];
@@ -411,7 +406,7 @@ module.exports = class Application {
                 policyTypeReferred[quote.policy_type] = true;
             }
         });
-        // Update the application state
+        // Update the application state  - TODO Us BO.
         await this.updateApplicationState(this.policies.length, Object.keys(policyTypeQuoted).length, Object.keys(policyTypeReferred).length);
 
         // Send a notification to Slack about this application
@@ -499,8 +494,8 @@ module.exports = class Application {
                     subject,
                     message,
                     {
-                        agencyLocation: this.agencyLocation.id,
-                        application: this.id
+                        agencyLocationId: this.agencyLocation.id,
+                        applicationId: this.id
                     },
                     this.agencyLocation.agencyNetwork,
                     brand,
@@ -537,8 +532,8 @@ module.exports = class Application {
                         subject,
                         message,
                         {
-                            agencyLocation: this.agencyLocation.id,
-                            application: this.id
+                            agencyLocationId: this.agencyLocation.id,
+                            applicationId: this.id
                         },
                         this.agencyLocation.agencyNetwork,
                         emailContentJSON.emailBrand,
@@ -612,6 +607,7 @@ module.exports = class Application {
         }
 
         // Update the application status in the database (1 is default, so that can be skipped)
+        // TODO update via BO.  Update Mongo.
         if (state > 1) {
             const sql = `
 				UPDATE #__applications
@@ -648,6 +644,7 @@ module.exports = class Application {
             }
 
             // Initialize the agent so it is ready for later
+            //TODO move to application load.  init loads data.
             await this.agencyLocation.init().catch(function(error) {
                 log.error('Location.init() error ' + error + __location);
                 reject(error);
@@ -657,7 +654,7 @@ module.exports = class Application {
             // Validate the ID
             if (!await validator.application(this.id)) {
                 log.error('validator.application() ' + this.id + __location);
-                reject(serverHelper.requestError('Invalid application ID specified.'));
+                reject(new Error('Invalid application ID specified.'));
                 return;
             }
 
@@ -682,7 +679,7 @@ module.exports = class Application {
                         return this.get_insurers();
                     }
 
-                    reject(serverHelper.requestError('The Agent specified cannot support this policy.'));
+                    reject(new Error('The Agent specified cannot support this policy.'));
                     stop = true;
                 }
                 else {
@@ -696,7 +693,7 @@ module.exports = class Application {
             }
             if (!insurers || insurers.length === 0 || Object.prototype.toString.call(insurers) !== '[object Array]') {
                 log.error('Invalid insurer(s) specified in policy. ' + __location);
-                reject(serverHelper.requestError('Invalid insurer(s) specified in policy.'));
+                reject(new Error('Invalid insurer(s) specified in policy.'));
                 return;
             }
 
@@ -719,12 +716,12 @@ module.exports = class Application {
                 if (this.business.management_structure) {
                     if (!validator.management_structure(this.business.management_structure)) {
                         log.warn(`Invalid management structure. Must be either "member" or "manager."` + this.id + __location)
-                        reject(serverHelper.requestError('Invalid management structure. Must be either "member" or "manager."'));
+                        reject(new Error('Invalid management structure. Must be either "member" or "manager."'));
                         return;
                     }
                 }
                 else {
-                    reject(serverHelper.requestError('Missing required field: management_structure'));
+                    reject(new Error('Missing required field: management_structure'));
                     return;
                 }
             }
@@ -735,14 +732,16 @@ module.exports = class Application {
 			 */
             if (this.has_policy_type('WC') && this.business.entity_type === 'Corporation' && this.business.primary_territory === 'PA' && !this.business.owners_included) {
                 if (this.business.corporation_type) {
-                    if (!validator.corporation_type(this.business.corporation_type)) {
+                    // eslint-disable-next-line array-element-newline
+                    const pa_corp_valid_types = ['c','n','s'];
+                    if (!pa_corp_valid_types.includes(this.business.corporation_type)) {
                         log.warn(`Invalid corporation type. Must be "c" (c-corp), "n" (non-profit), or "s" (s-corp)." ` + this.id + __location)
-                        reject(serverHelper.requestError('Invalid corporation type. Must be "c" (c-corp), "n" (non-profit), or "s" (s-corp).'));
+                        reject(new Error('Invalid corporation type. Must be "c" (c-corp), "n" (non-profit), or "s" (s-corp).'));
                         return;
                     }
                 }
                 else {
-                    reject(serverHelper.requestError('Missing required field: corporation_type'));
+                    reject(new Error('Missing required field: corporation_type'));
                     return;
                 }
             }
@@ -757,7 +756,7 @@ module.exports = class Application {
                     // TO DO: Owner validation is needed here
                 }
                 else {
-                    reject(serverHelper.requestError('The names of owners must be supplied if they are not included in this policy.'));
+                    reject(new Error('The names of owners must be supplied if they are not included in this policy.'));
                     return;
                 }
             }
@@ -769,13 +768,13 @@ module.exports = class Application {
 
                 // This is required
                 if (this.business.unincorporated_association === null) {
-                    reject(serverHelper.requestError('Missing required field: unincorporated_association'));
+                    reject(new Error('Missing required field: unincorporated_association'));
                     return;
                 }
 
                 // Validate
                 if (!validator.boolean(this.business.unincorporated_association)) {
-                    reject(serverHelper.requestError('Invalid value for unincorporated_association, please use a boolean value'));
+                    reject(new Error('Invalid value for unincorporated_association, please use a boolean value'));
                     return;
                 }
 
@@ -859,7 +858,7 @@ module.exports = class Application {
                             if (!parent_question) {
                                 log.error(`Question ${question.id} has invalid parent setting. (${htmlentities.decode(question.text).replace('%', '%%')})` + __location);
                                 // No one question issue stop quoting with all insureres - BP 2020-10-04
-                                // reject(serverHelper.requestError('An unexpected error has occurred. Our team has been alerted and will contact you.'));
+                                // reject(new Error('An unexpected error has occurred. Our team has been alerted and will contact you.'));
                                 // return;
                             }
                         }

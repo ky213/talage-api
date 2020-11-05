@@ -5,21 +5,20 @@ const DatabaseObject = require('./DatabaseObject.js');
 const tracker = global.requireShared('./helpers/tracker.js');
 
 
-
 const tableName = 'clw_talage_application_policy_types'
 const skipCheckRequired = false;
 module.exports = class ApplicationPolicyTypeBO{
 
     #dbTableORM = null;
 
-	constructor(){
+    constructor(){
         this.id = 0;
         this.#dbTableORM = new DbTableOrm(tableName);
     }
 
 
     /**
-	 * Save Model 
+	 * Save Model
      *
 	 * @param {object} newObjectJSON - newObjectJSON JSON
 	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
@@ -31,7 +30,7 @@ module.exports = class ApplicationPolicyTypeBO{
             }
             await this.cleanupInput(newObjectJSON);
             if(newObjectJSON.id){
-                await this.#dbTableORM.getById(newObjectJSON.id).catch(function (err) {
+                await this.#dbTableORM.getById(newObjectJSON.id).catch(function(err) {
                     log.error(`Error getting ${tableName} from Database ` + err + __location);
                     reject(err);
                     return;
@@ -71,10 +70,10 @@ module.exports = class ApplicationPolicyTypeBO{
     }
 
     loadFromId(id) {
-        return new Promise(async (resolve, reject) => {
+        return new Promise(async(resolve, reject) => {
             //validate
-            if(id && id >0 ){
-                await this.#dbTableORM.getById(id).catch(function (err) {
+            if(id && id > 0){
+                await this.#dbTableORM.getById(id).catch(function(err) {
                     log.error(`Error getting  ${tableName} from Database ` + err + __location);
                     reject(err);
                     return;
@@ -90,8 +89,8 @@ module.exports = class ApplicationPolicyTypeBO{
 
 
     loadFromApplicationId(applicationId) {
-        return new Promise(async (resolve, reject) => {
-            if(applicationId && applicationId >0 ){
+        return new Promise(async(resolve, reject) => {
+            if(applicationId && applicationId > 0){
                 let rejected = false;
                 // Create the update query
                 const sql = `
@@ -99,9 +98,10 @@ module.exports = class ApplicationPolicyTypeBO{
                 `;
 
                 // Run the query
-                const result = await db.query(sql).catch(function (error) {
+
+                const result = await db.query(sql).catch(function(error) {
                     // Check if this was
-                
+
                     rejected = true;
                     log.error(`loadFromApplicationId ${tableName} id: ${db.escape(this.id)}  error ` + error + __location)
                     reject(error);
@@ -109,16 +109,17 @@ module.exports = class ApplicationPolicyTypeBO{
                 if (rejected) {
                     return;
                 }
-                let boList = [];
-                if(result && result.length > 0 ){
-                    for(let i=0; i < result.length; i++ ){
+                const boList = [];
+                if(result && result.length > 0){
+                    for(let i = 0; i < result.length; i++){
                         //Decrypt encrypted fields.
+                        // eslint-disable-next-line prefer-const
                         let applicationPolicyTypeBO = new ApplicationPolicyTypeBO();
-                        await applicationPolicyTypeBO.#dbTableORM.decryptFields(result[i]);
-                        await applicationPolicyTypeBO.#dbTableORM.convertJSONColumns(result[i]);
-                      
+                        // await applicationPolicyTypeBO.#dbTableORM.decryptFields(result[i]);
+                        // await applicationPolicyTypeBO.#dbTableORM.convertJSONColumns(result[i]);
+
                         const resp = await applicationPolicyTypeBO.loadORM(result[i], skipCheckRequired).catch(function(err){
-                            log.error(`loadFromBusinessId error loading object: ` + err + __location);
+                            log.error(`loadFromApplicationId error loading object: ` + err + __location);
                             //not reject on issues from database object.
                             //reject(err);
                         })
@@ -130,11 +131,9 @@ module.exports = class ApplicationPolicyTypeBO{
                     resolve(boList);
                 }
                 else {
-                    log.debug("not found loadFromBusinessId: " + sql);
-                    reject(new Error("not found"));
-                    return
+                    resolve([])
                 }
-               
+
             }
             else {
                 reject(new Error('no applicationId supplied'))
@@ -143,25 +142,24 @@ module.exports = class ApplicationPolicyTypeBO{
     }
 
 
-
     DeleteByApplicationId(applicationId) {
         return new Promise(async(resolve, reject) => {
             //Remove old records.
-            const sql =`DELETE FROM ${tableName} 
+            const sql = `DELETE FROM ${tableName} 
                    WHERE application = ${applicationId}
             `;
             let rejected = false;
-			const result = await db.query(sql).catch(function (error) {
-				// Check if this was
-				log.error("Database Object ${tableName} DELETE error :" + error + __location);
-				rejected = true;
-				reject(error);
-			});
-			if (rejected) {
-				return false;
-			}
+            const result = await db.query(sql).catch(function(error) {
+                // Check if this was
+                log.error(`Database Object ${tableName} DELETE error :` + error + __location);
+                rejected = true;
+                reject(error);
+            });
+            if (rejected) {
+                return false;
+            }
             resolve(true);
-       });
+        });
     }
 
 
@@ -170,11 +168,11 @@ module.exports = class ApplicationPolicyTypeBO{
             if(inputJSON[property]){
                 // Convert to number
                 try{
-                    if (properties[property].type === "number" && "string" === typeof inputJSON[property]){
-                        if (properties[property].dbType.indexOf("int")  > -1){
+                    if (properties[property].type === "number" && typeof inputJSON[property] === "string"){
+                        if (properties[property].dbType.indexOf("int") > -1){
                             inputJSON[property] = parseInt(inputJSON[property], 10);
                         }
-                        else if (properties[property].dbType.indexOf("float")  > -1){
+                        else if (properties[property].dbType.indexOf("float") > -1){
                             inputJSON[property] = parseFloat(inputJSON[property]);
                         }
                     }
@@ -192,9 +190,9 @@ module.exports = class ApplicationPolicyTypeBO{
         for (const property in properties) {
             this[property] = dbJSON[property];
         }
-      }
+    }
 
-      async loadORM(inputJSON){
+    async loadORM(inputJSON){
         await this.#dbTableORM.load(inputJSON, skipCheckRequired);
         this.updateProperty();
         return true;
@@ -205,38 +203,38 @@ module.exports = class ApplicationPolicyTypeBO{
 
 const properties = {
     "id": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
+        "default": 0,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "application": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
+        "default": 0,
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "policy_type": {
-      "default": "",
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "string",
-      "dbType": "varchar(3)"
+        "default": "",
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(3)"
     }
-  }
+}
 
 class DbTableOrm extends DatabaseObject {
 
-	constructor(tableName){
-		super(tableName, properties);
-	}
+    constructor(tableName){
+        super(tableName, properties);
+    }
 
 }

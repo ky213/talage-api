@@ -10,6 +10,7 @@ const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const tracker = global.requireShared('./helpers/tracker.js');
 
 const AgencyBO = global.requireShared('models/Agency-BO.js');
+const ApplicationBO = global.requireShared('models/Application-BO.js');
 
 /**
  * DailyDigest Task processor
@@ -122,32 +123,26 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
     }
     const agencyNetwork = agencyLocationDB.agency_network;
 
-    // SQL for agencylocation's applications
-    const appSQL = `
-            SELECT
-            b.name AS businessName,
-            c.email,
-            c.fname,
-            c.lname,
-            c.phone,
-            a.wholesale,
-            a.solepro
-        FROM clw_talage_applications AS a
-            LEFT JOIN clw_talage_businesses AS b ON b.id = a.business
-            LEFT JOIN clw_talage_contacts AS c ON a.business = c.business
-        WHERE 
-        a.agency_location = ${agencyLocationDB.alid}
-        AND a.created BETWEEN  '${yesterdayBegin.utc().format()}' AND '${yesterdayEnd.utc().format()}'
-    `;
+    const query = {
+        "agencyLocationId": agencyLocationDB.alid,
+        "searchenddate": yesterdayEnd,
+        "searchbegindate": yesterdayBegin
+    };
+    let appList = null;
+    const applicationBO = new ApplicationBO();
 
-    let appDBJSON = null;
+    try{
 
-    appDBJSON = await db.query(appSQL).catch(function(err){
-        log.error(`Error get DailyDigests Agency Location applications from DB for ${agencyLocationDB.alid} error:  ${err}` + __location);
-        return false;
-    });
+        appList = await applicationBO.getList(query);
+    }
+    catch(err){
+        log.error("abandonquotetask getting appid list error " + err + __location);
+        throw err;
+    }
+
+
     let appCount = 0;
-    if(appDBJSON && appDBJSON.length > 0){
+    if(appList && appList.length > 0){
 
         let error = null;
         const agencyBO = new AgencyBO();
@@ -177,24 +172,20 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
 
             let applicationList = '<br><table border="1" cellspacing="0" cellpadding="4" width="100%"><thead><tr><th>Business Name</th><th>Contact Name</th><th>Contact Email</th><th>Contact Phone</th><th>Wholesale</th></tr></thead><tbody>';
 
-            appCount = appDBJSON.length;
-            for(let i = 0; i < appDBJSON.length; i++){
-                const appDB = appDBJSON[i];
+            appCount = appList.length;
+            for(let i = 0; i < appList.length; i++){
+                const applicationDoc = appList[i]
                 // eslint-disable-next-line prefer-const
-                let app = {};
-                app.name = stringFunctions.ucwords(await crypt.decrypt(appDB.businessName));
-                app.fname = stringFunctions.ucwords(await crypt.decrypt(appDB.fname));
-                app.lname = stringFunctions.ucwords(await crypt.decrypt(appDB.lname));
-                app.email = await crypt.decrypt(appDB.email);
-                app.phone = await crypt.decrypt(appDB.phone);
-                app.phone = formatPhone(app.phone);
+                //Get primary contact
+                const customerContact = applicationDoc.contacts.find(contactTest => contactTest.primary === true);
+                const customerPhone = formatPhone(customerContact.phone);
 
-                let wholesale = appDB.wholesale > 0 ? "Talage" : "";
-                if(appDB.solepro === 1){
+                let wholesale = applicationDoc.wholesale === true ? "Talage" : "";
+                if(applicationDoc.solepro){
                     wholesale = "SolePro"
                 }
 
-                applicationList += '<tr><td>' + app.name + '</td><td>' + app.fname + ' ' + app.lname + '</td><td>' + app.email + '</td><td>' + app.phone + '</td><td>' + wholesale + '</td></tr>';
+                applicationList += '<tr><td>' + stringFunctions.ucwords(applicationDoc.businessName) + '</td><td>' + customerContact.firstName + ' ' + customerContact.lastName + '</td><td>' + customerContact.email + '</td><td>' + customerPhone + '</td><td>' + wholesale + '</td></tr>';
             }
 
             applicationList += '</tbody></table><br>';
@@ -222,7 +213,7 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
 
 
             if(agencyLocationEmail){
-                const keyData = {'agency_location': agencyLocationDB.alid};
+                const keyData = {'agencyLocationId': agencyLocationDB.alid};
                 // send email
                 const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData,agencyLocationDB.agency_network,"");
                 if(emailResp === false){
@@ -235,7 +226,7 @@ var processAgencyLocation = async function(agencyLocationDB, yesterdayBegin, yes
 
         }
         else {
-            log.error(`DB Error Unable to get email content for Daily Digest. agency_network: ${db.escape(agencyLocationDB.agency_network)}.` + __location);
+            log.error(`DB Error Unable to get email content for Daily Digest. agency_network: ${db.escape(agencyLocationDB.agency_network)} agency:  ${agencyLocationDB.agency}.` + __location);
             return false;
         }
     }
