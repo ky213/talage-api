@@ -2,25 +2,26 @@
 /* eslint-disable object-curly-spacing */
 /* eslint-disable object-curly-newline */
 'use strict';
+const ApplicationBO = global.requireShared('./models/Application-BO.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
 
 
 /**
  * Ensures that a quote has a value for aggregated_status
  *
- * @param {Object} quote - the quote to update
+ * @param {Object} quoteDocJson - the quote to update
  * @return {void}
  */
-async function updateQuoteAggregatedStatus(quote) {
-    const aggregatedStatus = getQuoteAggregatedStatus(quote.bound, quote.status, quote.api_result);
-    if (aggregatedStatus !== quote.aggregated_status) {
-        quote.aggregated_status = aggregatedStatus;
+async function updateQuoteAggregatedStatus(quoteDocJson) {
+    const aggregatedStatus = getQuoteAggregatedStatus(quoteDocJson.bound, quoteDocJson.status, quoteDocJson.apiResult);
+    if (aggregatedStatus !== quoteDocJson.aggregatedStatus) {
+        quoteDocJson.aggregatedStatus = aggregatedStatus;
         const quoteBO = new QuoteBO();
         try {
-            await quoteBO.updateQuoteAggregatedStatus(quote.id, aggregatedStatus);
+            await quoteBO.updateQuoteAggregatedStatus(quoteDocJson.id, aggregatedStatus);
         }
         catch (error) {
-            log.error(`Could not update quote ${quote.id} aggregated status: ${error} ${__location}`);
+            log.error(`Could not update quote ${quoteDocJson.id} aggregated status: ${error} ${__location}`);
             return false;
         }
     }
@@ -35,69 +36,49 @@ async function updateQuoteAggregatedStatus(quote) {
  */
 async function updateApplicationStatus(applicationID) {
     // Get the application
-    //TODO call BO
-    let sql = `
-		SELECT 
-			application.last_step,
-			application.solepro,
-			application.wholesale,
-			application.agency_network
-		FROM clw_talage_applications AS application
-		WHERE application.id = ${applicationID};
-	`;
-    let result = null;
-    try {
-        result = await db.query(sql);
+    const applicationBO = new ApplicationBO();
+    let ApplicationDoc = null;
+    try{
+        ApplicationDoc = await applicationBO.loadfromMongoBymysqlId(applicationID)
     }
-    catch (error) {
+    catch(err){
         log.error(`Could not retrieve application ${applicationID} ${__location}`);
         return;
     }
-    const application = result[0];
 
     // Get the quotes
-    sql = `
-		SELECT id, aggregated_status, status, api_result
-		FROM clw_talage_quotes
-		WHERE application = ${applicationID};
-	`;
+
+
+    const quoteBO = new QuoteBO();
+    let quoteDocJsonList = null;
     try {
-        result = await db.query(sql);
+        quoteDocJsonList = await quoteBO.getByApplicationId(ApplicationDoc.applicationId);
     }
     catch (error) {
-        log.error(`Could not retrieve quotes for application ${applicationID} ${__location}`);
+        log.error(`Could not get quotes for application  ${ApplicationDoc.applicationId} ${__location}`);
         return;
     }
-    const quotes = result;
 
     // Get the new application status
     let applicationStatus = '';
-    switch (application.agency_network) {
+    switch (ApplicationDoc.agencyNetworkId) {
         default:
-            applicationStatus = getGenericApplicationStatus(application, quotes);
+            applicationStatus = getGenericApplicationStatus(ApplicationDoc, quoteDocJsonList);
             break;
         // Accident Fund
         case 2:
-            applicationStatus = getAccidentFundApplicationStatus(application, quotes);
+            applicationStatus = getAccidentFundApplicationStatus(ApplicationDoc, quoteDocJsonList);
             break;
     }
-    // console.log('application', application);
-    // console.log('quotes', quotes);
-    // console.log('status', applicationStatus);
 
     // Set the new application status
-    const ApplicationBO = global.requireShared('models/Application-BO.js');
-    const applicationBO = new ApplicationBO();
+
     try {
         await applicationBO.updateStatus(applicationID, applicationStatus.appStatusDesc, applicationStatus.appStatusId);
     }
     catch (err) {
         log.error(`Error update appication status appId = ${applicationID}  ${db.escape(applicationStatus.appStatusDesc)} ` + err + __location);
     }
-
-
-
-
 }
 
 /**
@@ -105,33 +86,33 @@ async function updateApplicationStatus(applicationID) {
  *
  * @param {Boolean} bound - whether or not the quote is bound
  * @param {String} status - quote status
- * @param {String} api_result - result from the api call
+ * @param {String} apiResult - result from the api call
  * @return {void}
  */
-function getQuoteAggregatedStatus(bound, status, api_result) {
+function getQuoteAggregatedStatus(bound, status, apiResult) {
     if (bound) {
 
         return 'bound';
     }
-    else if (status === 'bind_requested' && api_result === 'referred_with_price') {
+    else if (status === 'bind_requested' && apiResult === 'referred_with_price') {
         return 'request_to_bind_referred';
     }
     else if (status === 'bind_requested') {
         return 'request_to_bind';
     }
-    else if (api_result === 'quoted') {
+    else if (apiResult === 'quoted') {
         return 'quoted';
     }
-    else if (api_result === 'referred_with_price') {
+    else if (apiResult === 'referred_with_price') {
         return 'quoted_referred';
     }
-    else if (api_result === 'referred') {
+    else if (apiResult === 'referred') {
         return 'referred';
     }
-    else if (api_result === 'acord_emailed') {
+    else if (apiResult === 'acord_emailed') {
         return 'acord_emailed';
     }
-    else if (api_result === 'declined' || api_result === 'autodeclined') {
+    else if (apiResult === 'declined' || apiResult === 'autodeclined') {
         return 'declined';
     }
     return 'error';
@@ -140,70 +121,70 @@ function getQuoteAggregatedStatus(bound, status, api_result) {
 /**
  * Returns the status of a generic application based on it's associated quotes. The status is a user-friendly string.
  *
- * @param {Object} application - An application record
- * @param {array} quotes - An array of quote objects
+ * @param {Object} applicationDoc - An application record
+ * @param {array} quoteDocJsonList - An array of quote objects
  * @return {string} - The status object {appStatusId, appStatusDesc} of the application
  */
-function getGenericApplicationStatus(application, quotes) {
+function getGenericApplicationStatus(applicationDoc, quoteDocJsonList) {
     // Ensure that each quote has an aggregated status (backwards compatibility)
-    quotes.forEach((quote) => updateQuoteAggregatedStatus(quote));
+    quoteDocJsonList.forEach((quoteDocJson) => updateQuoteAggregatedStatus(quoteDocJson));
 
-    if (application.last_step < 8) {
+    if (applicationDoc.lastStep < 8) {
         //appStatusId = 0
         return { appStatusId: 0, appStatusDesc: 'incomplete' };
     }
-    else if (application.solepro || application.wholesale) {
+    else if (applicationDoc.solepro || applicationDoc.wholesale) {
         //TODO separate status logic
         //appStatusId = 5
 
         return { appStatusId: 5, appStatusDesc: 'wholesale' };
     }
-    else if (quotes.some((quote) => quote.aggregated_status === 'bound')) {
+    else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'bound')) {
         //appStatusId = 100
         //return 'bound';
         return { appStatusId: 90, appStatusDesc: 'bound' };
     }
-    else if (quotes.some((quote) => quote.aggregated_status === 'request_to_bind_referred')) {
+    else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'request_to_bind_referred')) {
         //appStatusId = 80
         //return 'request_to_bind_referred';
         return { appStatusId: 80, appStatusDesc: 'request_to_bind_referred' };
     }
-    else if (quotes.some((quote) => quote.aggregated_status === 'request_to_bind')) {
+    else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'request_to_bind')) {
         //appStatusId = 70
         //return 'request_to_bind';
         return { appStatusId: 70, appStatusDesc: 'request_to_bind' };
     }
-    else if (quotes.some((quote) => quote.aggregated_status === 'quoted')) {
+    else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'quoted')) {
         //appStatusId = 60
         // return 'quoted';
         return { appStatusId: 60, appStatusDesc: 'quoted' };
     }
-    else if (quotes.some((quote) => quote.aggregated_status === 'quoted_referred')) {
+    else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'quoted_referred')) {
         //appStatusId = 50
         //return 'quoted_referred';
         return { appStatusId: 50, appStatusDesc: 'quoted_referred' };
     }
-    else if (quotes.some((quote) => quote.aggregated_status === 'acord_emailed')) {
+    else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'acord_emailed')) {
         //appStatusId = 45
         //return 'acord_emailed';
         return { appStatusId: 45, appStatusDesc: 'acord_emailed' };
     }
-    else if (quotes.some((quote) => quote.aggregated_status === 'referred')) {
+    else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'referred')) {
         //appStatusId = 40
         //return 'referred';
         return { appStatusId: 40, appStatusDesc: 'referred' };
     }
-    else if (quotes.some((quote) => quote.aggregated_status === 'declined')) {
+    else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'declined')) {
         //appStatusId = 30
         // return 'declined';
         return { appStatusId: 30, appStatusDesc: 'declined' };
     }
-    else if (quotes.some((quote) => quote.aggregated_status === 'error')) {
+    else if (quoteDocJsonList.some((quote) => quote.aggregatedStatus === 'error')) {
         //appStatusId = 20
         //  return 'error';
         return { appStatusId: 20, appStatusDesc: 'error' };
     }
-    else if (application.last_step === 8) {
+    else if (applicationDoc.lastStep === 8) {
         //appStatusId = 10
         // return 'questions_done';
         return { appStatusId: 10, appStatusDesc: 'questions_done' };
@@ -214,15 +195,15 @@ function getGenericApplicationStatus(application, quotes) {
 /**
  * Returns the status of an agency network 2 application based on it's associated quotes. The status is a user-friendly string.
  *
- * @param {Object} application - An application record
- * @param {array} quotes - An array of quote objects
+ * @param {Object} applicationDoc - An application record
+ * @param {array} quoteDocJsonList - An array of quote objects
  * @return {string} - The status of the application
  */
-function getAccidentFundApplicationStatus(application, quotes) {
-    const status = getGenericApplicationStatus(application, quotes);
+function getAccidentFundApplicationStatus(applicationDoc, quoteDocJsonList) {
+    const status = getGenericApplicationStatus(applicationDoc, quoteDocJsonList);
     // For accident fund, we only need to 'downgrade' the status if it is declined and there exists a quote with an 'error' status.
     if (status === 'declined') {
-        if (quotes.filter((quote) => quote.aggregated_status === 'error').length > 0) {
+        if (quoteDocJsonList.filter((quote) => quote.aggregatedStatus === 'error').length > 0) {
             //return 'error';
             return { appStatusId: 20, appStatusDesc: 'error' };
         }
