@@ -524,7 +524,7 @@ async function processQuotes(appId, applicationDoc){
     const quoteLimitBO = new QuoteLimitBO();
     let quoteList = null
     try{
-        quoteList = await quoteBO.loadFromApplicationId(appId);
+        quoteList = await quoteBO.loadFromMysqlByApplicationId(appId);
     }
     catch(err){
         log.error("get quotes " + err + __location);
