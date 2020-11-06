@@ -975,9 +975,9 @@ module.exports = class Integration {
             // Check that all of the selected codes are supported by the insurer
             const industryCodesSupported = await this._insurer_supports_industry_codes();
             const activityCodesSupported = await this._insurer_supports_activity_codes();
-            // If this integration doesn't support any industry codes or activity codes, return autodecline.
+            // If this integration doesn't support any industry codes or activity codes for the given territory, return autodecline.
             if (!industryCodesSupported && !activityCodesSupported) {
-                fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
+                fulfill(this.client_autodeclined_out_of_appetite());
                 return;
             }
 
@@ -1189,7 +1189,7 @@ module.exports = class Integration {
      * @returns {object} - An object containing the quote information
      */
     async client_autodeclined_out_of_appetite() {
-        return this.client_autodeclined('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code and state');
+        return this.client_autodeclined('Out of Appetite: The insurer reports that they will not write a policy with the selected state and industry or activity code');
     }
 
     /**
@@ -1748,7 +1748,7 @@ module.exports = class Integration {
     /**
 	 * Determines whether or not this insurer supports all class codes in this application
 	 *
-	 * @returns {Promise.<object, Error>} A promise that returns an true or an object containing error information on success
+	 * @returns {Promise.<boolean>} A promise that returns an true if the insurer supports the activity code and populates them, false otherwise
 	 */
     _insurer_supports_activity_codes() {
         return new Promise(async(fulfill) => {
@@ -1835,7 +1835,7 @@ module.exports = class Integration {
     /**
 	 * Determines whether or not this insurer supports all industry codes in this application
 	 *
-	 * @returns {Promise.<object, Error>} A promise that returns an true or an object containing error information on success
+	 * @returns {Promise.<boolean>} A promise that returns an true if the insurer supports the industry code and it has been populated, false otherwise
 	 */
     _insurer_supports_industry_codes() {
         return new Promise(async(fulfill) => {
