@@ -4,27 +4,27 @@
         <ClientApp>
             <Org>Talage, Inc.</Org>
             <Name>Talage</Name>
-            <Version>{{:version}}</Version>
+            <Version>2.0</Version>
         </ClientApp>
     </SignonRq>
     <QuoteRq>
-        <RqUID>{{:request_id}}</RqUID>
+        <RqUID>{{>request_id}}</RqUID>
         <QuoteID/>
-        <QuoteRqDt>{{:requestDate}}</QuoteRqDt>
-        <StateOrProvCd>{{:app.business.primary_territory}}</StateOrProvCd>
-        <ClassOfBusinessCd>{{:industry_code.hiscox}}</ClassOfBusinessCd>
+        <QuoteRqDt>{{>requestDate}}</QuoteRqDt>
+        <StateOrProvCd>{{>app.business.primary_territory}}</StateOrProvCd>
+        <ClassOfBusinessCd>{{>industry_code.hiscox}}</ClassOfBusinessCd>
         <ProducerInfo>
-            <ProducerUID>{{:app.agencyLocation.agencyId}}</ProducerUID>
-            <ProducerType>{{:app.agencyLocation.insurers[insurer.id].agency_id}}</ProducerType>{{!-- Per Hiscox, send in the Agent ID here also --}}
-            <ProducerAgency>{{:app.agencyLocation.agency.substring(0, 100)}}</ProducerAgency>
-            <ProducerAgentID>{{:app.agencyLocation.insurers[insurer.id].agency_id}}</ProducerAgentID>
+            <ProducerUID>{{>app.agencyLocation.agencyId}}</ProducerUID>
+            <ProducerType>{{>app.agencyLocation.insurers[insurer.id].agency_id}}</ProducerType>{{!-- Per Hiscox, send in the Agent ID here also --}}
+            <ProducerAgency>{{>app.agencyLocation.agency.substring(0, 100)}}</ProducerAgency>
+            <ProducerAgentID>{{>app.agencyLocation.insurers[insurer.id].agency_id}}</ProducerAgentID>
 			{{if app.agencyLocation.first_name && app.agencyLocation.last_name}}
             <PersonName>
 				{{if app.agencyLocation.first_name}}
-                <FirstName>{{:app.agencyLocation.first_name.substring(0,75)}}</FirstName>
+                <FirstName>{{>app.agencyLocation.first_name.substring(0,75)}}</FirstName>
 				{{/if}}
 				{{if app.agencyLocation.last_name}}
-                <LastName>{{:app.agencyLocation.last_name.substring(0,75)}}</LastName>
+                <LastName>{{>app.agencyLocation.last_name.substring(0,75)}}</LastName>
 				{{/if}}
             </PersonName>
 			{{/if}}
@@ -32,66 +32,72 @@
             <CommunicationsInfo>
 				{{if app.agencyLocation.agencyPhone}}
                 <PhoneInfo>
-                    <PhoneNumber>{{:app.agencyLocation.agencyPhone.toString().substring(0,10)}}</PhoneNumber>
-					{{!--                    <PhoneExtension>1100</PhoneExtension>   WE DO NOT SUPPORT THIS FIELD --}}
+                    <PhoneNumber>{{>app.agencyLocation.agencyPhone.toString().substring(0,10)}}</PhoneNumber>
                 </PhoneInfo>
 				{{/if}}
 				{{if app.agencyLocation.agencyEmail}}
                 <EmailInfo>
-                    <EmailAddr>{{:app.agencyLocation.agencyEmail.substring(0,60)}}</EmailAddr>
+                    <EmailAddr>{{>app.agencyLocation.agencyEmail.substring(0,60)}}</EmailAddr>
                 </EmailInfo>
 				{{/if}}
             </CommunicationsInfo>
 			{{/if}}
         </ProducerInfo>
         <BusinessInfo>
-            <CommercialName>{{:app.business.name.substring(0, 100)}}</CommercialName>
+            <CommercialName>{{>app.business.name.substring(0, 100)}}</CommercialName>
             <PersonName>
-				{{!--                <Title>Mrs.</Title> --}}
-				{{!--                <Suffix>I</Suffix> --}}
-                <FirstName>{{:app.business.contacts[0].first_name.substring(0, 75)}}</FirstName>
-                <LastName>{{:app.business.contacts[0].last_name.substring(0, 75)}}</LastName>
+                <FirstName>{{>app.business.contacts[0].first_name.substring(0, 75)}}</FirstName>
+                <LastName>{{>app.business.contacts[0].last_name.substring(0, 75)}}</LastName>
             </PersonName>
             <CommunicationsInfo>
                 <PhoneInfo>
-                    <PhoneNumber>{{:app.business.contacts[0].phone.toString().substring(0,10)}}</PhoneNumber>
-					{{!--                    <PhoneExtension>1100</PhoneExtension>   WE DO NOT SUPPORT THIS FIELD --}}
+                    <PhoneNumber>{{>app.business.contacts[0].phone.toString().substring(0,10)}}</PhoneNumber>
                 </PhoneInfo>
                 <EmailInfo>
-                    <EmailAddr>{{:app.business.contacts[0].email.substring(0,60)}}</EmailAddr>
+                    <EmailAddr>{{>app.business.contacts[0].email.substring(0,60)}}</EmailAddr>
                 </EmailInfo>
             </CommunicationsInfo>
             <Locations>
                 <Primary>
                     <AddrInfo>
-                        <Addr1>{{:primaryLocation.address.substring(0,40)}}</Addr1>
+                        <Addr1>{{>primaryLocation.address.substring(0,40)}}</Addr1>
 						{{if primaryLocation.address2}}
-                        <Addr2>{{:primaryLocation.address2.substring(0,40)}}</Addr2>
+                        <Addr2>{{>primaryLocation.address2.substring(0,40)}}</Addr2>
 						{{/if}}
-                        <City>{{:~ucwords(primaryLocation.city).substring(0,30)}}</City>
+                        <City>{{>~ucwords(primaryLocation.city).substring(0,30)}}</City>
 						{{if primaryLocation.county}}
-                        <County>{{:primaryLocation.county.substring(0,60)}}</County>
+                        <County>{{>primaryLocation.county.substring(0,60)}}</County>
 						{{/if}}
-                        <StateOrProvCd>{{:primaryLocation.territory}}</StateOrProvCd>
-                        <PostalCode>{{:primaryLocation.zip}}</PostalCode>
+                        <StateOrProvCd>{{>primaryLocation.territory}}</StateOrProvCd>
+                        <PostalCode>{{>primaryLocation.zip}}</PostalCode>
                         <Country>US</Country>
+                        {{if primaryLocation.square_footage}}
+                        <RatingInfo>
+                            <SquareFootageOfSpace>{{>primaryLocation.square_footage}}</SquareFootageOfSpace>
+                        </RatingInfo>
+                        {{/if}}
                     </AddrInfo>
                 </Primary>
 				{{if secondaryLocations.length}}
                 <Secondary>
 					{{for secondaryLocations itemVar='~location'}}
                     <AddrInfo>
-                        <Addr1>{{:~location.address.substring(0,40)}}</Addr1>
+                        <Addr1>{{>~location.address.substring(0,40)}}</Addr1>
 						{{if ~location.address2}}
-                        <Addr2>{{:~location.address2.substring(0,40)}}</Addr2>
+                        <Addr2>{{>~location.address2.substring(0,40)}}</Addr2>
 						{{/if}}
-                        <City>{{:~ucwords(~location.city).substring(0,30)}}</City>
+                        <City>{{>~ucwords(~location.city).substring(0,30)}}</City>
 						{{if ~location.county}}
-                        <County>{{:~location.county.substring(0,60)}} County</County>
+                        <County>{{>~location.county.substring(0,60)}}</County>
 						{{/if}}
-                        <StateOrProvCd>{{:~location.territory}}</StateOrProvCd>
-                        <PostalCode>{{:~location.zip}}</PostalCode>
+                        <StateOrProvCd>{{>~location.territory}}</StateOrProvCd>
+                        <PostalCode>{{>~location.zip}}</PostalCode>
                         <Country>US</Country>
+                        {{if ~location.square_footage}}
+                        <RatingInfo>
+                            <SquareFootageOfSpace>{{>~location.square_footage}}</SquareFootageOfSpace>
+                        </RatingInfo>
+                        {{/if}}
                     </AddrInfo>
 					{{/for}}
                 </Secondary>
@@ -103,37 +109,42 @@
                 <ProductId>CGL</ProductId>
                 <RatingInfo>
 					{{!-- Questions which we ask separately --}}
-                    <CoverageStartDate>{{:effectiveDate}}</CoverageStartDate>
-                    <BusinessOwnershipStructure>{{:entityType}}</BusinessOwnershipStructure>
-                    <EstmtdPayrollExpense>{{:get_total_payroll()}}</EstmtdPayrollExpense> {{!-- ALL CLASSES EXCEPT SC, LJR-Retail COBs, Home Health --}}
-                    <NumOfEmployees>{{:get_total_employees()}}</NumOfEmployees> {{!-- ALL CLASSES EXCEPT Real estate agent/broker: Numeric, 1-999 (includes temporary employees) --}}
-                    <EstmtdAnnualGrossSales>{{:policy.gross_sales}}</EstmtdAnnualGrossSales> {{!-- For the following COB groups: A&E, AH, LJR (Retail), SC, Photography, Real Estate, Home health aide, Personal care aide and Mobile Food Services --}}{{!-- ENFOCE LIMITS? $1 - $1m --}}
-                    <AdditionalLocation>{{:secondaryLocationsCount}}</AdditionalLocation> {{!-- 0, 1, 2, 3, 4, 5+ --}}
+                    <CoverageStartDate>{{>effectiveDate}}</CoverageStartDate>
+                    <BusinessOwnershipStructure>{{>entityType}}</BusinessOwnershipStructure>
+                    <EstmtdPayrollExpense>{{>get_total_payroll()}}</EstmtdPayrollExpense> {{!-- ALL CLASSES EXCEPT SC, LJR-Retail COBs, Home Health --}}
+                    <NumOfEmployees>{{>employeeCount}}</NumOfEmployees> {{!-- ALL CLASSES EXCEPT Real estate agent/broker: Numeric, 1-999 (includes temporary employees) --}}
+                    <EstmtdAnnualGrossSales>{{>policy.gross_sales}}</EstmtdAnnualGrossSales> {{!-- For the following COB groups: A&E, AH, LJR (Retail), SC, Photography, Real Estate, Home health aide, Personal care aide and Mobile Food Services --}}{{!-- ENFOCE LIMITS? $1 - $1m --}}
+                    <AdditionalLocation>{{>secondaryLocationsCount}}</AdditionalLocation> {{!-- 0, 1, 2, 3, 4, 5+ --}}
                     
 					{{!-- The following are universal questions. It is unclear if we will handle these in the database or not at this time --}}
-                    <AgreeDisagreeToStatements>I have read and agree with these statements</AgreeDisagreeToStatements>
-                    <EmailConsent>Yes</EmailConsent>
-                    <InformationConfirmAgreement>Yes</InformationConfirmAgreement>
+                    {{!--                    <AgreeDisagreeToStatements>I have read and agree with these statements</AgreeDisagreeToStatements> --}}
+                    {{!--                    <EmailConsent>Yes</EmailConsent> --}}
+                    {{!--                    <InformationConfirmAgreement>Yes</InformationConfirmAgreement> --}}
 
                     {{!-- Questions which are not asked we default here with defaults --}}
-                    <SimilarInsurance>No</SimilarInsurance>
+                    {{!--                    <SimilarInsurance>No</SimilarInsurance> --}
 
                     {{!-- Class-specific questions --}}
 					{{for questionList itemVar='~question'}}
-                    <{{:~question.nodeName}}>{{:~question.answer}}</{{:~question.nodeName}}>
+                    <{{>~question.nodeName}}>{{>~question.answer}}</{{>~question.nodeName}}>
                     {{/for}}
+
+                    {{if additionalCOBs.length > 0}}
+                    <SecondaryCOBSmallContractors>
+    					{{for additionalCOBs itemVar='~cob'}}
+                            <ClassOfBusinessCd>{{>~cob}}</ClassOfBusinessCd>
+                        {{/for}}
+                    </SecondaryCOBSmallContractors>
+                    {{/if}}
                 </RatingInfo>
                 <GeneralLiabilityCoverQuoteRq>
                     <CoverId>CGL</CoverId>
                     <RatingInfo>
-                        <AggLOI>{{:bestLimits[1]}}</AggLOI>
-                        <LOI>{{:bestLimits[0]}}</LOI>
+                        <AggLOI>{{>bestLimits[1]}}</AggLOI>
+                        <LOI>{{>bestLimits[0]}}</LOI>
                         <Deductible>0</Deductible>
                     </RatingInfo>
                 </GeneralLiabilityCoverQuoteRq>
-                <TRIACoverQuoteRq>
-                    <CoverId>TRIA</CoverId>
-                </TRIACoverQuoteRq>
             </GeneralLiabilityQuoteRq>
         </ProductQuoteRqs>
     </QuoteRq>
