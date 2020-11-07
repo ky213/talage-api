@@ -44,8 +44,6 @@ async function getAgencies(req, res, next){
             Order by name
 		`;
 
-    // COUNT(DISTINCT ${db.quoteName('app.id')}) AS ${db.quoteName('applications')}
-    //LEFT JOIN ${db.quoteName('#__applications', 'app')} ON ${db.quoteName('app.agency')} = ${db.quoteName('ag.id')}
     // Get the agencies from the database
     const retAgencies = await db.query(agenciesSQL).catch(function(err){
         log.error(err.message);

@@ -53,7 +53,7 @@ function logLocalErrorMessage(message){
     console.log(colors.red(message));
 }
 
-let tableName = "clw_talage_applications"
+let tableName = "clw_talage_test"
 
 /**
  * Main entrypoint
