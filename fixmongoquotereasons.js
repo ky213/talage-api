@@ -133,7 +133,7 @@ async function runFunction() {
     //var Quote = require('mongoose').model('Quote');
     let quoteList = null
     try{
-        const sql = "select id, reasons from clw_talage_quotes where reasons is not null";
+        const sql = "select id, reasons, payment_plan from clw_talage_quotes where reasons is not null OR payment_plan > 0 ";
         quoteList = await db.query(sql);
     }
     catch(err){
@@ -143,13 +143,19 @@ async function runFunction() {
     if(quoteList && quoteList.length > 0){
         for(let i = 0; i < quoteList.length; i++){
             const quoteMySql = quoteList[i];
-            if(quoteMySql.reasons){
+            if(quoteMySql.reasons || quoteMySql.payment_plan){
                 //
                 try{
                     const quoteDoc = await quoteBO.getMongoDocbyMysqlId(quoteMySql.id)
 
                     if(quoteDoc && quoteDoc.quoteId){
-                        const newReasonsJSON = {"reasons": quoteMySql.reasons}
+                        let newReasonsJSON = {"reasons": quoteMySql.reasons}
+                        if(quoteMySql.reasons){
+                            newReasonsJSON = {"reasons": quoteMySql.reasons}
+                        }
+                        if(quoteMySql.payment_plan){
+                            newReasonsJSON.paymentPlanId = quoteMySql.payment_plan
+                        }
                         await quoteBO.updateMongo(quoteDoc && quoteDoc.quoteId, newReasonsJSON);
                     }
 
