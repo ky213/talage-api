@@ -36,7 +36,7 @@ const QuoteSchema = new Schema({
     bound: {type: Boolean},
     log: {type: String},
     paymentPlanId: {type: Number},
-    reason: {type: String},
+    reasons: {type: String},
     quoteLetter: {type: String},
     quoteTimeSeconds: {type: Number},
     writer: {type: String},

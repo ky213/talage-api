@@ -1113,6 +1113,7 @@ module.exports = class ApplicationModel {
                         "id": quoteModel.id,
                         "status": "bind_requested",
                         "payment_plan": quote.payment,
+                        "paymentPlanId": quote.payment,
                         "applicationId": this.#applicationMongooseDB.applicationId
                     }
                     await quoteModel.saveModel(quoteUpdate).catch(function(err) {

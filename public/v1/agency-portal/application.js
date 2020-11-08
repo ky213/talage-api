@@ -1,19 +1,25 @@
 /* eslint-disable dot-notation */
 /* eslint-disable require-jsdoc */
 'use strict';
-const crypt = global.requireShared('./services/crypt.js');
 const validator = global.requireShared('./helpers/validator.js');
 const auth = require('./helpers/auth.js');
-const serverHelper = require('../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const ApplicationBO = global.requireShared('models/Application-BO.js');
-const ApplicationQuoting = global.requireRootPath('public/v1/quote/helpers/models/Application.js');
+const QuoteBO = global.requireShared('models/Quote-BO.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
+const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
+const IndustryCodeCategoryBO = global.requireShared('models/IndustryCodeCategory-BO.js');
+const InsurerBO = global.requireShared('models/Insurer-BO.js');
+const PolicyTypeBO = global.requireShared('models/PolicyType-BO.js');
+const PaymentPlanBO = global.requireShared('models/PaymentPlan-BO.js');
+const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
+
+const ApplicationQuoting = global.requireRootPath('public/v1/quote/helpers/models/Application.js');
 const status = global.requireShared('./models/application-businesslogic/status.js');
 const jwt = require('jsonwebtoken');
-const {loggers} = require('winston');
 const moment = require('moment');
 
 
@@ -46,11 +52,15 @@ async function getApplication(req, res, next) {
         return getApplicationDoc(req, res, next);
     }
 
+    //Determine Integer vs uuid.
+    const id = req.query.id;
 
-    // Validate the application ID
-    if (!await validator.is_valid_id(req.query.id)) {
-        log.error('Bad Request: Invalid id ' + __location);
-        return next(serverHelper.requestError('Invalid id'));
+    if(id > 0){
+        // Validate the application ID
+        if (!await validator.is_valid_id(id)) {
+            log.error(`Bad Request: Invalid id ${id}` + __location);
+            return next(serverHelper.requestError('Invalid id'));
+        }
     }
 
     // Get the agents that we are permitted to view
@@ -62,312 +72,260 @@ async function getApplication(req, res, next) {
         return next(error);
     }
 
-    // Check if this is Solepro and grant them special access
-    let where = `${db.quoteName('a.agency')} IN (${agents.join(',')})`;
-    if (agents.length === 1 && agents[0] === 12) {
-        // This is Solepro (no restriction on agency ID, just applications tagged to them)
-        where = `${db.quoteName('a.solepro')} = 1`;
-    }
-
-    // Define a query for retrieving basic application information
-    const sql = `
-        SELECT
-            a.additional_insured as additionalInsured,
-            a.agency,
-            a.agency_location,
-            a.status,
-            a.id,
-            a.last_step as lastStep,
-            a.solepro,
-            a.waiver_subrogation as waiverSubrogation,
-            a.years_of_exp as yearsOfExp,
-            b.website,
-            a.wholesale,
-            a.bop_effective_date as businessOwnersPolicyEffectiveDate,
-            a.bop_expiration_date as businessOwnersPolicyExpirationDate,
-            a.gl_effective_date as generalLiabilityEffectiveDate,
-            a.gl_expiration_date as generalLiabilityExpirationDate,
-            a.wc_effective_date as workersCompensationEffectiveDate,
-            a.wc_expiration_date as workersCompensationExpirationDate,
-            a.limits,
-            a.wc_limits as wcLimits,
-            a.deductible,
-            a.coverage_lapse as coverageLapse,
-            a.gross_sales_amt,
-            a.created,
-            ad.unemployment_num as unemploymentNum,
-            ag.name as agencyName,
-            b.id as businessID,
-            b.name as businessName,
-            b.dba,
-            b.ein,
-            b.mailing_address as address,
-            b.mailing_address2 as address2,
-            b.owners,
-            b.founded,
-            b.entity_type as entityType,
-            b.mailing_city as city,
-            b.mailing_state_abbr as territory,
-            b.mailing_zipcode as zip,
-            c.email,
-            c.fname,
-            c.lname,
-            c.phone,
-            ic.description as industryCodeName,
-            icc.name as industryCodeCategory,
-            a.opted_out_online, 
-            a.opted_out_online_emailsent,
-            GROUP_CONCAT(apt.policy_type) AS policy_types
-        FROM clw_talage_applications as a
-			LEFT JOIN clw_talage_application_policy_types as apt ON a.id = apt.application
-			LEFT JOIN clw_talage_businesses as b ON a.business = b.id
-			LEFT JOIN clw_talage_contacts as c ON c.business = b.id
-			LEFT JOIN clw_talage_agencies as ag ON a.agency = ag.id
-            LEFT JOIN clw_talage_addresses as ad ON a.business = ad.business AND ad.billing = 1
-            LEFT JOIN clw_talage_industry_codes as ic ON ic.id = a.industry_code
-            LEFT JOIN clw_talage_industry_code_categories icc on icc.id = ic.category
-        WHERE  a.id = ${req.query.id} AND ${where}
-        GROUP BY a.id
-        LIMIT 1;
-		`;
-
-    // Query the database
-    const applicationData = await db.query(sql).catch(function(err) {
-        log.error('Error get application database query ' + err.message + __location);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    });
-
-    // Make sure an application was found
-    if (applicationData.length !== 1) {
-        log.error('Error get application, application not found sql: ' + sql + __location);
-        return next(serverHelper.notFoundError('The application could not be found.'));
-    }
-
-    // Get the application from the response
-    const application = applicationData[0];
-
-    // Decrypt any necessary fields
-    await crypt.batchProcessObject(application, 'decrypt', ['address',
-        'address2',
-        'businessName',
-        'dba',
-        'ein',
-        'email',
-        'fname',
-        'lname',
-        'owners',
-        'phone',
-        'website']);
-
-    // Decode the owners
+    // // Check if this is Solepro and grant them special access
+    // let where = `${db.quoteName('a.agency')} IN (${agents.join(',')})`;
+    // if (agents.length === 1 && agents[0] === 12) {
+    //     // This is Solepro (no restriction on agency ID, just applications tagged to them)
+    //     where = `${db.quoteName('a.solepro')} = 1`;
+    // }
+    const applicationBO = new ApplicationBO();
+    let passedAgencyCheck = false;
+    let applicationJSON = null;
     try{
-        if(typeof application.owners !== "object"){
-            application.owners = JSON.parse(application.owners);
+        let applicationDBDoc = null;
+        if(id > 0){
+            applicationDBDoc = await applicationBO.loadfromMongoBymysqlId(id);
         }
         else {
-            log.debug("Application Owner: " + JSON.stringify(application.owners))
+            log.debug("Getting id from mongo")
+            applicationDBDoc = await applicationBO.getfromMongoByAppId(id);
         }
-        if(application.owners && application.owners.length > 0){
-            for(let i = 0; i < application.owners.length; i++){
+
+
+        if(applicationDBDoc && agents.includes(applicationDBDoc.agencyId)){
+            passedAgencyCheck = true;
+        }
+
+        if(applicationDBDoc){
+            applicationJSON = JSON.parse(JSON.stringify(applicationDBDoc))
+        }
+    }
+    catch(err){
+        log.error("Error Getting application doc " + err + __location)
+        return next(serverHelper.requestError(`Bad Request: check error ${err}`));
+    }
+
+    if(applicationJSON && applicationJSON.applicationId && passedAgencyCheck === false){
+        log.info('Forbidden: User is not authorized for this application' + __location);
+        //Return not found so do not expose that the application exists
+        return next(serverHelper.notFoundError('Application Not Found'));
+    }
+
+    const mapDoc2OldPropName = {
+        agencyLocationId: "agency_location",
+        lastStep: "last_step",
+        grossSalesAmt: "gross_sales_amt",
+        mailingCity: "city",
+        mailingAddress: "address",
+        mailingAddress2: "address2",
+        mailingState: "territory",
+        mailingZipcode: "zip",
+        optedOutOnlineEmailsent: "opted_out_online_emailsent",
+        optedOutOnline: "opted_out_online"
+    }
+    for(const sourceProp in mapDoc2OldPropName){
+        if(typeof applicationJSON[sourceProp] !== "object"){
+            if(mapDoc2OldPropName[sourceProp]){
+                const appProp = mapDoc2OldPropName[sourceProp]
+                applicationJSON[appProp] = applicationJSON[sourceProp];
+            }
+        }
+    }
+    // eslint-disable-next-line array-element-newline
+    const propsToRemove = ["_id","einEncrypted","einHash","questions"];
+    for(let i = 0; i < propsToRemove.length; i++){
+        if(applicationJSON[propsToRemove[i]]){
+            delete applicationJSON[propsToRemove[i]]
+        }
+    }
+
+    // // owners birthday formatting
+    try{
+        if(applicationJSON.owners && applicationJSON.owners.length > 0){
+            for(let i = 0; i < applicationJSON.owners.length; i++){
                 // eslint-disable-next-line prefer-const
-                let owner = application.owners[i];
+                let owner = applicationJSON.owners[i];
                 if(owner._id){
                     delete owner._id;
                 }
                 if(owner.ownership){
                     owner.ownership = owner.ownership.toString();
                 }
-                if(owner.birthdate && owner.birthdate.includes("Z")){
+                if(owner.birthdate){
                     owner.birthdate = moment(owner.birthdate).format("MM/DD/YYYY");
                 }
             }
         }
     }
     catch(err){
-        log.error("Application Owner parse error " + err + __location)
+        log.error("Application Owner processing error " + err + __location)
     }
 
+    // process location for Activity Code Description
+    if(applicationJSON.locations && applicationJSON.locations.length > 0){
+        for(let i = 0; i < applicationJSON.locations.length; i++){
+            const location = applicationJSON.locations[i];
+            if(location.activityPayrollList && location.activityPayrollList.length > 0){
+                const activityCodeBO = new ActivityCodeBO();
+                for(let j = 0; j < location.activityPayrollList.length; j++){
+                    try{
+                        // eslint-disable-next-line prefer-const
+                        let activityPayroll = location.activityPayrollList[j];
+                        const activtyCodeJSON = await activityCodeBO.getById(activityPayroll.ncciCode);
+                        activityPayroll.description = activtyCodeJSON.description;
+                        if(activityPayroll.ownerPayRoll){
+                            activityPayroll.payroll += activityPayroll.ownerPayRoll
+                        }
+                    }
+                    catch(err){
+                        log.error(`Error getting activity code  ${location.activityPayrollList[j].ncciCode} ` + err + __location);
+                    }
+                }
+            }
+        }
+    }
 
-    // Get all addresses for this business
-    const addressSQL = `
-        SELECT
-            id,
-            address,
-            address2,
-            billing,
-            ein,
-            zipcode,
-            full_time_employees,
-            part_time_employees,
-            square_footage,
-            unemployment_num,
-            city,
-            state_abbr as territory
-        FROM clw_talage_addresses
-        WHERE business = ${application.businessID};
-		`;
-
-    // Query the database
-    const addressData = await db.query(addressSQL).catch(function(err) {
-        log.error(err.message);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    });
-
-    // Decrypt the encrypted fields
+    //add Agency name
+    const agencyBO = new AgencyBO();
     try{
-        await crypt.batchProcessObjectArray(addressData, 'decrypt', ['address',
-            'address2',
-            'ein']);
+        await agencyBO.loadFromId(applicationJSON.agencyId)
+        applicationJSON.name = agencyBO.name;
+        applicationJSON.agencyName = agencyBO.name;
+
     }
     catch(err){
-        log.error("Get Application decrypt error " + err + __location);
+        log.error("Error getting agencyBO " + err + __location);
+        error = true;
+
     }
-
-
-    // Only process addresses if some were returned
-    application.locations = [];
-    if (addressData.length > 0) {
-        // Get the activity codes for all addresses
-        const codesSQL = `
-				SELECT
-					${db.quoteName('aac.address')},
-					${db.quoteName('ac.description')},
-					${db.quoteName('aac.payroll')}
-				FROM ${db.quoteName('#__address_activity_codes', 'aac')}
-				LEFT JOIN ${db.quoteName('#__activity_codes', 'ac')} ON ${db.quoteName('ac.id')} = ${db.quoteName('aac.ncci_code')}
-				WHERE ${db.quoteName('aac.address')} IN (${addressData.map(function(address) {
-    return address.id;
-})});
-			`;
-
-        // Query the database
-        const codesData = await db.query(codesSQL).catch(function(err) {
-            log.error(err.message);
-            return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-        });
-
-        // Loop over each address and do a bit more work
-        addressData.forEach(function(address) {
-            // Get all codes that are associated with this address and add them
-            address.activityCodes = [];
-            if (codesData.length > 0) {
-                codesData.forEach(function(code) {
-                    if (code.address === address.id) {
-                        address.activityCodes.push(code);
-                    }
-                });
+    //add industry description
+    const industryCodeBO = new IndustryCodeBO();
+    try{
+        const industryCodeJson = await industryCodeBO.getById(applicationJSON.industryCode);
+        if(industryCodeJson){
+            applicationJSON.industryCodeName = industryCodeJson.description;
+            const industryCodeCategoryBO = new IndustryCodeCategoryBO()
+            const industryCodeCategoryJson = await industryCodeCategoryBO.getById(industryCodeJson.category);
+            if(industryCodeCategoryJson){
+                applicationJSON.industryCodeCategory = industryCodeCategoryJson.name;
             }
-
-            // Add this address to the application object
-            application.locations.push(address);
-        });
+        }
     }
+    catch(err){
+        log.error("Error getting industryCodeBO " + err + __location);
+    }
+    //Primary Contact
+    const customerContact = applicationJSON.contacts.find(contactTest => contactTest.primary === true);
+    applicationJSON.email = customerContact.email;
+    applicationJSON.fname = customerContact.firstName;
+    applicationJSON.lname = customerContact.lastName;
+    applicationJSON.phone = customerContact.phone;
 
     // Get the quotes from the database
-    const quotesSQL = `
-            SELECT
-                q.api_result,
-                q.policy_type,
-                pt.name as policyTypeName,
-                pay.name as paymentPlan,
-                q.insurer,
-                q.amount,
-                q.bound,
-                q.reasons,
-                i.logo,
-                i.name as insurerName,
-                q.quote_letter,
-                q.number,
-                q.status,
-                q.log
-            FROM clw_talage_quotes as q
-            LEFT JOIN  clw_talage_policies as p ON p.quote = q.id
-            LEFT JOIN  clw_talage_payment_plans as pay ON pay.id = q.payment_plan
-            LEFT JOIN  clw_talage_insurers as i ON i.id = q.insurer
-            LEFT JOIN  clw_talage_policy_types as pt ON pt.abbr = q.policy_type
-            LEFT JOIN  clw_talage_applications as a ON q.application = a.id
-
-            WHERE q.application = ${req.query.id} AND q.state = 1;
-		`;
-
-
-    const quotes = await db.query(quotesSQL).catch(function(err) {
-        log.error(err.message);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    });
-
+    const quoteBO = new QuoteBO()
+    let quoteList = null;
+    try {
+        //sort by policyType
+        const quoteQuery = {
+            "applicationId": applicationJSON.applicationId,
+            "sort": "policyType"
+        }
+        quoteList = await quoteBO.getList(quoteQuery);
+    }
+    catch(err){
+        log.error("Error getting quotes for Application GET " + err + __location);
+    }
 
     // Add the quotes to the return object and determine the application status
-    application.quotes = [];
-    if (quotes.length > 0) {
-        for (let i = 0; i < quotes.length; i++) {
+    applicationJSON.quotes = [];
+    if (quoteList.length > 0) {
+        let insurerList = null;
+        const insurerBO = new InsurerBO();
+        try{
+            insurerList = await insurerBO.getList();
+        }
+        catch(err){
+            log.error("Error get InsurerList " + err + __location)
+        }
+        let policyTypeList = null;
+        const policyTypeBO = new PolicyTypeBO()
+        try{
+            policyTypeList = await policyTypeBO.getList();
+        }
+        catch(err){
+            log.error("Error get policyTypeList " + err + __location)
+        }
+
+        let paymentPlanList = null;
+        const paymentPlanBO = new PaymentPlanBO()
+        try{
+            paymentPlanList = await paymentPlanBO.getList();
+        }
+        catch(err){
+            log.error("Error get paymentPlanList " + err + __location)
+        }
+
+
+        for (let i = 0; i < quoteList.length; i++) {
             // eslint-disable-next-line prefer-const
-            let quote = quotes[i];
-            if (!quote.status && quote.api_result) {
-                quote.status = quote.api_result;
+            let quoteJSON = quoteList[i];
+            if(quoteJSON.quoteLetter){
+                quoteJSON.quote_letter = quoteJSON.quoteLetter;
             }
-
+            if (!quoteJSON.status && quoteJSON.apiResult) {
+                quoteJSON.status = quoteJSON.apiResult;
+            }
+            quoteJSON.number = quoteJSON.quoteNumber;
             // Change the name of autodeclined
-            if (quote.status === 'autodeclined') {
-                quote.status = 'Out of Market';
+            if (quoteJSON.status === 'autodeclined') {
+                quoteJSON.status = 'Out of Market';
             }
-            if (quote.status === 'bind_requested'
-                || quote.bound
-                || quote.status === 'quoted') {
+            if (quoteJSON.status === 'bind_requested'
+                || quoteJSON.bound
+                || quoteJSON.status === 'quoted') {
 
-                quote.reasons = '';
+                quoteJSON.reasons = '';
             }
             // can see log?
             try {
-                if (req.authentication.permissions.applications.viewlogs) {
-                    quote.log = await crypt.decrypt(quote.log);
-                }
-                else {
-                    delete quote.log;
+                if (!req.authentication.permissions.applications.viewlogs) {
+                    delete quoteJSON.log;
                 }
             }
             catch (e) {
-                delete quote.log;
+                delete quoteJSON.log;
             }
-
+            //Insurer
+            if(insurerList){
+                const insurer = insurerList.find(insurertest => insurertest.id === quoteJSON.insurerId);
+                // i.logo,
+                //i.name as insurerName,
+                quoteJSON.logo = insurer.logo
+                quoteJSON.insurerName = insurer.name
+            }
+            //policyType
+            if(policyTypeList){
+                const policyTypeJSON = policyTypeList.find(policyTypeTest => policyTypeTest.abbr === quoteJSON.policyType)
+                quoteJSON.policyTypeName = policyTypeJSON.name
+            }
+            //paymentplan.
+            if(paymentPlanList){
+                const paymentPlanJson = paymentPlanList.find(paymentPlanTest => paymentPlanTest.id === quoteJSON.paymentPlanId)
+                if(paymentPlanJson){
+                    quoteJSON.paymentPlan = paymentPlanJson.name
+                }
+            }
         }
-
-
         // Add the quotes to the response
-        application.quotes = quotes;
+        applicationJSON.quotes = quoteList;
         if (req.authentication.permissions.applications.viewlogs) {
-            application.showLogs = true;
+            applicationJSON.showLogs = true;
         }
     }
 
-    // Get any existing claims for the application from the data base
-    const claimsSQL = `
-			SELECT
-				${db.quoteName('c.amount_paid', 'amountPaid')},
-				${db.quoteName('c.amount_reserved', 'amountReserved')},
-				${db.quoteName('c.date')},
-				${db.quoteName('c.missed_work', 'missedWork')},
-				${db.quoteName('c.open')},
-				${db.quoteName('c.policy_type', 'policyType')}
-			FROM ${db.quoteName('#__claims', 'c')}
-			
-			WHERE ${db.quoteName('c.application')} = ${req.query.id};
-		`;
-
-    // Run query for claims
-    const claims = await db.query(claimsSQL).catch(function(err) {
-        log.error('Error get application database query (claims) ' + err.message + __location);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    });
-
-    application.claims = [];
-    if (claims.length > 0) {
-        // Add the claims to the response if they exist
-        application.claims = claims;
-    }
 
     // Return the response
-    res.send(200, application);
+    res.send(200, applicationJSON);
     return next();
 }
 async function getApplicationDoc(req, res ,next){
