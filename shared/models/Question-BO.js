@@ -61,21 +61,7 @@ module.exports = class QuestionBO{
         });
     }
 
-    /**
-	 * saves this object.
-     *
-	 * @returns {Promise.<JSON, Error>} save return true , or an Error if rejected
-	 */
-    save(asNew = false){
-        return new Promise(async(resolve, reject) => {
-            //validate
-            this.#dbTableORM.load(this, skipCheckRequired);
-            await this.#dbTableORM.save().catch(function(err){
-                reject(err);
-            });
-            resolve(true);
-        });
-    }
+
 
     loadFromId(id) {
         return new Promise(async(resolve, reject) => {
