@@ -49,6 +49,7 @@ function multiRowResult(results) {
 async function getReports(req, res, next) {
     let error = false;
 
+    let returnedError = false;
     // Get the agents that we are permitted to view
     const agents = await auth.getAgents(req).catch(function(e) {
         error = e;
@@ -208,10 +209,11 @@ async function getReports(req, res, next) {
         // Query the database and wait for a result
         error = null;
         const result = await db.query(queries[queryName]).catch((err) => {
-            log.error(err.message + __location);
+            log.error("Report query error " + err.message + __location);
             error = err;
         });
-        if(error){
+        if(error && returnedError === false){
+            returnedError = true;
             return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
         }
 
@@ -280,8 +282,11 @@ async function getReports(req, res, next) {
     }));
 
     // Send the response
-    res.send(200, response);
-    return next();
+    if(returnedError === false){
+        res.send(200, response);
+        return next();
+    }
+    
 }
 
 exports.registerEndpoint = (server, basePath) => {
