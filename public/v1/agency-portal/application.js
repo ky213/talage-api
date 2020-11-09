@@ -493,7 +493,7 @@ async function applicationSave(req, res, next) {
         userId = req.authentication.userID;
     }
     catch(err){
-        loggers.error("Error gettign userID " + err + __location);
+        log.error("Error gettign userID " + err + __location);
     }
 
 
@@ -608,7 +608,7 @@ async function applicationCopy(req, res, next) {
             userId = req.authentication.userID;
         }
         catch(err){
-            loggers.error("Error gettign userID " + err + __location);
+            log.error("Error gettign userID " + err + __location);
         }
         req.body.agencyPortalCreatedUser = userId
         req.body.agencyPortalCreated = true;
