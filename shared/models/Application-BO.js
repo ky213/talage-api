@@ -1113,6 +1113,7 @@ module.exports = class ApplicationModel {
                         "id": quoteModel.id,
                         "status": "bind_requested",
                         "payment_plan": quote.payment,
+                        "paymentPlanId": quote.payment,
                         "applicationId": this.#applicationMongooseDB.applicationId
                     }
                     await quoteModel.saveModel(quoteUpdate).catch(function(err) {
@@ -2451,7 +2452,7 @@ module.exports = class ApplicationModel {
                 queryOptions.limit = queryLimit;
             }
             if (queryJSON.count) {
-                if (queryJSON.count === "1") {
+                if (queryJSON.count === "1" || queryJSON.count === 1 || queryJSON.count === true) {
                     findCount = true;
                 }
                 delete queryJSON.count;

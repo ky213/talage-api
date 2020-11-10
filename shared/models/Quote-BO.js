@@ -347,7 +347,17 @@ module.exports = class QuoteBO {
     }
 
 
-    loadFromApplicationId(applicationId, policy_type = null) {
+    getByApplicationId(applicationId, policy_type = null) {
+        // eslint-disable-next-line prefer-const
+        let query = {"applicationId": applicationId}
+        if(policy_type){
+            query.policyType = policy_type;
+        }
+        return this.getList(query);
+
+    }
+
+    loadFromMysqlByApplicationId(applicationId, policy_type = null) {
         return new Promise(async(resolve, reject) => {
             if(applicationId && applicationId > 0){
                 let rejected = false;
@@ -364,7 +374,7 @@ module.exports = class QuoteBO {
                     // Check if this was
 
                     rejected = true;
-                    log.error(`loadFromApplicationId ${tableName} applicationId: ${db.escape(applicationId)}  error ` + error + __location)
+                    log.error(`loadFromMysqlByApplicationId ${tableName} applicationId: ${db.escape(applicationId)}  error ` + error + __location)
                     reject(error);
                 });
                 if (rejected) {
@@ -379,7 +389,7 @@ module.exports = class QuoteBO {
                         }
                         await quoteBO.#dbTableORM.convertJSONColumns(result[i]);
                         const resp = await quoteBO.loadORM(result[i], skipCheckRequired).catch(function(err){
-                            log.error(`loadFromApplicationId error loading object: ` + err + __location);
+                            log.error(`loadFromMysqlByApplicationId error loading object: ` + err + __location);
                             //not reject on issues from database object.
                             //reject(err);
                         })
@@ -403,25 +413,25 @@ module.exports = class QuoteBO {
     }
 
 
-    DeleteByApplicationId(applicationId) {
-        return new Promise(async(resolve, reject) => {
-            //Remove old records.
-            const sql = `DELETE FROM ${tableName} 
-                   WHERE application = ${applicationId}
-            `;
-            let rejected = false;
-            await db.query(sql).catch(function(error) {
-                // Check if this was
-                log.error(`Database Object ${tableName} DELETE error : ` + error + __location);
-                rejected = true;
-                reject(error);
-            });
-            if (rejected) {
-                return false;
-            }
-            resolve(true);
-        });
-    }
+    // DeleteByApplicationId(applicationId) {
+    //     return new Promise(async(resolve, reject) => {
+    //         //Remove old records.
+    //         const sql = `DELETE FROM ${tableName}
+    //                WHERE application = ${applicationId}
+    //         `;
+    //         let rejected = false;
+    //         await db.query(sql).catch(function(error) {
+    //             // Check if this was
+    //             log.error(`Database Object ${tableName} DELETE error : ` + error + __location);
+    //             rejected = true;
+    //             reject(error);
+    //         });
+    //         if (rejected) {
+    //             return false;
+    //         }
+    //         resolve(true);
+    //     });
+    // }
 
 
     async getMongoDocbyMysqlId(mysqlId) {
@@ -514,7 +524,7 @@ module.exports = class QuoteBO {
         });
 
 
-        return mongoUtils.objCleanup(application);
+        return mongoUtils.objCleanup(quote);
     }
 
     async updateQuoteAggregatedStatus(quoteId, aggregatedStatus) {
