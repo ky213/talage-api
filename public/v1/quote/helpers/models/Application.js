@@ -599,19 +599,29 @@ module.exports = class Application {
     async updateApplicationState(numPolicyTypesRequested, numPolicyTypesQuoted, numPolicyTypesReferred) {
         // Determine the application status
         let state = 1; // New
+        let appStatusId = 15; // Quoting
+        let appStatusDesc = "quoting"
         if (numPolicyTypesRequested === numPolicyTypesQuoted) {
             state = 13; // Quoted
+            appStatusId = 60;
+            appStatusDesc = "quoted";
+
         }
         else if (numPolicyTypesRequested === numPolicyTypesReferred) {
             state = 12; // Referred
+            appStatusId = 40;
+            appStatusDesc = "referred";
         }
-
-        const applicationBO = new ApplicationBO();
-        try{
-            await applicationBO.updateState(this.id, state)
-        }
-        catch(err){
-            log.error(`Could not update the application state to ${state} for application ${this.id}: ${err} ${__location}`);
+        if(state > 0){
+            const applicationBO = new ApplicationBO();
+            try{
+                await applicationBO.updateStatus(this.id, appStatusDesc, appStatusId);
+                await applicationBO.updateProgress(this.id, "complete");
+                await applicationBO.updateState(this.id, state)
+            }
+            catch(err){
+                log.error(`Could not update the application state to ${state} for application ${this.id}: ${err} ${__location}`);
+            }
         }
     }
 
