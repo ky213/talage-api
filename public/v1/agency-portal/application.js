@@ -911,14 +911,13 @@ async function requote(req, res, next) {
 
     // Set the application progress to 'quoting'
     try {
-        await applicationBO.updateProgress(applicationDB.mysqlId, "quoting");
+        await applicationBO.updateProgress(applicationDB.id, "quoting");
         const appStatusIdQuoting = 15;
-        await applicationBO.updateStatus(applicationDB.mysqlId, "quoting", appStatusIdQuoting);
+        await applicationBO.updateStatus(applicationDB.id, "quoting", appStatusIdQuoting);
     }
     catch (err) {
-        log.error(`Error update appication progress appId = ${req.body.id}  for quoting. ` + err + __location);
+        log.error(`Error update appication progress appId = ${applicationDB.id} for quoting. ` + err + __location);
     }
-
 
     // Build a JWT that contains the application ID that expires in 5 minutes.
     const tokenPayload = {applicationID: req.body.id};
