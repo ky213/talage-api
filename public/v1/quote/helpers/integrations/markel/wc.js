@@ -15,10 +15,8 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 //Sandbox
 const API_SB = 'https://api-sandbox.markelcorp.com/smallCommercial/v1/wc';
-const API_SB_KEY = { 'apikey': 'j5LEClBHqILbjMMSAUsMv2LNzLvnC7ZK' };
 //Prod
 const API_PROD = 'https://api.markelcorp.com/smallCommercial/v1/wc'
-const API_PROD_KEY = { 'apikey': 'DmGYBzAIVSZQiVGvjb5NJMk3CXly1EVj' };
 
 module.exports = class MarkelWC extends Integration {
 
@@ -580,12 +578,12 @@ module.exports = class MarkelWC extends Integration {
         if (this.insurer.useSandbox) {
             host = 'api-sandbox.markelcorp.com';
             path = '/smallCommercial/v1/wc'
-            key = API_SB_KEY;
+            key = { 'apikey': `${this.password}` };
         }
         else {
             host = 'api.markelcorp.com';
             path = '/smallCommercial/v1/wc';
-            key = API_PROD_KEY
+            key = { 'apikey': `${this.password}`};
         }
 
         // These are the statuses returned by the insurer and how they map to our Talage statuses
@@ -621,7 +619,7 @@ module.exports = class MarkelWC extends Integration {
         else if (yearsInsured === 0) {
             yearsInsured = 1
         };
-console.log('yearsinsured', yearsInsured)
+
         // Prepare limits
         let markelLimits = mapCarrierLimits[this.app.policies[0].limits];
         const limits = this.getBestLimits(carrierLimits);
@@ -633,7 +631,7 @@ console.log('yearsinsured', yearsInsured)
         }
 
         // Check the number of claims
-        if (excessive_loss_states.indexOf(this.app.business.primary_territory) !== -1) {
+        if (excessive_loss_states.includes(this.app.business.primary_territory)) {
             if (this.policy.claims.length > 2) {
                 log.info(`Appid: ${this.app.id} autodeclined: ${this.insurer.name} Too many claims ` + __location);
                 this.reasons.push(`Too many past claims`);
@@ -717,7 +715,7 @@ console.log('yearsinsured', yearsInsured)
         const unique_territories = [];
         let questionObj = {};
         this.app.business.locations.forEach(function (location) {
-            if (unique_territories.indexOf(location.territory) === -1) {
+            if (unique_territories.includes(location.territory)) {
                 unique_territories.push(location.territory);
             }
         });
@@ -871,7 +869,7 @@ console.log('yearsinsured', yearsInsured)
                     'WI'
                 ];
 
-                if (safety_committee_states.indexOf(this.app.business.primary_territory) !== -1) {
+                if (safety_committee_states.includes(this.app.business.primary_territory)) {
                     if (QuestionCd === 'com.markel.uw.questions.stateSpecific.CertSafetyCommNotification') {
                         questionAnswer = 'NO'
                     }
@@ -888,7 +886,7 @@ console.log('yearsinsured', yearsInsured)
                     'VT'
                 ];
 
-                if (number_of_claims_states.indexOf(this.app.business.primary_territory) !== -1) {
+                if (number_of_claims_states.includes(this.app.business.primary_territory) !== -1) {
                     let total_claims = 0;
                     for (const year in claims_by_year) {
                         if (year <= 3) {
@@ -1111,7 +1109,7 @@ console.log('yearsinsured', yearsInsured)
                                 short_code = Math.floor(short_code / 10);
                             }
 
-                            if (codes.indexOf(short_code) !== -1) {
+                            if (codes.includes(short_code)) {
                                 match = true;
                             }
                         });
@@ -1130,7 +1128,6 @@ console.log('yearsinsured', yearsInsured)
                 questionObj[QuestionCd] = questionAnswer;
             }
         }
-
 
 
         let response = '';
@@ -1224,8 +1221,8 @@ console.log('yearsinsured', yearsInsured)
             log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: ${error} ${__location}`);
             this.reasons.push(error);
             return this.return_result('error');
-
         }
+        
         let rquIdKey = Object.keys(response)[0]
 
         try {
@@ -1236,7 +1233,8 @@ console.log('yearsinsured', yearsInsured)
                 }
 
                 // Get the quote limits
-                if (response[rquIdKey]["Policy Info"]) {
+
+                if (response[rquIdKey].application["Policy Info"]) {
 
                     const limitsString = response[rquIdKey].application["Policy Info"]["Employer Liability Limit"].replace(/,/g, '');
                     const limitsArray = limitsString.split('/');
