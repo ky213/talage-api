@@ -2,22 +2,11 @@
 /* eslint-disable require-jsdoc */
 'use strict';
 
-const applicationBO = global.requireShared('./models/Application-BO.js');
-const agencyBO = global.requireShared('./models/Agency-BO.js');
-const insurerBO = global.requireShared('./models/Insurer-BO.js');
-const businessBO = global.requireShared('./models/Business-model.js');
-const businessAddressBO = global.requireShared('./models/BusinessAddress-model.js');
-const applicationQuestionBO = global.requireShared('./models/ApplicationQuestion-BO.js');
-const applicationActivityCodes = global.requireShared('./models/ApplicationActivityCodes-model.js');
-
-const wc = require('./acord/wc.js');
-const gl = require('./acord/gl.js');
+const AcordGL = require('./acord/policies/gl.js');
+const AcordWC = require('./acord/policies/wc.js');
+const AcordBOP = require('./acord/policies/bop.js');
 
 const validator = global.requireShared('./helpers/validator.js');
-
-const pdftk = require('node-pdftk');
-
-const util = require('util');
 
 /**
  * @typedef generatedAcord
@@ -38,63 +27,26 @@ const util = require('util');
  */
 exports.create = async function(application_id, insurer_id, policy_type){
 
-    let message = '';
-    // Validate the application ID
-    if(!application_id || !await validator.is_valid_application(application_id)){
-        message = 'ACORD form generation failed. Bad Request: Invalid application id';
-        log.info(message + __location);
-        return {'error': message};
-    }
-
-    if(!insurer_id || !await validator.isValidInsurer(insurer_id)){
-        message = 'ACORD form generation failed. Bad Request: Invalid insurer id';
-        log.info(message + __location);
-        return {'error': message};
-    }
-
-    const dataObj = await dataInit(application_id, insurer_id);
-    let pdfList = null;
+    let acord = null;
 
     if(policy_type.toLowerCase() === 'wc'){
-        return await wc.createWC(application_id, insurer_id);
+        acord = new AcordWC(application_id, insurer_id);
     }
     else if(policy_type.toLowerCase() === 'gl'){
-        pdfList = await gl.createGL(dataObj);
+        acord = new AcordGL(application_id, insurer_id);
+    }
+    else if(policy_type.toLowerCase() === 'bop'){
+        acord = new AcordBOP(application_id, insurer_id);
     }
 
-    return createACORDPDF(pdfList);
+    let acordForm = null;
+    try{
+        acordForm = await acord.create();
+    }
+    catch(err){
+        log.error('Acord form PDF generation failed: ' + err + __location)
+        return {'error': 'Acord form PDF generation failed'};
+    }
 
-}
-
-async function dataInit(applicationId, insurerId){
-
-    const applicationDoc = new applicationBO();
-    await applicationDoc.getMongoDocbyMysqlId(applicationId);
-
-    console.log(applicationDoc);
-
-    const dataObj = {};
-
-    return dataObj;
-
-}
-function createACORDPDF(pdfList){
-
-    let pdfKey = 0;
-    const pdfObj = {};
-    pdfList.forEach(pdf => {
-        pdfObj[String.fromCharCode(65 + pdfKey)] = pdf;
-        pdfKey += 1;
-    })
-
-    const concatPdfsString = Object.keys(pdfObj).join(' ');
-
-    let form = null
-
-    form = pdftk.
-        input(pdfObj).
-        cat(concatPdfsString).
-        output();
-
-    return form;
+    return acordForm;
 }
