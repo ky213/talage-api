@@ -720,12 +720,12 @@ async function validate(req, res, next) {
         }
     }
 
-    const agencyNetwork = req.authentication.agencyNetwork;
-    if (!agencyNetwork) {
-        log.warn('App requote not agency network user ' + __location)
-        res.send(403);
-        return next(serverHelper.forbiddenError('Do Not have Permissions'));
-    }
+    // const agencyNetwork = req.authentication.agencyNetwork;
+    // if (!agencyNetwork) {
+    //     log.warn('App requote not agency network user ' + __location)
+    //     res.send(403);
+    //     return next(serverHelper.forbiddenError('Do Not have Permissions'));
+    // }
 
     //Get app and check status
     log.debug("Loading Application by mysqlId")
