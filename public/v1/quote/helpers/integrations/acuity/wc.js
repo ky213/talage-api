@@ -192,7 +192,7 @@ module.exports = class AcuityWC extends Integration {
             return this.client_error('Unable to create the request to send to the insurer', __location);
         }
 
-        console.log("Request", xml);
+        // console.log("Request", xml);
 
         // Determine which URL to use
         let host = '';
@@ -218,7 +218,7 @@ module.exports = class AcuityWC extends Integration {
             return this.client_connection_error(__location);
         }
 
-        console.log('result', JSON.stringify(result, null, 4));
+        // console.log('result', JSON.stringify(result, null, 4));
 
         // Check if there was an error
         if (result.hasOwnProperty('errorResponse')) {
