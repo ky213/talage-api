@@ -1102,6 +1102,17 @@ async function GetResources(req, res, next){
         ]
     };
 
+    responseObj.unemploymentNumberStates = [
+		'CO',
+		'HI',
+		'ME',
+		'MI',
+		'MN',
+		'NJ',
+		'RI',
+		'UT'
+	];
+
     res.send(200, responseObj);
     return next();
 }
