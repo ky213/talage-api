@@ -21,10 +21,10 @@ const API_PROD = 'https://api.markelcorp.com/smallCommercial/v1/wc'
 module.exports = class MarkelWC extends Integration {
 
     /**
-	 * Requests a quote from Markel and returns. This request is not intended to be called directly.
-	 *
-	 * @returns {result} The result of return_result()
-	 */
+     * Requests a quote from Markel and returns. This request is not intended to be called directly.
+     *
+     * @returns {result} The result of return_result()
+     */
 
     async _insurer_quote() {
 
@@ -1128,9 +1128,27 @@ module.exports = class MarkelWC extends Integration {
                 questionObj[QuestionCd] = questionAnswer;
             }
         }
-
-
+        const locationList = [];
         let response = '';
+
+        this.app.business.locations.forEach(location => {
+            locationList.push({
+                "Location Address1":location.address,
+                "Location Zip": location.zip,
+                "Location City": location.city,
+                "Location State": location.state_abbr,
+                "Payroll Section": [
+                    {
+                        Payroll: this.get_total_payroll(),
+                        "Full Time Employees": location.full_time_employees,
+                        "Part Time Employees": location.part_time_employees,
+                        "Class Code": classificationCd,
+                        "Class Code Description": this.app.business.industry_code_description
+                    }
+                ]
+            })
+        });
+
         let jsonRequest = {
             submissions: [
                 {
@@ -1155,23 +1173,7 @@ module.exports = class MarkelWC extends Integration {
                     },
                     application: {
                         'Location Information': {
-                            Location: [
-                                {
-                                    "Location Address1": primaryAddress.address,
-                                    "Location Zip": primaryAddress.zip,
-                                    "Location City": primaryAddress.city,
-                                    "Location State": primaryAddress.state_abbr,
-                                    "Payroll Section": [
-                                        {
-                                            Payroll: this.get_total_payroll(),
-                                            "Full Time Employees": fullTimeEmployees,
-                                            "Part Time Employees": partTimeEmployees,
-                                            "Class Code": classificationCd,
-                                            "Class Code Description": this.app.business.industry_code_description
-                                        }
-                                    ]
-                                }
-                            ]
+                            Location: locationList
                         },
                         "Policy Info": {
                             "Employer Liability Limit": markelLimits,
@@ -1233,7 +1235,6 @@ module.exports = class MarkelWC extends Integration {
                 }
 
                 // Get the quote limits
-
                 if (response[rquIdKey].application["Policy Info"]) {
 
                     const limitsString = response[rquIdKey].application["Policy Info"]["Employer Liability Limit"].replace(/,/g, '');
@@ -1243,12 +1244,12 @@ module.exports = class MarkelWC extends Integration {
                         '2': limitsArray[1],
                         '3': limitsArray[2]
                     }
+                    return this.client_referred(null, limitsArray, response[rquIdKey].premium.totalPremium,null,null);
                 }
                 else {
                     log.error('Markel Quote structure changed. Unable to find limits. ' + __location);
                     this.reasons.push('Quote structure changed. Unable to find limits.');
                 }
-
                 // Return with the quote
                 return this.return_result('referred_with_price');
             }
@@ -1276,5 +1277,6 @@ module.exports = class MarkelWC extends Integration {
         }
         this.reasons.push(`Markel does not cover ${this.app.business.industry_code_description} in ${primaryAddress.territory}`);
         return this.return_result('error');
+
     }
 };
