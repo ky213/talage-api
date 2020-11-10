@@ -419,6 +419,10 @@ async function getAgencySocialMetadata(req, res, next) {
         log.error(`Getting Facebook Pixel ${err} ${__location}`);
     }
 
+    if(!agency.landingPageContent){
+        agency.landingPageContent = {};
+    }
+
     res.send(200, {
         metaTitle: agency.agencyName,
         metaDescription: agency.landingPageContent.bannerHeadingDefault ? agency.landingPageContent.bannerHeadingDefault : agency.defaultLandingPageContent.bannerHeadingDefault,
