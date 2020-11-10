@@ -16,12 +16,29 @@ const xmlToObj = require("xml2js").parseString;
 // Read the template into memory at load
 const hiscoxGLTemplate = require("jsrender").templates("./public/v1/quote/helpers/integrations/hiscox/gl.xmlt");
 
-// function consoleLogLineNumbers(str) {
-//     const lines = str.split(/\n/);
-//     lines.forEach((line, index) => {
-//         console.log(`${index.toString().padStart(4)}: ${line}`);
-//     });
-// }
+/**
+ * Gets the Hiscox COB code based on the COB description
+ * @param  {string} cobDescription - description of the COB
+ * @returns {string} COB code
+ */
+async function getHiscoxCOBFromDescription(cobDescription) {
+    const sql = `
+        SELECT code
+        FROM clw_talage_industry_codes_hiscox
+        WHERE description = '${cobDescription}'
+    `;
+    let result = null;
+    try {
+        result = await db.query(sql);
+    }
+    catch {
+        return null;
+    }
+    if (result.length === 0 || !result[0].code) {
+        return null;
+    }
+    return result[0].code;
+}
 
 module.exports = class HiscoxGL extends Integration {
 
@@ -118,13 +135,11 @@ module.exports = class HiscoxGL extends Integration {
         let host = "";
         if (this.insurer.useSandbox) {
             host = "sdbx.hiscox.com";
-        } else {
+        }
+        else {
             this.log_error("Production API URL not set. We need to obtain this from Hiscox.", __location);
             return;
         }
-
-        // Bring the version number into the local scope so it is available in the template
-        this.version = version;
 
         // console.log(JSON.stringify(this.app, null, 4));
 
@@ -134,10 +149,15 @@ module.exports = class HiscoxGL extends Integration {
         // Fill in calculated fields
         this.requestDate = momentTimezone.tz("America/Los_Angeles").format("YYYY-MM-DD");
 
+        this.employeeCount = this.get_total_employees();
+        if (this.employeeCount === 0) {
+            this.employeeCount = 1;
+        }
+
         // Ensure we have an email and phone for this agency, both are required to quote with Hiscox
         if (!this.app.agencyLocation.agencyEmail || !this.app.agencyLocation.agencyPhone) {
             this.log_error(`Agency ${this.app.agencyLocation.id} does not have an email address and/or phone number. Hiscox requires both to quote.`);
-            return this.return_error('error', 'Hiscox requires an agency to provide both a phone number and email address to quote');
+            return this.return_error('error', 'Hiscox requires an agency to provide both a phone number and email address');
         }
 
         // Ensure this entity type is in the entity matrix above
@@ -174,21 +194,28 @@ module.exports = class HiscoxGL extends Integration {
                     // For Clay County, MO - Check whether or not we are looking at Kansas City
                     if (location.city === "KANSAS CITY") {
                         location.county = `${location.county} county (Kansas City)`;
-                    } else {
+                    }
+                    else {
                         location.county = `${location.county} county (other than Kansas City)`;
                     }
-                } else if (location.territory === "TX" && location.county === "Harris") {
+                }
+                else if (location.territory === "TX" && location.county === "Harris") {
                     // For Harris County, TX - Check whether or not we are looking at Houston
                     if (location.city === "HOUSTON") {
                         location.county = "Harris county (Houston)";
-                    } else {
+                    }
+                    else {
                         location.county = "Harris county (other than Houston)";
                     }
-                } else {
-                    // Hiscox requires the word 'county' on the end of the county name
-                    location.county = `${location.county} county`;
                 }
-            } else {
+                else if (!location.county.toLowerCase().endsWith("county")) {
+                    // Hiscox requires the word 'county' on the end of the county name
+                    location.county += " county";
+                }
+                // "county" MUST be lower case. MUST.
+                location.county = location.county.replace("County", "county");
+            }
+            else {
                 // Hiscox does not want a territory, set it to false so the integration doesn't include it
                 location.county = false;
             }
@@ -202,39 +229,55 @@ module.exports = class HiscoxGL extends Integration {
         let questionDetails = null;
         try {
             questionDetails = await this.get_question_details();
-        } catch (error) {
-            this.log_error(`Unable to get question identifiers or details: ${error}`, __location);
-            return this.return_result('autodeclined');
         }
-        // console.log('questions', this.questions);
-        // console.log('questionDetails', questionDetails);
+        catch (error) {
+            this.log_error(`Unable to get question identifiers or details: ${error}`, __location);
+            return this.return_result('error', "Could not retrieve the Hiscox question identifiers");
+        }
 
         this.questionList = [];
-        Object.values(this.questions).forEach((question) => {
+        this.additionalCOBs = [];
+        for (const question of Object.values(this.questions)) {
+            // const questionIsVisible = question.parent === 0 || this.questions.hasOwnProperty(question.parent) && question.parent_answer === this.questions[question.parent].answer_id;
             const questionAnswer = this.determine_question_answer(question, question.required);
-            // console.log(`${question.text}? ${questionAnswer}`);
+            // console.log(`${question.text}? ${questionAnswer} ${questionIsVisible}`);
             if (questionAnswer) {
                 let elementName = questionDetails[question.id].attributes.elementName;
                 if (elementName === 'GLHireNonOwnVehicleUse') {
                     elementName = 'HireNonOwnVehclUse';
+                }
+                else if (elementName === 'SCForbiddenProjects') {
+                    elementName = 'ForbiddenProjectsSmallContractors';
+                }
+                else if (elementName === 'ClassOfBusinessCd') {
+                    const cobDescriptionList = questionAnswer.split(", ");
+                    for (const cobDescription of cobDescriptionList) {
+                        const cob = await getHiscoxCOBFromDescription(cobDescription);
+                        if (!cob) {
+                            this.log_warn(`Could not locate COB code for COB description '${cobDescription}'`, __location);
+                            continue;
+                        }
+                        this.additionalCOBs.push(cob);
+                    }
+                    // Don't add this to the question list
+                    continue;
                 }
                 this.questionList.push({
                     nodeName: elementName,
                     answer: questionAnswer
                 });
             }
-        });
+        }
 
         // Render the template into XML and remove any empty lines (artifacts of control blocks)
         let xml = null;
         try {
-            xml = hiscoxGLTemplate.render(this, { ucwords: (val) => stringFunctions.ucwords(val.toLowerCase()) }).replace(/\n\s*\n/g, "\n");
-        } catch (error) {
+            xml = hiscoxGLTemplate.render(this, {ucwords: (val) => stringFunctions.ucwords(val.toLowerCase())}).replace(/\n\s*\n/g, "\n");
+        }
+        catch (error) {
             this.log_error('Could not render the request. There is an error in the gl.xmlt file.');
             return this.result_error('error', 'An unexpected error occurred when creating the quote request.');
         }
-
-        // consoleLogLineNumbers(xml);
 
         // Get a token from their auth server
         const tokenRequestData = {
@@ -243,10 +286,9 @@ module.exports = class HiscoxGL extends Integration {
         };
         let tokenResponse = null;
         try {
-            tokenResponse = await this.send_request(host, "/toolbox/auth/accesstoken", tokenRequestData, {
-                "Content-Type": "application/x-www-form-urlencoded"
-            });
-        } catch (error) {
+            tokenResponse = await this.send_request(host, "/toolbox/auth/accesstoken", tokenRequestData, {"Content-Type": "application/x-www-form-urlencoded"});
+        }
+        catch (error) {
             this.log_error(`Unable to obtain authentication token. API returned error: ${error.message}`, __location);
             return this.return_error("error", "Could not retrieve the access token from the Hiscox server.");
         }
@@ -264,6 +306,8 @@ module.exports = class HiscoxGL extends Integration {
 
         this.log_info(`Sending application to https://${host}${path}. This can take up to 30 seconds.`);
 
+        // console.log("request", xml);
+
         // Send the XML to the insurer
         let result = null;
         let requestError = null;
@@ -278,6 +322,7 @@ module.exports = class HiscoxGL extends Integration {
         catch (error) {
             requestError = error;
         }
+
         // Check if we have an HTTP status code to give us more information about the error encountered
         if (requestError) {
             if (!requestError.httpStatusCode) {
@@ -292,6 +337,9 @@ module.exports = class HiscoxGL extends Integration {
                 this.reasons.push(`Unable to connect to the Hiscox server. API returned HTTP status code ${requestError.httpStatusCode}`);
                 return this.return_result("error", `The Hiscox servers returned HTTP error ${requestError.httpStatusCode}.`);
             }
+
+            // console.log("error", requestError.response);
+
             // Convert the response to XML
             let e = null;
             let xmlResponse = null;
@@ -299,6 +347,7 @@ module.exports = class HiscoxGL extends Integration {
                 e = eCallback;
                 xmlResponse = xmlResponseCallback;
             });
+
             // console.log("xmlResponse error", JSON.stringify(xmlResponse, null, 4));
             // Check if there was an error parsing the XML
             if (e) {
@@ -314,7 +363,8 @@ module.exports = class HiscoxGL extends Integration {
                         if (errorResponse.Code[0].startsWith("DECLINE")) {
                             // Return an error result
                             return this.return_result("declined");
-                        } else {
+                        }
+                        else {
                             // Non-decline error
                             const reason = `${errorResponse.Description[0]} (${errorResponse.Code[0]})`;
                             this.log_error(reason, __location);
@@ -351,6 +401,7 @@ module.exports = class HiscoxGL extends Integration {
         }
 
         // We have received a quote. Parse it.
+        // console.log("response", result);
 
         // Get the limits (required)
         const loi = this.get_xml_child(result, "InsuranceSvcRs.QuoteRs.ProductQuoteRs.GeneralLiabilityQuoteRs.RatingResult.LOI");
@@ -378,7 +429,8 @@ module.exports = class HiscoxGL extends Integration {
         const requestId = this.get_xml_child(result, "InsuranceSvcRs.QuoteRs.RqUID");
         if (!requestId) {
             this.log_error('Could not locate the request ID (RqUID) node. This is non-fatal. Continuing.');
-        } else {
+        }
+        else {
             this.request_id = requestId;
         }
 
@@ -386,7 +438,8 @@ module.exports = class HiscoxGL extends Integration {
         const quoteId = this.get_xml_child(result, "InsuranceSvcRs.QuoteRs.QuoteID");
         if (!quoteId) {
             this.log_error('Could not locate the quote ID (QuoteID) node. This is non-fatal. Continuing.');
-        } else {
+        }
+        else {
             this.number = quoteId;
         }
 

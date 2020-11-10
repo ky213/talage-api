@@ -53,7 +53,8 @@ const ownerSchema = new Schema({
     fname: {type: String, required: true},
     lname: {type: String, required: true},
     ownership: {type: Number, required: false},
-    officerTitle: {type: String}
+    officerTitle: {type: String},
+    include: {type: Boolean, default: false}
 })
 
 
