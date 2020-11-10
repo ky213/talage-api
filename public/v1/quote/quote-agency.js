@@ -420,7 +420,10 @@ async function getAgencySocialMetadata(req, res, next) {
     }
 
     if(!agency.landingPageContent){
-        agency.landingPageContent = {};
+        agency.landingPageContent = {bannerHeadingDefault: ""};
+    }
+    if(!agency.defaultLandingPageContent){
+        agency.defaultLandingPageContent = {bannerHeadingDefault: ""}
     }
 
     res.send(200, {
