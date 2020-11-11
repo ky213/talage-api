@@ -2,13 +2,11 @@
 /* eslint-disable require-jsdoc */
 'use strict';
 
-//const PdfPrinter = require('pdfmake');
-//const crypt = global.requireShared('./services/crypt.js');
-const wc = require('./acordhelpers/wc.js');
-const gl = require('./acordhelpers/gl.js');
+const AcordGL = require('./acord/policies/gl.js');
+const AcordWC = require('./acord/policies/wc.js');
+const AcordBOP = require('./acord/policies/bop.js');
 
 const validator = global.requireShared('./helpers/validator.js');
-//const {createLogger} = require('restify/lib/bunyan_helper');
 
 /**
  * @typedef generatedAcord
@@ -29,25 +27,26 @@ const validator = global.requireShared('./helpers/validator.js');
  */
 exports.create = async function(application_id, insurer_id, policy_type){
 
-    let message = '';
-    // Validate the application ID
-    if(!application_id || !await validator.is_valid_application(application_id)){
-        message = 'ACORD form generation failed. Bad Request: Invalid application id';
-        log.info(message + __location);
-        return {'error': message};
-    }
-
-    if(!insurer_id || !await validator.isValidInsurer(insurer_id)){
-        message = 'ACORD form generation failed. Bad Request: Invalid insurer id';
-        log.info(message + __location);
-        return {'error': message};
-    }
+    let acord = null;
 
     if(policy_type.toLowerCase() === 'wc'){
-        return await wc.createWC(application_id, insurer_id);
+        acord = new AcordWC(application_id, insurer_id);
     }
     else if(policy_type.toLowerCase() === 'gl'){
-        return await gl.createGL(application_id, insurer_id);
+        acord = new AcordGL(application_id, insurer_id);
+    }
+    else if(policy_type.toLowerCase() === 'bop'){
+        acord = new AcordBOP(application_id, insurer_id);
     }
 
+    let acordForm = null;
+    try{
+        acordForm = await acord.create();
+    }
+    catch(err){
+        log.error('Acord form PDF generation failed: ' + err + __location)
+        return {'error': 'Acord form PDF generation failed'};
+    }
+
+    return acordForm;
 }
