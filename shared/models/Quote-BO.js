@@ -138,7 +138,7 @@ module.exports = class QuoteBO {
                 // eslint-disable-next-line array-element-newline
                 const limitcolumns = ['quote', 'limit', 'amount']
                 await quoteLimitBO.insertByColumnValue(limitcolumns, limitValues).catch(function(err){
-                    log.error("Error quoteLimitBO.insertByColumnValue " + err + __location);
+                    log.error(`Error quoteLimitBO.insertByColumnValue  for appId: ${quoteJSON.mysqlAppId}` + err + __location);
                 });
             }
             resolve(quoteID);

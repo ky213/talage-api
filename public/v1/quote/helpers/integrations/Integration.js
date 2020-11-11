@@ -1134,7 +1134,9 @@ module.exports = class Integration {
         quoteJSON.aggregatedStatus = aggregatedStatus
 
         if (Object.keys(this.limits).length) {
+            log.debug("this.limit: " + JSON.stringify(this.limits) + __location);
             quoteJSON.limits = []
+            // eslint-disable-next-line guard-for-in
             for (const limitId in this.limits) {
                 if (Object.prototype.hasOwnProperty.call(this.limits, limitId)) {
                     const limitJSON = {
@@ -1144,6 +1146,7 @@ module.exports = class Integration {
                     quoteJSON.limits.push(limitJSON);
                 }
             }
+            log.debug("quoteJSON.limits: " + JSON.stringify(quoteJSON.limits) + __location);
         }
         //QuoteBO
         const quoteBO = new QuoteBO();

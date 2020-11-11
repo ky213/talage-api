@@ -1244,7 +1244,7 @@ module.exports = class MarkelWC extends Integration {
                         '2': limitsArray[1],
                         '3': limitsArray[2]
                     }
-                    return this.client_referred(null, limitsArray, response[rquIdKey].premium.totalPremium,null,null);
+                    return await this.client_referred(null, limitsArray, response[rquIdKey].premium.totalPremium,null,null);
                 }
                 else {
                     log.error('Markel Quote structure changed. Unable to find limits. ' + __location);
