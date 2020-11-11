@@ -1597,7 +1597,7 @@ module.exports = class ApplicationModel {
             log.error(`Could not update the quote state to ${newState} for application ${id}: ${error} ${__location}`);
         }
         if (result === null || result.affectedRows !== 1) {
-            log.error(`Could not update the quote ${newState} to 'quoting' for application ${id}: ${sql} ${__location}`);
+            log.warn(`Could not update the application to State = ${newState} for applicationId ${id}: ${sql} ${__location}`);
         }
         //mongo update.....
         try {
