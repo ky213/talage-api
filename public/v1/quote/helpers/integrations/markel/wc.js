@@ -578,12 +578,12 @@ module.exports = class MarkelWC extends Integration {
         if (this.insurer.useSandbox) {
             host = 'api-sandbox.markelcorp.com';
             path = '/smallCommercial/v1/wc'
-            key = { 'apikey': `${this.password}` };
+            key = {'apikey': `${this.password}`};
         }
         else {
             host = 'api.markelcorp.com';
             path = '/smallCommercial/v1/wc';
-            key = { 'apikey': `${this.password}`};
+            key = {'apikey': `${this.password}`};
         }
 
         // These are the statuses returned by the insurer and how they map to our Talage statuses
@@ -593,14 +593,18 @@ module.exports = class MarkelWC extends Integration {
         this.possible_api_responses.Quoted = 'quoted';
 
         // These are the limits supported by Markel * 1000
-        const carrierLimits = [ '100000/500000/100000', '500000/500000/500000', '1000000/1000000/1000000', '1500000/1500000/1500000', '2000000/2000000/2000000' ];
+        const carrierLimits = ['100000/500000/100000',
+            '500000/500000/500000',
+            '1000000/1000000/1000000',
+            '1500000/1500000/1500000',
+            '2000000/2000000/2000000'];
         let yearsInsured = moment().diff(this.app.business.founded, 'years');
 
-        let mapCarrierLimits = {
-            '100000/500000/100000': '100/500/100', 
-            '500000/500000/500000': '500/500/500', 
+        const mapCarrierLimits = {
+            '100000/500000/100000': '100/500/100',
+            '500000/500000/500000': '500/500/500',
             '1000000/1000000/1000000': '1000/1000/1000',
-            '1500000/1500000/1500000': '1500/1500/1500', 
+            '1500000/1500000/1500000': '1500/1500/1500',
             '2000000/2000000/2000000': '2000/2000/2000'
         }
 
@@ -618,10 +622,10 @@ module.exports = class MarkelWC extends Integration {
         }
         else if (yearsInsured === 0) {
             yearsInsured = 1
-        };
+        }
 
         // Prepare limits
-        let markelLimits = mapCarrierLimits[this.app.policies[0].limits];
+        const markelLimits = mapCarrierLimits[this.app.policies[0].limits];
         const limits = this.getBestLimits(carrierLimits);
 
         if (!limits) {
@@ -654,7 +658,7 @@ module.exports = class MarkelWC extends Integration {
         // Get a timestamp for the request and format it correctly
         const timestamp = moment_timezone.tz('America/Los_Angeles').format('YYYY-MM-DDTHH:mm:ss');
 
-        let primaryAddress = this.app.business.locations[0];
+        const primaryAddress = this.app.business.locations[0];
 
         // Define how legal entities are mapped for Markel
         const entityMatrix = {
@@ -665,7 +669,7 @@ module.exports = class MarkelWC extends Integration {
             Partnership: 'PT',
             'Sole Proprietorship': 'IN'
         };
-        let entityType = entityMatrix[this.app.business.entity_type];
+        const entityType = entityMatrix[this.app.business.entity_type];
         // Get the claims organized by year
 
         if (!(this.app.business.entity_type in entityMatrix)) {
@@ -711,10 +715,14 @@ module.exports = class MarkelWC extends Integration {
 
         // /* ---=== Begin Questions ===--- */
 
-        let specialQuestions = ['CGL05', 'GENRL22', 'WORK16', 'com.markel.uw.questions.Question1524', 'com.markel.uw.questions.Question1781'];
+        const specialQuestions = ['CGL05',
+            'GENRL22',
+            'WORK16',
+            'com.markel.uw.questions.Question1524',
+            'com.markel.uw.questions.Question1781'];
         const unique_territories = [];
-        let questionObj = {};
-        this.app.business.locations.forEach(function (location) {
+        const questionObj = {};
+        this.app.business.locations.forEach(function(location) {
             if (unique_territories.includes(location.territory)) {
                 unique_territories.push(location.territory);
             }
@@ -833,10 +841,8 @@ module.exports = class MarkelWC extends Integration {
                     }
 
                 }
-                else {
-                    if (QuestionCd === 'com.markel.uw.questions.Question30') {
-                        questionAnswer = 'NO'
-                    }
+                else if (QuestionCd === 'com.markel.uw.questions.Question30') {
+                    questionAnswer = 'NO'
                 }
 
                 if (QuestionCd === 'com.markel.uw.questions.Question870') {
@@ -1102,8 +1108,8 @@ module.exports = class MarkelWC extends Integration {
                 if (Object.prototype.hasOwnProperty.call(special_activity_codes, this.app.business.primary_territory)) {
                     let match = false;
                     const codes = special_activity_codes[this.app.business.primary_territory];
-                    this.app.business.locations.forEach(function (location) {
-                        location.activity_codes.forEach(function (activity_code) {
+                    this.app.business.locations.forEach(function(location) {
+                        location.activity_codes.forEach(function(activity_code) {
                             let short_code = activity_code.id;
                             while (short_code > 9999) {
                                 short_code = Math.floor(short_code / 10);
@@ -1149,72 +1155,66 @@ module.exports = class MarkelWC extends Integration {
             })
         });
 
-        let jsonRequest = {
-            submissions: [
-                {
-                    RqUID: "CAE8A77B-3A00-4C59-BE75-5A91F098899C",
-                    programCode: "wc",
-                    effectiveDate: this.policy.effective_date.format('YYYY-MM-DD'),
-                    agencyInformation: {
-                        agencyId: "1061249",
-                        licensingAgentUsername: "Talage",
-                        servicingAgentUsername: "Talage"
+        const jsonRequest = {submissions: [
+            {
+                RqUID: "CAE8A77B-3A00-4C59-BE75-5A91F098899C",
+                programCode: "wc",
+                effectiveDate: this.policy.effective_date.format('YYYY-MM-DD'),
+                agencyInformation: {
+                    agencyId: "1061249",
+                    licensingAgentUsername: "Talage",
+                    servicingAgentUsername: "Talage"
+                },
+                insured: {
+                    address1: this.app.business.mailing_address,
+                    city: this.app.business.mailing_city,
+                    documentDeliveryPreference: "EM",
+                    name: this.app.business.name,
+                    dba: this.app.business.dba,
+                    website: this.app.business.website,
+                    fein: this.app.business.locations[0].identification_number,
+                    postalCode: this.app.business.mailing_zipcode,
+                    state: this.app.business.mailing_territory
+                },
+                application: {
+                    'Location Information': {Location: locationList},
+                    "Policy Info": {
+                        "Employer Liability Limit": markelLimits,
+                        "Years Insured": yearsInsured,
+                        "Exp Mod NCCI": {"Exp Mod NCCI Factor": this.app.business.experience_modifier},
+                        "Losses": losses
                     },
-                    insured: {
-                        address1: this.app.business.mailing_address,
-                        city: this.app.business.mailing_city,
-                        documentDeliveryPreference: "EM",
-                        name: this.app.business.name,
-                        dba: this.app.business.dba,
-                        website: this.app.business.website,
-                        fein: this.app.business.locations[0].identification_number,
-                        postalCode: this.app.business.mailing_zipcode,
-                        state: this.app.business.mailing_territory
+                    "Additional Information": {
+                        "Entity Type": entityType,
+                        "Assigned Risk Pool Prior Period": "No",
+                        "Primary Contact Name": this.app.business.contacts[0].first_name,
+                        "Primary Contact Last Name": this.app.business.contacts[0].last_name,
+                        "Phone Number": this.app.business.contacts[0].phone,
+                        "Email": this.app.business.contacts[0].email,
+                        "Outside Exposure": "None",
+                        "Owner Officer Information Section": [
+                            {
+                                "Owner First Name": this.app.business.owners[0].fname,
+                                "Owner Last Name": this.app.business.owners[0].lname,
+                                "Owner Title": this.app.business.owners[0].officerTitle,
+                                "Owner Ownership": this.app.business.owners[0].ownership,
+                                "Owner Class": 8001,
+                                "Owner Payroll": ownerPayroll,
+                                "Owner Include": ownerIncluded
+                            }
+                        ]
                     },
-                    application: {
-                        'Location Information': {
-                            Location: locationList
-                        },
-                        "Policy Info": {
-                            "Employer Liability Limit": markelLimits,
-                            "Years Insured": yearsInsured,
-                            "Exp Mod NCCI": {
-                                "Exp Mod NCCI Factor": this.app.business.experience_modifier
-                            },
-                            "Losses": losses
-                        },
-                        "Additional Information": {
-                            "Entity Type": entityType,
-                            "Assigned Risk Pool Prior Period": "No",
-                            "Primary Contact Name": this.app.business.contacts[0].first_name,
-                            "Primary Contact Last Name": this.app.business.contacts[0].last_name,
-                            "Phone Number": this.app.business.contacts[0].phone,
-                            "Email": this.app.business.contacts[0].email,
-                            "Outside Exposure": "None",
-                            "Owner Officer Information Section": [
-                                {
-                                    "Owner First Name": this.app.business.owners[0].fname,
-                                    "Owner Last Name": this.app.business.owners[0].lname,
-                                    "Owner Title": this.app.business.owners[0].officerTitle,
-                                    "Owner Ownership": this.app.business.owners[0].ownership,
-                                    "Owner Class": 8001,
-                                    "Owner Payroll": ownerPayroll,
-                                    "Owner Include": ownerIncluded
-                                }
-                            ]
-                        },
-                        "Underwriter Questions": {
-                            "UWQuestions": questionObj,
-                            "Description of Operations": this.app.business.industry_code_description
-                        },
-                        "signaturePreference": "Electronic"
-                    }
+                    "Underwriter Questions": {
+                        "UWQuestions": questionObj,
+                        "Description of Operations": this.app.business.industry_code_description
+                    },
+                    "signaturePreference": "Electronic"
                 }
-            ]
-        }
+            }
+        ]}
 
-        let unansweredQ;
-        let declinedReasons;
+        let unansweredQ = null;
+        let declinedReasons = null;
 
         try {
             response = await this.send_json_request(host, path, JSON.stringify(jsonRequest), key, 'POST', false);
@@ -1224,8 +1224,8 @@ module.exports = class MarkelWC extends Integration {
             this.reasons.push(error);
             return this.return_result('error');
         }
-        
-        let rquIdKey = Object.keys(response)[0]
+
+        const rquIdKey = Object.keys(response)[0]
 
         try {
             if (response && response[rquIdKey].underwritingDecisionCode === 'SUBMITTED') {
