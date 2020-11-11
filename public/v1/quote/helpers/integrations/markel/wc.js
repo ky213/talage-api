@@ -1239,12 +1239,12 @@ module.exports = class MarkelWC extends Integration {
 
                     const limitsString = response[rquIdKey].application["Policy Info"]["Employer Liability Limit"].replace(/,/g, '');
                     const limitsArray = limitsString.split('/');
-                    this.limits = {
+                    const quotelimits = {
                         '1': limitsArray[0],
                         '2': limitsArray[1],
                         '3': limitsArray[2]
                     }
-                    return await this.client_referred(null, limitsArray, response[rquIdKey].premium.totalPremium,null,null);
+                    return await this.client_referred(null, quotelimits, response[rquIdKey].premium.totalPremium,null,null);
                 }
                 else {
                     log.error('Markel Quote structure changed. Unable to find limits. ' + __location);
