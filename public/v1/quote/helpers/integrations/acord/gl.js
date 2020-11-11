@@ -51,25 +51,17 @@ module.exports = class ACORDGL extends Integration{
             'agencyLocationId': this.app.agencyLocation.id
         }
 
-        const chunks = [];
-
-        generated_acord.doc.on('data', function(chunk){
-            chunks.push(chunk);
-        });
-        // eslint-disable-next-line consistent-this
-
-        generated_acord.doc.on('end', async() => {
-            const result = Buffer.concat(chunks);
+        if(generated_acord && generated_acord.doc){
             const attachment = {
-                'content': result.toString('base64'),
-                'filename': 'acord-126.pdf',
+                'content': generated_acord.doc.toString('base64'),
+                'filename': 'acordGL.pdf',
                 'type': 'application/pdf',
                 'disposition': 'attachment'
             };
-            const attachments = [];
-            attachments.push(attachment);
-            // Email it
-            const emailResp = await emailsvc.send(acord_email, email_subject, email_body, email_keys, this.app.agencyLocation.agencyNetwork, this.app.agencyLocation.email_brand, this.app.agencyLocation.agencyId, attachments);
+
+            const attachmentList = [attachment];
+            const emailResp = await emailsvc.send(acord_email, email_subject, email_body, email_keys, this.app.agencyLocation.agencyNetwork, this.app.agencyLocation.email_brand, this.app.agencyLocation.agencyId, attachmentList);
+
             if(emailResp === false){
                 log.error(`Appid: ${this.app.id} Unable to send acord for applicationId ${this.app.id}` + __location)
             }
@@ -79,12 +71,42 @@ module.exports = class ACORDGL extends Integration{
             // else{
             //     self.return_result('error');
             // }
-            return emailResp;
-        });
-        // always referred regardless of email .
-        // eslint-disable-next-line no-unused-vars
-        const email_sent = generated_acord.doc.end();
-        return this.return_result('acord_emailed');
+            return this.return_result('acord_emailed');
+        }
+        // const chunks = [];
+
+        // generated_acord.doc.on('data', function(chunk){
+        //     chunks.push(chunk);
+        // });
+        // // eslint-disable-next-line consistent-this
+
+        // generated_acord.doc.on('end', async() => {
+        //     const result = Buffer.concat(chunks);
+        //     const attachment = {
+        //         'content': result.toString('base64'),
+        //         'filename': 'acord-126.pdf',
+        //         'type': 'application/pdf',
+        //         'disposition': 'attachment'
+        //     };
+        //     const attachments = [];
+        //     attachments.push(attachment);
+        //     // Email it
+        //     const emailResp = await emailsvc.send(acord_email, email_subject, email_body, email_keys, this.app.agencyLocation.agencyNetwork, this.app.agencyLocation.email_brand, this.app.agencyLocation.agencyId, attachments);
+        //     if(emailResp === false){
+        //         log.error(`Appid: ${this.app.id} Unable to send acord for applicationId ${this.app.id}` + __location)
+        //     }
+        //     //  if(emailResp === true){
+        //     //     self.return_result('referred');
+        //     // }
+        //     // else{
+        //     //     self.return_result('error');
+        //     // }
+        //     return emailResp;
+        // });
+        // // always referred regardless of email .
+        // // eslint-disable-next-line no-unused-vars
+        // const email_sent = generated_acord.doc.end();
+        // return this.return_result('acord_emailed');
     }
 
 
