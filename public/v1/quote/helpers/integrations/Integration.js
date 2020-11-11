@@ -1488,7 +1488,7 @@ module.exports = class Integration {
                 return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 
             case 'quoted':
-                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Returned Quote(s)`);
+                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Returned Quote(s)` + __location);
                 return this.return_quote(this.amount);
 
             case 'referred':
@@ -1501,7 +1501,7 @@ module.exports = class Integration {
             case 'acord_emailed':
                 return this.return_error('acord_emailed', `Appid: ${this.app.id} ${this.insurer.name} AgencyLocation ${this.app.agencyLocation.id} acord form sent`);
             case 'referred_with_price':
-                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Referred To Underwriting, But Provided An Indication`);
+                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Referred To Underwriting, But Provided An Indication` + __location);
                 return this.return_indication(this.amount);
 
             default:
