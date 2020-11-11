@@ -598,7 +598,7 @@ module.exports = class Application {
 	 */
     async updateApplicationState(numPolicyTypesRequested, numPolicyTypesQuoted, numPolicyTypesReferred) {
         // Determine the application status
-        let state = 1; // New
+        let state = 1; // new record State.
         let appStatusId = 15; // Quoting
         let appStatusDesc = "quoting"
         if (numPolicyTypesRequested === numPolicyTypesQuoted) {
@@ -612,7 +612,7 @@ module.exports = class Application {
             appStatusId = 40;
             appStatusDesc = "referred";
         }
-        if(state > 0){
+        if(state > 1){
             const applicationBO = new ApplicationBO();
             try{
                 await applicationBO.updateStatus(this.id, appStatusDesc, appStatusId);
