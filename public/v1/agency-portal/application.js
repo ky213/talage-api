@@ -911,17 +911,16 @@ async function requote(req, res, next) {
 
     // Set the application progress to 'quoting'
     try {
-        await applicationBO.updateProgress(applicationDB.mysqlId, "quoting");
+        await applicationBO.updateProgress(applicationDB.id, "quoting");
         const appStatusIdQuoting = 15;
-        await applicationBO.updateStatus(applicationDB.mysqlId, "quoting", appStatusIdQuoting);
+        await applicationBO.updateStatus(applicationDB.id, "quoting", appStatusIdQuoting);
     }
     catch (err) {
-        log.error(`Error update appication progress appId = ${req.body.id}  for quoting. ` + err + __location);
+        log.error(`Error update appication progress appId = ${applicationDB.id} for quoting. ` + err + __location);
     }
 
-
     // Build a JWT that contains the application ID that expires in 5 minutes.
-    const tokenPayload = {applicationID: applicationDB.mysqlId};
+    const tokenPayload = {applicationID: req.body.id};
     const token = jwt.sign(tokenPayload, global.settings.AUTH_SECRET_KEY, {expiresIn: '5m'});
     // Send back the token
     res.send(200, token);
@@ -1101,6 +1100,17 @@ async function GetResources(req, res, next){
             }
         ]
     };
+
+    responseObj.unemploymentNumberStates = [
+		'CO',
+		'HI',
+		'ME',
+		'MI',
+		'MN',
+		'NJ',
+		'RI',
+		'UT'
+	];
 
     res.send(200, responseObj);
     return next();

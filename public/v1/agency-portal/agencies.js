@@ -2,6 +2,7 @@
 
 const auth = require('./helpers/auth.js');
 const serverHelper = require('../../../server.js');
+const ApplicationBO = global.requireShared('./models/Application-BO.js');
 
 /**
  * Responds to get requests for the applications endpoint
@@ -28,20 +29,19 @@ async function getAgencies(req, res, next){
         log.info('Bad Request: No agencies permitted');
         return next(serverHelper.requestError('Bad Request: No agencies permitted'));
     }
+    //
 
     // Define a query to get a list of agencies
     const agenciesSQL = `
 			SELECT
-				${db.quoteName('ag.id')},
-				${db.quoteName('ag.name')},
-				IF(${db.quoteName('ag.state')} >= 1, 'Active', 'Inactive') AS ${db.quoteName('state')},
-				COUNT(DISTINCT ${db.quoteName('app.id')}) AS ${db.quoteName('applications')}
-			FROM ${db.quoteName('#__agencies', 'ag')}
-			LEFT JOIN ${db.quoteName('#__applications', 'app')} ON ${db.quoteName('app.agency')} = ${db.quoteName('ag.id')}
+				id,
+				name,
+				IF(state >= 1, 'Active', 'Inactive') AS 'state'
+			FROM clw_talage_agencies
 			WHERE
-				${db.quoteName('ag.state')} >= 0 AND
-				${db.quoteName('ag.id')} IN(${agents.join(',')})
-			GROUP BY ${db.quoteName('ag.id')};
+				state >= 0 AND
+                id IN (${agents.join(',')})
+            Order by name
 		`;
 
     // Get the agencies from the database
@@ -49,6 +49,24 @@ async function getAgencies(req, res, next){
         log.error(err.message);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     });
+    if(retAgencies){
+        //Get app count.
+        const applicationBO = new ApplicationBO();
+        for(let i = 0; i < retAgencies.length; i++){
+            try{
+                const query = {
+                    "agencyId": retAgencies[i].id,
+                    count: 1
+                };
+                const appCount = await applicationBO.getList(query);
+                retAgencies[i].applications = appCount.count;
+
+            }
+            catch(err){
+                log.error(`Error getting Application count for Agency ${retAgencies[i].id}`)
+            }
+        }
+    }
 
     // Return the response
     res.send(200, retAgencies);

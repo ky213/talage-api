@@ -1113,6 +1113,7 @@ module.exports = class ApplicationModel {
                         "id": quoteModel.id,
                         "status": "bind_requested",
                         "payment_plan": quote.payment,
+                        "paymentPlanId": quote.payment,
                         "applicationId": this.#applicationMongooseDB.applicationId
                     }
                     await quoteModel.saveModel(quoteUpdate).catch(function(err) {
@@ -1566,7 +1567,7 @@ module.exports = class ApplicationModel {
             log.error(`Could not update the quote progress to ${progress} for application ${id}: ${error} ${__location}`);
         }
         if (result === null || result.affectedRows !== 1) {
-            log.error(`Could not update the quote ${progress} to 'quoting' for application ${id}: ${sql} ${__location}`);
+            log.warn(`Could not update the application progress to ${progress} for application ${id}: ${sql} ${__location}`);
         }
         //mongo update.....
         try {
@@ -1575,10 +1576,44 @@ module.exports = class ApplicationModel {
             await ApplicationMongooseModel.updateOne(query, updateStatusJson);
         }
         catch (error) {
+            log.error(`Could not update application progress mongo appId: ${id}  ${error} ${__location}`);
+        }
+        return true;
+    }
+
+    async updateState(id, newState) {
+
+        const sql = `
+		    UPDATE clw_talage_applications
+		    SET state = ${db.escape(newState)}
+		    WHERE id = ${db.escape(id)} and state < ${db.escape(newState)}
+        `;
+        let result = null;
+
+        try {
+            result = await db.query(sql);
+        }
+        catch (error) {
+            log.error(`Could not update the quote state to ${newState} for application ${id}: ${error} ${__location}`);
+        }
+        if (result === null || result.affectedRows !== 1) {
+            log.error(`Could not update the quote ${newState} to 'quoting' for application ${id}: ${sql} ${__location}`);
+        }
+        //mongo update.....
+        try {
+            const updateStatusJson = {processStateOld: newState}
+            const query = {
+                "mysqlId": id,
+                processStateOld: {$lt: newState}
+            };
+            await ApplicationMongooseModel.updateOne(query, updateStatusJson);
+        }
+        catch (error) {
             log.error(`Could not update application status mongo appId: ${id}  ${error} ${__location}`);
         }
         return true;
     }
+
 
     async getProgress(id) {
 
@@ -2417,7 +2452,7 @@ module.exports = class ApplicationModel {
                 queryOptions.limit = queryLimit;
             }
             if (queryJSON.count) {
-                if (queryJSON.count === "1") {
+                if (queryJSON.count === "1" || queryJSON.count === 1 || queryJSON.count === true) {
                     findCount = true;
                 }
                 delete queryJSON.count;
