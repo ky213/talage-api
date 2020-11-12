@@ -207,6 +207,8 @@ async function getQuotes(req, res, next) {
     const complete = progress !== 'quoting';
 
     // Retrieve quotes newer than the last quote ID
+    // needs to change for Mongo/uuid ID.
+    // use createdAt Datetime instead.
     const sql = `
 		SELECT id
 		FROM #__quotes
@@ -214,9 +216,11 @@ async function getQuotes(req, res, next) {
 			application = ${tokenPayload.applicationID}
 			AND id > ${lastQuoteID}
 		ORDER BY id ASC
-	`;
+    `;
+    // Error Try???
     const result = await queryDB(sql, `retrieving quotes for application ${tokenPayload.applicationID}`);
     if (result === null) {
+        log.warn(`Got no quotes from a finished App Quoting AppId ${tokenPayload.applicationID} ` + __location)
         return next(serverHelper.internalError('Error retrieving quotes'));
     }
     const quotes = [];

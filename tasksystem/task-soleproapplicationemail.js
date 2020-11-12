@@ -1,9 +1,13 @@
 'use strict';
 
 const moment = require('moment');
-const crypt = global.requireShared('./services/crypt.js');
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
+
+const AgencyBO = global.requireShared('models/Agency-BO.js');
+const ApplicationBO = global.requireShared('models/Application-BO.js');
+const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
+
 
 /**
  * AbandonQuote Task processor
@@ -67,22 +71,10 @@ exports.soleproApplicationEmailTask = async function(applicationId) {
 
 var soleproApplicationEmailTask = async function(applicationId) {
     //get
-    const appSQL = `
-        SELECT
-            a.agency_location AS agencyLocation,
-            ag.email AS agencyEmail,
-            al.email AS agencyLocationEmail
-        FROM clw_talage_applications AS a
-            INNER JOIN clw_talage_agency_locations AS al ON a.agency_location = al.id
-            LEFT JOIN clw_talage_agencies AS ag ON al.agency = ag.id
-        WHERE 
-        a.id =  ${applicationId}
-        AND a.solepro = 1
-    `;
-
-    let applications = null;
+    let applicationDoc = null;
+    const applicationBO = new ApplicationBO();
     try {
-        applications = await db.query(appSQL);
+        applicationDoc = await applicationBO.getMongoDocbyMysqlId(applicationId);
     }
     catch (err) {
         log.error(`Error get opt out applications from DB for ${applicationId} error:  ${err}`);
@@ -90,16 +82,43 @@ var soleproApplicationEmailTask = async function(applicationId) {
         return false;
     }
 
-    if (applications && applications.length > 0) {
-
-
-        let agencyLocationEmail = null;
-        //decrypt info...
-        if (applications[0].agencyLocationEmail) {
-            agencyLocationEmail = await crypt.decrypt(applications[0].agencyLocationEmail);
+    if (applicationDoc) {
+        let error = null;
+        const agencyBO = new AgencyBO();
+        try{
+            await agencyBO.loadFromId(applicationDoc.agencyId)
         }
-        else if (applications[0].agencyEmail) {
-            agencyLocationEmail = await crypt.decrypt(applications[0].agencyEmail);
+        catch(err){
+            log.error("Error getting agencyBO " + err + __location);
+            error = true;
+
+        }
+        if(error){
+            return false;
+        }
+
+        //get AgencyLocationBO
+        const agencyLocationBO = new AgencyLocationBO();
+        try{
+            await agencyLocationBO.loadFromId(applicationDoc.agencyLocationId)
+        }
+        catch(err){
+            log.error("Error getting agencyLocationBO " + err + __location);
+            error = true;
+
+        }
+        if(error){
+            return false;
+        }
+
+
+        //decrypt info...
+        let agencyLocationEmail = null;
+        if(agencyLocationBO.email){
+            agencyLocationEmail = agencyLocationBO.email
+        }
+        else if(agencyBO.email){
+            agencyLocationEmail = agencyBO.email;
         }
 
         const message = `<p>Good news! A business owner is being routed to SolePro through your Digalent site. It’s a business that fell below normal appetite and will be handled by the SolePro team. Nothing else for you to do, we just wanted you to know!</p>
@@ -109,10 +128,7 @@ var soleproApplicationEmailTask = async function(applicationId) {
         const subject = "A business owner has been routed to SolePro through your Digalent site'";
 
         // Send the email
-        const keyData2 = {
-            'application': applicationId,
-            'agency_location': applications[0].agencyLocation
-        };
+        const keyData2 = {'applicationDoc': applicationDoc};
         if (agencyLocationEmail) {
             const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData2, global.DIGALENT_AGENCYNETWORK_ID, 'NetworkDefault');
             if (emailResp === false) {
@@ -120,7 +136,7 @@ var soleproApplicationEmailTask = async function(applicationId) {
             }
         }
         else {
-            log.error("soleproApplicationEmailTask no email address for data: " + JSON.stringify(keyData2) + __location);
+            log.error(`soleproApplicationEmailTask no email address for appId: ${applicationId}` + __location);
         }
 
         return true;

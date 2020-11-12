@@ -134,15 +134,15 @@ async function findAll(req, res, next) {
     if (findCount === false) {
         let docList = null;
         try {
-            //log.debug("MessageList query " + JSON.stringify(query))
-            //log.debug("MessageList options " + JSON.stringify(options))
+            log.debug("MessageList query " + JSON.stringify(query))
+            log.debug("MessageList options " + JSON.stringify(options))
             docList = await Message.find(query, '-__v', options);
         }
         catch (err) {
             log.error(err + __location);
             return serverHelper.sendError(res, next, 'Internal Error');
         }
-        //log.debug("docList.length: " + docList.length);
+        log.debug("docList.length: " + docList.length);
         if (flippedSort === true) {
             docList.sort((a, b) => parseInt(b.mysqlId, 10) - parseInt(a.mysqlId, 10));
         }

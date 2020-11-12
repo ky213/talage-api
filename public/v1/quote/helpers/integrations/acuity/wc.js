@@ -27,6 +27,11 @@ module.exports = class AcuityWC extends Integration {
 	 */
     async _insurer_quote() {
 
+        // Don't report certain activities in the payroll exposure
+        const unreportedPayrollActivityCodes = [
+            2869 // Office Employees
+        ];
+
         // These are the limits supported by Acuity
         const carrierLimits = [
             '100000/500000/100000',
@@ -52,18 +57,23 @@ module.exports = class AcuityWC extends Integration {
             'Sole Proprietorship': 'IN'
         };
 
-        // These are special questions that are not handled the same as other class questions. They will be skipped when generating QuestionAnswer values.
-        // They are likely that they are hard-coded in below somewhere
-        const skipQuestions = [1036, 1037];
+        // Ensure the industry code supports WC
+        if (!this.industry_code.attributes.products || !this.industry_code.attributes.products.includes("wc")) {
+            return this.client_autodeclined_out_of_appetite();
+        }
 
         // Check to ensure we have NCCI codes available for every provided activity code.
         for (const location of this.app.business.locations) {
             for (const activityCode of location.activity_codes) {
+                // Skip activity codes we shouldn't include in payroll
+                if (unreportedPayrollActivityCodes.includes(activityCode.id)) {
+                    continue;
+                }
                 const ncciCode = await this.get_ncci_code_from_activity_code(location.territory, activityCode.id);
                 if (!ncciCode) {
                     return this.client_error('We could not locate an NCCI code for one or more of the provided activities.', {activityCode: activityCode.id});
                 }
-                activityCode.ncciCode = `${ncciCode.code}${ncciCode.sub}`;
+                activityCode.ncciCode = `${ncciCode}00`;
                 activityCode.ncciCodeDescription = ncciCode.description;
             }
         }
@@ -82,16 +92,23 @@ module.exports = class AcuityWC extends Integration {
         this.transactionEffectiveDate = now.format('YYYY-MM-DD');
 
         // Business entity/corporate structure
-        this.entityID = entityMatrix[this.app.business.entity_type];
         if (!(this.app.business.entity_type in entityMatrix)) {
             return this.client_autodeclined('The business entity type is not configured for this insurer.', {businessEntityType: this.app.business.entity_type});
         }
+        this.entityType = entityMatrix[this.app.business.entity_type];
+        if (this.app.business.entity_type === 'Limited Liability Company' && (this.app.business.primary_territory === 'MT' || this.app.business.primary_territory === 'VA')) {
+            if (this.app.business.management_structure) {
+                this.managementStructureMember = this.app.business.management_structure === 'member' ? 'YES' : 'NO';
+                this.managementStructureManager = this.app.business.management_structure === 'manager' ? 'YES' : 'NO';
+            }
+            else {
+                this.managementStructureMember = "NO";
+                this.managementStructureManager = "YES";
+            }
+        }
+
         if (this.app.business.corporation_type) {
             this.corporationType = corporationTypeMatrix[this.app.business.corporation_type];
-        }
-        if (this.app.business.management_structure) {
-            this.managementStructureMember = this.app.business.management_structure === 'member' ? 'YES' : 'NO';
-            this.managementStructureManager = this.app.business.management_structure === 'manager' ? 'YES' : 'NO';
         }
 
         // Business information
@@ -101,6 +118,16 @@ module.exports = class AcuityWC extends Integration {
 
         // Claims
         this.claims_by_year = this.claims_to_policy_years();
+        this.hadClaimsInPast3Years = 'NO';
+        this.hadLossesInPast3Years = 'NO';
+        for (let i = 1; i < 4; i++) {
+            if (this.claims_by_year[i].count > 0) {
+                this.hadClaimsInPast3Years = 'YES';
+            }
+            if (this.claims_by_year[i].amount > 0) {
+                this.hadLossesInPast3Years = 'YES';
+            }
+        }
 
         // Questions
         let question_identifiers = null;
@@ -110,16 +137,13 @@ module.exports = class AcuityWC extends Integration {
         catch (error) {
             return this.client_error('Could not determine the identifiers for the questions', __location);
         }
+
         // Loop through each question
         this.questionList = [];
         for (const question_id in this.questions) {
-            if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
+            if (this.questions.hasOwnProperty(question_id)) {
                 const question = this.questions[question_id];
                 const questionCode = question_identifiers[question.id];
-                // Don't process questions without a code (not for this insurer) or ones that we have marked to skip
-                if (!questionCode || skipQuestions.includes(question.id)) {
-                    continue;
-                }
                 // Get the answer
                 let answer = '';
                 try {
@@ -167,6 +191,8 @@ module.exports = class AcuityWC extends Integration {
         catch (error) {
             return this.client_error('Unable to create the request to send to the insurer', __location);
         }
+
+        // console.log("Request", xml);
 
         // Determine which URL to use
         let host = '';

@@ -253,10 +253,7 @@ module.exports = class Integration {
         if (!employersRecord) {
             return null;
         }
-        return {
-            code: employersRecord.code,
-            sub: employersRecord.sub
-        };
+        return employersRecord.code;
     }
 
     /**
@@ -467,7 +464,7 @@ module.exports = class Integration {
 
         // If this question has a parent that belongs to a different insurer it should have a default
         if (question.parent && !Object.prototype.hasOwnProperty.call(this.questions, question.parent) && question.answer_id === 0 && question.answer === null) {
-            log.error(`Appid: ${this.app.id} Question ${question.id} is missing a default answer. Defaulted to 'No' for this application. May cause quoting inaccuracies!` + __location);
+            log.error(`Appid: ${this.app.id} Insurer: ${this.insurer.name} Question ${question.id} is missing a default answer. Defaulted to 'No' for this application. May cause quoting inaccuracies!` + __location);
             return 'No';
         }
 
@@ -960,7 +957,7 @@ module.exports = class Integration {
 
             // Make sure the insurer_quote() function exists
             if (typeof this._insurer_quote === 'undefined') {
-                const error_message = `Appid: ${this.app.id} Integration file must include the insurer_quote() function`;
+                const error_message = `Appid: ${this.app.id} Insurer: ${this.insurer.name} Integration file must include the insurer_quote() function`;
                 log.error(error_message + __location);
                 this.reasons.push(error_message);
                 fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
@@ -976,32 +973,12 @@ module.exports = class Integration {
             }
 
             // Check that all of the selected codes are supported by the insurer
-            let are_codes_supported = null;
-            switch (this.policy.type) {
-                case 'BOP':
-                case 'GL':
-                    are_codes_supported = await this._insurer_supports_industry_codes();
-                    if (are_codes_supported !== true) {
-                        fulfill(are_codes_supported);
-                        return;
-                    }
-                    break;
-                case 'WC':
-                    // Check code support
-                    are_codes_supported = await this._insurer_supports_activity_codes();
-                    if (this.insurer.id === 10) {
-                        // Acuity requires CGL for WC also
-                        are_codes_supported = are_codes_supported === true ? await this._insurer_supports_industry_codes() : are_codes_supported;
-                    }
-                    if (are_codes_supported !== true) {
-                        fulfill(are_codes_supported);
-                        return;
-                    }
-                    break;
-                default:
-                    log.error(`Appid: ${this.app.id} Unexpected policy type of ${this.policy.type} in Integration` + __location);
-                    fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-                    return;
+            const industryCodesSupported = await this._insurer_supports_industry_codes();
+            const activityCodesSupported = await this._insurer_supports_activity_codes();
+            // If this integration doesn't support any industry codes or activity codes for the given territory, return autodecline.
+            if (!industryCodesSupported && !activityCodesSupported) {
+                fulfill(this.client_autodeclined_out_of_appetite());
+                return;
             }
 
             // Localize the questions and restrict them to only ones that are applicable to this insurer and policy type
@@ -1053,8 +1030,10 @@ module.exports = class Integration {
      * @returns {mixed} - ID on success, error on error
      */
     async record_quote(amount, api_result) {
+        const appId = this.app.id;
+        const insurerName = this.insurer.name;
         const encrypted_log = await crypt.encrypt(this.log).catch(function(err) {
-            log.error('Unable to encrypt log. Proceeding anyway. ' + err + __location);
+            log.error(`Unable to encrypt log. AppId ${appId} Insurer: ${insurerName}Proceeding anyway. ` + err + __location);
         });
 
         const columns = [
@@ -1146,7 +1125,7 @@ module.exports = class Integration {
                 }
             }
             catch (err) {
-                log.error(`Appid: ${this.app.id} S3 error Storing Quote letter : ${fileName} error: ` + err + __location);
+                log.error(`Appid: ${this.app.id} Insurer: ${this.insurer.name} S3 error Storing Quote letter : ${fileName} error: ` + err + __location);
             }
         }
 
@@ -1158,6 +1137,7 @@ module.exports = class Integration {
 
         if (Object.keys(this.limits).length) {
             quoteJSON.limits = []
+            // eslint-disable-next-line guard-for-in
             for (const limitId in this.limits) {
                 if (Object.prototype.hasOwnProperty.call(this.limits, limitId)) {
                     const limitJSON = {
@@ -1212,7 +1192,7 @@ module.exports = class Integration {
      * @returns {object} - An object containing the quote information
      */
     async client_autodeclined_out_of_appetite() {
-        return this.client_autodeclined('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code and state');
+        return this.client_autodeclined('Out of Appetite: The insurer reports that they will not write a policy with the selected state and industry or activity code');
     }
 
     /**
@@ -1264,13 +1244,13 @@ module.exports = class Integration {
      */
     async client_quoted(quoteNumber, limits, premiumAmount, quoteLetter = null, quoteLetterMimeType = null) {
         if (!limits) {
-            this.log_error('Received a quote but no limits', __location);
+            this.log_error(`Received a quote but no limits for Appid: ${this.app.id} Insurer: ${this.insurer.name}`, __location);
             return this.return_error('error', `Could not locate the limits in the quote returned from the carrier.`);
         }
         this.limits = limits;
 
         if (!premiumAmount) {
-            this.log_error('Received a quote but no premium amount', __location);
+            this.log_error(`Received a quote but no premium amount for Appid: ${this.app.id} Insurer: ${this.insurer.name}`, __location);
             return this.return_error('error', `Could not locate the limits in the quote returned from the carrier.`);
         }
         this.amount = premiumAmount;
@@ -1381,6 +1361,7 @@ module.exports = class Integration {
         }
 
         // Get the limit descriptions from the database
+        // TODO USE BO
         const result = await db.query(`SELECT * FROM \`#__limits\` WHERE \`id\` IN (${Object.keys(this.limits).join(',')}) ORDER BY description ASC;`).catch(function(err) {
             return err;
         });
@@ -1496,7 +1477,7 @@ module.exports = class Integration {
                 if (this.reasons) {
                     //this.reasons.forEach(function(reason) {
                     for(let i = 0; i < this.reasons.length; i++){
-                        log.error(`Appid: ${this.app.id} ` + this.reasons[i] + __location);
+                        log.error(`Appid: ${this.app.id} Insurer: ${this.insurer.name} ` + this.reasons[i] + __location);
                     }
                 }
                 return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
@@ -1511,7 +1492,7 @@ module.exports = class Integration {
                 return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 
             case 'quoted':
-                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Returned Quote(s)`);
+                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Returned Quote(s)` + __location);
                 return this.return_quote(this.amount);
 
             case 'referred':
@@ -1524,7 +1505,7 @@ module.exports = class Integration {
             case 'acord_emailed':
                 return this.return_error('acord_emailed', `Appid: ${this.app.id} ${this.insurer.name} AgencyLocation ${this.app.agencyLocation.id} acord form sent`);
             case 'referred_with_price':
-                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Referred To Underwriting, But Provided An Indication`);
+                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Referred To Underwriting, But Provided An Indication` + __location);
                 return this.return_indication(this.amount);
 
             default:
@@ -1558,7 +1539,7 @@ module.exports = class Integration {
                 'POST',
                 'PUT'
             ].includes(method)) {
-                const error = new Error(`Appid: ${this.app.id} Invalid method provided to send_request()`);
+                const error = new Error(`Appid: ${this.app.id} calling ${this.insurer.name} Invalid method provided to send_request()`);
                 log.error(error.message + __location);
                 reject(error);
                 return;
@@ -1584,7 +1565,7 @@ module.exports = class Integration {
                 }
             }
             if (!content_type_found) {
-                const error = new Error(`Appid: ${this.app.id} No Content-Type header found. The Content-Type header is required for calls to send_request()`);
+                const error = new Error(`Appid: ${this.app.id} calling ${this.insurer.name} No Content-Type header found. The Content-Type header is required for calls to send_request()`);
                 log.error(error.message + __location);
                 reject(error);
                 return;
@@ -1651,9 +1632,9 @@ module.exports = class Integration {
                         const error = new Error(`Appid: ${this.app.id} insurer request encountered a ${res.statusCode} error`);
                         // Added check - do not log errors if there is a special response case for the client to handle
                         if(log_errors){
-                            log.error(error.message + __location);
+                            log.error(error.message + `  Appid: ${this.app.id} calling ${this.insurer.name} ` + __location);
                             log.verbose(rawData);
-                            this.log += `--------======= Error Appid: ${this.app.id}  =======--------<br><br>Status Code: ${res.statusCode}<br><pre>${rawData}</pre><br><br>`;
+                            this.log += `--------======= Error Appid: ${this.app.id} calling ${this.insurer.name}  =======--------<br><br>Status Code: ${res.statusCode}<br><pre>${rawData}</pre><br><br>`;
                         }
                         error.httpStatusCode = res.statusCode;
                         error.response = rawData;
@@ -1716,9 +1697,10 @@ module.exports = class Integration {
 	 * @param {string} path - The path at the host name we are sending to (the parts after the /, including the query string, if any)
 	 * @param {string} xml - The XML to be sent
 	 * @param {object} additional_headers (optional) - Additional headers to be sent with the request
+	 * @param {boolean} dumpRawXML (optional) - Dump the raw XML response to the console
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
 	 */
-    async send_xml_request(host, path, xml, additional_headers) {
+    async send_xml_request(host, path, xml, additional_headers, dumpRawXML = false) {
         // return new Promise(async(fulfill, reject) => {
         // If we don't have additional headers, start an object to append
         if (!additional_headers) {
@@ -1739,12 +1721,17 @@ module.exports = class Integration {
             raw_data = await this.send_request(host, path, xml, additional_headers, 'POST');
         }
         catch (error) {
-            log.error(`Appid: ${this.app.id} Integration send_request error: ${error}` + __location);
+            log.error(`Appid: ${this.app.id} calling ${this.insurer.name} Integration send_request error: ${error}` + __location);
             // reject(error);
             throw error;
         }
         // Convert the data to a string
         const str_data = raw_data.toString();
+
+        if (dumpRawXML) {
+            // eslint-disable-next-line no-console
+            console.log(xmlFormatter(str_data, {collapseContent: true}));
+        }
 
         // Convert the response to XML
         let result = null;
@@ -1765,7 +1752,7 @@ module.exports = class Integration {
     /**
 	 * Determines whether or not this insurer supports all class codes in this application
 	 *
-	 * @returns {Promise.<object, Error>} A promise that returns an true or an object containing error information on success
+	 * @returns {Promise.<boolean>} A promise that returns an true if the insurer supports the activity code and populates them, false otherwise
 	 */
     _insurer_supports_activity_codes() {
         return new Promise(async(fulfill) => {
@@ -1792,47 +1779,45 @@ module.exports = class Integration {
             let hadError = false;
             const sql = `
             SELECT
-                    ac.id,
-                    inc.state,
-                    inc.territory,
-                    inc.code,
-                    inc.sub,
-                    inc.result
+                ac.id,
+                inc.state,
+                inc.territory,
+                inc.code,
+                inc.sub,
+                inc.result
             FROM clw_talage_activity_codes AS ac
-                LEFT JOIN clw_talage_activity_code_associations AS aca ON ac.id = aca.code
-                LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON aca.insurer_code = inc.id
-            WHERE inc.insurer = ${this.insurer.id} AND (${whereCombinations.join(' OR ')});
+            LEFT JOIN clw_talage_activity_code_associations AS aca ON ac.id = aca.code
+            LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON aca.insurer_code = inc.id
+            WHERE
+                inc.insurer = ${this.insurer.id} 
+                AND (${whereCombinations.join(' OR ')});
             `;
-            //log.debug("_insurer_supports_activity_codes sql: " + sql);
             const appId = this.app.id;
             const insurerId = this.insurer.id;
             const codes = await db.query(sql).catch((error) => {
-                log.error(`AppId: ${appId} InsurerId: ${insurerId} ` + error + __location);
-                this.reasons.push('System Error: insurer_supports_activity_codes() failed to get codes.');
-                fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+                log.error(`AppId: ${appId} InsurerId: ${insurerId} Could not retrieve industry codes: ${error} ${__location}`);
+                hadError = true;
             });
-
+            if (hadError) {
+                // Query error
+                fulfill(false);
+                return;
+            }
             if (!codes.length) {
-                log.warn(`Appid: ${this.app.id} and Insurer ${insurerId}  autodeclined: no codes where ${whereCombinations.join(' OR ')}` + __location);
-                this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code and state');
-                fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
+                // No activity codes
+                fulfill(false);
                 return;
             }
 
             // Make sure the number of codes matched (otherwise there were codes unsupported by this insurer)
             if (Object.keys(wcCodes).length !== codes.length) {
-                log.warn(`Appid: ${this.app.id} and Insurer ${insurerId} autodeclined: Code length do not match wcCodes.length ${Object.keys(wcCodes).length} where ${whereCombinations.join(' OR ')}, wcCodes ${Object.keys(JSON.stringify(wcCodes))}   ` + __location);
-                this.reasons.push('Out of Appetite: The insurer does not support one or more of the selected activity codes and state');
-                fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
+                fulfill(false);
                 return;
             }
 
             // Load the codes locally
             codes.forEach((code) => {
                 if (code.result === 0) {
-                    log.error(`Appid: ${this.app.id} and Insurer ${insurerId} autodeclined: Code does not match where ${whereCombinations.join(' OR ')}, code ${JSON.stringify(code)} ` + __location);
-                    this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code and state');
-                    fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                     hadError = true;
                     return;
                 }
@@ -1840,13 +1825,10 @@ module.exports = class Integration {
                     this.insurer_wc_codes[code.territory + code.id] = code.code + (code.sub ? code.sub : '');
                     return;
                 }
-                log.error(`Appid: ${this.app.id}  and Insurer ${insurerId} autodeclined: Failed activity codes and state check on code ${JSON.stringify(code)} where ${whereCombinations.join(' OR ')}` + __location);
-                this.reasons.push('Out of Appetite: The insurer does not support one or more of the selected activity codes and state');
-                fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 hadError = true;
             });
-
             if (hadError) {
+                fulfill(false);
                 return;
             }
 
@@ -1857,26 +1839,37 @@ module.exports = class Integration {
     /**
 	 * Determines whether or not this insurer supports all industry codes in this application
 	 *
-	 * @returns {Promise.<object, Error>} A promise that returns an true or an object containing error information on success
+	 * @returns {Promise.<boolean>} A promise that returns an true if the insurer supports the industry code and it has been populated, false otherwise
 	 */
     _insurer_supports_industry_codes() {
         return new Promise(async(fulfill) => {
             // Query the database to see if this insurer supports this industry code
             const sql = `SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso, iic.attributes 
                         FROM clw_talage_industry_codes AS ic 
-                            INNER JOIN  clw_talage_insurer_industry_codes AS iic ON ((iic.type = 'i' AND iic.code = ic.iso) OR (iic.type = 'c' AND iic.code = ic.cgl) OR (iic.type = 'h' AND iic.code = ic.hiscox) OR (iic.type = 'n' AND iic.code = ic.naics) OR (iic.type = 's' AND iic.code = ic.sic)) 
-                                                                                    AND  iic.insurer = ${this.insurer.id} AND iic.territory = '${this.app.business.primary_territory}'
+                        INNER JOIN  clw_talage_insurer_industry_codes AS iic ON
+                            (
+                                (iic.type = 'i' AND iic.code = ic.iso) 
+                                OR (iic.type = 'c' AND iic.code = ic.cgl)
+                                OR (iic.type = 'h' AND iic.code = ic.hiscox) 
+                                OR (iic.type = 'n' AND iic.code = ic.naics) 
+                                OR (iic.type = 's' AND iic.code = ic.sic)
+                            ) 
+                            AND  iic.insurer = ${this.insurer.id} 
+                            AND iic.territory = '${this.app.business.primary_territory}'
                         WHERE  ic.id = ${this.app.business.industry_code}  LIMIT 1;`;
-            // log.debug("_insurer_supports_industry_codes sql: " + sql);
-            const result = await db.query(sql).catch((err) => {
-                log.error(`Integration: _insurer_supports_industry_codes query error ${err} ` + __location);
-                fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-                return;
+            let hadError = false;
+            const result = await db.query(sql).catch((error) => {
+                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not retrieve industry codes: ${error} ${__location}`);
+                hadError = true;
             });
+            if (hadError) {
+                // Query error
+                fulfill(false);
+                return;
+            }
             if (!result || !result.length) {
-                log.warn(`Appid: ${this.app.id} autodeclined: No Insurer industry code for insurer: ${this.insurer.id} ${this.app.business.primary_territory} talage industry code = ${this.app.business.industry_code} ` + __location);
-                this.reasons.push('Out of Appetite: The insurer does not support the industry code selected');
-                fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
+                // No industry codes
+                fulfill(false);
                 return;
             }
 
@@ -1887,8 +1880,8 @@ module.exports = class Integration {
                 this.industry_code.attributes = JSON.parse(this.industry_code.attributes);
             }
             else {
-                this.industry_code.attributes = '';
-                log.warn(`Appid: ${this.app.id} No Industry_code attributes:  ${this.insurer.id} and ${this.app.business.primary_territory}` + __location);
+                log.warn(`Appid: ${this.app.id} No Industry_code attributes for ${this.insurer.name}:${this.insurer.id} and ${this.app.business.primary_territory}` + __location);
+                this.industry_code.attributes = {};
             }
 
             fulfill(true);

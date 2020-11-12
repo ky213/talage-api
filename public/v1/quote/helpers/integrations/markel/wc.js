@@ -9,703 +9,24 @@
 const builder = require('xmlbuilder');
 const moment_timezone = require('moment-timezone');
 const Integration = require('../Integration.js');
+const moment = require('moment');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+
+//Sandbox
+const API_SB = 'https://api-sandbox.markelcorp.com/smallCommercial/v1/wc';
+//Prod
+const API_PROD = 'https://api.markelcorp.com/smallCommercial/v1/wc'
 
 module.exports = class MarkelWC extends Integration {
 
     /**
-	 * Requests a quote from Markel and returns. This request is not intended to be called directly.
-	 *
-	 * @returns {result} The result of return_result()
-	 */
+     * Requests a quote from Markel and returns. This request is not intended to be called directly.
+     *
+     * @returns {result} The result of return_result()
+     */
+
     async _insurer_quote() {
-        // These are the statuses returned by the insurer and how they map to our Talage statuses
-        this.possible_api_responses.Declined = 'declined';
-        this.possible_api_responses.Incomplete = 'error';
-        this.possible_api_responses.Submitted = 'referred';
-        this.possible_api_responses.Quoted = 'quoted';
-
-        // These are the limits supported by AF Group
-        const carrierLimits = [
-            '100000/500000/100000',
-            '500000/500000/500000',
-            '500000/1000000/500000',
-            '1000000/1000000/1000000',
-            '2000000/2000000/2000000'
-        ];
-
-        // Check for excessive losses in DE, HI, MI, PA and VT
-        const excessive_loss_states = [
-            'DE',
-            'HI',
-            'MI',
-            'PA',
-            'VT'
-        ];
-
-        // Prepare limits
-        const limits = this.getBestLimits(carrierLimits);
-        if (!limits) {
-            log.warn(`Appid: ${this.app.id} Markel WC autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location);
-            this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} does not support the requested liability limits`);
-            return this.return_result('autodeclined');
-        }
-
-        // Check the number of claims
-        if (excessive_loss_states.indexOf(this.app.business.primary_territory) !== -1) {
-            if (this.policy.claims.length > 2) {
-                log.info(`Appid: ${this.app.id} autodeclined: ${this.insurer.name} Too many claims ` + __location);
-                this.reasons.push(`Too many past claims`);
-                return this.return_result('autodeclined');
-            }
-        }
-
-        // Check for excessive losses in South Dakota
-        if (this.app.business.primary_territory === 'SD') {
-            if (this.policy.claims.length > 4) {
-                log.info(`Appid: ${this.app.id} autodeclined: ${this.insurer.name} Too many claims ` + __location);
-                this.reasons.push(`Too many past claims`);
-                return this.return_result('autodeclined');
-            }
-        }
-
-        // Markel has us define our own Request ID
-        this.request_id = this.generate_uuid();
-
-        // Get a timestamp for the request and format it correctly
-        const timestamp = moment_timezone.tz('America/Los_Angeles').format('YYYY-MM-DDTHH:mm:ss');
-
-        // Build the XML Request
-
-        // <ACORD>
-        const ACORD = builder.create('ACORD').att('xmlns', 'http://www.ACORD.org/standards/PC_Surety/ACORD1/xml/');
-
-        // <SignonRq>
-        const SignonRq = ACORD.ele('SignonRq');
-
-        SignonRq.ele('ClientDt', timestamp);
-        SignonRq.ele('CustLangPref', 'en-US');
-
-        // <ClientApp>
-        const ClientApp = SignonRq.ele('ClientApp');
-        ClientApp.ele('Org', 'Talage Insurance');
-        ClientApp.ele('Name', 'Talage');
-        ClientApp.ele('Version', '2.0');
-        // </ClientApp>
-
-        // </SignonRq>
-
-        // <InsuranceSvcRq>
-        const InsuranceSvcRq = ACORD.ele('InsuranceSvcRq');
-        InsuranceSvcRq.ele('RqUID', this.generate_uuid());
-
-        // <WorkCompPolicyQuoteInqRq>
-        const WorkCompPolicyQuoteInqRq = InsuranceSvcRq.ele('WorkCompPolicyQuoteInqRq');
-        WorkCompPolicyQuoteInqRq.ele('RqUID', this.request_id);
-        WorkCompPolicyQuoteInqRq.ele('TransactionRequestDt', timestamp);
-        WorkCompPolicyQuoteInqRq.ele('CurCd', 'USD');
-
-        //<Producer>
-        const Producer = WorkCompPolicyQuoteInqRq.ele('Producer');
-
-        //<ItemIdInfo>
-        const ItemIdInfo = Producer.ele('ItemIdInfo');
-
-        //<OtherIdentifier>
-        const OtherIdentifier = ItemIdInfo.ele('OtherIdentifier');
-        OtherIdentifier.ele('OtherIdTypeCd','com.markel.mAgency.AgencyId')
-        OtherIdentifier.ele('OtherId', this.username);
-        //</OtherIdentifier>
-        
-        //</ItemIdInfo>
-
-        //<ProducerInfo>
-        const ProducerInfo = Producer.ele('ProducerInfo');
-        ProducerInfo.ele('ProducerRoleCd', 'Agency')
-
-        //</ProducerInfo>
-
-        //</Producer>
-
-        // <InsuredOrPrincipal>
-        const InsuredOrPrincipal = WorkCompPolicyQuoteInqRq.ele('InsuredOrPrincipal');
-
-        // <GeneralPartyInfo>
-        const GeneralPartyInfo = InsuredOrPrincipal.ele('GeneralPartyInfo');
-
-        // <NameInfo>
-        const NameInfo = GeneralPartyInfo.ele('NameInfo');
-
-        // <CommlName>
-        NameInfo.ele('CommlName').ele('CommercialName', this.app.business.name);
-        // </CommlName>
-
-        // <TaxIdentity>
-        const TaxIdentity = NameInfo.ele('TaxIdentity');
-        TaxIdentity.ele('TaxIdTypeCd', this.app.business.entity_type === 'Sole Proprietorship' ? 'SSN' : 'FEIN');
-        TaxIdentity.ele('TaxId', this.app.business.locations[0].identification_number);
-        // </TaxIdentity>
-
-        if (this.app.business.dba) {
-            // <SupplementaryNameInfo>
-            const SupplementaryNameInfo = NameInfo.ele('SupplementaryNameInfo');
-            SupplementaryNameInfo.ele('SupplementaryNameCd', 'DBA');
-            SupplementaryNameInfo.ele('SupplementaryName', this.app.business.dba);
-            // </SupplementaryNameInfo>
-        }
-        // </NameInfo>
-
-        // <Addr>
-        const Addr = GeneralPartyInfo.ele('Addr');
-        Addr.ele('Addr1', this.app.business.locations[0].address);
-        if (this.app.business.locations[0].address2) {
-            Addr.ele('Addr2', this.app.business.locations[0].address2);
-        }
-        Addr.ele('City', this.app.business.locations[0].city);
-        Addr.ele('StateProvCd', this.app.business.locations[0].territory);
-        Addr.ele('PostalCode', this.app.business.locations[0].zip);
-        // </Addr>
-
-        // </GeneralPartyInfo>
-
-        // <InsuredOrPrincipalInfo>
-        InsuredOrPrincipal.ele('InsuredOrPrincipalInfo').ele('InsuredOrPrincipalRoleCd', 'Insured');
-        // </InsuredOrPrincipalInfo>
-
-        // </InsuredOrPrincipal>
-
-        // <CommlPolicy>
-        const CommlPolicy = WorkCompPolicyQuoteInqRq.ele('CommlPolicy');
-        CommlPolicy.ele('LOBCd', 'WORK');
-
-        // <ContractTerm>
-        const ContractTerm = CommlPolicy.ele('ContractTerm');
-        ContractTerm.ele('EffectiveDt', this.policy.effective_date.format('YYYY-MM-DD'));
-
-        // </ContractTerm>
-
-        // <CommlPolicySupplement>
-        const CommlPolicySupplement = CommlPolicy.ele('CommlPolicySupplement');
-        CommlPolicySupplement.ele('OperationsDesc', this.app.business.locations[0].activity_codes[0].description);
-        // <CommlPolicySupplement>
-
-        // </CommlPolicy>
-
-        // <Location>
-        this.app.business.locations.forEach(function(location, index) {
-            const Location = WorkCompPolicyQuoteInqRq.ele('Location');
-            Location.att('id', `loc_${index + 1}`);
-
-            // <ItemIdInfo>
-            Location.ele('ItemIdInfo');
-            // </ItemIdInfo>
-
-            // <Addr>
-            const LocAddr = Location.ele('Addr');
-            LocAddr.ele('Addr1', location.address);
-            if (location.address2) {
-                LocAddr.ele('Addr2', location.address2);
-            }
-            LocAddr.ele('City', location.city);
-            LocAddr.ele('StateProvCd', location.territory);
-            LocAddr.ele('PostalCode', location.zip);
-            // </Addr>
-        });
-
-        // <WorkCompLineBusiness>
-        const WorkCompLineBusiness = WorkCompPolicyQuoteInqRq.ele('WorkCompLineBusiness');
-        WorkCompLineBusiness.ele('LOBCd', 'WORK');
-
-        // Get the claims organized by year
-        const claims_by_year = this.claims_to_policy_years();
-
-        // Iterate through each year of claims
-        for (const year in claims_by_year) {
-            if (year <= 4) {
-                // <WorkCompLossOrPriorPolicy>
-                const WorkCompLossOrPriorPolicy = WorkCompLineBusiness.ele('WorkCompLossOrPriorPolicy');
-
-                // <AnnualAmt>
-                const AnnualAmt = WorkCompLossOrPriorPolicy.ele('AnnualAmt');
-                AnnualAmt.ele('Amt', 0);
-                // </AnnualAmt>
-
-                WorkCompLossOrPriorPolicy.ele('EffectiveDt', claims_by_year[year].effective_date.format('YYYY-MM-DD'));
-                WorkCompLossOrPriorPolicy.ele('ExpirationDt', claims_by_year[year].expiration_date.format('YYYY-MM-DD'));
-
-                // <PaidTotalAmt>
-                const PaidTotalAmt = WorkCompLossOrPriorPolicy.ele('PaidTotalAmt');
-                PaidTotalAmt.ele('Amt', claims_by_year[year].amountPaid);
-                // </PaidTotalAmt>
-
-                // Markel does not support amount reserved
-                WorkCompLossOrPriorPolicy.ele('NumClaims', claims_by_year[year].count);
-                WorkCompLossOrPriorPolicy.ele('NumMedicalClaimsPaid', claims_by_year[year].count - claims_by_year[year].missedWork);
-                // <WorkCompLossOrPriorPolicy>
-            }
-        }
-
-        // Add class code information
-        this.app.business.locations.forEach((location, index) => {
-            location.activity_codes.forEach((activity_code) => {
-                // <WorkCompRateState>
-                const WorkCompRateState = WorkCompLineBusiness.ele('WorkCompRateState');
-
-                // <WorkCompLocInfo>
-                const WorkCompLocInfo = WorkCompRateState.ele('WorkCompLocInfo');
-                WorkCompLocInfo.att('LocationRef', `loc_${index + 1}`);
-
-                // <WorkCompRateClass>
-                const WorkCompRateClass = WorkCompLocInfo.ele('WorkCompRateClass');
-                WorkCompRateClass.ele('NumEmployeesFullTime', location.full_time_employees);
-                WorkCompRateClass.ele('NumEmployeesPartTime', location.part_time_employees);
-                WorkCompRateClass.ele('RatingClassificationCd', this.insurer_wc_codes[location.territory + activity_code.id]);
-                WorkCompRateClass.ele('Exposure', activity_code.payroll);
-                WorkCompRateClass.ele('RatingClassificationDesc', activity_code.description);
-                // </WorkCompRateClass>
-
-                // </WorkCompLocInfo>
-
-                // </WorkCompRateState>
-            });
-        });
-
-        // <CommlCoverage>
-        const CommlCoverage = WorkCompLineBusiness.ele('CommlCoverage');
-        CommlCoverage.ele('CoverageCd', 'INEL');
-
-        // <Limit>
-        const Limit1 = CommlCoverage.ele('Limit');
-        Limit1.ele('FormatInteger', limits[0]);
-        Limit1.ele('LimitAppliesToCd', 'PerAcc');
-        // </Limit>
-
-        // <Limit>
-        const Limit2 = CommlCoverage.ele('Limit');
-        Limit2.ele('FormatInteger', limits[1]);
-        Limit2.ele('LimitAppliesToCd', 'DisPol');
-        // </Limit>
-
-        // <Limit>
-        const Limit3 = CommlCoverage.ele('Limit');
-        Limit3.ele('FormatInteger', limits[2]);
-        Limit3.ele('LimitAppliesToCd', 'DisEachEmpl');
-        // </Limit>
-
-        // </CommlCoverage>
-
-        /* ---=== Begin Questions ===--- */
-
-        const unique_territories = [];
-        this.app.business.locations.forEach(function(location) {
-            if (unique_territories.indexOf(location.territory) === -1) {
-                unique_territories.push(location.territory);
-            }
-        });
-
-        // Loop through each question
-        for (const question_id in this.questions) {
-            if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
-                const question = this.questions[question_id];
-                const QuestionCd = this.question_identifiers[question.id];
-
-                // If there is no question code, this question is for another insurer, just move on
-                if (!QuestionCd) {
-                    continue;
-                }
-
-                // Get the answer
-                let answer = '';
-                try {
-                    answer = this.determine_question_answer(question);
-                }
-                catch (error) {
-                    log.error(`Appid: ${this.app.id} Markel WC: Unable to determine answer for question ${question.id}. error: ${error} ` + __location);
-                    this.reasons.push(`Unable to determine answer for question ${question.id}`);
-                    return this.return_result('error');
-                }
-
-                // This question was not answered
-                if (!answer && !this.universal_questions.includes(question_id)) {
-                    continue;
-                }
-
-                // Special rules for Question 1045
-                if (question_id === 1045) {
-                    // Replace any percentages that are present
-                    if (typeof answer === 'string') {
-                        answer = answer.replace('%', '');
-                    }
-
-                    // Make sure the answer is numeric
-                    if (/^\d+$/.test(answer)) {
-                        const answerInt = parseInt(answer, 10);
-
-                        if (answerInt < 15) {
-                            answer = 'Less than 15';
-                        }
-                        else if (answerInt < 25) {
-                            answer = 'Greater than 15 but less than 25';
-                        }
-                        else {
-                            answer = 'Greater than 25';
-                        }
-                    }
-                    else {
-                        log.error(`Appid: ${this.app.id} Markel WC: User provided an invalid percentage for the subcontractors question (not numeric) ` + __location);
-                        this.reasons.push('User provided an invalid percentage for the subcontractors question (not numeric)');
-                        return this.return_result('error');
-                    }
-                }
-
-                // Build out the question structure
-                const QuestionAnswer = WorkCompLineBusiness.ele('QuestionAnswer');
-                QuestionAnswer.ele('QuestionCd', QuestionCd);
-
-                // Determine how to send the answer
-                if (question.type === 'Yes/No') {
-                    QuestionAnswer.ele('YesNoCd', question.get_answer_as_boolean() ? 'YES' : 'NO');
-                }
-                else {
-                    // Other Question Type
-                    QuestionAnswer.ele('YesNoCd', 'NA');
-
-                    // Check if the answer is a number
-                    if (/^\d+$/.test(answer)) {
-                        QuestionAnswer.ele('Num', answer);
-                    }
-                    else {
-                        QuestionAnswer.ele('Explanation', answer);
-                    }
-                }
-                // </QuestionAnswer>
-            }
-        }
-
-        // <QuestionAnswer>
-        const QuestionAnswerEMod = WorkCompLineBusiness.ele('QuestionAnswer');
-        QuestionAnswerEMod.ele('QuestionCd', 'com.markel.uw.questions.submission.EMod');
-        QuestionAnswerEMod.ele('YesNoCd', 'NA');
-        QuestionAnswerEMod.ele('Explanation', this.app.business.experience_modifier);
-        // </QuestionAnswer>
-
-        // <QuestionAnswer>
-        const QuestionAnswerEOS = WorkCompLineBusiness.ele('QuestionAnswer');
-        QuestionAnswerEOS.ele('QuestionCd', 'com.markel.uw.questions.submission.ExposureOutsideState');
-        QuestionAnswerEOS.ele('YesNoCd', 'NA');
-        QuestionAnswerEOS.ele('Explanation', 'None'); // TO DO: Fix this
-        // </QuestionAnswer>
-
-        // <QuestionAnswer>
-        const QuestionAnswerYWC = WorkCompLineBusiness.ele('QuestionAnswer');
-        QuestionAnswerYWC.ele('QuestionCd', 'com.markel.uw.questions.submission.YearsWithWC');
-        QuestionAnswerYWC.ele('YesNoCd', 'NA');
-        QuestionAnswerYWC.ele('Num', this.get_years_in_business());
-        // </QuestionAnswer>
-
-        // <QuestionAnswer> Is there a labor interchange with any other business/subsidiary?
-        const QuestionCGL05 = WorkCompLineBusiness.ele('QuestionAnswer');
-        QuestionCGL05.ele('QuestionCd', 'CGL05');
-        QuestionCGL05.ele('YesNoCd', 'NO');
-        // </QuestionAnswer>
-
-        // <QuestionAnswer> Any other insurance with this carrier?
-        const QuestionGENRL22 = WorkCompLineBusiness.ele('QuestionAnswer');
-        QuestionGENRL22.ele('QuestionCd', 'GENRL22');
-        QuestionGENRL22.ele('YesNoCd', 'NO');
-        // </QuestionAnswer>
-
-        // <QuestionAnswer> Do/have past, present or discontinued operations involve(d) storing, treating, discharging, applying, or transporting of hazardous materials?
-        const QuestionWORK16 = WorkCompLineBusiness.ele('QuestionAnswer');
-        QuestionWORK16.ele('QuestionCd', 'WORK16');
-        QuestionWORK16.ele('YesNoCd', 'NO');
-        // </QuestionAnswer>
-
-        // <QuestionAnswer> If the prior policy effective date's month and day different than the current policy?
-        const Question1524 = WorkCompLineBusiness.ele('QuestionAnswer');
-        Question1524.ele('QuestionCd', 'com.markel.uw.questions.Question1524');
-        Question1524.ele('YesNoCd', 'NO');
-        // </QuestionAnswer>
-
-        // <QuestionAnswer> Any lapse in coverage?
-        const Question1590 = WorkCompLineBusiness.ele('QuestionAnswer');
-        Question1590.ele('QuestionCd', 'com.markel.uw.questions.Question1590');
-        Question1590.ele('YesNoCd', this.policy.coverage_lapse ? 'YES' : 'NO');
-        // </QuestionAnswer>
-
-        // <QuestionAnswer> Is the applicant a member of NFIB?
-        const Question1781 = WorkCompLineBusiness.ele('QuestionAnswer');
-        Question1781.ele('QuestionCd', 'com.markel.uw.questions.Question1781');
-        Question1781.ele('YesNoCd', 'NO');
-        // </QuestionAnswer>
-
-        // <QuestionAnswer> Are you or the insured aware of any losses in the last four years?
-        const Question29 = WorkCompLineBusiness.ele('QuestionAnswer');
-        Question29.ele('QuestionCd', 'com.markel.uw.questions.Question29');
-        Question29.ele('YesNoCd', this.policy.claims.length ? 'YES' : 'NO');
-        // </QuestionAnswer>
-
-        // Multi-State?
-        if (unique_territories.length > 1) {
-            // <QuestionAnswer> Does insured have any locations outside of this state?
-            const Question30 = WorkCompLineBusiness.ele('QuestionAnswer');
-            Question30.ele('QuestionCd', 'com.markel.uw.questions.Question30');
-            Question30.ele('YesNoCd', 'YES');
-            // </QuestionAnswer>
-
-            // <QuestionAnswer> What states do they have locations in?
-            const Question1551 = WorkCompLineBusiness.ele('QuestionAnswer');
-            Question1551.ele('QuestionCd', 'com.markel.uw.questions.Question1551');
-            Question1551.ele('YesNoCd', 'NA');
-            Question1551.ele('Explanation', unique_territories.join(','));
-            // </QuestionAnswer>
-        }
-        else {
-            // <QuestionAnswer> Does insured have any locations outside of this state?
-            const Question30 = WorkCompLineBusiness.ele('QuestionAnswer');
-            Question30.ele('QuestionCd', 'com.markel.uw.questions.Question30');
-            Question30.ele('YesNoCd', 'NO');
-            // </QuestionAnswer>
-        }
-
-        // <QuestionAnswer> Does the Insured have a website?
-        const Question870 = WorkCompLineBusiness.ele('QuestionAnswer');
-        Question870.ele('QuestionCd', 'com.markel.uw.questions.Question870');
-        Question870.ele('YesNoCd', this.app.business.website ? 'YES' : 'NO');
-        // </QuestionAnswer>
-
-        if (this.app.business.website) {
-            // <QuestionAnswer> Website address
-            const Question1041 = WorkCompLineBusiness.ele('QuestionAnswer');
-            Question1041.ele('QuestionCd', 'com.markel.uw.questions.Question1041');
-            Question1041.ele('YesNoCd', 'NA');
-            Question1041.ele('Explanation', this.app.business.website);
-            // </QuestionAnswer>
-        }
-
-        // TO DO: Move all of this! Should be handled in validation where possible
-
-        /* ---=== Begin State Specific Questions ===--- */
-
-        // Certified Safety Committee Notification?
-        // TO DO: Document that we defaulted this
-
-        const safety_committee_states = [
-            'AZ',
-            'DE',
-            'KY',
-            'NJ',
-            'PA',
-            'UT',
-            'WI'
-        ];
-        if (safety_committee_states.indexOf(this.app.business.primary_territory) !== -1) {
-            // <QuestionAnswer>
-            const QuestionAnswerSafetyCommittee = WorkCompLineBusiness.ele('QuestionAnswer');
-            QuestionAnswerSafetyCommittee.ele('QuestionCd', 'com.markel.uw.questions.stateSpecific.CertSafetyCommNotification');
-            QuestionAnswerSafetyCommittee.ele('YesNoCd', 'NO');
-            // </QuestionAnswer>
-        }
-
-        // NumberOfClaims within last 3 years
-        const number_of_claims_states = [
-            'DE',
-            'HI',
-            'MI',
-            'PA',
-            'SD',
-            'VT'
-        ];
-        if (number_of_claims_states.indexOf(this.app.business.primary_territory) !== -1) {
-            let total_claims = 0;
-            for (const year in claims_by_year) {
-                if (year <= 3) {
-                    total_claims += claims_by_year[year].count;
-                }
-            }
-
-            // <QuestionAnswer>
-            const QuestionAnswerStateClaims = WorkCompLineBusiness.ele('QuestionAnswer');
-            QuestionAnswerStateClaims.ele('QuestionCd', `com.markel.uw.questions.stateSpecific.${this.app.business.primary_territory.toLowerCase()}.NumberOfClaims`);
-            QuestionAnswerStateClaims.ele('YesNoCd', 'NA');
-            QuestionAnswerStateClaims.ele('Num', total_claims);
-            // </QuestionAnswer>
-        }
-
-        // Alabama
-        if (this.app.business.primary_territory === 'AL') {
-            // How many claims were within the last year?
-            // <QuestionAnswer>
-            const QuestionAnswerAL1 = WorkCompLineBusiness.ele('QuestionAnswer');
-            QuestionAnswerAL1.ele('QuestionCd', 'com.markel.uw.questions.stateSpecific.al.NumberOfClaimsLastYear');
-            QuestionAnswerAL1.ele('YesNoCd', 'NA');
-            QuestionAnswerAL1.ele('Num', Object.prototype.hasOwnProperty.call(claims_by_year, 1) ? claims_by_year[1].count : 0);
-            // </QuestionAnswer>
-
-            // How many claims were within the last 2 years?
-            // <QuestionAnswer>
-            const QuestionAnswerAL2 = WorkCompLineBusiness.ele('QuestionAnswer');
-            QuestionAnswerAL2.ele('QuestionCd', 'com.markel.uw.questions.stateSpecific.al.NumberOfClaimsLast2Years');
-            QuestionAnswerAL2.ele('YesNoCd', 'NA');
-            QuestionAnswerAL2.ele('Num', (Object.prototype.hasOwnProperty.call(claims_by_year, 1) ? claims_by_year[1].count : 0) + (Object.prototype.hasOwnProperty.call(claims_by_year, 2) ? claims_by_year[2].count : 0));
-            // </QuestionAnswer>
-        }
-
-        // Colorado
-        if (this.app.business.primary_territory === 'CO') {
-            // How many loss time claims were within the last year?
-            // <QuestionAnswer>
-            const QuestionAnswerCO1 = WorkCompLineBusiness.ele('QuestionAnswer');
-            QuestionAnswerCO1.ele('QuestionCd', 'com.markel.uw.questions.stateSpecific.co.NumberOfLossTimeClaimsLastYr');
-            QuestionAnswerCO1.ele('YesNoCd', 'NA');
-            QuestionAnswerCO1.ele('Num', Object.prototype.hasOwnProperty.call(claims_by_year, 1) ? claims_by_year[1].missedWork : 0);
-            // </QuestionAnswer>
-
-            // How many medical claims of $250 or more were within the last?
-            // <QuestionAnswer>
-            const QuestionAnswerCO2 = WorkCompLineBusiness.ele('QuestionAnswer');
-            QuestionAnswerCO2.ele('QuestionCd', 'com.markel.uw.questions.stateSpecific.co.NumberOfMedClaimsLastYr');
-            QuestionAnswerCO2.ele('YesNoCd', 'NA');
-            QuestionAnswerCO2.ele('Num', Object.prototype.hasOwnProperty.call(claims_by_year, 1) ? claims_by_year[1].count : 0);
-            // </QuestionAnswer>
-
-            // Certified Risk Management Program
-            // <QuestionAnswer>
-            const QuestionAnswerCO3 = WorkCompLineBusiness.ele('QuestionAnswer');
-            QuestionAnswerCO3.ele('QuestionCd', 'com.markel.uw.questions.stateSpecific.co.CRMPFlag');
-            QuestionAnswerCO3.ele('YesNoCd', 'NO');
-            // </QuestionAnswer>
-        }
-
-        // Delaware
-        if (this.app.business.primary_territory === 'DE') {
-            if (this.app.business.bureau_number === 0) {
-                // Do you know the DCRB file number?
-                // <QuestionAnswer>
-                const QuestionAnswerDE1 = WorkCompLineBusiness.ele('QuestionAnswer');
-                QuestionAnswerDE1.ele('QuestionCd', 'com.markel.uw.questions.Question1206');
-                QuestionAnswerDE1.ele('YesNoCd', 'NO');
-                // </QuestionAnswer>
-            }
-            else {
-                // Do you know the DCRB file number?
-                // <QuestionAnswer>
-                const QuestionAnswerDE1 = WorkCompLineBusiness.ele('QuestionAnswer');
-                QuestionAnswerDE1.ele('QuestionCd', 'com.markel.uw.questions.Question1206');
-                QuestionAnswerDE1.ele('YesNoCd', 'YES');
-                // </QuestionAnswers>
-
-                // Please enter the DCRB file number
-                // <QuestionAnswer>
-                const QuestionAnswerDE2 = WorkCompLineBusiness.ele('QuestionAnswer');
-                QuestionAnswerDE2.ele('QuestionCd', 'com.markel.uw.questions.Question1207');
-                QuestionAnswerDE2.ele('YesNoCd', 'NA');
-                QuestionAnswerDE2.ele('Explanation', this.app.business.bureau_number);
-                // </QuestionAnswers>
-            }
-        }
-
-        // Hawaii
-        if (this.app.business.primary_territory === 'HI') {
-            // TO DO: Document that we defaulted this
-            // Default to NO
-            // <QuestionAnswer>
-            const QuestionAnswerHI1 = WorkCompLineBusiness.ele('QuestionAnswer');
-            QuestionAnswerHI1.ele('QuestionCd', 'com.markel.uw.questions.Question1783');
-            QuestionAnswerHI1.ele('YesNoCd', 'NO');
-            // </QuestionAnswer>
-
-            // You can contact the DOL for assistance in obtaining or verifying a DOL number by calling 808-586-8914
-            // <QuestionAnswer>
-            const QuestionAnswerHI2 = WorkCompLineBusiness.ele('QuestionAnswer');
-            QuestionAnswerHI2.ele('QuestionCd', 'com.markel.uw.questions.Question1784');
-            QuestionAnswerHI2.ele('YesNoCd', 'NA');
-            QuestionAnswerHI2.ele('Explanation', 'OK');
-            // </QuestionAnswer>
-        }
-
-        // Kentucky
-        if (this.app.business.primary_territory === 'KY') {
-            // Does the applicant wish to select a deductible?
-            // <QuestionAnswer>
-            const QuestionAnswerKT = WorkCompLineBusiness.ele('QuestionAnswer');
-            QuestionAnswerKT.ele('QuestionCd', 'com.markel.uw.questions.Question1638');
-            QuestionAnswerKT.ele('YesNoCd', 'NO');
-            // </QuestionAnswer>
-        }
-
-        // Pennsylvania
-        if (this.app.business.primary_territory === 'PA') {
-            if (this.app.business.bureau_number) {
-                // Do you know the PCRB file number?
-                // <QuestionAnswer>
-                const QuestionAnswerPA1 = WorkCompLineBusiness.ele('QuestionAnswer');
-                QuestionAnswerPA1.ele('QuestionCd', 'com.markel.uw.questions.Question1204');
-                QuestionAnswerPA1.ele('YesNoCd', 'YES');
-                // </QuestionAnswer>
-
-                // Please enter the PCRB file number
-                // <QuestionAnswer>
-                const QuestionAnswerPA2 = WorkCompLineBusiness.ele('QuestionAnswer');
-                QuestionAnswerPA2.ele('QuestionCd', 'com.markel.uw.questions.Question1205');
-                QuestionAnswerPA2.ele('YesNoCd', 'NA');
-                QuestionAnswerPA2.ele('Explanation', this.app.bureau_number);
-                // </QuestionAnswer>
-            }
-            else {
-                // Do you know the PCRB file number?
-                // <QuestionAnswer>
-                const QuestionAnswerPA1 = WorkCompLineBusiness.ele('QuestionAnswer');
-                QuestionAnswerPA1.ele('QuestionCd', 'com.markel.uw.questions.Question1204');
-                QuestionAnswerPA1.ele('YesNoCd', 'NO');
-                // </QuestionAnswer>
-            }
-        }
-
-        // Rhode Island
-        if (this.app.business.primary_territory === 'RI') {
-            // Consecutive years with no losses (between 0 and 6 inclusive)
-            // <QuestionAnswer>
-            const QuestionAnswerRI1 = WorkCompLineBusiness.ele('QuestionAnswer');
-            QuestionAnswerRI1.ele('QuestionCd', 'com.markel.uw.questions.stateSpecific.ri.ClaimFreeYearNumber');
-            QuestionAnswerRI1.ele('YesNoCd', 'NA');
-            QuestionAnswerRI1.ele('Num', this.get_years_since_claim());
-            // </QuestionAnswer>
-        }
-
-        // Texas
-        if (this.app.business.primary_territory === 'TX') {
-            // How many claims were within the last year?
-            // <QuestionAnswer>
-            const QuestionAnswerTX1 = WorkCompLineBusiness.ele('QuestionAnswer');
-            QuestionAnswerTX1.ele('QuestionCd', 'com.markel.uw.questions.stateSpecific.tx.NumberOfClaimsLastYear');
-            QuestionAnswerTX1.ele('YesNoCd', 'NA');
-            QuestionAnswerTX1.ele('Num', Object.prototype.hasOwnProperty.call(claims_by_year, 1) ? claims_by_year[1].count : 0);
-            // </QuestionAnswer>
-
-            // How many claims were within the last 2 years?
-            // <QuestionAnswer>
-            const QuestionAnswerTX2 = WorkCompLineBusiness.ele('QuestionAnswer');
-            QuestionAnswerTX2.ele('QuestionCd', 'com.markel.uw.questions.stateSpecific.tx.NumberOfClaimsLast2Years');
-            QuestionAnswerTX2.ele('YesNoCd', 'NA');
-            QuestionAnswerTX2.ele('Num', (Object.prototype.hasOwnProperty.call(claims_by_year, 1) ? claims_by_year[1].count : 0) + (Object.prototype.hasOwnProperty.call(claims_by_year, 2) ? claims_by_year[2].count : 0));
-            // </QuestionAnswer>
-
-            // Any lapse in coverage?
-            // <QuestionAnswer>
-            const QuestionAnswerTX3 = WorkCompLineBusiness.ele('QuestionAnswer');
-            QuestionAnswerTX3.ele('QuestionCd', 'com.markel.uw.questions.Question1594');
-            QuestionAnswerTX3.ele('YesNoCd', this.policy.coverage_lapse ? 'YES' : 'NO');
-            // </QuestionAnswer>
-        }
-
-        /* ---=== End State Specific Questions ===--- */
-
-        // ---=== Special Markel Question ===---
-        //  Markel asks one question that we do not support because it is unnecessary.
-        //  Below, we add in support for that question so Markel still receives an
-        //  answer as it desires.
 
         const special_activity_codes = {
             AK: [
@@ -1249,136 +570,713 @@ module.exports = class MarkelWC extends Integration {
             ]
         };
 
-        if (Object.prototype.hasOwnProperty.call(special_activity_codes, this.app.business.primary_territory)) {
-            let match = false;
-            const codes = special_activity_codes[this.app.business.primary_territory];
-            this.app.business.locations.forEach(function(location) {
-                location.activity_codes.forEach(function(activity_code) {
-                    let short_code = activity_code.id;
-                    while (short_code > 9999) {
-                        short_code = Math.floor(short_code / 10);
-                    }
+        let host = '';
+        let path = '';
+        let key = '';
 
-                    if (codes.indexOf(short_code) !== -1) {
-                        match = true;
-                    }
-                });
-            });
+        //Determine API
+        if (this.insurer.useSandbox) {
+            host = 'api-sandbox.markelcorp.com';
+            path = '/smallCommercial/v1/wc'
+            key = {'apikey': `${this.password}`};
+        }
+        else {
+            host = 'api.markelcorp.com';
+            path = '/smallCommercial/v1/wc';
+            key = {'apikey': `${this.password}`};
+        }
 
-            if (match) {
-                // Add the additional question
+        // These are the statuses returned by the insurer and how they map to our Talage statuses
+        this.possible_api_responses.Declined = 'declined';
+        this.possible_api_responses.Incomplete = 'error';
+        this.possible_api_responses.Submitted = 'referred';
+        this.possible_api_responses.Quoted = 'quoted';
 
-                // <QuestionAnswer>
-                const QuestionAnswerAQ = WorkCompLineBusiness.ele('QuestionAnswer');
-                QuestionAnswerAQ.ele('QuestionCd', 'com.markel.uw.questions.Question1203');
-                QuestionAnswerAQ.ele('YesNoCd', 'NO');
-                // </QuestionAnswer>
+        // These are the limits supported by Markel * 1000
+        const carrierLimits = ['100000/500000/100000',
+            '500000/500000/500000',
+            '1000000/1000000/1000000',
+            '1500000/1500000/1500000',
+            '2000000/2000000/2000000'];
+        let yearsInsured = moment().diff(this.app.business.founded, 'years');
+
+        const mapCarrierLimits = {
+            '100000/500000/100000': '100/500/100',
+            '500000/500000/500000': '500/500/500',
+            '1000000/1000000/1000000': '1000/1000/1000',
+            '1500000/1500000/1500000': '1500/1500/1500',
+            '2000000/2000000/2000000': '2000/2000/2000'
+        }
+
+        // Check for excessive losses in DE, HI, MI, PA and VT
+        const excessive_loss_states = [
+            'DE',
+            'HI',
+            'MI',
+            'PA',
+            'VT'
+        ];
+        console.log('yearsinsured', yearsInsured)
+        if (yearsInsured > 10) {
+            yearsInsured = 10;
+        }
+        else if (yearsInsured === 0) {
+            yearsInsured = 1
+        }
+
+        // Prepare limits
+        const markelLimits = mapCarrierLimits[this.app.policies[0].limits];
+        const limits = this.getBestLimits(carrierLimits);
+
+        if (!limits) {
+            log.warn(`Appid: ${this.app.id} Markel WC autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location);
+            this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} does not support the requested liability limits`);
+            return this.return_result('autodeclined');
+        }
+
+        // Check the number of claims
+        if (excessive_loss_states.includes(this.app.business.primary_territory)) {
+            if (this.policy.claims.length > 2) {
+                log.info(`Appid: ${this.app.id} autodeclined: ${this.insurer.name} Too many claims ` + __location);
+                this.reasons.push(`Too many past claims`);
+                return this.return_result('autodeclined');
             }
         }
 
-        // Get the XML structure as a string
-        const xml = ACORD.end({pretty: true});
+        // Check for excessive losses in South Dakota
+        if (this.app.business.primary_territory === 'SD') {
+            if (this.policy.claims.length > 4) {
+                log.info(`Appid: ${this.app.id} autodeclined: ${this.insurer.name} Too many claims ` + __location);
+                this.reasons.push(`Too many past claims`);
+                return this.return_result('autodeclined');
+            }
+        }
 
-        // Determine which URL to use
-        let host = '';
-        if (this.insurer.useSandbox) {
-            host = 'portal-beta.markelinsurance.com';
+        // Markel has us define our own Request ID
+        this.request_id = this.generate_uuid();
+
+        // Get a timestamp for the request and format it correctly
+        const timestamp = moment_timezone.tz('America/Los_Angeles').format('YYYY-MM-DDTHH:mm:ss');
+
+        const primaryAddress = this.app.business.locations[0];
+
+        // Define how legal entities are mapped for Markel
+        const entityMatrix = {
+            Association: 'AS',
+            Corporation: 'CP',
+            'Limited Liability Company': 'LLC',
+            'Limited Partnership': 'LP',
+            Partnership: 'PT',
+            'Sole Proprietorship': 'IN'
+        };
+        const entityType = entityMatrix[this.app.business.entity_type];
+        // Get the claims organized by year
+
+        if (!(this.app.business.entity_type in entityMatrix)) {
+            log.error(`Markel (application ${this.app.id}): Invalid Entity Type ${__location}`);
+            // return this.return_result('autodeclined');
+        }
+
+        const claims_by_year = this.claims_to_policy_years();
+        let losses = '';
+
+        for (let i = 1; i <= 3; i++) {
+            if (claims_by_year[i].count === 0) {
+                losses = 'No'
+            }
+            else {
+                losses = 'Yes'
+            }
+        }
+
+        let fullTimeEmployees;
+        let partTimeEmployees;
+        let classificationCd;
+        let ownerPayroll = '';
+        let ownerIncluded = '';
+
+        // Add class code information
+        this.app.business.locations.forEach((location, index) => {
+            location.activity_codes.forEach((activity_code) => {
+                fullTimeEmployees = location.full_time_employees;
+                partTimeEmployees = location.part_time_employees;
+                classificationCd = this.insurer_wc_codes[location.territory + activity_code.id];
+                ownerPayroll = activity_code.payroll;
+
+            });
+        });
+
+        if (this.app.business.owners_included) {
+            ownerIncluded = 'Yes'
         }
         else {
-            host = 'portal.markelinsurance.com';
+            ownerIncluded = 'No'
         }
-        const path = '/api/v1/submission/acord';
-        // Send the XML to the insurer
-        let result = null;
+
+        // /* ---=== Begin Questions ===--- */
+
+        const specialQuestions = ['CGL05',
+            'GENRL22',
+            'WORK16',
+            'com.markel.uw.questions.Question1524',
+            'com.markel.uw.questions.Question1781'];
+        const unique_territories = [];
+        const questionObj = {};
+        this.app.business.locations.forEach(function(location) {
+            if (unique_territories.includes(location.territory)) {
+                unique_territories.push(location.territory);
+            }
+        });
+        for (const question_id in this.questions) {
+            if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
+                const question = this.questions[question_id];
+                const QuestionCd = this.question_identifiers[question.id];
+
+                // If there is no question code, this question is for another insurer, just move on
+                if (!QuestionCd) {
+                    continue;
+                }
+
+                // Get the answer
+                let answer = '';
+                try {
+                    answer = this.determine_question_answer(question);
+                }
+                catch (error) {
+                    log.error(`Appid: ${this.app.id} Markel WC: Unable to determine answer for question ${question.id}. error: ${error} ` + __location);
+                    this.reasons.push(`Unable to determine answer for question ${question.id}`);
+                    return this.return_result('error');
+                }
+
+                // This question was not answered
+                if (!answer && !this.universal_questions.includes(question_id)) {
+                    continue;
+                }
+
+                // Special rules for Question 1045
+                if (question_id === 1045) {
+                    // Replace any percentages that are present
+                    if (typeof answer === 'string') {
+                        answer = answer.replace('%', '');
+                    }
+
+                    // Make sure the answer is numeric
+                    if (/^\d+$/.test(answer)) {
+                        const answerInt = parseInt(answer, 10);
+
+                        if (answerInt < 15) {
+                            answer = 'Less than 15';
+                        }
+                        else if (answerInt < 25) {
+                            answer = 'Greater than 15 but less than 25';
+                        }
+                        else {
+                            answer = 'Greater than 25';
+                        }
+                    }
+                    else {
+                        log.error(`Appid: ${this.app.id} Markel WC: User provided an invalid percentage for the subcontractors question (not numeric) ` + __location);
+                        this.reasons.push('User provided an invalid percentage for the subcontractors question (not numeric)');
+                        return this.return_result('error');
+                    }
+                }
+
+                let questionAnswer = '';
+
+                //Special Questions and defaults
+                if (QuestionCd === 'com.markel.uw.questions.submission.EMod') {
+                    questionAnswer = 'NA'
+                }
+
+                if (QuestionCd === 'com.markel.uw.questions.submission.ExposureOutsideState') {
+                    questionAnswer = 'NA'
+                }
+                if (QuestionCd === 'com.markel.uw.questions.submission.YearsWithWC') {
+                    if (question.type === 'Yes/No') {
+                        questionAnswer = 'NA'
+                    }
+                    if (question.type === 'Num') {
+                        questionAnswer = this.get_years_in_business()
+                    }
+                }
+
+                if (specialQuestions.includes(QuestionCd)) {
+                    questionAnswer = 'N0'
+                }
+                if (QuestionCd === 'com.markel.uw.questions.Question1590') {
+                    questionAnswer = this.policy.coverage_lapse ? 'YES' : 'NO'
+                }
+                if (QuestionCd === 'com.markel.uw.questions.Question29') {
+                    questionAnswer = this.policy.claims.length ? 'YES' : 'NO';
+                }
+
+                if (question.type === 'Yes/No') {
+                    questionAnswer = question.get_answer_as_boolean() ? 'YES' : 'NO';
+                }
+                else {
+                    questionAnswer = 'NA';
+
+                    // Check if the answer is a number
+                    if (/^\d+$/.test(answer)) {
+                        questionAnswer = answer;
+                    }
+                    else {
+                        questionAnswer = answer;
+                    }
+                }
+
+                // Multi-State?
+                if (unique_territories.length > 1) {
+
+                    if (QuestionCd === 'com.markel.uw.questions.Question30') {
+                        questionAnswer = 'YES'
+                    }
+                    if (QuestionCd === 'com.markel.uw.questions.Question1551') {
+                        if (question.type === 'Yes/No') {
+                            questionAnswer = 'NA'
+                        }
+                        if (question.type === 'Explanation') {
+                            questionAnswer = unique_territories.join(',');
+                        }
+                    }
+
+                }
+                else if (QuestionCd === 'com.markel.uw.questions.Question30') {
+                    questionAnswer = 'NO'
+                }
+
+                if (QuestionCd === 'com.markel.uw.questions.Question870') {
+                    questionAnswer = this.app.business.website ? 'YES' : 'NO'
+                }
+
+                if (this.app.business.website) {
+
+                    if (QuestionCd === 'com.markel.uw.questions.Question1041') {
+                        if (question.type === 'Yes/No') {
+                            questionAnswer = 'NA'
+                        }
+                        if (question.type === 'Explanation') {
+                            questionAnswer = this.app.business.website;
+                        }
+                    }
+
+                }
+
+                // /* ---=== Begin State Specific Questions ===--- */
+
+                // Certified Safety Committee Notification?
+                const safety_committee_states = [
+                    'AZ',
+                    'DE',
+                    'KY',
+                    'NJ',
+                    'PA',
+                    'UT',
+                    'WI'
+                ];
+
+                if (safety_committee_states.includes(this.app.business.primary_territory)) {
+                    if (QuestionCd === 'com.markel.uw.questions.stateSpecific.CertSafetyCommNotification') {
+                        questionAnswer = 'NO'
+                    }
+
+                }
+
+                // NumberOfClaims within last 3 years
+                const number_of_claims_states = [
+                    'DE',
+                    'HI',
+                    'MI',
+                    'PA',
+                    'SD',
+                    'VT'
+                ];
+
+                if (number_of_claims_states.includes(this.app.business.primary_territory) !== -1) {
+                    let total_claims = 0;
+                    for (const year in claims_by_year) {
+                        if (year <= 3) {
+                            total_claims += claims_by_year[year].count;
+                        }
+                    }
+
+                    if (QuestionCd === `com.markel.uw.questions.stateSpecific.${this.app.business.primary_territory.toLowerCase()}.NumberOfClaims`) {
+                        if (question.type === 'Yes/No') {
+                            questionAnswer = 'NA'
+                        }
+                        if (question.type === 'Num') {
+                            questionAnswer = total_claims
+                        }
+                    }
+
+                }
+
+                // Alabama
+                if (this.app.business.primary_territory === 'AL') {
+
+                    // How many claims were within the last year?
+                    if (QuestionCd === 'com.markel.uw.questions.stateSpecific.al.NumberOfClaimsLastYear') {
+                        if (question.type === 'Yes/No') {
+                            questionAnswer = 'NA'
+                        }
+                        if (question.type === 'Num') {
+                            questionAnswer = Object.prototype.hasOwnProperty.call(claims_by_year, 1) ? claims_by_year[1].count : 0
+                        }
+                    }
+
+                    // How many claims were within the last 2 years?
+                    if (QuestionCd === 'com.markel.uw.questions.stateSpecific.al.NumberOfClaimsLast2Years') {
+                        if (question.type === 'Yes/No') {
+                            questionAnswer = 'NA'
+                        }
+                        if (question.type === 'Num') {
+                            questionAnswer = (Object.prototype.hasOwnProperty.call(claims_by_year, 1) ? claims_by_year[1].count : 0) + (Object.prototype.hasOwnProperty.call(claims_by_year, 2) ? claims_by_year[2].count : 0)
+                        }
+                    }
+                }
+
+                // Colorado
+                if (this.app.business.primary_territory === 'CO') {
+
+                    // How many loss time claims were within the last year?
+                    if (QuestionCd === 'com.markel.uw.questions.stateSpecific.co.NumberOfLossTimeClaimsLastYr') {
+                        if (question.type === 'Yes/No') {
+                            questionAnswer = 'NA'
+                        }
+                        if (question.type === 'Num') {
+                            questionAnswer = Object.prototype.hasOwnProperty.call(claims_by_year, 1) ? claims_by_year[1].missedWork : 0
+                        }
+                    }
+
+                    // How many medical claims of $250 or more were within the last?
+                    if (QuestionCd === 'com.markel.uw.questions.stateSpecific.co.NumberOfMedClaimsLastYr') {
+                        if (question.type === 'Yes/No') {
+                            questionAnswer = 'NA'
+                        }
+                        if (question.type === 'Num') {
+                            questionAnswer = Object.prototype.hasOwnProperty.call(claims_by_year, 1) ? claims_by_year[1].count : 0
+                        }
+                    }
+
+                    // Certified Risk Management Program
+                    if (QuestionCd === 'com.markel.uw.questions.stateSpecific.co.CRMPFlag') {
+                        questionAnswer = 'N0'
+
+                    }
+                }
+
+                // Delaware
+                if (this.app.business.primary_territory === 'DE') {
+                    if (this.app.business.bureau_number === 0) {
+
+                        // Do you know the DCRB file number?
+                        if (QuestionCd === 'com.markel.uw.questions.Question1206') {
+                            questionAnswer = 'N0'
+                        }
+                    }
+                    else {
+
+                        // Do you know the DCRB file number?
+                        if (QuestionCd === 'com.markel.uw.questions.Question1206') {
+                            questionAnswer = 'YES'
+                        }
+
+                        // Please enter the DCRB file number
+                        if (QuestionCd === 'com.markel.uw.questions.Question1207') {
+                            if (question.type === 'Yes/No') {
+                                questionAnswer = 'NA'
+                            }
+                            if (question.type === 'Explanation') {
+                                questionAnswer = this.app.business.bureau_number
+                            }
+                        }
+
+                    }
+                }
+
+                // Hawaii
+                if (this.app.business.primary_territory === 'HI') {
+
+                    // Default to NO
+                    if (QuestionCd === 'com.markel.uw.questions.Question1783') {
+                        questionAnswer = 'N0'
+                    }
+
+                    // You can contact the DOL for assistance in obtaining or verifying a DOL number by calling 808-586-8914
+                    if (QuestionCd === 'com.markel.uw.questions.Question1784') {
+                        if (question.type === 'Yes/No') {
+                            questionAnswer = 'NA'
+                        }
+                        if (question.type === 'Explanation') {
+                            questionAnswer = 'OK'
+                        }
+                    }
+
+                }
+
+                // Kentucky
+                if (this.app.business.primary_territory === 'KY') {
+
+                    // Does the applicant wish to select a deductible?
+                    if (QuestionCd === 'com.markel.uw.questions.Question1638') {
+                        questionAnswer = 'N0'
+                    }
+
+                }
+
+                // Pennsylvania
+                if (this.app.business.primary_territory === 'PA') {
+                    if (this.app.business.bureau_number) {
+
+                        // Do you know the PCRB file number?
+                        if (QuestionCd === 'com.markel.uw.questions.Question1204') {
+                            questionAnswer = 'YES'
+                        }
+
+                        // Please enter the PCRB file number
+                        if (QuestionCd === 'com.markel.uw.questions.Question1205') {
+                            if (question.type === 'Yes/No') {
+                                questionAnswer = 'NA'
+                            }
+                            if (question.type === 'Explanation') {
+                                questionAnswer = this.app.bureau_number;
+                            }
+                        }
+
+                    }
+                    else {
+                        // Do you know the PCRB file number?
+                        if (QuestionCd === 'com.markel.uw.questions.Question1204') {
+                            questionAnswer = 'NO'
+                        }
+
+                    }
+                }
+
+                // Rhode Island
+                if (this.app.business.primary_territory === 'RI') {
+
+                    // Consecutive years with no losses (between 0 and 6 inclusive)
+                    if (QuestionCd === 'com.markel.uw.questions.stateSpecific.ri.ClaimFreeYearNumber') {
+                        if (question.type === 'Yes/No') {
+                            questionAnswer = 'NA'
+                        }
+                        if (question.type === 'Num') {
+                            questionAnswer = this.get_years_since_claim();
+                        }
+                    }
+
+                }
+
+                // Texas
+                if (this.app.business.primary_territory === 'TX') {
+
+                    // How many claims were within the last year?
+                    if (QuestionCd === 'com.markel.uw.questions.stateSpecific.tx.NumberOfClaimsLastYear') {
+                        if (question.type === 'Yes/No') {
+                            questionAnswer = 'NA'
+                        }
+                        if (question.type === 'Num') {
+                            questionAnswer = Object.prototype.hasOwnProperty.call(claims_by_year, 1) ? claims_by_year[1].count : 0;
+                        }
+                    }
+
+                    // How many claims were within the last 2 years?
+                    if (QuestionCd === 'com.markel.uw.questions.stateSpecific.tx.NumberOfClaimsLast2Years') {
+                        if (question.type === 'Yes/No') {
+                            questionAnswer = 'NA'
+                        }
+                        if (question.type === 'Num') {
+                            questionAnswer = (Object.prototype.hasOwnProperty.call(claims_by_year, 1) ? claims_by_year[1].count : 0) + (Object.prototype.hasOwnProperty.call(claims_by_year, 2) ? claims_by_year[2].count : 0);
+                        }
+                    }
+
+                    // Any lapse in coverage?
+                    if (QuestionCd === 'com.markel.uw.questions.Question1594') {
+                        questionAnswer = this.policy.coverage_lapse ? 'YES' : 'NO';
+                    }
+
+                }
+
+                // /* ---=== End State Specific Questions ===--- */
+
+                // ---=== Special Markel Question ===---
+                //  Markel asks one question that we do not support because it is unnecessary.
+                //  Below, we add in support for that question so Markel still receives an
+                //  answer as it desires.
+
+                if (Object.prototype.hasOwnProperty.call(special_activity_codes, this.app.business.primary_territory)) {
+                    let match = false;
+                    const codes = special_activity_codes[this.app.business.primary_territory];
+                    this.app.business.locations.forEach(function(location) {
+                        location.activity_codes.forEach(function(activity_code) {
+                            let short_code = activity_code.id;
+                            while (short_code > 9999) {
+                                short_code = Math.floor(short_code / 10);
+                            }
+
+                            if (codes.includes(short_code)) {
+                                match = true;
+                            }
+                        });
+                    });
+
+                    if (match) {
+
+                        // Add the additional question
+                        if (QuestionCd === 'com.markel.uw.questions.Question1203') {
+                            questionAnswer = 'NO'
+                        }
+
+                    }
+                }
+                //Add Question to the question object for the API
+                questionObj[QuestionCd] = questionAnswer;
+            }
+        }
+        const locationList = [];
+        let response = '';
+
+        this.app.business.locations.forEach(location => {
+            locationList.push({
+                "Location Address1":location.address,
+                "Location Zip": location.zip,
+                "Location City": location.city,
+                "Location State": location.state_abbr,
+                "Payroll Section": [
+                    {
+                        Payroll: this.get_total_payroll(),
+                        "Full Time Employees": location.full_time_employees,
+                        "Part Time Employees": location.part_time_employees,
+                        "Class Code": classificationCd,
+                        "Class Code Description": this.app.business.industry_code_description
+                    }
+                ]
+            })
+        });
+
+        const jsonRequest = {submissions: [
+            {
+                RqUID: "CAE8A77B-3A00-4C59-BE75-5A91F098899C",
+                programCode: "wc",
+                effectiveDate: this.policy.effective_date.format('YYYY-MM-DD'),
+                agencyInformation: {
+                    agencyId: "1061249",
+                    licensingAgentUsername: "Talage",
+                    servicingAgentUsername: "Talage"
+                },
+                insured: {
+                    address1: this.app.business.mailing_address,
+                    city: this.app.business.mailing_city,
+                    documentDeliveryPreference: "EM",
+                    name: this.app.business.name,
+                    dba: this.app.business.dba,
+                    website: this.app.business.website,
+                    fein: this.app.business.locations[0].identification_number,
+                    postalCode: this.app.business.mailing_zipcode,
+                    state: this.app.business.mailing_territory
+                },
+                application: {
+                    'Location Information': {Location: locationList},
+                    "Policy Info": {
+                        "Employer Liability Limit": markelLimits,
+                        "Years Insured": yearsInsured,
+                        "Exp Mod NCCI": {"Exp Mod NCCI Factor": this.app.business.experience_modifier},
+                        "Losses": losses
+                    },
+                    "Additional Information": {
+                        "Entity Type": entityType,
+                        "Assigned Risk Pool Prior Period": "No",
+                        "Primary Contact Name": this.app.business.contacts[0].first_name,
+                        "Primary Contact Last Name": this.app.business.contacts[0].last_name,
+                        "Phone Number": this.app.business.contacts[0].phone,
+                        "Email": this.app.business.contacts[0].email,
+                        "Outside Exposure": "None",
+                        "Owner Officer Information Section": [
+                            {
+                                "Owner First Name": this.app.business.owners[0].fname,
+                                "Owner Last Name": this.app.business.owners[0].lname,
+                                "Owner Title": this.app.business.owners[0].officerTitle,
+                                "Owner Ownership": this.app.business.owners[0].ownership,
+                                "Owner Class": 8001,
+                                "Owner Payroll": ownerPayroll,
+                                "Owner Include": ownerIncluded
+                            }
+                        ]
+                    },
+                    "Underwriter Questions": {
+                        "UWQuestions": questionObj,
+                        "Description of Operations": this.app.business.industry_code_description
+                    },
+                    "signaturePreference": "Electronic"
+                }
+            }
+        ]}
+
+        let unansweredQ = null;
+        let declinedReasons = null;
+
         try {
-            result = await this.send_xml_request(host, path, xml);
+            response = await this.send_json_request(host, path, JSON.stringify(jsonRequest), key, 'POST', false);
         }
         catch (error) {
             log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: ${error} ${__location}`);
             this.reasons.push(error);
             return this.return_result('error');
         }
-        // Parse the various status codes and take the appropriate action
-        let message_status = null;
-        let res = result.ACORD;
-        let status = parseInt(res.Status[0].StatusCd[0], 10);
-        switch (status) {
-            case 1740:
-                log.error(`Appid: ${this.app.id} Markel WC: Error 1740: Authentication Failed ` + __location);
-                this.reasons.push('Error 1740: Authentication Failed');
-                return this.return_result('error');
-            case 1980:
-                log.error(`Appid: ${this.app.id} Markel WC: Error 1980: Unsupported Application ID ` + __location);
-                this.reasons.push('Error 1980: Unsupported Application ID');
-                return this.return_result('declined');
-            case 400:
-                log.error(`Appid: ${this.app.id} Markel WC: Error 400: ${res.Status[0].StatusDesc[0]} ` + __location);
-                this.reasons.push(`Error 400: ${res.Status[0].StatusDesc[0]}`);
-                return this.return_result('error');
-            case 0:
-                res = res.InsuranceSvcRs[0].WorkCompPolicyQuoteInqRs[0];
 
-                // Additional Error Checking
-                message_status = res.MsgStatus[0];
-                if (message_status.MsgStatusCd[0] === 'Error') {
-                    this.reasons.push(message_status.MsgErrorCd[0]);
-                    return this.return_result('error');
+        const rquIdKey = Object.keys(response)[0]
+
+        try {
+            if (response && response[rquIdKey].underwritingDecisionCode === 'SUBMITTED') {
+
+                if(response[rquIdKey].premium){
+                    this.amount = response[rquIdKey].premium.totalPremium;
                 }
 
-                // Determine the status
-                status = res.PolicySummaryInfo[0].PolicyStatusCd[0].toLowerCase();
-                if (status === 'declined') {
-                    return this.return_result('declined');
-                }
+                // Get the quote limits
+                if (response[rquIdKey].application["Policy Info"]) {
 
-                // Submitted to underwriting
-                if (status === 'submitted') {
-                    status = 'referred';
+                    const limitsString = response[rquIdKey].application["Policy Info"]["Employer Liability Limit"].replace(/,/g, '');
+                    const limitsArray = limitsString.split('/');
+                    const quotelimits = {
+                        '1': limitsArray[0],
+                        '2': limitsArray[1],
+                        '3': limitsArray[2]
+                    }
+                    return await this.client_referred(null, quotelimits, response[rquIdKey].premium.totalPremium,null,null);
                 }
-
-                // Attempt to get the amount of the quote
-                try {
-                    this.amount = parseInt(res.PolicySummaryInfo[0].FullTermAmt[0].Amt[0], 10);
+                else {
+                    log.error('Markel Quote structure changed. Unable to find limits. ' + __location);
+                    this.reasons.push('Quote structure changed. Unable to find limits.');
                 }
-                catch (error) {
-                    log.error(`Appid: ${this.app.id} Markel WC: Error getting amount ${error}` + __location);
-                    return this.return_result('error');
-                }
-
-                // Grab the limits info
-                try {
-                    res.WorkCompLineBusiness[0].CommlCoverage.forEach((coverage_block) => {
-                        if (coverage_block.CoverageCd[0] === 'INEL') {
-                            coverage_block.Limit.forEach((limit) => {
-                                switch (limit.LimitAppliesToCd[0]) {
-                                    case 'PerAcc':
-                                        this.limits[1] = limit.FormatInteger[0];
-                                        break;
-                                    case 'DisEachEmpl':
-                                        this.limits[2] = limit.FormatInteger[0];
-                                        break;
-                                    case 'DisPol':
-                                        this.limits[3] = limit.FormatInteger[0];
-                                        break;
-                                    default:
-                                        log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response` + __location);
-                                        break;
-                                }
-                            });
-                        }
-                    });
-                }
-                catch (e) {
-                    log.error(`Appid: ${this.app.id} Markel WC: Error getting limits ${e} ` + __location);
-                    return this.return_result('error');
-                }
-
-                // Send the result of the request
-                return this.return_result(status);
-
-            default:
-                this.reasons.push(`API returned unknown status code of ${status}`);
-                return this.return_result('error');
+                // Return with the quote
+                return this.return_result('referred_with_price');
+            }
         }
+        catch (error) {
+            log.error(`Appid: ${this.app.id} Markel WC: Error getting amount ${error}` + __location);
+            return this.return_result('error');
+        }
+
+        //Check reasons for DECLINED
+        if (response[rquIdKey].errors) {
+            //Unanswered Questions
+            if (response[rquIdKey]) {
+                unansweredQ = response[rquIdKey].errors[0].UnansweredQuestions;
+            }
+            //Declined Reasons
+            if (response[rquIdKey].errors[1]) {
+                declinedReasons = response[rquIdKey].errors[1].DeclineReasons;
+            }
+        }
+
+        if (response[rquIdKey].underwritingDecisionCode === 'DECLINED') {
+            this.reasons.push(declinedReasons);
+            return this.return_result('declined');
+        }
+        this.reasons.push(`Markel does not cover ${this.app.business.industry_code_description} in ${primaryAddress.territory}`);
+        return this.return_result('error');
+
     }
 };
