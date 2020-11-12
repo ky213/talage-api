@@ -2,12 +2,8 @@
 
 
 const DatabaseObject = require('./DatabaseObject.js');
-const crypt = requireShared('./services/crypt.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const moment = require('moment');
-const moment_timezone = require('moment-timezone');
-const {debug} = require('request');
 
 
 const tableName = 'clw_talage_industry_code_categories'
@@ -62,21 +58,6 @@ module.exports = class IndustryCodeCategoryBO{
         });
     }
 
-    /**
-	 * saves this object.
-     *
-	 * @returns {Promise.<JSON, Error>} save return true , or an Error if rejected
-	 */
-    save(asNew = false){
-        return new Promise(async(resolve, reject) => {
-            //validate
-            this.#dbTableORM.load(this, skipCheckRequired);
-            await this.#dbTableORM.save().catch(function(err){
-                reject(err);
-            });
-            resolve(true);
-        });
-    }
 
     loadFromId(id) {
         return new Promise(async(resolve, reject) => {

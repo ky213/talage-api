@@ -1,5 +1,6 @@
+/* eslint-disable guard-for-in */
 
-
+const moment = require('moment');
 const QuoteLimitBO = global.requireShared('./models/QuoteLimit-BO.js');
 const DatabaseObject = require('./DatabaseObject.js');
 // eslint-disable-next-line no-unused-vars
@@ -111,6 +112,7 @@ module.exports = class QuoteBO {
             quoteJSON.mysqlId = quoteID;
             //mongo save.
             try{
+                // eslint-disable-next-line no-unused-vars
                 const ApplicationBO = global.requireShared('models/Application-BO.js');
                 const applicationBO = new ApplicationBO();
                 //Get ApplicationID.
@@ -136,7 +138,7 @@ module.exports = class QuoteBO {
                 // eslint-disable-next-line array-element-newline
                 const limitcolumns = ['quote', 'limit', 'amount']
                 await quoteLimitBO.insertByColumnValue(limitcolumns, limitValues).catch(function(err){
-                    log.error("Error quoteLimitBO.insertByColumnValue " + err + __location);
+                    log.error(`Error quoteLimitBO.insertByColumnValue  for appId: ${quoteJSON.mysqlAppId}` + err + __location);
                 });
             }
             resolve(quoteID);
@@ -180,8 +182,182 @@ module.exports = class QuoteBO {
         });
     }
 
+    getList(queryJSON, getOptions = null) {
+        return new Promise(async(resolve, reject) => {
+            //
+            // eslint-disable-next-line prefer-const
+            let getListOptions = {getInsurerName: false}
 
-    loadFromApplicationId(applicationId, policy_type = null) {
+            if(getOptions){
+                for(const prop in getOptions){
+                    getListOptions[prop] = getOptions[prop];
+                }
+            }
+
+            const queryProjection = {"__v": 0}
+
+            let findCount = false;
+
+            let rejected = false;
+            // eslint-disable-next-line prefer-const
+            let query = {};
+            let error = null;
+
+            var queryOptions = {lean:true};
+            queryOptions.sort = {};
+            if (queryJSON.sort) {
+                var acs = 1;
+                if (queryJSON.desc) {
+                    acs = -1;
+                    delete queryJSON.desc
+                }
+                queryOptions.sort[queryJSON.sort] = acs;
+                delete queryJSON.sort
+            }
+            else {
+                // default to DESC on sent
+                queryOptions.sort.createdAt = -1;
+
+            }
+            const queryLimit = 500;
+            if (queryJSON.limit) {
+                var limitNum = parseInt(queryJSON.limit, 10);
+                delete queryJSON.limit
+                if (limitNum < queryLimit) {
+                    queryOptions.limit = limitNum;
+                }
+                else {
+                    queryOptions.limit = queryLimit;
+                }
+            }
+            else {
+                queryOptions.limit = queryLimit;
+            }
+            if (queryJSON.count) {
+                if (queryJSON.count === "1") {
+                    findCount = true;
+                }
+                delete queryJSON.count;
+            }
+
+            if (queryJSON.searchbegindate && queryJSON.searchenddate) {
+                const fromDate = moment(queryJSON.searchbegindate);
+                const toDate = moment(queryJSON.searchenddate);
+                if (fromDate.isValid() && toDate.isValid()) {
+                    query.createdAt = {
+                        $lte: toDate,
+                        $gte: fromDate
+                    };
+                    delete queryJSON.searchbegindate;
+                    delete queryJSON.searchenddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.searchbegindate) {
+                // eslint-disable-next-line no-redeclare
+                const fromDate = moment(queryJSON.searchbegindate);
+                if (fromDate.isValid()) {
+                    query.createdAt = {$gte: fromDate};
+                    delete queryJSON.searchbegindate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.searchenddate) {
+                // eslint-disable-next-line no-redeclare
+                const toDate = moment(queryJSON.searchenddate);
+                if (toDate.isValid()) {
+                    query.createdAt = {$lte: toDate};
+                    delete queryJSON.searchenddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            if(queryJSON.insurerId && Array.isArray(queryJSON.insurerId)){
+                queryJSON.insurerId = {$in: queryJSON.insurerId};
+            }
+            //Status check for multiple Values
+            if(queryJSON.status && Array.isArray(queryJSON.status)){
+                queryJSON.status = {$in: queryJSON.status};
+            }
+
+
+            if (queryJSON) {
+                for (var key in queryJSON) {
+                    if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
+                        let clearString = queryJSON[key].replace("%", "");
+                        clearString = clearString.replace("%", "");
+                        query[key] = {
+                            "$regex": clearString,
+                            "$options": "i"
+                        };
+                    }
+                    else {
+                        query[key] = queryJSON[key];
+                    }
+                }
+            }
+
+
+            if (findCount === false) {
+                let docList = null;
+                try {
+                    log.debug("QuoteList query " + JSON.stringify(query))
+                    docList = await Quote.find(query, queryProjection, queryOptions);
+                    if(getListOptions.getInsurerName === true && docList.length > 0){
+                        //TODO loop doclist adding InsurerName
+
+                    }
+                }
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    rejected = true;
+                }
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+
+
+                resolve(mongoUtils.objListCleanup(docList));
+                return;
+            }
+            else {
+                const docCount = await Quote.countDocuments(query).catch(err => {
+                    log.error("Quote.countDocuments error " + err + __location);
+                    error = null;
+                    rejected = true;
+                })
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                resolve({count: docCount});
+                return;
+            }
+        });
+    }
+
+
+    getByApplicationId(applicationId, policy_type = null) {
+        // eslint-disable-next-line prefer-const
+        let query = {"applicationId": applicationId}
+        if(policy_type){
+            query.policyType = policy_type;
+        }
+        return this.getList(query);
+
+    }
+
+    loadFromMysqlByApplicationId(applicationId, policy_type = null) {
         return new Promise(async(resolve, reject) => {
             if(applicationId && applicationId > 0){
                 let rejected = false;
@@ -198,7 +374,7 @@ module.exports = class QuoteBO {
                     // Check if this was
 
                     rejected = true;
-                    log.error(`loadFromApplicationId ${tableName} applicationId: ${db.escape(applicationId)}  error ` + error + __location)
+                    log.error(`loadFromMysqlByApplicationId ${tableName} applicationId: ${db.escape(applicationId)}  error ` + error + __location)
                     reject(error);
                 });
                 if (rejected) {
@@ -213,7 +389,7 @@ module.exports = class QuoteBO {
                         }
                         await quoteBO.#dbTableORM.convertJSONColumns(result[i]);
                         const resp = await quoteBO.loadORM(result[i], skipCheckRequired).catch(function(err){
-                            log.error(`loadFromApplicationId error loading object: ` + err + __location);
+                            log.error(`loadFromMysqlByApplicationId error loading object: ` + err + __location);
                             //not reject on issues from database object.
                             //reject(err);
                         })
@@ -237,25 +413,25 @@ module.exports = class QuoteBO {
     }
 
 
-    DeleteByApplicationId(applicationId) {
-        return new Promise(async(resolve, reject) => {
-            //Remove old records.
-            const sql = `DELETE FROM ${tableName} 
-                   WHERE application = ${applicationId}
-            `;
-            let rejected = false;
-            await db.query(sql).catch(function(error) {
-                // Check if this was
-                log.error(`Database Object ${tableName} DELETE error : ` + error + __location);
-                rejected = true;
-                reject(error);
-            });
-            if (rejected) {
-                return false;
-            }
-            resolve(true);
-        });
-    }
+    // DeleteByApplicationId(applicationId) {
+    //     return new Promise(async(resolve, reject) => {
+    //         //Remove old records.
+    //         const sql = `DELETE FROM ${tableName}
+    //                WHERE application = ${applicationId}
+    //         `;
+    //         let rejected = false;
+    //         await db.query(sql).catch(function(error) {
+    //             // Check if this was
+    //             log.error(`Database Object ${tableName} DELETE error : ` + error + __location);
+    //             rejected = true;
+    //             reject(error);
+    //         });
+    //         if (rejected) {
+    //             return false;
+    //         }
+    //         resolve(true);
+    //     });
+    // }
 
 
     async getMongoDocbyMysqlId(mysqlId) {
@@ -348,7 +524,7 @@ module.exports = class QuoteBO {
         });
 
 
-        return mongoUtils.objCleanup(application);
+        return mongoUtils.objCleanup(quote);
     }
 
     async updateQuoteAggregatedStatus(quoteId, aggregatedStatus) {

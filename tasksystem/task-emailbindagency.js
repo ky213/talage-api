@@ -1,13 +1,20 @@
 'use strict';
 
 const moment = require('moment');
-const crypt = global.requireShared('./services/crypt.js');
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
+
+const ApplicationBO = global.requireShared('models/Application-BO.js');
+const QuoteBO = global.requireShared('models/Quote-BO.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
+const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
+const InsurerBO = global.requireShared('models/Insurer-BO.js');
+
+const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
+
 
 /**
  * AbandonQuote Task processor
@@ -72,49 +79,10 @@ exports.emailbindagency = async function(applicationId, quoteId) {
 
 var emailbindagency = async function(applicationId, quoteId) {
     if (applicationId && quoteId) {
-
-        //get filter out wholesale apps.
-        // NEED insurer, quotes, codes
-        const appSQL = `
-            SELECT
-                a.id,
-                a.agency_location AS agencyLocation,
-                al.phone as agencyLocationPhone,
-                ag.id as agencyId,
-                ag.email AS agencyEmail,
-                ag.name AS agencyName,
-                ag.agency_network,
-                al.email AS agencyLocationEmail,
-                c.email,
-                c.fname,
-                c.lname,
-                c.phone,
-                b.name as businessName,
-                q.id as qouteId,
-                q.number as quoteNumber,
-                q.api_result,
-                q.amount,
-                i.agent_login,
-                i.name as insurer_name,
-                i.logo as insurer_logo,
-                ic.description as codeDescription
-            FROM clw_talage_applications AS a
-                INNER JOIN clw_talage_quotes AS q ON a.id = q.application
-                INNER JOIN clw_talage_agency_locations AS al ON a.agency_location = al.id
-                INNER JOIN clw_talage_agencies AS ag ON al.agency = ag.id
-                INNER JOIN clw_talage_industry_codes AS ic  ON ic.id = a.industry_code
-                INNER JOIN clw_talage_insurers AS i  ON i.id = q.insurer
-                INNER JOIN clw_talage_businesses AS b ON b.id = a.business
-                INNER JOIN clw_talage_contacts AS c ON a.business = c.business
-            WHERE 
-            a.id =  ${applicationId}
-            AND q.id =  ${quoteId}
-            AND a.wholesale = 0
-        `;
-
-        let applications = null;
+        let applicationDoc = null;
+        const applicationBO = new ApplicationBO();
         try {
-            applications = await db.query(appSQL);
+            applicationDoc = await applicationBO.getMongoDocbyMysqlId(applicationId);
         }
         catch (err) {
             log.error(`Error get opt out applications from DB for ${applicationId} error:  ${err}`);
@@ -122,24 +90,23 @@ var emailbindagency = async function(applicationId, quoteId) {
             return false;
         }
 
-        if (applications && applications.length > 0) {
-
-            let agencyLocationEmail = null;
-  
-
-            //decrypt info...
-            if (applications[0].agencyLocationEmail) {
-                agencyLocationEmail = await crypt.decrypt(applications[0].agencyLocationEmail);
+        if (applicationDoc) {
+            //get Quote
+            let error = null;
+            const quoteBO = new QuoteBO();
+            let quoteDoc = null;
+            try {
+                quoteDoc = await quoteBO.getMongoDocbyMysqlId(quoteId);
             }
-            else if (applications[0].agencyEmail) {
-                agencyLocationEmail = await crypt.decrypt(applications[0].agencyEmail);
+            catch(err){
+                log.error("Error getting quote for emailbindagency " + err + __location);
             }
+
 
             //get email content.
-            const agencyNetwork = applications[0].agency_network;
-            let error = null;
+            const agencyNetwork = applicationDoc.agencyNetworkId;
             const agencyBO = new AgencyBO();
-            const emailContentJSON = await agencyBO.getEmailContentAgencyAndCustomer(applications[0].agencyId, "policy_purchase_agency", "policy_purchase_customer").catch(function(err){
+            const emailContentJSON = await agencyBO.getEmailContentAgencyAndCustomer(applicationDoc.agencyId, "policy_purchase_agency", "policy_purchase_customer").catch(function(err){
                 log.error(`Email content Error Unable to get email content for  email bind agency. appid: ${applicationId}.  error: ${err}` + __location);
                 error = true;
             });
@@ -148,30 +115,78 @@ var emailbindagency = async function(applicationId, quoteId) {
             }
 
             if (emailContentJSON && emailContentJSON.customerMessage && emailContentJSON.customerSubject) {
-
-                //decrypt application fields needed.
-                applications[0].email = await crypt.decrypt(applications[0].email);
-                applications[0].phone = await crypt.decrypt(applications[0].phone);
-                applications[0].website = await crypt.decrypt(applications[0].website);
-                applications[0].fname = await crypt.decrypt(applications[0].fname);
-                applications[0].lname = await crypt.decrypt(applications[0].lname);
-                applications[0].businessName = await crypt.decrypt(applications[0].businessName);
-                applications[0].agencyEmail = await crypt.decrypt(applications[0].agencyEmail);
-                applications[0].agencyWebsite = await crypt.decrypt(applications[0].agencyWebsite);
-                applications[0].agencyLocationPhone = await crypt.decrypt(applications[0].agencyLocationPhone);
-
-                let customerPhone = '';
-                if (applications[0].phone) {
-                    customerPhone = formatPhone(applications[0].phone);
+                //get AgencyBO
+                try{
+                    await agencyBO.loadFromId(applicationDoc.agencyId)
                 }
-                const fullName = stringFunctions.ucwords(stringFunctions.strtolower(applications[0].fname) + ' ' + stringFunctions.strtolower(applications[0].lname));
+                catch(err){
+                    log.error("Error getting agencyBO " + err + __location);
+                    error = true;
+
+                }
+                if(error){
+                    return false;
+                }
+
+                //get AgencyLocationBO
+                const agencyLocationBO = new AgencyLocationBO();
+                try{
+                    await agencyLocationBO.loadFromId(applicationDoc.agencyLocationId)
+                }
+                catch(err){
+                    log.error("Error getting agencyLocationBO " + err + __location);
+                    error = true;
+
+                }
+                if(error){
+                    return false;
+                }
+
+                let agencyLocationEmail = '';
+                //decrypt info...
+                if(agencyLocationBO.email){
+                    agencyLocationEmail = agencyLocationBO.email
+                }
+                else if(agencyBO.email){
+                    agencyLocationEmail = agencyBO.email;
+                }
+
+                //Insurer
+                let insurerJson = {};
+                const insurerBO = new InsurerBO();
+                try{
+                    insurerJson = await insurerBO.getById(quoteDoc.insurerId);
+                }
+                catch(err){
+                    log.error("Error get InsurerList " + err + __location)
+                }
+
+                let industryCodeDesc = '';
+                const industryCodeBO = new IndustryCodeBO();
+                try{
+                    const industryCodeJson = await industryCodeBO.getById(applicationDoc.industryCode);
+                    if(industryCodeJson){
+                        industryCodeDesc = industryCodeJson.description;
+                    }
+                }
+                catch(err){
+                    log.error("Error getting industryCodeBO " + err + __location);
+                }
+
+
+                const customerContact = applicationDoc.contacts.find(contactTest => contactTest.primary === true);
+                let customerPhone = '';
+                if (customerContact.phone) {
+                    customerPhone = formatPhone(customerContact.phone);
+                }
+                const fullName = stringFunctions.ucwords(stringFunctions.strtolower(customerContact.firstName) + ' ' + stringFunctions.strtolower(customerContact.lastName));
 
                 let agencyPhone = '';
-                if (applications[0].agencyLocationPhone) {
-                    agencyPhone = formatPhone(applications[0].agencyLocationPhone);
+                if (agencyLocationBO.phone) {
+                    agencyPhone = formatPhone(agencyLocationBO.phone);
                 }
 
-                let quoteResult = stringFunctions.ucwords(applications[0].api_result);
+                let quoteResult = stringFunctions.ucwords(quoteDoc.apiResult);
                 if (quoteResult.indexOf('_') > 0) {
                     quoteResult = quoteResult.substring(0, quoteResult.indexOf('_'));
                 }
@@ -179,14 +194,14 @@ var emailbindagency = async function(applicationId, quoteId) {
                 let message = emailContentJSON.agencyMessage;
                 let subject = emailContentJSON.agencySubject;
 
-                message = message.replace(/{{Agent Login URL}}/g, applications[0].agent_login);
-                message = message.replace(/{{Business Name}}/g, applications[0].businessName);
-                message = message.replace(/{{Carrier}}/g, applications[0].insurer_name);
-                message = message.replace(/{{Contact Email}}/g, applications[0].email);
+                message = message.replace(/{{Agent Login URL}}/g, insurerJson.agent_login);
+                message = message.replace(/{{Business Name}}/g, applicationDoc.businessName);
+                message = message.replace(/{{Carrier}}/g, insurerJson.name);
+                message = message.replace(/{{Contact Email}}/g, customerContact.email);
                 message = message.replace(/{{Contact Name}}/g, fullName);
                 message = message.replace(/{{Contact Phone}}/g, customerPhone);
-                message = message.replace(/{{Industry}}/g, applications[0].codeDescription);
-                message = message.replace(/{{Quote Number}}/g, applications[0].quoteNumber);
+                message = message.replace(/{{Industry}}/g, industryCodeDesc);
+                message = message.replace(/{{Quote Number}}/g, quoteDoc.quoteNumber);
                 message = message.replace(/{{Quote Result}}/g, quoteResult);
 
 
@@ -194,10 +209,7 @@ var emailbindagency = async function(applicationId, quoteId) {
                 subject = subject.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
 
                 // Send the email
-                const keyData = {
-                    'application': applicationId,
-                    'agency_location': applications[0].agencyLocation
-                };
+                const keyData = {'applicationDoc': applicationDoc};
                 if (agencyLocationEmail) {
                     const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData, agencyNetwork, "Networkdefault");
                     if (emailResp === false) {
@@ -205,7 +217,7 @@ var emailbindagency = async function(applicationId, quoteId) {
                     }
                 }
                 else {
-                    log.error("emailbindagency no email address for data: " + JSON.stringify(keyData) + __location);
+                    log.error(`emailbindagency no email address for appId: ${applicationId} ` + __location);
                 }
 
                 //TO INSURED
@@ -214,17 +226,17 @@ var emailbindagency = async function(applicationId, quoteId) {
                     subject = emailContentJSON.customerSubject;
 
 
-                    message = message.replace(/{{Agency}}/g, applications[0].agencyName);
-                    message = message.replace(/{{Agency Email}}/g, applications[0].agencyEmail);
+                    message = message.replace(/{{Agency}}/g, agencyBO.name);
+                    message = message.replace(/{{Agency Email}}/g, agencyBO.email);
                     message = message.replace(/{{Agency Phone}}/g, agencyPhone);
-                    message = message.replace(/{{Agency Website}}/g, applications[0].agencyWebsite ? '<a href="' + applications[0].agencyWebsite + '" rel="noopener noreferrer" target="_blank">' + applications[0].agencyWebsite + '</a>' : '');
-                    message = message.replace(/{{Quotes}}/g, '<br /><div align="center"><table border="0" cellpadding="0" cellspacing="0" width="350"><tr><td width="200"><img alt="' + applications[0].insurer_name + '" src="https://img.talageins.com/' + applications[0].insurer_logo + '" width="100%" /></td><td width="20"></td><td style="padding-left:20px;font-size:30px;">$' + stringFunctions.number_format(applications[0].amount) + '</td></tr></table></div><br />');
+                    message = message.replace(/{{Agency Website}}/g, agencyBO.website ? '<a href="' + agencyBO.website + '" rel="noopener noreferrer" target="_blank">' + agencyBO.website + '</a>' : '');
+                    message = message.replace(/{{Quotes}}/g, '<br /><div align="center"><table border="0" cellpadding="0" cellspacing="0" width="350"><tr><td width="200"><img alt="' + insurerJson.name + '" src="https://img.talageins.com/' + insurerJson.logo + '" width="100%" /></td><td width="20"></td><td style="padding-left:20px;font-size:30px;">$' + stringFunctions.number_format(quoteDoc.amount) + '</td></tr></table></div><br />');
 
-                    subject = subject.replace(/{{Agency}}/g, applications[0].agencyName);
+                    subject = subject.replace(/{{Agency}}/g, agencyBO.name);
 
                     //log.debug("sending customer email " + __location);
                     const brand = emailContentJSON.emailBrand === 'wheelhouse' ? 'agency' : `${emailContentJSON.emailBrand}-agency`
-                    const emailResp2 = await emailSvc.send(applications[0].email, subject, message, keyData, agencyNetwork, brand, applications[0].agencyId);
+                    const emailResp2 = await emailSvc.send(customerContact.email, subject, message, keyData, agencyNetwork, brand, applicationDoc.agencyId);
                     // log.debug("emailResp = " + emailResp);
                     if (emailResp2 === false) {
                         slack.send('#alerts', 'warning', `Failed to send Policy Bind Email to Insured application #${applicationId} and quote ${quoteId}. Please follow-up manually.`);
@@ -244,7 +256,7 @@ var emailbindagency = async function(applicationId, quoteId) {
 
         }
         else {
-            log.error('emailbindagency No application quotes pulled from database applicationId or quoteId: ' + applicationId + ":" + quoteId + " SQL: \n" + appSQL + '\n' + __location);
+            log.error('emailbindagency No application quotes pulled from database applicationId or quoteId: ' + applicationId + ":" + quoteId + __location);
             return false;
         }
     }

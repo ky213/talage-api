@@ -10,6 +10,11 @@ const tracker = global.requireShared('./helpers/tracker.js');
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
+const ApplicationBO = global.requireShared('models/Application-BO.js');
+const QuoteBO = global.requireShared('models/Quote-BO.js');
+const InsurerBO = global.requireShared('models/Insurer-BO.js');
+//const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
+const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
 
 /**
  * Quotereport Task processor
@@ -66,73 +71,106 @@ var quoteReportTask = async function(){
     const yesterdayBegin = moment.tz("America/Los_Angeles").subtract(1,'d').startOf('day');
     const yesterdayEnd = moment.tz("America/Los_Angeles").subtract(1,'d').endOf('day');
 
-    //S QLAgency locations
-    const quoteSQL = `
-    SELECT
-    q.application as application,
-    q.policy_type as policy_type,
-    i.name as name,
-    z.territory as territory,
-    q.api_result as api_result,
-    q.reasons as reasons,
-    q.seconds as seconds,
-    ag.agency_network AS network,
-    GROUP_CONCAT(DISTINCT ac.description) AS activity_codes
-    FROM clw_talage_quotes AS q
-        LEFT JOIN clw_talage_insurers AS i ON q.insurer = i.id
-        LEFT JOIN clw_talage_applications AS a ON a.id = q.application
-        LEFT JOIN clw_talage_zip_codes as z on a.zip = z.zip
-        LEFT JOIN clw_talage_agencies AS ag ON a.agency = ag.id
-        LEFT JOIN clw_talage_application_activity_codes as acc on a.id = acc.application
-        LEFT JOIN clw_talage_activity_codes as ac on acc.ncci_code = ac.id
-    WHERE 
-        q.created BETWEEN  '${yesterdayBegin.utc().format()}' AND '${yesterdayEnd.utc().format()}'
-    GROUP BY
-        q.id
-    `;
-    let quoteListDBJSON = null;
-
-    quoteListDBJSON = await db.query(quoteSQL).catch(function(err){
-        log.error(`Error get quote list from DB. error:  ${err}` + __location);
+    const quoteBO = new QuoteBO()
+    let quoteList = null;
+    try {
+        //sort by policyType
+        const quoteQuery = {
+            "searchenddate": yesterdayEnd,
+            "searchbegindate": yesterdayBegin
+        }
+        quoteList = await quoteBO.getList(quoteQuery);
+    }
+    catch(err){
+        log.error("Error getting quote for qoute list " + err + __location);
         return false;
-    });
-    const cvsHeaderColumns = {
-        "application": "App ID",
-        "policy_type": "Type",
-        "name": "Insurer",
-        "network": "Agency Network",
-        "territory": "Territory",
-        "api_result": "Result",
-        "reasons": "Reasons",
-        "seconds": "Seconds",
-        "activitycode1": "Activity Code 1",
-        "activitycode2": "Activity Code 2",
-        "activitycode3": "Activity Code 3"
-    };
+    }
 
-    // Loop locations setting up activity codes.
-    if(quoteListDBJSON && quoteListDBJSON.length > 0){
+
+    if(quoteList && quoteList.length > 0){
+        let lastAppDoc = null;
+        const reportRows = [];
+        // get insurer list
+        //get list of insurers - Small < 50 get whole list once.
+        let insurerList = null;
+        const insurerBO = new InsurerBO();
+        try{
+            insurerList = await insurerBO.getList();
+        }
+        catch(err){
+            log.error("Error get InsurerList " + err + __location)
+        }
+
         //Load AgencyNetwork Map
         const agencyNetworkBO = new AgencyNetworkBO();
         let agencyNetworkNameMapJSON = {};
         agencyNetworkNameMapJSON = await agencyNetworkBO.getIdToNameMap().catch(function(err){
             log.error("Could not get agency network id to name map " + err + __location);
         })
-        for(let i = 0; i < quoteListDBJSON.length; i++){
-            const quote = quoteListDBJSON[i];
-            // Get AgencyNetwork name from AN list.
-            if(agencyNetworkNameMapJSON[quoteListDBJSON[i].network]){
-                quoteListDBJSON[i].network = agencyNetworkNameMapJSON[quoteListDBJSON[i].network];
+        //loop quote list.
+        for(let i = 0; i < quoteList.length; i++){
+            const quoteDoc = quoteList[i];
+            let getAppDoc = false;
+            if(!lastAppDoc){
+                getAppDoc = true;
             }
-            //split activity_codes
-            if(quote.activity_codes){
-                const activityCodeList = quote.activity_codes.split(",")
-                if (activityCodeList.length > 0) quote.activitycode1 = activityCodeList[0];
-                if (activityCodeList.length > 1) quote.activitycode2 = activityCodeList[1];
-                if (activityCodeList.length > 2) quote.activitycode3 = activityCodeList[2];
+            if(getAppDoc === true || lastAppDoc && lastAppDoc.applicationId !== quoteDoc.applicationId){
+                lastAppDoc = {};
+                const applicationBO = new ApplicationBO();
+                try{
+
+                    lastAppDoc = await applicationBO.getfromMongoByAppId(quoteDoc.applicationId);
+                }
+                catch(err){
+                    log.error("abandonquotetask getting appid list error " + err + __location);
+                    throw err;
+                }
             }
+            let insurer = {name: ''};
+            if(insurerList){
+                insurer = insurerList.find(insurertest => insurertest.id === quoteDoc.insurerId);
+            }
+            const newRow = {};
+            newRow.application = lastAppDoc.applicationId;
+            newRow.policy_type = quoteDoc.policyType;
+            newRow.name = insurer.name;
+            newRow.network = agencyNetworkNameMapJSON[lastAppDoc.agencyNetworkId];
+            newRow.territory = lastAppDoc.mailingState;
+            newRow.api_result = quoteDoc.apiResult;
+            newRow.reasons = quoteDoc.reasons;
+            newRow.seconds = quoteDoc.quoteTimeSeconds;
+            //Activty codes
+            if(lastAppDoc && lastAppDoc.activityCodes && lastAppDoc.activityCodes.length > 0){
+                for(let j = 0; j < lastAppDoc.activityCodes.length; j++){
+                    const activityCodeBO = new ActivityCodeBO();
+                    try{
+                        const activityCodeJSON = await activityCodeBO.getById(lastAppDoc.activityCodes[j].ncciCode)
+                        newRow["activitycode" + j] = activityCodeJSON.description;
+                    }
+                    catch(err){
+                        log.error("activity code load error " + err + __location);
+                    }
+                    if(j > 1){
+                        break;
+                    }
+                }
+            }
+            reportRows.push(newRow)
         }
 
+        const cvsHeaderColumns = {
+            "application": "App ID",
+            "policy_type": "Type",
+            "name": "Insurer",
+            "network": "Agency Network",
+            "territory": "Territory",
+            "api_result": "Result",
+            "reasons": "Reasons",
+            "seconds": "Seconds",
+            "activitycode1": "Activity Code 1",
+            "activitycode2": "Activity Code 2",
+            "activitycode3": "Activity Code 3"
+        };
         //Map Quote list to CSV.
         // eslint-disable-next-line object-property-newline
         const stringifyOptions = {
@@ -140,7 +178,7 @@ var quoteReportTask = async function(){
             "columns": cvsHeaderColumns
         };
 
-        const csvData = await csvStringify(quoteListDBJSON, stringifyOptions).catch(function(err){
+        const csvData = await csvStringify(reportRows, stringifyOptions).catch(function(err){
             log.error("Quote Report JSON to CSV error: " + err + __location);
             return;
         });
@@ -174,6 +212,8 @@ var quoteReportTask = async function(){
             log.error("Quote Report JSON to CSV error: csvData empty file: " + __location);
             return;
         }
+
+
     }
     else {
         log.info("Quote Report: No quotes to report ");
