@@ -1608,13 +1608,13 @@ module.exports = class Integration {
                         // Attempt to format the returned data
                         let formattedData = null;
                         try {
-                            if (headers['Content-Type'].toLowerCase() === 'text/xml') {
+                            if (headers['Content-Type'] && headers['Content-Type'].toLowerCase() === 'text/xml') {
                                 // Format XML to be readable
                                 formattedData = xmlFormatter(filteredData);
                                 formattedData = formattedData.replace(/</g, "&lt;");
                                 formattedData = formattedData.replace(/>/g, "&gt;");
                             }
-                            else if (headers['Content-Type'].toLowerCase() === 'application/json') {
+                            else if (headers['Content-Type'] && headers['Content-Type'].toLowerCase() === 'application/json') {
                                 // Format JSON to be readable
                                 formattedData = JSON.stringify(JSON.parse(filteredData), null, 4);
                             }
