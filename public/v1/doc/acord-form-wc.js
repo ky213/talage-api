@@ -60,21 +60,24 @@ async function GetACORDFormWC(req, res, next){
     }
 
     // Pull out the document and array containing details of missing data
-    if(form && form.doc){
+    if(form){
 
         if(Object.hasOwnProperty.call(req.query, 'response') && req.query.response === 'json'){
 
-            const response = {'pdf': form.doc.toString('base64')};
+            const response = {'pdf': form.toString('base64')};
+
             response.status = 'ok';
+
             res.send(200, response);
+
         }
         else{
             res.writeHead(200, {
-                'Content-Disposition': 'attachment; filename=acord-form.pdf',
-                'Content-Length': form.doc.length,
+                'Content-Disposition': 'attachment; filename=acord-130.pdf',
+                'Content-Length': form.length,
                 'Content-Type': 'application/pdf'
             });
-            res.end(form.doc);
+            res.end(form);
             log.info('Acord Sent in Response');
         }
 

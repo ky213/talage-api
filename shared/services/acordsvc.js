@@ -48,5 +48,5 @@ exports.create = async function(application_id, insurer_id, policy_type){
         return {'error': 'Acord form PDF generation failed'};
     }
 
-    return {'doc': acordForm};
+    return acordForm;
 }
