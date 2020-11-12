@@ -66,7 +66,7 @@ exports.emailbindagency = async function(applicationId, quoteId) {
     let error = null;
     await emailbindagency(applicationId, quoteId).catch(err => error = err);
     if (error) {
-        log.error('emailbindagency external: ' + error);
+        log.error('emailbindagency external: ' + error + __location);
     }
     return;
 }
