@@ -616,7 +616,7 @@ module.exports = class MarkelWC extends Integration {
             'PA',
             'VT'
         ];
-        console.log('yearsinsured', yearsInsured)
+
         if (yearsInsured > 10) {
             yearsInsured = 10;
         }
@@ -693,7 +693,6 @@ module.exports = class MarkelWC extends Integration {
         let partTimeEmployees;
         let classificationCd;
         let ownerPayroll = '';
-        let ownerIncluded = '';
 
         // Add class code information
         this.app.business.locations.forEach((location, index) => {
@@ -705,13 +704,6 @@ module.exports = class MarkelWC extends Integration {
 
             });
         });
-
-        if (this.app.business.owners_included) {
-            ownerIncluded = 'Yes'
-        }
-        else {
-            ownerIncluded = 'No'
-        }
 
         // /* ---=== Begin Questions ===--- */
 
@@ -1134,10 +1126,15 @@ module.exports = class MarkelWC extends Integration {
                 questionObj[QuestionCd] = questionAnswer;
             }
         }
-        const locationList = [];
-        let response = '';
 
+        // Populate the location list
+        const locationList = [];
         this.app.business.locations.forEach(location => {
+            // Get total payroll for this location
+            let locationPayroll = 0;
+            location.activity_codes.forEach((activityCode) => {
+                locationPayroll += activityCode.payroll;
+            });
             locationList.push({
                 "Location Address1":location.address,
                 "Location Zip": location.zip,
@@ -1145,7 +1142,7 @@ module.exports = class MarkelWC extends Integration {
                 "Location State": location.state_abbr,
                 "Payroll Section": [
                     {
-                        Payroll: this.get_total_payroll(),
+                        Payroll: locationPayroll,
                         "Full Time Employees": location.full_time_employees,
                         "Part Time Employees": location.part_time_employees,
                         "Class Code": classificationCd,
@@ -1155,15 +1152,35 @@ module.exports = class MarkelWC extends Integration {
             })
         });
 
+        // Populate the owner / officer information section
+        let ownerOfficerInformationSection = null;
+        if (this.app.business.owners && this.app.business.owners.length > 0) {
+            ownerOfficerInformationSection = [
+                {
+                    "Owner First Name": this.app.business.owners[0].fname,
+                    "Owner Last Name": this.app.business.owners[0].lname,
+                    "Owner Title": this.app.business.owners[0].officerTitle,
+                    "Owner Ownership": this.app.business.owners[0].ownership,
+                    "Owner Class": 8001,
+                    "Owner Payroll": ownerPayroll,
+                    "Owner Include": 'Yes'
+                }
+            ];
+        }
+        else {
+            ownerOfficerInformationSection = [
+                {"Owner Include": 'No'}
+            ];
+        }
+
         const jsonRequest = {submissions: [
             {
-                RqUID: "CAE8A77B-3A00-4C59-BE75-5A91F098899C",
+                RqUID: this.generate_uuid(),
                 programCode: "wc",
                 effectiveDate: this.policy.effective_date.format('YYYY-MM-DD'),
                 agencyInformation: {
-                    agencyId: "1061249",
-                    licensingAgentUsername: "Talage",
-                    servicingAgentUsername: "Talage"
+                    agencyId: this.app.agencyLocation.insurers[this.insurer.id].agency_id,
+                    licensingAgentUsername: this.app.agencyLocation.insurers[this.insurer.id].agent_id
                 },
                 insured: {
                     address1: this.app.business.mailing_address,
@@ -1192,17 +1209,7 @@ module.exports = class MarkelWC extends Integration {
                         "Phone Number": this.app.business.contacts[0].phone,
                         "Email": this.app.business.contacts[0].email,
                         "Outside Exposure": "None",
-                        "Owner Officer Information Section": [
-                            {
-                                "Owner First Name": this.app.business.owners[0].fname,
-                                "Owner Last Name": this.app.business.owners[0].lname,
-                                "Owner Title": this.app.business.owners[0].officerTitle,
-                                "Owner Ownership": this.app.business.owners[0].ownership,
-                                "Owner Class": 8001,
-                                "Owner Payroll": ownerPayroll,
-                                "Owner Include": ownerIncluded
-                            }
-                        ]
+                        "Owner Officer Information Section": ownerOfficerInformationSection
                     },
                     "Underwriter Questions": {
                         "UWQuestions": questionObj,
@@ -1215,7 +1222,7 @@ module.exports = class MarkelWC extends Integration {
 
         let unansweredQ = null;
         let declinedReasons = null;
-
+        let response = null;
         try {
             response = await this.send_json_request(host, path, JSON.stringify(jsonRequest), key, 'POST', false);
         }
