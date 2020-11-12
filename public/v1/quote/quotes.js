@@ -194,14 +194,16 @@ async function getQuotes(req, res, next) {
     }
 
     // Retrieve if we are complete. Must be done first or we may miss quotes.
-    let progress = null;
+    // return not complete if there is db error.
+    // app will try again.
+    let progress = 'quoting';
     const applicationBO = new ApplicationBO();
     try{
         progress = await applicationBO.getProgress(tokenPayload.applicationID);
         log.debug("Application progress check " + progress + __location);
     }
     catch(err){
-        log.error(`Error getting appication progress appId = ${req.body.id}. ` + err + __location);
+        log.error(`Error getting application progress appId = ${req.body.id}. ` + err + __location);
     }
 
     const complete = progress !== 'quoting';
@@ -221,10 +223,10 @@ async function getQuotes(req, res, next) {
     const result = await queryDB(sql, `retrieving quotes for application ${tokenPayload.applicationID}`);
     if (result === null) {
         log.warn(`Got no quotes from a finished App Quoting AppId ${tokenPayload.applicationID} ` + __location)
-        return next(serverHelper.internalError('Error retrieving quotes'));
+        //return next(serverHelper.internalError('Error retrieving quotes'));
     }
     const quotes = [];
-    if (result.length > 0) {
+    if (result && result.length > 0) {
         // Build the quote result for the frontend
         for (let i = 0; i < result.length; i++) {
             const quoteSummary = await createQuoteSummary(result[i].id);
