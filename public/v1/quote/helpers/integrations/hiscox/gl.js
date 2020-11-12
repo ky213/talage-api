@@ -188,6 +188,10 @@ module.exports = class HiscoxGL extends Integration {
         for (const location of locations) {
             if (["FL", "MO", "TX"].includes(location.territory)) {
                 // Hiscox requires a county
+                // in case country is missing. so the later code will not throw exception.
+                if(!location.county){
+                    location.county = '';
+                }
 
                 // There are special conditions in Harris County, TX, Jackson County, MO, Clay County, MO, Cass County, MO, and Platte County, MO
                 if (location.territory === "MO" && ["Cass", "Clay", "Jackson", "Platte"].includes(location.county)) {
