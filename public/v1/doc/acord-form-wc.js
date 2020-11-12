@@ -50,7 +50,6 @@ async function GetACORDFormWC(req, res, next){
         log.error(`ACORD form generation failed. appid ${req.query.application_id} insurerId ${req.query.insurer_id}  polcy type: ${policy_type} ` + err + __location);
         error = err;
     });
-
     if(error){
         return next(serverHelper.requestError('ACORD form generation failed.'));
     }
@@ -60,31 +59,50 @@ async function GetACORDFormWC(req, res, next){
     }
 
     // Pull out the document and array containing details of missing data
-    if(form){
+    if(form && form.doc){
+        const doc = form.doc;
+        const missing_data = form.missing_data;
+
+        const chunks = [];
+
+        doc.on('data', function(chunk){
+            chunks.push(chunk);
+        });
 
         if(Object.hasOwnProperty.call(req.query, 'response') && req.query.response === 'json'){
+            doc.on('end', () => {
+                const result = Buffer.concat(chunks);
+                const response = {'pdf': result.toString('base64')};
 
-            const response = {'pdf': form.toString('base64')};
-
-            response.status = 'ok';
-
-            res.send(200, response);
-
+                if(missing_data.length){
+                    response.status = 'warning';
+                    response.missing_data = missing_data;
+                }
+                else{
+                    response.status = 'ok';
+                }
+                res.send(200, response);
+            });
         }
         else{
-            res.writeHead(200, {
-                'Content-Disposition': 'attachment; filename=acord-130.pdf',
-                'Content-Length': form.length,
-                'Content-Type': 'application/pdf'
+            let ending = '';
+            doc.on('end', function(){
+                ending = Buffer.concat(chunks);
+
+                res.writeHead(200, {
+                    'Content-Disposition': 'attachment; filename=acord-130.pdf',
+                    'Content-Length': ending.length,
+                    'Content-Type': 'application/pdf'
+                });
+                res.end(ending);
+                log.info('Acord Sent in Response');
             });
-            res.end(form);
-            log.info('Acord Sent in Response');
         }
 
+        doc.end();
         log.info('Acord Generated!');
 
         return next();
-
     }
     else {
         return next(serverHelper.requestError('ACORD form generation failed.'));
@@ -93,5 +111,6 @@ async function GetACORDFormWC(req, res, next){
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
+    // TODO JWT checking
     server.addGet('Get Acord', `${basePath}/acord-form-wc`, GetACORDFormWC);
 };
