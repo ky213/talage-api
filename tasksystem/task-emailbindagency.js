@@ -7,12 +7,10 @@ const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 
-const ApplicationBO = global.requireShared('models/Application-BO.js');
-const QuoteBO = global.requireShared('models/Quote-BO.js');
+
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const InsurerBO = global.requireShared('models/Insurer-BO.js');
-
 const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
 
 
@@ -80,6 +78,9 @@ exports.emailbindagency = async function(applicationId, quoteId) {
 var emailbindagency = async function(applicationId, quoteId) {
     if (applicationId && quoteId) {
         let applicationDoc = null;
+        const ApplicationBO = global.requireShared('models/Application-BO.js');
+        const QuoteBO = global.requireShared('models/Quote-BO.js');
+
         const applicationBO = new ApplicationBO();
         try {
             applicationDoc = await applicationBO.getMongoDocbyMysqlId(applicationId);
