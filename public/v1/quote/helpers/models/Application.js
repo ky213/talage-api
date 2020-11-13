@@ -18,7 +18,6 @@ const Business = require('./Business.js');
 const Insurer = require('./Insurer.js');
 const Policy = require('./Policy.js');
 const Question = require('./Question.js');
-const serverHelper = require('../../../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
 const helper = global.requireShared('./helpers/helper.js');
 
@@ -45,7 +44,7 @@ module.exports = class Application {
 	 * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
 	 */
     async load(data, forceQuoting = false) {
-        log.debug('Loading data into Application');
+        log.debug('Loading data into Application' + __location);
         // ID
         //TODO detect ID type integer or uuid
         this.id = parseInt(data.id, 10);
@@ -71,13 +70,6 @@ module.exports = class Application {
             throw err;
         }
 
-
-        //LastStep check. TODO which to appStatusId.
-        // appStatusId > 70 is finished.(request to bind)
-        if(this.applicationDocData.appStatusId >= 70){
-            log.warn("An attempt to quote application that is finished.")
-            throw new Error("Finished Application cannot be quoted")
-        }
 
         //age check - add override Age parameter to allow requoting.
         if (forceQuoting === false){
@@ -297,6 +289,13 @@ module.exports = class Application {
 	 * @returns {void}
 	 */
     async run_quotes() {
+
+        // appStatusId > 70 is finished.(request to bind)
+        if(this.applicationDocData.appStatusId >= 70){
+            log.warn("An attempt to quote application that is finished.")
+            throw new Error("Finished Application cannot be quoted")
+        }
+
         // Generate quotes for each policy type
         const fs = require('fs');
         const quote_promises = [];
@@ -335,8 +334,16 @@ module.exports = class Application {
                                     // Otherwise use the api
                                     slug = insurer.slug;
                                 }
+                                let policyTypeAbbr = '';
+                                if(policy && policy.type){
+                                    policyTypeAbbr = policy.type.toLowerCase()
+                                }
+                                else {
+                                    log.error(`Policy Type info not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} Policy ${JSON.stringify(policy)}` + __location);
+                                }
 
-                                const normalizedPath = `${__dirname}/../integrations/${slug}/${policy.type.toLowerCase()}.js`;
+
+                                const normalizedPath = `${__dirname}/../integrations/${slug}/${policyTypeAbbr}.js`;
                                 if (slug.length > 0 && fs.existsSync(normalizedPath)) {
                                     // Require the integration file and add the response to our promises
                                     const IntegrationClass = require(normalizedPath);
@@ -344,7 +351,7 @@ module.exports = class Application {
                                     quote_promises.push(integration.quote());
                                 }
                                 else {
-                                    log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} ${insurer.name} ${policy.type} slug: ${slug} path: ${normalizedPath} ` + __location);
+                                    log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} insurer ${insurer.name} polocytype ${policy.type} slug: ${slug} path: ${normalizedPath} ` + __location);
                                 }
                             }
                             else {
@@ -407,7 +414,7 @@ module.exports = class Application {
                 policyTypeReferred[quote.policy_type] = true;
             }
         });
-        // Update the application state
+        // Update the application state  - TODO Us BO.
         await this.updateApplicationState(this.policies.length, Object.keys(policyTypeQuoted).length, Object.keys(policyTypeReferred).length);
 
         // Send a notification to Slack about this application
@@ -495,8 +502,8 @@ module.exports = class Application {
                     subject,
                     message,
                     {
-                        agencyLocation: this.agencyLocation.id,
-                        application: this.id
+                        agencyLocationId: this.agencyLocation.id,
+                        applicationId: this.id
                     },
                     this.agencyLocation.agencyNetwork,
                     brand,
@@ -533,8 +540,8 @@ module.exports = class Application {
                         subject,
                         message,
                         {
-                            agencyLocation: this.agencyLocation.id,
-                            application: this.id
+                            agencyLocationId: this.agencyLocation.id,
+                            applicationId: this.id
                         },
                         this.agencyLocation.agencyNetwork,
                         emailContentJSON.emailBrand,
@@ -599,27 +606,29 @@ module.exports = class Application {
 	 */
     async updateApplicationState(numPolicyTypesRequested, numPolicyTypesQuoted, numPolicyTypesReferred) {
         // Determine the application status
-        let state = 1; // New
+        let state = 1; // new record State.
+        let appStatusId = 15; // Quoting
+        let appStatusDesc = "quoting"
         if (numPolicyTypesRequested === numPolicyTypesQuoted) {
             state = 13; // Quoted
+            appStatusId = 60;
+            appStatusDesc = "quoted";
+
         }
         else if (numPolicyTypesRequested === numPolicyTypesReferred) {
             state = 12; // Referred
+            appStatusId = 40;
+            appStatusDesc = "referred";
         }
-
-        // Update the application status in the database (1 is default, so that can be skipped)
-        if (state > 1) {
-            const sql = `
-				UPDATE #__applications
-				SET state = ${state}
-				WHERE id = ${this.id}
-				LIMIT 1;
-			`;
-            try {
-                await db.query(sql);
+        if(state > 1){
+            const applicationBO = new ApplicationBO();
+            try{
+                await applicationBO.updateStatus(this.id, appStatusDesc, appStatusId);
+                await applicationBO.updateProgress(this.id, "complete");
+                await applicationBO.updateState(this.id, state)
             }
-            catch (error) {
-                log.error(`Unable to update application ${this.id} state: ${error} ${__location}`);
+            catch(err){
+                log.error(`Could not update the application state to ${state} for application ${this.id}: ${err} ${__location}`);
             }
         }
     }

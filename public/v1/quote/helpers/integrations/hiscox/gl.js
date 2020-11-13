@@ -188,6 +188,10 @@ module.exports = class HiscoxGL extends Integration {
         for (const location of locations) {
             if (["FL", "MO", "TX"].includes(location.territory)) {
                 // Hiscox requires a county
+                // in case country is missing. so the later code will not throw exception.
+                if(!location.county){
+                    location.county = '';
+                }
 
                 // There are special conditions in Harris County, TX, Jackson County, MO, Clay County, MO, Cass County, MO, and Platte County, MO
                 if (location.territory === "MO" && ["Cass", "Clay", "Jackson", "Platte"].includes(location.county)) {
@@ -275,8 +279,8 @@ module.exports = class HiscoxGL extends Integration {
             xml = hiscoxGLTemplate.render(this, {ucwords: (val) => stringFunctions.ucwords(val.toLowerCase())}).replace(/\n\s*\n/g, "\n");
         }
         catch (error) {
-            this.log_error('Could not render the request. There is an error in the gl.xmlt file.');
-            return this.result_error('error', 'An unexpected error occurred when creating the quote request.');
+            this.log_error('Could not render the request. There is an error in the gl.xmlt file.' + __location);
+            return this.return_result('error', 'An unexpected error occurred when creating the quote request.');
         }
 
         // Get a token from their auth server
@@ -392,7 +396,7 @@ module.exports = class HiscoxGL extends Integration {
                 // Check for a system fault
                 this.log_error(`API returned fault string: ${faultString}`, __location);
                 this.reasons.push(`API returned fault string: ${faultString}`);
-                return this.result_error('error', 'Hiscox could not process the request due to an unknown XML node.');
+                return this.return_result('error', 'Hiscox could not process the request due to an unknown XML node.');
             }
             // Return an error result
             this.log_error(`An unknown error occurred: ${requestError.response}`, __location);

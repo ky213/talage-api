@@ -494,7 +494,7 @@ async function AgencyEmail(req, res, next){
         const name = req.body.name;
         //DB for Agency
         const agencyLocationId = stringFunctions.santizeNumber(req.body.agency,true);
-        const messageKeys = {agency_location: agencyLocationId};
+        const messageKeys = {agencyLocationId: agencyLocationId};
         let error = null;
         const agencyLocationBO = new AgencyLocationBO();
         await agencyLocationBO.loadFromId(agencyLocationId).catch(function(err) {

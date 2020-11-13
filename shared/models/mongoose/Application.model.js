@@ -20,9 +20,9 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 const contactSchema = new Schema({
     email: {type: String, required: true},
-    firstName: {type: String, required: true},
-    lastName: {type: String, required: true},
-    phone: {type: String, required: true},
+    firstName: {type: String, required: false},
+    lastName: {type: String, required: false},
+    phone: {type: String, required: false},
     primary: {type: Boolean, required: true, default: false}
 })
 
@@ -38,6 +38,7 @@ const locationSchema = new Schema({
     city: {type: String, required: false},
     state: {type: String, required: false},
     zipcode: {type: String, required: false},
+    county: {type: String, required: false},
     phone: {type: String, required: false},
     ein: {type: String, required: false},
     full_time_employees:  {type: Number, required: false},
@@ -54,7 +55,7 @@ const ownerSchema = new Schema({
     lname: {type: String, required: true},
     ownership: {type: Number, required: false},
     officerTitle: {type: String},
-    include: {type: Boolean, default: false}
+    include: {type: Boolean, required: false}
 })
 
 
@@ -143,6 +144,8 @@ const ApplicationSchema = new Schema({
     management_structure: {type: String, required: false},
     unincorporatedAssociation: {type: Boolean, required: false},
     experienceModifier: {type: Number, required: false},
+    unincorporated_association: {type: String, required: false},
+    experience_modifier: {type: Number, required: false},
     ncciNumber: {type: String, required: false},
     association: {type: String, required: false},
     associationId: {type: String, required: false},

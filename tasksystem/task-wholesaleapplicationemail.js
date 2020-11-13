@@ -1,12 +1,13 @@
 'use strict';
 
 const moment = require('moment');
-const crypt = global.requireShared('./services/crypt.js');
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
+const ApplicationBO = global.requireShared('models/Application-BO.js');
+const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 
 /**
  * AbandonQuote Task processor
@@ -69,52 +70,65 @@ exports.wholesaleApplicationEmailTask = async function(applicationId) {
  */
 
 var wholesaleApplicationEmailTask = async function(applicationId) {
-    //get
-    const appSQL = `
-        SELECT
-            a.agency_location AS agencyLocation,
-            ag.email AS agencyEmail,
-            ag.agency_network,
-            al.email AS agencyLocationEmail,
-            ag.id as agencyId
-        FROM clw_talage_applications AS a
-            INNER JOIN clw_talage_agency_locations AS al ON a.agency_location = al.id
-            INNER JOIN clw_talage_agencies AS ag ON al.agency = ag.id
-        WHERE 
-        a.id =  ${applicationId}
-        AND a.wholesale = 1
-    `;
-    let applications = null;
+    if(!applicationId){
+        return false;
+    }
+
+    let applicationDoc = null;
+    const applicationBO = new ApplicationBO();
     try {
-        applications = await db.query(appSQL);
+        applicationDoc = await applicationBO.getMongoDocbyMysqlId(applicationId);
     }
     catch (err) {
-        log.error(`Error get opt out applications from DB for ${applicationId} error:  ${err}` + __location);
+        log.error(`Error get opt out applications from DB for ${applicationId} error:  ${err}`);
         // Do not throw error other opt out may need to be processed.
         return false;
     }
 
-    if (applications && applications.length > 0) {
-
-
-        let agencyLocationEmail = null;
-
-        const agencyBO = new AgencyBO();
-        //decrypt info...
-        if (applications[0].agencyLocationEmail) {
-            agencyLocationEmail = await crypt.decrypt(applications[0].agencyLocationEmail);
-        }
-        else if (applications[0].agencyEmail) {
-            agencyLocationEmail = await crypt.decrypt(applications[0].agencyEmail);
-        }
-
-        //get email content.
-        const agencyNetwork = applications[0].agency_network;
+    if (applicationDoc) {
 
         let error = null;
+        const agencyBO = new AgencyBO();
+        try{
+            await agencyBO.loadFromId(applicationDoc.agencyId)
+        }
+        catch(err){
+            log.error("Error getting agencyBO " + err + __location);
+            error = true;
 
-        const emailContentJSON = await agencyBO.getEmailContent(applications[0].agencyId, "talage_wholesale").catch(function(err){
-            log.error(`Unable to get email content for Talage WholeSale application. agency_network: ${agencyNetwork}.  error: ${err}` + __location);
+        }
+        if(error){
+            return false;
+        }
+
+        //get AgencyLocationBO
+        const agencyLocationBO = new AgencyLocationBO();
+        try{
+            await agencyLocationBO.loadFromId(applicationDoc.agencyLocationId)
+        }
+        catch(err){
+            log.error("Error getting agencyLocationBO " + err + __location);
+            error = true;
+
+        }
+        if(error){
+            return false;
+        }
+
+        let agencyLocationEmail = null;
+        if(agencyLocationBO.email){
+            agencyLocationEmail = agencyLocationBO.email
+        }
+        else if(agencyBO.email){
+            agencyLocationEmail = agencyBO.email;
+        }
+
+
+        //get email content.
+        const agencyNetworkId = applicationDoc.agencyNetworkId;
+
+        const emailContentJSON = await agencyBO.getEmailContent(applicationDoc.agencyId, "talage_wholesale").catch(function(err){
+            log.error(`Unable to get email content for Talage WholeSale application. agency_network: ${agencyNetworkId}.  error: ${err}` + __location);
             error = true;
         });
         if(error){
@@ -130,29 +144,26 @@ var wholesaleApplicationEmailTask = async function(applicationId) {
             subject = subject.replace(/{{Brand}}/g, emailContentJSON.emailBrand);
 
             // Send the email
-            const keyData2 = {
-                'application': applicationId,
-                'agency_location': applications[0].agencyLocation
-            };
+            const keyData2 = {'applicationDoc': applicationDoc};
             if (agencyLocationEmail) {
-                const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData2,applications[0].agency_network, emailContentJSON.emailBrand);
+                const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData2,agencyNetworkId, emailContentJSON.emailBrand);
                 if (emailResp === false) {
                     slack.send('#alerts', 'warning', `The system failed to inform an agency of the wholesaleApplicationEmailTask for application ${applicationId}. Please follow-up manually.`);
                 }
             }
             else {
-                log.error("wholesaleApplicationEmailTask no email address for data: " + JSON.stringify(keyData2) + __location);
+                log.error(`wholesaleApplicationEmailTask no email address for appId: ${applicationId}` + __location);
             }
 
             return true;
         }
         else {
-            log.error('wholesaleApplicationEmailTask missing emailcontent for agencynetwork: ' + agencyNetwork + __location);
+            log.error('wholesaleApplicationEmailTask missing emailcontent for agencynetwork: ' + agencyNetworkId + __location);
             return false;
         }
     }
     else {
-        log.error('wholesaleApplicationEmailTask new record returned for appid: ' + applicationId + "SQL: " + appSQL + __location);
+        log.error('wholesaleApplicationEmailTask new record returned for appid: ' + applicationId + __location);
         return false;
     }
 

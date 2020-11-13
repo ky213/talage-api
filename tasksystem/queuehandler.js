@@ -13,62 +13,62 @@ let sqs = null; // Will be set later
  * @returns json for {success:  true/false, message: data, error: errorMessage} message.
  */
 exports.getTaskQueueItem = async function(){
-	const params = {
-		'QueueUrl': global.settings.SQS_TASK_QUEUE,
-		'MaxNumberOfMessages': 1,
-		'WaitTimeSeconds': 10,
-		'MessageAttributeNames': [
-			"All"
-		],
-		'AttributeNames': ['All']
-	};
+    const params = {
+        'QueueUrl': global.settings.SQS_TASK_QUEUE,
+        'MaxNumberOfMessages': 1,
+        'WaitTimeSeconds': 10,
+        'MessageAttributeNames': [
+            "All"
+        ],
+        'AttributeNames': ['All']
+    };
 
-	// eslint-disable-next-line prefer-const
-	let err = null;
-	const data = await sqs.receiveMessage(params).promise();
-	if(err !== null){
-		return {
-			'success': false,
-			'error': err
-		};
-	}
-	else if(data){
-		if(data.Messages === null){
-			return {
-				'success': false,
-				'error': 'no data in message'
-			};
-		}
-		else {
-			return {
-				'success': true,
-				'data': data
-			};
-		}
-	}
+    // eslint-disable-next-line prefer-const
+    let err = null;
+    const data = await sqs.receiveMessage(params).promise();
+    if(err !== null){
+        return {
+            'success': false,
+            'error': err
+        };
+    }
+    else if(data){
+        if(data.Messages === null){
+            return {
+                'success': false,
+                'error': 'no data in message'
+            };
+        }
+        else {
+            return {
+                'success': true,
+                'data': data
+            };
+        }
+    }
 }
 
 
 exports.deleteTaskQueueItem = async function(messageReceiptHandle){
-	if(messageReceiptHandle === "TEST"){
-		return responseObject.success;
-	}
+    if(messageReceiptHandle === "TEST"){
+        return responseObject.success;
+    }
     const params = {
-		'QueueUrl': global.settings.SQS_TASK_QUEUE,
+        'QueueUrl': global.settings.SQS_TASK_QUEUE,
         "ReceiptHandle": messageReceiptHandle
     };
 
     let errorMessage = null;
-	await sqs.deleteMessage(params, function(err){
-		if (err){
+    await sqs.deleteMessage(params, function(err){
+        if (err){
             log.error("delete queueitem error: " + err + __location);
-			errorMessage = err;
-		}
-	}).promise();
-	if (errorMessage){
-		return responseObject.error(errorMessage);
-	}
-	return responseObject.success;
+            errorMessage = err;
+        }
+    }).promise();
+    if (errorMessage){
+        return responseObject.error(errorMessage);
+    }
+    return responseObject.success;
 
 }
 

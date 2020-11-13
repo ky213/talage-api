@@ -1,12 +1,14 @@
 'use strict';
 
 const moment = require('moment');
-const crypt = global.requireShared('./services/crypt.js');
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
+const ApplicationBO = global.requireShared('models/Application-BO.js');
+const AgencyBO = global.requireShared('models/Agency-BO.js');
+const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 
 /**
  * AbandonQuote Task processor
@@ -66,40 +68,36 @@ var optoutapplicationtask = async function() {
 
     const now = moment();
     const oneHourAgo = moment().subtract(1, 'h');
-    //get list....
-    const appIdSQL = `
-            SELECT DISTINCT
-				a.id as 'applicationId' 
-            FROM clw_talage_applications a
-            WHERE a.agency_location  IS NOT NULL
-                AND a.created BETWEEN  '${oneHourAgo.utc().format()}' AND '${now.utc().format()}'
-                AND a.opted_out_online  = 1
-                AND a.opted_out_online_emailsent  = 0
-                AND a.state  < 13
-    `;
 
-    // log.debug(appIdSQL)
 
-    let appIds = null;
-    try {
-        appIds = await db.query(appIdSQL);
-        // log.debug('returned appIds');
-        // log.debug(JSON.stringify(appIds));
+    const query = {
+        "optedOutOnline": true,
+        "optedOutOnlineEmailsent": false,
+        "ltAppStatusId": 50,
+        "searchenddate": now,
+        "searchbegindate": oneHourAgo
+    };
+    let appList = null;
+    const applicationBO = new ApplicationBO();
+
+    try{
+
+        appList = await applicationBO.getList(query);
     }
-    catch (err) {
-        log.error("optoutapplicationtask getting appid list error " + err);
+    catch(err){
+        log.error("abandonquotetask getting appid list error " + err + __location);
         throw err;
     }
+
     //process list.....
-    if (appIds && appIds.length > 0) {
-        for (let i = 0; i < appIds.length; i++) {
-            const appIdJson = appIds[i];
-            log.debug(JSON.stringify(appIdJson.applicationId));
+    if (appList && appList.length > 0) {
+        for (let i = 0; i < appList.length; i++) {
+            const appDoc = appList[i];
 
             let error = null
             let succesfulProcess = false;
             try {
-                succesfulProcess = await processOptOutEmail(appIdJson.applicationId)
+                succesfulProcess = await processOptOutEmail(appDoc)
             }
             catch (err) {
                 error = err;
@@ -107,13 +105,13 @@ var optoutapplicationtask = async function() {
             }
 
             if (error === null && succesfulProcess === true) {
-                await markApplicationProcess(appIdJson.applicationId).catch(function(err) {
-                    log.error(`Error marking opt out in DB for ${appIdJson.applicationId} error:  ${err}`);
+                await markApplicationProcess(appDoc).catch(function(err) {
+                    log.error(`Error marking opt out in DB for ${appDoc.applicationId} error:  ${err}`);
                     error = err;
                 })
             }
             if (error === null) {
-                log.info(`Processed Opt Out email for appId: ${appIdJson.applicationId}`);
+                log.info(`Processed Opt Out email for appId: ${appDoc.applicationId}`);
             }
         }
     }
@@ -121,57 +119,48 @@ var optoutapplicationtask = async function() {
     return;
 }
 
-var processOptOutEmail = async function(applicationId) {
-    //get
-    const appSQL = `
-        SELECT
-            a.agency_location AS agencyLocation,
-            ag.agency_network,
-            ag.email AS agencyEmail,
-            al.agency,
-            al.email AS agencyLocationEmail,
-            al.phone AS agencyPhone,
-            b.name AS businessName,
-            c.email,
-            c.fname,
-            c.lname,
-            c.phone
-        FROM clw_talage_applications AS a
-            LEFT JOIN clw_talage_businesses AS b ON b.id = a.business
-            LEFT JOIN clw_talage_contacts AS c ON a.business = c.business
-            LEFT JOIN clw_talage_agency_locations AS al ON a.agency_location = al.id
-            LEFT JOIN clw_talage_agencies AS ag ON al.agency = ag.id
-        WHERE 
-        a.id =  ${applicationId}
-    `;
+var processOptOutEmail = async function(applicationDoc) {
 
-    let applications = null;
-    try {
-        applications = await db.query(appSQL);
-    }
-    catch (err) {
-        log.error(`Error get opt out applications from DB for ${applicationId} error:  ${err}`);
-        // Do not throw error other opt out may need to be processed.
-        return false;
-    }
+    if (applicationDoc) {
+        let error = null;
+        const agencyBO = new AgencyBO();
+        try{
+            await agencyBO.loadFromId(applicationDoc.agencyId)
+        }
+        catch(err){
+            log.error("Error getting agencyBO " + err + __location);
+            error = true;
 
-    if (applications && applications.length > 0) {
+        }
+        if(error){
+            return false;
+        }
 
-        let agencyLocationEmail = null;
+
+        const agencyLocationBO = new AgencyLocationBO();
+        try{
+            await agencyLocationBO.loadFromId(applicationDoc.agencyLocationId)
+        }
+        catch(err){
+            log.error("Error getting agencyLocationBO " + err + __location);
+            error = true;
+
+        }
+        if(error){
+            return false;
+        }
+
 
         //decrypt info...
-        if (applications[0].agencyLocationEmail) {
-            agencyLocationEmail = await crypt.decrypt(applications[0].agencyLocationEmail);
+        let agencyLocationEmail = null;
+        if (agencyLocationBO.email && agencyLocationBO.email.length > 0) {
+            agencyLocationEmail = agencyLocationBO.email;
         }
-        else if (applications[0].agencyEmail) {
-            agencyLocationEmail = await crypt.decrypt(applications[0].agencyEmail);
+        else if (agencyBO.email) {
+            agencyLocationEmail = agencyBO.email;
         }
 
-        applications[0].email = await crypt.decrypt(applications[0].email);
-        applications[0].agencyPhone = await crypt.decrypt(applications[0].agencyPhone);
-        applications[0].agencyWebsite = await crypt.decrypt(applications[0].agencyWebsite);
-
-
+        log.debug("processing appDoc in processOptOutEmail agencyLocationEmail " + agencyLocationEmail);
         let message = `A potential policyholder has requested that you reach out to help them through the process.<br/>
         <br/>
         We'll leave it to you from here!<br/>
@@ -186,39 +175,36 @@ var processOptOutEmail = async function(applicationId) {
         -the {{BrandName}} team<br/>`;
         let subject = "Incoming Contact from your {{BrandName}} Page!";
 
-        // log.debug('Insured subject: ' + subject)
-        // log.debug('Insured message: ' + message)
 
-        applications[0].businessName = await crypt.decrypt(applications[0].businessName);
-        applications[0].fname = await crypt.decrypt(applications[0].fname);
-        applications[0].lname = await crypt.decrypt(applications[0].lname);
-        applications[0].phone = await crypt.decrypt(applications[0].phone);
+        const customerContact = applicationDoc.contacts.find(contactTest => contactTest.primary === true);
+        const customerEmail = customerContact.email;
+
 
         // Format the full name and phone number
-        const fullName = stringFunctions.ucwords(stringFunctions.strtolower(applications[0].fname) + ' ' + stringFunctions.strtolower(applications[0].lname));
+        const fullName = stringFunctions.ucwords(stringFunctions.strtolower(customerContact.firstName) + ' ' + stringFunctions.strtolower(customerContact.lastName));
         let phone = '';
-        if (applications[0].phone) {
-            phone = formatPhone(applications[0].phone);
+        if (customerContact.phone) {
+            phone = formatPhone(customerContact.phone);
         }
         //Get AgencyNetworkBO settings
-        let error = null;
+        error = null;
         const agencyNetworkBO = new AgencyNetworkBO();
-        const agencyNetworkEnvSettings = await agencyNetworkBO.getEnvSettingbyId(applications[0].agency_network).catch(function(err) {
-            log.error(`Unable to get env settings for OptOut email. agency_network: ${applications[0].agency_network}.  error: ${err}` + __location);
+        const agencyNetworkEnvSettings = await agencyNetworkBO.getEnvSettingbyId(applicationDoc.agencyNetworkId).catch(function(err) {
+            log.error(`Unable to get env settings for OptOut email. agency_network: ${applicationDoc.agencyNetworkId}.  error: ${err}` + __location);
             error = true;
         });
         if (error) {
             return false;
         }
         if (!agencyNetworkEnvSettings || !agencyNetworkEnvSettings.PORTAL_URL) {
-            log.error(`Unable to get env settings for  OptOut email. agency_network: ${applications[0].agency_network}.  missing additionalInfo ` + __location);
+            log.error(`Unable to get env settings for  OptOut email. agency_network: ${applicationDoc.agencyNetworkId}.  missing additionalInfo ` + __location);
             return false;
         }
 
         //  // Perform content message.replacements
         message = message.replace(/{{Brand}}/g, stringFunctions.ucwords(agencyNetworkEnvSettings.emailBrand));
-        message = message.replace(/{{BusinessName}}/g, applications[0].businessName);
-        message = message.replace(/{{Contact Email}}/g, applications[0].email);
+        message = message.replace(/{{BusinessName}}/g, applicationDoc.businessName);
+        message = message.replace(/{{Contact Email}}/g, customerEmail);
         message = message.replace(/{{Contact Name}}/g, fullName);
         message = message.replace(/{{Contact Phone}}/g, phone);
         message = message.replace(/{{BrandName}}/g, stringFunctions.ucwords(agencyNetworkEnvSettings.emailBrand));
@@ -228,18 +214,15 @@ var processOptOutEmail = async function(applicationId) {
         subject = subject.replace(/{{BrandName}}/g, stringFunctions.ucwords(agencyNetworkEnvSettings.emailBrand));
 
         // Send the email
-        const keyData2 = {
-            'application': applicationId,
-            'agency_location': applications[0].agencyLocation
-        };
+        const keyData2 = {'applicationDoc': applicationDoc};
         if (agencyLocationEmail) {
-            const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData2, applications[0].agency_network, "");
+            const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData2, applicationDoc.agencyNetworkId, "");
             if (emailResp === false) {
-                slack.send('#alerts', 'warning', `The system failed to inform an agency of the Opt Out Email for application ${applicationId}. Please follow-up manually.`);
+                slack.send('#alerts', 'warning', `The system failed to inform an agency of the Opt Out Email for application ${applicationDoc.applicationId}. Please follow-up manually.`);
             }
         }
         else {
-            log.error("Opt Out Email no email address for data: " + JSON.stringify(keyData2) + __location);
+            log.error(`Opt Out Email no agencyLocationEmail email address for appId: ${applicationDoc.applicationId} ` + __location);
         }
 
         return true;
@@ -250,11 +233,22 @@ var processOptOutEmail = async function(applicationId) {
 
 }
 
-var markApplicationProcess = async function(applicationId) {
+var markApplicationProcess = async function(appDoc) {
+
+    // Call BO updateMongo
+    const applicationBO = new ApplicationBO();
+    const docUpdate = {"optedOutOnlineEmailsent": true};
+    try{
+        await applicationBO.updateMongo(appDoc.applicationId,docUpdate);
+    }
+    catch(err){
+        log.error(`Error calling applicationBO.updateMongo for ${appDoc.applicationId} ` + err + __location)
+        throw err;
+    }
 
     const updateSQL = `UPDATE clw_talage_applications
 	                   SET  opted_out_online_emailsent = 1 
-	                   where id = ${applicationId} `;
+	                   where id = ${appDoc.mysqlId} `;
 
     // Update application record
     await db.query(updateSQL).catch(function(e) {

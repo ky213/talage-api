@@ -47,8 +47,8 @@ module.exports = class ACORDGL extends Integration{
 
         // Prepare keys so that the record of the email being sent is written
         const email_keys = {
-            'application': this.app.id,
-            'agencyLocation': this.app.agencyLocation.id
+            'applicationId': this.app.id,
+            'agencyLocationId': this.app.agencyLocation.id
         }
 
         const chunks = [];
