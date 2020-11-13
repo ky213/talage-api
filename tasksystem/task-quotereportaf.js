@@ -213,7 +213,7 @@ var quoteReportTask = async function(){
         };
 
         const csvData = await csvStringify(reportRows, stringifyOptions).catch(function(err){
-            log.error("Quote Report JSON to CSV error: " + err + __location);
+            log.error("AF Weekly Quote Report JSON to CSV error: " + err + __location);
             return;
         });
         // log.debug(csvData);
@@ -236,9 +236,9 @@ var quoteReportTask = async function(){
             };
             const attachments = [];
             attachments.push(attachmentJson);
-            const emailResp = await emailSvc.send(toEmail, 'Quote Report', 'Your daily quote report is attached.', {}, global.WHEELHOUSE_AGENCYNETWORK_ID, 'talage', 1, attachments);
+            const emailResp = await emailSvc.send(toEmail, 'Weekly Quote Report', 'Your Weekly quote report is attached.', {}, global.WHEELHOUSE_AGENCYNETWORK_ID, 'talage', 1, attachments);
             if(emailResp === false){
-                slack.send('#alerts', 'warning',`The system failed to send Quote Report email.`);
+                slack.send('#alerts', 'warning',`The system failed to send Weekly Quote Report email.`);
             }
             return;
         }
