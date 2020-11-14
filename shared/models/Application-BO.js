@@ -1711,7 +1711,7 @@ module.exports = class ApplicationModel {
                         newApplicationdoc.ein = newObjectJSON.ein
                         log.debug("updating ein ");
                         await newApplicationdoc.save().catch(function(err) {
-                            log.error('Mongo Application Save for Virtuals err ' + err + __location);
+                            log.error(`Mongo Application Save for Virtuals err appId: ${uuid}` + err + __location);
                             throw err;
                         });
                     }
@@ -1721,14 +1721,14 @@ module.exports = class ApplicationModel {
                         // eslint-disable-next-line prefer-const
                         let applicationMysqlJSON = {};
                         await this.mongoDoc2MySqlUpdate(newApplicationdoc, applicationMysqlJSON,postInsert).catch(function(err){
-                            log.error("Error in mongoDoc2MySqlUpdate " + err + __location);
+                            log.error(`Error in mongoDoc2MySqlUpdate  appId: ${uuid}` + err + __location);
                         })
                     }
 
                     newApplicationJSON = mongoUtils.objCleanup(newApplicationdoc);
                 }
                 catch (err) {
-                    log.error("Updating Application error " + err + __location);
+                    log.error(`Updating Application error appId: ${uuid}` + err + __location);
                     throw err;
                 }
                 //
@@ -1737,7 +1737,7 @@ module.exports = class ApplicationModel {
                 return newApplicationJSON;
             }
             else {
-                throw new Error('no newObjectJSON supplied')
+                throw new Error(`no newObjectJSON supplied appId: ${uuid}`)
             }
 
         }
