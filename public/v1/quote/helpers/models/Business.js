@@ -226,61 +226,62 @@ module.exports = class Business {
 	 * @param {int} id - The id of the business
 	 * @returns {Promise.<Boolean, ServerError>} A promise that returns true if resolved, or a ServerError if rejected
 	 */
-    load_by_id(id) {
-        return new Promise(async(fulfill, reject) => {
-            // Validate the business ID
-            if (!await validator.business(id)) {
-                reject(new Error('Invalid business ID'));
-                return;
-            }
+    // load_by_id(id) {
+    //     return new Promise(async(fulfill, reject) => {
+    //         // Validate the business ID
+    //         if (!await validator.business(id)) {
+    //             reject(new Error('Invalid business ID'));
+    //             return;
+    //         }
 
-            // Build a query to get the business information from the database
-            const sql = `
-				SELECT \`b\`.\`dba\`, \`b\`.\`ein\`, \`b\`.\`entity_type\`, \`b\`.\`id\`, \`b\`.\`name\`, GROUP_CONCAT(\`a\`.\`id\`) AS \`locations\`
-				FROM \`#__businesses\` AS \`b\`
-				LEFT JOIN \`#__addresses\` AS \`a\` ON \`a\`.\`business\` = \`b\`.\`id\`
-				WHERE \`b\`.\`id\` = ${db.escape(id)}
-				LIMIT 1;
-			`;
+    //         // Build a query to get the business information from the database
+    //         const sql = `
+    // 			SELECT \`b\`.\`dba\`, \`b\`.\`ein\`, \`b\`.\`entity_type\`, \`b\`.\`id\`, \`b\`.\`name\`, GROUP_CONCAT(\`a\`.\`id\`) AS \`locations\`
+    // 			FROM \`#__businesses\` AS \`b\`
+    // 			LEFT JOIN \`#__addresses\` AS \`a\` ON \`a\`.\`business\` = \`b\`.\`id\`
+    // 			WHERE \`b\`.\`id\` = ${db.escape(id)}
+    // 			LIMIT 1;
+    // 		`;
 
-            // Execute that query
-            let had_error = false;
-            const business_info = await db.query(sql).catch(function(error) {
-                log.error("Loading business error: " + error + __location);
-                had_error = true;
-            });
-            if (had_error || !business_info || business_info.length !== 1) {
-                reject(new Error('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
-                return;
-            }
+    //         // Execute that query
+    //         let had_error = false;
+    //         const business_info = await db.query(sql).catch(function(error) {
+    //             log.error("Loading business error: " + error + __location);
+    //             had_error = true;
+    //         });
+    //         if (had_error || !business_info || business_info.length !== 1) {
+    //             reject(new Error('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
+    //             return;
+    //         }
 
-            // Save the results in this object and decrypt as needed
-            const encrypted = [
-                'dba',
-                'ein',
-                'name'
-            ];
+    //         // Save the results in this object and decrypt as needed
+    //         const encrypted = [
+    //             'dba',
+    //             'ein',
+    //             'name'
+    //         ];
 
-            // Localize each property in this object
-            for (const property in business_info[0]) {
-                // Make sure this property is a direct descendent of insurer_info, that it is also represented in this object, and that it has a value
-                if (Object.prototype.hasOwnProperty.call(business_info[0], property) && Object.prototype.hasOwnProperty.call(this, property) && business_info[0][property] && business_info[0][property].length) {
-                    // Check if this needs decryption
-                    if (encrypted.includes(property)) {
-                        this[property] = await crypt.decrypt(business_info[0][property]); // eslint-disable-line no-await-in-loop
-                        continue;
-                    }
-                    this[property] = business_info[0][property];
-                }
-            }
+    //         // Localize each property in this object
+    //         for (const property in business_info[0]) {
+    //             // Make sure this property is a direct descendent of insurer_info, that it is also represented in this object, and that it has a value
+    //             if (Object.prototype.hasOwnProperty.call(business_info[0], property) && Object.prototype.hasOwnProperty.call(this, property) && business_info[0][property] && business_info[0][property].length) {
+    //                 // Check if this needs decryption
+    //                 if (encrypted.includes(property)) {
+    //                     this[property] = await crypt.decrypt(business_info[0][property]); // eslint-disable-line no-await-in-loop
+    //                     continue;
+    //                 }
+    //                 this[property] = business_info[0][property];
+    //             }
+    //         }
 
-            fulfill(true);
-        });
-    }
+    //         fulfill(true);
+    //     });
+    // }
 
 
     /**
-	 * Checks that the data supplied is valid
+	 * Checks that the data supplied is valid - Rejection should be done inside the Insurer Integration files.
+     *  since rules vary by insurer and policy type.
 	 *
 	 * @returns {Promise.<array, Error>} A promise that returns a boolean indicating whether or not this record is valid, or an Error if rejected
 	 */
@@ -337,20 +338,17 @@ module.exports = class Business {
             try{
                 if (this.bureau_number) {
                     if (this.bureau_number.length > 9) {
-                        reject(new Error('Bureau Number max length is 9'));
-                        return;
+                        log.warn(`Bureau Number max length is 9 appId: ${this.appId}` + __location);
                     }
                     if (this.primary_territory.toString().toUpperCase() === 'CA') {
                     // Expected Formatting for 'CA' is 99-99-99
                         if (!validator.isBureauNumberCA(this.bureau_number)) {
-                            reject(new Error('Bureau Number must be formatted as 99-99-99'));
-                            return;
+                            log.error(`Bureau Number must be formatted as 99-99-99 appId: ${this.appId}` + __location);
                         }
                     }
                     else if (!validator.isBureauNumberNotCA(this.bureau_number)) {
                     // Expected Formatting for all other states is 999999999
-                        reject(new Error('Bureau Number must be numeric'));
-                        return;
+                        log.error(`Bureau Number must be numeric appId: ${this.appId}` + __location);
                     }
                 }
             }
@@ -390,15 +388,20 @@ module.exports = class Business {
 			 */
             if (this.dba) {
                 // Check for invalid characters
+                //Do not stop the quote over dba name.  Different insurers have different rules
                 if (!validator.isBusinessName(this.dba)) {
-                    reject(new Error('Invalid characters in DBA'));
-                    return;
+                    log.warn(`Invalid characters in DBA. Appid ${this.appId}` + __location)
+                    //reject(new Error('Invalid characters in DBA')
+                    //return;
                 }
 
                 // Check for max length
+                //Do not stop the quote over dba name.  Different insurers have different rules
                 if (this.dba.length > 100) {
-                    reject(new Error('DBA exceeds maximum length of 100 characters'));
-                    return;
+                    log.warn(`DBA exceeds maximum length of 100 characters Appid ${this.appId}` + __location);
+                    this.dba = this.dba.substring(0,100);
+                    // reject(new Error('DBA exceeds maximum length of 100 characters'));
+                    // return;
                 }
             }
 
@@ -418,8 +421,7 @@ module.exports = class Business {
                     'Other'
                 ];
                 if (valid_types.indexOf(this.entity_type) === -1) {
-                    reject(new Error('Invalid data in property: entity_type'));
-                    return;
+                    log.error(`Invalid data in property: entity_type Appid ${this.appId}` + __location);
                 }
             }
             else {
@@ -433,11 +435,12 @@ module.exports = class Business {
 			 * - Defaults to 1.00 if nothing is specified
 			 * - Minimum Value = 0.20 (Not inclusive)
 			 * - Maximum Value = 10 (Not inclusive)
+             * limited use of experience_modifier in integration files. 
+             *  only log warning.
 			 */
             if (this.bureau_number) {
                 if (this.experience_modifier < 0.20 || this.experience_modifier > 10) {
-                    reject(new Error('Experience Modifier must be between 0.20 and 10'));
-                    return;
+                    log.warn(`Experience Modifier must be between 0.20 and 10 Appid ${this.appId}` + __location);
                 }
             }
 
@@ -450,7 +453,7 @@ module.exports = class Business {
             if (this.founded) {
                 // Check for mm-yyyy formatting
                 if (!this.founded.isValid()) {
-                    reject(new Error('Invalid formatting for property: founded. Expected mm-yyyy'));
+                    reject(new Error('Invalid Date for founded.'));
                     return;
                 }
 
@@ -520,8 +523,9 @@ module.exports = class Business {
             if (this.mailing_address) {
                 // Check for maximum length
                 if (this.mailing_address.length > 100) {
-                    reject(new Error('Mailing address exceeds maximum of 100 characters'));
-                    return;
+                    log.error('Mailing address exceeds maximum of 100 characters');
+                    this.mailing_address = this.mailing_address.substring(0,100);
+                    //return;
                 }
             }
             else {
@@ -534,10 +538,11 @@ module.exports = class Business {
 			 * - Must be a 5 digit string
 			 */
             if (this.mailing_zipcode) {
+                //let 9 digit zipcodes process.  log an error
                 if (!validator.isZip(this.mailing_zipcode)) {
-                    log.error('Invalid formatting for business: mailing_zip. Expected 5 digit format. actual zip: ' + this.mailing_zipcode + __location)
-                    reject(new Error('Invalid formatting for business: mailing_zip. Expected 5 digit format ' + this.mailing_zipcode));
-                    return;
+                    log.error(`Invalid formatting for business: mailing_zip. Expected 5 digit format. appId: ${this.AppId} actual zip: ` + this.mailing_zipcode + __location)
+                    //reject(new Error('Invalid formatting for business: mailing_zip. Expected 5 digit format ' + this.mailing_zipcode));
+                    //return;
                 }
             }
             else {
@@ -553,10 +558,12 @@ module.exports = class Business {
 			 */
             if (this.name) {
                 // Check for invalid characters
+                //Let process different Insurers have different rules
+                // reject and clean rules shoud be in insurer integrations files.
                 if (!validator.isBusinessName(this.name)) {
-                    log.error('Invalid characters in name ' + __location);
-                    reject(new Error('Invalid characters in name'));
-                    return;
+                    log.error(`Invalid characters in name appId: ${this.appId}` + __location);
+                    //reject(new Error('Invalid characters in name'));
+                    //return;
                 }
 
                 // Check for max length
@@ -576,21 +583,23 @@ module.exports = class Business {
 			 * - <= 99
 			 */
             if(!this.num_owners){
-                log.error('You must specify the number of owners in the business' + __location);
-                reject(new Error('You must specify the number of owners in the business.'));
-                return;
+                //Depend on insurer and policyType.
+                // reject decision should be in insurer integration file.  as of 11/14/2020 only Acuity and BTIS are using num_owners
+                log.error(`You must specify the number of owners in the business appId: ${this.appId}` + __location);
+                //reject(new Error('You must specify the number of owners in the business.'));
+                //return;
             }
 
-            if (isNaN(this.num_owners)) {
+            if (this.num_owners && isNaN(this.num_owners)) {
                 log.error('You must specify the number of owners in the business' + __location);
                 reject(new Error('You must specify the number of owners in the business.'));
                 return;
             }
-            if (this.num_owners < 1) {
+            if (this.num_owners && this.num_owners < 1) {
                 reject(new Error('Number of owners cannot be less than 1.'));
                 return;
             }
-            if (this.num_owners > 99) {
+            if (this.num_owners && this.num_owners > 99) {
                 reject(new Error('Number of owners cannot exceed 99.'));
                 return;
             }
@@ -654,7 +663,7 @@ module.exports = class Business {
                     log.info(`Invalid value for property: years_of_exp. Value must be between 0 and 100 (not inclusive) for ${this.appId}`)
                     //let it quote and the insurer reject it.
                     //reject(new Error('Invalid value for property: years_of_exp. Value must be between 0 and 100 (not inclusive)'));
-                    return;
+                    // return;
                 }
             }
 
