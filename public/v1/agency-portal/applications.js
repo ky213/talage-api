@@ -7,7 +7,7 @@ const csvStringify = require('csv-stringify');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const moment = require('moment');
 const serverHelper = require('../../../server.js');
-const { LexModelBuildingService } = require('aws-sdk');
+const {LexModelBuildingService} = require('aws-sdk');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 const ApplicationBO = global.requireShared('models/Application-BO.js');
@@ -385,7 +385,10 @@ async function getApplications(req, res, next){
         query.agencyNetworkId = agencyNetwork;
         const agencyBO = new AgencyBO();
         // eslint-disable-next-line prefer-const
-        let agencyQuery = {do_not_report: 0}
+        let agencyQuery = {
+            do_not_report: 0,
+            agency_network: agencyNetwork
+        }
         if(req.params.searchText){
             agencyQuery.name = req.params.searchText
         }
@@ -419,7 +422,7 @@ async function getApplications(req, res, next){
 
     // ================================================================================
     // Build the Mongo $OR array
-    
+
     // Add a text search clause if requested
     if (req.params.searchText.length > 0){
 
