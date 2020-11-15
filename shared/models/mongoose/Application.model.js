@@ -173,20 +173,16 @@ const ApplicationSchema = new Schema({
 //***** Virtuals  ****************** */
 ApplicationSchema.virtual('ein').
     get(function() {
-        let clearEin = '';
-        if(this.einEncrypted){
-            try{
-                clearEin = crypt.decryptSync(this.einEncrypted);
-            }
-            catch(err){
-                log.error(`ApplicationModel error decrypting ein ${this.applicationId} ` + err + __location);
-            }
+        if(this.einClearText){
+            return this.einClearText;
         }
-        return clearEin;
-
+        else {
+            return "";
+        }
     }).
     set(function(einClear) {
         try{
+            this.einClearText = einClear;
             // eslint-disable-next-line consistent-this
             const me = this;
             crypt.encrypt(einClear).then(function(encryptedEin){

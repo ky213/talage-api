@@ -32,6 +32,8 @@ const taskSoleProAppEmail = global.requireRootPath('tasksystem/task-soleproappli
 const taskEmailBindAgency = global.requireRootPath('tasksystem/task-emailbindagency.js');
 
 
+const crypt = global.requireShared('./services/crypt.js');
+
 // Mongo Models
 var ApplicationMongooseModel = require('mongoose').model('Application');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
@@ -2293,6 +2295,18 @@ module.exports = class ApplicationModel {
 
     }
 
+    async setDocEinClear(applicationDoc){
+        if(applicationDoc.einEncrypted){
+            applicationDoc.ein = await crypt.decrypt(applicationDoc.einEncrypted);
+            applicationDoc.einClear = applicationDoc.ein;
+        }
+        else {
+            applicationDoc.ein = "";
+            applicationDoc.einClear = '';
+        }
+
+    }
+
 
     loadfromMongoByAppId(id) {
         return new Promise(async(resolve, reject) => {
@@ -2305,6 +2319,7 @@ module.exports = class ApplicationModel {
                 let applicationDoc = null;
                 try {
                     applicationDoc = await ApplicationMongooseModel.findOne(query, '-__v');
+                    await this.setDocEinClear(applicationDoc);
                 }
                 catch (err) {
                     log.error("Getting Application error " + err + __location);
@@ -2329,6 +2344,7 @@ module.exports = class ApplicationModel {
                 let applicationDoc = null;
                 try {
                     applicationDoc = await ApplicationMongooseModel.findOne(query, '-__v');
+                    await this.setDocEinClear(applicationDoc);
                 }
                 catch (err) {
                     log.error("Getting Application error " + err + __location);
@@ -2355,6 +2371,7 @@ module.exports = class ApplicationModel {
                 try {
                     const docDB = await ApplicationMongooseModel.findOne(query, '-__v');
                     if (docDB) {
+                        await this.setDocEinClear(docDB);
                         applicationDoc = mongoUtils.objCleanup(docDB);
                     }
                 }
@@ -2384,6 +2401,7 @@ module.exports = class ApplicationModel {
                 try {
                     const docDB = await ApplicationMongooseModel.findOne(query, '-__v');
                     if (docDB) {
+                        await this.setDocEinClear(docDB);
                         applicationDoc = mongoUtils.objCleanup(docDB);
                     }
                 }
@@ -2564,6 +2582,9 @@ module.exports = class ApplicationModel {
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions);
                     // log.debug("docList.length: " + docList.length);
                     // log.debug("docList: " + JSON.stringify(docList));
+                    for (const application of docList) {
+                        await this.setDocEinClear(application);
+                    }
                     if(getListOptions.getAgencyName === true && docList.length > 0){
                         //loop doclist adding agencyName
 
@@ -2644,27 +2665,32 @@ module.exports = class ApplicationModel {
             else {
                 // default to DESC on sent
                 queryOptions.sort.createdAt = -1;
-
             }
+            if(requestParms.format === 'csv'){
+                //CSV max pull of 10,000 docs
+                queryOptions.limit = 10000;
+            }
+            else {
+                const queryLimit = 100;
+                if (requestParms.limit) {
+                    var limitNum = parseInt(requestParms.limit, 10);
+                    if (limitNum < queryLimit) {
+                        queryOptions.limit = limitNum;
+                    }
+                    else {
+                        queryOptions.limit = queryLimit;
+                    }
 
-            const queryLimit = 100;
-            if (requestParms.limit) {
-                var limitNum = parseInt(requestParms.limit, 10);
-                if (limitNum < queryLimit) {
-                    queryOptions.limit = limitNum;
+                    if(requestParms.page && requestParms.page > 0){
+                        const skipCount = limitNum * requestParms.page;
+                        queryOptions.skip = skipCount;
+                    }
                 }
                 else {
                     queryOptions.limit = queryLimit;
                 }
+            }
 
-                if(requestParms.page && requestParms.page > 0){
-                    const skipCount = limitNum * requestParms.page;
-                    queryOptions.skip = skipCount;
-                }
-            }
-            else {
-                queryOptions.limit = queryLimit;
-            }
 
             if (requestParms.count) {
                 if (requestParms.count === "1" || requestParms.count === 1 || requestParms.count === true) {
@@ -2787,35 +2813,47 @@ module.exports = class ApplicationModel {
                         mailingZipcode: 1
 
                     };
-
+                    if(requestParms.format === 'csv'){
+                        //get full document
+                        queryProjection = {};
+                    }
                     // log.debug("ApplicationList query " + JSON.stringify(query))
                     // log.debug("ApplicationList options " + JSON.stringify(queryOptions))
-                    // log.debug("queryProjection: " + JSON.stringify(queryProjection))
+                    //log.debug("queryProjection: " + JSON.stringify(queryProjection))
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions);
                     if(docList.length > 0){
                         //loop doclist adding agencyName
                         const agencyBO = new AgencyBO();
+                        let agencyMap = {};
                         for (const application of docList) {
                             application.id = application.mysqlId;
+                            await this.setDocEinClear(application);
                             delete application._id;
                             // Load the request data into it
-                            const agency = await agencyBO.getById(application.agencyId).catch(function(err) {
-                                log.error("Agency load error " + err + __location);
-                            });
-                            if (agency) {
-                                application.agencyName = agency.name;
+                            if(agencyMap[application.agencyId]){
+                                application.agencyName = agencyMap[application.agencyId];
+                            }
+                            else {
+                                const agency = await agencyBO.getById(application.agencyId).catch(function(err) {
+                                    log.error(`Agency load error appId ${application.mysqlId} ` + err + __location);
+                                });
+                                if (agency) {
+                                    application.agencyName = agency.name;
+                                    agencyMap[application.agencyId] = agency.name;
 
+                                }
                             }
                             //industry desc
                             const industryCodeBO = new IndustryCodeBO();
                             // Load the request data into it
-                            const industryCodeJson = await industryCodeBO.getById(application.industryCode).catch(function(err) {
-                                log.error("Industry code load error " + err + __location);
-                            });
-                            if(industryCodeJson){
-                                application.industry = industryCodeJson.description;
+                            if(application.industryCode){
+                                const industryCodeJson = await industryCodeBO.getById(application.industryCode).catch(function(err) {
+                                    log.error(`Industry code load error appId ${application.mysqlId} ` + err + __location);
+                                });
+                                if(industryCodeJson){
+                                    application.industry = industryCodeJson.description;
+                                }
                             }
-
                         }
                     }
                 }
@@ -2945,6 +2983,7 @@ module.exports = class ApplicationModel {
                 try {
                     docDB = await ApplicationMongooseModel.findOne(query, '-__v');
                     if (docDB) {
+                        await this.setDocEinClear(docDB);
                         this.#applicationMongooseDB = docDB
                         appllicationDoc = mongoUtils.objCleanup(docDB);
                     }
