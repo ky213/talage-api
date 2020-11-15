@@ -48,29 +48,12 @@ function validateParameters(parent, expectedParameters){
 /**
  * Generate a CSV file of exported application data
  *
- * @param {array} agents - The list of agents this user is permitted to access
- * @param {mixed} agencyNetwork - The ID of the agency network if the user is an agency network user, false otherwise
+ * @param {array} applicationList - The list of appplication to put in CSV
  * @returns {Promise.<String, Error>} A promise that returns a string of CSV data on success, or an Error object if rejected
  */
-function generateCSV(agents, agencyNetwork){
+function generateCSV(applicationList){
     return new Promise(async(fulfill, reject) => {
-        let error = false;
 
-        // Define the columns that need to be decrypted
-        const needDecrypting = [
-            'address',
-            'address2',
-            'dba',
-            'ein',
-            'fname',
-            'lname',
-            'name',
-            'email',
-            'phone',
-            'primaryAddress',
-            'primaryAddress2',
-            'website'
-        ];
 
         // Define the different statuses and their user-friendly values
         const statusMap = {
@@ -79,6 +62,8 @@ function generateCSV(agents, agencyNetwork){
             'declined': 'Declined',
             'error': 'Error',
             'incomplete': 'Incomplete',
+            'acord_emailed': 'Acord Emailed',
+            'quoting': 'Quoting',
             'quoted': 'Quoted',
             'quoted_referred': 'Quoted (referred)',
             'referred': 'Referred',
@@ -86,142 +71,94 @@ function generateCSV(agents, agencyNetwork){
             'request_to_bind_referred': 'Request to bind (referred)',
             'wholesale': 'Wholesale'
         };
-        let whereAddition = '';
-        if(agencyNetwork){
-            whereAddition += 'AND ag.do_not_report = 0'
-        }
-        // Prepare to get all application data
-        let sql = `
-            SELECT
-                a.appStatusId,
-                a.status,
-                ad.address,
-                ad.address2,
-                ad.zip,
-                ag.name AS agency,
-                b.dba,
-                b.ein,
-                b.entity_type,
-                b.name,
-                b.website,
-                c.email,
-                c.fname,
-                c.lname,
-                c.phone,
-                pa.address AS primaryAddress,
-                pa.address2 AS primaryAddress2,
-                pa.zip AS primaryZip,
-                z.city,
-                z.territory,
-                z2.city AS primaryCity,
-                z2.territory AS primaryTerritory
-            FROM clw_talage_applications AS a
-            LEFT JOIN clw_talage_agencies AS ag ON a.agency = ag.id
-            LEFT JOIN clw_talage_addresses AS ad ON a.business = ad.business AND ad.billing = 1
-            LEFT JOIN (SELECT * FROM clw_talage_addresses AS ad2 GROUP BY ad2.business) AS pa ON a.business = pa.business
-            LEFT JOIN clw_talage_businesses AS b ON a.business = b.id
-            LEFT JOIN clw_talage_contacts AS c ON a.business = c.business AND c.primary = 1
-            LEFT JOIN clw_talage_zip_codes AS z ON ad.zip = z.zip
-            LEFT JOIN clw_talage_zip_codes AS z2 ON pa.zip = z2.zip
-            WHERE
-                a.state > 0
-				AND ag.state > 0
-				${whereAddition}
-				
-		`;
-
-        // This is a very special case. If this is the agency 'Solepro' (ID 12) is asking for applications, query differently
-        if(!agencyNetwork && agents[0] === 12){
-            sql += ` AND \`a\`.\`solepro\` = 1`;
-        }
-        else{
-            sql += ` AND \`a\`.\`agency\` IN(${agents.join()})`;
-        }
-
-        // Run the query
-        const data = await db.query(sql).catch(function(err){
-            log.error(err.message);
-            error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-        });
-        if(error){
-            reject(error);
-            return;
-        }
 
         // If no data was returned, stop and alert the user
-        if(data.length === 0){
+        if(!applicationList){
+            log.info('There are no applications to export');
+            reject(serverHelper.requestError('There are no applications to export. Please try again when there are some applications in your account.'));
+            return;
+        }
+        if(applicationList.length === 0){
             log.info('There are no applications to export');
             reject(serverHelper.requestError('There are no applications to export. Please try again when there are some applications in your account.'));
             return;
         }
 
         // Process the returned data
-        for(const record of data){
-            for(const property in record){
-                if(Object.prototype.hasOwnProperty.call(record, property)){
-                    // Decrypt if needed
-                    if(needDecrypting.includes(property)){
-                        record[property] = await crypt.decrypt(record[property]);
-                    }
-                }
-            }
+        for(const applicationDoc of applicationList){
 
             /* --- Make the data pretty --- */
-
             // Address and Primary Address - Combine the two address lines (if there is an address and an address line 2)
-            if(record.address && record.address2){
-                record.address += `, ${record.address2}`;
+            if(applicationDoc.mailingAddress && applicationDoc.mailingAddress2){
+                applicationDoc.mailingAddress += `, ${applicationDoc.mailingAddress2}`;
             }
-            if(record.primaryAddress && record.primaryAddress2){
-                record.primaryAddress += `, ${record.primaryAddress2}`;
-            }
-
-            // Contact Name - Combine first and last
-            record.contactName = `${record.fname} ${record.lname}`;
 
             // Business Name and DBA - Clean the name and DBA (grave marks in the name cause the CSV not to render)
-            record.dba = record.dba ? record.dba.replace(/’/g, '\'') : null;
-            record.name = record.name ? record.name.replace(/’/g, '\'') : null;
+            applicationDoc.dba = applicationDoc.dba ? applicationDoc.dba.replace(/’/g, '\'') : null;
+            applicationDoc.name = applicationDoc.name ? applicationDoc.name.replace(/’/g, '\'') : null;
 
-            // City and Primary City - Proper capitalization
-            if(record.city){
-                record.city = stringFunctions.ucwords(record.city.toLowerCase());
-            }
-            if(record.primaryCity){
-                record.primaryCity = stringFunctions.ucwords(record.primaryCity.toLowerCase());
+            //Get Primary Location
+            const primaryLocation = applicationDoc.locations.find(locationTest => locationTest.billing === true);
+            if(primaryLocation){
+                applicationDoc.primaryAddress = primaryLocation.address;
+                if(applicationDoc.primaryAddress && primaryLocation.address2){
+                    applicationDoc.primaryAddress += `, ${primaryLocation.address2}`;
+                }
+
+                // City and Primary City - Proper capitalization
+                if(primaryLocation.city){
+                    applicationDoc.city = stringFunctions.ucwords(primaryLocation.city.toLowerCase());
+                    applicationDoc.primaryCity = stringFunctions.ucwords(primaryLocation.city.toLowerCase());
+                }
+                applicationDoc.primaryState = primaryLocation.state;
+                applicationDoc.primaryZip = primaryLocation.zipcode;
             }
 
+
+            //get Primary Contact
+            const customerContact = applicationDoc.contacts.find(contactTest => contactTest.primary === true);
             // Phone Number - Formatted
-            record.phone = record.phone ? formatPhone(record.phone) : null;
+            if(customerContact){
+                applicationDoc.email = customerContact.email;
+                applicationDoc.phone = customerContact.phone ? formatPhone(customerContact.phone) : null;
+                // Contact Name - Combine first and last
+                if(customerContact.firstName){
+                    applicationDoc.contactName = `${customerContact.firstName} ${customerContact.lastName}`;
+                }
+            }
+            // else {
+            //     log.debug(`No primary contact for appId: ${applicationDoc.mysqlId}` + __location)
+            // }
+
 
             // Status
-            if(Object.prototype.hasOwnProperty.call(statusMap, record.status)){
-                record.status = statusMap[record.status];
+            if(Object.prototype.hasOwnProperty.call(statusMap, applicationDoc.status)){
+                applicationDoc.status = statusMap[applicationDoc.status];
             }
             else{
-                record.status = 'Unknown';
+                applicationDoc.status = 'Unknown';
             }
         }
 
         // Define the columns (and column order) in the CSV file and their user friendly titles
         const columns = {
-            'name': 'Business Name',
+            'businessName': 'Business Name',
             'dba': 'DBA',
             'status': 'Application Status',
-            'agency': 'Agency',
-            'address': 'Mailing Address',
-            'city': 'Mailing City',
-            'territory': 'Mailing State',
-            'zip': 'Mailing Zip Code',
+            'agencyName': 'Agency',
+            'mailingAddress': 'Mailing Address',
+            'mailingCity': 'Mailing City',
+            'mailingState': 'Mailing State',
+            'mailingZipcode': 'Mailing Zip Code',
             'primaryAddress': 'Physical Address',
             'primaryCity': 'Physical City',
-            'primaryTerritory': 'Physical State',
+            'primaryState': 'Physical State',
             'primaryZip': 'Physical Zip Code',
             'contactName': 'Contact Name',
             'email': 'Contact Email',
             'phone': 'Contact Phone',
-            'entity_type': 'Entity Type',
-            'ein': 'EIN',
+            'entityType': 'Entity Type',
+            'einClear': 'EIN',
             'website': 'Website'
         };
 
@@ -232,7 +169,7 @@ function generateCSV(agents, agencyNetwork){
         };
 
         // Generate the CSV data
-        csvStringify(data, options, function(err, output){
+        csvStringify(applicationList, options, function(err, output){
             // Check if an error was encountered while creating the CSV data
             if(err){
                 log.error(`Application Export to CSV error: ${err} ${__location}`);
@@ -269,26 +206,11 @@ async function getApplications(req, res, next){
 
     // Localize data variables that the user is permitted to access
     const agencyNetwork = parseInt(req.authentication.agencyNetwork, 10);
-
+    let returnCSV = false;
+    // Use same query builder.
     // Check if we are exporting a CSV instead of the JSON list
     if(req.params && Object.prototype.hasOwnProperty.call(req.params, 'format') && req.params.format === 'csv'){
-        const csvData = await generateCSV(agents,agencyNetwork).catch(function(e){
-            error = e;
-        });
-        if(error){
-            return next(error);
-        }
-
-        // Set the headers so the browser knows we are sending a CSV file
-        res.writeHead(200, {
-            'Content-Disposition': 'attachment; filename=applications.csv',
-            'Content-Length': csvData.length,
-            'Content-Type': 'text-csv'
-        });
-
-        // Send the CSV data
-        res.end(csvData);
-        return next();
+        returnCSV = true;
     }
 
     const expectedParameters = [
@@ -362,7 +284,7 @@ async function getApplications(req, res, next){
     }
 
     // Validate the parameters
-    if (!validateParameters(req.params, expectedParameters)){
+    if (returnCSV === false && !validateParameters(req.params, expectedParameters)){
         return next(serverHelper.requestError('Bad Request: missing expected parameter'));
     }
     // All parameters and their values have been validated at this point -SFv
@@ -378,53 +300,56 @@ async function getApplications(req, res, next){
     const query = {"active": true};
     const orClauseArray = [];
 
-    //let where = `${db.quoteName('a.state')} > 0 AND ${db.quoteName('ag.state')} > 0`;
-
     // Filter out any agencies with do_not_report value set to true
-    if(req.authentication.agencyNetwork){
-        query.agencyNetworkId = agencyNetwork;
-        const agencyBO = new AgencyBO();
-        // eslint-disable-next-line prefer-const
-        let agencyQuery = {
-            do_not_report: 0,
-            agency_network: agencyNetwork
-        }
-        if(req.params.searchText){
-            agencyQuery.name = req.params.searchText
-        }
-        const agencyList = await agencyBO.getList(agencyQuery).catch(function(err) {
-            log.error("Agency List load error " + err + __location);
-            error = err;
-        });
-        if (agencyList && agencyList.length > 0) {
+    try{
+
+        if(req.authentication.agencyNetwork){
+            query.agencyNetworkId = agencyNetwork;
+            const agencyBO = new AgencyBO();
             // eslint-disable-next-line prefer-const
-            let agencyIdArray = [];
-            for (const agency of agencyList) {
-                agencyIdArray.push(agency.id);
+            let agencyQuery = {
+                do_not_report: 0,
+                agency_network: agencyNetwork
             }
-            const agencyListFilter = {agencyId: {$in: agencyIdArray}};
-            orClauseArray.push(agencyListFilter);
+            if(req.params.searchText){
+                agencyQuery.name = req.params.searchText
+            }
+            const agencyList = await agencyBO.getList(agencyQuery).catch(function(err) {
+                log.error("Agency List load error " + err + __location);
+                error = err;
+            });
+            if (agencyList && agencyList.length > 0) {
+                // eslint-disable-next-line prefer-const
+                let agencyIdArray = [];
+                for (const agency of agencyList) {
+                    agencyIdArray.push(agency.id);
+                }
+                const agencyListFilter = {agencyId: {$in: agencyIdArray}};
+                orClauseArray.push(agencyListFilter);
+            }
+            else {
+                log.warn("Application Search no agencies found " + __location);
+            }
         }
         else {
-            log.warn("Application Search no agencies found " + __location);
+            query.agencyId = agents[0];
+            if(query.agencyId === 12){
+                query.solepro = true;
+            }
+        }
+        if(req.params.searchApplicationStatus){
+            query.status = req.params.searchApplicationStatus;
         }
     }
-    else {
-        query.agencyId = agents[0];
-        if(query.agencyId === 12){
-            query.solepro = true;
-        }
+    catch(err){
+        log.error("AP get App list error " + err + __location);
     }
-    if(req.params.searchApplicationStatus){
-        query.status = req.params.searchApplicationStatus;
-    }
-
 
     // ================================================================================
     // Build the Mongo $OR array
 
     // Add a text search clause if requested
-    if (req.params.searchText.length > 0){
+    if (req.params.searchText && req.params.searchText.length > 0){
 
         const industryCodeBO = new IndustryCodeBO();
         // eslint-disable-next-line prefer-const
@@ -475,7 +400,7 @@ async function getApplications(req, res, next){
 
     }
     // Add a application status search clause if requested
-    if (req.params.searchApplicationStatus.length > 0){
+    if (req.params.searchApplicationStatus && req.params.searchApplicationStatus.length > 0){
         const status = {status: req.params.searchApplicationStatus}
         orClauseArray.push(status);
     }
@@ -518,8 +443,12 @@ async function getApplications(req, res, next){
             application.business = application.businessName;
             application.agency = application.agencyId;
             application.date = application.createdAt;
-            application.location = `${application.mailingCity}, ${application.mailingState} ${application.mailingZipcode} `
-
+            if(application.mailingCity){
+                application.location = `${application.mailingCity}, ${application.mailingState} ${application.mailingZipcode} `
+            }
+            else {
+                application.location = "";
+            }
         }
 
     }
@@ -528,27 +457,48 @@ async function getApplications(req, res, next){
         return next(serverHelper.requestError(`Bad Request: check error ${err}`));
     }
 
-    // Exit with default values if no applications were received
-    if (!applicationList.length){
-        res.send(200, {
-            "applications": [],
-            "applicationsSearchCount": 0,
-            "applicationsTotalCount": applicationsTotalCount
+    if(returnCSV === true){
+        const csvData = await generateCSV(applicationList).catch(function(e){
+            error = e;
         });
+        if(error){
+            return next(error);
+        }
+
+        // Set the headers so the browser knows we are sending a CSV file
+        res.writeHead(200, {
+            'Content-Disposition': 'attachment; filename=applications.csv',
+            'Content-Length': csvData.length,
+            'Content-Type': 'text-csv'
+        });
+
+        // Send the CSV data
+        res.end(csvData);
+        return next();
+
+    }
+    else {
+        // Exit with default values if no applications were received
+        if (!applicationList || !applicationList.length){
+            res.send(200, {
+                "applications": [],
+                "applicationsSearchCount": 0,
+                "applicationsTotalCount": applicationsTotalCount
+            });
+            return next();
+        }
+
+
+        // Build the response
+        const response = {
+            "applications": applicationList,
+            "applicationsSearchCount": applicationsSearchCount,
+            "applicationsTotalCount": applicationsTotalCount
+        };
+        // Return the response
+        res.send(200, response);
         return next();
     }
-
-
-    // Build the response
-    const response = {
-        "applications": applicationList,
-        "applicationsSearchCount": applicationsSearchCount,
-        "applicationsTotalCount": applicationsTotalCount
-    };
-
-    // Return the response
-    res.send(200, response);
-    return next();
 }
 
 exports.registerEndpoint = (server, basePath) => {

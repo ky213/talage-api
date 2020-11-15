@@ -168,7 +168,7 @@ module.exports = class IndustryCodeBO{
                 resolve(this.#dbTableORM.cleanJSON());
             }
             else {
-                reject(new Error('no id supplied'))
+                reject(new Error('no id supplied ' + id))
             }
         });
     }

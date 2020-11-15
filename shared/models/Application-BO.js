@@ -2297,14 +2297,13 @@ module.exports = class ApplicationModel {
 
     async setDocEinClear(applicationDoc){
         if(applicationDoc.einEncrypted){
-            applicationDoc.ein = await crypt.decrypt(applicationDoc.einEncrypted);
-            applicationDoc.einClear = applicationDoc.ein;
+            applicationDoc.einClear = await crypt.decrypt(applicationDoc.einEncrypted);
+            applicationDoc.ein = applicationDoc.einClear;
         }
         else {
             applicationDoc.ein = "";
-            applicationDoc.einClear = '';
+            applicationDoc.einClear = "";
         }
-
     }
 
 
