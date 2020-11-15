@@ -115,12 +115,12 @@ module.exports = class IndustryCodeBO{
                 }
                 if(queryJSON.description){
                     sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` name like ${db.escape(queryJSON.description)} `
+                    sql += ` description like ${db.escape(`%${queryJSON.description}%`)} `
                     hasWhere = true;
                 }
             }
             // Run the query
-            log.debug("IndustryCodeBO getlist sql: " + sql);
+            //log.debug("IndustryCodeBO getlist sql: " + sql);
             const result = await db.query(sql).catch(function(error) {
                 // Check if this was
 

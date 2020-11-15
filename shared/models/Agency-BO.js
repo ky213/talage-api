@@ -223,6 +223,11 @@ module.exports = class AgencyBO {
                   sql += ` name like ${db.escape(`%${queryJSON.name}%`)} `
                   hasWhere = true;
               }
+              if (queryJSON.do_not_report) {
+                  sql += hasWhere ? " AND " : " WHERE ";
+                  sql += ` do_not_report =  ${db.escape(queryJSON.do_not_report)} `
+                  hasWhere = true;
+              }
               if (queryJSON.state) {
                   sql += hasWhere ? " AND " : " WHERE ";
                   sql += ` state = ${db.escape(queryJSON.state)} `

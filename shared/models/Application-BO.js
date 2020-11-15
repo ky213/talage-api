@@ -25,6 +25,7 @@ const QuestionAnswerBO = global.requireShared('./models/QuestionAnswer-BO.js');
 const QuestionTypeBO = global.requireShared('./models/QuestionType-BO.js');
 const MappingBO = global.requireShared('./models/Mapping-BO.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
+const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
 
 const taskWholesaleAppEmail = global.requireRootPath('tasksystem/task-wholesaleapplicationemail.js');
 const taskSoleProAppEmail = global.requireRootPath('tasksystem/task-soleproapplicationemail.js');
@@ -2601,6 +2602,251 @@ module.exports = class ApplicationModel {
         });
     }
 
+    getAppListForAgencyPortalSearch(queryJSON, orParamList, requestParms){
+        return new Promise(async(resolve, reject) => {
+            //
+            // let getListOptions = {
+            //     getQuestions: false,
+            //     getAgencyName: false
+            // }
+
+            // if(getOptions){
+            //     for(const prop in getOptions){
+            //         getListOptions[prop] = getOptions[prop];
+            //     }
+            // }
+            if(!requestParms){
+                requestParms = {}
+            }
+
+            if(!orParamList){
+                orParamList = [];
+            }
+            let findCount = false;
+
+            let rejected = false;
+            let query = {};
+            let error = null;
+
+            var queryOptions = {lean:true};
+            queryOptions.sort = {};
+            queryOptions.sort = {};
+            if(requestParms && requestParms.sort === 'date') {
+                requestParms.sort = 'createdAt';
+            }
+            if (requestParms.sort) {
+                let acs = 1;
+                if(requestParms.sortDescending === true){
+                    acs = -1;
+                }
+                queryOptions.sort[requestParms.sort] = acs;
+            }
+            else {
+                // default to DESC on sent
+                queryOptions.sort.createdAt = -1;
+
+            }
+
+            const queryLimit = 100;
+            if (requestParms.limit) {
+                var limitNum = parseInt(requestParms.limit, 10);
+                if (limitNum < queryLimit) {
+                    queryOptions.limit = limitNum;
+                }
+                else {
+                    queryOptions.limit = queryLimit;
+                }
+
+                if(requestParms.page && requestParms.page > 0){
+                    const skipCount = limitNum * requestParms.page;
+                    queryOptions.skip = skipCount;
+                }
+            }
+            else {
+                queryOptions.limit = queryLimit;
+            }
+
+            if (requestParms.count) {
+                if (requestParms.count === "1" || requestParms.count === 1 || requestParms.count === true) {
+                    findCount = true;
+                }
+            }
+            // if (queryJSON.ltAppStatusId && queryJSON.gtAppStatusId) {
+            //     query.appStatusId = {
+            //         $lt: parseInt(queryJSON.ltAppStatusId, 10),
+            //         $gt: parseInt(queryJSON.gtAppStatusId, 10)
+            //     };
+            //     delete queryJSON.ltAppStatusId;
+            //     delete queryJSON.gtAppStatusId;
+            // }
+            // else if (queryJSON.ltAppStatusId) {
+            //     query.appStatusId = {$lt: parseInt(queryJSON.ltAppStatusId, 10)};
+            //     delete queryJSON.ltAppStatusId;
+            // }
+            // else if (queryJSON.gtAppStatusId) {
+            //     query.appStatusId = {$gt: parseInt(queryJSON.minid, 10)};
+            //     delete queryJSON.gtAppStatusId;
+            // }
+
+            if (queryJSON.searchbegindate && queryJSON.searchenddate) {
+                let fromDate = moment(queryJSON.searchbegindate);
+                let toDate = moment(queryJSON.searchenddate);
+                if (fromDate.isValid() && toDate.isValid()) {
+                    query.createdAt = {
+                        $lte: toDate,
+                        $gte: fromDate
+                    };
+                    delete queryJSON.searchbegindate;
+                    delete queryJSON.searchenddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.searchbegindate) {
+                // eslint-disable-next-line no-redeclare
+                let fromDate = moment(queryJSON.searchbegindate);
+                if (fromDate.isValid()) {
+                    query.createdAt = {$gte: fromDate};
+                    delete queryJSON.searchbegindate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.searchenddate) {
+                // eslint-disable-next-line no-redeclare
+                let toDate = moment(queryJSON.searchenddate);
+                if (toDate.isValid()) {
+                    query.createdAt = {$lte: toDate};
+                    delete queryJSON.searchenddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+
+
+            if (queryJSON) {
+                for (var key in queryJSON) {
+                    if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
+                        let clearString = queryJSON[key].replace("%", "");
+                        clearString = clearString.replace("%", "");
+                        query[key] = {
+                            "$regex": clearString,
+                            "$options": "i"
+                        };
+                    }
+                    else {
+                        query[key] = queryJSON[key];
+                    }
+                }
+            }
+
+            if(orParamList && orParamList.length > 0){
+                for (let i = 0; i < orParamList.length; i++){
+                    let orItem = orParamList[i];
+                    // eslint-disable-next-line no-redeclare
+                    for (var key2 in orItem) {
+                        if (typeof orItem[key2] === 'string' && orItem[key2].includes('%')) {
+                            let clearString = orItem[key2].replace("%", "");
+                            clearString = clearString.replace("%", "");
+                            orItem[key2] = {
+                                "$regex": clearString,
+                                "$options": "i"
+                            };
+                        }
+                    }
+                }
+                query.$or = orParamList
+            }
+
+            if (findCount === false) {
+                let docList = null;
+                try {
+                    //let queryProjection = {"__v": 0, questions:0};
+                    let queryProjection = {
+                        uuid: 1,
+                        appicationID:1,
+                        mysqlId:1,
+                        status: 1,
+                        appStatusId:1,
+                        agencyId:1,
+                        agencyNetworkId:1,
+                        createdAt: 1,
+                        solepro: 1,
+                        wholesale: 1,
+                        businessName: 1,
+                        industryCode: 1,
+                        mailingAddress: 1,
+                        mailingCity: 1,
+                        mailingState: 1,
+                        mailingZipcode: 1
+
+                    };
+
+                    // log.debug("ApplicationList query " + JSON.stringify(query))
+                    // log.debug("ApplicationList options " + JSON.stringify(queryOptions))
+                    // log.debug("queryProjection: " + JSON.stringify(queryProjection))
+                    docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions);
+                    if(docList.length > 0){
+                        //loop doclist adding agencyName
+                        const agencyBO = new AgencyBO();
+                        for (const application of docList) {
+                            application.id = application.mysqlId;
+                            delete application._id;
+                            // Load the request data into it
+                            const agency = await agencyBO.getById(application.agencyId).catch(function(err) {
+                                log.error("Agency load error " + err + __location);
+                            });
+                            if (agency) {
+                                application.agencyName = agency.name;
+
+                            }
+                            //industry desc
+                            const industryCodeBO = new IndustryCodeBO();
+                            // Load the request data into it
+                            const industryCodeJson = await industryCodeBO.getById(application.industryCode).catch(function(err) {
+                                log.error("Industry code load error " + err + __location);
+                            });
+                            if(industryCodeJson){
+                                application.industry = industryCodeJson.description;
+                            }
+
+                        }
+                    }
+                }
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    rejected = true;
+                }
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                resolve(docList);
+                return;
+            }
+            else {
+                const docCount = await ApplicationMongooseModel.countDocuments(query).catch(err => {
+                    log.error("Application.countDocuments error " + err + __location);
+                    error = null;
+                    rejected = true;
+                })
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                resolve({count: docCount});
+                return;
+            }
+        });
+
+    }
 
     getById(id) {
         return new Promise(async(resolve, reject) => {
