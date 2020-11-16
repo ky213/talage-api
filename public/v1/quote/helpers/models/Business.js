@@ -465,7 +465,7 @@ module.exports = class Business {
 
                 // Confirm founded date is at least somewhat reasonable
                 if (this.founded.isBefore(moment('07-04-1776', 'MM-DD-YYYY'))) {
-                    reject(new Error('Invalid value for property: founded. Founded date is far past'));
+                    reject(new Error('Invalid value for property: founded. Founded date is too far in the past.'));
                     return;
                 }
             }
