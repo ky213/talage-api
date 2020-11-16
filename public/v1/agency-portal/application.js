@@ -579,7 +579,7 @@ async function applicationCopy(req, res, next) {
         // eslint-disable-next-line prefer-const
         let newApplicationDoc = JSON.parse(JSON.stringify(applicationDocDB));
         // eslint-disable-next-line array-element-newline
-        const propsToRemove = ["_id","id","applicationId", "uuid","mysqlId"]
+        const propsToRemove = ["_id", "id", "applicationId", "uuid", "mysqlId", "createdAt"];
         for(let i = 0; i < propsToRemove.length; i++){
             if(newApplicationDoc[propsToRemove[i]]){
                 delete newApplicationDoc[propsToRemove[i]]
