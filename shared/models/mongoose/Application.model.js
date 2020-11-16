@@ -111,7 +111,7 @@ const ApplicationSchema = new Schema({
     appStatusId: {type: Number, required: true, default: 0},
     lastStep: {type: Number, default: 0},
     progress: {type: String, default: "unknown"},
-    status: {type: String, required: false},
+    status: {type: String, required: false, default: "incomplete"},
     solepro:  {type: Boolean, default: false},
     wholesale:  {type: Boolean, default: false},
     coverageLapseWC:  {type: Boolean, default: false},
