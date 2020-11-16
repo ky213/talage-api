@@ -138,6 +138,8 @@ function generateCSV(applicationList){
             else{
                 applicationDoc.status = 'Unknown';
             }
+            const createdAtMoment = moment(applicationDoc.createdAt)
+            applicationDoc.createdString = createdAtMoment.format("YYYY-MM-DD hh:mm");
         }
 
         // Define the columns (and column order) in the CSV file and their user friendly titles
@@ -159,7 +161,8 @@ function generateCSV(applicationList){
             'phone': 'Contact Phone',
             'entityType': 'Entity Type',
             'einClear': 'EIN',
-            'website': 'Website'
+            'website': 'Website',
+            'createdString' : 'Created (UTC)'
         };
 
         // Establish the headers for the CSV file
