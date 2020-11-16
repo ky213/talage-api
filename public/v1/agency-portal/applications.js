@@ -291,8 +291,8 @@ async function getApplications(req, res, next){
 
 
     // Create MySQL date strings
-    const startDateSQL = moment(req.params.startDate).utc().format('YYYY-MM-DD HH:mm:ss');
-    const endDateSQL = moment(req.params.endDate).utc().format('YYYY-MM-DD HH:mm:ss');
+    const startDateMoment = moment(req.params.startDate).utc();
+    const endDateMoment = moment(req.params.endDate).utc();
 
 
     // Begin by only allowing applications that are not deleted from agencies that are also not deleted
@@ -407,11 +407,11 @@ async function getApplications(req, res, next){
 
     // ================================================================================
 
-    if(startDateSQL){
-        query.searchbegindate = startDateSQL;
+    if(startDateMoment){
+        query.searchbegindate = startDateMoment.toISOString();
     }
-    if(endDateSQL){
-        query.searchbegindate = startDateSQL;
+    if(endDateMoment){
+        query.searchenddate = endDateMoment.toISOString();
     }
 
 
@@ -435,7 +435,9 @@ async function getApplications(req, res, next){
         const applicationsTotalCountJSON = await applicationBO.getAppListForAgencyPortalSearch(totalQueryJson,[],{count: 1});
         applicationsTotalCount = applicationsTotalCountJSON.count;
 
-        const applicationsSearchCountJSON = await applicationBO.getAppListForAgencyPortalSearch(query, orClauseArray,{count: 1})
+        // query object is altered in getAppListForAgencyPortalSearch
+        const countQuery = JSON.parse(JSON.stringify(query))
+        const applicationsSearchCountJSON = await applicationBO.getAppListForAgencyPortalSearch(countQuery, orClauseArray,{count: 1})
         applicationsSearchCount = applicationsSearchCountJSON.count;
 
         applicationList = await applicationBO.getAppListForAgencyPortalSearch(query,orClauseArray,requestParms);

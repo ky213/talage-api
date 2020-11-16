@@ -2624,17 +2624,7 @@ module.exports = class ApplicationModel {
 
     getAppListForAgencyPortalSearch(queryJSON, orParamList, requestParms){
         return new Promise(async(resolve, reject) => {
-            //
-            // let getListOptions = {
-            //     getQuestions: false,
-            //     getAgencyName: false
-            // }
-
-            // if(getOptions){
-            //     for(const prop in getOptions){
-            //         getListOptions[prop] = getOptions[prop];
-            //     }
-            // }
+            
             if(!requestParms){
                 requestParms = {}
             }
@@ -2696,30 +2686,14 @@ module.exports = class ApplicationModel {
                     findCount = true;
                 }
             }
-            // if (queryJSON.ltAppStatusId && queryJSON.gtAppStatusId) {
-            //     query.appStatusId = {
-            //         $lt: parseInt(queryJSON.ltAppStatusId, 10),
-            //         $gt: parseInt(queryJSON.gtAppStatusId, 10)
-            //     };
-            //     delete queryJSON.ltAppStatusId;
-            //     delete queryJSON.gtAppStatusId;
-            // }
-            // else if (queryJSON.ltAppStatusId) {
-            //     query.appStatusId = {$lt: parseInt(queryJSON.ltAppStatusId, 10)};
-            //     delete queryJSON.ltAppStatusId;
-            // }
-            // else if (queryJSON.gtAppStatusId) {
-            //     query.appStatusId = {$gt: parseInt(queryJSON.minid, 10)};
-            //     delete queryJSON.gtAppStatusId;
-            // }
 
             if (queryJSON.searchbegindate && queryJSON.searchenddate) {
-                let fromDate = moment(queryJSON.searchbegindate);
-                let toDate = moment(queryJSON.searchenddate);
+                const fromDate = moment(queryJSON.searchbegindate);
+                const toDate = moment(queryJSON.searchenddate);
                 if (fromDate.isValid() && toDate.isValid()) {
                     query.createdAt = {
-                        $lte: toDate,
-                        $gte: fromDate
+                        $lte: toDate.clone(),
+                        $gte: fromDate.clone()
                     };
                     delete queryJSON.searchbegindate;
                     delete queryJSON.searchenddate;
@@ -2816,7 +2790,7 @@ module.exports = class ApplicationModel {
                         //get full document
                         queryProjection = {};
                     }
-                    // log.debug("ApplicationList query " + JSON.stringify(query))
+                    //log.debug("ApplicationList query " + JSON.stringify(query))
                     // log.debug("ApplicationList options " + JSON.stringify(queryOptions))
                     //log.debug("queryProjection: " + JSON.stringify(queryProjection))
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions);
