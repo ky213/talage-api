@@ -1687,6 +1687,27 @@ module.exports = class ApplicationModel {
         }
     }
 
+    async checkExpiration(applicationJSON){
+        log.debug("Checking Expiration date ")
+        if(applicationJSON.policies && applicationJSON.policies.length > 0){
+            for(let policy of applicationJSON.policies){
+                log.debug("policy " + JSON.stringify(policy))
+                if(policy.effectiveDate && !policy.expirationDate){
+                    try{
+                        const startDateMomemt = moment(policy.effectiveDate);
+                        policy.expirationDate = startDateMomemt.clone().add(1,"y");
+                        log.debug("updated expirationDate")
+                    }
+                    catch(err){
+                        log.error(`Error process policy dates ${err} policy: ${JSON.stringify(policy)}` + __location)
+                    }
+                }
+            }
+        }
+        return true;
+
+    }
+
     async updateMongo(uuid, newObjectJSON, updateMysql = false) {
         if (uuid) {
             if (typeof newObjectJSON === "object") {
@@ -1704,7 +1725,7 @@ module.exports = class ApplicationModel {
                 let newApplicationJSON = null;
                 try {
                     //because Virtual Sets.  new need to get the model and save.
-
+                    await this.checkExpiration(newObjectJSON);
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
                     const newApplicationdoc = await ApplicationMongooseModel.findOne(query);
                     this.#applicationMongooseDB = newApplicationdoc
@@ -1768,6 +1789,8 @@ module.exports = class ApplicationModel {
         if (!newObjectJSON.applicationId && newObjectJSON.uuid) {
             newObjectJSON.applicationId = newObjectJSON.uuid;
         }
+
+        await this.checkExpiration(newObjectJSON);
 
         const application = new ApplicationMongooseModel(newObjectJSON);
         //log.debug("insert application: " + JSON.stringify(application))
@@ -2026,7 +2049,7 @@ module.exports = class ApplicationModel {
         //questions
         if(applicationDoc.questions && applicationDoc.questions.length > 0){
             await this.mongoDoc2MySqlQuestions(applicationDoc.questions, applicationJSON).catch(function(err){
-                log.error("Error in mongoDoc2MySqlClaims " + err + __location);
+                log.error("Error in mongoDoc2MySqlQuestions " + err + __location);
             });
         }
 
@@ -2040,25 +2063,28 @@ module.exports = class ApplicationModel {
             await applicationClaimModelDelete.DeleteClaimsByApplicationId(applicationJSON.id).catch(function(err) {
                 log.error("Error deleting ApplicationClaimModel " + err + __location);
             });
-            const propMappings = {eventDate: "date"};
-            for (var i = 0; i < claims.length; i++) {
-                // eslint-disable-next-line prefer-const
-                let claim = JSON.parse(JSON.stringify(claims[i]));
-                this.jsonToSnakeCase(claim, propMappings);
-                claim.application = applicationJSON.id;
-                if(claim.id){
-                    delete claim.id;
+            if(claims){
+                const propMappings = {eventDate: "date"};
+                for (var i = 0; i < claims.length; i++) {
+                    // eslint-disable-next-line prefer-const
+                    let claim = JSON.parse(JSON.stringify(claims[i]));
+                    this.jsonToSnakeCase(claim, propMappings);
+                    claim.application = applicationJSON.id;
+                    if(claim.id){
+                        delete claim.id;
+                    }
+                    if(claim["_id"]){
+                        delete claim["_id"];
+                    }
+                    const applicationClaimModel = new ApplicationClaimBO();
+                    await applicationClaimModel.saveModel(claim).catch(function(err) {
+                        log.error("Adding new claim error:" + err + __location);
+                        reject(err);
+                        return;
+                    });
                 }
-                if(claim["_id"]){
-                    delete claim["_id"];
-                }
-                const applicationClaimModel = new ApplicationClaimBO();
-                await applicationClaimModel.saveModel(claim).catch(function(err) {
-                    log.error("Adding new claim error:" + err + __location);
-                    reject(err);
-                    return;
-                });
             }
+
             resolve(true);
 
         });
@@ -2249,14 +2275,19 @@ module.exports = class ApplicationModel {
 
     async mongoDoc2MySqlQuestions(questionListDoc, applicationJSON){
 
-
+        if(!questionListDoc){
+            return;
+        }
+        if(questionListDoc.length === 0){
+            return;
+        }
         //?? delete old questions in case question list is reduced ??
 
         const valueList = []
         for (var i = 0; i < questionListDoc.length; i++) {
             const questionDocItem = questionListDoc[i];
             let valueLine = '';
-            if (questionDocItem.questionType.toLowerCase().startsWith('text')) {
+            if (questionDocItem.questionType.toLowerCase().startsWith('text') && questionDocItem.answerValue) {
                 const cleanString = questionDocItem.answerValue.replace(/\|/g, ',')
                 valueLine = `(${applicationJSON.id}, ${questionDocItem.questionId}, NULL, ${db.escape(cleanString)})`
 
@@ -2266,7 +2297,9 @@ module.exports = class ApplicationModel {
                 valueLine = `(${applicationJSON.id}, ${questionDocItem.questionId}, NULL, ${db.escape(arrayString)})`
             }
             else if (questionDocItem.questionType === 'Yes/No' || questionDocItem.questionType === 'Select List'){
-                valueLine = `(${applicationJSON.id}, ${questionDocItem.questionId}, ${questionDocItem.answerId}, NULL)`
+                if(questionDocItem.answerId){
+                    valueLine = `(${applicationJSON.id}, ${questionDocItem.questionId}, ${questionDocItem.answerId}, NULL)`
+                }
             }
             if(valueLine){
                 valueList.push(valueLine);
@@ -2624,7 +2657,7 @@ module.exports = class ApplicationModel {
 
     getAppListForAgencyPortalSearch(queryJSON, orParamList, requestParms){
         return new Promise(async(resolve, reject) => {
-            
+
             if(!requestParms){
                 requestParms = {}
             }
