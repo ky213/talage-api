@@ -49,6 +49,7 @@ module.exports = class Integration {
         this.seconds = 0;
         this.universal_questions = [];
         this.writer = '';
+        this.quoteLink = '';
 
         // These are set in our insurer integration
         this.possible_api_responses = {};
@@ -58,25 +59,25 @@ module.exports = class Integration {
         this.quote_letter = {};
         this.reasons = [];
 
-        // Process payroll caps for Nevada
-        const nv_payroll_cap = 36000;
-        if (this.app.business) {
-            if (app.business.primary_territory === 'NV') {
-                // Loop through each location
-                app.business.locations.forEach(function(location, location_index) {
-                    // Total the employees
-                    const total_employees = location.full_time_employees + location.part_time_employees;
+        // Apply WC payroll caps for Nevada
+        if (this.policy.type === 'WC' && this.app.business && app.business.primary_territory === 'NV') {
+            const nv_payroll_cap = 36000;
 
-                    // Loop through each class code
-                    location.activity_codes.forEach(function(code, code_index) {
-                        // If the payroll is over the cap, set it to the cap
-                        if (code.payroll / total_employees > nv_payroll_cap) {
-                            app.business.locations[location_index].activity_codes[code_index].payroll = nv_payroll_cap * total_employees;
-                        }
-                    });
+            // Loop through each location
+            app.business.locations.forEach(function(location, location_index) {
+                // Total the employees
+                const total_employees = location.full_time_employees + location.part_time_employees;
+
+                // Loop through each class code
+                location.activity_codes.forEach(function(code, code_index) {
+                    // If the payroll is over the cap, set it to the cap
+                    if (code.payroll / total_employees > nv_payroll_cap) {
+                        app.business.locations[location_index].activity_codes[code_index].payroll = nv_payroll_cap * total_employees;
+                    }
                 });
-            }
+            });
         }
+
     }
 
     /**
@@ -252,10 +253,7 @@ module.exports = class Integration {
         if (!employersRecord) {
             return null;
         }
-        return {
-            code: employersRecord.code,
-            sub: employersRecord.sub
-        };
+        return employersRecord.code;
     }
 
     /**
@@ -459,8 +457,8 @@ module.exports = class Integration {
         // Default required
         required = required ? required : false;
 
-        // If this question has a parent that belongs to the same insurer, this question is not required, and the parent question was answered 'NO', skip this question
-        if (question.parent && Object.prototype.hasOwnProperty.call(this.questions, question.parent) && !required && !this.questions[question.parent].get_answer_as_boolean()) {
+        // If this question has a parent, is not required, and the parent question answer does not trigger this question
+        if (question.parent && Object.prototype.hasOwnProperty.call(this.questions, question.parent) && !required && this.questions[question.parent].answer_id !== question.parent_answer) {
             return false;
         }
 
@@ -975,32 +973,12 @@ module.exports = class Integration {
             }
 
             // Check that all of the selected codes are supported by the insurer
-            let are_codes_supported = null;
-            switch (this.policy.type) {
-                case 'BOP':
-                case 'GL':
-                    are_codes_supported = await this._insurer_supports_industry_codes();
-                    if (are_codes_supported !== true) {
-                        fulfill(are_codes_supported);
-                        return;
-                    }
-                    break;
-                case 'WC':
-                    // Check code support
-                    are_codes_supported = await this._insurer_supports_activity_codes();
-                    if (this.insurer.id === 10) {
-                        // Acuity requires CGL for WC also
-                        are_codes_supported = are_codes_supported === true ? await this._insurer_supports_industry_codes() : are_codes_supported;
-                    }
-                    if (are_codes_supported !== true) {
-                        fulfill(are_codes_supported);
-                        return;
-                    }
-                    break;
-                default:
-                    log.error(`Appid: ${this.app.id} Unexpected policy type of ${this.policy.type} in Integration` + __location);
-                    fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-                    return;
+            const industryCodesSupported = await this._insurer_supports_industry_codes();
+            const activityCodesSupported = await this._insurer_supports_activity_codes();
+            // If this integration doesn't support any industry codes or activity codes for the given territory, return autodecline.
+            if (!industryCodesSupported && !activityCodesSupported) {
+                fulfill(this.client_autodeclined_out_of_appetite());
+                return;
             }
 
             // Localize the questions and restrict them to only ones that are applicable to this insurer and policy type
@@ -1080,6 +1058,7 @@ module.exports = class Integration {
             policyType: this.policy.type,
             quoteTimeSeconds: this.seconds
         }
+        //additionalInfo example
 
         // Amount
         if (amount) {
@@ -1107,6 +1086,11 @@ module.exports = class Integration {
             columns.push('writer');
             values.push(this.writer);
             quoteJSON.writer = this.writer
+        }
+        if(this.quoteLink){
+            columns.push('quote_link');
+            values.push(this.quoteLink);
+            quoteJSON.quoteLink = this.quoteLink
         }
 
         // Error
@@ -1205,7 +1189,7 @@ module.exports = class Integration {
      * @returns {object} - An object containing the quote information
      */
     async client_autodeclined_out_of_appetite() {
-        return this.client_autodeclined('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code and state');
+        return this.client_autodeclined('Out of Appetite: The insurer reports that they will not write a policy with the selected state and industry or activity code');
     }
 
     /**
@@ -1401,7 +1385,8 @@ module.exports = class Integration {
             outage: 'Insurer System Outage',
             quoted: 'Quote Recieved',
             referred: 'Application Referred',
-            referred_with_price: 'Application Referred With Price'
+            referred_with_price: 'Application Referred With Price',
+            acord_emailed: 'Acord Form Emailed'
         };
 
         // Make sure we have a result
@@ -1513,7 +1498,8 @@ module.exports = class Integration {
                     });
                 }
                 return this.return_error('referred', `Appid: ${this.app.id} ${this.insurer.name} needs a little more time to make a decision`);
-
+            case 'acord_emailed':
+                return this.return_error('acord_emailed', `Appid: ${this.app.id} ${this.insurer.name} AgencyLocation ${this.app.agencyLocation.id} acord form sent`);
             case 'referred_with_price':
                 log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Referred To Underwriting, But Provided An Indication`);
                 return this.return_indication(this.amount);
@@ -1707,9 +1693,10 @@ module.exports = class Integration {
 	 * @param {string} path - The path at the host name we are sending to (the parts after the /, including the query string, if any)
 	 * @param {string} xml - The XML to be sent
 	 * @param {object} additional_headers (optional) - Additional headers to be sent with the request
+	 * @param {boolean} dumpRawXML (optional) - Dump the raw XML response to the console
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
 	 */
-    async send_xml_request(host, path, xml, additional_headers) {
+    async send_xml_request(host, path, xml, additional_headers, dumpRawXML = false) {
         // return new Promise(async(fulfill, reject) => {
         // If we don't have additional headers, start an object to append
         if (!additional_headers) {
@@ -1737,6 +1724,11 @@ module.exports = class Integration {
         // Convert the data to a string
         const str_data = raw_data.toString();
 
+        if (dumpRawXML) {
+            // eslint-disable-next-line no-console
+            console.log(xmlFormatter(str_data, {collapseContent: true}));
+        }
+
         // Convert the response to XML
         let result = null;
         try {
@@ -1756,7 +1748,7 @@ module.exports = class Integration {
     /**
 	 * Determines whether or not this insurer supports all class codes in this application
 	 *
-	 * @returns {Promise.<object, Error>} A promise that returns an true or an object containing error information on success
+	 * @returns {Promise.<boolean>} A promise that returns an true if the insurer supports the activity code and populates them, false otherwise
 	 */
     _insurer_supports_activity_codes() {
         return new Promise(async(fulfill) => {
@@ -1766,7 +1758,7 @@ module.exports = class Integration {
                 location.activity_codes.forEach(function(activity_code) {
                     // Check if this code already existed
                     if (!Object.prototype.hasOwnProperty.call(wcCodes, `${location.territory}${activity_code.id}`)) {
-                        wcCodes[`${location.territory}${activity_code.id}`] = {
+                        wcCodes[`${location.state}${activity_code.id}`] = {
                             id: activity_code.id,
                             territory: location.territory
                         };
@@ -1783,47 +1775,45 @@ module.exports = class Integration {
             let hadError = false;
             const sql = `
             SELECT
-                    ac.id,
-                    inc.state,
-                    inc.territory,
-                    inc.code,
-                    inc.sub,
-                    inc.result
+                ac.id,
+                inc.state,
+                inc.territory,
+                inc.code,
+                inc.sub,
+                inc.result
             FROM clw_talage_activity_codes AS ac
-                LEFT JOIN clw_talage_activity_code_associations AS aca ON ac.id = aca.code
-                LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON aca.insurer_code = inc.id
-            WHERE inc.insurer = ${this.insurer.id} AND (${whereCombinations.join(' OR ')});
+            LEFT JOIN clw_talage_activity_code_associations AS aca ON ac.id = aca.code
+            LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON aca.insurer_code = inc.id
+            WHERE
+                inc.insurer = ${this.insurer.id} 
+                AND (${whereCombinations.join(' OR ')});
             `;
-            //log.debug("_insurer_supports_activity_codes sql: " + sql);
             const appId = this.app.id;
             const insurerId = this.insurer.id;
             const codes = await db.query(sql).catch((error) => {
-                log.error(`AppId: ${appId} InsurerId: ${insurerId} ` + error + __location);
-                this.reasons.push('System Error: insurer_supports_activity_codes() failed to get codes.');
-                fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+                log.error(`AppId: ${appId} InsurerId: ${insurerId} Could not retrieve industry codes: ${error} ${__location}`);
+                hadError = true;
             });
-
+            if (hadError) {
+                // Query error
+                fulfill(false);
+                return;
+            }
             if (!codes.length) {
-                log.warn(`Appid: ${this.app.id} and Insurer ${insurerId}  autodeclined: no codes where ${whereCombinations.join(' OR ')}` + __location);
-                this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code and state');
-                fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
+                // No activity codes
+                fulfill(false);
                 return;
             }
 
             // Make sure the number of codes matched (otherwise there were codes unsupported by this insurer)
             if (Object.keys(wcCodes).length !== codes.length) {
-                log.warn(`Appid: ${this.app.id} and Insurer ${insurerId} autodeclined: Code length do not match wcCodes.length ${Object.keys(wcCodes).length} where ${whereCombinations.join(' OR ')}, wcCodes ${Object.keys(JSON.stringify(wcCodes))}   ` + __location);
-                this.reasons.push('Out of Appetite: The insurer does not support one or more of the selected activity codes and state');
-                fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
+                fulfill(false);
                 return;
             }
 
             // Load the codes locally
             codes.forEach((code) => {
                 if (code.result === 0) {
-                    log.error(`Appid: ${this.app.id} and Insurer ${insurerId} autodeclined: Code does not match where ${whereCombinations.join(' OR ')}, code ${JSON.stringify(code)} ` + __location);
-                    this.reasons.push('Out of Appetite: The insurer reports that they will not write a policy with the selected activity code and state');
-                    fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                     hadError = true;
                     return;
                 }
@@ -1831,13 +1821,10 @@ module.exports = class Integration {
                     this.insurer_wc_codes[code.territory + code.id] = code.code + (code.sub ? code.sub : '');
                     return;
                 }
-                log.error(`Appid: ${this.app.id}  and Insurer ${insurerId} autodeclined: Failed activity codes and state check on code ${JSON.stringify(code)} where ${whereCombinations.join(' OR ')}` + __location);
-                this.reasons.push('Out of Appetite: The insurer does not support one or more of the selected activity codes and state');
-                fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
                 hadError = true;
             });
-
             if (hadError) {
+                fulfill(false);
                 return;
             }
 
@@ -1848,26 +1835,37 @@ module.exports = class Integration {
     /**
 	 * Determines whether or not this insurer supports all industry codes in this application
 	 *
-	 * @returns {Promise.<object, Error>} A promise that returns an true or an object containing error information on success
+	 * @returns {Promise.<boolean>} A promise that returns an true if the insurer supports the industry code and it has been populated, false otherwise
 	 */
     _insurer_supports_industry_codes() {
         return new Promise(async(fulfill) => {
             // Query the database to see if this insurer supports this industry code
             const sql = `SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso, iic.attributes 
                         FROM clw_talage_industry_codes AS ic 
-                            INNER JOIN  clw_talage_insurer_industry_codes AS iic ON ((iic.type = 'i' AND iic.code = ic.iso) OR (iic.type = 'c' AND iic.code = ic.cgl) OR (iic.type = 'h' AND iic.code = ic.hiscox) OR (iic.type = 'n' AND iic.code = ic.naics) OR (iic.type = 's' AND iic.code = ic.sic)) 
-                                                                                    AND  iic.insurer = ${this.insurer.id} AND iic.territory = '${this.app.business.primary_territory}'
+                        INNER JOIN  clw_talage_insurer_industry_codes AS iic ON
+                            (
+                                (iic.type = 'i' AND iic.code = ic.iso) 
+                                OR (iic.type = 'c' AND iic.code = ic.cgl)
+                                OR (iic.type = 'h' AND iic.code = ic.hiscox) 
+                                OR (iic.type = 'n' AND iic.code = ic.naics) 
+                                OR (iic.type = 's' AND iic.code = ic.sic)
+                            ) 
+                            AND  iic.insurer = ${this.insurer.id} 
+                            AND iic.territory = '${this.app.business.primary_territory}'
                         WHERE  ic.id = ${this.app.business.industry_code}  LIMIT 1;`;
-            // log.debug("_insurer_supports_industry_codes sql: " + sql);
-            const result = await db.query(sql).catch((err) => {
-                log.error(`Integration: _insurer_supports_industry_codes query error ${err} ` + __location);
-                fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-                return;
+            let hadError = false;
+            const result = await db.query(sql).catch((error) => {
+                log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not retrieve industry codes: ${error} ${__location}`);
+                hadError = true;
             });
+            if (hadError) {
+                // Query error
+                fulfill(false);
+                return;
+            }
             if (!result || !result.length) {
-                log.warn(`Appid: ${this.app.id} autodeclined: No Insurer industry code for insurer: ${this.insurer.id} ${this.app.business.primary_territory} talage industry code = ${this.app.business.industry_code} ` + __location);
-                this.reasons.push('Out of Appetite: The insurer does not support the industry code selected');
-                fulfill(this.return_error('autodeclined', 'This insurer will decline to offer you coverage at this time'));
+                // No industry codes
+                fulfill(false);
                 return;
             }
 
@@ -1878,8 +1876,8 @@ module.exports = class Integration {
                 this.industry_code.attributes = JSON.parse(this.industry_code.attributes);
             }
             else {
-                this.industry_code.attributes = '';
                 log.warn(`Appid: ${this.app.id} No Industry_code attributes:  ${this.insurer.id} and ${this.app.business.primary_territory}` + __location);
+                this.industry_code.attributes = {};
             }
 
             fulfill(true);

@@ -20,9 +20,9 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 const contactSchema = new Schema({
     email: {type: String, required: true},
-    firstName: {type: String, required: true},
-    lastName: {type: String, required: true},
-    phone: {type: String, required: true},
+    firstName: {type: String, required: false},
+    lastName: {type: String, required: false},
+    phone: {type: String, required: false},
     primary: {type: Boolean, required: true, default: false}
 })
 
@@ -38,6 +38,7 @@ const locationSchema = new Schema({
     city: {type: String, required: false},
     state: {type: String, required: false},
     zipcode: {type: String, required: false},
+    county: {type: String, required: false},
     phone: {type: String, required: false},
     ein: {type: String, required: false},
     full_time_employees:  {type: Number, required: false},
@@ -49,45 +50,12 @@ const locationSchema = new Schema({
 })
 
 const ownerSchema = new Schema({
-    birthdate: {type: Date, required: true},
+    birthdate: {type: Date, required: false},
     fname: {type: String, required: true},
     lname: {type: String, required: true},
-    ownership: {type: Number, required: true},
+    ownership: {type: Number, required: false},
     officerTitle: {type: String}
 })
-
-
-// let BusinessSchema = new Schema({
-//     name: {type: String, required: false},
-//     entityType: {type: String, required: false},
-//     fileNum: {type: String, required: false},
-//     founded: {type: Date, required: false},
-//     hasEin: {type: Boolean, required: true, default: true },
-//     ein: {type: String, required: false},
-//     "mailingAddress": {type: String, required: false},
-//     "mailingAddress2": {type: String, required: false},
-//     "mailingCity": {type: String, required: false},
-//     "mailingState": {type: String, required: false},
-//     "mailingZipcode": {type: String, required: false},
-//     "phone": {type: String, required: false},
-//     "primaryTerritory": {type: String, required: false},
-//     "primaryState": {type: String, required: false},
-//     "website": {type: String, required: false},
-//     "yearsOfExp": {type: Number, required: false},
-//     management_structure: {type: String, required: false},
-//     "numOwners": {type: Number, required: false},
-//     "ownersIncluded": true,
-//     "owners": [ownerSchema],
-//     "unincorporated_association": {type: String, required: false},
-//     experience_modifier: {type: Number, required: false},
-//     ncciNumber: {type: String, required: false},
-//     association: {type: String, required: false},
-//     associationId: {type: String, required: false},
-//     affiliate: {type: String, required: false},
-//     bureauNumber: {type: String, required: false},
-//     locations: [locationSchema]
-
-// })
 
 
 const legalAcceptanceSchema = new Schema({
@@ -115,6 +83,7 @@ const PolicySchema = new Schema({
     deductible: {type: Number, required: false}, //1500,
     coverage: {type: Number, required: false}, // BOP field
     coverageLapse:  {type: Boolean, default: false},
+    coverageLapseNonPayment: {type: Boolean, default: false},
     waiverSubrogation: {type: Boolean, default: false},
     claims:  [claimSchema]
 
@@ -146,15 +115,16 @@ const ApplicationSchema = new Schema({
     wholesale:  {type: Boolean, default: false},
     coverageLapseWC:  {type: Boolean, default: false},
     agencyPortalCreated:  {type: Boolean, required: false, default: false},
-    abandoned_email:  {type: Boolean, default: false},
-    abandoned_app_email:  {type: Boolean, default: false},
-    opted_out_online_emailsent:  {type: Boolean, default: false},
-    opted_out_online:  {type: Boolean, default: false},
+    abandonedEmail:  {type: Boolean, default: false},
+    abandonedAppEmail:  {type: Boolean, default: false},
+    optedOutOnlineEmailsent:  {type: Boolean, default: false},
+    optedOutOnline:  {type: Boolean, default: false},
     processStateOld: {type: Number, default: 1},
     referrer: {type: String, required: false},
     industryCode: {type: String, required: false},
     entityType: {type: String, required: false},
     businessName: {type: String, required: false},
+    dba: {type: String, required: false},
     fileNum: {type: String, required: false},
     founded: {type: Date, required: false},
     hasEin: {type: Boolean, default: true},
@@ -171,6 +141,8 @@ const ApplicationSchema = new Schema({
     website: {type: String, required: false},
     yearsOfExp: {type: Number, required: false},
     management_structure: {type: String, required: false},
+    unincorporatedAssociation: {type: Boolean, required: false},
+    experienceModifier: {type: Number, required: false},
     unincorporated_association: {type: String, required: false},
     experience_modifier: {type: Number, required: false},
     ncciNumber: {type: String, required: false},

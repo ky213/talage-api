@@ -447,6 +447,9 @@ module.exports = class BtisGL extends Integration {
                 return this.return_error('error');
             }
 
+            //Get the quote link
+            this.quoteLink = quoteInfo.ratingdetailsId ? quoteInfo.ratingdetailsId : null;
+
             // Get the quote limits
             if(quoteInfo.quote.criteria && quoteInfo.quote.criteria.limits){
                 const limitsString = quoteInfo.quote.criteria.limits.replace(/,/g, '');

@@ -47,8 +47,8 @@ module.exports = class ACORDGL extends Integration{
 
         // Prepare keys so that the record of the email being sent is written
         const email_keys = {
-            'application': this.app.id,
-            'agencyLocation': this.app.agencyLocation.id
+            'applicationId': this.app.id,
+            'agencyLocationId': this.app.agencyLocation.id
         }
 
         const chunks = [];
@@ -84,7 +84,7 @@ module.exports = class ACORDGL extends Integration{
         // always referred regardless of email .
         // eslint-disable-next-line no-unused-vars
         const email_sent = generated_acord.doc.end();
-        return this.return_result('referred');
+        return this.return_result('acord_emailed');
     }
 
 
