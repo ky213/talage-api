@@ -2920,15 +2920,26 @@ module.exports = class ApplicationModel {
                         SET state = -2
                         WHERE id = ${db.escape(id)}
                 `;
-                let rejected = false;
-                await db.query(sql).catch(function(error) {
+                //let rejected = false;
+                let error = null;
+                await db.query(sql).catch(function(err) {
                     // Check if this was
-                    log.error(`Database Object ${tableName} UPDATE State error : ` + error + __location);
-                    rejected = true;
-                    reject(error);
+                    log.error(`Database Object ${tableName} UPDATE State error : ` + err + __location);
+                    error = err;
                 });
-                if (rejected) {
-                    return false;
+                // if (rejected) {
+                //     return false;
+                // }
+                //Mongo delete
+                let applicationDoc = null;
+                try {
+                    applicationDoc = await this.loadfromMongoBymysqlId(id);
+                    applicationDoc.active = false;
+                    applicationDoc.save();
+                }
+                catch (err) {
+                    log.error("Error get marking Application from mysqlId " + err + __location);
+                    reject(err);
                 }
                 resolve(true);
 
