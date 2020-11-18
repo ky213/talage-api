@@ -124,7 +124,10 @@ module.exports = class Business {
     async load(applicationDoc) {
         this.appId = applicationDoc.applicationId;
         let data2 = {}
-        const applicationDocJSON = JSON.parse(JSON.stringify(applicationDoc))
+        let applicationDocJSON = JSON.parse(JSON.stringify(applicationDoc))
+        //ein not part of Schema some it has been copied.
+        applicationDocJSON.ein = applicationDoc.ein;
+
         const propMappings = {}
         this.mapToSnakeCaseJSON(applicationDocJSON, data2, propMappings);
         //log.debug("data2 " + JSON.stringify(data2));
@@ -198,13 +201,16 @@ module.exports = class Business {
                     throw err;
                 }
                 location.business_entity_type = applicationDocJSON.entityType;
+                log.debug(`Business EIN ${appDocLocation.ein}    ${applicationDocJSON.ein}`)
                 location.identification_number = appDocLocation.ein ? appDocLocation.ein : applicationDocJSON.ein;
                 //location.identification_number
-                if (applicationDocJSON.hasEin) {
-                    location.identification_number = `${location.identification_number.substr(0, 2)}-${location.identification_number.substr(2, 7)}`;
-                }
-                else {
-                    location.identification_number = `${location.identification_number.substr(0, 3)}-${location.identification_number.substr(3, 2)}-${location.identification_number.substr(5, 4)}`;
+                if(location.identification_number){
+                    if (applicationDocJSON.hasEin) {
+                        location.identification_number = `${location.identification_number.substr(0, 2)}-${location.identification_number.substr(2, 7)}`;
+                    }
+                    else {
+                        location.identification_number = `${location.identification_number.substr(0, 3)}-${location.identification_number.substr(3, 2)}-${location.identification_number.substr(5, 4)}`;
+                    }
                 }
                 // log.debug('business location adding ' + JSON.stringify(location));
                 this.locations.push(location);
@@ -435,7 +441,7 @@ module.exports = class Business {
 			 * - Defaults to 1.00 if nothing is specified
 			 * - Minimum Value = 0.20 (Not inclusive)
 			 * - Maximum Value = 10 (Not inclusive)
-             * limited use of experience_modifier in integration files. 
+             * limited use of experience_modifier in integration files.
              *  only log warning.
 			 */
             if (this.bureau_number) {
