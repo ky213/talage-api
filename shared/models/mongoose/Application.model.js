@@ -170,29 +170,29 @@ const ApplicationSchema = new Schema({
     active: {type: Boolean, default: true}
 })
 
-//***** Virtuals  ****************** */
-ApplicationSchema.virtual('ein').
-    get(function() {
-        if(this.einClearText){
-            return this.einClearText;
-        }
-        else {
-            return "";
-        }
-    }).
-    set(function(einClear) {
-        try{
-            this.einClearText = einClear;
-            // eslint-disable-next-line consistent-this
-            const me = this;
-            crypt.encrypt(einClear).then(function(encryptedEin){
-                me.set({einEncrypted: encryptedEin});
-            });
-        }
-        catch(err){
-            log.error(`ApplicationModel error encrypting ein ${this.applicationId} ` + err + __location);
-        }
-    });
+// //***** Virtuals  ****************** */
+// ApplicationSchema.virtual('ein').
+//     get(function() {
+//         if(this.einClearText){
+//             return this.einClearText;
+//         }
+//         else {
+//             return "";
+//         }
+//     }).
+//     set(function(einClear) {
+//         try{
+//             this.einClearText = einClear;
+//             // eslint-disable-next-line consistent-this
+//             const me = this;
+//             crypt.encrypt(einClear).then(function(encryptedEin){
+//                 me.set({einEncrypted: encryptedEin});
+//             });
+//         }
+//         catch(err){
+//             log.error(`ApplicationModel error encrypting ein ${this.applicationId} ` + err + __location);
+//         }
+//     });
 
 
 /********************************** */

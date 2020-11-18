@@ -1726,19 +1726,20 @@ module.exports = class ApplicationModel {
                 try {
                     //because Virtual Sets.  new need to get the model and save.
                     await this.checkExpiration(newObjectJSON);
+                    await this.setupDocEinEncrypt(newObjectJSON);
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
                     const newApplicationdoc = await ApplicationMongooseModel.findOne(query);
                     this.#applicationMongooseDB = newApplicationdoc
                     //because Virtual Sets. we need to updatemode land save it.
                     // Only EIN is virtual...
-                    if (newObjectJSON.ein && newApplicationdoc) {
-                        newApplicationdoc.ein = newObjectJSON.ein
-                        log.debug("updating ein ");
-                        await newApplicationdoc.save().catch(function(err) {
-                            log.error(`Mongo Application Save for Virtuals err appId: ${uuid}` + err + __location);
-                            throw err;
-                        });
-                    }
+                    // if (newObjectJSON.ein && newApplicationdoc) {
+                    //     newApplicationdoc.ein = newObjectJSON.ein
+                    //     log.debug("updating ein ");
+                    //     await newApplicationdoc.save().catch(function(err) {
+                    //         log.error(`Mongo Application Save for Virtuals err appId: ${uuid}` + err + __location);
+                    //         throw err;
+                    //     });
+                    // }
 
                     if(updateMysql === true){
                         const postInsert = false;
@@ -1791,6 +1792,7 @@ module.exports = class ApplicationModel {
         }
 
         await this.checkExpiration(newObjectJSON);
+        await this.setupDocEinEncrypt(newObjectJSON);
 
         const application = new ApplicationMongooseModel(newObjectJSON);
         //log.debug("insert application: " + JSON.stringify(application))
@@ -2337,6 +2339,21 @@ module.exports = class ApplicationModel {
             applicationDoc.ein = "";
             applicationDoc.einClear = "";
         }
+    }
+
+    async setupDocEinEncrypt(applicationDoc){
+        //Only modified if EIN has been given.
+        if(applicationDoc.ein){
+            try{
+                applicationDoc.einEncrypted = await crypt.encrypt(applicationDoc.ein);
+                applicationDoc.einHash = await crypt.hash(applicationDoc.ein);
+            }
+            catch(err){
+                log.error(`ApplicationBO error encrypting ein ${this.applicationId} ` + err + __location);
+            }
+
+        }
+
     }
 
 
