@@ -464,7 +464,7 @@ module.exports = class Integration {
 
         // If this question has a parent that belongs to a different insurer it should have a default
         if (question.parent && !Object.prototype.hasOwnProperty.call(this.questions, question.parent) && question.answer_id === 0 && question.answer === null) {
-            log.error(`Appid: ${this.app.id} Question ${question.id} is missing a default answer. Defaulted to 'No' for this application. May cause quoting inaccuracies!` + __location);
+            log.error(`Appid: ${this.app.id} Insurer: ${this.insurer.name} Question ${question.id} is missing a default answer. Defaulted to 'No' for this application. May cause quoting inaccuracies!` + __location);
             return 'No';
         }
 
@@ -957,7 +957,7 @@ module.exports = class Integration {
 
             // Make sure the insurer_quote() function exists
             if (typeof this._insurer_quote === 'undefined') {
-                const error_message = `Appid: ${this.app.id} Integration file must include the insurer_quote() function`;
+                const error_message = `Appid: ${this.app.id} Insurer: ${this.insurer.name} Integration file must include the insurer_quote() function`;
                 log.error(error_message + __location);
                 this.reasons.push(error_message);
                 fulfill(this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
@@ -1030,8 +1030,10 @@ module.exports = class Integration {
      * @returns {mixed} - ID on success, error on error
      */
     async record_quote(amount, api_result) {
+        const appId = this.app.id;
+        const insurerName = this.insurer.name;
         const encrypted_log = await crypt.encrypt(this.log).catch(function(err) {
-            log.error('Unable to encrypt log. Proceeding anyway. ' + err + __location);
+            log.error(`Unable to encrypt log. AppId ${appId} Insurer: ${insurerName}Proceeding anyway. ` + err + __location);
         });
 
         const columns = [
@@ -1123,7 +1125,7 @@ module.exports = class Integration {
                 }
             }
             catch (err) {
-                log.error(`Appid: ${this.app.id} S3 error Storing Quote letter : ${fileName} error: ` + err + __location);
+                log.error(`Appid: ${this.app.id} Insurer: ${this.insurer.name} S3 error Storing Quote letter : ${fileName} error: ` + err + __location);
             }
         }
 
@@ -1135,6 +1137,7 @@ module.exports = class Integration {
 
         if (Object.keys(this.limits).length) {
             quoteJSON.limits = []
+            // eslint-disable-next-line guard-for-in
             for (const limitId in this.limits) {
                 if (Object.prototype.hasOwnProperty.call(this.limits, limitId)) {
                     const limitJSON = {
@@ -1241,13 +1244,13 @@ module.exports = class Integration {
      */
     async client_quoted(quoteNumber, limits, premiumAmount, quoteLetter = null, quoteLetterMimeType = null) {
         if (!limits) {
-            this.log_error('Received a quote but no limits', __location);
+            this.log_error(`Received a quote but no limits for Appid: ${this.app.id} Insurer: ${this.insurer.name}`, __location);
             return this.return_error('error', `Could not locate the limits in the quote returned from the carrier.`);
         }
         this.limits = limits;
 
         if (!premiumAmount) {
-            this.log_error('Received a quote but no premium amount', __location);
+            this.log_error(`Received a quote but no premium amount for Appid: ${this.app.id} Insurer: ${this.insurer.name}`, __location);
             return this.return_error('error', `Could not locate the limits in the quote returned from the carrier.`);
         }
         this.amount = premiumAmount;
@@ -1358,6 +1361,7 @@ module.exports = class Integration {
         }
 
         // Get the limit descriptions from the database
+        // TODO USE BO
         const result = await db.query(`SELECT * FROM \`#__limits\` WHERE \`id\` IN (${Object.keys(this.limits).join(',')}) ORDER BY description ASC;`).catch(function(err) {
             return err;
         });
@@ -1473,7 +1477,7 @@ module.exports = class Integration {
                 if (this.reasons) {
                     //this.reasons.forEach(function(reason) {
                     for(let i = 0; i < this.reasons.length; i++){
-                        log.error(`Appid: ${this.app.id} ` + this.reasons[i] + __location);
+                        log.error(`Appid: ${this.app.id} Insurer: ${this.insurer.name} ` + this.reasons[i] + __location);
                     }
                 }
                 return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
@@ -1488,7 +1492,7 @@ module.exports = class Integration {
                 return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
 
             case 'quoted':
-                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Returned Quote(s)`);
+                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Returned Quote(s)` + __location);
                 return this.return_quote(this.amount);
 
             case 'referred':
@@ -1501,7 +1505,7 @@ module.exports = class Integration {
             case 'acord_emailed':
                 return this.return_error('acord_emailed', `Appid: ${this.app.id} ${this.insurer.name} AgencyLocation ${this.app.agencyLocation.id} acord form sent`);
             case 'referred_with_price':
-                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Referred To Underwriting, But Provided An Indication`);
+                log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Referred To Underwriting, But Provided An Indication` + __location);
                 return this.return_indication(this.amount);
 
             default:
@@ -1535,7 +1539,7 @@ module.exports = class Integration {
                 'POST',
                 'PUT'
             ].includes(method)) {
-                const error = new Error(`Appid: ${this.app.id} Invalid method provided to send_request()`);
+                const error = new Error(`Appid: ${this.app.id} calling ${this.insurer.name} Invalid method provided to send_request()`);
                 log.error(error.message + __location);
                 reject(error);
                 return;
@@ -1561,7 +1565,7 @@ module.exports = class Integration {
                 }
             }
             if (!content_type_found) {
-                const error = new Error(`Appid: ${this.app.id} No Content-Type header found. The Content-Type header is required for calls to send_request()`);
+                const error = new Error(`Appid: ${this.app.id} calling ${this.insurer.name} No Content-Type header found. The Content-Type header is required for calls to send_request()`);
                 log.error(error.message + __location);
                 reject(error);
                 return;
@@ -1604,13 +1608,13 @@ module.exports = class Integration {
                         // Attempt to format the returned data
                         let formattedData = null;
                         try {
-                            if (headers['Content-Type'].toLowerCase() === 'text/xml') {
+                            if (headers['Content-Type'] && headers['Content-Type'].toLowerCase() === 'text/xml') {
                                 // Format XML to be readable
                                 formattedData = xmlFormatter(filteredData);
                                 formattedData = formattedData.replace(/</g, "&lt;");
                                 formattedData = formattedData.replace(/>/g, "&gt;");
                             }
-                            else if (headers['Content-Type'].toLowerCase() === 'application/json') {
+                            else if (headers['Content-Type'] && headers['Content-Type'].toLowerCase() === 'application/json') {
                                 // Format JSON to be readable
                                 formattedData = JSON.stringify(JSON.parse(filteredData), null, 4);
                             }
@@ -1628,9 +1632,9 @@ module.exports = class Integration {
                         const error = new Error(`Appid: ${this.app.id} insurer request encountered a ${res.statusCode} error`);
                         // Added check - do not log errors if there is a special response case for the client to handle
                         if(log_errors){
-                            log.error(error.message + __location);
+                            log.error(error.message + `  Appid: ${this.app.id} calling ${this.insurer.name} ` + __location);
                             log.verbose(rawData);
-                            this.log += `--------======= Error Appid: ${this.app.id}  =======--------<br><br>Status Code: ${res.statusCode}<br><pre>${rawData}</pre><br><br>`;
+                            this.log += `--------======= Error Appid: ${this.app.id} calling ${this.insurer.name}  =======--------<br><br>Status Code: ${res.statusCode}<br><pre>${rawData}</pre><br><br>`;
                         }
                         error.httpStatusCode = res.statusCode;
                         error.response = rawData;
@@ -1717,7 +1721,7 @@ module.exports = class Integration {
             raw_data = await this.send_request(host, path, xml, additional_headers, 'POST');
         }
         catch (error) {
-            log.error(`Appid: ${this.app.id} Integration send_request error: ${error}` + __location);
+            log.error(`Appid: ${this.app.id} calling ${this.insurer.name} Integration send_request error: ${error}` + __location);
             // reject(error);
             throw error;
         }
@@ -1876,7 +1880,7 @@ module.exports = class Integration {
                 this.industry_code.attributes = JSON.parse(this.industry_code.attributes);
             }
             else {
-                log.warn(`Appid: ${this.app.id} No Industry_code attributes:  ${this.insurer.id} and ${this.app.business.primary_territory}` + __location);
+                log.warn(`Appid: ${this.app.id} No Industry_code attributes for ${this.insurer.name}:${this.insurer.id} and ${this.app.business.primary_territory}` + __location);
                 this.industry_code.attributes = {};
             }
 

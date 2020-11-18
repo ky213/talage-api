@@ -50,20 +50,18 @@ async function createToken(req, res, next){
     const emailHash = await crypt.hash(req.body.email);
     const agencySQL = `
 		SELECT
-			\`apu\`.\`agency_network\`,
-			\`apu\`.\`agency\`,
-			\`apu\`.\`can_sign\`,
-			\`apu\`.\`id\`,
-			\`apu\`.\`last_login\`,
-			\`apu\`.\`password\`,
-			\`apu\`.\`reset_required\`,
-            \`apug\`.\`permissions\`,
-            apug.id as apugId,
-			\`la\`.\`version\` AS 'termsOfServiceVersion'
-		FROM \`#__agency_portal_users\` AS \`apu\`
-		LEFT JOIN \`#__agency_portal_user_groups\` AS \`apug\` ON \`apu\`.\`group\` = \`apug\`.\`id\`
-		LEFT JOIN \`#__legal_acceptances\` AS \`la\` ON \`la\`.\`agency_portal_user\` = \`apu\`.\`id\`
-		WHERE \`apu\`.\`email_hash\` = ${db.escape(emailHash)} AND \`apu\`.\`state\` > 0
+			apu.agency_network,
+			apu.agency,
+			apu.can_sign,
+			apu.id,
+			apu.last_login,
+			apu.password,
+			apu.reset_required,
+            apu.group as apugId,
+			la.version AS 'termsOfServiceVersion'
+		FROM clw_talage_agency_portal_users AS apu
+		LEFT JOIN clw_talage_legal_acceptances AS la ON la.agency_portal_user = apu.id
+		WHERE apu.email_hash = ${db.escape(emailHash)} AND apu.state > 0
 		LIMIT 1;
 	`;
     const agencyPortalUserResult = await db.query(agencySQL).catch(function(e) {
@@ -89,21 +87,17 @@ async function createToken(req, res, next){
         res.send(401, serverHelper.invalidCredentialsError('Invalid API Credentials'));
         return next();
     }
+
     //get Permissions from Mongo UserGroup Permission
     // if error go with mySQL permissions.
-    agencyPortalUserResult[0].permissions = JSON.parse(agencyPortalUserResult[0].permissions)
     try{
         const agencyPortalUserGroupBO = new AgencyPortalUserGroupBO();
-
         const agencyPortalUserGroupDB = await agencyPortalUserGroupBO.getById(agencyPortalUserResult[0].apugId);
         agencyPortalUserResult[0].permissions = agencyPortalUserGroupDB.permissions;
     }
     catch(err){
         log.error("Error get permissions from Mongo " + err + __location);
     }
-
-
-
     // Begin constructing the payload
     const payload = {
         agencyNetwork: false,
@@ -210,6 +204,12 @@ async function createToken(req, res, next){
     payload.termsOfServiceVersion = agencyPortalUserResult[0].termsOfServiceVersion;
 
     // This is a valid user, generate and return a token
+    try{
+        log.debug("payload: " + JSON.stringify(payload))
+    }
+    catch(err){
+        log.error(err);
+    }
     const token = `Bearer ${jwt.sign(payload, global.settings.AUTH_SECRET_KEY, {expiresIn: global.settings.JWT_TOKEN_EXPIRATION})}`;
     res.send(201, {
         status: 'Created',

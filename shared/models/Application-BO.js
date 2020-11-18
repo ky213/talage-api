@@ -25,11 +25,14 @@ const QuestionAnswerBO = global.requireShared('./models/QuestionAnswer-BO.js');
 const QuestionTypeBO = global.requireShared('./models/QuestionType-BO.js');
 const MappingBO = global.requireShared('./models/Mapping-BO.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
+const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
 
 const taskWholesaleAppEmail = global.requireRootPath('tasksystem/task-wholesaleapplicationemail.js');
 const taskSoleProAppEmail = global.requireRootPath('tasksystem/task-soleproapplicationemail.js');
 const taskEmailBindAgency = global.requireRootPath('tasksystem/task-emailbindagency.js');
 
+
+const crypt = global.requireShared('./services/crypt.js');
 
 // Mongo Models
 var ApplicationMongooseModel = require('mongoose').model('Application');
@@ -1597,7 +1600,7 @@ module.exports = class ApplicationModel {
             log.error(`Could not update the quote state to ${newState} for application ${id}: ${error} ${__location}`);
         }
         if (result === null || result.affectedRows !== 1) {
-            log.error(`Could not update the quote ${newState} to 'quoting' for application ${id}: ${sql} ${__location}`);
+            log.warn(`Could not update the application to State = ${newState} for applicationId ${id}: ${sql} ${__location}`);
         }
         //mongo update.....
         try {
@@ -1684,6 +1687,27 @@ module.exports = class ApplicationModel {
         }
     }
 
+    async checkExpiration(applicationJSON){
+        log.debug("Checking Expiration date ")
+        if(applicationJSON.policies && applicationJSON.policies.length > 0){
+            for(let policy of applicationJSON.policies){
+                log.debug("policy " + JSON.stringify(policy))
+                if(policy.effectiveDate && !policy.expirationDate){
+                    try{
+                        const startDateMomemt = moment(policy.effectiveDate);
+                        policy.expirationDate = startDateMomemt.clone().add(1,"y");
+                        log.debug("updated expirationDate")
+                    }
+                    catch(err){
+                        log.error(`Error process policy dates ${err} policy: ${JSON.stringify(policy)}` + __location)
+                    }
+                }
+            }
+        }
+        return true;
+
+    }
+
     async updateMongo(uuid, newObjectJSON, updateMysql = false) {
         if (uuid) {
             if (typeof newObjectJSON === "object") {
@@ -1701,34 +1725,35 @@ module.exports = class ApplicationModel {
                 let newApplicationJSON = null;
                 try {
                     //because Virtual Sets.  new need to get the model and save.
-
+                    await this.checkExpiration(newObjectJSON);
+                    await this.setupDocEinEncrypt(newObjectJSON);
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
                     const newApplicationdoc = await ApplicationMongooseModel.findOne(query);
                     this.#applicationMongooseDB = newApplicationdoc
                     //because Virtual Sets. we need to updatemode land save it.
                     // Only EIN is virtual...
-                    if (newObjectJSON.ein && newApplicationdoc) {
-                        newApplicationdoc.ein = newObjectJSON.ein
-                        log.debug("updating ein ");
-                        await newApplicationdoc.save().catch(function(err) {
-                            log.error('Mongo Application Save for Virtuals err ' + err + __location);
-                            throw err;
-                        });
-                    }
+                    // if (newObjectJSON.ein && newApplicationdoc) {
+                    //     newApplicationdoc.ein = newObjectJSON.ein
+                    //     log.debug("updating ein ");
+                    //     await newApplicationdoc.save().catch(function(err) {
+                    //         log.error(`Mongo Application Save for Virtuals err appId: ${uuid}` + err + __location);
+                    //         throw err;
+                    //     });
+                    // }
 
                     if(updateMysql === true){
                         const postInsert = false;
                         // eslint-disable-next-line prefer-const
                         let applicationMysqlJSON = {};
                         await this.mongoDoc2MySqlUpdate(newApplicationdoc, applicationMysqlJSON,postInsert).catch(function(err){
-                            log.error("Error in mongoDoc2MySqlUpdate " + err + __location);
+                            log.error(`Error in mongoDoc2MySqlUpdate  appId: ${uuid}` + err + __location);
                         })
                     }
 
                     newApplicationJSON = mongoUtils.objCleanup(newApplicationdoc);
                 }
                 catch (err) {
-                    log.error("Updating Application error " + err + __location);
+                    log.error(`Updating Application error appId: ${uuid}` + err + __location);
                     throw err;
                 }
                 //
@@ -1737,7 +1762,7 @@ module.exports = class ApplicationModel {
                 return newApplicationJSON;
             }
             else {
-                throw new Error('no newObjectJSON supplied')
+                throw new Error(`no newObjectJSON supplied appId: ${uuid}`)
             }
 
         }
@@ -1765,6 +1790,9 @@ module.exports = class ApplicationModel {
         if (!newObjectJSON.applicationId && newObjectJSON.uuid) {
             newObjectJSON.applicationId = newObjectJSON.uuid;
         }
+
+        await this.checkExpiration(newObjectJSON);
+        await this.setupDocEinEncrypt(newObjectJSON);
 
         const application = new ApplicationMongooseModel(newObjectJSON);
         //log.debug("insert application: " + JSON.stringify(application))
@@ -2023,7 +2051,7 @@ module.exports = class ApplicationModel {
         //questions
         if(applicationDoc.questions && applicationDoc.questions.length > 0){
             await this.mongoDoc2MySqlQuestions(applicationDoc.questions, applicationJSON).catch(function(err){
-                log.error("Error in mongoDoc2MySqlClaims " + err + __location);
+                log.error("Error in mongoDoc2MySqlQuestions " + err + __location);
             });
         }
 
@@ -2037,25 +2065,28 @@ module.exports = class ApplicationModel {
             await applicationClaimModelDelete.DeleteClaimsByApplicationId(applicationJSON.id).catch(function(err) {
                 log.error("Error deleting ApplicationClaimModel " + err + __location);
             });
-            const propMappings = {eventDate: "date"};
-            for (var i = 0; i < claims.length; i++) {
-                // eslint-disable-next-line prefer-const
-                let claim = JSON.parse(JSON.stringify(claims[i]));
-                this.jsonToSnakeCase(claim, propMappings);
-                claim.application = applicationJSON.id;
-                if(claim.id){
-                    delete claim.id;
+            if(claims){
+                const propMappings = {eventDate: "date"};
+                for (var i = 0; i < claims.length; i++) {
+                    // eslint-disable-next-line prefer-const
+                    let claim = JSON.parse(JSON.stringify(claims[i]));
+                    this.jsonToSnakeCase(claim, propMappings);
+                    claim.application = applicationJSON.id;
+                    if(claim.id){
+                        delete claim.id;
+                    }
+                    if(claim["_id"]){
+                        delete claim["_id"];
+                    }
+                    const applicationClaimModel = new ApplicationClaimBO();
+                    await applicationClaimModel.saveModel(claim).catch(function(err) {
+                        log.error("Adding new claim error:" + err + __location);
+                        reject(err);
+                        return;
+                    });
                 }
-                if(claim["_id"]){
-                    delete claim["_id"];
-                }
-                const applicationClaimModel = new ApplicationClaimBO();
-                await applicationClaimModel.saveModel(claim).catch(function(err) {
-                    log.error("Adding new claim error:" + err + __location);
-                    reject(err);
-                    return;
-                });
             }
+
             resolve(true);
 
         });
@@ -2246,14 +2277,19 @@ module.exports = class ApplicationModel {
 
     async mongoDoc2MySqlQuestions(questionListDoc, applicationJSON){
 
-
+        if(!questionListDoc){
+            return;
+        }
+        if(questionListDoc.length === 0){
+            return;
+        }
         //?? delete old questions in case question list is reduced ??
 
         const valueList = []
         for (var i = 0; i < questionListDoc.length; i++) {
             const questionDocItem = questionListDoc[i];
             let valueLine = '';
-            if (questionDocItem.questionType.toLowerCase().startsWith('text')) {
+            if (questionDocItem.questionType.toLowerCase().startsWith('text') && questionDocItem.answerValue) {
                 const cleanString = questionDocItem.answerValue.replace(/\|/g, ',')
                 valueLine = `(${applicationJSON.id}, ${questionDocItem.questionId}, NULL, ${db.escape(cleanString)})`
 
@@ -2263,7 +2299,9 @@ module.exports = class ApplicationModel {
                 valueLine = `(${applicationJSON.id}, ${questionDocItem.questionId}, NULL, ${db.escape(arrayString)})`
             }
             else if (questionDocItem.questionType === 'Yes/No' || questionDocItem.questionType === 'Select List'){
-                valueLine = `(${applicationJSON.id}, ${questionDocItem.questionId}, ${questionDocItem.answerId}, NULL)`
+                if(questionDocItem.answerId){
+                    valueLine = `(${applicationJSON.id}, ${questionDocItem.questionId}, ${questionDocItem.answerId}, NULL)`
+                }
             }
             if(valueLine){
                 valueList.push(valueLine);
@@ -2292,6 +2330,32 @@ module.exports = class ApplicationModel {
 
     }
 
+    async setDocEinClear(applicationDoc){
+        if(applicationDoc.einEncrypted){
+            applicationDoc.einClear = await crypt.decrypt(applicationDoc.einEncrypted);
+            applicationDoc.ein = applicationDoc.einClear;
+        }
+        else {
+            applicationDoc.ein = "";
+            applicationDoc.einClear = "";
+        }
+    }
+
+    async setupDocEinEncrypt(applicationDoc){
+        //Only modified if EIN has been given.
+        if(applicationDoc.ein){
+            try{
+                applicationDoc.einEncrypted = await crypt.encrypt(applicationDoc.ein);
+                applicationDoc.einHash = await crypt.hash(applicationDoc.ein);
+            }
+            catch(err){
+                log.error(`ApplicationBO error encrypting ein ${this.applicationId} ` + err + __location);
+            }
+
+        }
+
+    }
+
 
     loadfromMongoByAppId(id) {
         return new Promise(async(resolve, reject) => {
@@ -2304,6 +2368,7 @@ module.exports = class ApplicationModel {
                 let applicationDoc = null;
                 try {
                     applicationDoc = await ApplicationMongooseModel.findOne(query, '-__v');
+                    await this.setDocEinClear(applicationDoc);
                 }
                 catch (err) {
                     log.error("Getting Application error " + err + __location);
@@ -2328,6 +2393,7 @@ module.exports = class ApplicationModel {
                 let applicationDoc = null;
                 try {
                     applicationDoc = await ApplicationMongooseModel.findOne(query, '-__v');
+                    await this.setDocEinClear(applicationDoc);
                 }
                 catch (err) {
                     log.error("Getting Application error " + err + __location);
@@ -2354,6 +2420,7 @@ module.exports = class ApplicationModel {
                 try {
                     const docDB = await ApplicationMongooseModel.findOne(query, '-__v');
                     if (docDB) {
+                        await this.setDocEinClear(docDB);
                         applicationDoc = mongoUtils.objCleanup(docDB);
                     }
                 }
@@ -2383,6 +2450,7 @@ module.exports = class ApplicationModel {
                 try {
                     const docDB = await ApplicationMongooseModel.findOne(query, '-__v');
                     if (docDB) {
+                        await this.setDocEinClear(docDB);
                         applicationDoc = mongoUtils.objCleanup(docDB);
                     }
                 }
@@ -2563,6 +2631,9 @@ module.exports = class ApplicationModel {
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions);
                     // log.debug("docList.length: " + docList.length);
                     // log.debug("docList: " + JSON.stringify(docList));
+                    for (const application of docList) {
+                        await this.setDocEinClear(application);
+                    }
                     if(getListOptions.getAgencyName === true && docList.length > 0){
                         //loop doclist adding agencyName
 
@@ -2601,6 +2672,242 @@ module.exports = class ApplicationModel {
         });
     }
 
+    getAppListForAgencyPortalSearch(queryJSON, orParamList, requestParms){
+        return new Promise(async(resolve, reject) => {
+
+            if(!requestParms){
+                requestParms = {}
+            }
+
+            if(!orParamList){
+                orParamList = [];
+            }
+            let findCount = false;
+
+            let rejected = false;
+            let query = {};
+            let error = null;
+
+            var queryOptions = {lean:true};
+            queryOptions.sort = {};
+            queryOptions.sort = {};
+            if(requestParms && requestParms.sort === 'date') {
+                requestParms.sort = 'createdAt';
+            }
+            if (requestParms.sort) {
+                let acs = 1;
+                if(requestParms.sortDescending === true){
+                    acs = -1;
+                }
+                queryOptions.sort[requestParms.sort] = acs;
+            }
+            else {
+                // default to DESC on sent
+                queryOptions.sort.createdAt = -1;
+            }
+            if(requestParms.format === 'csv'){
+                //CSV max pull of 10,000 docs
+                queryOptions.limit = 10000;
+            }
+            else {
+                const queryLimit = 100;
+                if (requestParms.limit) {
+                    var limitNum = parseInt(requestParms.limit, 10);
+                    if (limitNum < queryLimit) {
+                        queryOptions.limit = limitNum;
+                    }
+                    else {
+                        queryOptions.limit = queryLimit;
+                    }
+
+                    if(requestParms.page && requestParms.page > 0){
+                        const skipCount = limitNum * requestParms.page;
+                        queryOptions.skip = skipCount;
+                    }
+                }
+                else {
+                    queryOptions.limit = queryLimit;
+                }
+            }
+
+
+            if (requestParms.count) {
+                if (requestParms.count === "1" || requestParms.count === 1 || requestParms.count === true) {
+                    findCount = true;
+                }
+            }
+
+            if (queryJSON.searchbegindate && queryJSON.searchenddate) {
+                const fromDate = moment(queryJSON.searchbegindate);
+                const toDate = moment(queryJSON.searchenddate);
+                if (fromDate.isValid() && toDate.isValid()) {
+                    query.createdAt = {
+                        $lte: toDate.clone(),
+                        $gte: fromDate.clone()
+                    };
+                    delete queryJSON.searchbegindate;
+                    delete queryJSON.searchenddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.searchbegindate) {
+                // eslint-disable-next-line no-redeclare
+                let fromDate = moment(queryJSON.searchbegindate);
+                if (fromDate.isValid()) {
+                    query.createdAt = {$gte: fromDate};
+                    delete queryJSON.searchbegindate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+            else if (queryJSON.searchenddate) {
+                // eslint-disable-next-line no-redeclare
+                let toDate = moment(queryJSON.searchenddate);
+                if (toDate.isValid()) {
+                    query.createdAt = {$lte: toDate};
+                    delete queryJSON.searchenddate;
+                }
+                else {
+                    reject(new Error("Date format"));
+                    return;
+                }
+            }
+
+
+            if (queryJSON) {
+                for (var key in queryJSON) {
+                    if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
+                        let clearString = queryJSON[key].replace("%", "");
+                        clearString = clearString.replace("%", "");
+                        query[key] = {
+                            "$regex": clearString,
+                            "$options": "i"
+                        };
+                    }
+                    else {
+                        query[key] = queryJSON[key];
+                    }
+                }
+            }
+
+            if(orParamList && orParamList.length > 0){
+                for (let i = 0; i < orParamList.length; i++){
+                    let orItem = orParamList[i];
+                    // eslint-disable-next-line no-redeclare
+                    for (var key2 in orItem) {
+                        if (typeof orItem[key2] === 'string' && orItem[key2].includes('%')) {
+                            let clearString = orItem[key2].replace("%", "");
+                            clearString = clearString.replace("%", "");
+                            orItem[key2] = {
+                                "$regex": clearString,
+                                "$options": "i"
+                            };
+                        }
+                    }
+                }
+                query.$or = orParamList
+            }
+
+            if (findCount === false) {
+                let docList = null;
+                try {
+                    //let queryProjection = {"__v": 0, questions:0};
+                    let queryProjection = {
+                        uuid: 1,
+                        appicationID:1,
+                        mysqlId:1,
+                        status: 1,
+                        appStatusId:1,
+                        agencyId:1,
+                        agencyNetworkId:1,
+                        createdAt: 1,
+                        solepro: 1,
+                        wholesale: 1,
+                        businessName: 1,
+                        industryCode: 1,
+                        mailingAddress: 1,
+                        mailingCity: 1,
+                        mailingState: 1,
+                        mailingZipcode: 1
+
+                    };
+                    if(requestParms.format === 'csv'){
+                        //get full document
+                        queryProjection = {};
+                    }
+                    //log.debug("ApplicationList query " + JSON.stringify(query))
+                    // log.debug("ApplicationList options " + JSON.stringify(queryOptions))
+                    //log.debug("queryProjection: " + JSON.stringify(queryProjection))
+                    docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions);
+                    if(docList.length > 0){
+                        //loop doclist adding agencyName
+                        const agencyBO = new AgencyBO();
+                        let agencyMap = {};
+                        for (const application of docList) {
+                            application.id = application.mysqlId;
+                            await this.setDocEinClear(application);
+                            delete application._id;
+                            // Load the request data into it
+                            if(agencyMap[application.agencyId]){
+                                application.agencyName = agencyMap[application.agencyId];
+                            }
+                            else {
+                                const agency = await agencyBO.getById(application.agencyId).catch(function(err) {
+                                    log.error(`Agency load error appId ${application.mysqlId} ` + err + __location);
+                                });
+                                if (agency) {
+                                    application.agencyName = agency.name;
+                                    agencyMap[application.agencyId] = agency.name;
+
+                                }
+                            }
+                            //industry desc
+                            const industryCodeBO = new IndustryCodeBO();
+                            // Load the request data into it
+                            if(application.industryCode){
+                                const industryCodeJson = await industryCodeBO.getById(application.industryCode).catch(function(err) {
+                                    log.error(`Industry code load error appId ${application.mysqlId} ` + err + __location);
+                                });
+                                if(industryCodeJson){
+                                    application.industry = industryCodeJson.description;
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    rejected = true;
+                }
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                resolve(docList);
+                return;
+            }
+            else {
+                const docCount = await ApplicationMongooseModel.countDocuments(query).catch(err => {
+                    log.error("Application.countDocuments error " + err + __location);
+                    error = null;
+                    rejected = true;
+                })
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                resolve({count: docCount});
+                return;
+            }
+        });
+
+    }
 
     getById(id) {
         return new Promise(async(resolve, reject) => {
@@ -2630,15 +2937,26 @@ module.exports = class ApplicationModel {
                         SET state = -2
                         WHERE id = ${db.escape(id)}
                 `;
-                let rejected = false;
-                await db.query(sql).catch(function(error) {
+                //let rejected = false;
+                let error = null;
+                await db.query(sql).catch(function(err) {
                     // Check if this was
-                    log.error(`Database Object ${tableName} UPDATE State error : ` + error + __location);
-                    rejected = true;
-                    reject(error);
+                    log.error(`Database Object ${tableName} UPDATE State error : ` + err + __location);
+                    error = err;
                 });
-                if (rejected) {
-                    return false;
+                // if (rejected) {
+                //     return false;
+                // }
+                //Mongo delete
+                let applicationDoc = null;
+                try {
+                    applicationDoc = await this.loadfromMongoBymysqlId(id);
+                    applicationDoc.active = false;
+                    applicationDoc.save();
+                }
+                catch (err) {
+                    log.error("Error get marking Application from mysqlId " + err + __location);
+                    reject(err);
                 }
                 resolve(true);
 
@@ -2699,6 +3017,7 @@ module.exports = class ApplicationModel {
                 try {
                     docDB = await ApplicationMongooseModel.findOne(query, '-__v');
                     if (docDB) {
+                        await this.setDocEinClear(docDB);
                         this.#applicationMongooseDB = docDB
                         appllicationDoc = mongoUtils.objCleanup(docDB);
                     }

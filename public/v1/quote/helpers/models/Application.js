@@ -64,6 +64,7 @@ module.exports = class Application {
         try{
             this.applicationDocData = await applicationBO.loadfromMongoBymysqlId(this.id);
             log.debug("Quote Application added applicationData")
+            log.debug(`EIN ${this.applicationDocData.ein} ${this.applicationDocData.einClear} ${this.applicationDocData.einEncrypted}`)
         }
         catch(err){
             log.error("Unable to get applicationData for quoting appId: " + data.id + __location);
@@ -334,8 +335,16 @@ module.exports = class Application {
                                     // Otherwise use the api
                                     slug = insurer.slug;
                                 }
+                                let policyTypeAbbr = '';
+                                if(policy && policy.type){
+                                    policyTypeAbbr = policy.type.toLowerCase()
+                                }
+                                else {
+                                    log.error(`Policy Type info not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} Policy ${JSON.stringify(policy)}` + __location);
+                                }
 
-                                const normalizedPath = `${__dirname}/../integrations/${slug}/${policy.type.toLowerCase()}.js`;
+
+                                const normalizedPath = `${__dirname}/../integrations/${slug}/${policyTypeAbbr}.js`;
                                 if (slug.length > 0 && fs.existsSync(normalizedPath)) {
                                     // Require the integration file and add the response to our promises
                                     const IntegrationClass = require(normalizedPath);
@@ -343,7 +352,7 @@ module.exports = class Application {
                                     quote_promises.push(integration.quote());
                                 }
                                 else {
-                                    log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} ${insurer.name} ${policy.type} slug: ${slug} path: ${normalizedPath} ` + __location);
+                                    log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} insurer ${insurer.name} polocytype ${policy.type} slug: ${slug} path: ${normalizedPath} ` + __location);
                                 }
                             }
                             else {
@@ -598,20 +607,30 @@ module.exports = class Application {
 	 */
     async updateApplicationState(numPolicyTypesRequested, numPolicyTypesQuoted, numPolicyTypesReferred) {
         // Determine the application status
-        let state = 1; // New
+        let state = 1; // new record State.
+        let appStatusId = 15; // Quoting
+        let appStatusDesc = "quoting"
         if (numPolicyTypesRequested === numPolicyTypesQuoted) {
             state = 13; // Quoted
+            appStatusId = 60;
+            appStatusDesc = "quoted";
+
         }
         else if (numPolicyTypesRequested === numPolicyTypesReferred) {
             state = 12; // Referred
+            appStatusId = 40;
+            appStatusDesc = "referred";
         }
-
-        const applicationBO = new ApplicationBO();
-        try{
-            await applicationBO.updateState(this.id, state)
-        }
-        catch(err){
-            log.error(`Could not update the application state to ${state} for application ${this.id}: ${err} ${__location}`);
+        if(state > 1){
+            const applicationBO = new ApplicationBO();
+            try{
+                await applicationBO.updateStatus(this.id, appStatusDesc, appStatusId);
+                await applicationBO.updateProgress(this.id, "complete");
+                await applicationBO.updateState(this.id, state)
+            }
+            catch(err){
+                log.error(`Could not update the application state to ${state} for application ${this.id}: ${err} ${__location}`);
+            }
         }
     }
 

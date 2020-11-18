@@ -8,25 +8,29 @@ module.exports = async function(val){
     if(!validator.id(val)){
         return false;
     }
+    return true;
+    // moved to mongoDB.
 
-    // Make sure this landing page exists in the database
-    const sql = `
-		SELECT \`id\`
-		FROM \`#__agency_portal_user_groups\`
-		WHERE \`id\` = ${parseInt(val, 10)}
-		LIMIT 1;
-	`;
 
-    // Run the query
-    let error = false;
-    const result = await db.query(sql).catch(function(err){
-        log.error('__agency_portal_user_group error ' + err + __location);
-        error = true;
-    });
-    if(error){
-        return false;
-    }
+    
+    // // Make sure this landing page exists in the database
+    // const sql = `
+	// 	SELECT \`id\`
+	// 	FROM \`#__agency_portal_user_groups\`
+	// 	WHERE \`id\` = ${parseInt(val, 10)}
+	// 	LIMIT 1;
+	// `;
 
-    // Check the result
-    return Boolean(result.length);
+    // // Run the query
+    // let error = false;
+    // const result = await db.query(sql).catch(function(err){
+    //     log.error('__agency_portal_user_group error ' + err + __location);
+    //     error = true;
+    // });
+    // if(error){
+    //     return false;
+    // }
+
+    // // Check the result
+    // return Boolean(result.length);
 };

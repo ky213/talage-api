@@ -129,7 +129,7 @@ function getGenericApplicationStatus(applicationDoc, quoteDocJsonList) {
     // Ensure that each quote has an aggregated status (backwards compatibility)
     quoteDocJsonList.forEach((quoteDocJson) => updateQuoteAggregatedStatus(quoteDocJson));
 
-    if (applicationDoc.lastStep < 8) {
+    if (applicationDoc.appStatusId < 10) {
         //appStatusId = 0
         return { appStatusId: 0, appStatusDesc: 'incomplete' };
     }
@@ -184,7 +184,7 @@ function getGenericApplicationStatus(applicationDoc, quoteDocJsonList) {
         //  return 'error';
         return { appStatusId: 20, appStatusDesc: 'error' };
     }
-    else if (applicationDoc.lastStep === 8) {
+    else if (applicationDoc.lastStep === 8 || applicationDoc.appStatusId === 10) {
         //appStatusId = 10
         // return 'questions_done';
         return { appStatusId: 10, appStatusDesc: 'questions_done' };

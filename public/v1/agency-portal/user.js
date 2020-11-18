@@ -141,10 +141,10 @@ async function validate(user) {
     }
     data.email = user.email;
 
-    // Group (optional)
-    if (Object.prototype.hasOwnProperty.call(user, 'group') && !validator.userGroup(user.group)) {
-        throw new Error('User group (role) is invalid');
-    }
+    // Group (optional) moved to Mongo
+    // if (Object.prototype.hasOwnProperty.call(user, 'group') && !validator.userGroup(user.group)) {
+    //     throw new Error('User group (role) is invalid');
+    // }
     data.group = user.group;
 
     // Prepare the email hash

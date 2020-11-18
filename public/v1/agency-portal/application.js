@@ -579,7 +579,7 @@ async function applicationCopy(req, res, next) {
         // eslint-disable-next-line prefer-const
         let newApplicationDoc = JSON.parse(JSON.stringify(applicationDocDB));
         // eslint-disable-next-line array-element-newline
-        const propsToRemove = ["_id","id","applicationId", "uuid","mysqlId"]
+        const propsToRemove = ["_id", "id", "applicationId", "uuid", "mysqlId", "createdAt"];
         for(let i = 0; i < propsToRemove.length; i++){
             if(newApplicationDoc[propsToRemove[i]]){
                 delete newApplicationDoc[propsToRemove[i]]
@@ -911,12 +911,12 @@ async function requote(req, res, next) {
 
     // Set the application progress to 'quoting'
     try {
-        await applicationBO.updateProgress(req.body.id, "quoting");
+        await applicationBO.updateProgress(applicationDB.id, "quoting");
         const appStatusIdQuoting = 15;
-        await applicationBO.updateStatus(req.body.id, "quoting", appStatusIdQuoting);
+        await applicationBO.updateStatus(applicationDB.id, "quoting", appStatusIdQuoting);
     }
     catch (err) {
-        log.error(`Error update appication progress appId = ${req.body.id}  for quoting. ` + err + __location);
+        log.error(`Error update appication progress appId = ${applicationDB.id} for quoting. ` + err + __location);
     }
 
     // Build a JWT that contains the application ID that expires in 5 minutes.
