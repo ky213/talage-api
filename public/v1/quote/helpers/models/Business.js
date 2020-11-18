@@ -199,6 +199,7 @@ module.exports = class Business {
                 }
                 location.business_entity_type = applicationDocJSON.entityType;
                 location.identification_number = appDocLocation.ein ? appDocLocation.ein : applicationDocJSON.ein;
+                
                 //location.identification_number
                 if (applicationDocJSON.hasEin) {
                     location.identification_number = `${location.identification_number.substr(0, 2)}-${location.identification_number.substr(2, 7)}`;

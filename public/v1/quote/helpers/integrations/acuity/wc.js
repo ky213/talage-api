@@ -16,6 +16,7 @@ const moment = require('moment');
 const moment_timezone = require('moment-timezone');
 const Integration = require('../Integration.js');
 const acuityWCTemplate = require('jsrender').templates('./public/v1/quote/helpers/integrations/acuity/wc.xmlt');
+const utility = require('../../../../../../shared/helpers/utility');
 global.requireShared('./helpers/tracker.js');
 
 module.exports = class AcuityWC extends Integration {
@@ -26,6 +27,9 @@ module.exports = class AcuityWC extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
     async _insurer_quote() {
+
+        const insurerSlug = 'acuity';
+        const insurer = utility.getInsurer(insurerSlug);
 
         // Don't report certain activities in the payroll exposure
         const unreportedPayrollActivityCodes = [
@@ -69,10 +73,18 @@ module.exports = class AcuityWC extends Integration {
                 if (unreportedPayrollActivityCodes.includes(activityCode.id)) {
                     continue;
                 }
-                const ncciCode = await this.get_ncci_code_from_activity_code(location.territory, activityCode.id);
+
+                let ncciCode = null;
+                if (insurer) {
+                    ncciCode = await this.get_ncci_code_from_activity_code(insurer.id, location.territory, activityCode.id);
+                } else {
+                    return this.client_error(`We can't locate NCCI codes without a valid insurer. Slug used: ${insurerSlug}.`);
+                }
+
                 if (!ncciCode) {
                     return this.client_error('We could not locate an NCCI code for one or more of the provided activities.', {activityCode: activityCode.id});
                 }
+                
                 activityCode.ncciCode = `${ncciCode}00`;
                 activityCode.ncciCodeDescription = ncciCode.description;
             }

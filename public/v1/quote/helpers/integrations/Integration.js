@@ -206,14 +206,14 @@ module.exports = class Integration {
      * @param {number} activityCode - The 4 digit Talage activity code
      * @returns {number} The 4 digit NCCI code
      */
-    async get_employers_code_for_activity_code(territory, activityCode) {
+    async get_insurers_code_for_activity_code(insurerId, territory, activityCode) {
         const sql = `
             SELECT inc.code, inc.sub, inc.attributes
             FROM clw_talage_insurer_ncci_codes AS inc 
             LEFT JOIN clw_talage_activity_code_associations AS aca ON aca.insurer_code = inc.id
             WHERE
                 inc.state = 1
-                AND inc.insurer = 1 
+                AND inc.insurer = ${insurerId} 
                 AND inc.territory = '${territory}'
                 AND aca.code = ${activityCode};
         `;
@@ -248,8 +248,8 @@ module.exports = class Integration {
      * @param {number} activityCode - The 4 digit Talage activity code
      * @returns {object} The code and sub(code)
      */
-    async get_ncci_code_from_activity_code(territory, activityCode) {
-        const employersRecord = await this.get_employers_code_for_activity_code(territory, activityCode);
+    async get_ncci_code_from_activity_code(insurerId, territory, activityCode) {
+        const employersRecord = await this.get_employers_code_for_activity_code(insurerId, territory, activityCode);
         if (!employersRecord) {
             return null;
         }
@@ -263,8 +263,8 @@ module.exports = class Integration {
      * @param {number} activityCode - The 4 digit Talage activity code
      * @returns {number} The 6+ digit naics code
      */
-    async get_naics_code_from_activity_code(territory, activityCode) {
-        const employersRecord = await this.get_employers_code_for_activity_code(territory, activityCode);
+    async get_naics_code_from_activity_code(insurerId, territory, activityCode) {
+        const employersRecord = await this.get_employers_code_for_activity_code(insurerId, territory, activityCode);
         if (!employersRecord) {
             return null;
         }
@@ -278,8 +278,8 @@ module.exports = class Integration {
      * @param {number} activityCode - The 4 digit Talage activity code
      * @returns {string} The CGL code
      */
-    async get_cgl_code_from_activity_code(territory, activityCode) {
-        const naicsCode = await this.get_naics_code_from_activity_code(territory, activityCode);
+    async get_cgl_code_from_activity_code(insurerId, territory, activityCode) {
+        const naicsCode = await this.get_naics_code_from_activity_code(insurerId, territory, activityCode);
         if (!naicsCode) {
             return null;
         }

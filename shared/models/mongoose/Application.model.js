@@ -181,10 +181,11 @@ ApplicationSchema.virtual('ein').
                 log.error(`ApplicationModel error decrypting ein ${this.applicationId} ` + err + __location);
             }
         }
-        return clearEin;
 
+        return clearEin;
     }).
     set(function(einClear) {
+
         try{
             // eslint-disable-next-line consistent-this
             const me = this;
