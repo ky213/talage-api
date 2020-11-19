@@ -1,6 +1,7 @@
 'use strict'
 
 const ACORD = require("../acord.js");
+const PdfHelper = require('../pdf-helper');
 
 module.exports = class AcordGL extends ACORD{
 
@@ -14,7 +15,7 @@ module.exports = class AcordGL extends ACORD{
         pdfList.push(await this.createAcord126());
         pdfList.push(await this.createQuestionsTable());
 
-        const pdf = this.createMultiPagePDF(pdfList);
+        const pdf = PdfHelper.createMultiPagePDF(pdfList);
 
         return pdf;
     }

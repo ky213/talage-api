@@ -45,7 +45,7 @@ exports.create = async function(application_id, insurer_id, policy_type){
     }
     catch(err){
         log.error('Acord form PDF generation failed: ' + err + __location)
-        return {'error': 'Acord form PDF generation failed'};
+        throw err;
     }
 
     return {'doc': acordForm};

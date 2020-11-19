@@ -1,10 +1,7 @@
-'use strict';
-
-const pdftk = require('node-pdftk');
-const path = require('path');
 const moment = require('moment');
 const { Console } = require('console');
 const { runInThisContext } = require('vm');
+const PdfHelper = require('./pdf-helper');
 
 const applicationBO = global.requireShared('./models/Application-BO.js');
 const insurerBO = global.requireShared('./models/Insurer-BO.js');
@@ -16,7 +13,6 @@ const questionBO = global.requireShared('./models/Question-BO.js');
 
 const limitHelper = global.requireShared('./helpers/formatLimits.js');
 const phoneHelper = global.requireShared('./helpers/formatPhone.js');
-
 
 module.exports = class ACORD{
 
@@ -103,7 +99,7 @@ module.exports = class ACORD{
     async createAcord125(){
 
         if(this.applicationDoc === null){
-            return this.createPDF('acord-125.pdf', {});
+            return PdfHelper.createPDF('acord-125.pdf', {});
         }
 
         const pdfDataFieldsObj = {
@@ -178,9 +174,9 @@ module.exports = class ACORD{
 
 
         let pdf = null;
-        const acord125Pdf = await this.createPDF('acord-125.pdf', pdfDataFieldsObj);
+        const acord125Pdf = await PdfHelper.createPDF('acord-125.pdf', pdfDataFieldsObj);
         if(acord823Pdf){
-            pdf = await this.createMultiPagePDF([acord125Pdf, acord823Pdf]);
+            pdf = await PdfHelper.createMultiPagePDF([acord125Pdf, acord823Pdf]);
         }
         else{
             pdf = acord125Pdf;
@@ -191,7 +187,7 @@ module.exports = class ACORD{
     async createAcord126(){
 
         if(this.applicationDoc === null){
-            return this.createPDF('acord-126.pdf', pdfDataFieldsObj);
+            return PdfHelper.createPDF('acord-126.pdf', pdfDataFieldsObj);
         }
 
         const pdfDataFieldsObj = {
@@ -228,7 +224,7 @@ module.exports = class ACORD{
             pdfKey += 1;
         })
 
-        const pdf = await this.createPDF('acord-126.pdf', pdfDataFieldsObj);
+        const pdf = await PdfHelper.createPDF('acord-126.pdf', pdfDataFieldsObj);
         return pdf;
     }
 
@@ -262,13 +258,13 @@ module.exports = class ACORD{
             pdfKey += 1;
         })
 
-        return this.createPDF('acord-823.pdf', pdfDataFieldsObj);
+        return PdfHelper.createPDF('acord-823.pdf', pdfDataFieldsObj);
     }
 
     async createQuestionsTable(){
 
         if(this.applicationDoc === null){
-            return this.createPDF('question-table.pdf', {});
+            return PdfHelper.createPDF('question-table.pdf', {});
         }
 
         const questionTree = [];
@@ -308,11 +304,11 @@ module.exports = class ACORD{
                 pdfDataFieldsObj["Answer_" + index] = question.answerValue;
             })
 
-            const pdf = await this.createPDF('question-table.pdf', pdfDataFieldsObj);
+            const pdf = await PdfHelper.createPDF('question-table.pdf', pdfDataFieldsObj);
             pdfList.push(pdf);
         }
 
-        const allQuestionsPdf = await this.createMultiPagePDF(pdfList);
+        const allQuestionsPdf = await PdfHelper.createMultiPagePDF(pdfList);
         return allQuestionsPdf;
     }
 
@@ -321,12 +317,12 @@ module.exports = class ACORD{
         const pdfList = [];
 
         if(this.applicationDoc === null){
-            pdfList.push(await this.createPDF('acord130/page-1.pdf', {}));
-            pdfList.push(await this.createPDF('acord130/page-2.pdf', {}));
-            pdfList.push(await this.createPDF('acord130/page-3.pdf', {}));
-            pdfList.push(await this.createPDF('acord130/page-4.pdf', {}));
+            pdfList.push(await PdfHelper.createPDF('acord130/page-1.pdf', {}));
+            pdfList.push(await PdfHelper.createPDF('acord130/page-2.pdf', {}));
+            pdfList.push(await PdfHelper.createPDF('acord130/page-3.pdf', {}));
+            pdfList.push(await PdfHelper.createPDF('acord130/page-4.pdf', {}));
 
-            return this.createMultiPagePDF(pdfList);
+            return PdfHelper.createMultiPagePDF(pdfList);
         }
 
         const page1Obj = {
@@ -424,12 +420,12 @@ module.exports = class ACORD{
 
         const page3Obj = {"CommercialPolicy_OperationsDescription_A": this.industryCodeDoc.description};
 
-        pdfList.push(await this.createPDF('acord130/page-1.pdf', page1Obj));
-        pdfList.push(await this.createPDF('acord130/page-2.pdf', {}));
-        pdfList.push(await this.createPDF('acord130/page-3.pdf', page3Obj));
-        pdfList.push(await this.createPDF('acord130/page-4.pdf', {}));
+        pdfList.push(await PdfHelper.createPDF('acord130/page-1.pdf', page1Obj));
+        pdfList.push(await PdfHelper.createPDF('acord130/page-2.pdf', {}));
+        pdfList.push(await PdfHelper.createPDF('acord130/page-3.pdf', page3Obj));
+        pdfList.push(await PdfHelper.createPDF('acord130/page-4.pdf', {}));
 
-        return this.createMultiPagePDF(pdfList);
+        return PdfHelper.createMultiPagePDF(pdfList);
     }
 
     getPolicy(policytype){
@@ -454,42 +450,4 @@ module.exports = class ACORD{
             return 'Other';
         }
     }
-
-    async createPDF(sourcePDFString, dataFieldsObj){
-
-        const pathToPdfString = path.resolve(__dirname, '../acord/pdf/' + sourcePDFString);
-
-        let form = null;
-        try{
-            form = await pdftk.
-                input(pathToPdfString).
-                fillForm(dataFieldsObj).
-                output();
-        }
-        catch(err){
-            log.error('Failed to generate PDF ' + err + __location);
-        }
-        return form;
-    }
-
-    async createMultiPagePDF(pdfList){
-        let pdfKey = 0;
-        const pdfObj = {};
-        pdfList.forEach(pdf => {
-            pdfObj[String.fromCharCode(65 + pdfKey)] = pdf;
-            pdfKey += 1;
-        })
-
-        const concatPdfsString = Object.keys(pdfObj).join(' ');
-
-        let form = null
-
-        form = await pdftk.
-            input(pdfObj).
-            cat(concatPdfsString).
-            output();
-
-        return form;
-    }
-
 }

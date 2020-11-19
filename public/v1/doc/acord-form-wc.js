@@ -69,12 +69,13 @@ async function GetACORDFormWC(req, res, next){
             res.send(200, response);
         }
         else{
+            const doc = Buffer.from(await form.doc.save());
             res.writeHead(200, {
                 'Content-Disposition': 'attachment; filename=acord-form.pdf',
-                'Content-Length': form.doc.length,
+                'Content-Length': doc.length,
                 'Content-Type': 'application/pdf'
             });
-            res.end(form.doc);
+            res.end(doc);
             log.info('Acord Sent in Response');
         }
 
