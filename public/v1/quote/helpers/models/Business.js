@@ -126,7 +126,7 @@ module.exports = class Business {
         let data2 = {}
         let applicationDocJSON = JSON.parse(JSON.stringify(applicationDoc))
         //ein not part of Schema some it has been copied.
-        applicationDocJSON.ein = applicationDoc.ein;
+        //applicationDocJSON.ein = applicationDoc.ein;
 
         const propMappings = {}
         this.mapToSnakeCaseJSON(applicationDocJSON, data2, propMappings);
@@ -201,7 +201,6 @@ module.exports = class Business {
                     throw err;
                 }
                 location.business_entity_type = applicationDocJSON.entityType;
-                log.debug(`Business EIN ${appDocLocation.ein}    ${applicationDocJSON.ein}`)
                 location.identification_number = appDocLocation.ein ? appDocLocation.ein : applicationDocJSON.ein;
                 //location.identification_number
                 if(location.identification_number){

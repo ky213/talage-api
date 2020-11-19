@@ -1,3 +1,4 @@
+/* eslint-disable object-curly-spacing */
 /* eslint-disable strict */
 /* eslint-disable no-invalid-this */
 /* eslint-disable no-mixed-requires */
@@ -100,7 +101,7 @@ const QuestionSchema = new Schema({
     answerValue: {type: String, required: false},
     answerList: [String]
 })
-
+// note: ein - not saved to db 
 const ApplicationSchema = new Schema({
     applicationId: {type: String, required: [true, 'applicationId required'], unique: true},
     uuid: {type: String, required: false},
@@ -129,6 +130,7 @@ const ApplicationSchema = new Schema({
     fileNum: {type: String, required: false},
     founded: {type: Date, required: false},
     hasEin: {type: Boolean, default: true},
+    ein: {type: String, required: false},
     einEncrypted: {type: String, required: false},
     einHash: {type: String, required: false},
     mailingAddress: {type: String, required: false},
@@ -169,31 +171,8 @@ const ApplicationSchema = new Schema({
     agencyPortalModifiedUser: {type: String},
     active: {type: Boolean, default: true}
 })
-
-// //***** Virtuals  ****************** */
-// ApplicationSchema.virtual('ein').
-//     get(function() {
-//         if(this.einClearText){
-//             return this.einClearText;
-//         }
-//         else {
-//             return "";
-//         }
-//     }).
-//     set(function(einClear) {
-//         try{
-//             this.einClearText = einClear;
-//             // eslint-disable-next-line consistent-this
-//             const me = this;
-//             crypt.encrypt(einClear).then(function(encryptedEin){
-//                 me.set({einEncrypted: encryptedEin});
-//             });
-//         }
-//         catch(err){
-//             log.error(`ApplicationModel error encrypting ein ${this.applicationId} ` + err + __location);
-//         }
-//     });
-
+// NOTE:  EIN is not everysaved to database.  
+// it cleared in the saved hook after enceinEncrypted and 
 
 /********************************** */
 ApplicationSchema.plugin(timestamps);
@@ -201,18 +180,68 @@ ApplicationSchema.plugin(mongooseHistory);
 
 
 ApplicationSchema.pre('validate', function(next) {
+    log.debug("Pre validate ")
     if (this.isNew) {
         if (!this.applicationId) {
             this.applicationId = uuid.v4();
             this.uuid = this.applicationId;
         }
     }
+    if(this.ein){
+        delete this.ein;
+    }
+
+
     next();
 });
 
-ApplicationSchema.pre('save', function(next) {
-    next();
+//not called by update or findOneAndUpdate
+ApplicationSchema.pre('save', async function() {
+    if(this.ein){
+        delete this.ein;
+    }
+
 });
+
+// // eslint-disable-next-line object-curly-spacing
+// ApplicationSchema.pre('updateOne', async function() {
+//     const einClear = this.get("ein");
+//     if(einClear){
+//         try{
+//             log.debug("preUpdateOne app mongoose Encrypting ein fields")
+//             this.set({ ein: "XXXasdf"});
+
+//             const einEncrypted = await crypt.encrypt(einClear);
+//             const einHash = await crypt.hash(einClear);
+//             this.set({ einEncrypted: einEncrypted });
+//             this.set({ einHash: einHash});
+            
+//         }
+//         catch(err){
+//             log.error("Application model einEncrypted error " + err + __location );
+//         }
+        
+//     }
+// });
+
+ApplicationSchema.post('find', async function(result) {
+    if(result && result.length > 0){
+        // eslint-disable-next-line prefer-const
+        for(let doc of result){
+            if(doc && doc.einEncrypted){
+                log.debug("app mongoose decrypting EIN")
+                doc.ein = await crypt.decrypt(doc.einEncrypted);
+            }
+        }
+    }
+});  
+
+ApplicationSchema.post('findOne', async function(result) {
+    if(result && result.einEncrypted ){
+        log.debug("app mongoose decrypting EIN")
+        result.ein = await crypt.decrypt(result.einEncrypted);
+    }
+}); 
 
 
 // Configure the 'ApplicationSchema' to use getters and virtuals when transforming to JSON
