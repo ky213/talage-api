@@ -64,7 +64,6 @@ module.exports = class Application {
         try{
             this.applicationDocData = await applicationBO.loadfromMongoBymysqlId(this.id);
             log.debug("Quote Application added applicationData")
-            log.debug(`EIN ${this.applicationDocData.ein} ${this.applicationDocData.einClear} ${this.applicationDocData.einEncrypted}`)
         }
         catch(err){
             log.error("Unable to get applicationData for quoting appId: " + data.id + __location);

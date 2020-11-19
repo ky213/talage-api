@@ -1727,19 +1727,13 @@ module.exports = class ApplicationModel {
                     //because Virtual Sets.  new need to get the model and save.
                     await this.checkExpiration(newObjectJSON);
                     await this.setupDocEinEncrypt(newObjectJSON);
+                    if(newObjectJSON.ein){
+                        delete newObjectJSON.ein
+                    }
+
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
                     const newApplicationdoc = await ApplicationMongooseModel.findOne(query);
                     this.#applicationMongooseDB = newApplicationdoc
-                    //because Virtual Sets. we need to updatemode land save it.
-                    // Only EIN is virtual...
-                    // if (newObjectJSON.ein && newApplicationdoc) {
-                    //     newApplicationdoc.ein = newObjectJSON.ein
-                    //     log.debug("updating ein ");
-                    //     await newApplicationdoc.save().catch(function(err) {
-                    //         log.error(`Mongo Application Save for Virtuals err appId: ${uuid}` + err + __location);
-                    //         throw err;
-                    //     });
-                    // }
 
                     if(updateMysql === true){
                         const postInsert = false;
@@ -1793,6 +1787,9 @@ module.exports = class ApplicationModel {
 
         await this.checkExpiration(newObjectJSON);
         await this.setupDocEinEncrypt(newObjectJSON);
+        if(newObjectJSON.ein){
+            delete newObjectJSON.ein
+        }
 
         const application = new ApplicationMongooseModel(newObjectJSON);
         //log.debug("insert application: " + JSON.stringify(application))
@@ -2351,7 +2348,7 @@ module.exports = class ApplicationModel {
             catch(err){
                 log.error(`ApplicationBO error encrypting ein ${this.applicationId} ` + err + __location);
             }
-
+            delete applicationDoc.ein;
         }
 
     }
