@@ -83,6 +83,7 @@ const PolicySchema = new Schema({
     expirationDate: {type: Date, required: false},
     limits: {type: String, required: false},
     deductible: {type: Number, required: false}, //1500,
+    addTerrorismCoverage: {type: Boolean, required: false},
     coverage: {type: Number, required: false}, // BOP field
     coverageLapse:  {type: Boolean, default: false},
     coverageLapseNonPayment: {type: Boolean, default: false},

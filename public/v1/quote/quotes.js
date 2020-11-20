@@ -4,6 +4,11 @@ const jwt = require('jsonwebtoken');
 const serverHelper = global.requireRootPath('server.js');
 const fileSvc = global.requireShared('./services/filesvc.js');
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
+const QuoteBO = global.requireShared('./models/Quote-BO.js');
+const InsurerBO = global.requireShared('./models/Insurer-BO.js');
+const InsurerPaymentPlanBO = global.requireShared('./models/InsurerPaymentPlan-BO.js');
+const PaymentPlanBO = global.requireShared('./models/PaymentPlan-BO.js');
+const LimitsBO = global.requireShared('./models/Limits-BO.js');
 
 /**
  * Execute a query and log an error if it fails (testing a pattern)
@@ -33,27 +38,34 @@ async function queryDB(sql, queryDescription) {
  * @returns {Object} quote summary
  */
 async function createQuoteSummary(quoteID) {
-    // Get the quote
-    let sql = `SELECT id, amount, policy_type, insurer, aggregated_status, quote_letter FROM #__quotes WHERE id = ${quoteID}`;
-    let result = await queryDB(sql, `retrieving quote ${quoteID}`);
-    if (result === null || result.length === 0) {
+    // Retrieve the quote
+    const quoteModel = new QuoteBO();
+    let quote = null;
+    try {
+        quote = await quoteModel.getMongoDocbyMysqlId(quoteID);
+    }
+    catch (error) {
+        log.error(`Could not get quote for ${quoteID} error:` + error + __location);
         return null;
     }
-    const quote = result[0];
 
-    // Get the insurer
-    sql = `SELECT id, logo, name, rating FROM #__insurers WHERE id = ${quote.insurer}`;
-    result = await queryDB(sql, `retrieving insurer ${quote.insurer}`);
-    if (result === null || result.length === 0) {
+    // Retrieve the insurer
+    const insurerModel = new InsurerBO();
+    let insurer = null;
+    try {
+        insurer = await insurerModel.getById(quote.insurerId);
+    }
+    catch (error) {
+        log.error(`Could not get insurer for ${quote.insurerId}:` + error + __location);
         return null;
     }
-    const insurer = result[0];
 
-    switch (quote.aggregated_status) {
+    switch (quote.aggregatedStatus) {
         case 'declined':
+            // Return a declined quote summary
             return {
-                id: quote.id,
-                policy_type: quote.policy_type,
+                id: quote.mysqlAppId,
+                policy_type: quote.policyType,
                 status: 'declined',
                 message: `${insurer.name} has declined to offer you coverage at this time`,
                 insurer: {
@@ -65,64 +77,59 @@ async function createQuoteSummary(quoteID) {
             };
         case 'quoted_referred':
         case 'quoted':
-            const instantBuy = quote.aggregated_status === 'quoted';
+            const instantBuy = quote.aggregatedStatus === 'quoted';
 
-            // Get the limits for the quote
-            sql = `
-				SELECT quoteLimits.id, quoteLimits.amount, limits.description
-				FROM #__quote_limits AS quoteLimits
-				LEFT JOIN #__limits AS limits ON limits.id = quoteLimits.limit
-				WHERE quote = ${quote.id} ORDER BY quoteLimits.limit ASC;
-			`;
-
-            result = await queryDB(sql, `retrieving limits for quote ${quote.id}`);
-            if (result === null || result.length === 0) {
-                return null;
-            }
-            const quoteLimits = result;
-            // Create the limits object
+            // Retrieve the limits and create the limits object
             const limits = {};
-            quoteLimits.forEach((quoteLimit) => {
-                // NOTE: frontend expects a string. -SF
-                limits[quoteLimit.description] = `${quoteLimit.amount}`;
-            });
+            const limitsModel = new LimitsBO();
+            for (const quoteLimit of quote.limits) {
+                try {
+                    const limit = await limitsModel.getById(quoteLimit.limitId);
+                    // NOTE: frontend expects a string. -SF
+                    limits[limit.description] = `${quoteLimit.amount}`;
+                }
+                catch (error) {
+                    log.error(`Could not get limits for ${quote.insurerId}:` + error + __location);
+                    return null;
+                }
+            }
 
-            // Get the payment options for this insurer
-            sql = `
-				SELECT
-					insurerPaymentPlans.premium_threshold,
-					paymentPlans.id,
-					paymentPlans.name,
-					paymentPlans.description
-				FROM #__insurer_payment_plans AS insurerPaymentPlans
-				LEFT JOIN #__payment_plans AS paymentPlans ON paymentPlans.id = insurerPaymentPlans.payment_plan
-				WHERE insurer = ${quote.insurer};
-			`;
-            result = await queryDB(sql, `retrieving payment plans for insurer ${quote.insurer}`);
-            if (result === null || result.length === 0) {
+            // Retrieve the insurer's payment plan
+            const insurerPaymentPlanModel = new InsurerPaymentPlanBO();
+            let insurerPaymentPlanList = null;
+            try {
+                insurerPaymentPlanList = await insurerPaymentPlanModel.getList({"insurer": quote.insurerId});
+            }
+            catch (error) {
+                log.error(`Could not get insurer payment plan for ${quote.insurerId}:` + error + __location);
                 return null;
             }
-            const paymentPlans = result;
 
-            // Create the payment options object
+            // Retrieve the payment plans and create the payment options object
             const paymentOptions = [];
-            paymentPlans.forEach((pp) => {
-                if (quote.amount > pp.premium_threshold) {
-                    paymentOptions.push({
-                        id: pp.id,
-                        name: pp.name,
-                        description: pp.description
-                    });
+            const paymentPlanModel = new PaymentPlanBO();
+            for (const insurerPaymentPlan of insurerPaymentPlanList) {
+                if (quote.amount > insurerPaymentPlan.premium_threshold) {
+                    try {
+                        const paymentPlan = await paymentPlanModel.getById(insurerPaymentPlan.payment_plan);
+                        paymentOptions.push({
+                            id: paymentPlan.id,
+                            name: paymentPlan.name,
+                            description: paymentPlan.description
+                        });
+                    }
+                    catch (error) {
+                        log.error(`Could not get payment plan for ${insurerPaymentPlan.id}:` + error + __location);
+                        return null;
+                    }
                 }
-            });
-
-            let quoteLetterContent = '';
-            const quoteLetterName = quote.quote_letter;
+            }
 
             // If we have a quote letter then retrieve the file from our cloud storage service
+            let quoteLetterContent = '';
+            const quoteLetterName = quote.quoteLetter;
             if (quoteLetterName) {
                 // Get the file from our cloud storage service
-                // TODO Secure
                 let error = null;
                 const data = await fileSvc.GetFileSecure(`secure/quote-letters/${quoteLetterName}`).catch(function(err) {
                     log.error('file get error: ' + err.message + __location);
@@ -143,8 +150,9 @@ async function createQuoteSummary(quoteID) {
             // Return the quote summary
             return {
                 id: quoteID,
-                policy_type: quote.policy_type,
+                policy_type: quote.policyType,
                 amount: quote.amount,
+                deductible: quote.deductible,
                 instant_buy: instantBuy,
                 letter: quoteLetterContent,
                 insurer: {
