@@ -145,6 +145,11 @@
                         <Deductible>0</Deductible>
                     </RatingInfo>
                 </GeneralLiabilityCoverQuoteRq>
+                {{if policy.add_terrorism_coverage === true}}
+                <TRIACoverQuoteRq>
+                    <CoverId>TRIA</CoverId>
+                </TRIACoverQuoteRq>
+                {{/if}}
             </GeneralLiabilityQuoteRq>
         </ProductQuoteRqs>
     </QuoteRq>
