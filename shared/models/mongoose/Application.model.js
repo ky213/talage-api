@@ -234,7 +234,6 @@ ApplicationSchema.post('find', async function(result) {
 
 ApplicationSchema.post('findOne', async function(result) {
     if(result && result.einEncrypted){
-        log.debug("app mongoose decrypting EIN")
         result.ein = await crypt.decrypt(result.einEncrypted);
     }
 });
