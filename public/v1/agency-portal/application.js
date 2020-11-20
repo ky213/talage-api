@@ -216,10 +216,12 @@ async function getApplication(req, res, next) {
     }
     //Primary Contact
     const customerContact = applicationJSON.contacts.find(contactTest => contactTest.primary === true);
-    applicationJSON.email = customerContact.email;
-    applicationJSON.fname = customerContact.firstName;
-    applicationJSON.lname = customerContact.lastName;
-    applicationJSON.phone = customerContact.phone;
+    if(customerContact){
+        applicationJSON.email = customerContact.email;
+        applicationJSON.fname = customerContact.firstName;
+        applicationJSON.lname = customerContact.lastName;
+        applicationJSON.phone = customerContact.phone;
+    }
 
     // Get the quotes from the database
     const quoteBO = new QuoteBO()
