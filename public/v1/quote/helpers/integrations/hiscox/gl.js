@@ -429,6 +429,9 @@ module.exports = class HiscoxGL extends Integration {
         }
         this.amount = premium;
 
+        // Always a $0 deductible
+        this.deductible = 0;
+
         // Get the request ID (optional)
         const requestId = this.get_xml_child(result, "InsuranceSvcRs.QuoteRs.RqUID");
         if (!requestId) {
