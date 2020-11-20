@@ -147,7 +147,6 @@
                                             <Amt>{{:payroll}}</Amt>
                                         </ActualRemunerationAmt>
                                         <RatingClassificationCd>{{:~root.insurer_wc_codes[~location.territory + ~code.id]}}</RatingClassificationCd>
-                                        <RatingClassificationDesc>{{:~code.description}}</RatingClassificationDesc>
                                     </WorkCompRateClass>
 								{{/for}}
                                 </WorkCompLocInfo>
