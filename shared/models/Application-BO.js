@@ -743,8 +743,7 @@ module.exports = class ApplicationModel {
                     policyTypeJSON.expirationDate = applicationJSON.gl_expiration_date
                     policyTypeJSON.limits = applicationJSON.limits
                     policyTypeJSON.deductible = applicationJSON.deductible
-
-
+                    policyTypeJSON.addTerrorismCoverage = applicationJSON.add_terrorism_coverage
                 }
                 else if (policyType === "WC") {
                     policyTypeJSON.effectiveDate = applicationJSON.wc_effective_date
@@ -763,7 +762,7 @@ module.exports = class ApplicationModel {
                     policyTypeJSON.limits = applicationJSON.limits
                     policyTypeJSON.coverage = applicationJSON.coverage
                     policyTypeJSON.deductible = applicationJSON.deductible
-
+                    policyTypeJSON.addTerrorismCoverage = applicationJSON.add_terrorism_coverage
                 }
                 policyList.push(policyTypeJSON);
             }

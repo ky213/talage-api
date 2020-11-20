@@ -15,6 +15,7 @@ module.exports = class Policy {
     constructor() {
 
         // All Policies
+        this.applicationId = 0;
         this.claims = [];
         this.effective_date = '';
         this.expiration_date = '';
@@ -27,6 +28,7 @@ module.exports = class Policy {
 
         // BOP and GL Only
         this.gross_sales = 0;
+        this.add_terrorism_coverage = false;
 
         // BOP Only - Does not match Quote App UI
         this.coverage_lapse_non_payment = null;
@@ -58,9 +60,11 @@ module.exports = class Policy {
         const applicationId = applicationDocData.mysqlId
 
         //load property from applicationPolicyTypeBO
+        this.applicationId = applicationId;
         this.type = policyJSON.policyType;
         this.coverage_lapse = policyJSON.coverageLapse;
         this.coverage_lapse_non_payment = policyJSON.coverage_lapse_non_payment;
+        this.add_terrorism_coverage = policyJSON.addTerrorismCoverage;
         this.deductible = policyJSON.deductible;
         this.effective_date = policyJSON.effectiveDate;
         this.expiration_date = policyJSON.expirationDate;
@@ -214,55 +218,32 @@ module.exports = class Policy {
                 }
             }
 
-            // BOP Specific Properties
-            if (this.type === 'BOP') {
+            // Determine the deductible
+            if (typeof this.deductible === "string") {
+                // Parse the deductible string
+                try {
+                    this.deductible = parseInt(this.deductible, 10);
+                }
+                catch (error) {
+                    // Default to 500 if the parse fails
+                    log.warn(`appId: ${this.applicationId} policyType: ${this.type} Could not parse deductible string '${this.deductible}'. Defaulting to 500.`);
+                    this.deductible = 500;
+                }
+            }
 
-                /**
-                 * Coverage Lapse Due To Non-Payment - Note: Quote does not collect this for BOP only WC.
-                 */
+            if (this.type === 'BOP') {
+                // BOP specific validation
+
+                // Coverage Lapse Due To Non-Payment - Note: Quote does not collect this for BOP only WC.
                 if (this.coverage_lapse_non_payment === null) {
                     reject(new Error('coverage_lapse_non_payment is required, and must be a true or false value'));
                     return;
                 }
             }
             else if (this.type === 'GL') {
-                // GL Specific Properties
+                // GL specific validation
 
-                /**
-                 * Deductible
-                 * - Integer (enforced with parseInt() on load())
-                 * - Only accepted in AR, AZ, CA, CO, ID, NM, NV, OK, OR, TX, UT, or WA
-                 * - Must be one of:
-                 * 		- 500
-                 * 		- 1000
-                 * 		- 1500
-                 */
-                if (['AR',
-                    'AZ',
-                    'CA',
-                    'CO',
-                    'ID',
-                    'NM',
-                    'NV',
-                    'OK',
-                    'OR',
-                    'TX',
-                    'UT',
-                    'WA'].includes(this.primary_territory)) {
-                    if (!this.deductible) {
-                        reject(new Error('You must supply a deductible for GL policies in AR, AZ, CA, CO, ID, NM, NV, OK, OR, TX, UT, or WA. The deductible can be 500, 1000, or 1500'));
-                        return;
-                    }
-                    if (!validator.deductible(this.deductible)) {
-                        reject(new Error('The policy deductible you supplied is invalid. It must be one of 500, 1000, or 1500.'));
-                        return;
-                    }
-                    this.deductible = parseInt(this.deductible, 10);
-                }
-                else {
-                    // Default the deductible
-                    this.deductible = 500;
-                }
+
             }
             else if (this.type === 'WC') {
                 // WC Specific Properties
