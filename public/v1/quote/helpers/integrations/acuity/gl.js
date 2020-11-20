@@ -519,23 +519,26 @@ module.exports = class AcuityGL extends Integration {
 
         // Determine which URL to use
         let host = '';
+        let path = '';
+        let credentials = null;
         if (this.insurer.useSandbox) {
             host = 'tptest.acuity.com';
+            path = '/ws/partner/public/irate/rating/RatingService/Talage'
+            credentials = {
+                'X-IBM-Client-Id': this.username,
+                'X-IBM-Client-Secret': this.password
+            };
         }
         else {
-            host = 'www.acuity.com';
+            host = 'services.acuity.com';
+            path = '/ws/irate/rating/RatingService/Talage';
+            credentials = {'x-acuity-api-key': this.password};
         }
-        const path = '/ws/partner/public/irate/rating/RatingService/Talage';
-
-        // console.log(xml);
 
         // Send the XML to the insurer
         let res = null;
         try {
-            res = await this.send_xml_request(host, path, xml, {
-                'X-IBM-Client-Id': this.username,
-                'X-IBM-Client-Secret': this.password
-            });
+            res = await this.send_xml_request(host, path, xml, credentials);
         }
         catch (error) {
             log.error(`Acuity (application ${this.app.id}): Could not connect to server: ${error} ${__location}`);
