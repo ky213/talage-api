@@ -329,6 +329,7 @@ module.exports = class BusinessBO{
        // Hash email.
        if(inputJSON.ein){
            inputJSON.ein_hash = await crypt.hash(inputJSON.ein);
+           inputJSON.ein_encrypted = await crypt.encrypt(inputJSON.ein);
        }
    }
 
