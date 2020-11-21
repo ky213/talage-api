@@ -2327,13 +2327,15 @@ module.exports = class ApplicationModel {
     }
 
     async setDocEinClear(applicationDoc){
-        if(applicationDoc.einEncrypted){
-            applicationDoc.einClear = await crypt.decrypt(applicationDoc.einEncrypted);
-            applicationDoc.ein = applicationDoc.einClear;
-        }
-        else {
-            applicationDoc.ein = "";
-            applicationDoc.einClear = "";
+        if(applicationDoc){
+            if(applicationDoc.einEncrypted){
+                applicationDoc.einClear = await crypt.decrypt(applicationDoc.einEncrypted);
+                applicationDoc.ein = applicationDoc.einClear;
+            }
+            else {
+                applicationDoc.ein = "";
+                applicationDoc.einClear = "";
+            }
         }
     }
 
@@ -2948,7 +2950,7 @@ module.exports = class ApplicationModel {
                 try {
                     applicationDoc = await this.loadfromMongoBymysqlId(id);
                     applicationDoc.active = false;
-                    applicationDoc.save();
+                    await applicationDoc.save();
                 }
                 catch (err) {
                     log.error("Error get marking Application from mysqlId " + err + __location);
