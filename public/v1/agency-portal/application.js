@@ -24,7 +24,7 @@ const moment = require('moment');
 
 
 /**
- * Responds to get requests for the certificate endpoint
+ * Responds to get requests for the application endpoint
  *
  * @param {object} req - HTTP request object
  * @param {object} res - HTTP response object
