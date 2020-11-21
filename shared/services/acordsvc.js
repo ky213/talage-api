@@ -19,7 +19,7 @@ const validator = global.requireShared('./helpers/validator.js');
  */
 
 /**
- * Responds to get requests for the certificate endpoint
+ * Generate an Acord Document
  *
  * @param {number} application_id - id of the application for ACORD form generation
  * @param {number} insurer_id - id of the insurer for ACORD form generation
