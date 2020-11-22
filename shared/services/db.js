@@ -9,6 +9,8 @@ const util = require('util');
 const colors = require('colors');
 
 let conn = null;
+let connRo = null;
+let useReadOnly = false;
 
 exports.connect = async() => {
 
@@ -30,6 +32,27 @@ exports.connect = async() => {
             log.info("Set aurora_replica_read_consistency")
         }
     });
+    if(global.settings.DATABASE_HOST_READONLY){
+        useReadOnly = true;
+        connRo = mysql.createPool({
+            'connectionLimit': 100,
+            'database': global.settings.DATABASE_NAME,
+            'host': global.settings.DATABASE_HOST_READONLY,
+            'password': global.settings.DATABASE_PASSWORD,
+            'user': global.settings.DATABASE_USER,
+            'timezone': 'Z'
+        });
+
+        connRo.on('connection', function(connection) {
+            if(global.settings.USING_AURORA_CLUSTER === "YES"){
+                connection.query(`set @@aurora_replica_read_consistency = 'session';`)
+                log.info("Set aurora_replica_read_consistency")
+            }
+        });
+
+
+    }
+
 
     // Try to connect to the database to ensure it is reachable.
     try{
@@ -119,7 +142,7 @@ exports.prepareQuery = function(sql){
 };
 
 /**
- * Executes a given SQL query against the proper database
+ * Executes a given SQL query against the tranactional database
  *
  * @param {string} sql - The SQL query string to be run
  *
@@ -164,7 +187,7 @@ exports.queryParam = function(sql, params){
         // Run the query on the database
         conn.query(sql, params, function(err, rows){
             if(err){
-                log.error('db query error: ' + err + __location);
+                log.error('db query ro error: ' + err + __location);
                 log.info('sql: ' + sql);
                 // Docs-api had 'reject(new Error(err));'
                 reject(err);
@@ -176,6 +199,97 @@ exports.queryParam = function(sql, params){
         });
     });
 };
+
+/**
+ * Executes a given SQL query against the ReadyOnly database
+ *
+ * @param {string} sql - The SQL query string to be run
+ *
+ * @returns {Promise.<array, Error>} A promise that returns an array of database results if resolved, or an Error if rejected
+ */
+exports.queryReadonly = function(sql){
+    return new Promise(function(fulfill, reject){
+        // Force SQL queries to end in a semicolon for security
+        if(sql.slice(-1) !== ';'){
+            sql += ';';
+        }
+        // Replace the prefix placeholder
+        sql = sql.replace(/#__/g, global.settings.DATABASE_PREFIX);
+
+        // Run the query on the database
+        if(useReadOnly === true){
+            connRo.query(sql, function(err, rows){
+                if(err){
+                    log.error('db ro query error: ' + err + __location);
+                    log.info('sql: ' + sql);
+                    // Docs-api had 'reject(new Error(err));'
+                    reject(err);
+                    return;
+                }
+
+                // Question-api had 'fulfill(JSON.parse(JSON.stringify(rows)));'
+                fulfill(rows);
+            });
+        }
+        else {
+            conn.query(sql, function(err, rows){
+                if(err){
+                    log.error('db query error: ' + err + __location);
+                    log.info('sql: ' + sql);
+                    // Docs-api had 'reject(new Error(err));'
+                    reject(err);
+                    return;
+                }
+
+                // Question-api had 'fulfill(JSON.parse(JSON.stringify(rows)));'
+                fulfill(rows);
+            });
+        }
+    });
+};
+
+exports.queryParamReadOnly = function(sql, params){
+    return new Promise(function(fulfill, reject){
+        // Force SQL queries to end in a semicolon for security
+        if(sql.slice(-1) !== ';'){
+            sql += ';';
+        }
+
+        // Replace the prefix placeholder
+        sql = sql.replace(/#__/g, global.settings.DATABASE_PREFIX);
+
+        // Run the query on the database
+        if(useReadOnly === true){
+            connRo.query(sql, params, function(err, rows){
+                if(err){
+                    log.error('db ro query error: ' + err + __location);
+                    log.info('sql ro : ' + sql);
+                    // Docs-api had 'reject(new Error(err));'
+                    reject(err);
+                    return;
+                }
+
+                // Question-api had 'fulfill(JSON.parse(JSON.stringify(rows)));'
+                fulfill(rows);
+            });
+        }
+        else {
+            conn.query(sql, params, function(err, rows){
+                if(err){
+                    log.error('db query ro error: ' + err + __location);
+                    log.info('sql: ' + sql);
+                    // Docs-api had 'reject(new Error(err));'
+                    reject(err);
+                    return;
+                }
+
+                // Question-api had 'fulfill(JSON.parse(JSON.stringify(rows)));'
+                fulfill(rows);
+            });
+        }
+    });
+};
+
 
 /**
  * Quotes a name with `backticks`
