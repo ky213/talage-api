@@ -76,7 +76,7 @@ exports.connect = async() => {
             log.error(colors.red(`\tMySQL DB ERROR: ${error.toString()}`)); // eslint-disable-line no-console
             return false;
         }
-        log.info(colors.green(`\tREADONLY MySQL Connected to ${colors.cyan(global.settings.DATABASE_HOST)}`)); // eslint-disable-line no-console
+        log.info(colors.green(`\tREADONLY MySQL Connected to ${colors.cyan(global.settings.DATABASE_HOST_READONLY)}`)); // eslint-disable-line no-console
     }
 
     return true;
