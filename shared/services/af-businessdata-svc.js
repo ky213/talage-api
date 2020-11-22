@@ -8,11 +8,19 @@ const axios = require('axios');
 
 let afEndpoint = 'https://npsv.afgroup.com/TEST_HeadlessUnderwriting/api/overviewservice';
 //check settings for override.
+let userName = "DDHUser";
+let userPwd = "ceXF4N2fcthou99q!";
+
+if(global.settings.ENV === 'production'){
+    afEndpoint = 'https://psv.afgroup.com/HeadlessUnderwriting/api/overviewservice';
+    userName = "DDHUser";
+    userPwd = "MwNk51WAgHtDWVWoBe!";
+}
+
 if(global.settings.AF_DATA_ENDPOINT){
     afEndpoint = global.settings.AF_DATA_ENDPOINT
 }
-let userName = "DDHUser";
-let userPwd = "ceXF4N2fcthou99q!";
+
 if(global.settings.AF_DATA_USER){
     userName = global.settings.AF_DATA_USER
 }
