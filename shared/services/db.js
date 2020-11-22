@@ -46,7 +46,7 @@ exports.connect = async() => {
         connRo.on('connection', function(connection) {
             if(global.settings.USING_AURORA_CLUSTER === "YES"){
                 connection.query(`set @@aurora_replica_read_consistency = 'session';`)
-                log.info("Set aurora_replica_read_consistency")
+                log.info("Set aurora_replica_read_consistency on readyonly connection")
             }
         });
 
@@ -64,6 +64,21 @@ exports.connect = async() => {
         return false;
     }
     log.info(colors.green(`\tMySQL Connected to ${colors.cyan(global.settings.DATABASE_HOST)}`)); // eslint-disable-line no-console
+
+
+    if(useReadOnly === true){
+        // Try to connect to the database to ensure it is reachable.
+        try{
+            const connection = await util.promisify(conn.getConnection).call(conn);
+            connection.release();
+        }
+        catch(error){
+            log.error(colors.red(`\tMySQL DB ERROR: ${error.toString()}`)); // eslint-disable-line no-console
+            return false;
+        }
+        log.info(colors.green(`\tREADONLY MySQL Connected to ${colors.cyan(global.settings.DATABASE_HOST)}`)); // eslint-disable-line no-console
+    }
+
     return true;
 };
 
