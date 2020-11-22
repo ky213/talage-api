@@ -5,6 +5,7 @@
 'use strict';
 
 const axios = require('axios');
+let enableAfDataCall = true;
 
 let afEndpoint = 'https://npsv.afgroup.com/TEST_HeadlessUnderwriting/api/overviewservice';
 //check settings for override.
@@ -15,6 +16,9 @@ if(global.settings.ENV === 'production'){
     afEndpoint = 'https://psv.afgroup.com/HeadlessUnderwriting/api/overviewservice';
     userName = "DDHUser";
     userPwd = "MwNk51WAgHtDWVWoBe!";
+}
+if(global.settings.AF_DATA_CALL_ENABLED && global.settings.AF_DATA_CALL_ENABLED !== "YES"){
+    enableAfDataCall = false;
 }
 
 if(global.settings.AF_DATA_ENDPOINT){
@@ -32,7 +36,7 @@ if(global.settings.AF_DATA_PWD){
 
 
 exports.getBusinessData = async function(businessFilterJSON) {
-    if(businessFilterJSON && businessFilterJSON.company_name){
+    if(enableAfDataCall && businessFilterJSON && businessFilterJSON.company_name){
         //check for company_name and state
         // Do any mapping here....
         // do any data filter and cleanup here
