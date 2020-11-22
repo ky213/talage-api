@@ -66,7 +66,7 @@ const GetActivityCodes = wrap(async(req, res, next) => {
 		WHERE inc.territory = ${db.escape(territory)} AND nc.state = 1 AND inc.state = 1 GROUP BY nc.id ORDER BY nc.description;
 		`;
     let error = false;
-    const codes = await db.query(sql_all_activity_codes).catch(function(e) {
+    const codes = await db.queryReadonly(sql_all_activity_codes).catch(function(e) {
         log.error(e.message);
         res.send(500, {
             message: 'Internal Server Error',
