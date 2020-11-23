@@ -7,15 +7,15 @@
 const axios = require('axios');
 let enableAfDataCall = true;
 
-let afEndpoint = 'https://npsv.afgroup.com/TEST_HeadlessUnderwriting/api/overviewservice';
-//check settings for override.
+let afEndpoint = 'https://psv.afgroup.com/HeadlessUnderwriting/api/overviewservice';
 let userName = "DDHUser";
-let userPwd = "ceXF4N2fcthou99q!";
+let userPwd = "MwNk51WAgHtDWVWoBe!";
 
-if(global.settings.ENV === 'production'){
-    afEndpoint = 'https://psv.afgroup.com/HeadlessUnderwriting/api/overviewservice';
+
+if(global.settings.ENV !== 'production'){
+    afEndpoint = 'https://npsv.afgroup.com/TEST_HeadlessUnderwriting/api/overviewservice';
     userName = "DDHUser";
-    userPwd = "MwNk51WAgHtDWVWoBe!";
+    userPwd = "ceXF4N2fcthou99q!";
 }
 if(global.settings.AF_DATA_CALL_ENABLED && global.settings.AF_DATA_CALL_ENABLED !== "YES"){
     enableAfDataCall = false;
@@ -58,7 +58,7 @@ exports.getBusinessData = async function(businessFilterJSON) {
             afResponse = await axios.post(afEndpoint, businessFilterJSON, requestOptions);
         }
         catch(err){
-            log.error('afResponse error ' + err + __location);
+            log.error(`afResponse error endpoint ${afEndpoint} ` + err + __location);
             error = err;
         }
         if(error){
@@ -69,7 +69,7 @@ exports.getBusinessData = async function(businessFilterJSON) {
             return responseData;
         }
         else {
-            log.error("AF BusinessData API response with " + afResponse.status + __location)
+            log.error(`AF BusinessData API endpoint ${afEndpoint} response with ` + afResponse.status + __location)
             throw new Error("AF BusinessData API responded with " + afResponse.status);
         }
     }
