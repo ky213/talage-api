@@ -48,7 +48,7 @@ exports.getBusinessData = async function(businessFilterJSON) {
                 username: userName,
                 password: userPwd
             },
-            timeout: 15000
+            timeout: 25000
 
         }
         log.debug("AF API Request businessFilterJSON: " + JSON.stringify(businessFilterJSON))
@@ -58,7 +58,7 @@ exports.getBusinessData = async function(businessFilterJSON) {
             afResponse = await axios.post(afEndpoint, businessFilterJSON, requestOptions);
         }
         catch(err){
-            log.error(`afResponse error endpoint ${afEndpoint} ` + err + __location);
+            log.error(`afResponse error endpoint ${afEndpoint} data: ${JSON.stringify(businessFilterJSON)} ` + err + __location);
             error = err;
         }
         if(error){
