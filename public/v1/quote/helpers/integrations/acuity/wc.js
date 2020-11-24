@@ -76,8 +76,9 @@ module.exports = class AcuityWC extends Integration {
 
                 let ncciCode = null;
                 if (insurer) {
-                    ncciCode = await this.get_ncci_code_from_activity_code(insurer.id, location.territory, activityCode.id);
-                } else {
+                    ncciCode = await this.get_ncci_code_from_activity_code(location.territory, activityCode.id);
+                }
+                else {
                     return this.client_error(`We can't locate NCCI codes without a valid insurer. Slug used: ${insurerSlug}.`);
                 }
 
@@ -208,25 +209,29 @@ module.exports = class AcuityWC extends Integration {
 
         // Determine which URL to use
         let host = '';
+        let path = '';
+        let credentials = null;
         if (this.insurer.useSandbox) {
             host = 'tptest.acuity.com';
+            path = '/ws/partner/public/irate/rating/RatingService/Talage'
+            credentials = {
+                'X-IBM-Client-Id': this.username,
+                'X-IBM-Client-Secret': this.password
+            };
         }
         else {
-            host = 'www.acuity.com';
+            host = 'services.acuity.com';
+            path = '/ws/irate/rating/RatingService/Talage';
+            credentials = {'x-acuity-api-key': this.password};
         }
-        const path = '/ws/partner/public/irate/rating/RatingService/Talage';
-
-        // console.log('request', xml);
 
         // Send the XML to the insurer
         let result = null;
         try {
-            result = await this.send_xml_request(host, path, xml, {
-                'X-IBM-Client-Id': this.username,
-                'X-IBM-Client-Secret': this.password
-            });
+            result = await this.send_xml_request(host, path, xml, credentials);
         }
         catch (error) {
+            // console.log('error', error);
             return this.client_connection_error(__location);
         }
 
@@ -259,23 +264,23 @@ module.exports = class AcuityWC extends Integration {
             }
         }
 
-        // Check if we have an error
-        const msgStatusCd = this.get_xml_child(result.ACORD, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.MsgStatus.MsgStatusCd");
-        if (msgStatusCd.toLowerCase() === 'error') {
-            const extendedStatusDesc = this.get_xml_child(result.ACORD, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.MsgStatus.ExtendedStatus.ExtendedStatusDesc");
-            return this.client_error('The insurer encountered an error while processing the request', __location, {extendedStatusDesc: extendedStatusDesc});
-        }
-
         // Check if the application was rejected or declined
+        const msgStatusCd = this.get_xml_child(result.ACORD, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.MsgStatus.MsgStatusCd");
         let declined = false;
         const extendedStatus = this.get_xml_child(result.ACORD, "InsuranceSvcRs.WorkCompPolicyQuoteInqRs.MsgStatus.ExtendedStatus", true);
+        let declinedReasons = '';
         for (const status of extendedStatus) {
             if (status.ExtendedStatusDesc[0].includes('not a market for the risk')) {
                 declined = true;
+                declinedReasons += (declinedReasons.length > 0 ? " " : "") + status.ExtendedStatusDesc[0];
+            }
+            else if (status.hasOwnProperty('com.acuity_ExtendedStatusType') && status['com.acuity_ExtendedStatusType'][0] === "Error") {
+                declined = true;
+                declinedReasons += (declinedReasons.length > 0 ? " " : "") + status.ExtendedStatusDesc[0].replace("Acuity_Decline: ", "");
             }
         }
         if (declined || msgStatusCd.toLowerCase() === 'rejected') {
-            return this.client_declined();
+            return this.client_declined(declinedReasons.length > 0 ? declinedReasons : null);
         }
 
         // Find the policy information
