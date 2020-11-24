@@ -3171,7 +3171,7 @@ module.exports = class ApplicationModel {
         let insurerArray = [];
         if(applicationDocDB.agencyLocationId && applicationDocDB.agencyLocationId > 0){
             const agencyLocationBO = new AgencyLocationBO();
-            const agencylocationJSON = await agencyLocationBO.getById(applicationDocDB.agencyId).catch(function(err) {
+            const agencylocationJSON = await agencyLocationBO.getById(applicationDocDB.agencyLocationId).catch(function(err) {
                 log.error(`Error getting Agency Primary Location ${applicationDocDB.uuid} ` + err + __location);
             });
             if (agencylocationJSON && agencylocationJSON.insurers && agencylocationJSON.insurers.length > 0) {
