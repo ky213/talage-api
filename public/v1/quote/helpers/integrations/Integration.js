@@ -1180,8 +1180,7 @@ module.exports = class Integration {
         if (!publicMessage) {
             publicMessage = "The insurer has declined to offer you coverage at this time.";
         }
-        // Added by return_result()
-        // this.reasons.push(publicMessage);
+        this.reasons.push(publicMessage);
         this.log_info(`Declined with message '${publicMessage}'`, __location);
         return this.return_result('declined');
     }
