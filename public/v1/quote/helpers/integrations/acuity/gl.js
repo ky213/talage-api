@@ -154,8 +154,8 @@ module.exports = class AcuityGL extends Integration {
 
         // <ProducerInfo>
         const ProducerInfo = Producer.ele('ProducerInfo');
-        ProducerInfo.ele('ContractNumber', '8843');
-        ProducerInfo.ele('ProducerSubCode', 'AA');
+        ProducerInfo.ele('ContractNumber', this.app.agencyLocation.insurers[this.insurer.id].agency_id);
+        // ProducerInfo.ele('ProducerSubCode', 'AA');
         // </ProducerInfo>
 
         // </Producer>
