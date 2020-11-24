@@ -33,7 +33,7 @@ function getAnswer(appQuestion) {
 }
 
 /**
- * Responds to get requests for the certificate endpoint
+ * Responds to get requests for the Questions endpoint
  *
  * @param {object} req - HTTP request object
  * @param {object} res - HTTP response object

@@ -98,7 +98,6 @@ exports.registerEndpoints = (server) => {
 
     // Doc
     registerEndpoint(server, 'doc', 'acord-form-wc');
-    registerEndpoint(server, 'doc', 'certificate');
 
     // Question
     registerEndpoint(server, 'question', 'questions');

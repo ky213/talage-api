@@ -211,13 +211,4 @@ var markApplicationProcess = async function(appDoc){
         throw err;
     }
 
-    const updateSQL = `UPDATE clw_talage_applications
-                       SET  abandoned_app_email = 1
-	                   where id = ${appDoc.mysqlId} `;
-
-    // Update application record
-    await db.query(updateSQL).catch(function(e){
-        log.error('Abandon Application flag update error: ' + e.message + __location);
-        throw e;
-    });
 };

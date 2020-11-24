@@ -661,10 +661,13 @@ module.exports = class Application {
             });
 
             // Validate the ID
-            if (!await validator.application(this.id)) {
-                log.error('validator.application() ' + this.id + __location);
-                reject(new Error('Invalid application ID specified.'));
-                return;
+            let applicationBO = new ApplicationBO();
+            if (!await applicationBO.isValidApplicationId(this.id)) {
+                //if applicationId suppled in the starting quoting requeset was bad
+                // the quoting process would have been stopped before validate was called.
+                log.error('applicationBO.isValidApplicationId ' + this.id + __location);
+                //reject(new Error('Invalid application ID specified.'));
+                // return;
             }
 
             // Get a list of insurers and wait for it to return

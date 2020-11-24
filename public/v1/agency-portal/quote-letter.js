@@ -2,7 +2,9 @@
 
 const fileSvc = global.requireShared('./services/filesvc.js');
 const auth = require('./helpers/auth.js');
-const serverHelper = require('../../../server.js');
+const serverHelper = global.requireRootPath('server.js');
+const ApplicationBO = global.requireShared('models/Application-BO.js');
+const QuoteBO = global.requireShared('models/Quote-BO.js');
 
 /**
  * Responds to requests to get quote letters
@@ -37,35 +39,34 @@ async function getQuoteLetter(req, res, next){
     }
 
     // Verify that this quote letter is valid AND the user has access to it
-    const securityCheckSQL = `
-			SELECT
-				\`q\`.\`quote_letter\`
-			FROM \`#__quotes\` AS \`q\`
-			LEFT JOIN \`#__applications\` AS \`a\` ON \`q\`.\`application\` = \`a\`.\`id\`
-			WHERE
-				\`q\`.\`quote_letter\` = ${db.escape(req.query.file)}
-				AND \`a\`.\`agency\` IN (${agents.join(',')})
-			LIMIT 1;
-		`;
-
-    // Run the security check
-    const result = await db.query(securityCheckSQL).catch(function(err){
-        log.error(err.message + __location);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    });
-
-    // Make sure we received a valid result
-    if (!result || !result[0] || !Object.prototype.hasOwnProperty.call(result[0], 'quote_letter') || !result[0].quote_letter){
+    let passedSecurityCheck = false;
+    let quoteDoc = null;
+    const quoteBO = new QuoteBO();
+    const quoteQuery = {quoteLetter: req.query.file}
+    try{
+        const quoteList = await quoteBO.getList(quoteQuery);
+        if(quoteList && quoteList.length === 1){
+            quoteDoc = quoteList[0];
+            const appId = quoteDoc.applicationId
+            const applicationBO = new ApplicationBO();
+            const applicationDBDoc = await applicationBO.getfromMongoByAppId(appId);
+            if(applicationDBDoc && agents.includes(applicationDBDoc.agencyId)){
+                passedSecurityCheck = true;
+            }
+        }
+    }
+    catch(err){
+        log.error("Quote letter security check " + err + __location);
+    }
+    if(passedSecurityCheck === false){
         log.error('Request for quote letter denied. Possible security violation.' + __location);
         return next(serverHelper.notAuthorizedError('You do not have permission to access this resource.'));
     }
 
     // Reduce the result down to what we need
-    const fileName = result[0].quote_letter;
+    const fileName = quoteDoc.quoteLetter;
 
     // Get the file from our cloud storage service
-    // TODO Secure
-
     const data = await fileSvc.GetFileSecure(`secure/quote-letters/${fileName}`).catch(function(err){
         log.error('file get error: ' + err.message + __location);
         error = err;
