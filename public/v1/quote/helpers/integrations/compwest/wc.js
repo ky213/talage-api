@@ -418,7 +418,7 @@ module.exports = class CompwestWC extends Integration {
                 const DBAGeneralPartyInfo = DBAAdditionalInterest.ele('GeneralPartyInfo');
                 // <NameInfo>
                 const DBANameInfo = DBAGeneralPartyInfo.ele('NameInfo');
-                DBANameInfo.ele('CommlName').ele('CommercialName', this.app.business.dba);
+                DBANameInfo.ele('CommlName').ele('CommercialName', this.app.business.dba.replace('’', "'").replace('+', '').replace('|', ''));
                 const DBATaxIdentity = DBANameInfo.ele('TaxIdentity');
                 DBATaxIdentity.ele('TaxIdTypeCd', 'FEIN');
                 DBATaxIdentity.ele('TaxCd',this.app.business.locations[0].identification_number);

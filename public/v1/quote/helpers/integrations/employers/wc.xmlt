@@ -29,7 +29,7 @@
                         <GeneralPartyInfo>
                             <NameInfo>
                                 <CommlName>
-                                    <CommercialName>{{:app.business.name.substring(0, 60)}}</CommercialName>
+                                    <CommercialName>{{:app.business.name.substring(0, 60).replace('&', '')}}</CommercialName>
                                 </CommlName>
                                 <LegalEntityCd>{{:entity_code}}</LegalEntityCd>
                                 <TaxIdentity>
@@ -147,7 +147,6 @@
                                             <Amt>{{:payroll}}</Amt>
                                         </ActualRemunerationAmt>
                                         <RatingClassificationCd>{{:~root.insurer_wc_codes[~location.territory + ~code.id]}}</RatingClassificationCd>
-                                        <RatingClassificationDesc>{{:~code.description}}</RatingClassificationDesc>
                                     </WorkCompRateClass>
 								{{/for}}
                                 </WorkCompLocInfo>

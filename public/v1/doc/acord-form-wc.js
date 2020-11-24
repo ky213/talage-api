@@ -5,7 +5,7 @@ const serverHelper = global.requireRootPath('server.js');
 
 
 /**
- * Responds to get requests for the certificate endpoint
+ * Responds to get requests for the accord endpoint
  *
  * @param {object} req - HTTP request object
  * @param {object} res - HTTP response object

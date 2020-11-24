@@ -743,8 +743,7 @@ module.exports = class ApplicationModel {
                     policyTypeJSON.expirationDate = applicationJSON.gl_expiration_date
                     policyTypeJSON.limits = applicationJSON.limits
                     policyTypeJSON.deductible = applicationJSON.deductible
-
-
+                    policyTypeJSON.addTerrorismCoverage = applicationJSON.add_terrorism_coverage
                 }
                 else if (policyType === "WC") {
                     policyTypeJSON.effectiveDate = applicationJSON.wc_effective_date
@@ -763,7 +762,7 @@ module.exports = class ApplicationModel {
                     policyTypeJSON.limits = applicationJSON.limits
                     policyTypeJSON.coverage = applicationJSON.coverage
                     policyTypeJSON.deductible = applicationJSON.deductible
-
+                    policyTypeJSON.addTerrorismCoverage = applicationJSON.add_terrorism_coverage
                 }
                 policyList.push(policyTypeJSON);
             }
@@ -1183,7 +1182,7 @@ module.exports = class ApplicationModel {
             //     log.error(`Error getting agencyNetworkId, application - ${this.id} ` + err + __location)
             // }
             //Only process AF call if digalent.
-            if (agencyNetworkId === 2 && global.settings.ENV !== 'production') {
+            if (agencyNetworkId === 2) {
                 const businessInfoRequestJSON = {"company_name": requestApplicationJSON.businessInfo.name};
                 // if(applicationJSON.businessInfo.address && applicationJSON.businessInfo.address.state_abbr){
                 //     businessInfo.state = applicationJSON.businessInfo.address.state_abbr
@@ -1727,19 +1726,13 @@ module.exports = class ApplicationModel {
                     //because Virtual Sets.  new need to get the model and save.
                     await this.checkExpiration(newObjectJSON);
                     await this.setupDocEinEncrypt(newObjectJSON);
+                    if(newObjectJSON.ein){
+                        delete newObjectJSON.ein
+                    }
+
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
                     const newApplicationdoc = await ApplicationMongooseModel.findOne(query);
                     this.#applicationMongooseDB = newApplicationdoc
-                    //because Virtual Sets. we need to updatemode land save it.
-                    // Only EIN is virtual...
-                    // if (newObjectJSON.ein && newApplicationdoc) {
-                    //     newApplicationdoc.ein = newObjectJSON.ein
-                    //     log.debug("updating ein ");
-                    //     await newApplicationdoc.save().catch(function(err) {
-                    //         log.error(`Mongo Application Save for Virtuals err appId: ${uuid}` + err + __location);
-                    //         throw err;
-                    //     });
-                    // }
 
                     if(updateMysql === true){
                         const postInsert = false;
@@ -1793,6 +1786,9 @@ module.exports = class ApplicationModel {
 
         await this.checkExpiration(newObjectJSON);
         await this.setupDocEinEncrypt(newObjectJSON);
+        if(newObjectJSON.ein){
+            delete newObjectJSON.ein
+        }
 
         const application = new ApplicationMongooseModel(newObjectJSON);
         //log.debug("insert application: " + JSON.stringify(application))
@@ -2331,13 +2327,15 @@ module.exports = class ApplicationModel {
     }
 
     async setDocEinClear(applicationDoc){
-        if(applicationDoc.einEncrypted){
-            applicationDoc.einClear = await crypt.decrypt(applicationDoc.einEncrypted);
-            applicationDoc.ein = applicationDoc.einClear;
-        }
-        else {
-            applicationDoc.ein = "";
-            applicationDoc.einClear = "";
+        if(applicationDoc){
+            if(applicationDoc.einEncrypted){
+                applicationDoc.einClear = await crypt.decrypt(applicationDoc.einEncrypted);
+                applicationDoc.ein = applicationDoc.einClear;
+            }
+            else {
+                applicationDoc.ein = "";
+                applicationDoc.einClear = "";
+            }
         }
     }
 
@@ -2351,7 +2349,7 @@ module.exports = class ApplicationModel {
             catch(err){
                 log.error(`ApplicationBO error encrypting ein ${this.applicationId} ` + err + __location);
             }
-
+            delete applicationDoc.ein;
         }
 
     }
@@ -2952,7 +2950,7 @@ module.exports = class ApplicationModel {
                 try {
                     applicationDoc = await this.loadfromMongoBymysqlId(id);
                     applicationDoc.active = false;
-                    applicationDoc.save();
+                    await applicationDoc.save();
                 }
                 catch (err) {
                     log.error("Error get marking Application from mysqlId " + err + __location);
@@ -3173,7 +3171,7 @@ module.exports = class ApplicationModel {
         let insurerArray = [];
         if(applicationDocDB.agencyLocationId && applicationDocDB.agencyLocationId > 0){
             const agencyLocationBO = new AgencyLocationBO();
-            const agencylocationJSON = await agencyLocationBO.getById(applicationDocDB.agencyId).catch(function(err) {
+            const agencylocationJSON = await agencyLocationBO.getById(applicationDocDB.agencyLocationId).catch(function(err) {
                 log.error(`Error getting Agency Primary Location ${applicationDocDB.uuid} ` + err + __location);
             });
             if (agencylocationJSON && agencylocationJSON.insurers && agencylocationJSON.insurers.length > 0) {
@@ -3343,6 +3341,38 @@ module.exports = class ApplicationModel {
         return getQuestionsResult;
 
     }
+
+    async isValidApplicationId(id) {
+        const positive_integer = /^[1-9]\d*$/;
+        let had_error = false;
+        //TODO switch to mongo
+        if(positive_integer.test(id)){
+            const sql = `SELECT COUNT(id) FROM clw_talage_applications WHERE id = ${parseInt(id, 10)};`;
+            const rows = await db.query(sql).catch(function(error){
+                log.error(error + __location);
+                had_error = true;
+            });
+            if(had_error){
+                return false;
+            }
+            return !(!rows || rows.length !== 1 || !Object.prototype.hasOwnProperty.call(rows[0], 'COUNT(id)') || rows[0]['COUNT(id)'] !== 1);
+        }
+        else {
+            // assume uuid
+            const sql = `SELECT COUNT(id) FROM clw_talage_applications WHERE uuid = '${id}';`;
+            const rows = await db.query(sql).catch(function(error){
+                log.error(error + __location);
+                had_error = true;
+            });
+            if(had_error){
+                return false;
+            }
+            return !(!rows || rows.length !== 1 || !Object.prototype.hasOwnProperty.call(rows[0], 'COUNT(id)') || rows[0]['COUNT(id)'] !== 1);
+
+        }
+    }
+
+
 }
 
 const properties = {

@@ -106,7 +106,6 @@ module.exports = class CnaWC extends Integration {
     async _insurer_quote() {
 
         const insurerSlug = 'cna';
-        const insurer = await utility.getInsurer(insurerSlug);
 
         const business = this.app.business;
         const policy = this.app.policies[0]; // currently just ['WC']
@@ -117,19 +116,11 @@ module.exports = class CnaWC extends Integration {
         // Check to ensure we have NCCI codes available for every provided activity code.
         for (const location of this.app.business.locations) {
             for (const activityCode of location.activity_codes) {
-                let ncciCode = null;
-                if (insurer) {
-                    ncciCode = await this.get_ncci_code_from_activity_code(insurer.id, location.territory, activityCode.id);
-                } else {
-                    return this.client_error(`CNA: We can't locate NCCI codes without a valid insurer. Slug used: ${insurerSlug}.`);
-                }
-
+                const ncciCode = await this.get_ncci_code_from_activity_code(location.territory, activityCode.id);
                 if (!ncciCode) {
-                    return this.client_error(`CNA: We could not locate an NCCI code for one or more of the provided activities and territories: ${JSON.stringify(activityCode, null, 4)}`);
+                    return this.client_error(`Unable to locate an NCCI code for activity code ${activityCode.id}.`);
                 }
-
-                activityCode.ncciCode = `${ncciCode.code}${ncciCode.sub}`;
-                activityCode.ncciCodeDescription = ncciCode.description;
+                activityCode.ncciCode = ncciCode;
             }
         }
 

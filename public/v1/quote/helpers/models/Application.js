@@ -64,7 +64,6 @@ module.exports = class Application {
         try{
             this.applicationDocData = await applicationBO.loadfromMongoBymysqlId(this.id);
             log.debug("Quote Application added applicationData")
-            log.debug(`EIN ${this.applicationDocData.ein} ${this.applicationDocData.einClear} ${this.applicationDocData.einEncrypted}`)
         }
         catch(err){
             log.error("Unable to get applicationData for quoting appId: " + data.id + __location);
@@ -662,10 +661,13 @@ module.exports = class Application {
             });
 
             // Validate the ID
-            if (!await validator.application(this.id)) {
-                log.error('validator.application() ' + this.id + __location);
-                reject(new Error('Invalid application ID specified.'));
-                return;
+            let applicationBO = new ApplicationBO();
+            if (!await applicationBO.isValidApplicationId(this.id)) {
+                //if applicationId suppled in the starting quoting requeset was bad
+                // the quoting process would have been stopped before validate was called.
+                log.error('applicationBO.isValidApplicationId ' + this.id + __location);
+                //reject(new Error('Invalid application ID specified.'));
+                // return;
             }
 
             // Get a list of insurers and wait for it to return

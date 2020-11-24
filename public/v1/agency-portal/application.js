@@ -9,6 +9,7 @@ const ApplicationBO = global.requireShared('models/Application-BO.js');
 const QuoteBO = global.requireShared('models/Quote-BO.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
+const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
 const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
 const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
 const IndustryCodeCategoryBO = global.requireShared('models/IndustryCodeCategory-BO.js');
@@ -24,7 +25,7 @@ const moment = require('moment');
 
 
 /**
- * Responds to get requests for the certificate endpoint
+ * Responds to get requests for the application endpoint
  *
  * @param {object} req - HTTP request object
  * @param {object} res - HTTP response object
@@ -191,13 +192,28 @@ async function getApplication(req, res, next) {
         await agencyBO.loadFromId(applicationJSON.agencyId)
         applicationJSON.name = agencyBO.name;
         applicationJSON.agencyName = agencyBO.name;
-
+        applicationJSON.agencyPhone = agencyBO.phone;
+        applicationJSON.agencyOwnerName = `${agencyBO.fname} ${agencyBO.lname}`;
+        applicationJSON.agencyOwnerEmail = agencyBO.email;
     }
     catch(err){
         log.error("Error getting agencyBO " + err + __location);
         error = true;
-
     }
+
+    // add information about the creator if it was created in the agency portal
+    if(applicationJSON.agencyPortalCreated && applicationJSON.agencyPortalCreatedUser){
+        const agencyPortalUserBO = new AgencyPortalUserBO();
+        try{
+            await agencyPortalUserBO.loadFromId(applicationJSON.agencyPortalCreatedUser);
+            applicationJSON.creatorEmail = agencyPortalUserBO.email;
+        }
+        catch(err){
+            log.error("Error getting agencyPortalUserBO " + err + __location);
+            error = true;
+        }
+    }
+
     //add industry description
     const industryCodeBO = new IndustryCodeBO();
     try{
@@ -216,10 +232,12 @@ async function getApplication(req, res, next) {
     }
     //Primary Contact
     const customerContact = applicationJSON.contacts.find(contactTest => contactTest.primary === true);
-    applicationJSON.email = customerContact.email;
-    applicationJSON.fname = customerContact.firstName;
-    applicationJSON.lname = customerContact.lastName;
-    applicationJSON.phone = customerContact.phone;
+    if(customerContact){
+        applicationJSON.email = customerContact.email;
+        applicationJSON.fname = customerContact.firstName;
+        applicationJSON.lname = customerContact.lastName;
+        applicationJSON.phone = customerContact.phone;
+    }
 
     // Get the quotes from the database
     const quoteBO = new QuoteBO()

@@ -4,6 +4,7 @@
 
 //const PdfPrinter = require('pdfmake');
 //const crypt = global.requireShared('./services/crypt.js');
+const ApplicationBO = global.requireShared('models/Application-BO.js');
 const wc = require('./acordhelpers/wc.js');
 const gl = require('./acordhelpers/gl.js');
 
@@ -19,7 +20,7 @@ const validator = global.requireShared('./helpers/validator.js');
  */
 
 /**
- * Responds to get requests for the certificate endpoint
+ * Generate an Acord Document
  *
  * @param {number} application_id - id of the application for ACORD form generation
  * @param {number} insurer_id - id of the insurer for ACORD form generation
@@ -31,12 +32,17 @@ exports.create = async function(application_id, insurer_id, policy_type){
 
     let message = '';
     // Validate the application ID
-    if(!application_id || !await validator.is_valid_application(application_id)){
+    // TODO AppBO
+    // TO move to use BO to validate.
+    // is_valid_application hits mysql
+    const applicationBO = new ApplicationBO();
+    if(!application_id || !await applicationBO.isValidApplicationId(application_id)){
         message = 'ACORD form generation failed. Bad Request: Invalid application id';
         log.info(message + __location);
         return {'error': message};
     }
 
+    //TODO use BO to validate
     if(!insurer_id || !await validator.isValidInsurer(insurer_id)){
         message = 'ACORD form generation failed. Bad Request: Invalid insurer id';
         log.info(message + __location);

@@ -496,7 +496,7 @@ module.exports = class AcuityGL extends Integration {
 
                 let cglCode = null;
                 if (insurer) {
-                    cglCode = await this.get_cgl_code_from_activity_code(insurer.id, location.territory, activityCode.id);
+                    cglCode = await this.get_cgl_code_from_activity_code(location.territory, activityCode.id);
                 }
 
                 if (cglCode) {
@@ -529,23 +529,26 @@ module.exports = class AcuityGL extends Integration {
 
         // Determine which URL to use
         let host = '';
+        let path = '';
+        let credentials = null;
         if (this.insurer.useSandbox) {
             host = 'tptest.acuity.com';
+            path = '/ws/partner/public/irate/rating/RatingService/Talage'
+            credentials = {
+                'X-IBM-Client-Id': this.username,
+                'X-IBM-Client-Secret': this.password
+            };
         }
         else {
-            host = 'www.acuity.com';
+            host = 'services.acuity.com';
+            path = '/ws/irate/rating/RatingService/Talage';
+            credentials = {'x-acuity-api-key': this.password};
         }
-        const path = '/ws/partner/public/irate/rating/RatingService/Talage';
-
-        // console.log(xml);
 
         // Send the XML to the insurer
         let res = null;
         try {
-            res = await this.send_xml_request(host, path, xml, {
-                'X-IBM-Client-Id': this.username,
-                'X-IBM-Client-Secret': this.password
-            });
+            res = await this.send_xml_request(host, path, xml, credentials);
         }
         catch (error) {
             log.error(`Acuity (application ${this.app.id}): Could not connect to server: ${error} ${__location}`);
@@ -670,6 +673,18 @@ module.exports = class AcuityGL extends Integration {
                 log.info(`Acuity: Returning ${status} ${policyAmount ? "with price" : ""}`);
                 return this.return_result(status);
             case "com.acuity_Declined":
+                const extendedStatusList = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.MsgStatus.ExtendedStatus', true);
+                if (extendedStatusList) {
+                    for (const extendedStatus of extendedStatusList) {
+                        if (extendedStatus.hasOwnProperty('com.acuity_ExtendedStatusType') && extendedStatus['com.acuity_ExtendedStatusType'].length) {
+                            const extendedStatusType = extendedStatus['com.acuity_ExtendedStatusType'][0];
+                            const extendedStatusDesc = this.get_xml_child(extendedStatus, 'ExtendedStatusDesc');
+                            if (extendedStatusType === 'Error') {
+                                this.reasons.push(extendedStatusDesc.replace("Acuity_Decline: ", ""));
+                            }
+                        }
+                    }
+                }
                 return this.return_result('declined');
             default:
                 this.reasons.push(`Returned unknown policy code '${policyStatusCode}`);
