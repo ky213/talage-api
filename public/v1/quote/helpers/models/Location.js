@@ -177,7 +177,7 @@ module.exports = class Location {
                     this.identification_number_type = 'SSN';
                 }
                 else {
-                    reject(new Error('Invalid formatting for property: identification number.'));
+                    reject(new Error(`Invalid formatting for property: EIN. Value: ${this.identification_number}.`));
                     return;
                 }
 

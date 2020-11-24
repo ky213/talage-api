@@ -9,6 +9,7 @@ const ApplicationBO = global.requireShared('models/Application-BO.js');
 const QuoteBO = global.requireShared('models/Quote-BO.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
+const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
 const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
 const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
 const IndustryCodeCategoryBO = global.requireShared('models/IndustryCodeCategory-BO.js');
@@ -24,7 +25,7 @@ const moment = require('moment');
 
 
 /**
- * Responds to get requests for the certificate endpoint
+ * Responds to get requests for the application endpoint
  *
  * @param {object} req - HTTP request object
  * @param {object} res - HTTP response object
@@ -191,13 +192,28 @@ async function getApplication(req, res, next) {
         await agencyBO.loadFromId(applicationJSON.agencyId)
         applicationJSON.name = agencyBO.name;
         applicationJSON.agencyName = agencyBO.name;
-
+        applicationJSON.agencyPhone = agencyBO.phone;
+        applicationJSON.agencyOwnerName = `${agencyBO.fname} ${agencyBO.lname}`;
+        applicationJSON.agencyOwnerEmail = agencyBO.email;
     }
     catch(err){
         log.error("Error getting agencyBO " + err + __location);
         error = true;
-
     }
+
+    // add information about the creator if it was created in the agency portal
+    if(applicationJSON.agencyPortalCreated && applicationJSON.agencyPortalCreatedUser){
+        const agencyPortalUserBO = new AgencyPortalUserBO();
+        try{
+            await agencyPortalUserBO.loadFromId(applicationJSON.agencyPortalCreatedUser);
+            applicationJSON.creatorEmail = agencyPortalUserBO.email;
+        }
+        catch(err){
+            log.error("Error getting agencyPortalUserBO " + err + __location);
+            error = true;
+        }
+    }
+
     //add industry description
     const industryCodeBO = new IndustryCodeBO();
     try{
@@ -931,8 +947,6 @@ async function requote(req, res, next) {
     runQuotes(applicationQuoting);
 
     return next();
-
-
 }
 
 /**
@@ -963,7 +977,6 @@ async function runQuotes(application) {
     await status.updateApplicationStatus(application.id);
 }
 
-
 async function GetQuestions(req, res, next){
 
     // insurers is optional
@@ -992,8 +1005,6 @@ async function GetQuestions(req, res, next){
     }
 
     res.send(200, getQuestionsResult);
-
-
 }
 
 /**
@@ -1270,7 +1281,6 @@ async function GetAssociations(req, res, next){
     }
 
 }
-
 
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
