@@ -57,3 +57,4 @@ exports.create = async function(application_id, insurer_id, policy_type){
     }
 
 }
+
