@@ -663,6 +663,18 @@ module.exports = class AcuityGL extends Integration {
                 log.info(`Acuity: Returning ${status} ${policyAmount ? "with price" : ""}`);
                 return this.return_result(status);
             case "com.acuity_Declined":
+                const extendedStatusList = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.MsgStatus.ExtendedStatus', true);
+                if (extendedStatusList) {
+                    for (const extendedStatus of extendedStatusList) {
+                        if (extendedStatus.hasOwnProperty('com.acuity_ExtendedStatusType') && extendedStatus['com.acuity_ExtendedStatusType'].length) {
+                            const extendedStatusType = extendedStatus['com.acuity_ExtendedStatusType'][0];
+                            const extendedStatusDesc = this.get_xml_child(extendedStatus, 'ExtendedStatusDesc');
+                            if (extendedStatusType === 'Error') {
+                                this.reasons.push(extendedStatusDesc.replace("Acuity_Decline: ", ""));
+                            }
+                        }
+                    }
+                }
                 return this.return_result('declined');
             default:
                 this.reasons.push(`Returned unknown policy code '${policyStatusCode}`);
