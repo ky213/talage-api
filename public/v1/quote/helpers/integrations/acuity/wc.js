@@ -29,7 +29,7 @@ module.exports = class AcuityWC extends Integration {
     async _insurer_quote() {
 
         const insurerSlug = 'acuity';
-        const insurer = utility.getInsurer(insurerSlug);
+        const insurer = await utility.getInsurer(insurerSlug);
 
         // Don't report certain activities in the payroll exposure
         const unreportedPayrollActivityCodes = [
@@ -84,7 +84,7 @@ module.exports = class AcuityWC extends Integration {
                 if (!ncciCode) {
                     return this.client_error('We could not locate an NCCI code for one or more of the provided activities.', {activityCode: activityCode.id});
                 }
-                
+
                 activityCode.ncciCode = `${ncciCode}00`;
                 activityCode.ncciCodeDescription = ncciCode.description;
             }

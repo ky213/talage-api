@@ -249,7 +249,7 @@ module.exports = class Integration {
      * @returns {object} The code and sub(code)
      */
     async get_ncci_code_from_activity_code(insurerId, territory, activityCode) {
-        const employersRecord = await this.get_employers_code_for_activity_code(insurerId, territory, activityCode);
+        const employersRecord = await this.get_insurers_code_for_activity_code(insurerId, territory, activityCode);
         if (!employersRecord) {
             return null;
         }
@@ -264,7 +264,7 @@ module.exports = class Integration {
      * @returns {number} The 6+ digit naics code
      */
     async get_naics_code_from_activity_code(insurerId, territory, activityCode) {
-        const employersRecord = await this.get_employers_code_for_activity_code(insurerId, territory, activityCode);
+        const employersRecord = await this.get_insurers_code_for_activity_code(insurerId, territory, activityCode);
         if (!employersRecord) {
             return null;
         }
@@ -1263,7 +1263,7 @@ module.exports = class Integration {
             this.quote_letter = {
                 content_type: quoteLetterMimeType ? quoteLetterMimeType : "application/base64",
                 data: quoteLetter,
-                file_name: `${this.insurer.name}_ ${this.policy.type}_quote_letter.pdf`
+                file_name: `${this.insurer.name}_${this.policy.type}_quote_letter.pdf`
             };
         }
 

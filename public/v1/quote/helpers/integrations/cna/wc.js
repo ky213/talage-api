@@ -107,7 +107,7 @@ module.exports = class CnaWC extends Integration {
     async _insurer_quote() {
 
         const insurerSlug = 'cna';
-        const insurer = utility.getInsurer(insurerSlug);
+        const insurer = await utility.getInsurer(insurerSlug);
 
         const business = this.app.business;
         const policy = this.app.policies[0]; // currently just ['WC']
@@ -122,13 +122,13 @@ module.exports = class CnaWC extends Integration {
                 if (insurer) {
                     ncciCode = await this.get_ncci_code_from_activity_code(insurer.id, location.territory, activityCode.id);
                 } else {
-                    return this.client_error(`We can't locate NCCI codes without a valid insurer. Slug used: ${insurerSlug}.`);
+                    return this.client_error(`CNA: We can't locate NCCI codes without a valid insurer. Slug used: ${insurerSlug}.`);
                 }
 
                 if (!ncciCode) {
-                    return this.client_error(`We could not locate an NCCI code for one or more of the provided activities and territories: ${JSON.stringify(activityCode, null, 4)}`);
+                    return this.client_error(`CNA: We could not locate an NCCI code for one or more of the provided activities and territories: ${JSON.stringify(activityCode, null, 4)}`);
                 }
-                
+
                 activityCode.ncciCode = `${ncciCode.code}${ncciCode.sub}`;
                 activityCode.ncciCodeDescription = ncciCode.description;
             }
@@ -139,7 +139,7 @@ module.exports = class CnaWC extends Integration {
             carrierLimits[carrierLimits.length - 1] : 
             this.getBestLimits(carrierLimits);
         if (!limits) {
-            return this.client_autodeclined('The insurer does not support the request liability limits', {industryCode: this.industry_code.id});
+            return this.client_autodeclined('CNA: Requested liability limits not supported.', {industryCode: this.industry_code.id});
         }
 
         /*
@@ -178,8 +178,8 @@ module.exports = class CnaWC extends Integration {
         // ====== General Business Information ======
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].CommlName.CommercialName.value = business.name;
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].LegalEntityCd.value = legalEntityCodes[business.entity_type];
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].TaxIdentity[0].TaxIdTypeCd.value = "FEIN"; // TODO: should we included this?
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].TaxIdentity[0].TaxId.value = "595976858"; // TODO: should we include this?
+        
+        delete wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].TaxIdentity;
 
         if (business.dba) {
             wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryNameCd.value = 'DBA';
@@ -194,7 +194,7 @@ module.exports = class CnaWC extends Integration {
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].City.value = business.mailing_city;
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].StateProvCd.value = business.mailing_territory;
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].PostalCode.value = business.mailing_zipcode;
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].County.value = business.mailing_territory; // TODO: Should be stored county information when we start storing that
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].County.value = business.mailing_territory; // TODO: Should be actual county information when we start storing that
 
         // ====== Business Contact Information ======
         // NOTE: may need phone number to be in the format "+1-812-2222222"
@@ -246,18 +246,18 @@ module.exports = class CnaWC extends Integration {
 
         // ====== Workers' Comp Line of Business Information ======
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.LOBCd.value = "WORK";
-        // CHECK THIS LATER
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].StateProvCd.value = business.mailing_territory;
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].NumEmployees.value = this.get_total_employees();
+
+        // delete optional fields (not necessary for quoting)
         delete wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.CurrentTermAmt; // .value | 10000
         delete wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness['com.cna_PremiumTypeCd']; // .value | "EST"
         delete wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness['com.cna_AnniversaryRatingDt']; // .value | "2020-09-27"
-        // CHECK THIS LATER
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].StateProvCd.value = business.mailing_territory;
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].NumEmployees.value = this.get_total_employees();
 
         // if we have the rating classification code, set it, otherwise delete the property
         const keys = Object.keys(this.insurer_wc_codes);
         if (keys.length > 0) {
-            wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].RatingClassificationCd.value = this.insurer_wc_codes[keys[0]];;
+            wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].RatingClassificationCd.value = this.insurer_wc_codes[keys[0]];
         } else {
             delete wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].RatingClassificationCd;
         }
@@ -293,58 +293,163 @@ module.exports = class CnaWC extends Integration {
 
         // authenticate with CNA before running quote
         const jwt = await this.auth();
-        if (jwt === '') {
-            process.exit(-1);
+        if (jwt.includes("Error")) {
+            this.client_connection_error(__location, jwt);
         }
 
         // create request headers using auth access token (jwt)
         const headers = {
             'authorization': `Bearer ${jwt.trim()}`,
             'branch-producer-cd': '010018297',
-            'agentid': 'TALAGAPI'
+            'agentid': 'TALAGAPI',
+            'content-type': 'application/json'
         }
 
         let result = null;
-        // console.log(JSON.stringify(wcRequest, null, 4));
         try {
-            console.log("SENDING REQUEST");
+
+            console.log("=================== QUOTE REQUEST ===================");
+            console.log(JSON.stringify(wcRequest, null, 4));
+            console.log("=================== QUOTE REQUEST ===================");
+
             result = await this.send_json_request(HOST, QUOTE_URL, JSON.stringify(wcRequest), headers, "POST");
-            console.log("RESULT: ");
-            console.log(JSON.stringify(result, null, 4));
         }
         catch (error) {
             console.log("=================== QUOTE ERROR ===================");
             console.log(JSON.stringify(error));
             console.log("=================== QUOTE ERROR ===================");
 
-            log.error(`CNA Quote Endpoint Returned Error: ${util.inspect(error.response.data.InsuranceSvcRs[0], false, null)}` + __location);
-            const errorString = JSON.stringify(error.response.data.InsuranceSvcRs[0]);
-            if (errorString.indexOf("No Carrier found for passed state and class code") > -1) {
-                this.reasons.push('CNA response with: No Carrier found for passed state and class code ');
-                return this.return_result('declined');
-            }
-            else {
-                this.reasons.push('CNA quote endpoint returned an error: ' + error);
-                return this.return_result('autodeclined');
-            }
+            // TODO: Add more extensive error logging and cases here. 
+            //       This is likely where 4/500 level errors would come
+            return this.client_declined("CNA: An error occurred while attempting to quote.");
         }
 
         console.log("=================== QUOTE RESULT ===================");
-        console.log(JSON.stringify(result));
+        console.log(JSON.stringify(result, null, 4));
         console.log("=================== QUOTE RESULT ===================");
 
-        // TODO: Extract CompanysQuoteNumber 
-        // - look at data from PolicyStatusCd
-        // - look for url param to get quote letter, otherwise hit https://drt-apis.cna.com/policy/small-business/quote-proposal-letter/8738376/options/00/proposals
-        // -- where 8738376 = policy number(?) and 00 = ???
+        let quoteNumber = null;
+        let premium = null;
+        let quoteLimits = {};
+        let quoteLetter = null;
+        let quoteMIMEType = null;
+        let policyStatus = null;
 
-        return this.return_result('referred');
+        const response = result.InsuranceSvcRs[0].WorkCompPolicyQuoteInqRs[0];
+        switch (response.MsgStatus.MsgStatusCd.value.toLowerCase()) {
+            case "dataerror":
+            case "datainvalid":
+            case "error":
+            case "login_error":
+            case "general failure":
+                return this.client_error(`CNA: ${response.MsgStatus.MsgStatusDesc.value}`);
+            case "rejected": 
+                return this.client_declined(`CNA: ${response.MsgStatus.MsgStatusDesc.value}`);
+            case "in_progress":
+                return this.client_error(`CNA: The quote request did not complete.`);
+            case "351":
+                return this.client_declined(`CNA: The quote request is not available.`);
+            case "success":
+            case "successwithinfo":
+            case "successwithchanges":
+            case "resultpendingoutofband":
+                const policySummary = response.PolicySummaryInfo;
+                policyStatus = policySummary.PolicyStatusCd.value;
+                switch (policySummary.PolicyStatusCd.value.toLowerCase()) {
+                    case "quotednotbound":
+                    case "issued":
+                        // get quote number (optional)
+                        try {
+                            quoteNumber = response.CommlPolicy.QuoteInfo.CompanysQuoteNumber.value;
+                        } catch (e) {
+                            console.warn(`CNA: Couldn't parse quote number: ${e}`);
+                        }
+
+                        // get premium (required)
+                        try {
+                            premium = policySummary.FullTermAmt.Amt.value;
+                        } catch (e) {
+                            return this.client_error(`CNA: Couldn't parse premium from CNA response: ${e}.`);
+                        }
+
+                        // get limits (required)
+                        try {
+                            response.WorkCompLineBusiness.CommlCoverage[0].Limit.forEach(limit => {
+                                switch (limit.LimitAppliesToCd[0].value) {
+                                    case 'BIEachOcc':
+                                        quoteLimits[1] = limit.FormatInteger.value;
+                                        break;
+                                    case 'DisEachEmpl':
+                                        quoteLimits[2] = limit.FormatInteger.value;
+                                        break;
+                                    case 'DisPol':
+                                        quoteLimits[3] = limit.FormatInteger.value;
+                                        break;
+                                    default:
+                                        console.warn(`CNA: Unexpected limit found in quote response. ${__location}`);
+                                        break;
+                                }
+                            });
+                        } catch (e) {
+                            return this.client_error(`CNA: Couldn't parse one or more limit values from response: ${e}.`);
+                        }
+                        
+                        // get quote letter (optional) and quote MIME type (optional)
+                        let proposalURL = response.MsgStatus.ChangeStatus.find(change => 
+                            change.IdRef.hasOwnProperty("AttachmentTypeCd") && change.IdRef.AttachmentTypeCd.value === "QuoteProposal");
+                        if (proposalURL) {
+                            proposalURL = proposalURL.IdRef.WebsiteURL.value;
+                            const [quoteHost, quotePath] = this.splitUrl(proposalURL);
+
+                            let quoteResult = null;
+                            try {
+                                quoteResult = await this.send_json_request(quoteHost, quotePath, null, headers, "GET");
+                            } catch (e) {
+                                console.warn(`CNA: The request to retrieve the quote proposal letter failed: ${e}.`);
+                            }
+
+                            try {
+                                quoteLetter = quoteResult.InsuranceSvcRs[0].ViewInqRs[0].FileAttachmentInfo[0]["com.cna.AttachmentData"].value;
+                            } catch (e) {
+                                console.warn(`CNA: There was an error parsing the quote letter: ${e}.`);
+                            }
+
+                            try {
+                                quoteMIMEType = quoteResult.InsuranceSvcRs[0].ViewInqRs[0].FileAttachmentInfo[0].MIMEEncodingTypeCd.value;
+                            } catch (e) {
+                                console.warn(`CNA: There was an error parsing the quote MIME type: ${e}.`);
+                            }
+
+                        } else {
+                            console.warn(`CNA: Couldn't find proposal URL with successful quote status: ${response.MsgStatus.MsgStatusCd.value}. Change Status': ${JSON.stringify(response.MsgStatus.ChangeStatus, null, 4)}`);
+                        }
+                        break;
+                    case "notquotednotbound":
+                        return this.client_declined(`CNA: Application was not quoted or bound.`);
+                    default: 
+                        return this.client_error(`CNA: Response contains an unrecognized policy status: ${policySummary.PolicyStatusCd.value}`);
+                } // end inner switch
+                break;
+            default: 
+                return this.client_error(`CNA: Got an unknown quote status "${response.MsgStatus.MsgStatusCd.value}": "${response.MsgStatus.MsgStatusDesc.value}".`);
+        } // end outer switch
+
+        if (policyStatus) {
+            // will either be issued or quotednotbound
+            if (policyStatus === "issued") { 
+                return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType);
+            } else {
+                return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType);
+            }
+        } else {
+            return this.client_error(`CNA: Response doesn't include a policy status code.`);
+        }
     }
 
     // transform our business locations array into location objects array to be inserted into the WC request Object
     getLocations() {
         // iterate over each location and transform it into a location object
-        return this.app.business.locations.map((location, i) => { //TODO: Check that .map guarantees order of iteration
+        return this.app.business.locations.map((location, i) => { 
             return {
                 ItemIdInfo: {
                     AgencyId: {
@@ -376,9 +481,13 @@ module.exports = class CnaWC extends Integration {
     // transform our policy limit selection into limit objects array to be inserted into the WC Request Object
     getLimits(limits) {
         const limitArray = [];
+        
+        if (typeof limits === 'string') {
+            limits = limits.split('/');
+        }
 
         // for each limit, create a limit object with the limit value and applyTo code
-        limits.split('/').forEach((limit, i) => {
+        limits.forEach((limit, i) => {
             limitArray.push({
                 FormatInteger: {
                     value: limit
@@ -431,8 +540,34 @@ module.exports = class CnaWC extends Integration {
             const result = await axios.post('https://drt-apis.cna.com/security/external-token/small-business', data, headers);
             return result.data.access_token;
         } catch (err) {
-            log.error(`CNA API - Could Not Authorize: ${err}`);
-            return '';
+            return `CNA Error: Could Not Authorize: ${err}`;
         }
+    }
+
+    splitUrl(url) {
+        if (!url) {
+            console.warn(`CNA: Supplied url is not defined and cannot be split into host and path.`);
+            return [];
+        }
+
+        let host = "";
+        let path = "";
+        let protocalIndex = 0;
+
+        try {
+            if (url.indexOf("https") !== -1) {
+                protocalIndex = url.indexOf("https") + 8;
+            } else if (url.indexOf("http") !== -1) {
+                protocalIndex = url.indexOf("http") + 7;
+            }
+            const splitIndex = url.indexOf("com") + 3;
+
+            host = url.substring(protocalIndex, splitIndex);
+            path = url.substring(splitIndex, url.length);
+        } catch (e) {
+            console.warn(`CNA: There was an error splitting the supplied url: ${e}.`);
+        }
+
+        return [host, path];
     }
 }
