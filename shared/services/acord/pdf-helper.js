@@ -14,7 +14,6 @@ const createPDF = async (sourcePDFString, dataFieldsObj) => {
                 continue;
             }
             const field = form.getField(i);
-            console.log('hitz', dataFieldsObj[i], typeof dataFieldsObj[i], field.constructor.name);
             switch (field.constructor.name) {
                 case 'PDFTextField':
                     field.setText(dataFieldsObj[i].toString());
@@ -47,7 +46,6 @@ const createMultiPagePDF = async (pdfList) => {
     for (const pdf of pdfList) {
         if (!pdf) {
             throw new Error("Invalid PDF file passed in")
-            console.log('BAD PDF:', pdfList);
         }
         const copiedPages = await mergedPdf.copyPages(pdf, pdf.getPageIndices());
         copiedPages.forEach((page) => mergedPdf.addPage(page));
