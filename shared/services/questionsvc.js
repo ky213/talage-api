@@ -244,6 +244,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             (
                 (ic.cgl = iic.code AND iic.type = 'c')
                 OR (ic.hiscox = iic.code AND iic.type = 'h')
+                OR (ic.sic = iic.code AND iic.type = 's')
             )
         WHERE
             ic.id = ${db.escape(industry_code)} 

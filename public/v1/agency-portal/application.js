@@ -947,8 +947,6 @@ async function requote(req, res, next) {
     runQuotes(applicationQuoting);
 
     return next();
-
-
 }
 
 /**
@@ -979,7 +977,6 @@ async function runQuotes(application) {
     await status.updateApplicationStatus(application.id);
 }
 
-
 async function GetQuestions(req, res, next){
 
     // insurers is optional
@@ -1008,8 +1005,6 @@ async function GetQuestions(req, res, next){
     }
 
     res.send(200, getQuestionsResult);
-
-
 }
 
 /**
@@ -1286,7 +1281,6 @@ async function GetAssociations(req, res, next){
     }
 
 }
-
 
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
