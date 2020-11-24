@@ -205,7 +205,7 @@ module.exports = class AcuityWC extends Integration {
             return this.client_error('Unable to create the request to send to the insurer', __location);
         }
 
-        // console.log("Request", xml);
+        console.log("Request", xml);
 
         // Determine which URL to use
         let host = '';
