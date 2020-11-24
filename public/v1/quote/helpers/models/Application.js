@@ -334,8 +334,16 @@ module.exports = class Application {
                                     // Otherwise use the api
                                     slug = insurer.slug;
                                 }
+                                let policyTypeAbbr = '';
+                                if(policy && policy.type){
+                                    policyTypeAbbr = policy.type.toLowerCase()
+                                }
+                                else {
+                                    log.error(`Policy Type info not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} Policy ${JSON.stringify(policy)}` + __location);
+                                }
 
-                                const normalizedPath = `${__dirname}/../integrations/${slug}/${policy.type.toLowerCase()}.js`;
+
+                                const normalizedPath = `${__dirname}/../integrations/${slug}/${policyTypeAbbr}.js`;
                                 if (slug.length > 0 && fs.existsSync(normalizedPath)) {
                                     // Require the integration file and add the response to our promises
                                     const IntegrationClass = require(normalizedPath);
@@ -343,7 +351,7 @@ module.exports = class Application {
                                     quote_promises.push(integration.quote());
                                 }
                                 else {
-                                    log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} ${insurer.name} ${policy.type} slug: ${slug} path: ${normalizedPath} ` + __location);
+                                    log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} insurer ${insurer.name} polocytype ${policy.type} slug: ${slug} path: ${normalizedPath} ` + __location);
                                 }
                             }
                             else {
@@ -653,10 +661,13 @@ module.exports = class Application {
             });
 
             // Validate the ID
-            if (!await validator.application(this.id)) {
-                log.error('validator.application() ' + this.id + __location);
-                reject(new Error('Invalid application ID specified.'));
-                return;
+            let applicationBO = new ApplicationBO();
+            if (!await applicationBO.isValidApplicationId(this.id)) {
+                //if applicationId suppled in the starting quoting requeset was bad
+                // the quoting process would have been stopped before validate was called.
+                log.error('applicationBO.isValidApplicationId ' + this.id + __location);
+                //reject(new Error('Invalid application ID specified.'));
+                // return;
             }
 
             // Get a list of insurers and wait for it to return

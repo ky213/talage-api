@@ -46,7 +46,6 @@ async function getUsers(req, res, next){
         retrievingAgencyUsersForAgencyNetwork = true;
     }
     else if (req.authentication.agencyNetwork){
-        // where = `AND \`apu\`.\`agency_network\`= ${parseInt(req.authentication.agencyNetwork, 10)}`;
         query.agencynetworkid = parseInt(req.authentication.agencyNetwork, 10);
     }
     else {
@@ -58,34 +57,8 @@ async function getUsers(req, res, next){
             return next(error);
         }
 
-        // where = `AND \`apu\`.\`agency\` = ${parseInt(agents[0], 10)}`;
-
         query.agencyid = parseInt(agents[0], 10);
     }
-
-    //  Define a query to get a list of users
-    // const usersSQL = `
-    // 		SELECT
-    // 			\`apu\`.\`id\`,
-    // 			\`apu\`.\`email\`,
-    // 			\`apg\`.\`id\` AS \`group\`,
-    // 			\`apg\`.\`name\` AS \`groupRole\`,
-    // 			\`apu\`.\`last_login\` AS \`lastLogin\`,
-    // 			\`apu\`.\`can_sign\` AS \`canSign\`
-    // 		FROM \`#__agency_portal_users\` AS \`apu\`
-    // 		LEFT JOIN \`#__agency_portal_user_groups\` AS \`apg\` ON \`apu\`.\`group\` = \`apg\`.\`id\`
-    // 		WHERE \`state\` > 0 ${where}
-    // 	`;
-
-    // //Get the users from the database
-    // //TODO Fix catch logic
-    // const users = await db.query(usersSQL).catch(function(err){
-    //     log.error('__agency_portal_users error ' + err + __location);
-    //     return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    // });
-
-    // // // Decrypt everything we need
-    // await crypt.batchProcessObjectArray(users, 'decrypt', ['email']);
 
     let users = null;
     if(retrievingAgencyUsersForAgencyNetwork){
@@ -116,27 +89,13 @@ async function getUsers(req, res, next){
         return a.email > b.email ? 1 : -1;
     });
 
-    // const userGroupsSQL = `
-    // 		SELECT
-    // 			\`id\`,
-    // 			\`name\`,
-    // 			\`permissions\`
-    // 		FROM \`#__agency_portal_user_groups\`
-    // 		WHERE \`id\` != 3;
-    // 	`;
-
-    // const userGroups = await db.query(userGroupsSQL).catch(function(err){
-    //     log.error('__agency_portal_user_group error ' + err + __location);
-    //     return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    // });
-
     let userGroups = null;
     try{
         const agencyPortalUserBO = new AgencyPortalUserBO();
         userGroups = await agencyPortalUserBO.getGroupList();
     }
     catch(err){
-        log.error('__agency_portal_user_groups error ' + err + __location);
+        log.error('agencyPortalUserBO error ' + err + __location);
         return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
     }
 

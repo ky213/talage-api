@@ -208,7 +208,7 @@ async function getReports(req, res, next) {
     await Promise.all(selectedQueries.map(async(queryName) => {
         // Query the database and wait for a result
         error = null;
-        const result = await db.query(queries[queryName]).catch((err) => {
+        const result = await db.queryReadonly(queries[queryName]).catch((err) => {
             log.error("Report query error " + err.message + __location);
             error = err;
         });

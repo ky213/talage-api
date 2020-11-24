@@ -191,6 +191,8 @@ async function runFunction() {
                 delete mongoApp.applicationId
                 delete mongoApp.uuid
                 delete mongoApp.mysqlId
+                delete mongoApp.createdAt
+            
                 //update policies dates
                 const newEffectiveDate = moment().add(1,"months");
                 const newExpirationDate = newEffectiveDate.clone().add(1,'years');

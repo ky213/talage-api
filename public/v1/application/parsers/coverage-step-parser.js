@@ -37,7 +37,8 @@ exports.process = async function(requestJSON) {
                 //requestJSON.limits = typeQuestionJSON.limits.replace(/[-[\]{}()*+?.,\\/^$|#\s]/g,"").replace("/[^0-9]/", '');
                 requestJSON.limits = stringFunctions.santizeNumber(typeQuestionJSON.limits);
                 requestJSON.deductible = stringFunctions.santizeNumber(typeQuestionJSON.deductible);
-                if(policy_typesJSON.includes('WC') === false){
+                requestJSON.add_terrorism_coverage = typeQuestionJSON.add_terrorism_coverage;
+                if (policy_typesJSON.includes('WC') === false) {
                     // log.debug("has not WC");
                     const num_of_ownersStr = typeQuestionJSON.num_owners.replace("/[^0-9]/", '');
                     try{

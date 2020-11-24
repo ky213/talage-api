@@ -246,13 +246,4 @@ var markApplicationProcess = async function(appDoc) {
         throw err;
     }
 
-    const updateSQL = `UPDATE clw_talage_applications
-	                   SET  opted_out_online_emailsent = 1 
-	                   where id = ${appDoc.mysqlId} `;
-
-    // Update application record
-    await db.query(updateSQL).catch(function(e) {
-        log.error('Opt Out Email flag update error: ' + e.message);
-        throw e;
-    });
 }

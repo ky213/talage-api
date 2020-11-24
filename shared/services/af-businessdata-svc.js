@@ -5,14 +5,26 @@
 'use strict';
 
 const axios = require('axios');
+let enableAfDataCall = true;
 
-let afEndpoint = 'https://npsv.afgroup.com/TEST_HeadlessUnderwriting/api/overviewservice';
-//check settings for override.
+let afEndpoint = 'https://psv.afgroup.com/HeadlessUnderwriting/api/overviewservice';
+let userName = "DDHUser";
+let userPwd = "MwNk51WAgHtDWVWoBe!";
+
+
+if(global.settings.ENV !== 'production'){
+    afEndpoint = 'https://npsv.afgroup.com/TEST_HeadlessUnderwriting/api/overviewservice';
+    userName = "DDHUser";
+    userPwd = "ceXF4N2fcthou99q!";
+}
+if(global.settings.AF_DATA_CALL_ENABLED && global.settings.AF_DATA_CALL_ENABLED !== "YES"){
+    enableAfDataCall = false;
+}
+
 if(global.settings.AF_DATA_ENDPOINT){
     afEndpoint = global.settings.AF_DATA_ENDPOINT
 }
-let userName = "DDHUser";
-let userPwd = "ceXF4N2fcthou99q!";
+
 if(global.settings.AF_DATA_USER){
     userName = global.settings.AF_DATA_USER
 }
@@ -24,7 +36,7 @@ if(global.settings.AF_DATA_PWD){
 
 
 exports.getBusinessData = async function(businessFilterJSON) {
-    if(businessFilterJSON && businessFilterJSON.company_name){
+    if(enableAfDataCall && businessFilterJSON && businessFilterJSON.company_name){
         //check for company_name and state
         // Do any mapping here....
         // do any data filter and cleanup here
@@ -36,7 +48,7 @@ exports.getBusinessData = async function(businessFilterJSON) {
                 username: userName,
                 password: userPwd
             },
-            timeout: 15000
+            timeout: 25000
 
         }
         log.debug("AF API Request businessFilterJSON: " + JSON.stringify(businessFilterJSON))
@@ -46,7 +58,7 @@ exports.getBusinessData = async function(businessFilterJSON) {
             afResponse = await axios.post(afEndpoint, businessFilterJSON, requestOptions);
         }
         catch(err){
-            log.error('afResponse error ' + err + __location);
+            log.error(`afResponse error endpoint ${afEndpoint} data: ${JSON.stringify(businessFilterJSON)} ` + err + __location);
             error = err;
         }
         if(error){
@@ -57,7 +69,7 @@ exports.getBusinessData = async function(businessFilterJSON) {
             return responseData;
         }
         else {
-            log.error("AF BusinessData API response with " + afResponse.status + __location)
+            log.error(`AF BusinessData API endpoint ${afEndpoint} response with ` + afResponse.status + __location)
             throw new Error("AF BusinessData API responded with " + afResponse.status);
         }
     }

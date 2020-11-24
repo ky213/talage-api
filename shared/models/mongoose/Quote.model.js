@@ -30,6 +30,7 @@ const QuoteSchema = new Schema({
     packageTypeId: {type: Number},
     requestId: {type: String},
     amount: {type: Number},
+    deductible: {type: Number},
     status: {type: String},
     aggregatedStatus: {type: String},
     apiResult: {type: String},
