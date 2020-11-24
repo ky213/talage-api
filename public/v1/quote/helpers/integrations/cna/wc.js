@@ -6,7 +6,6 @@
 /* eslint indent: 0 */
 /* eslint multiline-comment-style: 0 */
 const axios = require('axios');
-const util = require('util');
 const utility = require('../../../../../../shared/helpers/utility');
 // const cnaWCTemplate = require('jsrender').templates('./public/v1/quote/helpers/integrations/cna/wc_request.xmlt');
 // const converter = require('xml-js');
@@ -254,6 +253,7 @@ module.exports = class CnaWC extends Integration {
         delete wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness['com.cna_PremiumTypeCd']; // .value | "EST"
         delete wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness['com.cna_AnniversaryRatingDt']; // .value | "2020-09-27"
 
+        // MOVING THIS CODE AWAY vvvvvv
         // if we have the rating classification code, set it, otherwise delete the property
         const keys = Object.keys(this.insurer_wc_codes);
         if (keys.length > 0) {
@@ -279,6 +279,9 @@ module.exports = class CnaWC extends Integration {
         } else {
             delete wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].GoverningClassCd;
         }
+        console.log(JSON.stringify(this.getWorkCompRateStates(), null, 4));
+        process.exit(-1);
+        // MOVING THIS CODE AWAY ^^^^^^
 
         // ====== Coverage Information ======
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.CommlCoverage[0].CoverageCd.value = "WCEL";
@@ -316,12 +319,19 @@ module.exports = class CnaWC extends Integration {
         }
         catch (error) {
             console.log("=================== QUOTE ERROR ===================");
-            console.log(JSON.stringify(error));
+            const errorJSON = JSON.parse(error.response);
+            console.log(JSON.stringify(errorJSON, null, 4));
             console.log("=================== QUOTE ERROR ===================");
 
-            // TODO: Add more extensive error logging and cases here. 
-            //       This is likely where 4/500 level errors would come
-            return this.client_declined("CNA: An error occurred while attempting to quote.");
+            let errorMessage = "";
+            try {
+                errorMessage = `CNA: status code ${error.httpStatusCode}: ${errorJSON.InsuranceSvcRs[0].WorkCompPolicyQuoteInqRs[0].MsgStatus.MsgStatusDesc.value}`;
+            } catch (e) {
+                console.warn(`CNA: Error object doesn't have expected description path. ${e}.`);
+            }
+
+            errorMessage = errorMessage ? errorMessage : "CNA: An error occurred while attempting to quote.";
+            return this.client_declined(errorMessage);
         }
 
         console.log("=================== QUOTE RESULT ===================");
@@ -478,6 +488,42 @@ module.exports = class CnaWC extends Integration {
         });
     }
 
+    /*
+    "WorkCompRateState": [
+       {
+            "StateProvCd": {
+                "value": "CA"
+            },
+            "WorkCompLocInfo": [
+                {
+                    "NumEmployees": {
+                        "value": 4
+                    },
+                    "WorkCompRateClass": [
+                        {
+                            "RatingClassificationCd": {
+                                "value": "8008A"
+                            },
+                            "Exposure": "66000",
+                            "RatingClassificationDescCd": {
+                                "value": "STORES-CLOTHING/DRY GOODS-RETAIL"
+                            }
+                        }
+                    ],
+                    "LocationRef": "L1",
+                    "NameInfoRef": "N001"
+                }
+            ],
+            "GoverningClassCd": {
+                "value": "8008"
+            }
+        }
+    ]
+    */
+    getWorkCompRateStates() {
+        return this.app.business.locations;
+    }
+
     // transform our policy limit selection into limit objects array to be inserted into the WC Request Object
     getLimits(limits) {
         const limitArray = [];
@@ -517,7 +563,7 @@ module.exports = class CnaWC extends Integration {
                 }
             };
             question.type === 'Yes/No' ? 
-                questionAnswerObj.YesNoCd = { value: question.answer } :
+                questionAnswerObj.YesNoCd = { value: question.answer.toUpperCase() } :
                 questionAnswerObj['com.cna_OptionCd'] = { value: question.answer };
 
             return questionAnswerObj;
