@@ -1,0 +1,475 @@
+%PDF-1.4
+%ÿğ°
+1 0 obj 
+<< /AcroForm << /DR << /Font << /F2 2 0 R >> >> /Fields [ 3 0 R 4 0 R 5 0 R 6 0 R 7 0 R 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R 13 0 R 14 0 R 15 0 R 16 0 R 17 0 R 18 0 R 19 0 R 20 0 R 21 0 R 22 0 R 23 0 R 24 0 R 25 0 R 26 0 R 27 0 R 28 0 R 29 0 R 30 0 R 31 0 R 32 0 R 33 0 R 34 0 R 35 0 R 36 0 R 37 0 R 38 0 R 39 0 R 40 0 R 41 0 R 42 0 R 43 0 R 44 0 R 45 0 R 46 0 R 47 0 R 48 0 R 49 0 R 50 0 R 51 0 R 52 0 R 53 0 R 54 0 R 55 0 R 56 0 R 57 0 R 58 0 R 59 0 R 60 0 R 61 0 R 62 0 R 63 0 R 64 0 R 65 0 R 66 0 R 67 0 R 68 0 R 69 0 R 70 0 R 71 0 R 72 0 R 73 0 R 74 0 R 75 0 R 76 0 R 77 0 R 78 0 R 79 0 R 80 0 R 81 0 R 82 0 R 83 0 R 84 0 R 85 0 R 86 0 R 87 0 R 88 0 R 89 0 R 90 0 R 91 0 R 92 0 R 93 0 R 94 0 R 95 0 R 96 0 R 97 0 R 98 0 R 99 0 R ] >> /OpenAction << /JS (function DateV\(event\) {  var regEx = /^\\d{1,2}\\/\\d{1,2}\\/\\d{4}$/; if \(!regEx.test\(event.value\)\) { event.rc = false; app.alert\("The date must be of the format MM/DD/YYYY."\); } };) /S /JavaScript /Type /Action >> /Pages 100 0 R /Type /Catalog >>
+endobj
+101 0 obj 
+<< /Author (ACORD Corporation) /CreationDate (D:20170404132205-04'00') /Creator (Silverlake Software LLC - Forms Dev Environment) /ModDate (D:20170404132205-04'00') /Producer (Silverlake Software LLC - Form Designer - v1.4.16476) /Title (ACORD 0211 2016-09r1 Acroform) >>
+endobj
+2 0 obj 
+<< /BaseFont /Arial /Encoding /WinAnsiEncoding /FirstChar 0 /FontDescriptor << /Ascent 905.27 /CapHeight 716.31 /Descent -211.91 /Flags 32 /FontBBox [ -45.90 -168.46 1000.00 938.48 ] /FontName /Arial /ItalicAngle 0.00 /StemV 0.00 /Type /FontDescriptor >> /LastChar 255 /Subtype /Type1 /Type /Font /Widths [ 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 277.83 277.83 354.98 556.15 556.15 889.16 666.99 190.92 333.01 333.01 389.16 583.98 277.83 333.01 277.83 277.83 556.15 556.15 556.15 556.15 556.15 556.15 556.15 556.15 556.15 556.15 277.83 277.83 583.98 583.98 583.98 556.15 1015.14 666.99 666.99 722.17 722.17 666.99 610.84 777.83 722.17 277.83 500.00 666.99 556.15 833.01 722.17 777.83 666.99 777.83 722.17 666.99 610.84 722.17 666.99 943.85 666.99 666.99 610.84 277.83 277.83 277.83 469.24 556.15 333.01 556.15 556.15 500.00 556.15 556.15 277.83 556.15 556.15 222.17 222.17 500.00 222.17 833.01 556.15 556.15 556.15 556.15 333.01 500.00 277.83 556.15 500.00 722.17 500.00 500.00 500.00 333.98 259.77 333.98 583.98 0 556.15 0 222.17 556.15 333.01 1000.00 556.15 556.15 333.01 1000.00 666.99 333.01 1000.00 0 610.84 0 0 222.17 222.17 333.01 333.01 350.10 556.15 1000.00 333.01 1000.00 500.00 333.01 943.85 0 500.00 666.99 277.83 333.01 556.15 556.15 556.15 556.15 259.77 556.15 333.01 736.82 370.12 556.15 583.98 333.01 736.82 552.25 399.90 548.83 333.01 333.01 333.01 576.17 537.11 333.01 333.01 333.01 365.23 556.15 833.98 833.98 833.98 610.84 666.99 666.99 666.99 666.99 666.99 666.99 1000.00 722.17 666.99 666.99 666.99 666.99 277.83 277.83 277.83 277.83 722.17 722.17 777.83 777.83 777.83 777.83 777.83 583.98 777.83 722.17 722.17 722.17 722.17 666.99 666.99 610.84 556.15 556.15 556.15 556.15 556.15 556.15 889.16 500.00 556.15 556.15 556.15 556.15 277.83 277.83 277.83 277.83 556.15 556.15 556.15 556.15 556.15 556.15 556.15 548.83 610.84 556.15 556.15 556.15 556.15 500.00 556.15 500.00 ] >>
+endobj
+3 0 obj 
+<< /DV (ACORD 0211 2016-09r1 Acroform) /F 2 /Ff 1 /FT /Tx /P 102 0 R /Rect [ 0 1 0 1 ] /Subtype /Widget /T (Form_EditionIdentifier_A) /TU (The edition identifier of the form including the form number and edition \(the date is typically formatted YYYY/MM\).) /Type /Annot /V (ACORD 0211 2016-09r1 Acroform) >>
+endobj
+4 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 414 756 594 768 ] /Subtype /Widget /T (Producer_CustomerIdentifier_A) /TU (Enter identifier: The customer's identification number assigned by the producer \(e.g., agency or brokerage\). ) /Type /Annot >>
+endobj
+5 0 obj 
+<< /AA << /V << /JS (DateV\(event\);) /S /JavaScript /Type /Action >> >> /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /MaxLen 10 /P 102 0 R /Q 1 /Rect [ 493 726 590 738 ] /Subtype /Widget /T (Form_CompletionDate_A) /TU (Enter date: The date on which the form is completed.  \(MM/DD/YYYY\) ) /Type /Annot >>
+endobj
+6 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 22 702 302 714 ] /Subtype /Widget /T (Producer_FullName_A) /TU (Enter text: The full name of the producer / agency. ) /Type /Annot >>
+endobj
+7 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 22 678 245 690 ] /Subtype /Widget /T (Policy_PolicyNumberIdentifier_A) /TU (Enter identifier: The identifier assigned by the insurer to the policy, or submission, being referenced exactly as it appears on the policy, including prefix and suffix symbols.  If required for self-insurance, the self-insured license or contract number. ) /Type /Annot >>
+endobj
+8 0 obj 
+<< /AA << /V << /JS (DateV\(event\);) /S /JavaScript /Type /Action >> >> /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /MaxLen 10 /P 102 0 R /Q 1 /Rect [ 252 678 302 690 ] /Subtype /Widget /T (Policy_EffectiveDate_A) /TU (Enter date: The effective date of the policy.  The date that the terms and conditions of the policy commence.  \(MM/DD/YYYY\) ) /Type /Annot >>
+endobj
+9 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 310 702 536 714 ] /Subtype /Widget /T (Insurer_FullName_A) /TU (Enter text: The insurer's full legal company name\(s\) as found in the file copy of the policy.  Use the actual name of the company within the group to which the policy has been issued.  This is not the insurer's group name or trade name. ) /Type /Annot >>
+endobj
+10 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 544 702 590 714 ] /Subtype /Widget /T (Insurer_NAICCode_A) /TU (Enter code: The identification code assigned to the insurer by the National Association of Insurance Commissioners \(NAIC\). ) /Type /Annot >>
+endobj
+11 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 310 678 590 690 ] /Subtype /Widget /T (NamedInsured_FullName_A) /TU (Enter text: The named insured\(s\) as it / they will appear on the policy declarations page. ) /Type /Annot >>
+endobj
+12 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Q 1 /Rect [ 22 630 50 642 ] /Subtype /Widget /T (GeneralLiability_Hazard_LocationProducerIdentifier_A) /TU (Enter number: The producer assigned identifier for the location number of the risk's location as it appears on the Applicant Information Section of ACORD 125.  All classifications should be grouped by location number. ) /Type /Annot >>
+endobj
+13 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 58 630 83 642 ] /Subtype /Widget /T (GeneralLiability_Hazard_HazardProducerIdentifier_A) /TU (Enter number: A unique \(within location\) number distinguishing this unit-at-risk from the others. ) /Type /Annot >>
+endobj
+14 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 90 630 137 642 ] /Subtype /Widget /T (GeneralLiability_Hazard_ClassCode_A) /TU (Enter code: The general liability class code that corresponds to the classification description shown in the previous field. ) /Type /Annot >>
+endobj
+15 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 144 630 187 642 ] /Subtype /Widget /T (GeneralLiability_Hazard_PremiumBasisCode_A) /TU (Enter code: An industry code designating the rating basis of the exposure amount. ) /Type /Annot >>
+endobj
+16 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 194 630 288 642 ] /Subtype /Widget /T (GeneralLiability_Hazard_Exposure_A) /TU (Enter amount: The amount of the exposure used for this class code in calculating the premium.  The contents of this data element depends on the rating basis used.  The full amount of exposure is contained. ) /Type /Annot >>
+endobj
+17 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 295 630 324 642 ] /Subtype /Widget /T (GeneralLiability_Hazard_TerritoryCode_A) /TU (Enter code: The rating territory code based on location from the appropriate state exception page. ) /Type /Annot >>
+endobj
+18 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 331 630 389 642 ] /Subtype /Widget /T (GeneralLiability_Hazard_PremisesOperationsRate_A) /TU (Enter rate: The separate Premises Operations manual rate applicable to the classification. ) /Type /Annot >>
+endobj
+19 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Q 1 /Rect [ 396 630 457 642 ] /Subtype /Widget /T (GeneralLiability_Hazard_ProductsRate_A) /TU (Enter rate: The separate Products rate applicable to the classification. ) /Type /Annot >>
+endobj
+20 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 464 630 522 642 ] /Subtype /Widget /T (GeneralLiability_Hazard_PremisesOperationsPremiumAmount_A) /TU (Enter amount: The premium associated with the premises operations coverage. ) /Type /Annot >>
+endobj
+21 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 529 630 590 642 ] /Subtype /Widget /T (GeneralLiability_Hazard_ProductsPremiumAmount_A) /TU (Enter amount: The premium associated with the products coverage. ) /Type /Annot >>
+endobj
+22 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8392704 /FT /Tx /P 102 0 R /Rect [ 22 594 590 618 ] /Subtype /Widget /T (GeneralLiability_Hazard_Classification_A) /TU (Enter text: The classification of the applicant's liability exposures by location, using the ISO Classification Table or other industry organization rules.  Enter the appropriate class description from the table in this field. ) /Type /Annot >>
+endobj
+23 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Q 1 /Rect [ 22 558 50 570 ] /Subtype /Widget /T (GeneralLiability_Hazard_LocationProducerIdentifier_B) /TU (Enter number: The producer assigned identifier for the location number of the risk's location as it appears on the Applicant Information Section of ACORD 125.  All classifications should be grouped by location number. ) /Type /Annot >>
+endobj
+24 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 58 558 83 570 ] /Subtype /Widget /T (GeneralLiability_Hazard_HazardProducerIdentifier_B) /TU (Enter number: A unique \(within location\) number distinguishing this unit-at-risk from the others. ) /Type /Annot >>
+endobj
+25 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 90 558 137 570 ] /Subtype /Widget /T (GeneralLiability_Hazard_ClassCode_B) /TU (Enter code: The general liability class code that corresponds to the classification description shown in the previous field. ) /Type /Annot >>
+endobj
+26 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 144 558 187 570 ] /Subtype /Widget /T (GeneralLiability_Hazard_PremiumBasisCode_B) /TU (Enter code: An industry code designating the rating basis of the exposure amount. ) /Type /Annot >>
+endobj
+27 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 194 558 288 570 ] /Subtype /Widget /T (GeneralLiability_Hazard_Exposure_B) /TU (Enter amount: The amount of the exposure used for this class code in calculating the premium.  The contents of this data element depends on the rating basis used.  The full amount of exposure is contained. ) /Type /Annot >>
+endobj
+28 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 295 558 324 570 ] /Subtype /Widget /T (GeneralLiability_Hazard_TerritoryCode_B) /TU (Enter code: The rating territory code based on location from the appropriate state exception page. ) /Type /Annot >>
+endobj
+29 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 331 558 389 570 ] /Subtype /Widget /T (GeneralLiability_Hazard_PremisesOperationsRate_B) /TU (Enter rate: The separate Premises Operations manual rate applicable to the classification. ) /Type /Annot >>
+endobj
+30 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 396 558 457 570 ] /Subtype /Widget /T (GeneralLiability_Hazard_ProductsRate_B) /TU (Enter rate: The separate Products rate applicable to the classification. ) /Type /Annot >>
+endobj
+31 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 464 558 522 570 ] /Subtype /Widget /T (GeneralLiability_Hazard_PremisesOperationsPremiumAmount_B) /TU (Enter amount: The premium associated with the premises operations coverage. ) /Type /Annot >>
+endobj
+32 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 529 558 590 570 ] /Subtype /Widget /T (GeneralLiability_Hazard_ProductsPremiumAmount_B) /TU (Enter amount: The premium associated with the products coverage. ) /Type /Annot >>
+endobj
+33 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8392704 /FT /Tx /P 102 0 R /Rect [ 22 522 590 546 ] /Subtype /Widget /T (GeneralLiability_Hazard_Classification_B) /TU (Enter text: The classification of the applicant's liability exposures by location, using the ISO Classification Table or other industry organization rules.  Enter the appropriate class description from the table in this field. ) /Type /Annot >>
+endobj
+34 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Q 1 /Rect [ 22 486 50 498 ] /Subtype /Widget /T (GeneralLiability_Hazard_LocationProducerIdentifier_C) /TU (Enter number: The producer assigned identifier for the location number of the risk's location as it appears on the Applicant Information Section of ACORD 125.  All classifications should be grouped by location number. ) /Type /Annot >>
+endobj
+35 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 58 486 83 498 ] /Subtype /Widget /T (GeneralLiability_Hazard_HazardProducerIdentifier_C) /TU (Enter number: A unique \(within location\) number distinguishing this unit-at-risk from the others. ) /Type /Annot >>
+endobj
+36 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 90 486 137 498 ] /Subtype /Widget /T (GeneralLiability_Hazard_ClassCode_C) /TU (Enter code: The general liability class code that corresponds to the classification description shown in the previous field. ) /Type /Annot >>
+endobj
+37 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 144 486 187 498 ] /Subtype /Widget /T (GeneralLiability_Hazard_PremiumBasisCode_C) /TU (Enter code: An industry code designating the rating basis of the exposure amount. ) /Type /Annot >>
+endobj
+38 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 194 486 288 498 ] /Subtype /Widget /T (GeneralLiability_Hazard_Exposure_C) /TU (Enter amount: The amount of the exposure used for this class code in calculating the premium.  The contents of this data element depends on the rating basis used.  The full amount of exposure is contained. ) /Type /Annot >>
+endobj
+39 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 295 486 324 498 ] /Subtype /Widget /T (GeneralLiability_Hazard_TerritoryCode_C) /TU (Enter code: The rating territory code based on location from the appropriate state exception page. ) /Type /Annot >>
+endobj
+40 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 331 486 389 498 ] /Subtype /Widget /T (GeneralLiability_Hazard_PremisesOperationsRate_C) /TU (Enter rate: The separate Premises Operations manual rate applicable to the classification. ) /Type /Annot >>
+endobj
+41 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 396 486 457 498 ] /Subtype /Widget /T (GeneralLiability_Hazard_ProductsRate_C) /TU (Enter rate: The separate Products rate applicable to the classification. ) /Type /Annot >>
+endobj
+42 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 464 486 522 498 ] /Subtype /Widget /T (GeneralLiability_Hazard_PremisesOperationsPremiumAmount_C) /TU (Enter amount: The premium associated with the premises operations coverage. ) /Type /Annot >>
+endobj
+43 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 529 486 590 498 ] /Subtype /Widget /T (GeneralLiability_Hazard_ProductsPremiumAmount_C) /TU (Enter amount: The premium associated with the products coverage. ) /Type /Annot >>
+endobj
+44 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8392704 /FT /Tx /P 102 0 R /Rect [ 22 450 590 474 ] /Subtype /Widget /T (GeneralLiability_Hazard_Classification_C) /TU (Enter text: The classification of the applicant's liability exposures by location, using the ISO Classification Table or other industry organization rules.  Enter the appropriate class description from the table in this field. ) /Type /Annot >>
+endobj
+45 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Q 1 /Rect [ 22 414 50 426 ] /Subtype /Widget /T (GeneralLiability_Hazard_LocationProducerIdentifier_D) /TU (Enter number: The producer assigned identifier for the location number of the risk's location as it appears on the Applicant Information Section of ACORD 125.  All classifications should be grouped by location number. ) /Type /Annot >>
+endobj
+46 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 58 414 83 426 ] /Subtype /Widget /T (GeneralLiability_Hazard_HazardProducerIdentifier_D) /TU (Enter number: A unique \(within location\) number distinguishing this unit-at-risk from the others. ) /Type /Annot >>
+endobj
+47 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 90 414 137 426 ] /Subtype /Widget /T (GeneralLiability_Hazard_ClassCode_D) /TU (Enter code: The general liability class code that corresponds to the classification description shown in the previous field. ) /Type /Annot >>
+endobj
+48 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 144 414 187 426 ] /Subtype /Widget /T (GeneralLiability_Hazard_PremiumBasisCode_D) /TU (Enter code: An industry code designating the rating basis of the exposure amount. ) /Type /Annot >>
+endobj
+49 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 194 414 288 426 ] /Subtype /Widget /T (GeneralLiability_Hazard_Exposure_D) /TU (Enter amount: The amount of the exposure used for this class code in calculating the premium.  The contents of this data element depends on the rating basis used.  The full amount of exposure is contained. ) /Type /Annot >>
+endobj
+50 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 295 414 324 426 ] /Subtype /Widget /T (GeneralLiability_Hazard_TerritoryCode_D) /TU (Enter code: The rating territory code based on location from the appropriate state exception page. ) /Type /Annot >>
+endobj
+51 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 331 414 389 426 ] /Subtype /Widget /T (GeneralLiability_Hazard_PremisesOperationsRate_D) /TU (Enter rate: The separate Premises Operations manual rate applicable to the classification. ) /Type /Annot >>
+endobj
+52 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Q 1 /Rect [ 396 414 457 426 ] /Subtype /Widget /T (GeneralLiability_Hazard_ProductsRate_D) /TU (Enter rate: The separate Products rate applicable to the classification. ) /Type /Annot >>
+endobj
+53 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 464 414 522 426 ] /Subtype /Widget /T (GeneralLiability_Hazard_PremisesOperationsPremiumAmount_D) /TU (Enter amount: The premium associated with the premises operations coverage. ) /Type /Annot >>
+endobj
+54 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 529 414 590 426 ] /Subtype /Widget /T (GeneralLiability_Hazard_ProductsPremiumAmount_D) /TU (Enter amount: The premium associated with the products coverage. ) /Type /Annot >>
+endobj
+55 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8392704 /FT /Tx /P 102 0 R /Rect [ 22 378 590 402 ] /Subtype /Widget /T (GeneralLiability_Hazard_Classification_D) /TU (Enter text: The classification of the applicant's liability exposures by location, using the ISO Classification Table or other industry organization rules.  Enter the appropriate class description from the table in this field. ) /Type /Annot >>
+endobj
+56 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Q 1 /Rect [ 22 342 50 354 ] /Subtype /Widget /T (GeneralLiability_Hazard_LocationProducerIdentifier_E) /TU (Enter number: The producer assigned identifier for the location number of the risk's location as it appears on the Applicant Information Section of ACORD 125.  All classifications should be grouped by location number. ) /Type /Annot >>
+endobj
+57 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 58 342 83 354 ] /Subtype /Widget /T (GeneralLiability_Hazard_HazardProducerIdentifier_E) /TU (Enter number: A unique \(within location\) number distinguishing this unit-at-risk from the others. ) /Type /Annot >>
+endobj
+58 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 90 342 137 354 ] /Subtype /Widget /T (GeneralLiability_Hazard_ClassCode_E) /TU (Enter code: The general liability class code that corresponds to the classification description shown in the previous field. ) /Type /Annot >>
+endobj
+59 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 144 342 187 354 ] /Subtype /Widget /T (GeneralLiability_Hazard_PremiumBasisCode_E) /TU (Enter code: An industry code designating the rating basis of the exposure amount. ) /Type /Annot >>
+endobj
+60 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 194 342 288 354 ] /Subtype /Widget /T (GeneralLiability_Hazard_Exposure_E) /TU (Enter amount: The amount of the exposure used for this class code in calculating the premium.  The contents of this data element depends on the rating basis used.  The full amount of exposure is contained. ) /Type /Annot >>
+endobj
+61 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 295 342 324 354 ] /Subtype /Widget /T (GeneralLiability_Hazard_TerritoryCode_E) /TU (Enter code: The rating territory code based on location from the appropriate state exception page. ) /Type /Annot >>
+endobj
+62 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 331 342 389 354 ] /Subtype /Widget /T (GeneralLiability_Hazard_PremisesOperationsRate_E) /TU (Enter rate: The separate Premises Operations manual rate applicable to the classification. ) /Type /Annot >>
+endobj
+63 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 396 342 457 354 ] /Subtype /Widget /T (GeneralLiability_Hazard_ProductsRate_E) /TU (Enter rate: The separate Products rate applicable to the classification. ) /Type /Annot >>
+endobj
+64 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 464 342 522 354 ] /Subtype /Widget /T (GeneralLiability_Hazard_PremisesOperationsPremiumAmount_E) /TU (Enter amount: The premium associated with the premises operations coverage. ) /Type /Annot >>
+endobj
+65 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 529 342 590 354 ] /Subtype /Widget /T (GeneralLiability_Hazard_ProductsPremiumAmount_E) /TU (Enter amount: The premium associated with the products coverage. ) /Type /Annot >>
+endobj
+66 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8392704 /FT /Tx /P 102 0 R /Rect [ 22 306 590 330 ] /Subtype /Widget /T (GeneralLiability_Hazard_Classification_E) /TU (Enter text: The classification of the applicant's liability exposures by location, using the ISO Classification Table or other industry organization rules.  Enter the appropriate class description from the table in this field. ) /Type /Annot >>
+endobj
+67 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Q 1 /Rect [ 22 270 50 282 ] /Subtype /Widget /T (GeneralLiability_Hazard_LocationProducerIdentifier_F) /TU (Enter number: The producer assigned identifier for the location number of the risk's location as it appears on the Applicant Information Section of ACORD 125.  All classifications should be grouped by location number. ) /Type /Annot >>
+endobj
+68 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 58 270 83 282 ] /Subtype /Widget /T (GeneralLiability_Hazard_HazardProducerIdentifier_F) /TU (Enter number: A unique \(within location\) number distinguishing this unit-at-risk from the others. ) /Type /Annot >>
+endobj
+69 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 90 270 137 282 ] /Subtype /Widget /T (GeneralLiability_Hazard_ClassCode_F) /TU (Enter code: The general liability class code that corresponds to the classification description shown in the previous field. ) /Type /Annot >>
+endobj
+70 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 144 270 187 282 ] /Subtype /Widget /T (GeneralLiability_Hazard_PremiumBasisCode_F) /TU (Enter code: An industry code designating the rating basis of the exposure amount. ) /Type /Annot >>
+endobj
+71 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 194 270 288 282 ] /Subtype /Widget /T (GeneralLiability_Hazard_Exposure_F) /TU (Enter amount: The amount of the exposure used for this class code in calculating the premium.  The contents of this data element depends on the rating basis used.  The full amount of exposure is contained. ) /Type /Annot >>
+endobj
+72 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 295 270 324 282 ] /Subtype /Widget /T (GeneralLiability_Hazard_TerritoryCode_F) /TU (Enter code: The rating territory code based on location from the appropriate state exception page. ) /Type /Annot >>
+endobj
+73 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 331 270 389 282 ] /Subtype /Widget /T (GeneralLiability_Hazard_PremisesOperationsRate_F) /TU (Enter rate: The separate Premises Operations manual rate applicable to the classification. ) /Type /Annot >>
+endobj
+74 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 396 270 457 282 ] /Subtype /Widget /T (GeneralLiability_Hazard_ProductsRate_F) /TU (Enter rate: The separate Products rate applicable to the classification. ) /Type /Annot >>
+endobj
+75 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 464 270 522 282 ] /Subtype /Widget /T (GeneralLiability_Hazard_PremisesOperationsPremiumAmount_F) /TU (Enter amount: The premium associated with the premises operations coverage. ) /Type /Annot >>
+endobj
+76 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 529 270 590 282 ] /Subtype /Widget /T (GeneralLiability_Hazard_ProductsPremiumAmount_F) /TU (Enter amount: The premium associated with the products coverage. ) /Type /Annot >>
+endobj
+77 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8392704 /FT /Tx /P 102 0 R /Rect [ 22 234 590 258 ] /Subtype /Widget /T (GeneralLiability_Hazard_Classification_F) /TU (Enter text: The classification of the applicant's liability exposures by location, using the ISO Classification Table or other industry organization rules.  Enter the appropriate class description from the table in this field. ) /Type /Annot >>
+endobj
+78 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Q 1 /Rect [ 22 198 50 210 ] /Subtype /Widget /T (GeneralLiability_Hazard_LocationProducerIdentifier_G) /TU (Enter number: The producer assigned identifier for the location number of the risk's location as it appears on the Applicant Information Section of ACORD 125.  All classifications should be grouped by location number. ) /Type /Annot >>
+endobj
+79 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 58 198 83 210 ] /Subtype /Widget /T (GeneralLiability_Hazard_HazardProducerIdentifier_G) /TU (Enter number: A unique \(within location\) number distinguishing this unit-at-risk from the others. ) /Type /Annot >>
+endobj
+80 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 90 198 137 210 ] /Subtype /Widget /T (GeneralLiability_Hazard_ClassCode_G) /TU (Enter code: The general liability class code that corresponds to the classification description shown in the previous field. ) /Type /Annot >>
+endobj
+81 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 144 198 187 210 ] /Subtype /Widget /T (GeneralLiability_Hazard_PremiumBasisCode_G) /TU (Enter code: An industry code designating the rating basis of the exposure amount. ) /Type /Annot >>
+endobj
+82 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 194 198 288 210 ] /Subtype /Widget /T (GeneralLiability_Hazard_Exposure_G) /TU (Enter amount: The amount of the exposure used for this class code in calculating the premium.  The contents of this data element depends on the rating basis used.  The full amount of exposure is contained. ) /Type /Annot >>
+endobj
+83 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 295 198 324 210 ] /Subtype /Widget /T (GeneralLiability_Hazard_TerritoryCode_G) /TU (Enter code: The rating territory code based on location from the appropriate state exception page. ) /Type /Annot >>
+endobj
+84 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 331 198 389 210 ] /Subtype /Widget /T (GeneralLiability_Hazard_PremisesOperationsRate_G) /TU (Enter rate: The separate Premises Operations manual rate applicable to the classification. ) /Type /Annot >>
+endobj
+85 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 396 198 457 210 ] /Subtype /Widget /T (GeneralLiability_Hazard_ProductsRate_G) /TU (Enter rate: The separate Products rate applicable to the classification. ) /Type /Annot >>
+endobj
+86 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 464 198 522 210 ] /Subtype /Widget /T (GeneralLiability_Hazard_PremisesOperationsPremiumAmount_G) /TU (Enter amount: The premium associated with the premises operations coverage. ) /Type /Annot >>
+endobj
+87 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 529 198 590 210 ] /Subtype /Widget /T (GeneralLiability_Hazard_ProductsPremiumAmount_G) /TU (Enter amount: The premium associated with the products coverage. ) /Type /Annot >>
+endobj
+88 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8392704 /FT /Tx /P 102 0 R /Rect [ 22 162 590 186 ] /Subtype /Widget /T (GeneralLiability_Hazard_Classification_G) /TU (Enter text: The classification of the applicant's liability exposures by location, using the ISO Classification Table or other industry organization rules.  Enter the appropriate class description from the table in this field. ) /Type /Annot >>
+endobj
+89 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Q 1 /Rect [ 22 126 50 138 ] /Subtype /Widget /T (GeneralLiability_Hazard_LocationProducerIdentifier_H) /TU (Enter number: The producer assigned identifier for the location number of the risk's location as it appears on the Applicant Information Section of ACORD 125.  All classifications should be grouped by location number. ) /Type /Annot >>
+endobj
+90 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 58 126 83 138 ] /Subtype /Widget /T (GeneralLiability_Hazard_HazardProducerIdentifier_H) /TU (Enter number: A unique \(within location\) number distinguishing this unit-at-risk from the others. ) /Type /Annot >>
+endobj
+91 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 90 126 137 138 ] /Subtype /Widget /T (GeneralLiability_Hazard_ClassCode_H) /TU (Enter code: The general liability class code that corresponds to the classification description shown in the previous field. ) /Type /Annot >>
+endobj
+92 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 144 126 187 138 ] /Subtype /Widget /T (GeneralLiability_Hazard_PremiumBasisCode_H) /TU (Enter code: An industry code designating the rating basis of the exposure amount. ) /Type /Annot >>
+endobj
+93 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 194 126 288 138 ] /Subtype /Widget /T (GeneralLiability_Hazard_Exposure_H) /TU (Enter amount: The amount of the exposure used for this class code in calculating the premium.  The contents of this data element depends on the rating basis used.  The full amount of exposure is contained. ) /Type /Annot >>
+endobj
+94 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 295 126 324 138 ] /Subtype /Widget /T (GeneralLiability_Hazard_TerritoryCode_H) /TU (Enter code: The rating territory code based on location from the appropriate state exception page. ) /Type /Annot >>
+endobj
+95 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 331 126 389 138 ] /Subtype /Widget /T (GeneralLiability_Hazard_PremisesOperationsRate_H) /TU (Enter rate: The separate Premises Operations manual rate applicable to the classification. ) /Type /Annot >>
+endobj
+96 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 396 126 457 138 ] /Subtype /Widget /T (GeneralLiability_Hazard_ProductsRate_H) /TU (Enter rate: The separate Products rate applicable to the classification. ) /Type /Annot >>
+endobj
+97 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 464 126 522 138 ] /Subtype /Widget /T (GeneralLiability_Hazard_PremisesOperationsPremiumAmount_H) /TU (Enter amount: The premium associated with the premises operations coverage. ) /Type /Annot >>
+endobj
+98 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8388608 /FT /Tx /P 102 0 R /Rect [ 529 126 590 138 ] /Subtype /Widget /T (GeneralLiability_Hazard_ProductsPremiumAmount_H) /TU (Enter amount: The premium associated with the products coverage. ) /Type /Annot >>
+endobj
+99 0 obj 
+<< /DA (/F2 8 Tf 0 g) /F 4 /Ff 8392704 /FT /Tx /P 102 0 R /Rect [ 22 90 590 114 ] /Subtype /Widget /T (GeneralLiability_Hazard_Classification_H) /TU (Enter text: The classification of the applicant's liability exposures by location, using the ISO Classification Table or other industry organization rules.  Enter the appropriate class description from the table in this field. ) /Type /Annot >>
+endobj
+100 0 obj 
+<< /Count 1 /Kids [ 102 0 R ] /Type /Pages >>
+endobj
+102 0 obj 
+<< /Annots 103 0 R /Contents 104 0 R /CropBox [ 0 0 612 792 ] /MediaBox [ 0 0 612 792 ] /Parent 100 0 R /Resources << /Font << /F1 105 0 R /F2 2 0 R >> /ProcSet [ /PDF /Text /ImageB ] /XObject << /Img1 106 0 R >> >> /Type /Page >>
+endobj
+103 0 obj 
+[ 3 0 R 4 0 R 5 0 R 6 0 R 7 0 R 8 0 R 9 0 R 10 0 R 11 0 R 12 0 R 13 0 R 14 0 R 15 0 R 16 0 R 17 0 R 18 0 R 19 0 R 20 0 R 21 0 R 22 0 R 23 0 R 24 0 R 25 0 R 26 0 R 27 0 R 28 0 R 29 0 R 30 0 R 31 0 R 32 0 R 33 0 R 34 0 R 35 0 R 36 0 R 37 0 R 38 0 R 39 0 R 40 0 R 41 0 R 42 0 R 43 0 R 44 0 R 45 0 R 46 0 R 47 0 R 48 0 R 49 0 R 50 0 R 51 0 R 52 0 R 53 0 R 54 0 R 55 0 R 56 0 R 57 0 R 58 0 R 59 0 R 60 0 R 61 0 R 62 0 R 63 0 R 64 0 R 65 0 R 66 0 R 67 0 R 68 0 R 69 0 R 70 0 R 71 0 R 72 0 R 73 0 R 74 0 R 75 0 R 76 0 R 77 0 R 78 0 R 79 0 R 80 0 R 81 0 R 82 0 R 83 0 R 84 0 R 85 0 R 86 0 R 87 0 R 88 0 R 89 0 R 90 0 R 91 0 R 92 0 R 93 0 R 94 0 R 95 0 R 96 0 R 97 0 R 98 0 R 99 0 R ]
+endobj
+104 0 obj 
+<< /Filter [ /FlateDecode ] /Length 2403 >>
+stream
+xœ­ZKsÛ8¾»ÊÿU3§j"³ğ¡½1hÊzŒHom¶|qM<ÉÌ&ãZÇ5ó›ö_.(¢!Bh èd…­~ øºÑìdœ%³$Áë¿¿~»¼àìgõ‘ä‡i–şªç²ıûwTt¤¯—õåÅ»æòâú˜œÏ gÍoêwÀ,U¿Ë‹kóéòâ-¾))WÕÍMµhVÿ¬Ø²lª7¬ùãò¢j´zH}ÚåÜ&uÚL2M,Ãú\š”%Ã6ËTt"æ=›ùlÎ;›7åjÁÛeÏ\”‘e³L¯;-´Œ¼@‰Yö¢ÜïWÕŞ³^ÂòyJx»‹QšZ‹êÇ(¥¼ä®´©¹µÜTÛºÛŞ®Ùænı®o1êÔÈ^¨trÊİN	*7»f7«}İ°M¹®–lµ©ïöÕrH2Ø‹ÇÑ—åûj³øxd/ôêÁö‹,ºà¿•İßçÇ£…Ô¿‰ÏóH²}Ø‹wÆóîwĞ‹7ˆ¾lqW7Ûuµg«å?ÿ÷ò"Íû‡Q}py0@/\­!Ãƒy½úöØòéòârïòlŞ†.ƒ^0“ƒ•­!í)c÷WëõõryıQı»ãzN&Z-ïÖ^tÖ½å–çP7€qâ 48î 1“Y§¼^|¨–w·ÛŞ°å¿Ëı²v£Şé:HK³Î<ë­D°æË#+Ûı’ıùğí‘=üù‰}}úüÄ•…Ÿÿşòøüø‰}{xşÏwöô[÷ÛAuİ¢•[¿Ó6×¦wš8€rO »Næ}Ï¹Ò!f\ïÙÿ±Vˆ¶_}ì¶û²Ym73ÆÊ¯_ÙóïŸ¿¼|WËøşøü×ã§Ù°Ù9o¿ËîB{©|yyøõ{yÒº€g­«®ŸñA–i~Ø©ıİ”§ôÛí‚ıspû›1?(x[ÖõêFB»v¶¬êÅ~µk¿É,äa¿¥2°¶"¹Óy· $%¸IPï-‡+*Ğºwûj½º[
+‰œÂ£ş]Y¯ç)(½Eƒ}doªıiFÉyçÿÔä®Ï8R¸“P0	‡Çd!á2AîÓdH®*.…Ë®ÜÏ•S\Ô¾L‹™Ö¾>:²ú×nÛæ¤gê$A¨EJ@k
+òP
+õÓ±RˆØ?LV,¸?T çŞX Év”«˜²Uø— t7‹!%Ş R\9ÅÕ¹R»#¼æY„Àƒ Wî¯šû7lÛ|pëJFv”‘ÌøeÜ)w›UÃŞ²JÙí×!i¦ú9JSH™f(n­Ä•ËõJ!ŞvSk¡ğS’$×êqŒdËN¬Îî¯Jp³mÊ[•Hj´öÇNrûdH4ÇècÑrU¶6ï«Ò²¶ş…İD	Í,O€1x§¤îÊûíí­m­z8(—r°à(¶Vbßï·uÍêò¶ªmÑ‡G™*³f¡K×69oŞ³r³däÙ	Vw Ş”îqE’{ğD!}ÇÕÀ"Ó¶øTyAPòn¿]Ş-šÁåK®®)‡ÌFKf6ÁÛº·ğØ»—;Õ„³Û$µl§bKÓ¬Wrã,6-p=ú½85 õfÇÄË“œ²œJ‹bòy–u§¥´PuÛî†Ë")£ÛĞ<÷EÖZH˜¸¡uá*‹ó
+Wª-öáT-üyRH·W¡‹0‚)›»®…e1¥V7ã`-ly„½†j5è
+š¶xDM¬ 5dˆùÙ«Ä¢<¤`Ó¥+Aû[,X‚š¢ÊÕkH½x‡Pzãî¦$#tæ‘:5Èü|0Â#‹ÈƒÉ“°Ûv#ÙvûaÈ‚?Yxá€ãJ—ËÔßV+Bş/c@{9â|b)2ÊeXQ‹G’ë2°q•òXh_ê$Ác’„…òÄå8õ^\¨ÄÂ£¦W%R*1IğII‚M®½†0Ø$	Òâ1I‚4š*İjV#)d5:ôhæah Y˜ ²xpà¹]
+C
+øÎ€;în¼i ñàï§ÈPeŠ íeáÍH
+¾•â£b3 î¤—selâ÷˜ëgpPÒé%-Ä‘pn1å~¦ÜË~&ğ1‰Ü»&‘Pg‘Mê¥ñú½t‘MI"›ÒK§u yZ}t/]…cT/]¸[)Ò»iˆ–ñÜ&½tB“!¹ª°ş'¸‰àÊı\9ÅåÏ{ı}¼ÈHç4ÔQ!­ºÙØ^ºğ÷›È Î½±@’?ìàÇ
+`0JÜÿ2„û_†P\¹—s ÀIî²0³Î0¤@Ø0‰‰tjÙÄN%-` SI9ÃéÍL=_6ıBùKÛWçµğâeX%±dC
+DKÉó#ù2™ÔÂ³Ø£Zx‚¨º'Ü¿Aìwy4…ní˜‚“I)8y;#ìERÈ`“¸I‹Ç$nÒèØ?¦ÀFvÂšôf¾äŒ¡×À|h¦K—ddÒ™GêÔ@ÂçÓ[x"yË#ìFRÈn„!NÎn´Â½õ ‰€ãeÿ]I„îÁò§xÙ$HÒË#Zx£\fÊbñšD¸l\%<Ü—]’àQJ}”'
+&¤Äqğø1LŞ1œJ$ø¤™'1ód%	Â^C
+Øè$A[<"IĞFµğ(«‘9Ä#Ç‚üĞÌ#&´@vÂK[x‘¯N-ÀãşW¶!ß!¸óØ ƒàş¹‡¡ûÿÇC•)‚ì¸×ÚÆüÓ!d<§A{y°…ÇıMOÂÏà äé–{‡#¢áÜb"^œÏmÁäRäŞ#øGÜÀ«iVràŸ‹{šâÊ).o:„ic0zìˆèiŠwìàAJÜØL{€±c„½†9ö@[<"ÒFÇŞ™^iêr’"§àœ©B¯!EN=ÀØ©Jg©Sgsx…©;õ@ØmH‘SpÎÔø§$0®ôgˆœz˜âeÌª´—G\™F¹«jñHòöÁßŒîK#FO=y	)qS0zêP‰”¸©˜4õ c§{)rê¶xL=õ@Y¤È©˜<õ “¦à¦àœ©ğO=„|gÀ}ìÔ/C(+ı ˆœzˆ÷²pş©‡²Nz ½<xe'ğ38(éÜüw’X8·˜üSàz ÿÔx§üCwXºğ„ôìÊÓÿ }™ò|;ÿIY!R
+endstream
+endobj
+105 0 obj 
+<< /BaseFont /Arial,Bold /Encoding /WinAnsiEncoding /FirstChar 0 /FontDescriptor << /Ascent 905.27 /CapHeight 715.82 /Descent -211.91 /Flags 32 /FontBBox [ -45.90 -175.78 1000.00 938.48 ] /FontName /Arial,Bold /ItalicAngle 0.00 /StemV 0.00 /Type /FontDescriptor >> /LastChar 255 /Subtype /Type1 /Type /Font /Widths [ 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 277.83 333.01 474.12 556.15 556.15 889.16 722.17 237.79 333.01 333.01 389.16 583.98 277.83 333.01 277.83 277.83 556.15 556.15 556.15 556.15 556.15 556.15 556.15 556.15 556.15 556.15 333.01 333.01 583.98 583.98 583.98 610.84 975.10 722.17 722.17 722.17 722.17 666.99 610.84 777.83 722.17 277.83 556.15 722.17 610.84 833.01 722.17 777.83 666.99 777.83 722.17 666.99 610.84 722.17 666.99 943.85 666.99 666.99 610.84 333.01 277.83 333.01 583.98 556.15 333.01 556.15 610.84 556.15 610.84 556.15 333.01 610.84 610.84 277.83 277.83 556.15 277.83 889.16 610.84 610.84 610.84 610.84 389.16 556.15 333.01 610.84 556.15 777.83 556.15 556.15 500.00 389.16 279.79 389.16 583.98 0 556.15 0 277.83 556.15 500.00 1000.00 556.15 556.15 333.01 1000.00 666.99 333.01 1000.00 0 610.84 0 0 277.83 277.83 500.00 500.00 350.10 556.15 1000.00 333.01 1000.00 556.15 333.01 943.85 0 500.00 666.99 277.83 333.01 556.15 556.15 556.15 556.15 279.79 556.15 333.01 736.82 370.12 556.15 583.98 333.01 736.82 552.25 399.90 548.83 333.01 333.01 333.01 576.17 556.15 333.01 333.01 333.01 365.23 556.15 833.98 833.98 833.98 610.84 722.17 722.17 722.17 722.17 722.17 722.17 1000.00 722.17 666.99 666.99 666.99 666.99 277.83 277.83 277.83 277.83 722.17 722.17 777.83 777.83 777.83 777.83 777.83 583.98 777.83 722.17 722.17 722.17 722.17 666.99 666.99 610.84 556.15 556.15 556.15 556.15 556.15 556.15 889.16 556.15 556.15 556.15 556.15 556.15 277.83 277.83 277.83 277.83 610.84 610.84 610.84 610.84 610.84 610.84 610.84 548.83 610.84 610.84 610.84 610.84 610.84 556.15 610.84 556.15 ] >>
+endobj
+106 0 obj 
+<< /BitsPerComponent 8 /ColorSpace /DeviceGray /Filter [ /FlateDecode ] /Height 122 /Length 4626 /Subtype /Image /Type /XObject /Width 285 >>
+stream
+xœí]{\Lé?]U£+åRH*]F+—BÉ-Š²Y»‰Q¬²?¬{Xë²vå³î,-k±.‰!aÑÙhY¶T’İè2İk~gÎ™™÷™™sfN™f
+ß?Vûç½=ó¾ÏûÜŞs¸ÜøˆµUœŠÅåœª:e§5 ®$ëŞ¥#;¾û:Èw¬ûp‡>}ú¸ç¼lëÑëéo•=>%¡áÕİÃçw¶é¬ƒÑ@ßjPÀº³9Ê©BÑ˜›úû²ÉıMh™"u£«K”=f… âŸÓ“í™±AÕuÓ#e¼eÑX’´'x`WÍ&2†Ó deO ÅŸ¸# ·ZóøÂ‡Vpª²gÑÈü9¸¿î;1†„ÙÎ÷ì„/LüŞÍXŒ!ñùKeÏG~H?2§ÜCÀá_eÏI.hÌÚãg¡*c®*êj$ÔUr‡ı²'öîÈ8üÍfRa™ôrpñ˜·zcÔşè„x—Eí\³0Ğs]ç|ß|eÏíİwd’¹ä¬T­GO]¸5æÊ½gô:]Ãë	GW:KS~Õ
+œŠœñæBH/±3[ÛØÁwéîËéùÌÚh(É<»Â³³:5w¢Zv-‡Äˆ~"igë>w[\VysÚÊ9âHÅ«<yZx½Û]L¢£ËWŸ¿Ó&xõG¾$w¶ÈkÀ
+CÙÍğÂá·ïå“Q)‡fÓÖXˆ3§oV òöÖŒİÂwÃ¥l9¶¹ÊT”9j7äØzK£>e¾%Ü†£Ö'¼`(v™#c–¨lŞ$ïZeqşÚÄ5ÙAûä¹b Nõ„Ì	j¡^äÂ½Ãˆı¤ã¶êâóìç±`{›:éæ¼Ávöú)•ÓÂ]UMCÌü¦…;“’æá#í0a—B¬AÎd!sú¼PD‡ï‚Û³qåwø–TE9YŞ¸	˜Óïµ‚ºlª/OÅ0×ué~ÊèÆgÎĞ
+öÚdœaÖá—=ÆÃ|æ|*weAn¨‰wÁ4<N¾R|ÏuãHæÌQ|×ëÙ-}¢œ¾Ï‘±‹]Êé]&.Òó<¦4³¸| 77¥ÑD²Y,–wDŠ¢%ÀÍ±Ö·”ˆà1ÇºŒ †ÇŞYŠ—{o¦cDº";”D9ÁôÏ#q¦°Ãb®Fâ˜Æ(l\™ë'nUºòõ‚§v¥}ÌãM$©>gñØsU1£Ê?¹öX©bº’†·66€Ö}_-)‘$¢ŞDáÿ§ˆÕp?úF³\òF%®%¯£}êÍbÅp"Ç4_Ga
+SM¨HT»c]Ó=La±¹8sØøÂaóãÊb)T(+œ¡XíC|¥¤ğ˜ãÿı†÷O.76¥ãm/Mú§7‹Í0'ŠøG1ûªµ W~áàÌá±E¨çDJ>œ1–+ai~¤»~PÌùz±”‡,S.¹­Iaó†X>
+JçJyÉ;É	æd±ˆs
+<m6vÜtäHµ&q–¸òrï¿oLY¦mÀÛ,/4JÆ;æà|aE¹¶ìIŞPVX\\T\Û„o‹Š‹‹92¦Ñ2ÈÂY29æ*oy¥\2%#äoŠ<ppëF±¥úÒÌóûÖÍñ3¢¿½ƒC×‘Ÿ…m8x£€>) ¡ìÙ¥ıkç~î>Â‘íààÀ4Âkê’]g2ië†‡§>ÇıœââRªøzİƒ¿%ˆÈ+yË©R¦àaGñ¶RJ$77U.ßu¿AaCÆ¹môÄƒ÷8T»Œ\›E±Š²ã7ûÛPÔÀôÙsüGÑÉ-#um>´ptìjÖÛuÆ–Dq‡QŒ†65´´MºZò8œ\Äç+ïwõ&¼:yór¸£¥¦>4ÜßìÓLNÓ°SOS#¨¶üK¬Jæn_{”x­®oÜ£GÇöA½‚â%úYOÅI!G?=/J&š„‰óü+¤×=Ràíòfê¯(.h…%%Ó9{È¯Ñ³™ºùÔ_Ÿå=¾¶?ÌQ›_ì^k¼>îÛAP¡Å§k\˜YXû“¯¹¶˜_³nzØmÅŠeËfù»vSm7ş„ENèIWïÑ$<†Ø™Šdé¸EWô)Q¸áy•ñ1•;
+µA›¡pä×`¿½.r‡D,shåf¯e£QÏ‹-iîÙÖ^`àëDÄÕ£ÎèÑR²¨>s3(ÄÂÁîM )”Ûğ‹ ·¶<ÿnôªÑ"éãhvz uƒc05Í‹°.ˆÆí„dH±ñJüÉATP´ÁRX¡Ój
+É’5	t\ìEå*hQÕBÅZwõjTl$~?¤<)¦óZ\‘ÍQ”ùBîjß£ ©)V{¨î¼ñØda4­1¥_«L¢–WNıÎFb¶È¹ëòŸ…ÅUƒPé˜*®¢ajS&^)‡? µ’$ÀóI´ş¡¢£ÂàÜ`´ßõvÑ ß|Úİ+,ÎéˆJ¿FÔÕ@a¿
+‹SÀÎ¡<kïÀı8´IÙU¢¼Á†Kè×mÑSµL"/)}Q®çèé‘i!”I¿¢BU (ÃĞ}(,ş•ê‰•$¶Áô÷£†/@±´Õ: ÚwÄHbAF´æN&&tG5¯I!Ì³ÃşEP
+Ö©-ˆ^œôîŸê‘¨t Å®Âñ
+póa2~ÓADïöƒê?ˆ’\ 
+Ÿ*#[ä
+ØØi”ŸÊi|“âE7T6#%ü®ßP÷ef_Äd
+<pˆ
+Ë¹™ Wy{*Ë™4šsïI§]HİøªÇ!°À®ŠCª£ú>T¼«%Ñô²ôÒ…i˜C®›Ü
+ éh> $…0IÜ…IŒ¡ æ¨;K'^hmI»®¬3¤=Bš¹öVÔ@%ÈdSï*.7ôb|›ÁpÔMğFTa‡Ş±ÿr=Fí~j¨Ÿ‘A<ÛÌÉrÈ_Hx¥b;@ë!ÍQ¯ é¤nŞiL&Á-'S§©—ÉâŒ~0{QÚË] ªacex&jİñP2R‹ä®Ú	>Ùİ,A™ıj¡±Õ×ú“¦—‚ —~ŒÎòÚäCjYœ¨¾î5MİdĞ¬>£İ
+’:1•8ÄiÀ"ÁüHu¬UÓû¯rŸŞŠ^ç%bÆ¾â™Ì`Qô- è‡dxE+ˆÉ$ªCÈ	¢¸Ph-=Ô¥ŒÁ(¿È’QPöbë‰¢r°«4Ì»›™´'ïèÚ?-®då õw]/ßƒNé9ä/ì/ÔÎ¯€
+Bñ«`³¿Ò4E?]ú¨5‰Z/@¬KÚ-"[HZÕƒ(Íè¨;:ùVï‘ödp’×}Iú¡”ÆrpùD#?øá Y#F©7sA}©V85 µé°[ŠJÌ»Q`Û÷ <œ€¿ğÙSàòFå°lh‚oÑ@uÀ$7´r,¨ñ‰Ÿ‰ ¿‘€&i0—Ù7»	t y/¬Ñó º!¹FØÒB7$øz±Ús§	Œ[ÌdD2ômzÒiå£A	2ˆÀm3Ÿ,»NÍ-Ü
+@1Bòœ9ŒÎ4½ìËS3ZæjšEMR=¿r/&wêD˜3I:í3hXæË‚5¨Hõ	¾ñàA#)Â ‡Æ4k"Ş§‘½©82yƒ+†e6t…gr±®ÊÔğ—JÊÒØ’ï¥ªŠÊ†ñÌ ‚0ƒKbM” ‹Ò¿^¼•PœNMÀ_7¾±'‹à"ôS$œ up»vbô¨Q{J#l„¢ÛJàƒºVÊF^A)Ù‰9 /g»){©ÿ
+Ì–)5«¦„^’	|P×&Õ·- il¬¦‰ñ‚W¼ô”rõ¬ZÎBïÌT¨GuÑĞ<Cô§Ÿ‡˜Rº‡«B…ê™ƒçë~ı(vh-Ô²Éó*ß92qØWƒ@ŞùS·ö(	Õ•ò›ÚÏ ¥ÚØH)P`(¯;d'ggÙií3	Ê¾”Ö4^­È•â\)W¬¨$PÃš.õ6É—ô#T¾„_vÏAÚ¾Wş¾]²“ÊıH«~*ûÎW%¹Ñ{P[IÑ`Ø²l?”Í£K¦M›/<ËöµCÆP&ú?_ƒ6°î0Øªª_‚­†aıôw=‰Ë…ÇÁÁétH¦(æ6†¤†’!Fi0È+0ÁOBcÉãEµüÃSL°ÍhYïÍ–´”ó~D2VÍ[ä–3tÙÙµš2¸İ±/…Ôeà¸S©Ş&,‘>‡…ÒùÂC5É›vÇi—ÅÙ~¢Ç`õjùüşÈüªÜÛ;&™âöM(lçÆ0Paê•<ô«Udš…ÔÓé‰yƒâ+T'ò/¡ì¸]9Ù2Ó“ãö¯ñ1G«·ËÇ™dHD7­¸º42yv"Ø)XÏ9ë‰‹;{pãWã{“Ş›~¢Iã•¿ #@•q &îÂÙC›æz  p{m[á0¨Æ52ÇHXûöèB¢“Èû­zúo{(Ş	%JI16‡~ûAS›Š6JÍí%¶¢oaÓÔÑAc¹ÜoéuŒ¯1´Ï5tXÀ	¦n:~wŠ¤ÒÑ0‘XÂ×àü#O˜#©íTÃ —Tµ-=ÖœÏ-jÔ¯íŞÏeH_ËÉR|,q»ÛÙ:uêdkgÖ_äıWµ‰[üœº‰¿ØGÇÌqì’ßQúûr£¹ÛŠ½[Iİ°·ÛÔŸâ©e@¡¹…]Ÿ!..ìlLD	;;w³³í;ÔÅÅÅÁÖV5ñ³åsr¡ÀÁc}¾\¾ûó¥0'-­¸¼,?]Ú¬H~˜“]R^V^’óà„¡Y’â§•á!¡8BB­Şy*şÔ{¸uÏnşñË†Å¡d°å»™Io…TŞ}’ó²¬¬¬èyÖÑvkï¥ædç—ãÏ^fgßJ%˜SSò¶Œ¥¥­÷‚ç{šÜ¬§ÅéJIfl(uY6Ñ‡ŠhÛ6ùÊ+… ÑÉ­M¼_E)ˆWùì£È¡ÃtlRë`NMA«;4ÿë„Mlƒª¸÷LÙcÀ.sSşèŠ3?Rä«*>fN•o¯Häí
+ùş©’Ç@…§qƒ[VjDËâß¥.ó™¹“<Ë™.H¸ñ¥Õ”Öú
+DÂ+Û[Y/u*8Ü¿›ÏßJê\6ÆN—¦¤êÊwVX¶ó¿®”®¡Ú™`N?Å€£ø §ÊºlĞV—üØó2Ù¤òDÑÅy0ƒYJ~õ,¼à§³êÒ¿Fî¨¿½b†uZ|_q]6/I!]ôñNÊZ³^ß^F’#L„¶WÀ‡mÊÿüÖ•’¶[ù:9€+>Ö½›‹Š„•.¼“¦ÏéVñV" 7PLµX/µÏO…Ûa,³éwšp']ÉXCL¡-"^Æ¯ŸÀOÙM(Zœùj‰å^9_‚ópG€5?^k×Æ¾ˆWd% yJn(L>0·¿ }TÅqEübÎ2±x/6dÇ³wo5÷Ò–€(m·ã´?ä„´>¤›ˆsë>ãæ5ª,÷ÆŞğæ ‰Å`øö§­Á×ØDH0‡EğÁûMş‚EÑ£óÛç4ıè@¿oşb˜øĞQîNÅëìyıy%ç{]É³¤Ãß†Œa›iˆ6¡j¹àrës~6	é]©¹ƒCÃĞÉoñö˜[ÿdæ•TÔÖÕXSË)}“–štş·ïLÕ[—â‹ŠšvÁ1ïÁ×6/IŠQ°:Z:ºùÌgJèlB§øLğéÌîÑ¡=íçyO¾vwÓ’nÍ‚Áà•·d\ƒmKx<^^ŒQ±ğùñ^[=›hP¶¶ƒì‰Ë„ş°E1OŞ3Îøwåk¤£ÛEÑOÛğÇídàÚLŠo1‚¹ÇÂCJz{¿âğpİ@-Ù¬€Ğ4øcBV«ş^‡ÜP{û»q–íd3Ã´ÌØcÃ·_NÏ>Ş+ui6ÍlLóUH\14èå´r×ÅÏ?Ôœ§ÒÜä[–‡úqv²¶Âaé0ÄÙËoö7>•”]PŞ:zZ*9<´aãñ#š„ÿÓ…M
+endstream
+endobj
+xref
+0 107
+0000000000 65535 f
+0000000017 00000 n
+0000001341 00000 n
+0000003281 00000 n
+0000003609 00000 n
+0000003898 00000 n
+0000004223 00000 n
+0000004442 00000 n
+0000004877 00000 n
+0000005260 00000 n
+0000005666 00000 n
+0000005959 00000 n
+0000006225 00000 n
+0000006648 00000 n
+0000006946 00000 n
+0000007255 00000 n
+0000007529 00000 n
+0000007919 00000 n
+0000008207 00000 n
+0000008496 00000 n
+0000008762 00000 n
+0000009045 00000 n
+0000009307 00000 n
+0000009723 00000 n
+0000010146 00000 n
+0000010444 00000 n
+0000010753 00000 n
+0000011027 00000 n
+0000011417 00000 n
+0000011705 00000 n
+0000011994 00000 n
+0000012255 00000 n
+0000012538 00000 n
+0000012800 00000 n
+0000013216 00000 n
+0000013639 00000 n
+0000013937 00000 n
+0000014246 00000 n
+0000014520 00000 n
+0000014910 00000 n
+0000015198 00000 n
+0000015487 00000 n
+0000015748 00000 n
+0000016031 00000 n
+0000016293 00000 n
+0000016709 00000 n
+0000017132 00000 n
+0000017430 00000 n
+0000017739 00000 n
+0000018013 00000 n
+0000018403 00000 n
+0000018691 00000 n
+0000018980 00000 n
+0000019246 00000 n
+0000019529 00000 n
+0000019791 00000 n
+0000020207 00000 n
+0000020630 00000 n
+0000020928 00000 n
+0000021237 00000 n
+0000021511 00000 n
+0000021901 00000 n
+0000022189 00000 n
+0000022478 00000 n
+0000022739 00000 n
+0000023022 00000 n
+0000023284 00000 n
+0000023700 00000 n
+0000024123 00000 n
+0000024421 00000 n
+0000024730 00000 n
+0000025004 00000 n
+0000025394 00000 n
+0000025682 00000 n
+0000025971 00000 n
+0000026232 00000 n
+0000026515 00000 n
+0000026777 00000 n
+0000027193 00000 n
+0000027616 00000 n
+0000027914 00000 n
+0000028223 00000 n
+0000028497 00000 n
+0000028887 00000 n
+0000029175 00000 n
+0000029464 00000 n
+0000029725 00000 n
+0000030008 00000 n
+0000030270 00000 n
+0000030686 00000 n
+0000031109 00000 n
+0000031407 00000 n
+0000031716 00000 n
+0000031990 00000 n
+0000032380 00000 n
+0000032668 00000 n
+0000032957 00000 n
+0000033218 00000 n
+0000033501 00000 n
+0000033763 00000 n
+0000034178 00000 n
+0000001048 00000 n
+0000034245 00000 n
+0000034497 00000 n
+0000035194 00000 n
+0000037683 00000 n
+0000039634 00000 n
+trailer
+<< /Info 101 0 R /Root 1 0 R /Size 107 >>
+startxref
+44444
+%%EOF

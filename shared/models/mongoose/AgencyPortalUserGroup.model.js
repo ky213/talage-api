@@ -23,7 +23,8 @@ const PermissionRightsSchema = new Schema({
     view: {type: Boolean, required: true, default: true},
     viewlogs: {type: Boolean, required: false},
     delete: {type: Boolean, required: false},
-    requote: {type: Boolean, required: false}
+    requote: {type: Boolean, required: false},
+    bind: {type: Boolean, required: false}
 },{_id : false})
 
 
