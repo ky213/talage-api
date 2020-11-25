@@ -193,6 +193,9 @@ module.exports = class QuoteBO {
                     getListOptions[prop] = getOptions[prop];
                 }
             }
+            if(!queryJSON){
+                queryJSON = {};
+            }
 
             const queryProjection = {"__v": 0}
 
