@@ -48,7 +48,10 @@ async function createQuoteSummary(quoteID) {
         log.error(`Could not get quote for ${quoteID} error:` + error + __location);
         return null;
     }
-
+    if(!quote){
+        log.error(`Could not get quote for ${quoteID} - Not found` + __location);
+        return null;
+    }
     // Retrieve the insurer
     const insurerModel = new InsurerBO();
     let insurer = null;
