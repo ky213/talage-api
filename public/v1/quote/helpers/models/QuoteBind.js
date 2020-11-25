@@ -121,7 +121,11 @@ module.exports = class QuoteBind{
             if(had_error){
                 return;
             }
-
+            if(!this.quoteDoc){
+                log.error(`No quoteDoc quoteId ${id} ` + __location);
+                reject(new Error(`No quoteDoc quoteId ${id}`));
+                return;
+            }
 
             const applicationBO = new ApplicationBO();
             try{
