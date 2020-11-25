@@ -588,7 +588,7 @@ module.exports = class ApplicationModel {
     * @returns {Promise.<JSON, Error>} A promise that returns true/false , or an Error if rejected
     */
     processClaimsWF(claims) {
-        return new Promise(async(resolve, reject) => {
+        return new Promise(async(resolve) => {
             //copy to mongoose json
             //clonedeep
             this.#applicationMongooseJSON.claims = clonedeep(claims);
@@ -1671,7 +1671,6 @@ module.exports = class ApplicationModel {
             applicationJSON = JSON.parse(JSON.stringify(applicationJSONInbound));
         }
         let error = null;
-        let businessJSON = null;
         if (postInsert === false) {
             // eslint-disable-next-line prefer-const
             let newAppRecJson = JSON.parse(JSON.stringify(applicationDoc))
@@ -2319,11 +2318,9 @@ module.exports = class ApplicationModel {
                         WHERE id = ${db.escape(id)}
                 `;
                 //let rejected = false;
-                let error = null;
                 await db.query(sql).catch(function(err) {
                     // Check if this was
                     log.error(`Database Object ${tableName} UPDATE State error : ` + err + __location);
-                    error = err;
                 });
                 // if (rejected) {
                 //     return false;

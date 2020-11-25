@@ -1,3 +1,4 @@
+/* eslint-disable no-shadow */
 'use strict';
 
 const DatabaseObject = require('./DatabaseObject.js');
@@ -80,20 +81,6 @@ module.exports = class AgencyLocationInsurerBO{
 
             resolve(true);
 
-        });
-    }
-
-    /**
-	 * saves businessContact.
-     *
-	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
-	 */
-
-    save(asNew = false){
-        return new Promise(async(resolve, reject) => {
-        //validate
-
-            resolve(true);
         });
     }
 
@@ -205,8 +192,8 @@ module.exports = class AgencyLocationInsurerBO{
         try{
             recordSet = await this.getList(query)
         }
-        catch(e){
-            log.error(`${tableName} getByIdandInsurer error ` + error + __location);
+        catch(err){
+            log.error(`${tableName} getByIdandInsurer error ` + err + __location);
             throw err;
         }
         if(recordSet){
