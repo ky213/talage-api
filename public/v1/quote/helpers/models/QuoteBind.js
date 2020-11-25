@@ -123,9 +123,10 @@ module.exports = class QuoteBind{
             }
             if(!this.quoteDoc){
                 log.error(`No quoteDoc quoteId ${id} ` + __location);
+                reject(new Error(`No quoteDoc quoteId ${id}`));
                 return;
             }
-            
+
             const applicationBO = new ApplicationBO();
             try{
                 this.applicationDoc = await applicationBO.getfromMongoByAppId(this.quoteDoc.applicationId);
