@@ -557,6 +557,58 @@ module.exports = class QuoteBO {
         return true;
     }
 
+    async bindQuote(quoteId, applicationId, bindUser) {
+        if(quoteId && applicationId && bindUser){
+            // update Mongo
+            const query = {
+                "quoteId": quoteId,
+                "applicationId": applicationId
+            };
+            let quoteDoc = null;
+            let updateMySql = false;
+            try{
+                quoteDoc = await Quote.findOne(query, '-__v');
+                if(!quoteDoc.bound){
+                    const bindDate = moment();
+                    const updateJSON = {
+                        "bound": true,
+                        "boundUser": bindUser,
+                        "boundDate": bindDate,
+                        "aggregatedStatus": "bound",
+                        "status": "bound"
+                    };
+                    await Quote.updateOne(query, updateJSON);
+                    log.info(`Update Mongo QuoteDoc bound status on quoteId: ${quoteId}` + __location);
+                    updateMySql = true;
+                }
+            }
+            catch(err){
+                log.error(`Could not update mongo quote ${quoteId} bound status: ${err} ${__location}`);
+                throw err;
+            }
+
+            try {
+
+                if(updateMySql === true && quoteDoc && quoteDoc.mysqlId){
+                    const sql = `
+                        UPDATE clw_talage_quotes
+                        SET bound = 1
+                        WHERE id = ${quoteDoc.mysqlId}
+                    `;
+                    await db.query(sql);
+                    log.info(`Updated Mysql clw_talage_quotes.bound on  ${quoteId}` + __location);
+                }
+            }
+            catch (err) {
+                log.error(`Could not mysql update quote ${quoteId} bound status: ${err} ${__location}`);
+                throw err;
+            }
+
+        }
+        return true;
+    }
+
+
     async cleanupInput(inputJSON) {
         for (const property in properties) {
             if (inputJSON[property]) {
