@@ -214,7 +214,7 @@ module.exports = class Integration {
             LEFT JOIN clw_talage_activity_code_associations AS aca ON aca.insurer_code = inc.id
             WHERE
                 inc.state = 1
-                AND inc.insurer = 1 
+                AND inc.insurer = 1
                 AND inc.territory = '${territory}'
                 AND aca.code = ${activityCode};
         `;
@@ -250,6 +250,11 @@ module.exports = class Integration {
      * @returns {object} The code and sub(code)
      */
     async get_ncci_code_from_activity_code(territory, activityCode) {
+        // Check if the insurer_wc_codes has the code
+        if (this.insurer_wc_codes.hasOwnProperty(territory + activityCode)) {
+            return this.insurer_wc_codes[territory + activityCode];
+        }
+        // Otherwise fall back to the standard NCCI codes
         const employersRecord = await this.get_employers_code_for_activity_code(territory, activityCode);
         if (!employersRecord) {
             return null;
@@ -1175,8 +1180,7 @@ module.exports = class Integration {
         if (!publicMessage) {
             publicMessage = "The insurer has declined to offer you coverage at this time.";
         }
-        // Added by return_result()
-        // this.reasons.push(publicMessage);
+        this.reasons.push(publicMessage);
         this.log_info(`Declined with message '${publicMessage}'`, __location);
         return this.return_result('declined');
     }
@@ -1271,7 +1275,7 @@ module.exports = class Integration {
             this.quote_letter = {
                 content_type: quoteLetterMimeType ? quoteLetterMimeType : "application/base64",
                 data: quoteLetter,
-                file_name: `${this.insurer.name}_ ${this.policy.type}_quote_letter.pdf`
+                file_name: `${this.insurer.name}_${this.policy.type}_quote_letter.pdf`
             };
         }
 
@@ -1580,7 +1584,7 @@ module.exports = class Integration {
             }
 
             // Set the length parameter
-            headers['Content-Length'] = data && data.length ? data.length : 0;
+            headers['Content-Length'] = data && data.length ? Buffer.byteLength(data) : 0;
 
             // Set the request options
             const options = {
@@ -1651,9 +1655,9 @@ module.exports = class Integration {
                 });
             });
 
-            req.on('error', () => {
+            req.on('error', (err) => {
                 this.log += `Connection to ${this.insurer.name} timedout.`;
-                reject(new Error(`Appid: ${this.app.id} Connection to ${this.insurer.name} timedout.`));
+                reject(new Error(`Appid: ${this.app.id} Connection to ${this.insurer.name} terminated. Reason: ${err.code}`));
             });
 
             if (data) {

@@ -87,7 +87,6 @@ var abandonquotetask = async function(){
     };
     let appList = null;
     const applicationBO = new ApplicationBO();
-
     try{
 
         appList = await applicationBO.getList(query);
@@ -376,13 +375,4 @@ var markApplicationProcess = async function(appDoc){
         throw err;
     }
 
-    const updateSQL = `UPDATE clw_talage_applications
-	                   SET  abandoned_email = 1 
-	                   where id = ${appDoc.mysqlId} `;
-
-    // Update application record
-    await db.query(updateSQL).catch(function(e){
-        log.error('Abandon Quote flag update error: ' + e.message + __location);
-        throw e;
-    });
 }

@@ -37,7 +37,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     // Check that each activity code is valid
     if (activityCodeArray.length) {
         sql = `SELECT id FROM clw_talage_activity_codes WHERE id IN (${activityCodeArray.join(',')}) AND state = 1;`;
-        const activity_code_result = await db.query(sql).catch(function(err) {
+        const activity_code_result = await db.queryReadonly(sql).catch(function(err) {
             error = err.message;
         });
         if (activity_code_result && activity_code_result.length !== activityCodeArray.length) {
@@ -59,7 +59,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     // Check if the industry code is valid
     if (industry_code) {
         sql = `SELECT id FROM clw_talage_industry_codes WHERE id = ${db.escape(industry_code)} AND state = 1 LIMIT 1;`;
-        const industry_code_result = await db.query(sql).catch(function(err) {
+        const industry_code_result = await db.queryReadonly(sql).catch(function(err) {
             error = err.message;
         });
         if (industry_code_result && industry_code_result.length !== 1) {
@@ -86,7 +86,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     // zip code table does not support 9-digit zips.  zipcode array need to make sure any 9 digit zips
     // are cut down to 5.
     sql = `SELECT DISTINCT territory FROM clw_talage_zip_codes WHERE zip IN (${zipCodeArray.join(',')});`;
-    const zip_result = await db.query(sql).catch(function(err) {
+    const zip_result = await db.queryReadonly(sql).catch(function(err) {
         error = err.message;
     });
     if (error) {
@@ -119,7 +119,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
 
     // Get Policy Types from the database
     sql = 'SELECT abbr FROM clw_talage_policy_types;';
-    const policy_types_result = await db.query(sql).catch(function(err) {
+    const policy_types_result = await db.queryReadonly(sql).catch(function(err) {
         error = err.message;
     });
     if (error) {
@@ -164,7 +164,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     // Check that insurers were valid
     if (insurerArray.length) {
         sql = `SELECT id FROM clw_talage_insurers WHERE id IN (${insurerArray.join(',')}) AND state = 1;`;
-        const insurers_result = await db.query(sql).catch(function(err) {
+        const insurers_result = await db.queryReadonly(sql).catch(function(err) {
             error = err.message;
         });
         if (insurers_result && insurers_result.length !== insurerArray.length) {
@@ -194,7 +194,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
 		LEFT JOIN clw_talage_insurer_question_territories as iqt ON iqt.insurer_question = iq.id
 		WHERE iq.policy_type IN ('${policy_types.join("','")}') AND iq.universal = 1 AND (iqt.territory IN (${territories.map(db.escape).join(',')}) OR iqt.territory IS NULL) AND ${where} GROUP BY q.id;
 	`;
-    const universal_questions = await db.query(sql).catch(function(err) {
+    const universal_questions = await db.queryReadonly(sql).catch(function(err) {
         error = err.message;
     });
     if (error) {
@@ -224,7 +224,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             AND ${where} 
             GROUP BY iq.question;
     `;
-    const iso_questions = await db.query(sql).catch(function(err) {
+    const iso_questions = await db.queryReadonly(sql).catch(function(err) {
         error = err.message;
     });
     if (error) {
@@ -244,6 +244,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             (
                 (ic.cgl = iic.code AND iic.type = 'c')
                 OR (ic.hiscox = iic.code AND iic.type = 'h')
+                OR (ic.sic = iic.code AND iic.type = 's')
             )
         WHERE
             ic.id = ${db.escape(industry_code)} 
@@ -251,7 +252,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             AND ${where}
             GROUP BY iq.question;
     `;
-    const cgl_questions = await db.query(sql).catch(function(err) {
+    const cgl_questions = await db.queryReadonly(sql).catch(function(err) {
         error = err.message;
     });
     if (error) {
@@ -275,7 +276,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
             WHERE iq.policy_type IN ('WC') AND ${where} GROUP BY q.id;
         `;
-        const wc_questions = await db.query(sql).catch(function(err) {
+        const wc_questions = await db.queryReadonly(sql).catch(function(err) {
             error = err.message;
         });
         if (error) {
@@ -307,7 +308,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
 			GROUP BY q.id;
 		`;
         let error2 = null;
-        const added_questions = await db.query(sql).catch(function(err) {
+        const added_questions = await db.queryReadonly(sql).catch(function(err) {
             // eslint-disable-line no-await-in-loop, no-loop-func
             error2 = err.message;
         });
@@ -375,7 +376,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     if (question_ids) {
         // Get the answers to the questions
         sql = `SELECT id, question, \`default\`, answer FROM clw_talage_question_answers WHERE question IN (${question_ids.filter(Boolean).join(',')}) AND state = 1;`;
-        const answers = await db.query(sql).catch(function(err) {
+        const answers = await db.queryReadonly(sql).catch(function(err) {
             error = err.message;
         });
         if (error) {

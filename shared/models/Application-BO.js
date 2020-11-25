@@ -3341,6 +3341,38 @@ module.exports = class ApplicationModel {
         return getQuestionsResult;
 
     }
+
+    async isValidApplicationId(id) {
+        const positive_integer = /^[1-9]\d*$/;
+        let had_error = false;
+        //TODO switch to mongo
+        if(positive_integer.test(id)){
+            const sql = `SELECT COUNT(id) FROM clw_talage_applications WHERE id = ${parseInt(id, 10)};`;
+            const rows = await db.query(sql).catch(function(error){
+                log.error(error + __location);
+                had_error = true;
+            });
+            if(had_error){
+                return false;
+            }
+            return !(!rows || rows.length !== 1 || !Object.prototype.hasOwnProperty.call(rows[0], 'COUNT(id)') || rows[0]['COUNT(id)'] !== 1);
+        }
+        else {
+            // assume uuid
+            const sql = `SELECT COUNT(id) FROM clw_talage_applications WHERE uuid = '${id}';`;
+            const rows = await db.query(sql).catch(function(error){
+                log.error(error + __location);
+                had_error = true;
+            });
+            if(had_error){
+                return false;
+            }
+            return !(!rows || rows.length !== 1 || !Object.prototype.hasOwnProperty.call(rows[0], 'COUNT(id)') || rows[0]['COUNT(id)'] !== 1);
+
+        }
+    }
+
+
 }
 
 const properties = {

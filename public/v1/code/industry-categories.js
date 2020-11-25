@@ -17,7 +17,7 @@ async function GetIndustryCategories(req, res, next) {
     // Request for all featured categories with associated codes
     let error = false;
     const sql_all_industry_categories = 'SELECT DISTINCT `icc`.`id`, `icc`.`name` FROM `#__industry_code_categories` AS `icc` RIGHT JOIN `#__industry_codes` AS `ic` ON `icc`.`id` = `ic`.`category` WHERE `icc`.`featured` = 1 AND `icc`.`state` = 1 ORDER BY `icc`.`name`;';
-    const categories = await db.query(sql_all_industry_categories).catch(function(e) {
+    const categories = await db.queryReadonly(sql_all_industry_categories).catch(function(e) {
         log.warn(e.message);
         res.send(500, {
             message: 'Internal Server Error',

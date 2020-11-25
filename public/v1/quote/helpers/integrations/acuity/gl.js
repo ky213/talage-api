@@ -7,6 +7,7 @@
 const builder = require('xmlbuilder');
 const moment_timezone = require('moment-timezone');
 const Integration = require('../Integration.js');
+const utility = require('../../../../../../shared/helpers/utility');
 
 global.requireShared('./helpers/tracker.js');
 
@@ -18,6 +19,10 @@ module.exports = class AcuityGL extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
     async _insurer_quote() {
+
+        const insurerSlug = 'acuity';
+        const insurer = utility.getInsurer(insurerSlug);
+
         // Don't report certain activities in the payroll exposure
         const unreportedPayrollActivityCodes = [
             2869 // Office Employees
@@ -488,7 +493,12 @@ module.exports = class AcuityGL extends Integration {
                 if (unreportedPayrollActivityCodes.includes(activityCode.id)) {
                     continue;
                 }
-                const cglCode = await this.get_cgl_code_from_activity_code(location.territory, activityCode.id);
+
+                let cglCode = null;
+                if (insurer) {
+                    cglCode = await this.get_cgl_code_from_activity_code(location.territory, activityCode.id);
+                }
+
                 if (cglCode) {
                     if (!cobPayrollMap.hasOwnProperty(cglCode)) {
                         cobPayrollMap[cglCode] = 0;

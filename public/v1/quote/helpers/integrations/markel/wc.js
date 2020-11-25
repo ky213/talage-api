@@ -6,17 +6,10 @@
 
 'use strict';
 
-const builder = require('xmlbuilder');
-const moment_timezone = require('moment-timezone');
 const Integration = require('../Integration.js');
 const moment = require('moment');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-
-//Sandbox
-const API_SB = 'https://api-sandbox.markelcorp.com/smallCommercial/v1/wc';
-//Prod
-const API_PROD = 'https://api.markelcorp.com/smallCommercial/v1/wc'
 
 module.exports = class MarkelWC extends Integration {
 
@@ -655,9 +648,6 @@ module.exports = class MarkelWC extends Integration {
         // Markel has us define our own Request ID
         this.request_id = this.generate_uuid();
 
-        // Get a timestamp for the request and format it correctly
-        const timestamp = moment_timezone.tz('America/Los_Angeles').format('YYYY-MM-DDTHH:mm:ss');
-
         const primaryAddress = this.app.business.locations[0];
 
         // Define how legal entities are mapped for Markel
@@ -689,19 +679,14 @@ module.exports = class MarkelWC extends Integration {
             }
         }
 
-        let fullTimeEmployees;
-        let partTimeEmployees;
-        let classificationCd;
+        let classificationCd = '';
         let ownerPayroll = '';
 
         // Add class code information
-        this.app.business.locations.forEach((location, index) => {
+        this.app.business.locations.forEach((location) => {
             location.activity_codes.forEach((activity_code) => {
-                fullTimeEmployees = location.full_time_employees;
-                partTimeEmployees = location.part_time_employees;
                 classificationCd = this.insurer_wc_codes[location.territory + activity_code.id];
                 ownerPayroll = activity_code.payroll;
-
             });
         });
 
@@ -1036,12 +1021,9 @@ module.exports = class MarkelWC extends Integration {
                         }
 
                     }
-                    else {
+                    else if (QuestionCd === 'com.markel.uw.questions.Question1204') {
                         // Do you know the PCRB file number?
-                        if (QuestionCd === 'com.markel.uw.questions.Question1204') {
-                            questionAnswer = 'NO'
-                        }
-
+                        questionAnswer = 'NO';
                     }
                 }
 
@@ -1220,7 +1202,7 @@ module.exports = class MarkelWC extends Integration {
             }
         ]}
 
-        let unansweredQ = null;
+        // let unansweredQ = null;
         let declinedReasons = null;
         let response = null;
         try {
@@ -1268,10 +1250,10 @@ module.exports = class MarkelWC extends Integration {
 
         //Check reasons for DECLINED
         if (response[rquIdKey].errors) {
-            //Unanswered Questions
-            if (response[rquIdKey]) {
-                unansweredQ = response[rquIdKey].errors[0].UnansweredQuestions;
-            }
+            //Unanswered Questions - This is never referenced? - SF
+            // if (response[rquIdKey]) {
+            //     unansweredQ = response[rquIdKey].errors[0].UnansweredQuestions;
+            // }
             //Declined Reasons
             if (response[rquIdKey].errors[1]) {
                 declinedReasons = response[rquIdKey].errors[1].DeclineReasons;
