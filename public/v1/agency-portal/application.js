@@ -838,7 +838,7 @@ async function requote(req, res, next) {
     const applicationBO = new ApplicationBO();
     let id = req.body.id;
     if(id > 0){
-        // Validate the application ID
+        // requote the application ID
         if (!await validator.is_valid_id(req.body.id)) {
             log.error(`Bad Request: Invalid id ${id}` + __location);
             return next(serverHelper.requestError('Invalid id'));
@@ -848,7 +848,7 @@ async function requote(req, res, next) {
         //assume uuid input
         log.debug("Getting id from mongo")
         const appDoc = await applicationBO.getfromMongoByAppId(id).catch(function(err) {
-            log.error(`Error getting application Doc for validate ${id} ` + err + __location);
+            log.error(`Error getting application Doc for requote ${id} ` + err + __location);
             log.error('Bad Request: Invalid id ' + __location);
             error = err;
         });
@@ -860,7 +860,7 @@ async function requote(req, res, next) {
             id = appDoc.mysqlId;
         }
         else {
-            log.error(`Did not find application Doc for validate ${id}` + __location);
+            log.error(`Did not find application Doc for requote ${id}` + __location);
             return next(serverHelper.requestError('Invalid id'));
         }
     }
@@ -1007,6 +1007,91 @@ async function GetQuestions(req, res, next){
     res.send(200, getQuestionsResult);
 }
 
+
+async function bindQuote(req, res, next) {
+    //Double check it is TalageStaff user
+
+    // Check for data
+    if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
+        log.warn('No data was received' + __location);
+        return next(serverHelper.requestError('No data was received'));
+    }
+
+    // Make sure basic elements are present
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'applicationId')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'quoteId')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+
+    let error = null;
+    //accept applicationId or uuid also.
+    const applicationBO = new ApplicationBO();
+    let applicationId = req.body.applicationId;
+
+    const quoteId = req.body.quoteId;
+
+    //assume uuid input
+    log.debug("Getting id from mongo")
+    const applicationDB = await applicationBO.getfromMongoByAppId(applicationId).catch(function(err) {
+        log.error(`Error getting application Doc for bound ${applicationId} ` + err + __location);
+        log.error('Bad Request: Invalid id ' + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+    if(applicationDB){
+        log.debug("Have doc for " + applicationDB.applicationId)
+        applicationId = applicationDB.applicationId;
+    }
+    else {
+        log.error(`Did not find application Doc for bound ${applicationId}` + __location);
+        return next(serverHelper.requestError('Invalid id'));
+    }
+
+    //TODO Check agency Network or Agency rights....
+    const agents = await auth.getAgents(req).catch(function(e) {
+        error = e;
+    });
+    if (error) {
+        log.error('Error get application getAgents ' + error + __location);
+        return next(error)
+
+    }
+
+    // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
+    if (!agents.includes(parseInt(applicationDB.agencyId, 10))) {
+        log.info('Forbidden: User is not authorized to access the requested application');
+        return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
+    }
+
+
+    try {
+        const quoteBO = new QuoteBO();
+        await quoteBO.bindQuote(quoteId, applicationId, req.authentication.userID)
+    }
+    catch (err) {
+        log.error(`Error loading application ${applicationId ? applicationId : ''}: ${err.message}` + __location);
+        res.send(err);
+        return next();
+    }
+
+
+    // Send back the token
+    res.send(200, {"bound": true});
+
+
+    return next();
+
+
+}
+
+
 /**
  * GET returns resources Quote Engine needs
  *
@@ -1115,15 +1200,15 @@ async function GetResources(req, res, next){
     };
 
     responseObj.unemploymentNumberStates = [
-		'CO',
-		'HI',
-		'ME',
-		'MI',
-		'MN',
-		'NJ',
-		'RI',
-		'UT'
-	];
+        'CO',
+        'HI',
+        'ME',
+        'MI',
+        'MN',
+        'NJ',
+        'RI',
+        'UT'
+    ];
 
     res.send(200, responseObj);
     return next();
@@ -1288,7 +1373,9 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPostAuth('POST Create Application', `${basePath}/application`, applicationSave, 'applications', 'manage');
     server.addPutAuth('PUT Save Application', `${basePath}/application`, applicationSave, 'applications', 'manage');
     server.addPutAuth('PUT Re-Quote Application', `${basePath}/application/:id/requote`, requote, 'applications', 'manage');
-    server.addPutAuth('PUT Re-Quote Application', `${basePath}/application/:id/validate`, validate, 'applications', 'manage');
+    server.addPutAuth('PUT Validate Application', `${basePath}/application/:id/validate`, validate, 'applications', 'manage');
+
+    server.addPutAuth('PUT bindQuote Application', `${basePath}/application/:id/bind`, bindQuote, 'applications', 'manage');
 
     server.addDeleteAuth('DELETE Application', `${basePath}/application/:id`, deleteObject, 'applications', 'manage');
 
