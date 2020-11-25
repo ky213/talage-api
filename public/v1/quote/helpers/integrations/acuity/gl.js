@@ -496,7 +496,7 @@ module.exports = class AcuityGL extends Integration {
 
                 let cglCode = null;
                 if (insurer) {
-                    cglCode = await this.get_cgl_code_from_activity_code(insurer.id, location.territory, activityCode.id);
+                    cglCode = await this.get_cgl_code_from_activity_code(location.territory, activityCode.id);
                 }
 
                 if (cglCode) {

@@ -92,7 +92,7 @@ module.exports = class EmployersWC extends Integration {
                     location.address = location.address.substr(0, 299);
                 }
             });
-    
+
             // Prepare questions
             this.validQuestions = [];
             for (const question_id in this.questions) {
