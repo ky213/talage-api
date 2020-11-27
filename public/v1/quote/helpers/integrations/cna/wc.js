@@ -1,3 +1,6 @@
+/* eslint-disable prefer-const */
+/* eslint-disable multiline-ternary */
+/* eslint-disable array-element-newline */
 /* eslint-disable space-before-function-paren */
 /* eslint-disable no-trailing-spaces */
 /* eslint-disable eol-last */
@@ -6,7 +9,9 @@
 /* eslint indent: 0 */
 /* eslint multiline-comment-style: 0 */
 const axios = require('axios');
-const utility = require('../../../../../../shared/helpers/utility');
+
+//Use share reference. - BP
+//const utility = require('../../../../../../shared/helpers/utility');
 // const cnaWCTemplate = require('jsrender').templates('./public/v1/quote/helpers/integrations/cna/wc_request.xmlt');
 // const converter = require('xml-js');
 const Integration = require('../Integration.js');
@@ -70,10 +75,10 @@ const stateDeductables = {
     "CT": [1000, 5000, 10000],
     "DE": [500],
     "FL": [500, 1000, 1500, 2000, 2500, 5000, 10000, 15000, 20000, 21000],  
-    "GA": [100, 200, 300, 400, 500, 1000, 1500, 2000, 2500, 5000, 10,000, 20000],
+    "GA": [100, 200, 300, 400, 500, 1000, 1500, 2000, 2500, 5000, 10000, 20000],
     "HI": [100, 150, 200, 300, 400, 500, 1000, 1500, 2000, 2500, 5000, 10000],  
     "IA": [100, 150, 200, 250, 300, 400, 500, 1000, 1500, 2000, 2500],
-    "IL": [1,000],
+    "IL": [1000],
     "IN": [500, 1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000, 21000],
     "KS": [100, 200, 300, 400, 500, 1000, 1500, 2000, 2500, 5000, 10000],
     "KY": [100, 200, 300, 400, 500, 1000, 1500, 2500, 5000, 7500, 10000],
@@ -105,7 +110,7 @@ module.exports = class CnaWC extends Integration {
 	 */
     async _insurer_quote() {
 
-        const insurerSlug = 'cna';
+       // const insurerSlug = 'cna';
 
         const business = this.app.business;
         const policy = this.app.policies[0]; // currently just ['WC']
@@ -152,9 +157,7 @@ module.exports = class CnaWC extends Integration {
         wcRequest.SignonRq.ClientApp.Name = "API"
 
         // Transaction ID
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInq = [{
-            RqUID: this.generate_uuid()
-        }];
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInq = [{RqUID: this.generate_uuid()}];
 
         // ====== Producer Information ======
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Producer[0].ProducerInfo.ContractNumber.value = "018297";
@@ -162,124 +165,164 @@ module.exports = class CnaWC extends Integration {
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Producer[0].ProducerInfo['com.cna_branchCode'][0].value = "010";
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Producer[0].ProducerInfo['com.cna_branchLabel'][0].value = "AI";
 
+        //NOTE: Sections of the JSON processing would be wrapped in try/catch so we know where it failed.
+        // The happy day code will leave guesses  - BP
+
+        //Defensive Coding....   Too many assumptions about things existing.  - BP
+
         // ====== Agency API Information ======
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].ItemIdInfo.AgencyId.value = "018297-010"; // (reverse of producer-branch-code)
 
         // ====== General Business Information ======
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].CommlName.CommercialName.value = business.name;
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].LegalEntityCd.value = legalEntityCodes[business.entity_type];
+        // Make this easier to read by Getting the GeneralPartyInfo reference.  Instead of constantly using the full path the extend off the viewable  page (120 characters )
+        // eslint-disable-next-line prefer-const
+        let generalPartyInfo = wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo;
+        generalPartyInfo.NameInfo[0].CommlName.CommercialName.value = business.name;
+        generalPartyInfo.NameInfo[0].LegalEntityCd.value = legalEntityCodes[business.entity_type];
         
-        delete wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].TaxIdentity;
-
-        if (business.dba) {
-            wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryNameCd.value = 'DBA';
-            wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryName.value = business.dba;
-        } else {
-            wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].SupplementaryNameInfo = [];
+        // How do we quote without FEIN?  - BP
+        //delete wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].TaxIdentity;
+        try{
+            if(!generalPartyInfo.NameInfo[0].TaxIdentity){
+                generalPartyInfo.NameInfo[0].TaxIdentity = [];
+                const taxIdJSON = {
+							"TaxIdTypeCd": {"value": "FEIN"},
+							"TaxId": {"value": "595976858"}
+                        };
+                generalPartyInfo.NameInfo[0].TaxIdentity.push(taxIdJSON)
+            }
+            let taxIdentityInfo = generalPartyInfo.NameInfo[0].TaxIdentity[0];
+            //We have a reference to the Mongo Doc use it. - BP
+            // if(this.app.applicationDocData.hasEin === false){
+            //     //TODO get CNA - value for SSN CNA does only mention FEIN - BP
+            //     //taxIdentityInfo.TaxIdTypeCd.value = "SSN"
+            // }
+            taxIdentityInfo.TaxId.value = this.app.applicationDocData.ein;
         }
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].id = nameInfoRefId
+        catch(err){
+            log.error(`CNA WC JSON processing error ${err} ` + __location);
+        }
+        if (business.dba) {
+            generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryNameCd.value = 'DBA';
+            generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryName.value = business.dba;
+        } 
+        else {
+            generalPartyInfo.NameInfo[0].SupplementaryNameInfo = [];
+        }
+        generalPartyInfo.NameInfo[0].id = nameInfoRefId
 
         // ====== Address Information ======
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].Addr1.value = `${business.mailing_address} ${business.mailing_address2}`.trim();
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].City.value = business.mailing_city;
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].StateProvCd.value = business.mailing_territory;
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].PostalCode.value = business.mailing_zipcode;
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].County.value = business.mailing_territory; // TODO: Should be actual county information when we start storing that
+        generalPartyInfo.Addr[0].Addr1.value = `${business.mailing_address} ${business.mailing_address2}`.trim();
+        generalPartyInfo.Addr[0].City.value = business.mailing_city;
+        generalPartyInfo.Addr[0].StateProvCd.value = business.mailing_territory;
+        generalPartyInfo.Addr[0].PostalCode.value = business.mailing_zipcode;
+        generalPartyInfo.Addr[0].County.value = business.mailing_territory; // TODO: Should be actual county information when we start storing that
 
         // ====== Business Contact Information ======
         // NOTE: may need phone number to be in the format "+1-812-2222222"
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Communications.PhoneInfo[0].PhoneNumber.value = `${business.contacts[0].phone}`;
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Communications.EmailInfo[0].EmailAddr.value = business.contacts[0].email;
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Communications.WebsiteInfo[0].WebsiteURL.value = business.website;
+        generalPartyInfo.Communications.PhoneInfo[0].PhoneNumber.value = `${business.contacts[0].phone}`;
+        generalPartyInfo.Communications.EmailInfo[0].EmailAddr.value = business.contacts[0].email;
+        generalPartyInfo.Communications.WebsiteInfo[0].WebsiteURL.value = business.website;
 
         // ====== Insured Or Principle Information ======
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].InsuredOrPrincipalInfo.InsuredOrPrincipalRoleCd[0].value = "Insured";
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].InsuredOrPrincipalInfo.BusinessInfo.SICCd.value = this.industry_code.sic;
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].InsuredOrPrincipalInfo.BusinessInfo.NAICSCd.value = this.industry_code.naics;
+
+        let insuredOrPrincipalInfo = wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].InsuredOrPrincipalInfo;
+        insuredOrPrincipalInfo.InsuredOrPrincipalRoleCd[0].value = "Insured";
+        insuredOrPrincipalInfo.BusinessInfo.SICCd.value = this.industry_code.sic;
+        insuredOrPrincipalInfo.BusinessInfo.NAICSCd.value = this.industry_code.naics;
         if (this.industry_code.attributes) {
             if (this.industry_code.attributes.SICCd) {
-                wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].InsuredOrPrincipalInfo.BusinessInfo.SICCd.value = this.industry_code.attributes.SICCd;
+                insuredOrPrincipalInfo.BusinessInfo.SICCd.value = this.industry_code.attributes.SICCd;
             }
 
             if (this.industry_code.attributes.NAICSCd) {
-                wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].InsuredOrPrincipalInfo.BusinessInfo.NAICSCd.value = this.industry_code.attributes.NAICSCd;
+                insuredOrPrincipalInfo.BusinessInfo.NAICSCd.value = this.industry_code.attributes.NAICSCd;
             }
         }
 
         // ====== Commercial Policy Information ======
+        let commlPolicy = wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy;
         const durationPeriod = policy.expiration_date.diff(policy.effective_date, 'months');
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.LOBCd.value = "WORK";
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.NAICCd.value =
+        commlPolicy.LOBCd.value = "WORK";
+        commlPolicy.NAICCd.value =
             this.industry_code.attributes && this.industry_code.attributes.NAICSCd ? 
                 this.industry_code.attributes.NAICSCd : 
                 this.industry_code.naics;
 
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.ControllingStateProvCd.value = policy.primary_territory;
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.ContractTerm.EffectiveDt.value = policy.effective_date.format('YYYY-MM-DD');
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.ContractTerm.ExpirationDt.value = policy.expiration_date.format('YYYY-MM-DD');
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.ContractTerm.DurationPeriod.NumUnits.value = durationPeriod;
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.ContractTerm.DurationPeriod.UnitMeasurementCd.value = "MON";
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.NumLosses.value = 0; // we don't store this information, default to 0
+        commlPolicy.ControllingStateProvCd.value = policy.primary_territory;
+        commlPolicy.ContractTerm.EffectiveDt.value = policy.effective_date.format('YYYY-MM-DD');
+        commlPolicy.ContractTerm.ExpirationDt.value = policy.expiration_date.format('YYYY-MM-DD');
+        commlPolicy.ContractTerm.DurationPeriod.NumUnits.value = durationPeriod;
+        commlPolicy.ContractTerm.DurationPeriod.UnitMeasurementCd.value = "MON";
+        commlPolicy.NumLosses.value = 0; // we don't store this information, default to 0
         
         // Should properly fill this out IFF we support history of previous policies
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.OtherOrPriorPolicy[0].InsurerName.value = "None";
+        commlPolicy.OtherOrPriorPolicy[0].InsurerName.value = "None";
 
         // ====== Supplemental Commercial Policy Information ======
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.CommlPolicySupplement.PolicyTypeCd.value = "SPC";
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.CommlPolicySupplement.LengthTimeInBusiness.NumUnits.value = this.get_years_in_business();
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.CommlPolicySupplement.OtherSafetyProgramInd.value = false;
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.CommlPolicySupplement['com.cna_LengthTimeIndustyManagement'].NumUnits = {};
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy.CommlPolicySupplement['com.cna_NumPowerUnitsOwned'].NumUnits.value = 0;
+        commlPolicy.CommlPolicySupplement.PolicyTypeCd.value = "SPC";
+        commlPolicy.CommlPolicySupplement.LengthTimeInBusiness.NumUnits.value = this.get_years_in_business();
+        commlPolicy.CommlPolicySupplement.OtherSafetyProgramInd.value = false;
+        commlPolicy.CommlPolicySupplement['com.cna_LengthTimeIndustyManagement'].NumUnits = {};
+        commlPolicy.CommlPolicySupplement['com.cna_NumPowerUnitsOwned'].NumUnits.value = 0;
 
         // ====== Location Information ======
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Location = this.getLocations();
 
         // ====== Workers' Comp Line of Business Information ======
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.LOBCd.value = "WORK";
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].StateProvCd.value = business.mailing_territory;
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].NumEmployees.value = this.get_total_employees();
+        let WorkCompLineBusiness = wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness;
+        WorkCompLineBusiness.LOBCd.value = "WORK";
+        WorkCompLineBusiness.WorkCompRateState[0].StateProvCd.value = business.mailing_territory;
+        WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].NumEmployees.value = this.get_total_employees();
 
         // delete optional fields (not necessary for quoting)
-        delete wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.CurrentTermAmt; // .value | 10000
-        delete wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness['com.cna_PremiumTypeCd']; // .value | "EST"
-        delete wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness['com.cna_AnniversaryRatingDt']; // .value | "2020-09-27"
+        delete WorkCompLineBusiness.CurrentTermAmt; // .value | 10000
+        delete WorkCompLineBusiness['com.cna_PremiumTypeCd']; // .value | "EST"
+        delete WorkCompLineBusiness['com.cna_AnniversaryRatingDt']; // .value | "2020-09-27"
 
         // MOVING THIS CODE AWAY vvvvvv
         // if we have the rating classification code, set it, otherwise delete the property
         const keys = Object.keys(this.insurer_wc_codes);
         if (keys.length > 0) {
-            wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].RatingClassificationCd.value = this.insurer_wc_codes[keys[0]];
-        } else {
-            delete wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].RatingClassificationCd;
+            WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].RatingClassificationCd.value = this.insurer_wc_codes[keys[0]];
+        }
+        else {
+            delete WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].RatingClassificationCd;
         }
 
         // if we have the rating classification code description, set it, otherwise delete the property
         if (this.industry_code && this.industry_code.description) {
-            wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].RatingClassificationDescCd.value = this.industry_code.description;
-        } else {
-            delete wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].RatingClassificationDescCd;
+            WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].RatingClassificationDescCd.value = this.industry_code.description;
+        }
+        else {
+            delete WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].RatingClassificationDescCd;
         }
 
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].Exposure = this.get_total_payroll();
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].LocationRef = "L0";
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].NameInfoRef = nameInfoRefId;
+        WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].Exposure = this.get_total_payroll();
+        WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].LocationRef = "L0";
+        WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].NameInfoRef = nameInfoRefId;
 
         if (keys.length > 0) {
             const governingClassCd = this.insurer_wc_codes[keys[0]].substring(0, this.insurer_wc_codes[keys[0]].length - 1);
-            wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].GoverningClassCd = governingClassCd;
-        } else {
-            delete wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].GoverningClassCd;
+            WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].GoverningClassCd = governingClassCd;
         }
-        console.log(JSON.stringify(this.getWorkCompRateStates(), null, 4));
-        process.exit(-1);
-        // MOVING THIS CODE AWAY ^^^^^^
+        else {
+            delete WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].GoverningClassCd;
+        }
+        
 
         // ====== Coverage Information ======
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.CommlCoverage[0].CoverageCd.value = "WCEL";
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.CommlCoverage[0].Limit = this.getLimits(limits);
+        WorkCompLineBusiness.CommlCoverage[0].CoverageCd.value = "WCEL";
+        WorkCompLineBusiness.CommlCoverage[0].Limit = this.getLimits(limits);
 
         // ====== Questions ======
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.QuestionAnswer = this.getQuestionArray();
+        WorkCompLineBusiness.QuestionAnswer = this.getQuestionArray();
+
+
+        // log.debug(JSON.stringify(wcRequest));
+        //process.exit(-1);
+
+        // MOVING THIS CODE AWAY ^^^^^^
 
         // =================================================================
         //                        START QUOTE PROCESS
@@ -300,34 +343,38 @@ module.exports = class CnaWC extends Integration {
         }
 
         let result = null;
+        //NO USE OF CONSOL.LOG  - BP
         try {
 
-            console.log("=================== QUOTE REQUEST ===================");
-            console.log(JSON.stringify(wcRequest, null, 4));
-            console.log("=================== QUOTE REQUEST ===================");
+            log.debug("=================== QUOTE REQUEST ===================");
+            log.debug("CNA request: " + JSON.stringify(wcRequest, null, 4));
+            log.debug("=================== QUOTE REQUEST ===================");
 
             result = await this.send_json_request(HOST, QUOTE_URL, JSON.stringify(wcRequest), headers, "POST");
         }
         catch (error) {
-            console.log("=================== QUOTE ERROR ===================");
+            log.debug("=================== QUOTE ERROR ===================");
             const errorJSON = JSON.parse(error.response);
-            console.log(JSON.stringify(errorJSON, null, 4));
-            console.log("=================== QUOTE ERROR ===================");
+            //We do not want the formatting going into our centralized logging in production.
+            log.error("CNA WC send_json_request error " + JSON.stringify(errorJSON));
+            //log.error("CNA WC send_json_request error " + JSON.stringify(errorJSON, null, 4));
+            log.debug("=================== QUOTE ERROR ===================");
 
             let errorMessage = "";
             try {
                 errorMessage = `CNA: status code ${error.httpStatusCode}: ${errorJSON.InsuranceSvcRs[0].WorkCompPolicyQuoteInqRs[0].MsgStatus.MsgStatusDesc.value}`;
-            } catch (e) {
-                console.warn(`CNA: Error object doesn't have expected description path. ${e}.`);
+            }
+            catch (e) {
+                log.error(`CNA: Error object doesn't have expected description path. ${e}.`);
             }
 
             errorMessage = errorMessage ? errorMessage : "CNA: An error occurred while attempting to quote.";
             return this.client_declined(errorMessage);
         }
 
-        console.log("=================== QUOTE RESULT ===================");
-        console.log(JSON.stringify(result, null, 4));
-        console.log("=================== QUOTE RESULT ===================");
+        log.debug("=================== QUOTE RESULT ===================");
+        log.debug("CNA WC " + JSON.stringify(result, null, 4));
+        log.debug("=================== QUOTE RESULT ===================");
 
         let quoteNumber = null;
         let premium = null;
@@ -362,14 +409,16 @@ module.exports = class CnaWC extends Integration {
                         // get quote number (optional)
                         try {
                             quoteNumber = response.CommlPolicy.QuoteInfo.CompanysQuoteNumber.value;
-                        } catch (e) {
-                            console.warn(`CNA: Couldn't parse quote number: ${e}`);
+                        }
+                        catch (e) {
+                            log.warn(`CNA: Couldn't parse quote number: ${e}` + __location);
                         }
 
                         // get premium (required)
                         try {
                             premium = policySummary.FullTermAmt.Amt.value;
-                        } catch (e) {
+                        }
+                        catch (e) {
                             return this.client_error(`CNA: Couldn't parse premium from CNA response: ${e}.`);
                         }
 
@@ -387,17 +436,17 @@ module.exports = class CnaWC extends Integration {
                                         quoteLimits[3] = limit.FormatInteger.value;
                                         break;
                                     default:
-                                        console.warn(`CNA: Unexpected limit found in quote response. ${__location}`);
+                                        log.error(`CNA: Unexpected limit found in quote response. ${__location}`);
                                         break;
                                 }
                             });
-                        } catch (e) {
+                        }
+                        catch (e) {
                             return this.client_error(`CNA: Couldn't parse one or more limit values from response: ${e}.`);
                         }
                         
                         // get quote letter (optional) and quote MIME type (optional)
-                        let proposalURL = response.MsgStatus.ChangeStatus.find(change => 
-                            change.IdRef.hasOwnProperty("AttachmentTypeCd") && change.IdRef.AttachmentTypeCd.value === "QuoteProposal");
+                        let proposalURL = response.MsgStatus.ChangeStatus.find(change => change.IdRef.hasOwnProperty("AttachmentTypeCd") && change.IdRef.AttachmentTypeCd.value === "QuoteProposal");
                         if (proposalURL) {
                             proposalURL = proposalURL.IdRef.WebsiteURL.value;
                             const [quoteHost, quotePath] = this.splitUrl(proposalURL);
@@ -405,24 +454,28 @@ module.exports = class CnaWC extends Integration {
                             let quoteResult = null;
                             try {
                                 quoteResult = await this.send_json_request(quoteHost, quotePath, null, headers, "GET");
-                            } catch (e) {
-                                console.warn(`CNA: The request to retrieve the quote proposal letter failed: ${e}.`);
+                            }
+                            catch (e) {
+                                log.error(`CNA: The request to retrieve the quote proposal letter failed: ${e}.`);
                             }
 
                             try {
                                 quoteLetter = quoteResult.InsuranceSvcRs[0].ViewInqRs[0].FileAttachmentInfo[0]["com.cna.AttachmentData"].value;
-                            } catch (e) {
-                                console.warn(`CNA: There was an error parsing the quote letter: ${e}.`);
+                            }
+                            catch (e) {
+                                log.error(`CNA: There was an error parsing the quote letter: ${e}.`);
                             }
 
                             try {
                                 quoteMIMEType = quoteResult.InsuranceSvcRs[0].ViewInqRs[0].FileAttachmentInfo[0].MIMEEncodingTypeCd.value;
-                            } catch (e) {
-                                console.warn(`CNA: There was an error parsing the quote MIME type: ${e}.`);
+                            }
+                            catch (e) {
+                                log.error(`CNA: There was an error parsing the quote MIME type: ${e}.`);
                             }
 
-                        } else {
-                            console.warn(`CNA: Couldn't find proposal URL with successful quote status: ${response.MsgStatus.MsgStatusCd.value}. Change Status': ${JSON.stringify(response.MsgStatus.ChangeStatus, null, 4)}`);
+                        }
+                        else {
+                            log.error(`CNA: Couldn't find proposal URL with successful quote status: ${response.MsgStatus.MsgStatusCd.value}. Change Status': ${JSON.stringify(response.MsgStatus.ChangeStatus, null, 4)}`);
                         }
                         break;
                     case "notquotednotbound":
@@ -439,10 +492,12 @@ module.exports = class CnaWC extends Integration {
             // will either be issued or quotednotbound
             if (policyStatus === "issued") { 
                 return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType);
-            } else {
+            }
+            else {
                 return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType);
             }
-        } else {
+        }
+        else {
             return this.client_error(`CNA: Response doesn't include a policy status code.`);
         }
     }
@@ -450,33 +505,17 @@ module.exports = class CnaWC extends Integration {
     // transform our business locations array into location objects array to be inserted into the WC request Object
     getLocations() {
         // iterate over each location and transform it into a location object
-        return this.app.business.locations.map((location, i) => { 
-            return {
-                ItemIdInfo: {
-                    AgencyId: {
-                        value: `${this.app.agencyLocation.agencyId}`
-                    }
-                },
+        return this.app.business.locations.map((location, i) => ({
+                ItemIdInfo: {AgencyId: {value: `${this.app.agencyLocation.agencyId}`}},
                 Addr: {
-                    AddrTypeCd: [{
-                        value: "MailingAddress"
-                    }],
-                    Addr1: {
-                        value: `${location.address} ${location.address2}`.trim()
-                    },
-                    City: {
-                        value: location.city
-                    },
-                    StateProvCd: {
-                        value: location.territory
-                    },
-                    PostalCode: {
-                        value: location.zipcode
-                    }
+                    AddrTypeCd: [{value: "MailingAddress"}],
+                    Addr1: {value: `${location.address} ${location.address2}`.trim()},
+                    City: {value: location.city},
+                    StateProvCd: {value: location.territory},
+                    PostalCode: {value: location.zipcode}
                 },
                 id: `L${i}` 
-            }
-        });
+            }));
     }
 
     /*
@@ -526,12 +565,8 @@ module.exports = class CnaWC extends Integration {
         // for each limit, create a limit object with the limit value and applyTo code
         limits.forEach((limit, i) => {
             limitArray.push({
-                FormatInteger: {
-                    value: limit
-                },
-                LimitAppliesToCd: [{
-                    value: LIMIT_CODES[i]
-                }]
+                FormatInteger: {value: limit},
+                LimitAppliesToCd: [{value: LIMIT_CODES[i]}]
             }); 
         });
 
@@ -548,42 +583,38 @@ module.exports = class CnaWC extends Integration {
 
         // mapping answered questions to request question objects
         return answeredQuestions.map(question => {
-            let questionAnswerObj = {
-                QuestionCd: {
-                    value: this.question_identifiers[question.id]
-                }
-            };
+            let questionAnswerObj = {QuestionCd: {value: this.question_identifiers[question.id]}};
+            // eslint-disable-next-line no-unused-expressions
             question.type === 'Yes/No' ? 
-                questionAnswerObj.YesNoCd = { value: question.answer.toUpperCase() } :
-                questionAnswerObj['com.cna_OptionCd'] = { value: question.answer };
+                questionAnswerObj.YesNoCd = {value: question.answer.toUpperCase()} :
+                questionAnswerObj['com.cna_OptionCd'] = {value: question.answer};
 
             return questionAnswerObj;
         });
     }
 
     async auth() {
-        const data = {
-            "id": "11248"
-        }
-        const headers = {
-            headers: {
+        const data = {"id": "11248"}
+        const headers = {headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Basic VEFMQUdBUEk6VEdhOTU4M2h3OTM3MTghIw=='
-            }
-        }
+            }}
         try {
             // const result = await this.send_json_request(HOST, AUTH_URL, JSON.stringify(data), headers, 'POST', false);
 
             const result = await axios.post('https://drt-apis.cna.com/security/external-token/small-business', data, headers);
             return result.data.access_token;
-        } catch (err) {
+        }
+        catch (err) {
+            //WHERE IS THE ERROR LOG - BP
+
             return `CNA Error: Could Not Authorize: ${err}`;
         }
     }
 
     splitUrl(url) {
         if (!url) {
-            console.warn(`CNA: Supplied url is not defined and cannot be split into host and path.`);
+            log.warn(`CNA: Supplied url is not defined and cannot be split into host and path.`);
             return [];
         }
 
@@ -594,15 +625,17 @@ module.exports = class CnaWC extends Integration {
         try {
             if (url.indexOf("https") !== -1) {
                 protocalIndex = url.indexOf("https") + 8;
-            } else if (url.indexOf("http") !== -1) {
+            }
+        else if (url.indexOf("http") !== -1) {
                 protocalIndex = url.indexOf("http") + 7;
             }
             const splitIndex = url.indexOf("com") + 3;
 
             host = url.substring(protocalIndex, splitIndex);
             path = url.substring(splitIndex, url.length);
-        } catch (e) {
-            console.warn(`CNA: There was an error splitting the supplied url: ${e}.`);
+        }
+        catch (e) {
+            log.warn(`CNA: There was an error splitting the supplied url: ${e}.`);
         }
 
         return [host, path];
