@@ -1134,7 +1134,7 @@ module.exports = class Integration {
                 if (result && Object.prototype.hasOwnProperty.call(result, 'code') && result.code === 'Success') {
                     columns.push('quote_letter');
                     values.push(fileName);
-                    quoteJSON.quoteLetter = this.fileName
+                    quoteJSON.quoteLetter = fileName
                 }
             }
             catch (err) {
