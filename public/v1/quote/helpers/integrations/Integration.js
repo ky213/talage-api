@@ -1881,6 +1881,7 @@ module.exports = class Integration {
             }
             if (!result || !result.length) {
                 // No industry codes
+                log.error(`_insurer_supports_industry_codes failed on application that passed validation. query ${sql}  ` + __location);
                 fulfill(false);
                 return;
             }
