@@ -9,7 +9,6 @@ const regex = /^[1-9]\d*$/;
  * @returns {Boolean} - True if valid, false otherwise
  */
 module.exports = async function(id){
-    log.info('Agent validator test');
     if(regex.test(id)){
         let hadError = false;
         const sql = `SELECT COUNT(${db.quoteName('id')}) FROM ${db.quoteName('#__agency_locations')} WHERE ${db.quoteName('id')} = ${db.escape(id)} AND ${db.quoteName('state')} = 1 LIMIT 1;`;

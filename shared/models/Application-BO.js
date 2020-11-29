@@ -996,12 +996,6 @@ module.exports = class ApplicationModel {
                 saveBusinessData = true;
             }
             const agencyNetworkId = requestApplicationJSON.agencyNetworkId;
-            // try{
-            //     agencyNetworkId = await this.getAgencyNewtorkIdById(this.id);
-            // }
-            // catch(err){
-            //     log.error(`Error getting agencyNetworkId, application - ${this.id} ` + err + __location)
-            // }
             //Only process AF call if digalent.
             if (agencyNetworkId === 2) {
                 const businessInfoRequestJSON = {"company_name": requestApplicationJSON.businessInfo.name};
@@ -2345,29 +2339,28 @@ module.exports = class ApplicationModel {
         });
     }
 
-    async getAgencyNewtorkIdById(id) {
+    getAgencyNewtorkIdById(id) {
         return new Promise(async(resolve, reject) => {
-
-            let rejected = false;
-
-            const sql = `
-            select ag.agency_network from clw_talage_applications a
-            inner join clw_talage_agencies ag on ag.id = a.agency
-            where a.id = ${db.escape(id)}
-            `;
-            const result = await db.query(sql).catch(function(error) {
-                rejected = true;
-                log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
-                reject(error);
-            });
-            if (rejected) {
-                return;
-            }
-            if (result && result.length > 0) {
-                resolve(result[0].agency_network)
+            if(id && id > 0){
+                let agencyNetworkId = 0;
+                try{
+                    const appDoc = await this.loadfromMongoBymysqlId(id)
+                    agencyNetworkId = appDoc.agencyNetworkId;
+                }
+                catch(err){
+                    log.error(`this.loadfromMongoBymysqlId ${id} error ` + err + __location)
+                }
+                if (agencyNetworkId > 0) {
+                    resolve(agencyNetworkId)
+                }
+                else {
+                    log.error(`this.loadfromMongoBymysqlId App Not Found mysqlId ${id} ${agencyNetworkId} ` + __location)
+                    reject(new Error(`App Not Found mysqlId ${id} ${agencyNetworkId}`));
+                }
             }
             else {
-                rejected(new Error("Not Found"));
+                log.error(`getAgencyNewtorkIdById no ID supplied  ${id}` + __location);
+                reject(new Error(`App Not Found mysqlId ${id}`));
             }
         });
     }

@@ -649,9 +649,15 @@ async function applicationCopy(req, res, next) {
 }
 
 async function deleteObject(req, res, next) {
-    const id = stringFunctions.santizeNumber(req.params.id, true);
+    let id = stringFunctions.santizeNumber(req.params.id, true);
     if (!id) {
         return next(new Error("bad parameter"));
+    }
+    try{
+        id = parseInt(id, 10);
+    }
+    catch(err){
+        log.error("App delete object bad id error: " + error + __location);
     }
     //Deletes only by AgencyNetwork Users.
 
