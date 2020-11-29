@@ -10,6 +10,7 @@ const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const tracker = global.requireShared('./helpers/tracker.js');
 
 const AgencyBO = global.requireShared('models/Agency-BO.js');
+const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const ApplicationBO = global.requireShared('models/Application-BO.js');
 
 /**
@@ -68,31 +69,16 @@ var dailyDigestTask = async function(){
     const yesterdayBegin = moment.tz("America/Los_Angeles").subtract(1,'d').startOf('day');
     const yesterdayEnd = moment.tz("America/Los_Angeles").subtract(1,'d').endOf('day');
 
-    // SQLAgency locations
-    const alSQL = `
-    SELECT
-        al.id alid,
-        al.agency,
-        al.email AS agencyLocationEmail,
-        ag.email AS agencyEmail,
-        ag.agency_network as agency_network
-    FROM clw_talage_agency_locations AS al
-        INNER JOIN clw_talage_agencies AS ag ON al.agency = ag.id
-    WHERE 
-        al.state = 1
-    `;
-
-    let alDBJSON = null;
-
-    alDBJSON = await db.query(alSQL).catch(function(err){
+    let agencyLocationList = null;
+    const agencyLocationBO = new AgencyLocationBO();
+    agencyLocationList = await agencyLocationBO.getCurrentLocationsLimited().catch(function(err){
         log.error(`Error get agency location list from DB. error:  ${err}` + __location);
         return false;
     });
-    // TODO Load list of AgencyNetworks.  create brandMap [agencyNetworkId, brandName];
-    // Loop locations
-    if(alDBJSON && alDBJSON.length > 0){
-        for(let i = 0; i < alDBJSON.length; i++){
-            const agencyLocationDB = alDBJSON[i];
+
+    if(agencyLocationList && agencyLocationList.length > 0){
+        for(let i = 0; i < agencyLocationList.length; i++){
+            const agencyLocationDB = agencyLocationList[i];
             // process each agency location. make sure we have a good record
             if(agencyLocationDB && agencyLocationDB.alid && agencyLocationDB.agency_network && (agencyLocationDB.agencyLocationEmail || agencyLocationDB.agencyEmail)){
                 await processAgencyLocation(agencyLocationDB, yesterdayBegin, yesterdayEnd).catch(function(err){
@@ -100,7 +86,7 @@ var dailyDigestTask = async function(){
                 })
             }
             else {
-                log.error("Bad Agency Location record Daily Digest. AL: " + JSON.stringify(alDBJSON[i]) + __location);
+                log.error("Bad Agency Location record Daily Digest. AL: " + JSON.stringify(agencyLocationList[i]) + __location);
             }
         }
     }
