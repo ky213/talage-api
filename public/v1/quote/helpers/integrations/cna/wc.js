@@ -29,6 +29,8 @@ const wcRequest = require('./wc_request.json');
  *  Content-Type - application/json
  *  Accept - application/json
 */
+
+//TODO: Implement url / cred swap between dev and prod 
 const HOST = 'drt-apis.cna.com';
 const QUOTE_URL = '/policy/small-business/full-quote';
 const AUTH_URL = '/security/external-token/small-business';
@@ -164,12 +166,6 @@ module.exports = class CnaWC extends Integration {
             wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Producer[0].ProducerInfo.ProducerSubCode.value = "AGT";
             wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Producer[0].ProducerInfo['com.cna_branchCode'][0].value = "010";
             wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Producer[0].ProducerInfo['com.cna_branchLabel'][0].value = "AI";
-      
-       
-            //NOTE: Sections of the JSON processing would be wrapped in try/catch so we know where it failed.
-            // The happy day code will leave guesses  - BP
-
-            //Defensive Coding....   Too many assumptions about things existing.  - BP
 
             // ====== Agency API Information ======
             wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].ItemIdInfo.AgencyId.value = "018297-010"; // (reverse of producer-branch-code)
