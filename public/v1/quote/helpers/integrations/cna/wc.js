@@ -119,7 +119,7 @@ module.exports = class CnaWC extends Integration {
             for (const activityCode of location.activity_codes) {
                 const ncciCode = await this.get_ncci_code_from_activity_code(location.territory, activityCode.id);
                 if (!ncciCode) {
-                    return this.client_error(`Unable to locate an NCCI code for activity code ${activityCode.id}.`);
+                    return this.client_error(`CNA: Unable to locate an NCCI code for activity code ${activityCode.id}.`);
                 }
                 activityCode.ncciCode = ncciCode;
             }
@@ -185,10 +185,10 @@ module.exports = class CnaWC extends Integration {
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].City.value = business.mailing_city;
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].StateProvCd.value = business.mailing_territory;
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].PostalCode.value = business.mailing_zipcode;
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].County.value = business.mailing_territory; // TODO: Should be actual county information when we start storing that
+        // TODO: Should be actual county information when we start storing that
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Addr[0].County.value = business.mailing_territory; 
 
         // ====== Business Contact Information ======
-        // NOTE: may need phone number to be in the format "+1-812-2222222"
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Communications.PhoneInfo[0].PhoneNumber.value = `${business.contacts[0].phone}`;
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Communications.EmailInfo[0].EmailAddr.value = business.contacts[0].email;
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.Communications.WebsiteInfo[0].WebsiteURL.value = business.website;
@@ -245,31 +245,7 @@ module.exports = class CnaWC extends Integration {
         delete wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness['com.cna_PremiumTypeCd']; // .value | "EST"
         delete wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness['com.cna_AnniversaryRatingDt']; // .value | "2020-09-27"
 
-        // if we have the rating classification code, set it, otherwise delete the property
-        const keys = Object.keys(this.insurer_wc_codes);
-        if (keys.length > 0) {
-            wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].RatingClassificationCd.value = this.insurer_wc_codes[keys[0]];
-        } else {
-            delete wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].RatingClassificationCd;
-        }
-
-        // if we have the rating classification code description, set it, otherwise delete the property
-        if (this.industry_code && this.industry_code.description) {
-            wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].RatingClassificationDescCd.value = this.industry_code.description;
-        } else {
-            delete wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].RatingClassificationDescCd;
-        }
-
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].WorkCompRateClass[0].Exposure = this.get_total_payroll();
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].LocationRef = "L0";
-        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].NameInfoRef = nameInfoRefId;
-
-        if (keys.length > 0) {
-            const governingClassCd = this.insurer_wc_codes[keys[0]].substring(0, this.insurer_wc_codes[keys[0]].length - 1);
-            wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].GoverningClassCd = governingClassCd;
-        } else {
-            delete wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].GoverningClassCd;
-        }
+        wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState = this.getWorkCompRateStates();
 
         // ====== Coverage Information ======
         wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.CommlCoverage[0].CoverageCd.value = "WCEL";
@@ -467,6 +443,63 @@ module.exports = class CnaWC extends Integration {
                 id: `L${i}` 
             }
         });
+    }
+
+    // generates the array of WorkCompRateState objects
+    getWorkCompRateStates() {
+        const workCompRateStates = [];
+
+        for (const [index, location] of Object.entries(this.app.business.locations)) {
+            const wcrs = {
+                StateProvCd: {
+                    value: location.territory
+                },
+                WorkCompLocInfo: this.getWorkCompLocInfo(location, index),
+            }
+            const firstNCCICode = location.activity_codes[0].ncciCode;
+            wcrs.GoverningClassCd = {
+                value: firstNCCICode.substring(0, firstNCCICode.length - 1)
+            }
+            workCompRateStates.push(wcrs);
+        }
+
+        return workCompRateStates;    
+    }
+
+    // generates the WorkCompLocInfo objets
+    getWorkCompLocInfo(location, index) {        
+        const wcli = {
+            NumEmployees: {
+                value: location.full_time_employees + location.part_time_employees
+            },
+            WorkCompRateClass: [],
+            LocationRef: `L${index}`,
+            NameInfoRef: this.getNameRef(index)
+        }
+
+        for (const activityCode of location.activity_codes) {
+            const wcrc = {
+                RatingClassificationCd: {
+                    value: activityCode.ncciCode
+                }, 
+                Exposure: `${activityCode.payroll}`,
+            }
+
+            wcli.WorkCompRateClass.push(wcrc);
+        }
+
+        return [wcli];
+    }
+
+    // generates the NameRef based off the index of the records being created
+    getNameRef(index) {
+        if (index >= 100) {
+            return `N${index}`;
+        } else if (index >= 10) {
+            return `N0${index}`;
+        } else {
+            return `N00${index}`;
+        }
     }
 
     // transform our policy limit selection into limit objects array to be inserted into the WC Request Object
