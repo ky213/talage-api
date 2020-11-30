@@ -180,28 +180,13 @@ module.exports = class CnaWC extends Integration {
         }
 
         // ====== General Business Information ======
-        try{
-            // Make this easier to read by Getting the GeneralPartyInfo reference.  Instead of constantly using the full path the extend off the viewable  page (120 characters )
+        try {
             // eslint-disable-next-line prefer-const
             let generalPartyInfo = wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo;
             generalPartyInfo.NameInfo[0].CommlName.CommercialName.value = business.name;
             generalPartyInfo.NameInfo[0].LegalEntityCd.value = legalEntityCodes[business.entity_type];
         
-            const taxIdentity = this.getTaxIdentity();
-
-            if (taxIdentity) {
-                generalPartyInfo.NameInfo[0].TaxIdentity = taxIdentity;
-            } else {
-                delete generalPartyInfo.NameInfo[0].TaxIdentity;
-            }
-
-            let taxIdentityInfo = generalPartyInfo.NameInfo[0].TaxIdentity[0];
-            //We have a reference to the Mongo Doc use it. - BP
-            // if(this.app.applicationDocData.hasEin === false){
-            //     //TODO get CNA - value for SSN CNA does only mention FEIN - BP
-            //     //taxIdentityInfo.TaxIdTypeCd.value = "SSN"
-            // }
-            taxIdentityInfo.TaxId.value = this.app.applicationDocData.ein;
+            generalPartyInfo.NameInfo[0].TaxIdentity = this.getTaxIdentity();
             
             if (business.dba) {
                 generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryNameCd.value = 'DBA';
@@ -513,11 +498,16 @@ module.exports = class CnaWC extends Integration {
             }));
     }
 
-    // generates the tax identity object array, returns null if unable to 
+    // generates the tax identity object array, returns returns empty array if SSN 
     getTaxIdentity() {
+
+        if (!this.app.applicationDocData.hasEin) {
+            return [];
+        }
+
         const taxIdentity = {
             TaxIdTypeCd: {
-                value: this.app.applicationDocData.hasEin ? "FEIN" : "SSN"
+                value: "FEIN"
             },
             TaxId: {
                 value: this.app.applicationDocData.ein
