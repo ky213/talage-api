@@ -7,6 +7,7 @@ const serverHelper = require('../../../server.js');
 const emailsvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
+const AgencyBO = global.requireShared('models/Agency-BO.js');
 
 /**
  * Returns a limited life JWT for restting a user's password
@@ -37,12 +38,11 @@ async function PostResetPassword(req, res, next){
     const emailHash = await crypt.hash(req.body.email);
     const sql = `
 			SELECT
-				apu.id,
-                IFNULL(\`a\`.\`agency_network\`, \`an\`.\`id\`) AS \`agency_network\`
-			FROM \`#__agency_portal_users\` AS \`apu\`
-			LEFT JOIN \`#__agencies\` AS \`a\` ON \`a\`.\`id\` = \`apu\`.\`agency\`
-			LEFT JOIN \`#__agency_networks\` AS \`an\` ON \`an\`.\`id\` = \`apu\`.\`agency_network\`
-			WHERE \`email_hash\` = ${db.escape(emailHash)} LIMIT 1;
+				id,
+                agency_network,
+                agency
+			FROM clw_talage_agency_portal_users
+			WHERE email_hash = ${db.escape(emailHash)} LIMIT 1;
 		`;
     const result = await db.query(sql).catch(function(e){
         log.error(e.message);
@@ -59,11 +59,25 @@ async function PostResetPassword(req, res, next){
 
         // Create a limited life JWT
         const token = jwt.sign({'userID': result[0].id}, global.settings.AUTH_SECRET_KEY, {'expiresIn': '15m'});
+        let agencyNetworkId = result[0].agency_network
+        //load agencyBO if we do not have
+        if(!agencyNetworkId && result[0].agency){
+            try{
+            // Load the request data into it
+                const agencyBO = new AgencyBO();
+                const agency = await agencyBO.getById(result[0].agency);
+                agencyNetworkId = agency.agency_network;
+            }
+            catch(err){
+                log.error("agencyBO.getById load error " + err + __location);
+            }
+        }
+
         //load AgencyNetworkBO
         const agencyNetworkBO = new AgencyNetworkBO();
         //just so getEmailContent works.
-        const agencyNetworkEnvSettings = await agencyNetworkBO.getEnvSettingbyId(result[0].agency_network).catch(function(err){
-            log.error(`Unable to get email content for New Agency Portal User. agency_network: ${result[0].agency_network}.  error: ${err}` + __location);
+        const agencyNetworkEnvSettings = await agencyNetworkBO.getEnvSettingbyId(agencyNetworkId).catch(function(err){
+            log.error(`Unable to get email content for New Agency Portal User. agency_network: ${agencyNetworkId}.  error: ${err}` + __location);
             error = true;
         });
         if(error){

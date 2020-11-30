@@ -10,6 +10,7 @@ const serverHelper = require('../../../server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const AgencyPortalUserGroupBO = global.requireShared('models/AgencyPortalUserGroup-BO.js');
+const AgencyBO = global.requireShared('./models/Agency-BO.js');
 
 /**
  * Responds to get requests for an authorization token
@@ -126,21 +127,22 @@ async function createToken(req, res, next){
 
     // Store a local copy of the agency network ID .
     let agencyNetworkId = payload.agencyNetwork;
-
+    const agencyBO = new AgencyBO();
     // For agency networks get the agencies they are allowed to access
     if (payload.agencyNetwork) {
-        // Build and execute the query
-        const agenciesSQL = `
-			SELECT \`id\`
-			FROM \`#__agencies\`
-			WHERE \`agency_network\` = ${db.escape(payload.agencyNetwork)} AND \`state\` > 0;
-		`;
-        const agencies = await db.query(agenciesSQL).catch(function(e) {
-            log.error(e.message + __location);
-            res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
-            error = true;
-        });
+        let agencies = null;
+        try{
+
+            // Load the request data into it
+            agencies = await agencyBO.getByAgencyNetwork(payload.agencyNetwork);
+        }
+        catch(err){
+            log.error("agencyBO.getByAgencyNetwork load error " + err + __location);
+            error = serverHelper.internalError('Error querying database. Check logs.');
+        }
+
         if (error) {
+            res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
             return next(false);
         }
 
@@ -158,32 +160,30 @@ async function createToken(req, res, next){
         payload.canSign = Boolean(agencyPortalUserResult[0].can_sign);
 
         // Determine whether or not the user needs to sign a wholesale agreement
-        const wholesaleSQL = `
-			SELECT
-				\`agency_network\`,
-				\`wholesale\` ,
-				\`wholesale_agreement_signed\`
-			FROM \`#__agencies\`
-			WHERE \`id\` = ${db.escape(agencyPortalUserResult[0].agency)} AND \`state\` > 0
-			LIMIT 1;
-		`;
-        const wholesaleInfo = await db.query(wholesaleSQL).catch(function(e) {
-            log.error(e.message + __location);
-            res.send(500, serverHelper.internalError('Error querying database. Check logs.'));
-            error = true;
-        });
+        let agency = null;
+        try{
+            // Load the request data into it
+            agency = await agencyBO.getById(agencyPortalUserResult[0].agency);
+        }
+        catch(err){
+            log.error("agencyBO.getByAgencyNetwork load error " + err + __location);
+            error = serverHelper.internalError('Error querying database. Check logs.');
+        }
         if (error) {
             return next(false);
         }
 
-        // Only agencies who have wholesale enabled and have not signed before should be required to sign
-        // Only for for Digalent is the process handle in the software.
-        if (wholesaleInfo[0].agency_network === 2 && wholesaleInfo[0].wholesale && !wholesaleInfo[0].wholesale_agreement_signed) {
-            payload.signatureRequired = true;
+        if(agency){
+            // Only agencies who have wholesale enabled and have not signed before should be required to sign
+            // Only for for Digalent is the process handle in the software.
+            if (agency.agency_network === 2 && agency.wholesale && !agency.wholesale_agreement_signed) {
+                payload.signatureRequired = true;
+            }
+
+            // Store the agency network ID locally for later use
+            agencyNetworkId = agency.agency_network;
         }
 
-        // Store the agency network ID locally for later use
-        agencyNetworkId = wholesaleInfo[0].agency_network;
     }
 
 

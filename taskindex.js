@@ -167,7 +167,7 @@ async function startQueueProcessing() {
     // local development of tasks run one of the task.
     if(global.settings.ENV === 'development' && global.settings.RUN_LOCAL_TASK && global.settings.RUN_LOCAL_TASK === 'YES'){
         log.debug('Auto Running Task');
-        const taskJson = {"taskname": "abandonquote"};
+        const taskJson = {"taskname": "dailydigest"};
         const messageTS = moment().utc().valueOf();
         const messageAtributes = {"SentTimestamp": messageTS};
         const testMessage = {
