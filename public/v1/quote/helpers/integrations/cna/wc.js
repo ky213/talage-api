@@ -10,10 +10,6 @@
 /* eslint multiline-comment-style: 0 */
 const axios = require('axios');
 
-//Use share reference. - BP
-//const utility = require('../../../../../../shared/helpers/utility');
-// const cnaWCTemplate = require('jsrender').templates('./public/v1/quote/helpers/integrations/cna/wc_request.xmlt');
-// const converter = require('xml-js');
 const Integration = require('../Integration.js');
 
 // import template WC request JSON object. Fields not set below are defaulted to values in the template
@@ -37,7 +33,6 @@ const HOST = 'drt-apis.cna.com';
 const QUOTE_URL = '/policy/small-business/full-quote';
 const AUTH_URL = '/security/external-token/small-business';
 
-//TODO: Ensure this is the proper order
 const LIMIT_CODES = [
     'BIEachOcc',
     'DisPol',
@@ -67,7 +62,7 @@ const legalEntityCodes = {
     "Sole Propietorship": "SP"
 }   
 
-// Dedubctible by state (no deductables for WC)
+// Deductible by state (no deductables for WC, keeping for GL/BOP)
 const stateDeductables = {
     "AL": [100, 200, 300, 400, 500, 1000, 1500, 2000, 2500],     
     "AR": [1000, 1500, 2000, 2500, 3000, 3500, 4000, 4500, 5000],     
@@ -137,13 +132,17 @@ module.exports = class CnaWC extends Integration {
         }
 
         /*
-            TODO LIST: FIND OUT WHAT THESE VALUES ARE AND HOW TO GET THEM:
+            TODO LIST: 
+            
+            FIND OUT WHAT THESE VALUES ARE AND HOW TO GET THEM:
             - Policy - Power Unit (Number Units, Exposure in Monopolistic States): [0 - 999]; and YES; NO; | 100 YES (Ask Adam and Christen)
             |__> com.cna_NumPowerUnitsOwned.NumUnits.value
             |__> QuestionCd.value='com.cna_MonopolisticInd'.YesNoCd
-        */
 
-        // TODO: GO THROUGH DEFAULTED FIELDS IN TEMPLATE AND REMOVE OPTIONAL ONES, EXPLICITLY SET REQUIRED ONES (EVEN IF NO CHANGE)
+            GO THROUGH DEFAULTED FIELDS IN TEMPLATE AND REMOVE OPTIONAL ONES, EXPLICITLY SET REQUIRED ONES (EVEN IF NO CHANGE)
+
+            REMOVE UNNECESSARY OR TOO-VERBOSE LOGGING (WHEN FINISHED TESTING)
+        */
 
         // =================================================================
         //                     FILL OUT REQUEST OBJECT
@@ -187,17 +186,13 @@ module.exports = class CnaWC extends Integration {
             let generalPartyInfo = wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo;
             generalPartyInfo.NameInfo[0].CommlName.CommercialName.value = business.name;
             generalPartyInfo.NameInfo[0].LegalEntityCd.value = legalEntityCodes[business.entity_type];
-            
-            // How do we quote without FEIN?  - BP
-            //delete wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo.NameInfo[0].TaxIdentity;
         
-            if (!generalPartyInfo.NameInfo[0].TaxIdentity) {
-                generalPartyInfo.NameInfo[0].TaxIdentity = [];
-                const taxIdJSON = {
-                            "TaxIdTypeCd": {"value": "FEIN"},
-                            "TaxId": {"value": "595976858"}
-                        };
-                generalPartyInfo.NameInfo[0].TaxIdentity.push(taxIdJSON)
+            const taxIdentity = this.getTaxIdentity();
+
+            if (taxIdentity) {
+                generalPartyInfo.NameInfo[0].TaxIdentity = taxIdentity;
+            } else {
+                delete generalPartyInfo.NameInfo[0].TaxIdentity;
             }
 
             let taxIdentityInfo = generalPartyInfo.NameInfo[0].TaxIdentity[0];
@@ -329,6 +324,7 @@ module.exports = class CnaWC extends Integration {
         // authenticate with CNA before running quote
         const jwt = await this.auth();
         if (jwt.includes("Error")) {
+            log.error(jwt);
             this.client_connection_error(__location, jwt);
         }
 
@@ -341,21 +337,22 @@ module.exports = class CnaWC extends Integration {
         }
 
         let result = null;
-        //NO USE OF CONSOL.LOG  - BP
+
         try {
 
-            // log.debug("=================== QUOTE REQUEST ===================");
-            // log.debug("CNA request: " + JSON.stringify(wcRequest, null, 4));
-            // log.debug("=================== QUOTE REQUEST ===================");
+            log.debug("=================== QUOTE REQUEST ===================");
+            log.debug("CNA request: " + JSON.stringify(wcRequest, null, 4));
+            log.debug("=================== QUOTE REQUEST ===================");
 
             result = await this.send_json_request(HOST, QUOTE_URL, JSON.stringify(wcRequest), headers, "POST");
         }
         catch (error) {
             log.debug("=================== QUOTE ERROR ===================");
             const errorJSON = JSON.parse(error.response);
-            //We do not want the formatting going into our centralized logging in production.
-            log.error("CNA WC send_json_request error " + JSON.stringify(errorJSON));
-            //log.error("CNA WC send_json_request error " + JSON.stringify(errorJSON, null, 4));
+            // We do not want the formatting going into our centralized logging in production.
+            // TODO: use this commented line instead of the formatted line below when ready...
+            // log.error("CNA WC send_json_request error " + JSON.stringify(errorJSON));
+            log.error("CNA WC send_json_request error " + JSON.stringify(errorJSON, null, 4));
             log.debug("=================== QUOTE ERROR ===================");
 
             let errorMessage = "";
@@ -516,6 +513,20 @@ module.exports = class CnaWC extends Integration {
             }));
     }
 
+    // generates the tax identity object array, returns null if unable to 
+    getTaxIdentity() {
+        const taxIdentity = {
+            TaxIdTypeCd: {
+                value: this.app.applicationDocData.hasEin ? "FEIN" : "SSN"
+            },
+            TaxId: {
+                value: this.app.applicationDocData.ein
+            }
+        }
+    
+        return [taxIdentity];
+    }
+
     // generates the array of WorkCompRateState objects
     getWorkCompRateStates() {
         const workCompRateStates = [];
@@ -614,19 +625,17 @@ module.exports = class CnaWC extends Integration {
 
     async auth() {
         const data = {"id": "11248"}
-        const headers = {headers: {
+        const headers = {
+            headers: {
                 'Content-Type': 'application/json',
                 'Authorization': 'Basic VEFMQUdBUEk6VEdhOTU4M2h3OTM3MTghIw=='
-            }}
+            }
+        }
         try {
-            // const result = await this.send_json_request(HOST, AUTH_URL, JSON.stringify(data), headers, 'POST', false);
-
-            const result = await axios.post('https://drt-apis.cna.com/security/external-token/small-business', data, headers);
+            const result = await axios.post(`https://${HOST}${AUTH_URL}`, data, headers);
             return result.data.access_token;
         }
         catch (err) {
-            //WHERE IS THE ERROR LOG - BP
-
             return `CNA Error: Could Not Authorize: ${err}`;
         }
     }
@@ -639,15 +648,18 @@ module.exports = class CnaWC extends Integration {
 
         let host = "";
         let path = "";
+
+        // default to 0, no http:// or https:// included
         let protocalIndex = 0;
 
         try {
             if (url.indexOf("https") !== -1) {
                 protocalIndex = url.indexOf("https") + 8;
             }
-        else if (url.indexOf("http") !== -1) {
+            else if (url.indexOf("http") !== -1) {
                 protocalIndex = url.indexOf("http") + 7;
             }
+
             const splitIndex = url.indexOf("com") + 3;
 
             host = url.substring(protocalIndex, splitIndex);
