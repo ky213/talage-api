@@ -8,14 +8,7 @@ const moment = require('moment');
 const clonedeep = require('lodash.clonedeep');
 
 const DatabaseObject = require('./DatabaseObject.js');
-const BusinessModel = require('./Business-model.js');
-const BusinessContactModel = require('./BusinessContact-model.js');
-const BusinessAddressModel = require('./BusinessAddress-model.js');
-const BusinessAddressActivityCodeModel = require('./BusinessAddressActivityCode-model.js');
-const ApplicationActivityCodesModel = require('./ApplicationActivityCodes-model.js');
-const ApplicationPolicyTypeBO = require('./ApplicationPolicyType-BO.js');
-const LegalAcceptanceModel = require('./LegalAcceptance-model.js');
-const ApplicationClaimBO = require('./ApplicationClaim-BO.js');
+
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 //const status = global.requireShared('./models/application-businesslogic/status.js');
 const afBusinessdataSvc = global.requireShared('services/af-businessdata-svc.js');
@@ -298,21 +291,6 @@ module.exports = class ApplicationModel {
                     applicationJSON.appStatusId = 0;
                     //setup business special case need new business ID back.
                     if (applicationJSON.businessInfo) {
-                        //load business
-                        const businessModel = new BusinessModel();
-                        // 1st step might have a business ID or appID if user looped back
-                        if (applicationJSON.business) {
-                            applicationJSON.businessInfo.id = this.business;
-                        }
-                        await businessModel.saveBusiness(applicationJSON.businessInfo).catch(function(err) {
-                            log.error("Creating new business error:" + err + __location);
-                            reject(err);
-                        })
-                        applicationJSON.business = businessModel.id;
-                        if (applicationJSON.business === 0) {
-                            reject(new Error('Error create Business record ' + __location))
-                            return;
-                        }
                         await this.processMongooseBusiness(applicationJSON.businessInfo)
                     }
                     else {
@@ -397,10 +375,6 @@ module.exports = class ApplicationModel {
                     break;
                 case 'questions':
                     if (applicationJSON.questions) {
-                        await this.processQuestions(applicationJSON.questions).catch(function(err) {
-                            log.error('Adding Questions error:' + err + __location);
-                            reject(err);
-                        });
 
                         await this.processQuestionsMongo(applicationJSON.questions).catch(function(err) {
                             log.error('Adding Questions error:' + err + __location);
@@ -415,15 +389,17 @@ module.exports = class ApplicationModel {
                     applicationJSON.status = 'questions_done';
                     applicationJSON.appStatusId = 10;
                     if (applicationJSON.wholesale === 1 || applicationJSON.solepro === 1) {
-                        //save the app for the email.
-                        this.#dbTableORM.load(applicationJSON, false).catch(function(err) {
-                            log.error("Error loading application orm " + err + __location);
-                        });
-                        //save
-                        await this.#dbTableORM.save().catch(function(err) {
-                            reject(err);
-                        });
+                        this.mapToMongooseJSON(applicationJSON)
+                        if (this.#applicationMongooseDB) {
+                            //update
+                            await this.updateMongo(this.#applicationMongooseDB.applicationId, this.#applicationMongooseJSON)
+                        }
+                        else {
+                            //insert
+                            await this.insertMongo(this.#applicationMongooseJSON)
+                        }
 
+                        // save mongo before calls.
                         // Email decision.  Where is wholesale or solepro decision made and saved //if wholesale or solepro - launch email tasks
                         if (applicationJSON.wholesale === 1) {
                             log.debug("sending wholesale email for AppId " + this.id);
@@ -461,11 +437,7 @@ module.exports = class ApplicationModel {
             }
             if (updateBusiness === true) {
                 if (applicationJSON.businessInfo) {
-                    applicationJSON.businessInfo.id = this.business;
-                    await this.processBusiness(applicationJSON.businessInfo).catch(function(err) {
-                        log.error("updating business error:" + err + __location);
-                        reject(err);
-                    });
+                    await this.processMongooseBusiness(applicationJSON.businessInfo);
                     delete applicationJSON.businessInfo
                 }
             }
@@ -554,30 +526,6 @@ module.exports = class ApplicationModel {
         }
     }
 
-    /**
-    * update business object
-    *
-    * @param {object} businessInfo - businessInfo JSON
-    * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessModel , or an Error if rejected
-    */
-    processBusiness(businessInfo) {
-        return new Promise(async(resolve, reject) => {
-            if (!businessInfo.id) {
-                reject(new Error("no business id"));
-                return;
-            }
-            const businessModel = new BusinessModel();
-            await businessModel.saveBusiness(businessInfo).catch(function(err) {
-                log.error("Updating new business error:" + err + __location);
-                reject(err);
-                return;
-            });
-            await this.processMongooseBusiness(businessInfo)
-
-
-            resolve(businessModel);
-        });
-    }
 
     async processMongooseBusiness(businessInfo) {
         //Process Mongoose Model
@@ -637,10 +585,10 @@ module.exports = class ApplicationModel {
     * update business object
     *
     * @param {object} claims - claims JSON
-    * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessModel , or an Error if rejected
+    * @returns {Promise.<JSON, Error>} A promise that returns true/false , or an Error if rejected
     */
     processClaimsWF(claims) {
-        return new Promise(async(resolve, reject) => {
+        return new Promise(async(resolve) => {
             //copy to mongoose json
             //clonedeep
             this.#applicationMongooseJSON.claims = clonedeep(claims);
@@ -654,23 +602,6 @@ module.exports = class ApplicationModel {
                     }
                 }
             }
-
-            //delete existing.
-            const applicationClaimModelDelete = new ApplicationClaimBO();
-            //remove existing addresss acivity codes. we do not get ids from UI.
-            await applicationClaimModelDelete.DeleteClaimsByApplicationId(this.id).catch(function(err) {
-                log.error("Error deleting ApplicationClaimModel " + err + __location);
-            });
-            for (var i = 0; i < claims.length; i++) {
-                const claim = claims[i];
-                claim.application = this.id;
-                const applicationClaimModel = new ApplicationClaimBO();
-                await applicationClaimModel.saveModel(claim).catch(function(err) {
-                    log.error("Adding new claim error:" + err + __location);
-                    reject(err);
-                    return;
-                });
-            }
             resolve(true);
 
         });
@@ -678,45 +609,17 @@ module.exports = class ApplicationModel {
 
     processActivityCodes(activtyListJSON) {
 
-        return new Promise(async(resolve, reject) => {
+        return new Promise(async(resolve) => {
 
             // this.#applicationMongooseJSON.activityCodes = clonedeep(activtyListJSON);
             this.#applicationMongooseJSON.activityCodes = [];
-
-
-            // for(let i = 0; i <  activtyListJSON.length; i++ ){
-            //     let activityCodeJson = activtyListJSON[i];
-            //     activityCodeJson.ncciCode = activityCodeJson.ncci_code;
-            //     activityCodeJson.payroll = activityCodeJson.payroll;
-            // }
-
-            //delete existing.
-            const applicationActivityCodesModelDelete = new ApplicationActivityCodesModel();
-            //remove existing addresss acivity codes. we do not get ids from UI.
-            await applicationActivityCodesModelDelete.DeleteByApplicationId(this.id).catch(function(err) {
-                log.error("Error deleting ApplicationActivityCodesModel " + err + __location);
-            });
-            const appId = this.id
             for (const activity in activtyListJSON) {
-                //for(var i=0; i < total_payrollJSON.length;i++){
-                //activityPayrollJSON = total_payrollJSON[i];
-                const activityCodeJSON = {
-                    'application': this.id,
-                    "ncci_code": activity,
-                    "payroll": activtyListJSON[activity]
-                }
                 const activityCodeModelJSON = {
                     "ncciCode": activity,
                     "payroll": activtyListJSON[activity]
                 }
 
                 this.#applicationMongooseJSON.activityCodes.push(activityCodeModelJSON)
-                const applicationActivityCodesModel = new ApplicationActivityCodesModel();
-                await applicationActivityCodesModel.saveModel(activityCodeJSON).catch(function(err) {
-                    log.error(`Adding new applicationActivityCodesModel for Appid ${appId} error:` + err + __location);
-                    reject(err);
-                    return;
-                });
             }
 
             resolve(true);
@@ -728,7 +631,7 @@ module.exports = class ApplicationModel {
 
     processPolicyTypes(policyTypeArray, applicationJSON) {
 
-        return new Promise(async(resolve, reject) => {
+        return new Promise(async(resolve) => {
 
             //this.#applicationMongooseJSON.policies = clonedeep(policyTypeArray);
 
@@ -767,29 +670,6 @@ module.exports = class ApplicationModel {
                 policyList.push(policyTypeJSON);
             }
             this.#applicationMongooseJSON.policies = policyList
-
-            //delete existing.
-            const applicationPolicyTypeModelDelete = new ApplicationPolicyTypeBO();
-            //remove existing addresss acivity codes. we do not get ids from UI.
-            await applicationPolicyTypeModelDelete.DeleteByApplicationId(applicationJSON.id).catch(function(err) {
-                log.error("Error deleting ApplicationPolicyTypeModel " + err + __location);
-            });
-
-
-            for (var i = 0; i < policyTypeArray.length; i++) {
-                const policyType = policyTypeArray[i];
-                const policyTypeJSON = {
-                    'application': applicationJSON.id,
-                    "policy_type": policyType
-                }
-                const applicationPolicyTypeModel = new ApplicationPolicyTypeBO();
-                await applicationPolicyTypeModel.saveModel(policyTypeJSON).catch(function(err) {
-                    log.error(`Adding new applicationPolicyTypeModel for Appid ${applicationJSON.id} error:` + err + __location);
-                    reject(err);
-                    return;
-                });
-            }
-
             resolve(true);
 
         });
@@ -923,60 +803,6 @@ module.exports = class ApplicationModel {
         }
     }
 
-    processQuestions(questions) {
-
-        return new Promise(async(resolve, reject) => {
-            ///delete existing ?? old system did not.
-
-            // this.#applicationMongooseJSON.questions = questions;
-            //TODO get text and turn into list of question objects.
-
-
-            const valueList = []
-            for (var i = 0; i < questions.length; i++) {
-                const question = questions[i];
-                questions.application = this.id;
-                let valueLine = '';
-                if(question.answer){
-                    if (question.type === 'text') {
-                        const cleanString = question.answer.replace(/\|/g, ',')
-                        valueLine = `(${this.id}, ${question.id}, NULL, ${db.escape(cleanString)})`
-
-                    }
-                    else if (question.type === 'array') {
-                        const arrayString = "|" + question.answer.join('|');
-                        valueLine = `(${this.id}, ${question.id},NULL, ${db.escape(arrayString)})`
-                    }
-                    else {
-                        valueLine = `(${this.id}, ${question.id}, ${question.answer}, NULL)`
-                    }
-                    valueList.push(valueLine);
-                }
-            }
-            const valueListString = valueList.join(",\n");
-            //Set process the insert, Do not
-            const insertSQL = `INSERT INTO clw_talage_application_questions 
-                            (application, question, answer, text_answer)
-                        Values  ${valueListString} 
-                        ON DUPLICATE KEY UPDATE answer = VALUES (answer), text_answer = VALUES( text_answer );
-                        `;
-            //log.debug("question InsertSQL:\n" + insertSQL);
-            let rejected = false;
-            await db.query(insertSQL).catch(function(error) {
-                // Check if this was
-                log.error("Database Object clw_talage_application_questions INSERT error :" + error + __location);
-                rejected = true;
-                reject(error);
-            });
-            if (rejected) {
-                return false;
-            }
-            resolve(true);
-
-        });
-
-    }
-
     processQuestionsMongo(questionsRequest) {
 
         return new Promise(async(resolve) => {
@@ -1067,7 +893,7 @@ module.exports = class ApplicationModel {
 
     processLegalAcceptance(applicationJSON) {
 
-        return new Promise(async(resolve, reject) => {
+        return new Promise(async(resolve) => {
             //delete existing ?? old system did not.
 
             //agreement version
@@ -1079,12 +905,6 @@ module.exports = class ApplicationModel {
             }
             this.#applicationMongooseJSON.legalAcceptance = legalAcceptanceJSON;
 
-            const legalAcceptanceModel = new LegalAcceptanceModel();
-            await legalAcceptanceModel.saveModel(legalAcceptanceJSON).catch(function(err) {
-                log.error(`Adding new Legal Acceptance for Appid ${applicationJSON.id} error:` + err + __location);
-                reject(err);
-                return;
-            });
             resolve(true);
 
         });
@@ -1105,6 +925,7 @@ module.exports = class ApplicationModel {
                     //load quote from database.
                     const quoteModel = new QuoteBO();
                     //update quote record.
+                    //TODO Which to load from Mongo
                     await quoteModel.loadFromId(quote.quote).catch(function(err) {
                         log.error(`Loading quote for status and payment plan update quote ${quote.quote} error:` + err + __location);
                         //reject(err);
@@ -1230,16 +1051,7 @@ module.exports = class ApplicationModel {
             }
             if (saveBusinessData) {
                 this.#applicationMongooseJSON.businessDataJSON = newBusinessDataJSON;
-                const sql = `Update ${tableName} 
-                    SET businessDataJSON = ${db.escape(JSON.stringify(newBusinessDataJSON))}
-                    WHERE id = ${db.escape(this.id)}
-                `;
-
-                await db.query(sql).catch(function(err) {
-                    // Check if this was
-                    log.error(`Database Object ${tableName} UPDATE businessDataJSON error : ` + err + __location);
-                });
-                //TODO monogoose model save
+                //monogoose model save
                 log.info(`Application ${this.id} update BusinessDataJSON`);
                 currentAppDBJSON.businessDataJSON = newBusinessDataJSON;
                 if (afBusinessDataJSON && afBusinessDataJSON.Status === "SUCCESS") {
@@ -1274,17 +1086,6 @@ module.exports = class ApplicationModel {
                         applicationJSON.zip = parseInt(afBusinessDataJSON.afgCompany.zip, 10);
                     }
 
-                    this.#dbTableORM.load(applicationJSON, false).catch(function(err) {
-                        log.error("Error loading application orm " + err + __location);
-                        throw err;
-                    });
-
-                    //save
-                    log.debug("saving application records from afBusinessDataJSON " + __location)
-                    await this.#dbTableORM.save().catch(function(err) {
-                        log.error("Error Saving application orm " + err + __location);
-                        throw err;
-                    });
                     log.debug(`App ${this.id} updated from afBusinessDataJSON ` + __location);
                     //TODO monogoose model save
                     //this.#applicationMongooseJSON
@@ -1381,8 +1182,8 @@ module.exports = class ApplicationModel {
 
 
                 try {
-                    log.debug(`updating  application business records from afBusinessDataJSON  appId: ${applicationJSON.id} ` + __location)
-                    await this.processBusiness(businessJSON);
+                    log.debug(`updating  application business data from afBusinessDataJSON  appId: ${applicationJSON.id} ` + __location)
+                    await this.processMongooseBusiness(businessJSON)
                 }
                 catch (err) {
                     log.error("Error Mapping AF Business Data to BO Saving " + err + __location);
@@ -1422,19 +1223,6 @@ module.exports = class ApplicationModel {
                         applicationJSON.zipcode = googlePlaceJSON.address.zip.toString();
                         applicationJSON.zip = parseInt(googlePlaceJSON.address.zip);
                     }
-
-                    this.#dbTableORM.load(applicationJSON, false).catch(function(err) {
-                        log.error("Error loading application orm " + err + __location);
-                        throw err;
-                    });
-
-                    //save
-                    log.debug("saving application records from GooglePlace " + __location)
-                    await this.#dbTableORM.save().catch(function(err) {
-                        log.error("Error Saving application orm " + err + __location);
-                        throw err;
-                    });
-                    log.debug(`App ${this.id} updated from GooglePlace ` + __location);
                 }
                 catch (err) {
                     log.error("Error update App from AFBusinessData " + err + __location);
@@ -1500,8 +1288,8 @@ module.exports = class ApplicationModel {
                 businessJSON.locations = [];
                 businessJSON.locations.push(locationJSON)
                 try {
-                    log.debug(`updating  application business records from Google Place data appId: ${applicationJSON.id} ` + __location)
-                    await this.processBusiness(businessJSON);
+                    log.debug(`updating  application business data from Google Place data appId: ${applicationJSON.id} ` + __location)
+                    await this.processMongooseBusiness(businessJSON)
 
                 }
                 catch (err) {
@@ -1618,7 +1406,7 @@ module.exports = class ApplicationModel {
 
 
     async getProgress(id) {
-
+        //TODO move to Mongo Find
         const sql = `
             SELECT progress
             FROM clw_talage_applications
@@ -1829,55 +1617,7 @@ module.exports = class ApplicationModel {
         if(applicationJSON.id){
             delete applicationJSON.id;
         }
-        //Save business to get businessID
-        const businessModel = new BusinessModel();
 
-        //ApplicationDoc to BusinsessModel Map;
-        const propMappings = {
-            businessName: "name",
-            "mailingState": "mailing_state_abbr"
-        };
-        // eslint-disable-next-line prefer-const
-        let businessJSON = JSON.parse(JSON.stringify(applicationJSON))
-        if(businessJSON.locations) {
-            //processed later
-            delete businessJSON.locations;
-        }
-        if(businessJSON.contacts) {
-            //processed later
-            delete businessJSON.contacts;
-        }
-        //camel to Snake.
-        this.jsonToSnakeCase(businessJSON, propMappings);
-        if(businessJSON.id){
-            delete businessJSON.id;
-        }
-        if(applicationDoc.owners && applicationDoc.owners.length > 0){
-            businessJSON.owners = JSON.parse(JSON.stringify(applicationDoc.owners));
-        }
-
-        if(businessJSON.mailing_zipcode) {
-            if(businessJSON.mailing_zipcode.length > 5) {
-                businessJSON.mailing_zip = parseInt(businessJSON.mailing_zipcode.subString(0,5),10);
-            }
-            else {
-                businessJSON.mailing_zip = parseInt(businessJSON.mailing_zipcode, 10);
-            }
-            applicationJSON.zip = businessJSON.mailing_zip;
-        }
-
-        await businessModel.saveBusiness(businessJSON).catch(function(err) {
-            log.error("Creating new business error:" + err + __location);
-            error = err;
-        })
-        if (error) {
-            return false;
-        }
-        applicationJSON.business = businessModel.id;
-        if (applicationJSON.business === 0) {
-            log.error('Error create Business record ' + __location);
-            return false;
-        }
         //save application
         await this.cleanupInput(applicationJSON);
         const propMappingsApp = {
@@ -1931,7 +1671,6 @@ module.exports = class ApplicationModel {
             applicationJSON = JSON.parse(JSON.stringify(applicationJSONInbound));
         }
         let error = null;
-        let businessJSON = null;
         if (postInsert === false) {
             // eslint-disable-next-line prefer-const
             let newAppRecJson = JSON.parse(JSON.stringify(applicationDoc))
@@ -1962,368 +1701,11 @@ module.exports = class ApplicationModel {
             if(!applicationJSON.business){
                 log.error("Mysql application missing business reference " + __location + ": " + JSON.stringify(applicationJSON));
             }
-            // eslint-disable-next-line prefer-const
-            businessJSON = JSON.parse(JSON.stringify(applicationDoc))
-            businessJSON.id = applicationJSON.business;
-            //save business
-            const businessModel = new BusinessModel();
-
-            if(businessJSON.locations) {
-                //processed later
-                delete businessJSON.locations;
-            }
-            if(businessJSON.contacts) {
-                //processed later
-                delete businessJSON.contacts;
-            }
-
-            const propMappings = {
-                businessName: "name",
-                "mailingState": "mailing_state_abbr"
-            };
-            //camel to Snake.
-            this.jsonToSnakeCase(businessJSON, propMappings);
-            businessJSON.id = applicationJSON.business;
-            if(applicationDoc.owners && applicationDoc.owners.length > 0){
-                businessJSON.owners = JSON.parse(JSON.stringify(applicationDoc.owners));
-            }
-
-            if(businessJSON.mailing_zipcode) {
-                if(businessJSON.mailing_zipcode.length > 5) {
-                    businessJSON.mailing_zip = parseInt(businessJSON.mailing_zipcode.subString(0,5),10);
-                }
-                else {
-                    businessJSON.mailing_zip = parseInt(businessJSON.mailing_zipcode, 10);
-                }
-                applicationJSON.zip = businessJSON.mailing_zip;
-            }
-            await businessModel.saveBusiness(businessJSON).catch(function(err) {
-                log.error("Creating new business error:" + err + __location);
-                error = err;
-            })
-
         }
         else if(!applicationJSON || !applicationJSON.id){
             log.error("NO Appid in mongoDoc2MySqlUpdate " + __location);
             return false;
         }
-
-        //locations
-        if(applicationDoc.locations && applicationDoc.locations.length > 0){
-            await this.mongoDoc2MySqlAddresses(applicationDoc.locations, applicationJSON).catch(function(err){
-                log.error("Error in mongoDoc2MySqlContacts " + err + __location);
-            });
-        }
-
-        //contacts
-        if(applicationDoc.contacts && applicationDoc.contacts.length > 0){
-            await this.mongoDoc2MySqlContacts(applicationDoc.contacts, applicationJSON).catch(function(err){
-                log.error("Error in mongoDoc2MySqlContacts " + err + __location);
-            });
-        }
-
-        //policies - (needs to update Applications)
-        if(applicationDoc.policies && applicationDoc.policies.length > 0){
-            await this.mongoDoc2MySqlPolicyType(applicationDoc.policies, applicationJSON).catch(function(err){
-                log.error("Error in mongoDoc2MySqlPolicyType " + err + __location);
-            });
-        }
-
-        //claims
-        if(applicationDoc.claims && applicationDoc.claims.length > 0){
-            await this.mongoDoc2MySqlClaims(applicationDoc.claims, applicationJSON).catch(function(err){
-                log.error("Error in mongoDoc2MySqlClaims " + err + __location);
-            });
-        }
-
-        //activitycodes
-        if(applicationDoc.activityCodes && applicationDoc.activityCodes.length > 0){
-            await this.mongoDoc2MySqlActivityCodes(applicationDoc.activityCodes, applicationJSON).catch(function(err){
-                log.error("Error in mongoDoc2MySqlClaims " + err + __location);
-            });
-        }
-
-
-        //questions
-        if(applicationDoc.questions && applicationDoc.questions.length > 0){
-            await this.mongoDoc2MySqlQuestions(applicationDoc.questions, applicationJSON).catch(function(err){
-                log.error("Error in mongoDoc2MySqlQuestions " + err + __location);
-            });
-        }
-
-    }
-
-    mongoDoc2MySqlClaims(claims, applicationJSON) {
-        return new Promise(async(resolve, reject) => {
-            //delete existing.
-            const applicationClaimModelDelete = new ApplicationClaimBO();
-            //remove existing addresss acivity codes. we do not get ids from UI.
-            await applicationClaimModelDelete.DeleteClaimsByApplicationId(applicationJSON.id).catch(function(err) {
-                log.error("Error deleting ApplicationClaimModel " + err + __location);
-            });
-            if(claims){
-                const propMappings = {eventDate: "date"};
-                for (var i = 0; i < claims.length; i++) {
-                    // eslint-disable-next-line prefer-const
-                    let claim = JSON.parse(JSON.stringify(claims[i]));
-                    this.jsonToSnakeCase(claim, propMappings);
-                    claim.application = applicationJSON.id;
-                    if(claim.id){
-                        delete claim.id;
-                    }
-                    if(claim["_id"]){
-                        delete claim["_id"];
-                    }
-                    const applicationClaimModel = new ApplicationClaimBO();
-                    await applicationClaimModel.saveModel(claim).catch(function(err) {
-                        log.error("Adding new claim error:" + err + __location);
-                        reject(err);
-                        return;
-                    });
-                }
-            }
-
-            resolve(true);
-
-        });
-    }
-
-
-    mongoDoc2MySqlActivityCodes(activtyListDoc, applicationJSON) {
-
-        return new Promise(async(resolve, reject) => {
-
-
-            //delete existing.
-            const applicationActivityCodesModelDelete = new ApplicationActivityCodesModel();
-            //remove existing addresss acivity codes. we do not get ids from UI.
-            await applicationActivityCodesModelDelete.DeleteByApplicationId(applicationJSON.id).catch(function(err) {
-                log.error("Error deleting ApplicationActivityCodesModel " + err + __location);
-            });
-
-            for (let i = 0; i < activtyListDoc.length; i++) {
-                const activityDoc = activtyListDoc[i];
-                const activityCodeJSON = {
-                    'application': applicationJSON.id,
-                    "ncci_code": activityDoc.ncciCode,
-                    "payroll": activityDoc.payroll
-                }
-
-                const applicationActivityCodesModel = new ApplicationActivityCodesModel();
-                await applicationActivityCodesModel.saveModel(activityCodeJSON).catch(function(err) {
-                    log.error(`Adding new applicationActivityCodesModel for Appid ${applicationJSON.id} error:` + err + __location);
-                    reject(err);
-                    return;
-                });
-            }
-
-            resolve(true);
-
-        });
-
-    }
-
-
-    async mongoDoc2MySqlContacts(contactListDoc, applicationJSON){
-
-        const businessContactModel = new BusinessContactModel();
-
-        //remove existing addresss. we do not get ids from UI.
-        await businessContactModel.DeleteBusinessContacts(applicationJSON.business).catch(function(err){
-            log.error("Error deleting businessContactModel " + err + __location)
-        });
-
-
-        for(var i = 0; i < contactListDoc.length; i++){
-            const contactDoc = JSON.parse(JSON.stringify(contactListDoc[i]));
-            contactDoc.business = applicationJSON.business;
-            const propMappings = {
-                "firstName": "fname",
-                lastName: "lname"
-            };
-            this.jsonToSnakeCase(contactDoc, propMappings);
-
-            await businessContactModel.saveBusinessContact(contactDoc).catch(function(err){
-                log.error("Error creating business contact error: " + err + __location);
-            })
-
-        }
-
-        return;
-
-    }
-
-    async mongoDoc2MySqlAddresses(locationListDoc, applicationJSON){
-
-        const businessAddressModel = new BusinessAddressModel();
-        //remove existing addresss. we do not get ids from UI.
-        await businessAddressModel.DeleteBusinessAddresses(applicationJSON.business).catch(function(err){
-            log.error("Error deleting businessAddressModel " + err + __location)
-        });
-
-
-        for(var i = 0; i < locationListDoc.length; i++){
-            const businessDoc = JSON.parse(JSON.stringify(locationListDoc[i]));
-            businessDoc.business = applicationJSON.business;
-            if(businessDoc.billing){
-                businessDoc.billing = 1
-            }
-            else {
-                businessDoc.billing = 0;
-            }
-            if(businessDoc.zipcode) {
-                if(businessDoc.zipcode.length > 5) {
-                    businessDoc.zip = parseInt(businessDoc.zipcode.subString(0,5),10);
-                }
-                else {
-                    businessDoc.zip = parseInt(businessDoc.zipcode, 10);
-                }
-            }
-
-            // eslint-disable-next-line no-shadow
-            const propMappings = {"state": "state_abbr"};
-            this.jsonToSnakeCase(businessDoc, propMappings);
-            const businessAddressModel2 = new BusinessAddressModel();
-            try{
-                await businessAddressModel2.saveModel(businessDoc);
-
-                if(locationListDoc[i].activityPayrollList && locationListDoc[i].activityPayrollList.length > 0){
-
-                    for(let j = 0; j < locationListDoc[i].activityPayrollList.length; j++){
-                        const locationAcivity = locationListDoc[i].activityPayrollList[j];
-                        let totalPayroll = locationAcivity.payroll
-                        if(locationAcivity.ownerPayRoll){
-                            totalPayroll += locationAcivity.ownerPayRoll;
-                        }
-                        const addressActivityCode = {
-                            "address": businessAddressModel2.id,
-                            "ncci_code": locationAcivity.ncciCode,
-                            "payroll": totalPayroll
-                        };
-                        const businessAddressActivityCodeModel = new BusinessAddressActivityCodeModel();
-                        await businessAddressActivityCodeModel.saveModel(addressActivityCode).catch(function(err){
-                            log.error("Error updating business address error: " + err + __location);
-                        });
-                    }
-                }
-                else {
-                    log.debug("No Activity Code for ")
-                }
-            }
-            catch(err){
-                log.error("Error updating business address error: " + err + __location);
-            }
-        }
-
-
-        return;
-    }
-
-    async mongoDoc2MySqlPolicyType(policyTypeListDoc, applicationJSON){
-
-
-        //delete existing.
-        const applicationPolicyTypeModelDelete = new ApplicationPolicyTypeBO();
-        //remove existing addresss acivity codes. we do not get ids from UI.
-        await applicationPolicyTypeModelDelete.DeleteByApplicationId(this.id).catch(function(err) {
-            log.error("Error deleting ApplicationPolicyTypeModel " + err + __location);
-        });
-
-
-        for(let i = 0; i < policyTypeListDoc.length; i++){
-            const policyTypeDoc = JSON.parse(JSON.stringify(policyTypeListDoc[i]));
-            const policyTypeJSON = {
-                'application': applicationJSON.id,
-                "policy_type": policyTypeDoc.policyType
-            }
-            const applicationPolicyTypeModel = new ApplicationPolicyTypeBO();
-            await applicationPolicyTypeModel.saveModel(policyTypeJSON).catch(function(err) {
-                log.error(`Adding new applicationPolicyTypeModel for Appid ${applicationJSON.id} error:` + err + __location);
-            });
-            //update application record
-            if (policyTypeDoc.policyType === "GL") {
-                //GL limit and date fields.
-                applicationJSON.gl_effective_date = policyTypeDoc.effectiveDate;
-                applicationJSON.gl_expiration_date = policyTypeDoc.expirationDate
-                applicationJSON.limits = policyTypeDoc.limits
-                applicationJSON.deductible = policyTypeDoc.deductible
-            }
-            else if (policyTypeDoc.policyType === "WC") {
-                applicationJSON.wc_effective_date = policyTypeDoc.effectiveDate
-                applicationJSON.wc_expiration_date = policyTypeDoc.expirationDate
-                applicationJSON.wc_limits = policyTypeDoc.limits
-                applicationJSON.coverageLapse = policyTypeDoc.coverageLapse
-            }
-            else if (policyTypeDoc.policyType === "BOP") {
-                applicationJSON.bop_effective_date = policyTypeDoc.effectiveDate
-                applicationJSON.bop_expiration_date = policyTypeDoc.expirationDate
-                applicationJSON.limits = policyTypeDoc.limits
-                applicationJSON.coverage = policyTypeDoc.coverage
-                applicationJSON.deductible = policyTypeDoc.deductible
-
-            }
-            await this.saveModel(applicationJSON).catch(function(err){
-                log.error("Error updating application with policy info " + err + __location);
-            });
-        }
-
-        return;
-
-    }
-
-    async mongoDoc2MySqlQuestions(questionListDoc, applicationJSON){
-
-        if(!questionListDoc){
-            return;
-        }
-        if(questionListDoc.length === 0){
-            return;
-        }
-        //?? delete old questions in case question list is reduced ??
-
-        const valueList = []
-        for (var i = 0; i < questionListDoc.length; i++) {
-            const questionDocItem = questionListDoc[i];
-            let valueLine = '';
-            if (questionDocItem.questionType.toLowerCase().startsWith('text') && questionDocItem.answerValue) {
-                const cleanString = questionDocItem.answerValue.replace(/\|/g, ',')
-                valueLine = `(${applicationJSON.id}, ${questionDocItem.questionId}, NULL, ${db.escape(cleanString)})`
-
-            }
-            else if (questionDocItem.questionType === 'array' || questionDocItem.questionType === 'Checkboxes') {
-                const arrayString = "|" + questionDocItem.answerList.join('|');
-                valueLine = `(${applicationJSON.id}, ${questionDocItem.questionId}, NULL, ${db.escape(arrayString)})`
-            }
-            else if (questionDocItem.questionType === 'Yes/No' || questionDocItem.questionType === 'Select List'){
-                if(questionDocItem.answerId){
-                    valueLine = `(${applicationJSON.id}, ${questionDocItem.questionId}, ${questionDocItem.answerId}, NULL)`
-                }
-            }
-            if(valueLine){
-                valueList.push(valueLine);
-            }
-        }
-        const valueListString = valueList.join(",\n");
-        //Set process the insert, Do nots
-        const insertSQL = `INSERT INTO clw_talage_application_questions 
-                        (application, question, answer, text_answer)
-                    Values  ${valueListString} 
-                    ON DUPLICATE KEY UPDATE answer = VALUES (answer), text_answer = VALUES( text_answer );
-                    `;
-        //log.debug("question InsertSQL:\n" + insertSQL);
-        let rejected = false;
-        await db.query(insertSQL).catch(function(error) {
-            // Check if this was
-            log.error("Database Object clw_talage_application_questions INSERT error :" + error + __location);
-            rejected = true;
-        });
-        if (rejected) {
-            return false;
-        }
-
-
-        return true;
-
     }
 
     async setDocEinClear(applicationDoc){
@@ -2936,11 +2318,9 @@ module.exports = class ApplicationModel {
                         WHERE id = ${db.escape(id)}
                 `;
                 //let rejected = false;
-                let error = null;
                 await db.query(sql).catch(function(err) {
                     // Check if this was
                     log.error(`Database Object ${tableName} UPDATE State error : ` + err + __location);
-                    error = err;
                 });
                 // if (rejected) {
                 //     return false;

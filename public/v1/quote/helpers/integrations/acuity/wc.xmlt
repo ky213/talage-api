@@ -43,8 +43,7 @@
                     </Communications>
                 </GeneralPartyInfo>
                 <ProducerInfo>
-                    <ContractNumber>8843</ContractNumber>
-                    <ProducerSubCode>AA</ProducerSubCode>
+                    <ContractNumber>{{>app.agencyLocation.insurers[insurer.id].agency_id}}</ContractNumber>
                 </ProducerInfo>
             </Producer>
 			{{!-- Primary contact information --}}
