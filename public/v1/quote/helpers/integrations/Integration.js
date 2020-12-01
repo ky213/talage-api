@@ -1525,6 +1525,41 @@ module.exports = class Integration {
     }
 
     /**
+	 * Gets a formatted XML string
+     *
+     * @param {string} str - A string which may or may not be valid XML
+     * @returns {string | null} A formatted XML string for valid JSON input, null otherwise
+	 */
+    get_formatted_xml_string(str) {
+        // Format XML to be readable
+        let formattedString = '';
+        try {
+            formattedString = xmlFormatter(str);
+        }
+        catch (error) {
+            return null;
+        }
+        return formattedString;
+    }
+
+    /**
+	 * Gets a formatted JSON string
+     *
+     * @param {string} str - A string which may or may not be valid JSON
+     * @returns {string | null} A formatted JSON string for valid JSON input, null otherwise
+	 */
+    get_formatted_json_string(str) {
+        let formattedString = '';
+        try {
+            formattedString = JSON.stringify(JSON.parse(str), null, 4);
+        }
+        catch (error) {
+            return null;
+        }
+        return formattedString;
+    }
+
+    /**
 	 * Sends a request to an insurer over HTTPS
 	 *
 	 * @param {string} host - The host name we are sending to (minus the protocol)
@@ -1557,6 +1592,9 @@ module.exports = class Integration {
                 return;
             }
 
+            // Add a timestamp to the request log
+            this.log += `<b>Request started at ${moment().utc().toISOString()}</b><br><br>`;
+
             // Build the headers
             const headers = {};
             let content_type_found = false;
@@ -1570,7 +1608,23 @@ module.exports = class Integration {
                                 const querystring = require('querystring');
                                 data = querystring.stringify(data);
                             }
-                            this.log += `--------======= Sending ${additional_headers[key]} =======--------<br><br>URL: ${host}${path}<br><br><pre>${htmlentities.encode(data)}</pre><br><br>`;
+                            let formattedString = data;
+                            // Attempt to format it if it is a XML string
+                            const formattedXMLString = this.get_formatted_xml_string(data);
+                            if (formattedXMLString) {
+                                formattedString = formattedXMLString;
+                            }
+                            else {
+                                // Attempt to format it if it is a JSON string
+                                const formattedJSONString = this.get_formatted_json_string(data);
+                                if (formattedJSONString) {
+                                    formattedString = formattedJSONString;
+                                }
+                            }
+                            // Log the request
+                            this.log += `--------======= Sending ${additional_headers[key]} =======--------<br><br>`;
+                            this.log += `URL: ${host}${path}<br><br>`;
+                            this.log += `<pre>${htmlentities.encode(formattedString)}</pre><br><br>`;
                         }
                         headers[key] = additional_headers[key];
                     }
@@ -1610,34 +1664,35 @@ module.exports = class Integration {
                     // Calculate how long this took
                     this.seconds = process.hrtime(start_time)[0];
 
+                    // Attempt to format the returned data
+                    let formattedData = rawData;
+                    if (headers['Content-Type'] && headers['Content-Type'].toLowerCase() === 'text/xml') {
+                        // Format XML to be readable
+                        const formattedXMLData = this.get_formatted_xml_string(rawData);
+                        if (formattedXMLData) {
+                            formattedData = formattedXMLData;
+                        }
+                    }
+                    else if (headers['Content-Type'] && headers['Content-Type'].toLowerCase() === 'application/json') {
+                        // Format JSON to be readable
+                        const formattedJSONData = this.get_formatted_json_string(rawData);
+                        if (formattedJSONData) {
+                            formattedData = formattedJSONData;
+                        }
+                    }
+
                     if (res.statusCode >= 200 && res.statusCode <= 299) {
                         // Strip AF Group's Quote Letter out of the log
-                        let filteredData = rawData.replace(/<com\.afg_Base64PDF>(.*)<\/com\.afg_Base64PDF>/, '<com.afg_Base64PDF>...</com.afg_Base64PDF>');
+                        formattedData = formattedData.replace(/<com\.afg_Base64PDF>(.*)<\/com\.afg_Base64PDF>/, '<com.afg_Base64PDF>...</com.afg_Base64PDF>');
 
                         // Strip Employer's Quote Letter out of the log
-                        filteredData = filteredData.replace(/<BinData>(.*)<\/BinData>/, '<BinData>...</BinData>');
+                        formattedData = formattedData.replace(/<BinData>(.*)<\/BinData>/, '<BinData>...</BinData>');
 
-                        // Attempt to format the returned data
-                        let formattedData = null;
-                        try {
-                            if (headers['Content-Type'] && headers['Content-Type'].toLowerCase() === 'text/xml') {
-                                // Format XML to be readable
-                                formattedData = xmlFormatter(filteredData);
-                                formattedData = formattedData.replace(/</g, "&lt;");
-                                formattedData = formattedData.replace(/>/g, "&gt;");
-                            }
-                            else if (headers['Content-Type'] && headers['Content-Type'].toLowerCase() === 'application/json') {
-                                // Format JSON to be readable
-                                formattedData = JSON.stringify(JSON.parse(filteredData), null, 4);
-                            }
-                        }
-                        catch (error) {
-                            // nothing
-                        }
-                        if (formattedData) {
-                            filteredData = formattedData
-                        }
-                        this.log += `--------======= Response Appid: ${this.app.id}  =======--------<br><br><pre>${filteredData}</pre><br><br>`;
+                        // Strip Acuity's Quote Letter out of the log
+                        formattedData = formattedData.replace(/<!\[CDATA.*>/, '<![CDATA[...]]>');
+
+                        this.log += `--------======= Response Appid: ${this.app.id}  =======--------<br><br>`;
+                        this.log += `<pre>${htmlentities.encode(formattedData)}</pre><br><br>`;
                         fulfill(rawData);
                     }
                     else{
@@ -1646,7 +1701,9 @@ module.exports = class Integration {
                         if(log_errors){
                             log.error(error.message + `  Appid: ${this.app.id} calling ${this.insurer.name} ` + __location);
                             log.verbose(rawData);
-                            this.log += `--------======= Error Appid: ${this.app.id} calling ${this.insurer.name}  =======--------<br><br>Status Code: ${res.statusCode}<br><pre>${rawData}</pre><br><br>`;
+                            this.log += `--------======= Error Appid: ${this.app.id} calling ${this.insurer.name}  =======--------<br><br>`;
+                            this.log += `Status Code: ${res.statusCode} <br>`;
+                            this.log += `<pre>${htmlentities.encode(formattedData)}</pre><br><br>`;
                         }
                         error.httpStatusCode = res.statusCode;
                         error.response = rawData;
@@ -1792,7 +1849,7 @@ module.exports = class Integration {
             const whereCombinations = Object.values(wcCodes).map(function(codeObj) {
                 return `(\`ac\`.\`id\` = ${db.escape(codeObj.id)} AND \`inc\`.\`territory\` = ${db.escape(codeObj.territory)})`;
             });
-            
+
             // Query the database to get the corresponding codes
             let hadError = false;
             const sql = `
