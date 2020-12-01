@@ -1706,6 +1706,21 @@ module.exports = class ApplicationModel {
         return true;
 
     }
+    async checkLocations(applicationJSON){
+        if(applicationJSON.locations && applicationJSON.locations.length > 0){
+            let hasBillingLocation = false;
+            for(let location of applicationJSON.locations){
+                if(hasBillingLocation === true && location.billing === true){
+                    log.error(`Application will mutliple billing received AppId ${applicationJSON.applicationId} fixing location ${JSON.stringify(location)} to billing = false` + __location)
+                    location.billing = false;
+                }
+                else if(location.billing === true){
+                    hasBillingLocation = true;
+                }
+            }
+        }
+        return true;
+    }
 
     async updateMongo(uuid, newObjectJSON, updateMysql = false) {
         if (uuid) {
@@ -1726,6 +1741,7 @@ module.exports = class ApplicationModel {
                     //because Virtual Sets.  new need to get the model and save.
                     await this.checkExpiration(newObjectJSON);
                     await this.setupDocEinEncrypt(newObjectJSON);
+                    await this.checkLocations(newObjectJSON);
                     if(newObjectJSON.ein){
                         delete newObjectJSON.ein
                     }
@@ -1786,6 +1802,8 @@ module.exports = class ApplicationModel {
 
         await this.checkExpiration(newObjectJSON);
         await this.setupDocEinEncrypt(newObjectJSON);
+        await this.checkLocations(newObjectJSON);
+
         if(newObjectJSON.ein){
             delete newObjectJSON.ein
         }
