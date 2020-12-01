@@ -17,6 +17,7 @@ const moment_timezone = require('moment-timezone');
 const Integration = require('../Integration.js');
 const acuityWCTemplate = require('jsrender').templates('./public/v1/quote/helpers/integrations/acuity/wc.xmlt');
 const utility = require('../../../../../../shared/helpers/utility');
+const acuityWCCodes = require('./acuity-wc-codes.js');
 global.requireShared('./helpers/tracker.js');
 
 module.exports = class AcuityWC extends Integration {
@@ -86,8 +87,7 @@ module.exports = class AcuityWC extends Integration {
                     return this.client_error('We could not locate an NCCI code for one or more of the provided activities.', {activityCode: activityCode.id});
                 }
 
-                activityCode.ncciCode = `${ncciCode}00`;
-                activityCode.ncciCodeDescription = ncciCode.description;
+                activityCode.ncciCode = acuityWCCodes.getAcuityNCCICode(ncciCode, location.territory);
             }
         }
 
@@ -222,6 +222,8 @@ module.exports = class AcuityWC extends Integration {
             path = '/ws/irate/rating/RatingService/Talage';
             credentials = {'x-acuity-api-key': this.password};
         }
+
+        // console.log('request', xml);
 
         // Send the XML to the insurer
         let result = null;
