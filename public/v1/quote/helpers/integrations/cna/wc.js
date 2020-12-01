@@ -30,9 +30,6 @@ const wcRequest = require('./wc_request.json');
  *  Accept - application/json
 */
 
-// used in the quote api call to specify the agency/company submitting the request
-const TALAGE_BRANCH_PRODUCER_CODE = "540085091";
-
 //TODO: Implement url / cred swap between dev and prod 
 const HOST = 'drt-apis.cna.com';
 const QUOTE_URL = '/policy/small-business/full-quote';
@@ -172,9 +169,9 @@ module.exports = class CnaWC extends Integration {
             wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInq = [{RqUID: this.generate_uuid()}];
 
             // ====== Producer Information ======
-            wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Producer[0].ProducerInfo.ContractNumber.value = contractNumber;
+            wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Producer[0].ProducerInfo.ContractNumber.value = "018297";
             wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Producer[0].ProducerInfo.ProducerSubCode.value = "AGT";
-            wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Producer[0].ProducerInfo['com.cna_branchCode'][0].value = branchCode;
+            wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Producer[0].ProducerInfo['com.cna_branchCode'][0].value = "010";
             wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Producer[0].ProducerInfo['com.cna_branchLabel'][0].value = "AI";
 
             // ====== Agency API Information ======
@@ -313,7 +310,7 @@ module.exports = class CnaWC extends Integration {
         // create request headers using auth access token (jwt)
         const headers = {
             'authorization': `Bearer ${jwt.trim()}`,
-            'branch-producer-cd': TALAGE_BRANCH_PRODUCER_CODE,
+            'branch-producer-cd': "010018297",
             'agentid': 'TALAGAPI',
             'content-type': 'application/json'
         }
