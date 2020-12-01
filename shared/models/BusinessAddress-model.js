@@ -209,7 +209,7 @@ module.exports = class BusinessAddressModel{
             let rejected = false;
             const result = await db.query(sql).catch(function(error) {
                 // Check if this was
-                log.error("Database Object clw_talage_addresses DELETE error :" + error + __location);
+                log.error(`Database Object clw_talage_addresses DELETE business ID ${businessId} error :` + error + __location);
                 rejected = true;
                 reject(error);
             });

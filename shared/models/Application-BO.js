@@ -2157,6 +2157,7 @@ module.exports = class ApplicationModel {
 
         const businessAddressModel = new BusinessAddressModel();
         //remove existing addresss. we do not get ids from UI.
+        log.debug(`removing businessid ${applicationJSON.business} addresses ` + __location)
         await businessAddressModel.DeleteBusinessAddresses(applicationJSON.business).catch(function(err){
             log.error("Error deleting businessAddressModel " + err + __location)
         });
