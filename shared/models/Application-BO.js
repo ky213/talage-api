@@ -1712,9 +1712,6 @@ module.exports = class ApplicationModel {
                 log.error('Mongo Application Getfor mysqlId err ' + err + __location);
                 error = err;
             });
-            if(!applicationJSON.business){
-                log.error("Mysql application missing business reference " + __location + ": " + JSON.stringify(applicationJSON));
-            }
         }
         else if(!applicationJSON || !applicationJSON.id){
             log.error("NO Appid in mongoDoc2MySqlUpdate " + __location);
@@ -2589,6 +2586,10 @@ module.exports = class ApplicationModel {
         try {
             log.debug("insurerArray: " + insurerArray);
             getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, returnHidden);
+            if(getQuestionsResult && getQuestionsResult.length === 0){
+                //no questions returned.
+                log.warn(`No questions returned for AppId ${appId} parameter activityCodeArray: ${activityCodeArray}  industryCodeString: ${industryCodeString}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${policyTypeArray} insurerArray: ${insurerArray} `)
+            }
         }
         catch (err) {
             log.error("Error call in question service " + err + __location);
