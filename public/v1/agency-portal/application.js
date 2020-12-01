@@ -319,7 +319,8 @@ async function getApplication(req, res, next) {
                 // i.logo,
                 //i.name as insurerName,
                 quoteJSON.logo = insurer.logo
-                quoteJSON.insurerName = insurer.name
+				quoteJSON.insurerName = insurer.name
+				quoteJSON.website = insurer.website
             }
             //policyType
             if(policyTypeList){
@@ -517,6 +518,25 @@ async function applicationSave(req, res, next) {
 
     try{
         const updateMysql = true;
+
+        // if there were no activity codes passed in on the application, pull them from the locations activityPayrollList
+        const activityCodes = [];
+        if(req.body.locations && req.body.locations.length && (!req.body.activityCodes || !req.body.activityCodes.length)){
+            req.body.locations.forEach((location) => {
+                location.activityPayrollList.forEach((activityCode) => {
+                    const foundCode = activityCodes.find((code) => code.ncciCode === activityCode.ncciCode);
+                    if(foundCode){
+                        foundCode.payroll += parseInt(activityCode.payroll, 10);
+                    }
+                    else{
+                        activityCode.payroll = parseInt(activityCode.payroll, 10);
+                        activityCodes.push(activityCode);
+                    }
+                });
+            });
+            req.body.activityCodes = activityCodes;
+        }
+
         if(req.body.applicationId){
             log.debug("App Doc UPDATE.....")
             //update

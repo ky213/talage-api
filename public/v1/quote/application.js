@@ -46,6 +46,24 @@ async function postApplication(req, res, next) {
     }
     // Validate
     try {
+        // if there were no activity codes passed in on the application, pull them from the locations activityPayrollList
+        const activityCodes = [];
+        if(application.locations && application.locations.length && (!application.activityCodes || !application.activityCodes.length)){
+            application.locations.forEach((location) => {
+                location.activityPayrollList.forEach((activityCode) => {
+                    const foundCode = activityCodes.find((code) => code.ncciCode === activityCode.ncciCode);
+                    if(foundCode){
+                        foundCode.payroll += parseInt(activityCode.payroll, 10);
+                    }
+                    else{
+                        activityCode.payroll = parseInt(activityCode.payroll, 10);
+                        activityCodes.push(activityCode);
+                    }
+                });
+            });
+            application.activityCodes = activityCodes;
+        }
+
         await application.validate();
     }
     catch (error) {
