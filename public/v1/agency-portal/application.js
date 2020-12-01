@@ -319,7 +319,8 @@ async function getApplication(req, res, next) {
                 // i.logo,
                 //i.name as insurerName,
                 quoteJSON.logo = insurer.logo
-                quoteJSON.insurerName = insurer.name
+				quoteJSON.insurerName = insurer.name
+				quoteJSON.website = insurer.website
             }
             //policyType
             if(policyTypeList){
