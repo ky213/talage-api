@@ -1711,7 +1711,7 @@ module.exports = class ApplicationModel {
             let hasBillingLocation = false;
             for(let location of applicationJSON.locations){
                 if(hasBillingLocation === true && location.billing === true){
-                    log.error(`Application will mutliple billing received AppId ${applicationJSON.applicationId} fixing location ${JSON.stringify(location)} to billing = false` + __location)
+                    log.warn(`Application will mutliple billing received AppId ${applicationJSON.applicationId} fixing location ${JSON.stringify(location)} to billing = false` + __location)
                     location.billing = false;
                 }
                 else if(location.billing === true){
@@ -1725,16 +1725,7 @@ module.exports = class ApplicationModel {
     async updateMongo(uuid, newObjectJSON, updateMysql = false) {
         if (uuid) {
             if (typeof newObjectJSON === "object") {
-                const changeNotUpdateList = ["active",
-                    "id",
-                    "mysqlId",
-                    "applicationId",
-                    "uuid"]
-                for (let i = 0; i < changeNotUpdateList.length; i++) {
-                    if (newObjectJSON[changeNotUpdateList[i]]) {
-                        delete newObjectJSON[changeNotUpdateList[i]];
-                    }
-                }
+
                 const query = {"applicationId": uuid};
                 let newApplicationJSON = null;
                 try {
@@ -1742,8 +1733,19 @@ module.exports = class ApplicationModel {
                     await this.checkExpiration(newObjectJSON);
                     await this.setupDocEinEncrypt(newObjectJSON);
                     await this.checkLocations(newObjectJSON);
+
                     if(newObjectJSON.ein){
                         delete newObjectJSON.ein
+                    }
+                    const changeNotUpdateList = ["active",
+                        "id",
+                        "mysqlId",
+                        "applicationId",
+                        "uuid"]
+                    for (let i = 0; i < changeNotUpdateList.length; i++) {
+                        if (newObjectJSON[changeNotUpdateList[i]]) {
+                            delete newObjectJSON[changeNotUpdateList[i]];
+                        }
                     }
 
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
