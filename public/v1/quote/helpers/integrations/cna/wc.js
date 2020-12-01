@@ -327,13 +327,17 @@ module.exports = class CnaWC extends Integration {
             log.debug("=================== QUOTE REQUEST ===================");
 
             result = await this.send_json_request(HOST, QUOTE_URL, JSON.stringify(wcRequest), headers, "POST");
-        } catch (error) {
+        }
+        catch (error) {
+            let errorJSON = null;
+            try {
+                errorJSON = JSON.parse(error.response);
+            } catch (e) {
+                log.error(`There was an error parsing the error object: ${e}.`);
+            }
+
             log.debug("=================== QUOTE ERROR ===================");
-            const errorJSON = JSON.parse(error.response);
-            // We do not want the formatting going into our centralized logging in production.
-            // TODO: use this commented line instead of the formatted line below when ready...
-            // log.error("CNA WC send_json_request error " + JSON.stringify(errorJSON));
-            log.error("CNA WC send_json_request error " + JSON.stringify(errorJSON, null, 4));
+            log.error("CNA WC send_json_request error " + JSON.stringify(errorJSON ? errorJSON : "Null", null, 4));
             log.debug("=================== QUOTE ERROR ===================");
 
             let errorMessage = "";
@@ -585,10 +589,23 @@ module.exports = class CnaWC extends Integration {
         const questionArray = Object.values(this.questions);
 
         // filtering questions to only those answered
-        const answeredQuestions = questionArray.filter(question => question.answer); // answer !== null
+        for (let i = questionArray.length - 1; i >= 0; i--) {
+            let answer = null;
+            try {
+                answer = this.determine_question_answer(questionArray[i]);
+            }
+            catch (error) {
+                return this.client_error('Could not determine the answer for one of the questions', __location, {questionID: question_id});
+            }
+
+            // if no answer, the question isn't shown
+            if (!answer) {
+                questionArray.splice(i, 1);
+            }
+        }
 
         // mapping answered questions to request question objects
-        return answeredQuestions.map(question => {
+        return questionArray.map(question => {
             let questionAnswerObj = {QuestionCd: {value: this.question_identifiers[question.id]}};
             // eslint-disable-next-line no-unused-expressions
             question.type === 'Yes/No' ? 
