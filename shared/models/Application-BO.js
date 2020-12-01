@@ -2517,17 +2517,6 @@ module.exports = class ApplicationModel {
             questionsObject.answeredList = applicationDocDB.questions;
         }
 
-        //get activitycodes.
-        let activityCodeArray = [];
-        if(applicationDocDB.activityCodes && applicationDocDB.activityCodes.length > 0){
-            for(let i = 0; i < applicationDocDB.activityCodes.length; i++){
-                activityCodeArray.push(applicationDocDB.activityCodes[i].ncciCode);
-            }
-
-        }
-        else {
-            throw new Error("Incomplete Application: Missing Application Activity Codes")
-        }
         //industrycode
         let industryCodeString = '';
         if(applicationDocDB.industryCode){
@@ -2537,6 +2526,7 @@ module.exports = class ApplicationModel {
         else {
             throw new Error("Incomplete Application: Application Industry Code")
         }
+
         //policyType.
         let policyTypeArray = [];
         if(applicationDocDB.policies && applicationDocDB.policies.length > 0){
@@ -2547,6 +2537,21 @@ module.exports = class ApplicationModel {
         else {
             throw new Error("Incomplete Application: Application Policy Types")
         }
+
+        //get activitycodes.
+        // activity codes are not required for GL
+        const requireActivityCodes = Boolean(policyTypeArray.filter(policy => policy !== "GL").length);
+        let activityCodeArray = [];
+        if(applicationDocDB.activityCodes && applicationDocDB.activityCodes.length > 0){
+            for(let i = 0; i < applicationDocDB.activityCodes.length; i++){
+                activityCodeArray.push(applicationDocDB.activityCodes[i].ncciCode);
+            }
+
+        }
+        else if(requireActivityCodes) {
+            throw new Error("Incomplete Application: Missing Application Activity Codes")
+        }
+
         //zipCodes
         let zipCodeArray = [];
         if(applicationDocDB.locations && applicationDocDB.locations.length > 0){
