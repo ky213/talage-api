@@ -1706,28 +1706,46 @@ module.exports = class ApplicationModel {
         return true;
 
     }
+    async checkLocations(applicationJSON){
+        if(applicationJSON.locations && applicationJSON.locations.length > 0){
+            let hasBillingLocation = false;
+            for(let location of applicationJSON.locations){
+                if(hasBillingLocation === true && location.billing === true){
+                    log.warn(`Application will mutliple billing received AppId ${applicationJSON.applicationId} fixing location ${JSON.stringify(location)} to billing = false` + __location)
+                    location.billing = false;
+                }
+                else if(location.billing === true){
+                    hasBillingLocation = true;
+                }
+            }
+        }
+        return true;
+    }
 
     async updateMongo(uuid, newObjectJSON, updateMysql = false) {
         if (uuid) {
             if (typeof newObjectJSON === "object") {
-                const changeNotUpdateList = ["active",
-                    "id",
-                    "mysqlId",
-                    "applicationId",
-                    "uuid"]
-                for (let i = 0; i < changeNotUpdateList.length; i++) {
-                    if (newObjectJSON[changeNotUpdateList[i]]) {
-                        delete newObjectJSON[changeNotUpdateList[i]];
-                    }
-                }
+
                 const query = {"applicationId": uuid};
                 let newApplicationJSON = null;
                 try {
                     //because Virtual Sets.  new need to get the model and save.
                     await this.checkExpiration(newObjectJSON);
                     await this.setupDocEinEncrypt(newObjectJSON);
+                    await this.checkLocations(newObjectJSON);
+
                     if(newObjectJSON.ein){
                         delete newObjectJSON.ein
+                    }
+                    const changeNotUpdateList = ["active",
+                        "id",
+                        "mysqlId",
+                        "applicationId",
+                        "uuid"]
+                    for (let i = 0; i < changeNotUpdateList.length; i++) {
+                        if (newObjectJSON[changeNotUpdateList[i]]) {
+                            delete newObjectJSON[changeNotUpdateList[i]];
+                        }
                     }
 
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
@@ -1786,6 +1804,8 @@ module.exports = class ApplicationModel {
 
         await this.checkExpiration(newObjectJSON);
         await this.setupDocEinEncrypt(newObjectJSON);
+        await this.checkLocations(newObjectJSON);
+
         if(newObjectJSON.ein){
             delete newObjectJSON.ein
         }
@@ -2157,6 +2177,7 @@ module.exports = class ApplicationModel {
 
         const businessAddressModel = new BusinessAddressModel();
         //remove existing addresss. we do not get ids from UI.
+        log.debug(`removing businessid ${applicationJSON.business} addresses ` + __location)
         await businessAddressModel.DeleteBusinessAddresses(applicationJSON.business).catch(function(err){
             log.error("Error deleting businessAddressModel " + err + __location)
         });
@@ -2165,7 +2186,7 @@ module.exports = class ApplicationModel {
         for(var i = 0; i < locationListDoc.length; i++){
             const businessDoc = JSON.parse(JSON.stringify(locationListDoc[i]));
             businessDoc.business = applicationJSON.business;
-            if(businessDoc.billing){
+            if(businessDoc.billing === true || businessDoc.billing === 1){
                 businessDoc.billing = 1
             }
             else {
@@ -2185,9 +2206,19 @@ module.exports = class ApplicationModel {
             this.jsonToSnakeCase(businessDoc, propMappings);
             const businessAddressModel2 = new BusinessAddressModel();
             try{
+                if(businessDoc.id){
+                    delete businessDoc.id;
+                }
                 await businessAddressModel2.saveModel(businessDoc);
 
+                // const businessAddressActivityCodeModelDelete = new BusinessAddressActivityCodeModel();
+                // //remove existing addresss acivity codes. we do not get ids from UI.
+                // await businessAddressActivityCodeModelDelete.DeleteBusinessAddressesCodes(businessAddressModel2.id).catch(function(err){
+                //     log.error("Error deleting activity codes " + err + __location);
+                // });
+
                 if(locationListDoc[i].activityPayrollList && locationListDoc[i].activityPayrollList.length > 0){
+
 
                     for(let j = 0; j < locationListDoc[i].activityPayrollList.length; j++){
                         const locationAcivity = locationListDoc[i].activityPayrollList[j];
@@ -2202,7 +2233,7 @@ module.exports = class ApplicationModel {
                         };
                         const businessAddressActivityCodeModel = new BusinessAddressActivityCodeModel();
                         await businessAddressActivityCodeModel.saveModel(addressActivityCode).catch(function(err){
-                            log.error("Error updating business address error: " + err + __location);
+                            log.error(`Error updating business address Activity Code error: businessId ${applicationJSON.business}` + err + __location);
                         });
                     }
                 }
@@ -2211,7 +2242,7 @@ module.exports = class ApplicationModel {
                 }
             }
             catch(err){
-                log.error("Error updating business address error: " + err + __location);
+                log.error(`Error updating business address  businessId ${applicationJSON.business} error: ` + err + __location);
             }
         }
 
