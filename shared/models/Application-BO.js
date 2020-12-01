@@ -2187,7 +2187,14 @@ module.exports = class ApplicationModel {
             try{
                 await businessAddressModel2.saveModel(businessDoc);
 
+                const businessAddressActivityCodeModelDelete = new BusinessAddressActivityCodeModel();
+                //remove existing addresss acivity codes. we do not get ids from UI.
+                await businessAddressActivityCodeModelDelete.DeleteBusinessAddressesCodes(applicationJSON.business).catch(function(err){
+                    log.error("Error deleting activity codes " + err + __location);
+                });
+
                 if(locationListDoc[i].activityPayrollList && locationListDoc[i].activityPayrollList.length > 0){
+
 
                     for(let j = 0; j < locationListDoc[i].activityPayrollList.length; j++){
                         const locationAcivity = locationListDoc[i].activityPayrollList[j];
