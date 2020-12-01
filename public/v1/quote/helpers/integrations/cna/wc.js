@@ -30,6 +30,9 @@ const wcRequest = require('./wc_request.json');
  *  Accept - application/json
 */
 
+// used in the quote api call to specify the agency/company submitting the request
+const TALAGE_BRANCH_PRODUCER_CODE = "540085091";
+
 //TODO: Implement url / cred swap between dev and prod 
 const HOST = 'drt-apis.cna.com';
 const QUOTE_URL = '/policy/small-business/full-quote';
@@ -113,6 +116,13 @@ module.exports = class CnaWC extends Integration {
         // NOTE: Right now this is hard-coded to the first reference
         const nameInfoRefId = "N000";
 
+        const agencyId = this.app.agencyLocation.agencyId.split("-");
+        if (!Array.isArray(agencyId) || agencyId.length !== 2) {
+            return this.client_error(`CNA: Could not generate branch code and contract number from Agency ID ${this.app.agencyLocation.agencyId}.`);
+        }
+        const branchCode = agencyId[0];
+        const contractNumber = agencyId[1];
+
         // Check to ensure we have NCCI codes available for every provided activity code.
         for (const location of this.app.business.locations) {
             for (const activityCode of location.activity_codes) {
@@ -154,7 +164,7 @@ module.exports = class CnaWC extends Integration {
         
         // API Information
         try {
-             wcRequest.SignonRq.SignonPswd.CustId.CustLoginId = "TALAGEAPI";
+            wcRequest.SignonRq.SignonPswd.CustId.CustLoginId = "TALAGEAPI";
             wcRequest.SignonRq.ClientApp.Org = "TALAGE";
             wcRequest.SignonRq.ClientApp.Name = "API"
 
@@ -162,16 +172,15 @@ module.exports = class CnaWC extends Integration {
             wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInq = [{RqUID: this.generate_uuid()}];
 
             // ====== Producer Information ======
-            wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Producer[0].ProducerInfo.ContractNumber.value = "018297";
+            wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Producer[0].ProducerInfo.ContractNumber.value = contractNumber;
             wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Producer[0].ProducerInfo.ProducerSubCode.value = "AGT";
-            wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Producer[0].ProducerInfo['com.cna_branchCode'][0].value = "010";
+            wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Producer[0].ProducerInfo['com.cna_branchCode'][0].value = branchCode;
             wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Producer[0].ProducerInfo['com.cna_branchLabel'][0].value = "AI";
 
             // ====== Agency API Information ======
-            wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].ItemIdInfo.AgencyId.value = "018297-010"; // (reverse of producer-branch-code)
+            wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].ItemIdInfo.AgencyId.value = `${contractNumber}-${branchCode}`;
 
-        }
-        catch (err) {
+        } catch (err) {
             log.error(`CNA WC JSON processing error ${err} ` + __location);
         }
 
@@ -187,8 +196,7 @@ module.exports = class CnaWC extends Integration {
             if (business.dba) {
                 generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryNameCd.value = 'DBA';
                 generalPartyInfo.NameInfo[0].SupplementaryNameInfo[0].SupplementaryName.value = business.dba;
-            } 
-            else {
+            } else {
                 generalPartyInfo.NameInfo[0].SupplementaryNameInfo = [];
             }
             generalPartyInfo.NameInfo[0].id = nameInfoRefId
@@ -204,15 +212,14 @@ module.exports = class CnaWC extends Integration {
             generalPartyInfo.Communications.PhoneInfo[0].PhoneNumber.value = `${business.contacts[0].phone}`;
             generalPartyInfo.Communications.EmailInfo[0].EmailAddr.value = business.contacts[0].email;
             generalPartyInfo.Communications.WebsiteInfo[0].WebsiteURL.value = business.website;
-        }
-        catch (err) {
+        } catch (err) {
             log.error(`CNA WC JSON processing error ${err} ` + __location);
         }
        
         // ====== Insured Or Principle Information ======
         try {
             let insuredOrPrincipalInfo = wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].InsuredOrPrincipalInfo;
-            if(!this.industry_code){
+            if (!this.industry_code) {
                 log.error(`CNA WC missing this.industry_code` + __location);
                 //might be mapping issue.  industry code table has what we need.  (SQL in integration.js does a join)
                 // this.app.applicationDocData as the industryCode.
@@ -224,24 +231,19 @@ module.exports = class CnaWC extends Integration {
             if (this.industry_code.attributes) {
                 if (this.industry_code.attributes.SICCd) {
                     insuredOrPrincipalInfo.BusinessInfo.SICCd.value = this.industry_code.attributes.SICCd;
-                }
-                else {
+                } else {
                     log.error(`CNA WC missing this.industry_code.attributes.SICCd ${JSON.stringify(this.industry_code)}` + __location)
                 }
 
                 if (this.industry_code.attributes.NAICSCd) {
                     insuredOrPrincipalInfo.BusinessInfo.NAICSCd.value = this.industry_code.attributes.NAICSCd;
-                }
-                else {
+                } else {
                     log.error(`CNA WC missing this.industry_code.attributes.NAICSCd ${JSON.stringify(this.industry_code)}` + __location)
                 }
-            }
-            else {
+            } else {
                 log.error(`CNA WC missing this.industry_code.attributes needed ${JSON.stringify(this.industry_code)}` + __location)
             }
-
-        }
-        catch (err) {
+        } catch (err) {
             log.error(`CNA WC JSON processing error ${err} ` + __location);
         }
 
@@ -293,8 +295,7 @@ module.exports = class CnaWC extends Integration {
 
             // ====== Questions ======
             WorkCompLineBusiness.QuestionAnswer = this.getQuestionArray();
-        }
-        catch (err) {
+        } catch (err) {
             log.error(`CNA WC JSON processing error ${err} ` + __location);
         }
 
@@ -312,7 +313,7 @@ module.exports = class CnaWC extends Integration {
         // create request headers using auth access token (jwt)
         const headers = {
             'authorization': `Bearer ${jwt.trim()}`,
-            'branch-producer-cd': '010018297',
+            'branch-producer-cd': TALAGE_BRANCH_PRODUCER_CODE,
             'agentid': 'TALAGAPI',
             'content-type': 'application/json'
         }
@@ -326,8 +327,7 @@ module.exports = class CnaWC extends Integration {
             log.debug("=================== QUOTE REQUEST ===================");
 
             result = await this.send_json_request(HOST, QUOTE_URL, JSON.stringify(wcRequest), headers, "POST");
-        }
-        catch (error) {
+        } catch (error) {
             log.debug("=================== QUOTE ERROR ===================");
             const errorJSON = JSON.parse(error.response);
             // We do not want the formatting going into our centralized logging in production.
@@ -339,8 +339,7 @@ module.exports = class CnaWC extends Integration {
             let errorMessage = "";
             try {
                 errorMessage = `CNA: status code ${error.httpStatusCode}: ${errorJSON.InsuranceSvcRs[0].WorkCompPolicyQuoteInqRs[0].MsgStatus.MsgStatusDesc.value}`;
-            }
-            catch (e) {
+            } catch (e) {
                 log.error(`CNA: Error object doesn't have expected description path. ${e}.`);
             }
 
@@ -385,16 +384,14 @@ module.exports = class CnaWC extends Integration {
                         // get quote number (optional)
                         try {
                             quoteNumber = response.CommlPolicy.QuoteInfo.CompanysQuoteNumber.value;
-                        }
-                        catch (e) {
+                        } catch (e) {
                             log.warn(`CNA: Couldn't parse quote number: ${e}` + __location);
                         }
 
                         // get premium (required)
                         try {
                             premium = policySummary.FullTermAmt.Amt.value;
-                        }
-                        catch (e) {
+                        } catch (e) {
                             return this.client_error(`CNA: Couldn't parse premium from CNA response: ${e}.`);
                         }
 
@@ -416,8 +413,7 @@ module.exports = class CnaWC extends Integration {
                                         break;
                                 }
                             });
-                        }
-                        catch (e) {
+                        } catch (e) {
                             return this.client_error(`CNA: Couldn't parse one or more limit values from response: ${e}.`);
                         }
                         
@@ -430,27 +426,23 @@ module.exports = class CnaWC extends Integration {
                             let quoteResult = null;
                             try {
                                 quoteResult = await this.send_json_request(quoteHost, quotePath, null, headers, "GET");
-                            }
-                            catch (e) {
+                            } catch (e) {
                                 log.error(`CNA: The request to retrieve the quote proposal letter failed: ${e}.`);
                             }
 
                             try {
                                 quoteLetter = quoteResult.InsuranceSvcRs[0].ViewInqRs[0].FileAttachmentInfo[0]["com.cna.AttachmentData"].value;
-                            }
-                            catch (e) {
+                            } catch (e) {
                                 log.error(`CNA: There was an error parsing the quote letter: ${e}.`);
                             }
 
                             try {
                                 quoteMIMEType = quoteResult.InsuranceSvcRs[0].ViewInqRs[0].FileAttachmentInfo[0].MIMEEncodingTypeCd.value;
-                            }
-                            catch (e) {
+                            } catch (e) {
                                 log.error(`CNA: There was an error parsing the quote MIME type: ${e}.`);
                             }
 
-                        }
-                        else {
+                        } else {
                             log.error(`CNA: Couldn't find proposal URL with successful quote status: ${response.MsgStatus.MsgStatusCd.value}. Change Status': ${JSON.stringify(response.MsgStatus.ChangeStatus, null, 4)}`);
                         }
                         break;
@@ -468,12 +460,10 @@ module.exports = class CnaWC extends Integration {
             // will either be issued or quotednotbound
             if (policyStatus === "issued") { 
                 return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType);
-            }
-            else {
+            } else {
                 return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType);
             }
-        }
-        else {
+        } else {
             return this.client_error(`CNA: Response doesn't include a policy status code.`);
         }
     }
@@ -620,8 +610,7 @@ module.exports = class CnaWC extends Integration {
         try {
             const result = await axios.post(`https://${HOST}${AUTH_URL}`, data, headers);
             return result.data.access_token;
-        }
-        catch (err) {
+        } catch (err) {
             return `CNA Error: Could Not Authorize: ${err}`;
         }
     }
@@ -650,8 +639,7 @@ module.exports = class CnaWC extends Integration {
 
             host = url.substring(protocalIndex, splitIndex);
             path = url.substring(splitIndex, url.length);
-        }
-        catch (e) {
+        } catch (e) {
             log.warn(`CNA: There was an error splitting the supplied url: ${e}.`);
         }
 
