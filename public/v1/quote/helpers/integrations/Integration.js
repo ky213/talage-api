@@ -1770,6 +1770,7 @@ module.exports = class Integration {
         return new Promise(async(fulfill) => {
             // Get all of the WC Codes with their ID and territory, removing duplicates
             const wcCodes = {};
+            let hasActivityCodes = false;
             this.app.business.locations.forEach(function(location) {
                 location.activity_codes.forEach(function(activity_code) {
                     // Check if this code already existed
@@ -1778,15 +1779,20 @@ module.exports = class Integration {
                             id: activity_code.id,
                             territory: location.territory
                         };
+                        hasActivityCodes = true;
                     }
                 });
             });
-
+            if(hasActivityCodes === false) {
+                log.error(`Integration Missing Activity codes Appid ${this.app.id} locations ${JSON.stringify(this.app.business.locations)}` + __location);
+                fulfill(false);
+                return;
+            }
             // Build some WHERE statements from those codes
             const whereCombinations = Object.values(wcCodes).map(function(codeObj) {
                 return `(\`ac\`.\`id\` = ${db.escape(codeObj.id)} AND \`inc\`.\`territory\` = ${db.escape(codeObj.territory)})`;
             });
-
+            
             // Query the database to get the corresponding codes
             let hadError = false;
             const sql = `
