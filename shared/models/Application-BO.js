@@ -2210,7 +2210,7 @@ module.exports = class ApplicationModel {
                     //let queryProjection = {"__v": 0, questions:0};
                     let queryProjection = {
                         uuid: 1,
-                        appicationID:1,
+                        appicationId:1,
                         mysqlId:1,
                         status: 1,
                         appStatusId:1,
@@ -2243,6 +2243,7 @@ module.exports = class ApplicationModel {
                             application.id = application.mysqlId;
                             await this.setDocEinClear(application);
                             delete application._id;
+                            
                             // Load the request data into it
                             if(agencyMap[application.agencyId]){
                                 application.agencyName = agencyMap[application.agencyId];
