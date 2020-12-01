@@ -2165,7 +2165,7 @@ module.exports = class ApplicationModel {
         for(var i = 0; i < locationListDoc.length; i++){
             const businessDoc = JSON.parse(JSON.stringify(locationListDoc[i]));
             businessDoc.business = applicationJSON.business;
-            if(businessDoc.billing){
+            if(businessDoc.billing === true || businessDoc.billing === 1){
                 businessDoc.billing = 1
             }
             else {
@@ -2185,13 +2185,16 @@ module.exports = class ApplicationModel {
             this.jsonToSnakeCase(businessDoc, propMappings);
             const businessAddressModel2 = new BusinessAddressModel();
             try{
+                if(businessDoc.id){
+                    delete businessDoc.id;
+                }
                 await businessAddressModel2.saveModel(businessDoc);
 
-                const businessAddressActivityCodeModelDelete = new BusinessAddressActivityCodeModel();
-                //remove existing addresss acivity codes. we do not get ids from UI.
-                await businessAddressActivityCodeModelDelete.DeleteBusinessAddressesCodes(applicationJSON.business).catch(function(err){
-                    log.error("Error deleting activity codes " + err + __location);
-                });
+                // const businessAddressActivityCodeModelDelete = new BusinessAddressActivityCodeModel();
+                // //remove existing addresss acivity codes. we do not get ids from UI.
+                // await businessAddressActivityCodeModelDelete.DeleteBusinessAddressesCodes(businessAddressModel2.id).catch(function(err){
+                //     log.error("Error deleting activity codes " + err + __location);
+                // });
 
                 if(locationListDoc[i].activityPayrollList && locationListDoc[i].activityPayrollList.length > 0){
 
@@ -2209,7 +2212,7 @@ module.exports = class ApplicationModel {
                         };
                         const businessAddressActivityCodeModel = new BusinessAddressActivityCodeModel();
                         await businessAddressActivityCodeModel.saveModel(addressActivityCode).catch(function(err){
-                            log.error("Error updating business address error: " + err + __location);
+                            log.error(`Error updating business address Activity Code error: businessId ${applicationJSON.business}` + err + __location);
                         });
                     }
                 }
@@ -2218,7 +2221,7 @@ module.exports = class ApplicationModel {
                 }
             }
             catch(err){
-                log.error("Error updating business address error: " + err + __location);
+                log.error(`Error updating business address  businessId ${applicationJSON.business} error: ` + err + __location);
             }
         }
 
