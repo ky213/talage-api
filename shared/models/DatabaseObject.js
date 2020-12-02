@@ -579,7 +579,7 @@ module.exports = class DatabaseObject {
 
             // Make sure the query was successful
             if (result.affectedRows !== 1) {
-                log.error(`Update failed. Query ran successfully; however, an unexpected number of records were affected. (${result.affectedRows} records)  ${sql}`);
+                log.error(`Update failed. Query ran successfully; however, an unexpected number of records were affected. (${result.affectedRows} records)  ${sql}` + __location);
                 reject(new Error(`Update failed on ${tableName}.`));
                 return;
             }
