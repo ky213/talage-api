@@ -2,12 +2,9 @@
 
 
 const DatabaseObject = require('./DatabaseObject.js');
-const crypt = requireShared('./services/crypt.js');
+
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const moment = require('moment');
-const moment_timezone = require('moment-timezone');
-const {debug} = require('request');
 
 
 const tableName = 'clw_talage_insurer_policy_types'
@@ -34,12 +31,19 @@ module.exports = class InsurerPolicyTypeBO{
                 reject(new Error(`empty ${tableName} object given`));
             }
             await this.cleanupInput(newObjectJSON);
+            let rejected = false;
             if(newObjectJSON.id){
                 await this.#dbTableORM.getById(newObjectJSON.id).catch(function(err) {
                     log.error(`Error getting ${tableName} from Database ` + err + __location);
-                    reject(err);
+                    const errMessage = `InsurerPolicyTypeBO saveModel getById ${newObjectJSON.id} ` + err;
+                    reject(errMessage);
+                    rejected = true;
                     return;
                 });
+                if(rejected){
+                    return;
+                }
+
                 this.updateProperty();
                 this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
             }
@@ -66,7 +70,7 @@ module.exports = class InsurerPolicyTypeBO{
      *
 	 * @returns {Promise.<JSON, Error>} save return true , or an Error if rejected
 	 */
-    save(asNew = false){
+    save(){
         return new Promise(async(resolve, reject) => {
             //validate
             this.#dbTableORM.load(this, skipCheckRequired);
@@ -192,9 +196,9 @@ module.exports = class InsurerPolicyTypeBO{
                         WHERE id = ${id}
                 `;
                 let rejected = false;
-                const result = await db.query(sql).catch(function(error) {
+                await db.query(sql).catch(function(error) {
                     // Check if this was
-                    log.error("Database Object ${tableName} DELETE  error :" + error + __location);
+                    log.error(`Database Object ${tableName} DELETE  error :` + error + __location);
                     rejected = true;
                     reject(error);
                 });
@@ -326,6 +330,7 @@ const properties = {
 
 class DbTableOrm extends DatabaseObject {
 
+    // eslint-disable-next-line no-shadow
     constructor(tableName){
         super(tableName, properties);
     }
