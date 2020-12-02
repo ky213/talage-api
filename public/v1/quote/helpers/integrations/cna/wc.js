@@ -113,10 +113,16 @@ module.exports = class CnaWC extends Integration {
         // NOTE: Right now this is hard-coded to the first reference
         const nameInfoRefId = "N000";
 
-        const agencyId = this.app.agencyLocation.agencyId.split("-");
+        let agencyId = null;
+        try {
+            agencyId = this.app.agencyLocation.insurers[this.insurer.id].agency_id.split("-");
+        } catch (e) {
+            return this.client_error(`CNA: There was an error splitting the agency_id for insurer ${this.insurer.id}. ${e}.`);
+        }
         if (!Array.isArray(agencyId) || agencyId.length !== 2) {
             return this.client_error(`CNA: Could not generate branch code and contract number from Agency ID ${this.app.agencyLocation.agencyId}.`);
         }
+
         const branchCode = agencyId[0];
         const contractNumber = agencyId[1];
 
@@ -178,7 +184,7 @@ module.exports = class CnaWC extends Integration {
             wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].ItemIdInfo.AgencyId.value = `${contractNumber}-${branchCode}`;
 
         } catch (err) {
-            log.error(`CNA WC JSON processing error ${err} ` + __location);
+            return this.client_error(`CNA WC JSON processing error ${err} ` + __location);
         }
 
         // ====== General Business Information ======
@@ -209,8 +215,9 @@ module.exports = class CnaWC extends Integration {
             generalPartyInfo.Communications.PhoneInfo[0].PhoneNumber.value = `${business.contacts[0].phone}`;
             generalPartyInfo.Communications.EmailInfo[0].EmailAddr.value = business.contacts[0].email;
             generalPartyInfo.Communications.WebsiteInfo[0].WebsiteURL.value = business.website;
+
         } catch (err) {
-            log.error(`CNA WC JSON processing error ${err} ` + __location);
+            return this.client_error(`CNA WC JSON processing error ${err} ` + __location);
         }
        
         // ====== Insured Or Principle Information ======
@@ -218,7 +225,7 @@ module.exports = class CnaWC extends Integration {
             let insuredOrPrincipalInfo = wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].InsuredOrPrincipalInfo;
             if (!this.industry_code) {
                 log.error(`CNA WC missing this.industry_code` + __location);
-                //might be mapping issue.  industry code table has what we need.  (SQL in integration.js does a join)
+                // might be mapping issue. industry code table has what we need. (SQL in integration.js does a join)
                 // this.app.applicationDocData as the industryCode.
             }
             insuredOrPrincipalInfo.InsuredOrPrincipalRoleCd[0].value = "Insured";
@@ -240,13 +247,14 @@ module.exports = class CnaWC extends Integration {
             } else {
                 log.error(`CNA WC missing this.industry_code.attributes needed ${JSON.stringify(this.industry_code)}` + __location)
             }
+
         } catch (err) {
-            log.error(`CNA WC JSON processing error ${err} ` + __location);
+            return this.client_error(`CNA WC JSON processing error ${err} ` + __location);
         }
 
         // ====== Commercial Policy Information ======
         try {
-            let commlPolicy = wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy;
+            const commlPolicy = wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy;
             const durationPeriod = policy.expiration_date.diff(policy.effective_date, 'months');
             commlPolicy.LOBCd.value = "WORK";
             commlPolicy.NAICCd.value =
@@ -275,16 +283,17 @@ module.exports = class CnaWC extends Integration {
             wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Location = this.getLocations();
 
             // ====== Workers' Comp Line of Business Information ======
-            wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.LOBCd.value = "WORK";
-            wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].StateProvCd.value = business.mailing_territory;
-            wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].NumEmployees.value = this.get_total_employees();
+            const WorkCompLineBusiness = wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness;
+            WorkCompLineBusiness.LOBCd.value = "WORK";
+            WorkCompLineBusiness.WorkCompRateState[0].StateProvCd.value = business.mailing_territory;
+            WorkCompLineBusiness.WorkCompRateState[0].WorkCompLocInfo[0].NumEmployees.value = this.get_total_employees();
 
             // delete optional fields (not necessary for quoting)
-            delete wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.CurrentTermAmt; // .value | 10000
-            delete wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness['com.cna_PremiumTypeCd']; // .value | "EST"
-            delete wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness['com.cna_AnniversaryRatingDt']; // .value | "2020-09-27"
+            delete WorkCompLineBusiness.CurrentTermAmt; // .value | 10000
+            delete WorkCompLineBusiness['com.cna_PremiumTypeCd']; // .value | "EST"
+            delete WorkCompLineBusiness['com.cna_AnniversaryRatingDt']; // .value | "2020-09-27"
 
-            wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].WorkCompLineBusiness.WorkCompRateState = this.getWorkCompRateStates();
+            WorkCompLineBusiness.WorkCompRateState = this.getWorkCompRateStates();
 
             // ====== Coverage Information ======
             WorkCompLineBusiness.CommlCoverage[0].CoverageCd.value = "WCEL";
@@ -292,8 +301,9 @@ module.exports = class CnaWC extends Integration {
 
             // ====== Questions ======
             WorkCompLineBusiness.QuestionAnswer = this.getQuestionArray();
+
         } catch (err) {
-            log.error(`CNA WC JSON processing error ${err} ` + __location);
+            return this.client_error(`CNA WC JSON processing error ${err} ` + __location);
         }
 
         // =================================================================
