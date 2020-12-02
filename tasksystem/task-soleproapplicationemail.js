@@ -4,9 +4,6 @@ const moment = require('moment');
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 
-const AgencyBO = global.requireShared('models/Agency-BO.js');
-const ApplicationBO = global.requireShared('models/Application-BO.js');
-const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 
 
 /**
@@ -71,6 +68,11 @@ exports.soleproApplicationEmailTask = async function(applicationId) {
 
 var soleproApplicationEmailTask = async function(applicationId) {
     //get
+    //move to here some mongo setup time is not an issue at process startup.
+    const ApplicationBO = global.requireShared('models/Application-BO.js');
+    const AgencyBO = global.requireShared('models/Agency-BO.js');
+    const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
+
     let applicationDoc = null;
     const applicationBO = new ApplicationBO();
     try {
