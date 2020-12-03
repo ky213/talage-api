@@ -1488,28 +1488,46 @@ module.exports = class ApplicationModel {
         return true;
 
     }
+    async checkLocations(applicationJSON){
+        if(applicationJSON.locations && applicationJSON.locations.length > 0){
+            let hasBillingLocation = false;
+            for(let location of applicationJSON.locations){
+                if(hasBillingLocation === true && location.billing === true){
+                    log.warn(`Application will mutliple billing received AppId ${applicationJSON.applicationId} fixing location ${JSON.stringify(location)} to billing = false` + __location)
+                    location.billing = false;
+                }
+                else if(location.billing === true){
+                    hasBillingLocation = true;
+                }
+            }
+        }
+        return true;
+    }
 
     async updateMongo(uuid, newObjectJSON, updateMysql = false) {
         if (uuid) {
             if (typeof newObjectJSON === "object") {
-                const changeNotUpdateList = ["active",
-                    "id",
-                    "mysqlId",
-                    "applicationId",
-                    "uuid"]
-                for (let i = 0; i < changeNotUpdateList.length; i++) {
-                    if (newObjectJSON[changeNotUpdateList[i]]) {
-                        delete newObjectJSON[changeNotUpdateList[i]];
-                    }
-                }
+
                 const query = {"applicationId": uuid};
                 let newApplicationJSON = null;
                 try {
                     //because Virtual Sets.  new need to get the model and save.
                     await this.checkExpiration(newObjectJSON);
                     await this.setupDocEinEncrypt(newObjectJSON);
+                    await this.checkLocations(newObjectJSON);
+
                     if(newObjectJSON.ein){
                         delete newObjectJSON.ein
+                    }
+                    const changeNotUpdateList = ["active",
+                        "id",
+                        "mysqlId",
+                        "applicationId",
+                        "uuid"]
+                    for (let i = 0; i < changeNotUpdateList.length; i++) {
+                        if (newObjectJSON[changeNotUpdateList[i]]) {
+                            delete newObjectJSON[changeNotUpdateList[i]];
+                        }
                     }
 
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
@@ -1568,6 +1586,8 @@ module.exports = class ApplicationModel {
 
         await this.checkExpiration(newObjectJSON);
         await this.setupDocEinEncrypt(newObjectJSON);
+        await this.checkLocations(newObjectJSON);
+
         if(newObjectJSON.ein){
             delete newObjectJSON.ein
         }
@@ -1692,9 +1712,6 @@ module.exports = class ApplicationModel {
                 log.error('Mongo Application Getfor mysqlId err ' + err + __location);
                 error = err;
             });
-            if(!applicationJSON.business){
-                log.error("Mysql application missing business reference " + __location + ": " + JSON.stringify(applicationJSON));
-            }
         }
         else if(!applicationJSON || !applicationJSON.id){
             log.error("NO Appid in mongoDoc2MySqlUpdate " + __location);
@@ -2193,7 +2210,7 @@ module.exports = class ApplicationModel {
                     //let queryProjection = {"__v": 0, questions:0};
                     let queryProjection = {
                         uuid: 1,
-                        appicationID:1,
+                        appicationId:1,
                         mysqlId:1,
                         status: 1,
                         appStatusId:1,
@@ -2226,6 +2243,7 @@ module.exports = class ApplicationModel {
                             application.id = application.mysqlId;
                             await this.setDocEinClear(application);
                             delete application._id;
+                            
                             // Load the request data into it
                             if(agencyMap[application.agencyId]){
                                 application.agencyName = agencyMap[application.agencyId];
@@ -2499,17 +2517,6 @@ module.exports = class ApplicationModel {
             questionsObject.answeredList = applicationDocDB.questions;
         }
 
-        //get activitycodes.
-        let activityCodeArray = [];
-        if(applicationDocDB.activityCodes && applicationDocDB.activityCodes.length > 0){
-            for(let i = 0; i < applicationDocDB.activityCodes.length; i++){
-                activityCodeArray.push(applicationDocDB.activityCodes[i].ncciCode);
-            }
-
-        }
-        else {
-            throw new Error("Incomplete Application: Missing Application Activity Codes")
-        }
         //industrycode
         let industryCodeString = '';
         if(applicationDocDB.industryCode){
@@ -2519,6 +2526,7 @@ module.exports = class ApplicationModel {
         else {
             throw new Error("Incomplete Application: Application Industry Code")
         }
+
         //policyType.
         let policyTypeArray = [];
         if(applicationDocDB.policies && applicationDocDB.policies.length > 0){
@@ -2529,6 +2537,21 @@ module.exports = class ApplicationModel {
         else {
             throw new Error("Incomplete Application: Application Policy Types")
         }
+
+        //get activitycodes.
+        // activity codes are not required for GL
+        const requireActivityCodes = Boolean(policyTypeArray.filter(policy => policy !== "GL").length);
+        let activityCodeArray = [];
+        if(applicationDocDB.activityCodes && applicationDocDB.activityCodes.length > 0){
+            for(let i = 0; i < applicationDocDB.activityCodes.length; i++){
+                activityCodeArray.push(applicationDocDB.activityCodes[i].ncciCode);
+            }
+
+        }
+        else if(requireActivityCodes) {
+            throw new Error("Incomplete Application: Missing Application Activity Codes")
+        }
+
         //zipCodes
         let zipCodeArray = [];
         if(applicationDocDB.locations && applicationDocDB.locations.length > 0){
@@ -2569,6 +2592,10 @@ module.exports = class ApplicationModel {
         try {
             log.debug("insurerArray: " + insurerArray);
             getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, returnHidden);
+            if(getQuestionsResult && getQuestionsResult.length === 0){
+                //no questions returned.
+                log.warn(`No questions returned for AppId ${appId} parameter activityCodeArray: ${activityCodeArray}  industryCodeString: ${industryCodeString}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${policyTypeArray} insurerArray: ${insurerArray} `)
+            }
         }
         catch (err) {
             log.error("Error call in question service " + err + __location);

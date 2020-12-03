@@ -18,6 +18,15 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 module.exports = class ChubbGL extends Integration {
 
+    /**
+     * Initializes this integration.
+     *
+     * @returns {void}
+     */
+    _insurer_init() {
+        this.requiresInsurerIndustryCodes = true;
+    }
+
 	/**
 	 * Requests a quote from Chubb and returns. This request is not intended to be called directly.
 	 *

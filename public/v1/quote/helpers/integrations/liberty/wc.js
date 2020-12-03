@@ -17,6 +17,15 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 module.exports = class LibertyWC extends Integration {
 
+    /**
+     * Initializes this integration.
+     *
+     * @returns {void}
+     */
+    _insurer_init() {
+        this.requiresInsurerActivityClassCodes = true;
+    }
+
 	/**
 	 * Requests a quote from Liberty and returns. This request is not intended to be called directly.
 	 *
