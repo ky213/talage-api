@@ -1874,12 +1874,16 @@ module.exports = class Integration {
             }
             if (!codes.length) {
                 // No activity codes
+                this.reasons.push("No Insurer activity class codes found.")
+                log.warn(`AppId: ${appId} InsurerId: ${insurerId} No Insurer activity class codes found. ${__location}`);
                 fulfill(false);
                 return;
             }
 
             // Make sure the number of codes matched (otherwise there were codes unsupported by this insurer)
             if (Object.keys(wcCodes).length !== codes.length) {
+                this.reasons.push("Insurer activity class codes were not found for all Application Activity Codes")
+                log.warn(`AppId: ${appId} InsurerId: ${insurerId} Insurer activity class codes were not found for all Application Activity Codes ${__location}`);
                 fulfill(false);
                 return;
             }
