@@ -20,6 +20,15 @@ const employersWCTemplate = require('jsrender').templates('./public/v1/quote/hel
 
 module.exports = class EmployersWC extends Integration {
 
+    /**
+     * Initializes this integration.
+     *
+     * @returns {void}
+     */
+    _insurer_init() {
+        this.requiresInsurerActivityClassCodes = true;
+    }
+
 	/**
 	 * Requests a quote from Employers and returns. This request is not intended to be called directly.
 	 *

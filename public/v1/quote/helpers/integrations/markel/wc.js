@@ -14,6 +14,15 @@ const tracker = global.requireShared('./helpers/tracker.js');
 module.exports = class MarkelWC extends Integration {
 
     /**
+     * Initializes this integration.
+     *
+     * @returns {void}
+     */
+    _insurer_init() {
+        this.requiresInsurerActivityClassCodes = true;
+    }
+
+    /**
      * Requests a quote from Markel and returns. This request is not intended to be called directly.
      *
      * @returns {result} The result of return_result()
