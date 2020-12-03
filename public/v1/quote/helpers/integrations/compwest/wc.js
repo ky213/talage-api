@@ -24,6 +24,15 @@ const wcEmodEmail = global.requireRootPath('./tasksystem/task-wcemodemail');
 module.exports = class CompwestWC extends Integration {
 
     /**
+     * Initializes this integration.
+     *
+     * @returns {void}
+     */
+    _insurer_init() {
+        this.requiresInsurerActivityClassCodes = true;
+    }
+
+    /**
      * Makes a request to Accident Fund to bind a policy.  This method is not intended to be called directly
      *
      * @returns {Promise.<string, ServerError>} A promise that returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a ServerError if rejected

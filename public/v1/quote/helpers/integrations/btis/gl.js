@@ -86,6 +86,15 @@ const PRODUCTION_SERVICE_CHANNEL_ID = 86;
 module.exports = class BtisGL extends Integration {
 
     /**
+     * Initializes this integration.
+     *
+     * @returns {void}
+     */
+    _insurer_init() {
+        this.requiresInsurerIndustryCodes = true;
+    }
+
+    /**
 	 * Requests a quote from BTIS and returns. This request is not intended to be called directly.
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
