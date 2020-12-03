@@ -24,6 +24,15 @@ module.exports = class AccidentfundWC extends Integration{
     }
 
     /**
+     * Initializes this integration.
+     *
+     * @returns {void}
+     */
+    _insurer_init() {
+        this.requiresInsurerActivityClassCodes = true;
+    }
+
+    /**
 	 * Requests a quote from Accident Fund and returns. This is not intended to be called directly.
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected

@@ -33,6 +33,19 @@ module.exports = class Integration {
      * @returns {void}
      */
     constructor(app, insurer, policy) {
+        // Integration flags
+
+        // requiresInsurerIndustryCodes:
+        //      - set to true if the integration has insurer industry codes.
+        //      - set to false if the integration does not have insurer industry codes.
+        this.requiresInsurerIndustryCodes = false;
+
+        // requiresInsurerActivityClassCodes:
+        //      - set to true if the integration has insurer activity class codes.
+        //      - set to false if the integration does not have insurer activity class codes.
+        this.requiresInsurerActivityClassCodes = false;
+
+        // Integration Data
         this.app = app;
         this.industry_code = {};
         this.insurer = insurer;
@@ -59,6 +72,11 @@ module.exports = class Integration {
         this.amount = 0;
         this.quote_letter = {};
         this.reasons = [];
+
+        // Initialize the integration
+        if (typeof this._insurer_init === "function") {
+            this._insurer_init();
+        }
 
         // Apply WC payroll caps for Nevada
         if (this.policy.type === 'WC' && this.app.business && app.business.primary_territory === 'NV') {
@@ -201,7 +219,7 @@ module.exports = class Integration {
     }
 
     /**
-     * Retrieves an NCCI code from a given activity code
+     * Retrieves an Employers-specific NCCI code for a given activity code
      *
      * @param {string} territory - The 2 character territory code
      * @param {number} activityCode - The 4 digit Talage activity code
@@ -243,18 +261,18 @@ module.exports = class Integration {
     }
 
     /**
-     * Retrieves an NCCI code from a given activity code
+     * Retrieves a national NCCI code from a given activity code
      *
      * @param {string} territory - The 2 character territory code
      * @param {number} activityCode - The 4 digit Talage activity code
      * @returns {object} The code and sub(code)
      */
-    async get_ncci_code_from_activity_code(territory, activityCode) {
-        // Check if the insurer_wc_codes has the code
-        if (this.insurer_wc_codes.hasOwnProperty(territory + activityCode)) {
-            return this.insurer_wc_codes[territory + activityCode];
-        }
-        // Otherwise fall back to the standard NCCI codes
+    async get_national_ncci_code_from_activity_code(territory, activityCode) {
+        // Retrieve a national NCCI code.
+        // NOTE: we do not currently have these mapped but are in process; Adam is getting them.
+        // Employers codes mostly follow the national NCCI code numbering and we have most Employers codes
+        // mapped. So we use the employers code mapping for now until we have an official map of the
+        // national NCCI codes. -SF
         const employersRecord = await this.get_employers_code_for_activity_code(territory, activityCode);
         if (!employersRecord) {
             return null;
@@ -978,11 +996,16 @@ module.exports = class Integration {
                 return;
             }
 
-            // Check that all of the selected codes are supported by the insurer
-            const industryCodesSupported = await this._insurer_supports_industry_codes();
-            const activityCodesSupported = await this._insurer_supports_activity_codes();
-            // If this integration doesn't support any industry codes or activity codes for the given territory, return autodecline.
-            if (!industryCodesSupported && !activityCodesSupported) {
+            // Check that industry codes codes are supported by the insurer if required
+            if (!await this._insurer_supports_industry_codes() && this.requiresInsurerIndustryCodes) {
+                // No industry codes when they are required
+                fulfill(this.client_autodeclined_out_of_appetite());
+                return;
+            }
+
+            // Check that activity class codes codes are supported by the insurer if required
+            if (!await this._insurer_supports_activity_codes() && this.requiresInsurerActivityClassCodes) {
+                // No activity class codes when they are required
                 fulfill(this.client_autodeclined_out_of_appetite());
                 return;
             }
@@ -1878,18 +1901,13 @@ module.exports = class Integration {
                 fulfill(false);
                 return;
             }
-            if (!codes.length) {
-                // No activity codes
-                this.reasons.push("No Insurer activity class codes found.")
-                log.warn(`AppId: ${appId} InsurerId: ${insurerId} No Insurer activity class codes found. ${__location}`);
-                fulfill(false);
-                return;
-            }
 
             // Make sure the number of codes matched (otherwise there were codes unsupported by this insurer)
-            if (Object.keys(wcCodes).length !== codes.length) {
-                this.reasons.push("Insurer activity class codes were not found for all Application Activity Codes")
-                log.warn(`AppId: ${appId} InsurerId: ${insurerId} Insurer activity class codes were not found for all Application Activity Codes ${__location}`);
+            if (!codes.length || Object.keys(wcCodes).length !== codes.length) {
+                if (this.requiresInsurerActivityClassCodes) {
+                    this.reasons.push("Insurer activity class codes were not found for all activities in the application.");
+                    log.error(`AppId: ${appId} InsurerId: ${insurerId} _insurer_supports_activity_codes failed on application that passed validation. query=${sql}` + __location);
+                }
                 fulfill(false);
                 return;
             }
@@ -1947,8 +1965,10 @@ module.exports = class Integration {
                 return;
             }
             if (!result || !result.length) {
-                // No industry codes
-                log.error(`_insurer_supports_industry_codes failed on application that passed validation. query ${sql}  ` + __location);
+                if (this.requiresInsurerIndustryCodes) {
+                    this.reasons.push("An insurer industry class code was not found for the given industry.");
+                    log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} _insurer_supports_industry_codes failed on application that passed validation. query=${sql} ` + __location);
+                }
                 fulfill(false);
                 return;
             }

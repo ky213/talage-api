@@ -15,6 +15,15 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 module.exports = class LibertyGL extends Integration{
 
+    /**
+     * Initializes this integration.
+     *
+     * @returns {void}
+     */
+    _insurer_init() {
+        this.requiresInsurerIndustryCodes = true;
+    }
+
 	/**
 	 * Requests a quote from Liberty and returns. This request is not intended to be called directly.
 	 *
