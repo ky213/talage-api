@@ -121,7 +121,7 @@ module.exports = class CnaWC extends Integration {
      */
     _insurer_init() {
         this.requiresInsurerIndustryCodes = true;
-        this.requiresInsurerActivityClassCodes = true;
+        this.requiresInsurerActivityClassCodes = false;
     }
 
 	/** 
@@ -153,10 +153,22 @@ module.exports = class CnaWC extends Integration {
         // Check to ensure we have NCCI codes available for every provided activity code.
         for (const location of this.app.business.locations) {
             for (const activityCode of location.activity_codes) {
-                const ncciCode = this.insurer_wc_codes[location.territory + activityCode.id];
+                let ncciCode = this.insurer_wc_codes[location.territory + activityCode.id];
                 if (!ncciCode) {
-                    return this.client_error(`CNA: Unable to locate an NCCI code for activity code ${activityCode.id}.`);
+                    // if we don't have an insurer-specific activity code, we need to look up a national standard NCCI code instead
+                    try {
+                        ncciCode = await this.get_national_ncci_code_from_activity_code(location.territory, activityCode.id);
+
+                        // if we can't find a national standard NCCI code, throw an error
+                        // else, we will use this code instead...
+                        if (!ncciCode) {
+                            return this.client_error(`CNA: Unable to locate an insurer or national NCCI code for activity code ${activityCode.id}.`);
+                        }
+                    } catch (e) {
+                        return this.client_error(`CNA: There was an error looking up national NCCI code for activity code ${activityCode.id}.`);
+                    }
                 }
+                // set the activity code's NCCI code to either the insurer-specific Activity Code, or the national NCCI code
                 activityCode.ncciCode = ncciCode;
             }
         }
