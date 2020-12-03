@@ -292,71 +292,85 @@ module.exports = class PieWC extends Integration {
 
         // Send JSON to the insurer
         let res = null;
+        let questionsArray = [];
         try {
+            console.log('');
+            console.log(JSON.stringify(data, null, 4));
+            console.log('')
+            console.log('this.questions:',this.questions);
             res = await this.send_json_request(host, '/api/v1/Quotes', JSON.stringify(data), {Authorization: token});
         } catch (error) {
             log.error(`Appid: ${this.app.id} Pie WC: Error  ${error} ` + __location)
-            return this.return_result('error');
+            // return this.return_result('error');
+        }
+
+        for(const question_id in this.questions){
+            if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
+                questionsArray.push({
+                    "id": "7be6ab2a-73d1-4190-bdb4-20b5a5eb3ce7",
+                    "answer": "No"
+                })
+            }
         }
 
         // Pie only returns indications
-        this.indication = true;
+        // this.indication = true;
 
-        // Attempt to get the quote number
-        try {
-            this.request_id = res.id;
-        } catch (e) {
-            log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.` + __location);
-        }
+        // // Attempt to get the quote number
+        // try {
+        //     this.request_id = res.id;
+        // } catch (e) {
+        //     log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.` + __location);
+        // }
 
-        // Attempt to get the amount of the quote
-        try {
-            this.amount = parseInt(res.premiumDetails.totalEstimatedPremium, 10);
-        } catch (error) {
-            log.error(`Appid: ${this.app.id} Pie WC: Error getting amount ${error} ` + __location)
-            return this.return_result('error');
-        }
+        // // Attempt to get the amount of the quote
+        // try {
+        //     this.amount = parseInt(res.premiumDetails.totalEstimatedPremium, 10);
+        // } catch (error) {
+        //     log.error(`Appid: ${this.app.id} Pie WC: Error getting amount ${error} ` + __location)
+        //     return this.return_result('error');
+        // }
 
         // Attempt to grab the limits info
-        try {
-            for (const limit_name in res.employersLiabilityLimits) {
-                if (Object.prototype.hasOwnProperty.call(res.employersLiabilityLimits, limit_name)) {
-                    const limit = res.employersLiabilityLimits[limit_name];
+        // try {
+        //     for (const limit_name in res.employersLiabilityLimits) {
+        //         if (Object.prototype.hasOwnProperty.call(res.employersLiabilityLimits, limit_name)) {
+        //             const limit = res.employersLiabilityLimits[limit_name];
 
-                    switch (limit_name) {
-                        case 'eachAccident':
-                            this.limits[1] = limit;
-                            break;
-                        case 'eachEmployee':
-                            this.limits[2] = limit;
-                            break;
-                        case 'eachPolicy':
-                            this.limits[3] = limit;
-                            break;
-                        default:
-                            log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response` + __location);
-                            return this.return_result('error');
-                    }
-                }
-            }
-        } catch (e) {
-            log.error(`Appid: ${this.app.id} Pie WC: Error getting limit ${e} ` + __location)
-            return this.return_result('error');
-        }
+        //             switch (limit_name) {
+        //                 case 'eachAccident':
+        //                     this.limits[1] = limit;
+        //                     break;
+        //                 case 'eachEmployee':
+        //                     this.limits[2] = limit;
+        //                     break;
+        //                 case 'eachPolicy':
+        //                     this.limits[3] = limit;
+        //                     break;
+        //                 default:
+        //                     log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response` + __location);
+        //                     return this.return_result('error');
+        //             }
+        //         }
+        //     }
+        // } catch (e) {
+        //     log.error(`Appid: ${this.app.id} Pie WC: Error getting limit ${e} ` + __location)
+        //     return this.return_result('error');
+        // }
 
-        // Grab the writing company
-        try {
-            this.writer = res.insuranceCompany;
-        } catch (e) {
-            log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.` + __location);
-        }
+        // // Grab the writing company
+        // try {
+        //     this.writer = res.insuranceCompany;
+        // } catch (e) {
+        //     log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.` + __location);
+        // }
 
-        // Dirty? (Indicates a Valen outage)
-        if (res.isDirty) {
-            this.reasons.push('Valen is Down: Quote generated during a Valen outage are less likely to go unrevised by Underwriting.');
-        }
+        // // Dirty? (Indicates a Valen outage)
+        // if (res.isDirty) {
+        //     this.reasons.push('Valen is Down: Quote generated during a Valen outage are less likely to go unrevised by Underwriting.');
+        // }
 
-        // Send the result of the request
-        return this.return_result('quoted');
+        // // Send the result of the request
+        // return this.return_result('quoted');
     }
 };
