@@ -95,11 +95,13 @@ module.exports = class EmployersWC extends Integration {
                 return;
             }
 
-            //Check business locations Length
+            //Check business locations Length and add Primary Location property
             this.app.business.locations.forEach((location) => {
                 if(location.address.length > 300){
                     location.address = location.address.substr(0, 299);
                 }
+
+                location.primary = location.address === this.app.business.mailing_address;
             });
 
             // Prepare questions
@@ -156,6 +158,8 @@ module.exports = class EmployersWC extends Integration {
             // Render the template into XML and remove any empty lines (artifacts of control blocks)
             // ===================================================================================================
             const xml = employersWCTemplate.render(this).replace(/\n\s*\n/g, '\n');
+
+            console.log(xml);
 
             // Determine which URL to use
             let host = '';
