@@ -2,6 +2,7 @@
 
 const positive_integer = /^[1-9]\d*$/;
 
+
 /**
  * Checks whether a list of agents is valid (exists in our database). Valid agents are active or disabled (not deleted)
  * A valid agent is identified by ID
@@ -23,21 +24,22 @@ module.exports = async function(agents){
         return false;
     }
 
-    const sql = `
-		SELECT COUNT(\`id\`)
-		FROM \`#__agencies\`
-		WHERE \`id\` IN (${agents.join(',')}) AND \`state\` > 0
-		LIMIT 1;
-	`;
-    const rows = await db.query(sql).catch(function(error){
-        log.error(error + __location);
-        had_error = true;
-    });
-    if(had_error){
+    let agencyList = null;
+    try{
+        // Load the request data into it
+        const query = {agencies: agents}
+        const AgencyBO = global.requireShared('./models/Agency-BO.js');
+        const agencyBO = new AgencyBO();
+        // Load the request data into it
+        agencyList = await agencyBO.getList(query);
+    }
+    catch(err){
+        log.error("Agencies Validator getList error " + err + __location);
+    }
+    if (agencyList && agencyList.length > 0 ){
+        return true;
+    }
+    else {
         return false;
     }
-    if(!rows || rows.length !== 1 || !Object.prototype.hasOwnProperty.call(rows[0], 'COUNT(`id`)') || rows[0]['COUNT(`id`)'] !== agents.length){
-        return false;
-    }
-    return true;
 };

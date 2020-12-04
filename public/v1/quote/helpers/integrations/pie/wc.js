@@ -16,6 +16,15 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 module.exports = class PieWC extends Integration {
 
+    /**
+     * Initializes this integration.
+     *
+     * @returns {void}
+     */
+    _insurer_init() {
+        this.requiresInsurerActivityClassCodes = true;
+    }
+
 	/**
 	 * Requests a quote from Pie and returns. This request is not intended to be called directly.
 	 *

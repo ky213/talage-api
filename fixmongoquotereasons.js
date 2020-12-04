@@ -156,7 +156,7 @@ async function runFunction() {
                         if(quoteMySql.payment_plan){
                             newReasonsJSON.paymentPlanId = quoteMySql.payment_plan
                         }
-                        await quoteBO.updateMongo(quoteDoc && quoteDoc.quoteId, newReasonsJSON);
+                        await quoteBO.updateMongo(quoteDoc.quoteId, newReasonsJSON);
                     }
 
                     //updateMonod

@@ -7,10 +7,20 @@
 const builder = require('xmlbuilder');
 const moment_timezone = require('moment-timezone');
 const Integration = require('../Integration.js');
+const utility = require('../../../../../../shared/helpers/utility');
 
 global.requireShared('./helpers/tracker.js');
 
 module.exports = class AcuityGL extends Integration {
+
+    /**
+     * Initializes this integration.
+     *
+     * @returns {void}
+     */
+    _insurer_init() {
+        this.requiresInsurerIndustryCodes = true;
+    }
 
     /**
 	 * Requests a quote from Acuity and returns. This request is not intended to be called directly.
@@ -18,6 +28,10 @@ module.exports = class AcuityGL extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
     async _insurer_quote() {
+
+        const insurerSlug = 'acuity';
+        const insurer = utility.getInsurer(insurerSlug);
+
         // Don't report certain activities in the payroll exposure
         const unreportedPayrollActivityCodes = [
             2869 // Office Employees
@@ -149,8 +163,8 @@ module.exports = class AcuityGL extends Integration {
 
         // <ProducerInfo>
         const ProducerInfo = Producer.ele('ProducerInfo');
-        ProducerInfo.ele('ContractNumber', '8843');
-        ProducerInfo.ele('ProducerSubCode', 'AA');
+        ProducerInfo.ele('ContractNumber', this.app.agencyLocation.insurers[this.insurer.id].agency_id);
+        // ProducerInfo.ele('ProducerSubCode', 'AA');
         // </ProducerInfo>
 
         // </Producer>
@@ -488,7 +502,12 @@ module.exports = class AcuityGL extends Integration {
                 if (unreportedPayrollActivityCodes.includes(activityCode.id)) {
                     continue;
                 }
-                const cglCode = await this.get_cgl_code_from_activity_code(location.territory, activityCode.id);
+
+                let cglCode = null;
+                if (insurer) {
+                    cglCode = await this.get_cgl_code_from_activity_code(location.territory, activityCode.id);
+                }
+
                 if (cglCode) {
                     if (!cobPayrollMap.hasOwnProperty(cglCode)) {
                         cobPayrollMap[cglCode] = 0;
@@ -663,6 +682,18 @@ module.exports = class AcuityGL extends Integration {
                 log.info(`Acuity: Returning ${status} ${policyAmount ? "with price" : ""}`);
                 return this.return_result(status);
             case "com.acuity_Declined":
+                const extendedStatusList = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.MsgStatus.ExtendedStatus', true);
+                if (extendedStatusList) {
+                    for (const extendedStatus of extendedStatusList) {
+                        if (extendedStatus.hasOwnProperty('com.acuity_ExtendedStatusType') && extendedStatus['com.acuity_ExtendedStatusType'].length) {
+                            const extendedStatusType = extendedStatus['com.acuity_ExtendedStatusType'][0];
+                            const extendedStatusDesc = this.get_xml_child(extendedStatus, 'ExtendedStatusDesc');
+                            if (extendedStatusType === 'Error') {
+                                this.reasons.push(extendedStatusDesc.replace("Acuity_Decline: ", ""));
+                            }
+                        }
+                    }
+                }
                 return this.return_result('declined');
             default:
                 this.reasons.push(`Returned unknown policy code '${policyStatusCode}`);

@@ -20,6 +20,15 @@ const employersWCTemplate = require('jsrender').templates('./public/v1/quote/hel
 
 module.exports = class EmployersWC extends Integration {
 
+    /**
+     * Initializes this integration.
+     *
+     * @returns {void}
+     */
+    _insurer_init() {
+        this.requiresInsurerActivityClassCodes = true;
+    }
+
 	/**
 	 * Requests a quote from Employers and returns. This request is not intended to be called directly.
 	 *
@@ -85,6 +94,13 @@ module.exports = class EmployersWC extends Integration {
                 fulfill(this.return_result('autodeclined'));
                 return;
             }
+
+            //Check business locations Length
+            this.app.business.locations.forEach((location) => {
+                if(location.address.length > 300){
+                    location.address = location.address.substr(0, 299);
+                }
+            });
 
             // Prepare questions
             this.validQuestions = [];

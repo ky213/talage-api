@@ -23,7 +23,6 @@ const helper = global.requireShared('./helpers/helper.js');
 
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
-const ApplicationQuestionBO = global.requireShared('./models/ApplicationQuestion-BO.js');
 
 module.exports = class Application {
     constructor() {
@@ -50,7 +49,7 @@ module.exports = class Application {
         this.id = parseInt(data.id, 10);
 
         // load application from database.
-        let error = null
+        //let error = null
         let applicationBO = new ApplicationBO();
         // await applicationBO.loadFromId(this.id).catch(function(err) {
         //     error = err;
@@ -128,18 +127,21 @@ module.exports = class Application {
             throw new Error(`Missing agencyLocationId application ${this.id}`);
         }
 
-        //this.questions = data.questions;
-        let applicationQuestionBO = new ApplicationQuestionBO();
-        const GET_QUESTION_LIST = true;
-        //TODO bet frm ApplicationBO applicationDocData
-        this.questions = await applicationQuestionBO.loadFromApplicationId(this.id,GET_QUESTION_LIST).catch(function(err){
-            log.error("Quote Application error get question list " + err + __location);
-            error = err;
-        })
-        if (error) {
-            throw error;
-        }
+        // TODO Refactor Integration to use full Questions list.
+        if(this.applicationDocData.questions && this.applicationDocData.questions.length > 0){
+            let questionJSON = {};
+            for(const question of this.applicationDocData.questions){
+                if (question.questionType.toLowerCase().startsWith('text')
+                    || question.questionType === 'Checkboxes' && question.answerValue) {
 
+                    questionJSON[question.questionId] = question.answerValue
+                }
+                else {
+                    questionJSON[question.questionId] = question.answerId
+                }
+            }
+            this.questions = questionJSON
+        }
         //log.debug("Quote Application Model: " + JSON.stringify(this))
         //throw new Error("stop");
     }
@@ -351,7 +353,7 @@ module.exports = class Application {
                                     quote_promises.push(integration.quote());
                                 }
                                 else {
-                                    log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} insurer ${insurer.name} polocytype ${policy.type} slug: ${slug} path: ${normalizedPath} ` + __location);
+                                    log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} insurer ${insurer.name} policytype ${policy.type} slug: ${slug} path: ${normalizedPath} ` + __location);
                                 }
                             }
                             else {

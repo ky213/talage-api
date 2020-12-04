@@ -9,6 +9,8 @@
 const validator = global.requireShared('helpers/validator.js');
 const serverHelper = require('../../../../server.js');
 
+
+
 /**
  * Returns a list of agents that this user is permitted to access. You must call validateJWT() before using this method.
  *
@@ -26,16 +28,18 @@ exports.getAgents = async function(req) {
         return req.authentication.agents;
     }
 
-    // Make sure this agency network is allowed to access all agents they requested
-    const agencySQL = `
-		SELECT \`id\`
-		FROM \`#__agencies\`
-		WHERE \`agency_network\` = ${db.escape(agencyNetwork)};
-	`;
-    const agencyResult = await db.query(agencySQL).catch(function(e) {
-        log.error(e.message + __location);
+    let agencyResult = null;
+    try{
+        const AgencyBO = global.requireShared('./models/Agency-BO.js');
+        const agencyBO = new AgencyBO();
+        // Load the request data into it
+        agencyResult = await agencyBO.getByAgencyNetwork(agencyNetwork);
+    }
+    catch(err){
+        log.error("getAgency load error " + err + __location);
         error = serverHelper.internalError('Error querying database. Check logs.');
-    });
+    }
+
     if (error) {
         return error;
     }

@@ -24,6 +24,15 @@ const wcEmodEmail = global.requireRootPath('./tasksystem/task-wcemodemail');
 module.exports = class CompwestWC extends Integration {
 
     /**
+     * Initializes this integration.
+     *
+     * @returns {void}
+     */
+    _insurer_init() {
+        this.requiresInsurerActivityClassCodes = true;
+    }
+
+    /**
      * Makes a request to Accident Fund to bind a policy.  This method is not intended to be called directly
      *
      * @returns {Promise.<string, ServerError>} A promise that returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a ServerError if rejected
@@ -418,7 +427,7 @@ module.exports = class CompwestWC extends Integration {
                 const DBAGeneralPartyInfo = DBAAdditionalInterest.ele('GeneralPartyInfo');
                 // <NameInfo>
                 const DBANameInfo = DBAGeneralPartyInfo.ele('NameInfo');
-                DBANameInfo.ele('CommlName').ele('CommercialName', this.app.business.dba);
+                DBANameInfo.ele('CommlName').ele('CommercialName', this.app.business.dba.replace('’', "'").replace('+', '').replace('|', ''));
                 const DBATaxIdentity = DBANameInfo.ele('TaxIdentity');
                 DBATaxIdentity.ele('TaxIdTypeCd', 'FEIN');
                 DBATaxIdentity.ele('TaxCd',this.app.business.locations[0].identification_number);

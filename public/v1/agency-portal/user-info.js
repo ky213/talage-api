@@ -4,6 +4,7 @@ const serverHelper = require('../../../server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
+const AgencyBO = global.requireShared('models/Agency-BO.js');
 
 
 /**
@@ -35,16 +36,10 @@ async function GetUserInfo(req, res, next){
     else{
         userInfoSQL = `
                 SELECT
-                    a.agency_network AS agencyNetwork,
-                    a.id AS agency,
-                    a.logo,
-                    a.name,
-                    a.slug,
-                    a.wholesale,
-                    au.timezone_name as tz
-                FROM clw_talage_agencies AS a
-                    LEFT JOIN clw_talage_agency_portal_users AS au ON au.agency =a.id
-                WHERE au.id = ${parseInt(req.authentication.userID, 10)}
+                    agency,
+                    timezone_name as tz
+                FROM clw_talage_agency_portal_users
+                WHERE id = ${parseInt(req.authentication.userID, 10)}
                 LIMIT 1;
 			`;
     }
@@ -58,11 +53,33 @@ async function GetUserInfo(req, res, next){
     if(error){
         return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
     }
+    let agencyNetworkId = null;
+    if(agencyNetwork){
+        agencyNetworkId = userInfo[0].agencyNetwork;
+    }
+    else {
+        //load AgencyBO
+        try{
+            // Load the request data into it
+            const agencyBO = new AgencyBO();
+            const agency = await agencyBO.getById(userInfo[0].agency);
+            agencyNetworkId = agency.agency_network;
+            userInfo[0].logo = agency.logo;
+            userInfo[0].name = agency.name;
+            userInfo[0].slug = agency.slug;
+            userInfo[0].wholesale = agency.wholesale;
+        }
+        catch(err){
+            log.error("agencyBO.getById load error " + err + __location);
+        }
+
+
+    }
 
     //agencynetworkBO
     //let error = null;
     const agencyNetworkBO = new AgencyNetworkBO();
-    const agencyNetworkJSON = await agencyNetworkBO.getById(userInfo[0].agencyNetwork).catch(function(err){
+    const agencyNetworkJSON = await agencyNetworkBO.getById(agencyNetworkId).catch(function(err){
         //error = err;
         log.error("Get AgencyNetwork Error " + err + __location);
     })

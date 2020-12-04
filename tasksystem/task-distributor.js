@@ -29,7 +29,7 @@ exports.distributeTask = async function(queueMessage){
             var sentDatetime = moment.unix(queueMessage.Attributes.SentTimestamp / 1000).utc();
             var now = moment().utc();
             const messageAge = now.unix() - sentDatetime.unix();
-            if(messageAge > 15){
+            if(messageAge > 5){
                 let error = null;
                 await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(err => error = err)
                 if(error){
@@ -37,7 +37,7 @@ exports.distributeTask = async function(queueMessage){
                 }
             }
             else {
-                log.error('No Processor file for taskname ' + messageBody.taskname + __location);
+                log.warn('No Processor file for taskname ' + messageBody.taskname + __location);
             }
         }
         return true;

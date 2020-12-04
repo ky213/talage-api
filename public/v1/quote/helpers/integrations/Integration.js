@@ -33,6 +33,19 @@ module.exports = class Integration {
      * @returns {void}
      */
     constructor(app, insurer, policy) {
+        // Integration flags
+
+        // requiresInsurerIndustryCodes:
+        //      - set to true if the integration has insurer industry codes.
+        //      - set to false if the integration does not have insurer industry codes.
+        this.requiresInsurerIndustryCodes = false;
+
+        // requiresInsurerActivityClassCodes:
+        //      - set to true if the integration has insurer activity class codes.
+        //      - set to false if the integration does not have insurer activity class codes.
+        this.requiresInsurerActivityClassCodes = false;
+
+        // Integration Data
         this.app = app;
         this.industry_code = {};
         this.insurer = insurer;
@@ -59,6 +72,11 @@ module.exports = class Integration {
         this.amount = 0;
         this.quote_letter = {};
         this.reasons = [];
+
+        // Initialize the integration
+        if (typeof this._insurer_init === "function") {
+            this._insurer_init();
+        }
 
         // Apply WC payroll caps for Nevada
         if (this.policy.type === 'WC' && this.app.business && app.business.primary_territory === 'NV') {
@@ -201,7 +219,7 @@ module.exports = class Integration {
     }
 
     /**
-     * Retrieves an NCCI code from a given activity code
+     * Retrieves an Employers-specific NCCI code for a given activity code
      *
      * @param {string} territory - The 2 character territory code
      * @param {number} activityCode - The 4 digit Talage activity code
@@ -214,7 +232,7 @@ module.exports = class Integration {
             LEFT JOIN clw_talage_activity_code_associations AS aca ON aca.insurer_code = inc.id
             WHERE
                 inc.state = 1
-                AND inc.insurer = 1 
+                AND inc.insurer = 1
                 AND inc.territory = '${territory}'
                 AND aca.code = ${activityCode};
         `;
@@ -243,13 +261,18 @@ module.exports = class Integration {
     }
 
     /**
-     * Retrieves an NCCI code from a given activity code
+     * Retrieves a national NCCI code from a given activity code
      *
      * @param {string} territory - The 2 character territory code
      * @param {number} activityCode - The 4 digit Talage activity code
      * @returns {object} The code and sub(code)
      */
-    async get_ncci_code_from_activity_code(territory, activityCode) {
+    async get_national_ncci_code_from_activity_code(territory, activityCode) {
+        // Retrieve a national NCCI code.
+        // NOTE: we do not currently have these mapped but are in process; Adam is getting them.
+        // Employers codes mostly follow the national NCCI code numbering and we have most Employers codes
+        // mapped. So we use the employers code mapping for now until we have an official map of the
+        // national NCCI codes. -SF
         const employersRecord = await this.get_employers_code_for_activity_code(territory, activityCode);
         if (!employersRecord) {
             return null;
@@ -973,11 +996,16 @@ module.exports = class Integration {
                 return;
             }
 
-            // Check that all of the selected codes are supported by the insurer
-            const industryCodesSupported = await this._insurer_supports_industry_codes();
-            const activityCodesSupported = await this._insurer_supports_activity_codes();
-            // If this integration doesn't support any industry codes or activity codes for the given territory, return autodecline.
-            if (!industryCodesSupported && !activityCodesSupported) {
+            // Check that industry codes codes are supported by the insurer if required
+            if (!await this._insurer_supports_industry_codes() && this.requiresInsurerIndustryCodes) {
+                // No industry codes when they are required
+                fulfill(this.client_autodeclined_out_of_appetite());
+                return;
+            }
+
+            // Check that activity class codes codes are supported by the insurer if required
+            if (!await this._insurer_supports_activity_codes() && this.requiresInsurerActivityClassCodes) {
+                // No activity class codes when they are required
                 fulfill(this.client_autodeclined_out_of_appetite());
                 return;
             }
@@ -1129,7 +1157,7 @@ module.exports = class Integration {
                 if (result && Object.prototype.hasOwnProperty.call(result, 'code') && result.code === 'Success') {
                     columns.push('quote_letter');
                     values.push(fileName);
-                    quoteJSON.quoteLetter = this.fileName
+                    quoteJSON.quoteLetter = fileName
                 }
             }
             catch (err) {
@@ -1175,8 +1203,7 @@ module.exports = class Integration {
         if (!publicMessage) {
             publicMessage = "The insurer has declined to offer you coverage at this time.";
         }
-        // Added by return_result()
-        // this.reasons.push(publicMessage);
+        this.reasons.push(publicMessage);
         this.log_info(`Declined with message '${publicMessage}'`, __location);
         return this.return_result('declined');
     }
@@ -1271,7 +1298,7 @@ module.exports = class Integration {
             this.quote_letter = {
                 content_type: quoteLetterMimeType ? quoteLetterMimeType : "application/base64",
                 data: quoteLetter,
-                file_name: `${this.insurer.name}_ ${this.policy.type}_quote_letter.pdf`
+                file_name: `${this.insurer.name}_${this.policy.type}_quote_letter.pdf`
             };
         }
 
@@ -1521,6 +1548,41 @@ module.exports = class Integration {
     }
 
     /**
+	 * Gets a formatted XML string
+     *
+     * @param {string} str - A string which may or may not be valid XML
+     * @returns {string | null} A formatted XML string for valid JSON input, null otherwise
+	 */
+    get_formatted_xml_string(str) {
+        // Format XML to be readable
+        let formattedString = '';
+        try {
+            formattedString = xmlFormatter(str);
+        }
+        catch (error) {
+            return null;
+        }
+        return formattedString;
+    }
+
+    /**
+	 * Gets a formatted JSON string
+     *
+     * @param {string} str - A string which may or may not be valid JSON
+     * @returns {string | null} A formatted JSON string for valid JSON input, null otherwise
+	 */
+    get_formatted_json_string(str) {
+        let formattedString = '';
+        try {
+            formattedString = JSON.stringify(JSON.parse(str), null, 4);
+        }
+        catch (error) {
+            return null;
+        }
+        return formattedString;
+    }
+
+    /**
 	 * Sends a request to an insurer over HTTPS
 	 *
 	 * @param {string} host - The host name we are sending to (minus the protocol)
@@ -1553,6 +1615,9 @@ module.exports = class Integration {
                 return;
             }
 
+            // Add a timestamp to the request log
+            this.log += `<b>Request started at ${moment().utc().toISOString()}</b><br><br>`;
+
             // Build the headers
             const headers = {};
             let content_type_found = false;
@@ -1566,7 +1631,23 @@ module.exports = class Integration {
                                 const querystring = require('querystring');
                                 data = querystring.stringify(data);
                             }
-                            this.log += `--------======= Sending ${additional_headers[key]} =======--------<br><br>URL: ${host}${path}<br><br><pre>${htmlentities.encode(data)}</pre><br><br>`;
+                            let formattedString = data;
+                            // Attempt to format it if it is a XML string
+                            const formattedXMLString = this.get_formatted_xml_string(data);
+                            if (formattedXMLString) {
+                                formattedString = formattedXMLString;
+                            }
+                            else {
+                                // Attempt to format it if it is a JSON string
+                                const formattedJSONString = this.get_formatted_json_string(data);
+                                if (formattedJSONString) {
+                                    formattedString = formattedJSONString;
+                                }
+                            }
+                            // Log the request
+                            this.log += `--------======= Sending ${additional_headers[key]} =======--------<br><br>`;
+                            this.log += `URL: ${host}${path}<br><br>`;
+                            this.log += `<pre>${htmlentities.encode(formattedString)}</pre><br><br>`;
                         }
                         headers[key] = additional_headers[key];
                     }
@@ -1580,7 +1661,7 @@ module.exports = class Integration {
             }
 
             // Set the length parameter
-            headers['Content-Length'] = data && data.length ? data.length : 0;
+            headers['Content-Length'] = data && data.length ? Buffer.byteLength(data) : 0;
 
             // Set the request options
             const options = {
@@ -1606,34 +1687,35 @@ module.exports = class Integration {
                     // Calculate how long this took
                     this.seconds = process.hrtime(start_time)[0];
 
+                    // Attempt to format the returned data
+                    let formattedData = rawData;
+                    if (headers['Content-Type'] && headers['Content-Type'].toLowerCase() === 'text/xml') {
+                        // Format XML to be readable
+                        const formattedXMLData = this.get_formatted_xml_string(rawData);
+                        if (formattedXMLData) {
+                            formattedData = formattedXMLData;
+                        }
+                    }
+                    else if (headers['Content-Type'] && headers['Content-Type'].toLowerCase() === 'application/json') {
+                        // Format JSON to be readable
+                        const formattedJSONData = this.get_formatted_json_string(rawData);
+                        if (formattedJSONData) {
+                            formattedData = formattedJSONData;
+                        }
+                    }
+
                     if (res.statusCode >= 200 && res.statusCode <= 299) {
                         // Strip AF Group's Quote Letter out of the log
-                        let filteredData = rawData.replace(/<com\.afg_Base64PDF>(.*)<\/com\.afg_Base64PDF>/, '<com.afg_Base64PDF>...</com.afg_Base64PDF>');
+                        formattedData = formattedData.replace(/<com\.afg_Base64PDF>(.*)<\/com\.afg_Base64PDF>/, '<com.afg_Base64PDF>...</com.afg_Base64PDF>');
 
                         // Strip Employer's Quote Letter out of the log
-                        filteredData = filteredData.replace(/<BinData>(.*)<\/BinData>/, '<BinData>...</BinData>');
+                        formattedData = formattedData.replace(/<BinData>(.*)<\/BinData>/, '<BinData>...</BinData>');
 
-                        // Attempt to format the returned data
-                        let formattedData = null;
-                        try {
-                            if (headers['Content-Type'] && headers['Content-Type'].toLowerCase() === 'text/xml') {
-                                // Format XML to be readable
-                                formattedData = xmlFormatter(filteredData);
-                                formattedData = formattedData.replace(/</g, "&lt;");
-                                formattedData = formattedData.replace(/>/g, "&gt;");
-                            }
-                            else if (headers['Content-Type'] && headers['Content-Type'].toLowerCase() === 'application/json') {
-                                // Format JSON to be readable
-                                formattedData = JSON.stringify(JSON.parse(filteredData), null, 4);
-                            }
-                        }
-                        catch (error) {
-                            // nothing
-                        }
-                        if (formattedData) {
-                            filteredData = formattedData
-                        }
-                        this.log += `--------======= Response Appid: ${this.app.id}  =======--------<br><br><pre>${filteredData}</pre><br><br>`;
+                        // Strip Acuity's Quote Letter out of the log
+                        formattedData = formattedData.replace(/<!\[CDATA.*>/, '<![CDATA[...]]>');
+
+                        this.log += `--------======= Response Appid: ${this.app.id}  =======--------<br><br>`;
+                        this.log += `<pre>${htmlentities.encode(formattedData)}</pre><br><br>`;
                         fulfill(rawData);
                     }
                     else{
@@ -1642,7 +1724,9 @@ module.exports = class Integration {
                         if(log_errors){
                             log.error(error.message + `  Appid: ${this.app.id} calling ${this.insurer.name} ` + __location);
                             log.verbose(rawData);
-                            this.log += `--------======= Error Appid: ${this.app.id} calling ${this.insurer.name}  =======--------<br><br>Status Code: ${res.statusCode}<br><pre>${rawData}</pre><br><br>`;
+                            this.log += `--------======= Error Appid: ${this.app.id} calling ${this.insurer.name}  =======--------<br><br>`;
+                            this.log += `Status Code: ${res.statusCode} <br>`;
+                            this.log += `<pre>${htmlentities.encode(formattedData)}</pre><br><br>`;
                         }
                         error.httpStatusCode = res.statusCode;
                         error.response = rawData;
@@ -1651,9 +1735,9 @@ module.exports = class Integration {
                 });
             });
 
-            req.on('error', () => {
+            req.on('error', (err) => {
                 this.log += `Connection to ${this.insurer.name} timedout.`;
-                reject(new Error(`Appid: ${this.app.id} Connection to ${this.insurer.name} timedout.`));
+                reject(new Error(`Appid: ${this.app.id} Connection to ${this.insurer.name} terminated. Reason: ${err.code}`));
             });
 
             if (data) {
@@ -1766,6 +1850,7 @@ module.exports = class Integration {
         return new Promise(async(fulfill) => {
             // Get all of the WC Codes with their ID and territory, removing duplicates
             const wcCodes = {};
+            let hasActivityCodes = false;
             this.app.business.locations.forEach(function(location) {
                 location.activity_codes.forEach(function(activity_code) {
                     // Check if this code already existed
@@ -1774,10 +1859,15 @@ module.exports = class Integration {
                             id: activity_code.id,
                             territory: location.territory
                         };
+                        hasActivityCodes = true;
                     }
                 });
             });
-
+            if(hasActivityCodes === false) {
+                log.error(`Integration Missing Activity codes Appid ${this.app.id} locations ${JSON.stringify(this.app.business.locations)}` + __location);
+                fulfill(false);
+                return;
+            }
             // Build some WHERE statements from those codes
             const whereCombinations = Object.values(wcCodes).map(function(codeObj) {
                 return `(\`ac\`.\`id\` = ${db.escape(codeObj.id)} AND \`inc\`.\`territory\` = ${db.escape(codeObj.territory)})`;
@@ -1811,14 +1901,11 @@ module.exports = class Integration {
                 fulfill(false);
                 return;
             }
-            if (!codes.length) {
-                // No activity codes
-                fulfill(false);
-                return;
-            }
 
             // Make sure the number of codes matched (otherwise there were codes unsupported by this insurer)
-            if (Object.keys(wcCodes).length !== codes.length) {
+            if (this.requiresInsurerActivityClassCodes && (!codes.length || Object.keys(wcCodes).length !== codes.length)) {
+                this.reasons.push("Insurer activity class codes were not found for all activities in the application.");
+                log.error(`AppId: ${appId} InsurerId: ${insurerId} _insurer_supports_activity_codes failed on application that passed validation. query=${sql}` + __location);
                 fulfill(false);
                 return;
             }
@@ -1876,7 +1963,10 @@ module.exports = class Integration {
                 return;
             }
             if (!result || !result.length) {
-                // No industry codes
+                if (this.requiresInsurerIndustryCodes) {
+                    this.reasons.push("An insurer industry class code was not found for the given industry.");
+                    log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} _insurer_supports_industry_codes failed on application that passed validation. query=${sql} ` + __location);
+                }
                 fulfill(false);
                 return;
             }

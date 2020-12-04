@@ -43,6 +43,16 @@ async function getHiscoxCOBFromDescription(cobDescription) {
 module.exports = class HiscoxGL extends Integration {
 
     /**
+     * Initializes this integration.
+     *
+     * @returns {void}
+     */
+    _insurer_init() {
+        this.requiresInsurerIndustryCodes = true;
+    }
+
+
+    /**
      * Requests a quote from Hiscox and returns. This request is not intended to be called directly.
      *
      * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected

@@ -33,7 +33,8 @@ const BUSINESS_ENTITIES = {
  * GL/Common/v1/gateway/api/lookup/dropdowns/deductibles/state/<state_code>/effective/<YYYY-MM-DD>/
  * GL/Common/v1/gateway/api/lookup/dropdowns/deductibles/state/CA/effective/2020-08-23/
  */
-const DEDUCTIBLE_TERRITORIES = ['AR',
+const DEDUCTIBLE_TERRITORIES = [
+    'AR',
     'AZ',
     'CA',
     'CO',
@@ -44,7 +45,8 @@ const DEDUCTIBLE_TERRITORIES = ['AR',
     'OR',
     'TX',
     'UT',
-    'WA'];
+    'WA'
+];
 
 /*
  * As of 08/2020
@@ -82,6 +84,15 @@ const SANDBOX_SERVICE_CHANNEL_ID = 12;
 const PRODUCTION_SERVICE_CHANNEL_ID = 86;
 
 module.exports = class BtisGL extends Integration {
+
+    /**
+     * Initializes this integration.
+     *
+     * @returns {void}
+     */
+    _insurer_init() {
+        this.requiresInsurerIndustryCodes = true;
+    }
 
     /**
 	 * Requests a quote from BTIS and returns. This request is not intended to be called directly.
@@ -185,7 +196,7 @@ module.exports = class BtisGL extends Integration {
 
         /*
          * LIMITS
-         * BTIS allows submission without a limits id, so log a warning an keep going if the limits couldn't be retrieved
+         * BTIS allows submission without a limits id, so log a warning and keep going if the limits couldn't be retrieved
          * As of 08/2020, their system defaults a submission without a limits ID to:
          * $1M Occurrence, $2M Aggregate
          */
