@@ -121,7 +121,7 @@ module.exports = class CnaWC extends Integration {
      */
     _insurer_init() {
         this.requiresInsurerIndustryCodes = true;
-        this.requiresInsurerActivityClassCodes = false;
+        this.requiresInsurerActivityClassCodes = true;
     }
 
 	/** 
@@ -155,18 +155,26 @@ module.exports = class CnaWC extends Integration {
             for (const activityCode of location.activity_codes) {
                 let ncciCode = this.insurer_wc_codes[location.territory + activityCode.id];
                 if (!ncciCode) {
-                    // if we don't have an insurer-specific activity code, we need to look up a national standard NCCI code instead
-                    try {
-                        ncciCode = await this.get_national_ncci_code_from_activity_code(location.territory, activityCode.id);
+                    // THIS CODE BELOW IS COMMENTED OUT BECAUSE CNA DOES NOT USE NATIONAL NCCI CODES.
+                    // IN THE EVENT THAT THEY DO, USE THIS CODE IN PLACE OF THE CODE THAT FOLLOWS AND
+                    // SET this.requiresInsurerActivityClassCodes = true IN _insurer_init() FUNCTION
+                    /*
+                        // if we don't have an insurer-specific activity code, we need to look up a national standard NCCI code instead
+                        try {
+                            ncciCode = await this.get_national_ncci_code_from_activity_code(location.territory, activityCode.id);
 
-                        // if we can't find a national standard NCCI code, throw an error
-                        // else, we will use this code instead...
-                        if (!ncciCode) {
-                            return this.client_error(`CNA: Unable to locate an insurer or national NCCI code for activity code ${activityCode.id}.`);
+                            // if we can't find a national standard NCCI code, throw an error
+                            // else, we will use this code instead...
+                            if (!ncciCode) {
+                                return this.client_error(`CNA: Unable to locate an insurer or national NCCI code for activity code ${activityCode.id}.`);
+                            }
+                        } catch (e) {
+                            return this.client_error(`CNA: There was an error looking up national NCCI code for activity code ${activityCode.id}.`);
                         }
-                    } catch (e) {
-                        return this.client_error(`CNA: There was an error looking up national NCCI code for activity code ${activityCode.id}.`);
-                    }
+                    */
+
+                    // in the event CNA starts using national NCCI codes, replace this line below with the commented out code above...
+                    return this.client_error(`CNA: Unable to locate a CNA activity code for Talage activity code ${activityCode.id}.`);
                 }
                 // set the activity code's NCCI code to either the insurer-specific Activity Code, or the national NCCI code
                 activityCode.ncciCode = ncciCode;
@@ -201,8 +209,8 @@ module.exports = class CnaWC extends Integration {
 
         log.debug("CNA WC starting to create submission JSON " + __location)
         
-        // API Information
         try {
+            // API Information
             wcRequest.SignonRq.SignonPswd.CustId.CustLoginId = "TALAGEAPI";
             wcRequest.SignonRq.ClientApp.Org = "TALAGE";
             wcRequest.SignonRq.ClientApp.Name = "API"
@@ -224,8 +232,8 @@ module.exports = class CnaWC extends Integration {
             return this.client_error(`CNA WC JSON processing error ${err} ` + __location);
         }
 
-        // ====== General Business Information ======
         try {
+            // ====== General Business Information ======
             // eslint-disable-next-line prefer-const
             const generalPartyInfo = wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo;
             generalPartyInfo.NameInfo[0].CommlName.CommercialName.value = business.name;
@@ -271,8 +279,8 @@ module.exports = class CnaWC extends Integration {
             return this.client_error(`CNA WC JSON processing error ${err} ` + __location);
         }
        
-        // ====== Insured Or Principle Information ======
         try {
+            // ====== Insured Or Principle Information ======
             let insuredOrPrincipalInfo = wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].InsuredOrPrincipalInfo;
             if (!this.industry_code) {
                 log.error(`CNA WC missing this.industry_code` + __location);
@@ -577,12 +585,10 @@ module.exports = class CnaWC extends Integration {
 
         this.app.applicationDocData.claims.forEach(claim => {
             losses.push({
-                LossTypeCd: {
+                "com.cna_LossTypeCd": {
                     value: "Both"
                 },
-                ClaimStatusCd: {
-                    value: claim.open ? "O" : "C"
-                },
+                ClaimStatusCd: claim.open ? "O" : "C",
                 TotalPaidAmt: {
                     Amt: {
                         value: claim.amountPaid
