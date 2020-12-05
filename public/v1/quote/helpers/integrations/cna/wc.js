@@ -9,7 +9,6 @@
 /* eslint indent: 0 */
 /* eslint multiline-comment-style: 0 */
 const axios = require('axios');
-const moment = require('moment');
 
 const Integration = require('../Integration.js');
 
@@ -42,10 +41,6 @@ const LIMIT_CODES = [
     'DisEachEmpl'
 ];
 
-const explanationQuestions = [
-    "com.cna_WORK20293"
-];
-
 const carrierLimits = [
     '100000/500000/100000',
     '100000/1000000/100000',
@@ -66,17 +61,8 @@ const legalEntityCodes = {
     "Trust": "TR",
     "Joint Venture": "JV",
     "Limited Liability Company": "LL",
-    "Sole Proprietorship": "SP",
-    "Association": "AS",
-    "Partnership": "PA",
-    "Other": "OT"
+    "Sole Propietorship": "SP"
 }   
-
-// legal entities that require SSN
-const ssnLegalEntities = [
-    "SP",
-    "IN"
-];
 
 // Deductible by state (no deductables for WC, keeping for GL/BOP)
 const stateDeductables = {
@@ -133,10 +119,6 @@ module.exports = class CnaWC extends Integration {
         const business = this.app.business;
         const policy = this.app.policies[0]; // currently just ['WC']
 
-        // console.log(JSON.stringify(this.app, null, 4));
-        console.log(JSON.stringify(this.insurer_wc_codes, null, 4))
-        process.exit(-1);
-
         // NOTE: Right now this is hard-coded to the first reference
         const nameInfoRefId = "N000";
 
@@ -157,30 +139,10 @@ module.exports = class CnaWC extends Integration {
         // Check to ensure we have NCCI codes available for every provided activity code.
         for (const location of this.app.business.locations) {
             for (const activityCode of location.activity_codes) {
-                let ncciCode = this.insurer_wc_codes[location.territory + activityCode.id];
+                const ncciCode = this.insurer_wc_codes[location.territory + activityCode.id];
                 if (!ncciCode) {
-                    // THIS CODE BELOW IS COMMENTED OUT BECAUSE CNA DOES NOT USE NATIONAL NCCI CODES.
-                    // IN THE EVENT THAT THEY DO, USE THIS CODE IN PLACE OF THE CODE THAT FOLLOWS AND
-                    // SET this.requiresInsurerActivityClassCodes = true IN _insurer_init() FUNCTION
-                    /*
-                        // if we don't have an insurer-specific activity code, we need to look up a national standard NCCI code instead
-                        try {
-                            ncciCode = await this.get_national_ncci_code_from_activity_code(location.territory, activityCode.id);
-
-                            // if we can't find a national standard NCCI code, throw an error
-                            // else, we will use this code instead...
-                            if (!ncciCode) {
-                                return this.client_error(`CNA: Unable to locate an insurer or national NCCI code for activity code ${activityCode.id}.`);
-                            }
-                        } catch (e) {
-                            return this.client_error(`CNA: There was an error looking up national NCCI code for activity code ${activityCode.id}.`);
-                        }
-                    */
-
-                    // in the event CNA starts using national NCCI codes, replace this line below with the commented out code above...
-                    return this.client_error(`CNA: Unable to locate a CNA activity code for Talage activity code ${activityCode.id}.`);
+                    return this.client_error(`CNA: Unable to locate an NCCI code for activity code ${activityCode.id}.`);
                 }
-                // set the activity code's NCCI code to either the insurer-specific Activity Code, or the national NCCI code
                 activityCode.ncciCode = ncciCode;
             }
         }
@@ -213,8 +175,8 @@ module.exports = class CnaWC extends Integration {
 
         log.debug("CNA WC starting to create submission JSON " + __location)
         
+        // API Information
         try {
-            // API Information
             wcRequest.SignonRq.SignonPswd.CustId.CustLoginId = "TALAGEAPI";
             wcRequest.SignonRq.ClientApp.Org = "TALAGE";
             wcRequest.SignonRq.ClientApp.Name = "API"
@@ -236,10 +198,10 @@ module.exports = class CnaWC extends Integration {
             return this.client_error(`CNA WC JSON processing error ${err} ` + __location);
         }
 
+        // ====== General Business Information ======
         try {
-            // ====== General Business Information ======
             // eslint-disable-next-line prefer-const
-            const generalPartyInfo = wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo;
+            let generalPartyInfo = wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].GeneralPartyInfo;
             generalPartyInfo.NameInfo[0].CommlName.CommercialName.value = business.name;
             generalPartyInfo.NameInfo[0].LegalEntityCd.value = legalEntityCodes[business.entity_type];
         
@@ -253,18 +215,6 @@ module.exports = class CnaWC extends Integration {
                 generalPartyInfo.NameInfo[0].SupplementaryNameInfo = [];
             }
             generalPartyInfo.NameInfo[0].id = nameInfoRefId
-
-            // if legal entity is defined and is one that requires an SSN, provide name information
-            if (generalPartyInfo.NameInfo[0].LegalEntityCd.value && ssnLegalEntities.includes(generalPartyInfo.NameInfo[0].LegalEntityCd.value)) {
-                generalPartyInfo.NameInfo[0].PersonName = {
-                    GivenName: {
-                        value: this.app.applicationDocData.contacts[0].firstName
-                    },
-                    Surname: {
-                        value: this.app.applicationDocData.contacts[0].lastName
-                    }
-                }
-            }
 
             // ====== Address Information ======
             generalPartyInfo.Addr[0].Addr1.value = `${business.mailing_address} ${business.mailing_address2}`.trim();
@@ -283,8 +233,8 @@ module.exports = class CnaWC extends Integration {
             return this.client_error(`CNA WC JSON processing error ${err} ` + __location);
         }
        
+        // ====== Insured Or Principle Information ======
         try {
-            // ====== Insured Or Principle Information ======
             let insuredOrPrincipalInfo = wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].InsuredOrPrincipalInfo;
             if (!this.industry_code) {
                 log.error(`CNA WC missing this.industry_code` + __location);
@@ -319,8 +269,8 @@ module.exports = class CnaWC extends Integration {
             return this.client_error(`CNA WC JSON processing error ${err} ` + __location);
         }
 
+        // ====== Commercial Policy Information ======
         try {
-            // ====== Commercial Policy Information ======
             const commlPolicy = wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].CommlPolicy;
             const durationPeriod = policy.expiration_date.diff(policy.effective_date, 'months');
             commlPolicy.LOBCd.value = "WORK";
@@ -334,7 +284,7 @@ module.exports = class CnaWC extends Integration {
             commlPolicy.ContractTerm.ExpirationDt.value = policy.expiration_date.format('YYYY-MM-DD');
             commlPolicy.ContractTerm.DurationPeriod.NumUnits.value = durationPeriod;
             commlPolicy.ContractTerm.DurationPeriod.UnitMeasurementCd.value = "MON";
-            commlPolicy.NumLosses.value = this.app.applicationDocData.claims.length; 
+            commlPolicy.NumLosses.value = 0; // we don't store this information, default to 0
             
             // Should properly fill this out IFF we support history of previous policies
             commlPolicy.OtherOrPriorPolicy[0].InsurerName.value = "None";
@@ -345,10 +295,6 @@ module.exports = class CnaWC extends Integration {
             commlPolicy.CommlPolicySupplement.OtherSafetyProgramInd.value = false;
             commlPolicy.CommlPolicySupplement['com.cna_LengthTimeIndustyManagement'].NumUnits = {};
             commlPolicy.CommlPolicySupplement['com.cna_NumPowerUnitsOwned'].NumUnits.value = 0;
-
-            if (this.app.applicationDocData.claims.length > 0) {
-                commlPolicy.Loss = this.getLosses();
-            }
 
             // ====== Location Information ======
             wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Location = this.getLocations();
@@ -422,12 +368,9 @@ module.exports = class CnaWC extends Integration {
             let errorMessage = "";
             try {
                 errorMessage = `CNA: status code ${error.httpStatusCode}: ${errorJSON.InsuranceSvcRs[0].WorkCompPolicyQuoteInqRs[0].MsgStatus.MsgStatusDesc.value}`;
-            } catch (e1) {
-                try {
-                    errorMessage = `CNA: status code ${error.httpStatusCode}: ${errorJSON.message}`;
-                } catch (e2) {
-                    log.error(`CNA: Couldn't parse error object for description. Parsing errors: ${[e1, e2]}.`);
-                }
+            }
+            catch (e) {
+                log.error(`CNA: Error object doesn't have expected description path. ${e}.`);
             }
 
             errorMessage = errorMessage ? errorMessage : "CNA: An error occurred while attempting to quote.";
@@ -580,44 +523,13 @@ module.exports = class CnaWC extends Integration {
             }));
     }
 
-    // generates the Loss array based off values from claims
-    getLosses() {
-        // NOTE: CNA supports Closed (C), Declined (D), Open (O), Other (OT), Reoponed (R), and Subrogation - Claim Open Pending Subrogation (S)
-        // We only have Open (O), and Closed (C)
-        // We don't store loss type information, so hardcoded to "Both", meaning Medical & Indemnity
-        const losses = [];
-
-        this.app.applicationDocData.claims.forEach(claim => {
-            losses.push({
-                "com.cna_LossTypeCd": {
-                    value: "Both"
-                },
-                ClaimStatusCd: claim.open ? "O" : "C",
-                TotalPaidAmt: {
-                    Amt: {
-                        value: claim.amountPaid
-                    }
-                },
-                LossDt: {
-                    value: moment(claim.eventDate).format("YYYY-MM-DD")
-                },
-                LossDesc: {
-                    value: "None"
-                },
-                ReservedAmt: {
-                    Amt: {
-                        value: claim.amountReserved ? claim.amountReserved : 0
-                    }
-                }
-            });
-        });
-
-        return losses;
-    }
-
     // generates the tax identity object array, returns returns empty array if SSN 
     getTaxIdentity() {
-        // even if hasEin is FALSE (we're provided an SSN), CNA still expects us to have the TaxTypeCd as FEIN
+
+        if (!this.app.applicationDocData.hasEin) {
+            return [];
+        }
+
         const taxIdentity = {
             TaxIdTypeCd: {value: "FEIN"},
             TaxId: {value: this.app.applicationDocData.ein}
@@ -719,17 +631,11 @@ module.exports = class CnaWC extends Integration {
 
         // mapping answered questions to request question objects
         return questionArray.map(question => {
-            const questionAnswerObj = {QuestionCd: {value: this.question_identifiers[question.id]}};
-
-            if (explanationQuestions.includes(this.question_identifiers[question.id])) {
-                questionAnswerObj.YesNoCd = {value: "N/A"};
-                questionAnswerObj.Explanation = {value: question.answer}
-            } else {
-                // eslint-disable-next-line no-unused-expressions
-                question.type === 'Yes/No' ? 
-                    questionAnswerObj.YesNoCd = {value: question.answer.toUpperCase()} :
-                    questionAnswerObj['com.cna_OptionCd'] = {value: question.answer};
-            }
+            let questionAnswerObj = {QuestionCd: {value: this.question_identifiers[question.id]}};
+            // eslint-disable-next-line no-unused-expressions
+            question.type === 'Yes/No' ? 
+                questionAnswerObj.YesNoCd = {value: question.answer.toUpperCase()} :
+                questionAnswerObj['com.cna_OptionCd'] = {value: question.answer};
 
             return questionAnswerObj;
         });

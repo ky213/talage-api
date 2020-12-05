@@ -3,6 +3,7 @@
 const auth = require('./helpers/auth.js');
 const serverHelper = require('../../../server.js');
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
+const AgencyBO = global.requireShared('./models/Agency-BO.js');
 
 /**
  * Responds to get requests for the applications endpoint
@@ -29,37 +30,41 @@ async function getAgencies(req, res, next){
         log.info('Bad Request: No agencies permitted');
         return next(serverHelper.requestError('Bad Request: No agencies permitted'));
     }
-    //
 
-    // Define a query to get a list of agencies
-    const agenciesSQL = `
-			SELECT
-				id,
-				name,
-				IF(state >= 1, 'Active', 'Inactive') AS 'state'
-			FROM clw_talage_agencies
-			WHERE
-				state >= 0 AND
-                id IN (${agents.join(',')})
-            Order by name
-		`;
-
-    // Get the agencies from the database
-    const retAgencies = await db.queryReadonly(agenciesSQL).catch(function(err){
-        log.error(err.message);
+    let retAgencies = null;
+    try{
+        error = null;
+        const query = {agencies: agents}
+        const agencyBO = new AgencyBO();
+        // Load the request data into it
+        retAgencies = await agencyBO.getList(query);
+    }
+    catch(err){
+        log.error("getAgencies load error " + err + __location);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    });
+    }
+
+
+    let returnAgencyList = null;
     if(retAgencies){
         //Get app count.
+        returnAgencyList = [];
         const applicationBO = new ApplicationBO();
         for(let i = 0; i < retAgencies.length; i++){
             try{
+                // eslint-disable-next-line prefer-const
+                let agencyInfo = {};
+                agencyInfo.id = retAgencies[i].id;
+                agencyInfo.name = retAgencies[i].name;
+                agencyInfo.state = retAgencies[i].state > 0 ? "Active" : "Inactive";
                 const query = {
                     "agencyId": retAgencies[i].id,
                     count: 1
                 };
                 const appCount = await applicationBO.getList(query);
-                retAgencies[i].applications = appCount.count;
+                agencyInfo.applications = appCount.count;
+                returnAgencyList.push(agencyInfo);
+
 
             }
             catch(err){
@@ -69,7 +74,7 @@ async function getAgencies(req, res, next){
     }
 
     // Return the response
-    res.send(200, retAgencies);
+    res.send(200, returnAgencyList);
     return next();
 }
 

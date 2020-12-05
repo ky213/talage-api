@@ -7,6 +7,7 @@ const validator = global.requireShared('./helpers/validator.js');
 const emailsvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
+const AgencyBO = global.requireShared('./models/Agency-BO.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
@@ -339,25 +340,24 @@ async function createUser(req, res, next) {
     // Check if this is an agency network
     let agencyNetwork = req.authentication.agencyNetwork;
     if (!agencyNetwork) {
-        // Determine the agency network of this agency
-        const agencyNetworkSQL = `
-				SELECT
-					\`agency_network\`
-				FROM
-					\`#__agencies\`
-				WHERE
-					${where.replace('agency', 'id')};
-			`;
-
-        // Run the query
-        const agencyNetworkResult = await db.query(agencyNetworkSQL).catch(function(err) {
-            log.error('__agency_network error ' + err + __location);
-            error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+        const agents = await auth.getAgents(req).catch(function(e) {
+            error = e;
         });
         if (error) {
-            return;
+            return next(error);
         }
-        agencyNetwork = agencyNetworkResult[0].agency_network;
+        const agencyId = parseInt(agents[0], 10)
+        const agencyBO = new AgencyBO();
+        // Load the request data into it
+        const agency = await agencyBO.getById(agencyId).catch(function(err) {
+            log.error("Location load error " + err + __location);
+            error = err;
+        });
+        if (error) {
+            log.error(`Error getting Agency: ${agencyId} ` + error + __location);
+            return next(error);
+        }
+        agencyNetwork = agency.agency_network;
     }
 
     // Get the content of the new user email

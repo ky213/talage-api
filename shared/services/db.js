@@ -203,7 +203,7 @@ exports.queryParam = function(sql, params){
         conn.query(sql, params, function(err, rows){
             if(err){
                 log.error('db query ro error: ' + err + __location);
-                log.info('sql: ' + sql);
+                log.error('sql: ' + sql);
                 // Docs-api had 'reject(new Error(err));'
                 reject(err);
                 return;
@@ -250,7 +250,7 @@ exports.queryReadonly = function(sql){
             conn.query(sql, function(err, rows){
                 if(err){
                     log.error('db query error: ' + err + __location);
-                    log.info('sql: ' + sql);
+                    log.error('sql: ' + sql);
                     // Docs-api had 'reject(new Error(err));'
                     reject(err);
                     return;
@@ -278,7 +278,7 @@ exports.queryParamReadOnly = function(sql, params){
             connRo.query(sql, params, function(err, rows){
                 if(err){
                     log.error('db ro query error: ' + err + __location);
-                    log.info('sql ro : ' + sql);
+                    log.error('sql ro : ' + sql);
                     // Docs-api had 'reject(new Error(err));'
                     reject(err);
                     return;
@@ -292,7 +292,7 @@ exports.queryParamReadOnly = function(sql, params){
             conn.query(sql, params, function(err, rows){
                 if(err){
                     log.error('db query ro error: ' + err + __location);
-                    log.info('sql: ' + sql);
+                    log.error('sql: ' + sql);
                     // Docs-api had 'reject(new Error(err));'
                     reject(err);
                     return;
