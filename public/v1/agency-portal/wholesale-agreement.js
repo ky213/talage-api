@@ -1,6 +1,6 @@
 'use strict';
 
-const crypt = global.requireShared('./services/crypt.js');
+//const crypt = global.requireShared('./services/crypt.js');
 const serverHelper = require('../../../server.js');
 const docusign = global.requireShared('./services/docusign.js');
 
@@ -8,6 +8,7 @@ const docusign = global.requireShared('./services/docusign.js');
 const productionDocusignWholesaleAgreementTemplate = '7143efde-6013-4f4a-b514-f43bc8e97a63';
 const stagingDocusignWholesaleAgreementTemplate = '5849d7ae-1ee1-4277-805a-248fd4bf71b7';
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
+const AgencyBO = global.requireShared('./models/Agency-BO.js');
 
 /**
  * Mark the wholesale agreement as 'read' for an agent
@@ -17,15 +18,10 @@ const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
  * @returns {Boolean} true = success, false = error. Errors have already been logged.
  */
 async function SetWholesaleAgreementAsSigned(agencyID) {
-    // Construct the query
-    const updateSql = `
-			UPDATE \`clw_talage_agencies\`
-			SET \`wholesale_agreement_signed\` = CURRENT_TIMESTAMP()
-			WHERE \`id\` = ${db.escape(agencyID)};
-		`;
-    // Run the update query
     try {
-        await db.query(updateSql);
+        const agencyBO = new AgencyBO();
+        // Load the request data into it
+        await agencyBO.setWholesaleAgreementAsSigned(agencyID);
     }
     catch (error) {
         log.error(`Could not set the wholesale agreement as read for agent ${agencyID}: ${error} ${__location}`);
@@ -51,29 +47,18 @@ async function getWholesaleAgreementLink(req, res, next) {
     }
 
     const agencyID = req.authentication.agents[0];
-    // Get the information about this agent
-    let sql = `
-			SELECT
-				\`agency_network\`,
-				\`email\`,
-				\`fname\`,
-				\`lname\`,
-				\`wholesale_agreement_signed\`,
-				\`docusign_envelope_id\`
-			FROM \`clw_talage_agencies\`
-			WHERE \`id\` = ${agencyID} LIMIT 1;
-		`;
-    let result = null;
-    try {
-        result = await db.query(sql);
+    // Check if they have already signed
+    const agencyBO = new AgencyBO();
+    let agentInfo = null;
+    try{
+        agentInfo = await agencyBO.getById(agencyID);
     }
     catch (err) {
         log.error(`Could not get agency information: ${err} ${__location}`);
         return next(serverHelper.internalError('Could not get agency information'));
     }
-    const agentInfo = result[0];
 
-    // Check if they have already signed
+
     if (agentInfo.wholesale_agreement_signed !== null) {
         res.send(200, {
             status: 'success',
@@ -83,13 +68,13 @@ async function getWholesaleAgreementLink(req, res, next) {
         return next();
     }
 
-    // Decrypt the agent's information
-    const firstName = await crypt.decrypt(agentInfo.fname);
-    const lastName = await crypt.decrypt(agentInfo.lname);
+    // // Decrypt the agent's information
+    // const firstName = await crypt.decrypt(agentInfo.fname);
+    // const lastName = await crypt.decrypt(agentInfo.lname);
 
     const user = req.authentication.userID;
-    const name = `${firstName} ${lastName}`;
-    const email = await crypt.decrypt(agentInfo.email);
+    const name = `${agentInfo.fname} ${agentInfo.lname}`;
+    const email = agentInfo.email;
     const template = global.settings.ENV === 'production' ? productionDocusignWholesaleAgreementTemplate : stagingDocusignWholesaleAgreementTemplate;
     //Get AgencyNetworkBO settings
     let error = null;
@@ -125,23 +110,21 @@ async function getWholesaleAgreementLink(req, res, next) {
     }
 
     // Get the signing link from our DocuSign service
-    result = await docusign.createSigningRequestURL(user, name, email, agentInfo.docusign_envelope_id, template, returnUrl);
+    const result = await docusign.createSigningRequestURL(user, name, email, agentInfo.docusign_envelope_id, template, returnUrl);
     if (result === null) {
         return next(serverHelper.internalError('Invalid DocuSign URL'));
     }
     // Save the envelope ID to the agency record
-    sql = `
-		UPDATE clw_talage_agencies
-		SET docusign_envelope_id = ${db.escape(result.envelopeId)}
-		WHERE id = ${req.authentication.agents[0]}
-	`;
     try {
-        await db.query(sql);
+        // const agencyBO = new AgencyBO();
+        // Load the request data into it
+        await agencyBO.setDocusignEnvelopeId(agencyID, result.envelopeId);
     }
     catch (err) {
         log.error(`Could not set the docusign envelope id ${result.envelopeId} for agent ${req.authentication.agents[0]}: ${err} ${__location}`);
         return next(serverHelper.internalError('Could not save docusign envelope ID'));
     }
+
 
     // Successful response
     res.send(200, {

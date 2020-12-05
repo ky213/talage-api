@@ -227,65 +227,6 @@ module.exports = class Business {
     }
 
     /**
-	 * Populates this object with data from the database
-	 *
-	 * @param {int} id - The id of the business
-	 * @returns {Promise.<Boolean, ServerError>} A promise that returns true if resolved, or a ServerError if rejected
-	 */
-    // load_by_id(id) {
-    //     return new Promise(async(fulfill, reject) => {
-    //         // Validate the business ID
-    //         if (!await validator.business(id)) {
-    //             reject(new Error('Invalid business ID'));
-    //             return;
-    //         }
-
-    //         // Build a query to get the business information from the database
-    //         const sql = `
-    // 			SELECT \`b\`.\`dba\`, \`b\`.\`ein\`, \`b\`.\`entity_type\`, \`b\`.\`id\`, \`b\`.\`name\`, GROUP_CONCAT(\`a\`.\`id\`) AS \`locations\`
-    // 			FROM \`#__businesses\` AS \`b\`
-    // 			LEFT JOIN \`#__addresses\` AS \`a\` ON \`a\`.\`business\` = \`b\`.\`id\`
-    // 			WHERE \`b\`.\`id\` = ${db.escape(id)}
-    // 			LIMIT 1;
-    // 		`;
-
-    //         // Execute that query
-    //         let had_error = false;
-    //         const business_info = await db.query(sql).catch(function(error) {
-    //             log.error("Loading business error: " + error + __location);
-    //             had_error = true;
-    //         });
-    //         if (had_error || !business_info || business_info.length !== 1) {
-    //             reject(new Error('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
-    //             return;
-    //         }
-
-    //         // Save the results in this object and decrypt as needed
-    //         const encrypted = [
-    //             'dba',
-    //             'ein',
-    //             'name'
-    //         ];
-
-    //         // Localize each property in this object
-    //         for (const property in business_info[0]) {
-    //             // Make sure this property is a direct descendent of insurer_info, that it is also represented in this object, and that it has a value
-    //             if (Object.prototype.hasOwnProperty.call(business_info[0], property) && Object.prototype.hasOwnProperty.call(this, property) && business_info[0][property] && business_info[0][property].length) {
-    //                 // Check if this needs decryption
-    //                 if (encrypted.includes(property)) {
-    //                     this[property] = await crypt.decrypt(business_info[0][property]); // eslint-disable-line no-await-in-loop
-    //                     continue;
-    //                 }
-    //                 this[property] = business_info[0][property];
-    //             }
-    //         }
-
-    //         fulfill(true);
-    //     });
-    // }
-
-
-    /**
 	 * Checks that the data supplied is valid - Rejection should be done inside the Insurer Integration files.
      *  since rules vary by insurer and policy type.
 	 *
@@ -293,47 +234,6 @@ module.exports = class Business {
 	 */
     validate() {
         return new Promise(async(fulfill, reject) => {
-
-
-            /**
-			 * Association (optional)
-			 * - Defaults to null
-			 * - Must be an integer >= 1
-			 * - Maximum of 11 digits
-			 */
-            // if (this.association) {
-            //     if(typeof this.association === 'string'){
-            //         try{
-            //             this.association = parseInt(this.association, 10);
-            //         }
-            //         catch(err){
-            //             log.error("Error converting association to integer " + err + __location);
-            //         }
-            //     }
-            //     // We have association data...
-            //     if (!Number.isInteger(this.association) || !(this.association >= 1) || this.association.toString().length > 11) {
-            //         reject(new Error('Association must be a positive integer between 1 and 11 digits'));
-            //         return;
-            //     }
-            // }
-
-            /**
-			 * Association ID (conditionally required)
-			 * - Required if Association is set
-			 * - Cannot exceed 20 characters
-			 */
-            // if (this.association) {
-            //     // Required if association is present
-            //     if (this.association_id === '') {
-            //         reject(new Error('Association ID is required'));
-            //         return;
-            //     }
-            //     // Max length 20 characters
-            //     if (this.association_id.toString().length > 20) {
-            //         reject(new Error('Association ID must be less than 20 characters'));
-            //         return;
-            //     }
-            // }
 
             /**
 			 * Bureau Number (optional)

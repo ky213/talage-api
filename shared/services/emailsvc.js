@@ -20,6 +20,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 const MessageBO = global.requireShared('./models/Message-BO.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
+const AgencyBO = global.requireShared('./models/Agency-BO.js');
 
 /**
  * Sends an email to the address specified through our email service and saves the message data in the database
@@ -373,19 +374,20 @@ var imgSize = function(address) {
 
 var getAgencyLogoHtml = async function(agencyId) {
     // Query the database to get some information
-    //let hadError = false;
-    const sql = `SELECT \`name\`, \`logo\`, \`website\` FROM \`#__agencies\` WHERE \`id\` = ${db.escape(agencyId)} AND \`state\` = 1 LIMIT 1;`;
-    const agencyDB = await db.query(sql).catch(function(error) {
-        log.verbose('Email Service getAgencyLogoHtml: ' + error + __location);
-        throw error;
+    //const sql = `SELECT \`name\`, \`logo\`, \`website\` WHERE \`id\` = ${db.escape(agencyId)} AND \`state\` = 1 LIMIT 1;`;
+    const agencyBO = new AgencyBO();
+    // Load the request data into it
+    const agencyDB = await agencyBO.getById(agencyId).catch(function(err) {
+        log.error(`Email Service getAgencyLogoHtml: Agency getbyId ${agencyId} error ` + err + __location);
+        throw err;
     });
 
-    let logoHTML = `<h1 style="padding: 35px 0;">${agencyDB[0].name}</h1>`;
+    let logoHTML = `<h1 style="padding: 35px 0;">${agencyDB.name}</h1>`;
 
     // If the user has a logo, use it; otherwise, use a heading
-    if (agencyDB[0].logo) {
+    if (agencyDB.logo) {
         try {
-            const imgInfo = await imgSize(`${global.settings.IMAGE_URL}/public/agency-logos/${agencyDB[0].logo}`);
+            const imgInfo = await imgSize(`${global.settings.IMAGE_URL}/public/agency-logos/${agencyDB.logo}`);
 
             // Determine if image needs to be scaled down
             const maxHeight = 100;
@@ -397,7 +399,7 @@ var getAgencyLogoHtml = async function(agencyId) {
                 imgInfo.width *= ratio;
             }
 
-            logoHTML = `<img alt="${agencyDB[0].name}" src="${global.settings.IMAGE_URL}/public/agency-logos/${agencyDB[0].logo}" height="${imgInfo.height}" width="${imgInfo.width}">`;
+            logoHTML = `<img alt="${agencyDB.name}" src="${global.settings.IMAGE_URL}/public/agency-logos/${agencyDB.logo}" height="${imgInfo.height}" width="${imgInfo.width}">`;
         }
         catch (e) {
             // we will fail back to the default email heading for safety
@@ -407,9 +409,9 @@ var getAgencyLogoHtml = async function(agencyId) {
     }
 
     // If the user had a website, we should wrap the logo in a link
-    if (agencyDB[0].website) {
+    if (agencyDB.website) {
         // Decrypt the website address
-        const website = await crypt.decrypt(agencyDB[0].website);
+        const website = await crypt.decrypt(agencyDB.website);
 
         // Wrap the logo in a link
         logoHTML = `<a href="${website}" target="_blank">${logoHTML}</a>`;

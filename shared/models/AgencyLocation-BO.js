@@ -112,20 +112,6 @@ module.exports = class AgencyLocationBO{
         return true;
     }
 
-    /**
-	 * saves businessContact.
-     *
-	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
-	 */
-
-    save(asNew = false){
-        return new Promise(async(resolve, reject) => {
-        //validate
-
-            resolve(true);
-        });
-    }
-
     loadFromId(id) {
         return new Promise(async(resolve, reject) => {
             //validate
@@ -317,7 +303,7 @@ module.exports = class AgencyLocationBO{
                 let rejected = false;
                 await db.query(sql).catch(function(error) {
                     // Check if this was
-                    log.error("Database Object ${tableName} UPDATE State error :" + error + __location);
+                    log.error(`Database Object ${tableName} UPDATE State error :` + error + __location);
                     rejected = true;
                     reject(error);
                 });
@@ -368,8 +354,6 @@ module.exports = class AgencyLocationBO{
     async getSelectionList(agencyId){
         if(agencyId){
             let rejected = false;
-            const responseLandingPageJSON = {};
-            const reject = false;
             const sql = `select al.id, al.address, al.city, al.state_abbr, al.zipcode 
                     from clw_talage_agency_locations al
                     where agency = ${agencyId}`
@@ -423,7 +407,7 @@ module.exports = class AgencyLocationBO{
                     const agencyLocationBO = new AgencyLocationBO();
                     await agencyLocationBO.#dbTableORM.decryptFields(locationJSON);
                     await agencyLocationBO.#dbTableORM.convertJSONColumns(locationJSON);
-                    const resp = await agencyLocationBO.loadORM(locationJSON, skipCheckRequired).catch(function(err){
+                    await agencyLocationBO.loadORM(locationJSON, skipCheckRequired).catch(function(err){
                         log.error(`getList error loading object: ` + err + __location);
                     })
                     //created encrypt and format
@@ -472,7 +456,7 @@ module.exports = class AgencyLocationBO{
                     const agencyLocationBO = new AgencyLocationBO();
                     await agencyLocationBO.#dbTableORM.decryptFields(locationJSON);
                     await agencyLocationBO.#dbTableORM.convertJSONColumns(locationJSON);
-                    const resp = await agencyLocationBO.loadORM(locationJSON, skipCheckRequired).catch(function(err){
+                    await agencyLocationBO.loadORM(locationJSON, skipCheckRequired).catch(function(err){
                         log.error(`getList error loading object: ` + err + __location);
                     })
                     if(children === true){
@@ -516,7 +500,7 @@ module.exports = class AgencyLocationBO{
                 const agencyLocationBO = new AgencyLocationBO();
                 await agencyLocationBO.#dbTableORM.decryptFields(locationJSON);
                 await agencyLocationBO.#dbTableORM.convertJSONColumns(locationJSON);
-                const resp = await agencyLocationBO.loadORM(locationJSON, skipCheckRequired).catch(function(err){
+                await agencyLocationBO.loadORM(locationJSON, skipCheckRequired).catch(function(err){
                     log.error(`getList error loading object: ` + err + __location);
                 })
                 return agencyLocationBO;
@@ -586,6 +570,32 @@ module.exports = class AgencyLocationBO{
         return this.#dbTableORM.cleanJSON(noNulls);
     }
 
+    getCurrentLocationsLimited(){
+
+        return new Promise(async(resolve, reject) => {
+            const sql = `
+                 SELECT
+                    al.id alid,
+                    al.agency,
+                    al.email AS agencyLocationEmail,
+                    ag.email AS agencyEmail,
+                    ag.agency_network as agency_network
+                FROM clw_talage_agency_locations AS al
+                    INNER JOIN clw_talage_agencies AS ag ON al.agency = ag.id
+                WHERE 
+                    al.state = 1
+            `;
+
+            const rows = await db.query(sql).catch(function(err) {
+                log.error(`Error getting  ${tableName} from Database ` + err + __location);
+                reject(err);
+                return;
+            });
+            resolve(rows);
+        });
+    }
+
+
     // ***************************
     //    For administration site
     //
@@ -594,15 +604,15 @@ module.exports = class AgencyLocationBO{
 
         return new Promise(async(resolve, reject) => {
             let sql = `
-                select al.id as agencyLocationid, al.address, al.zipcode, al.city, al.state_abbr, a.name from clw_talage_agencies a
+                select al.id as agencyLocationid, al.address, al.zipcode, al.city, al.state_abbr, a.name 
+                     from clw_talage_agencies a
                     inner join clw_talage_agency_locations al on a.id = al.agency
                     where al.state > 0 AND a.state > 0 
             `;
-            log.debug
-            let hasWhere = false;
+            // let hasWhere = false;
             if(queryJSON.agencyname){
                 sql += ` AND  a.name like ${db.escape(queryJSON.agencyname)} `;
-                hasWhere = true;
+                //   hasWhere = true;
 
             }
             sql += " Order by a.name limit 100"
@@ -882,6 +892,7 @@ const properties = {
 
 class DbTableOrm extends DatabaseObject {
 
+    // eslint-disable-next-line no-shadow
     constructor(tableName){
         super(tableName, properties);
     }
