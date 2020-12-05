@@ -134,6 +134,7 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'administration', 'industry-code-rt');
     registerEndpoint(server, 'administration', 'industry-code-association-rt');
     registerEndpoint(server, 'administration', 'insurer-question-rt');
+    registerEndpoint(server, 'administration', 'insurer-logo-rt');
     registerEndpoint(server, 'administration', 'question-answer-rt');
     registerEndpoint(server, 'administration', 'question-type-rt');
     registerEndpoint(server, 'administration', 'question-activity-codes-rt');
