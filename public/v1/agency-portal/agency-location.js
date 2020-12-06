@@ -1,3 +1,4 @@
+/* eslint-disable object-property-newline */
 /* eslint-disable guard-for-in */
 /* eslint-disable prefer-const */
 /* eslint-disable array-element-newline */
@@ -57,7 +58,13 @@ async function getbyId(req, res, next) {
     const agencyLocationBO = new AgencyLocationBO();
 
     // Load the request data into it
-    const locationJSON = await agencyLocationBO.getByIdAndAgencyListForAgencyPortal(id, agencyList).catch(function(err) {
+    //const locationJSON = await agencyLocationBO.getByIdAndAgencyListForAgencyPortal(id, agencyList).catch(function(err) {
+    // eslint-disable-next-line object-curly-newline
+    const query = {"systemId": id, agencyId: agencyList};
+    log.debug("AL GET query: " + JSON.stringify(query));
+    const getAgencyName = false;
+    const loadChildren = true;
+    const locationJSONList = await agencyLocationBO.getList(query, getAgencyName, loadChildren).catch(function(err) {
         log.error("Location load error " + err + __location);
         error = err;
     });
@@ -65,8 +72,8 @@ async function getbyId(req, res, next) {
         return next(error);
     }
     // Send back a success response
-    if (locationJSON) {
-        res.send(200, locationJSON);
+    if (locationJSONList && locationJSONList.length > 0) {
+        res.send(200, locationJSONList[0]);
         return next();
     }
     else {
@@ -444,17 +451,19 @@ async function getSelectionList(req, res, next) {
     const agencyLocationBO = new AgencyLocationBO();
 
     let locationList = null;
-    const query = {"agency": agencyId}
+    const query = {"agencyId": agencyId}
+    const getAgencyName = true;
     const getChildren = true;
 
-    locationList = await agencyLocationBO.getList(query, getChildren).catch(function(err){
+    locationList = await agencyLocationBO.getList(query, getAgencyName, getChildren).catch(function(err){
         log.error(err.message + __location);
         error = err;
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     });
+    //Backward compatible for mysql columns
     locationList.forEach((location) => {
-        location.openTime = location.open_time;
-        location.closeTime = location.close_time;
+        location.fname = location.firstName;
+        location.lname = location.lastName;
     });
     // Send back a success response
     res.send(200, locationList);

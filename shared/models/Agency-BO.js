@@ -325,18 +325,16 @@ module.exports = class AgencyBO {
                     reject(err);
                     return;
                 });
-
-
                 this.updateProperty();
+                this.agencyNetworkId = this.agency_network;
                 const cleanObjJson = this.#dbTableORM.cleanJSON();
+                cleanObjJson.agencyNetworkId = cleanObjJson.agency_network;
                 this.moveAdditionalInfoFeatures(cleanObjJson)
                 if (getAgencyNetwork === true) {
                     const agencyNetworkBO = new AgencyNetworkBO();
                     try {
                         const agencyNetworkJSON = await agencyNetworkBO.getById(this.agency_network);
                         cleanObjJson.agencyNetworkName = agencyNetworkJSON.name;
-
-
                     }
                     catch (err) {
                         log.error("Error getting Agency Network List " + err + __location);
