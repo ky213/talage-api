@@ -58,7 +58,7 @@ module.exports = class AgencyLocationBO{
             }
             if(newDoc === true) {
                 const newAgencyLocationDoc = this.insertMongo(newObjectJSON);
-
+                this.id = newAgencyLocationDoc.systemId;
                 if(newObjectJSON.primary){
                     await this.resetPrimary(newAgencyLocationDoc.agencyId, newAgencyLocationDoc.systemId);
                 }
@@ -124,7 +124,7 @@ module.exports = class AgencyLocationBO{
         if(newObjectJSON.id) {
             delete newObjectJSON.id
         }
-        const newSystemId = await this.getMaxSystemId()
+        const newSystemId = await this.newMaxSystemId()
         newObjectJSON.systemId = newSystemId;
         newObjectJSON.mysqlId = newSystemId;
         const agencyLocation = new AgencyLocationMongooseModel(newObjectJSON);
@@ -137,7 +137,7 @@ module.exports = class AgencyLocationBO{
         return mongoUtils.objCleanup(agencyLocation);
     }
 
-    async getMaxSystemId(){
+    async newMaxSystemId(){
         let maxId = 0;
         try{
 
@@ -153,7 +153,7 @@ module.exports = class AgencyLocationBO{
             if(docList && docList.length > 0){
                 for(let i = 0; i < docList.length; i++){
                     if(docList[i].systemId > maxId){
-                        maxId = docList[i].systemId;
+                        maxId = docList[i].systemId + 1;
                     }
                 }
             }
@@ -570,7 +570,9 @@ module.exports = class AgencyLocationBO{
                 //Mongo....
                 let agencyLocationDoc = null;
                 try {
-                    agencyLocationDoc = await this.loadfromMongoBymysqlId(id);
+                    const returnChildren = false;
+                    const returnDoc = true;
+                    agencyLocationDoc = await this.getMongoDocbyMysqlId(id, returnChildren, returnDoc);
                     agencyLocationDoc.active = false;
                     await agencyLocationDoc.save();
                 }
@@ -617,87 +619,6 @@ module.exports = class AgencyLocationBO{
             this[property] = dbJSON[property];
         }
     }
-
-    // async getSelectionList(agencyId){
-    //     if(agencyId){
-    //         let rejected = false;
-    //         const sql = `select al.id, al.address, al.city, al.state_abbr, al.zipcode
-    //                 from clw_talage_agency_locations al
-    //                 where agency = ${agencyId}`
-    //         const result = await db.query(sql).catch(function(error) {
-    //             // Check if this was
-    //             rejected = true;
-    //             log.error(`clw_talage_agency_locations error on select ` + error + __location);
-    //         });
-    //         if (!rejected && result && result.length > 0) {
-    //             //created encrypt and format
-    //             for(var i = 0; i < result.length; i++){
-    //                 const location = result[i];
-    //                 location.address = await crypt.decrypt(location.address);
-    //                 location.address = location.address + " " + location.city + " " + location.ca_abbr + " " + location.zipcode;
-    //             }
-    //             return result;
-    //         }
-    //         else {
-    //             return [];
-    //         }
-    //     }
-    //     else {
-    //         throw new Error("No agency id");
-    //     }
-    // }
-
-
-    // async getByIdAndAgencyListForAgencyPortal(id,agencyList, children = true){
-
-    //     if(agencyList && id){
-    //         //agencyId = stringFunctions.santizeNumber(agencyId, true);
-    //         id = stringFunctions.santizeNumber(id, true);
-    //         //santize id.
-    //         let rejected = false;
-
-    //         //what agencyportal client expects.
-    //         const sql = `SELECT *
-    //             FROM clw_talage_agency_locations l
-    //             WHERE l.id = ? AND l.agency in (?) AND l.state > 0;`
-
-    //         //WHERE l.id = ${id} AND l.agency = ${agencyId} AND l.state > 0;`
-    //         const parmList = [id, agencyList];
-    //         const result = await db.queryParam(sql, parmList).catch(function(error) {
-    //             // Check if this was
-    //             rejected = true;
-    //             log.error(`clw_talage_agency_locations error on select ` + error + __location);
-    //         });
-    //         if(result && result.length > 0) {
-    //             const locationJSON = result[0];
-    //             if (!rejected && result && result.length > 0) {
-    //                 const agencyLocationBO = new AgencyLocationBO();
-    //                 await agencyLocationBO.#dbTableORM.decryptFields(locationJSON);
-    //                 await agencyLocationBO.#dbTableORM.convertJSONColumns(locationJSON);
-    //                 await agencyLocationBO.loadORM(locationJSON, skipCheckRequired).catch(function(err){
-    //                     log.error(`getList error loading object: ` + err + __location);
-    //                 })
-    //                 //created encrypt and format
-    //                 const location = locationJSON;
-    //                 location.openTime = location.open_time;
-    //                 location.closeTime = location.close_time
-    //                 if(children === true){
-    //                     await this.loadChildren(id, location)
-    //                 }
-    //                 return locationJSON;
-    //             }
-    //             else {
-    //                 return null;
-    //             }
-    //         }
-    //         else {
-    //             return null;
-    //         }
-    //     }
-    //     else {
-    //         throw new Error("No id or agencyList");
-    //     }
-    // }
 
 
     getByAgencyPrimary(agencyId, children = false, returnMongooseModel = false){
@@ -805,7 +726,7 @@ module.exports = class AgencyLocationBO{
     //                 ag.agency_network as agency_network
     //             FROM clw_talage_agency_locations AS al
     //                 INNER JOIN clw_talage_agencies AS ag ON al.agency = ag.id
-    //             WHERE 
+    //             WHERE
     //                 al.state = 1
     //         `;
 
