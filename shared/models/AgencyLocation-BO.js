@@ -10,6 +10,9 @@ const tracker = global.requireShared('./helpers/tracker.js');
 const crypt = global.requireShared('./services/crypt.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
+var AgencyLocationMongooseModel = require('mongoose').model('AgencyLocation');
+const mongoUtils = global.requireShared('./helpers/mongoutils.js');
+
 
 const tableName = 'clw_talage_agency_locations'
 const skipCheckRequired = false;
@@ -122,7 +125,52 @@ module.exports = class AgencyLocationBO{
                     return;
                 });
                 this.updateProperty();
+
+                if(this.additionalInfo && this.additionalInfo.territories){
+                    this.territories = this.additionalInfo.territories;
+                }
+
+                await this.loadChildren(id, this)
+
+
                 resolve(true);
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
+    }
+
+
+    async getMongoDocbyMysqlId(mysqlId, children = true, returnMongooseModel = false) {
+        return new Promise(async(resolve, reject) => {
+            if (mysqlId) {
+                const query = {
+                    "mysqlId": mysqlId,
+                    active: true
+                };
+                let agencyLocationDoc = null;
+                let docDB = null;
+                try {
+                    docDB = await AgencyLocationMongooseModel.findOne(query, '-__v');
+                    if(children === true){
+                        await this.loadChildrenMongo(mysqlId, docDB)
+                    }
+                    if (docDB) {
+                        agencyLocationDoc = mongoUtils.objCleanup(docDB);
+                    }
+                }
+                catch (err) {
+                    log.error("Getting Agency Location error " + err + __location);
+                    reject(err);
+                }
+                if(returnMongooseModel){
+                    resolve(docDB);
+                }
+                else {
+                    resolve(agencyLocationDoc);
+                }
+
             }
             else {
                 reject(new Error('no id supplied'))
@@ -199,7 +247,57 @@ module.exports = class AgencyLocationBO{
         });
     }
 
-    async loadChildren(agencyLocationId, agencyLocationJSON){
+    async loadChildrenMongo(agencyLocationId, agencyLocationJSON){
+        if(agencyLocationJSON.insurers){
+            //Map to current Insurers
+            await this.addInsureInfoTolocationInsurersMongo(agencyLocationJSON.insurers);
+        }
+        if(!agencyLocationJSON.territories){
+            agencyLocationJSON.territories = [];
+        }
+        if(!agencyLocationJSON.insurers){
+            agencyLocationJSON.insurers = [];
+        }
+
+
+    }
+
+    async addInsureInfoTolocationInsurersMongo(locationInsurerInfoArray){
+        if(locationInsurerInfoArray){
+            // let error = null;
+            const insurerBO = new InsurerBO();
+            const query = {};
+            const insurerList = await insurerBO.getList(query).catch(function(err) {
+                log.error("admin agencynetwork error: " + err + __location);
+                //    error = err;
+            })
+            if(insurerList){
+                for(let i = 0; i < locationInsurerInfoArray.length; i++){
+                    if(typeof locationInsurerInfoArray[i].insurerId === "string"){
+                        locationInsurerInfoArray[i].insurerId = parseInt(locationInsurerInfoArray[i].insurerId,10);
+                    }
+                    const insurer = insurerList.find(insurertest => insurertest.id === locationInsurerInfoArray[i].insurerId);
+                    if(insurer){
+                        locationInsurerInfoArray[i].logo = insurer.logo;
+                        locationInsurerInfoArray[i].name = insurer.name;
+                        locationInsurerInfoArray[i].agency_id_label = insurer.agency_id_label;
+                        locationInsurerInfoArray[i].agent_id_label = insurer.agent_id_label;
+                        locationInsurerInfoArray[i].enable_agent_id = insurer.enable_agent_id;
+                    }
+                    else {
+                        log.error(`addInsureInfoTolocationInsurers Error insurerId = ${JSON.stringify(locationInsurerInfoArray[i])} `)
+                    }
+
+                }
+            }
+            else {
+                log.error("No Insures AgencLocation.Insurers " + __location);
+            }
+        }
+    }
+
+    
+     async loadChildren(agencyLocationId, agencyLocationJSON){
         if(agencyLocationJSON.insurers){
             //Map to current Insurers
             await this.addInsureInfoTolocationInsurers(agencyLocationJSON.insurers);
@@ -215,13 +313,13 @@ module.exports = class AgencyLocationBO{
             await this.addInsureInfoTolocationInsurers(agencyLocationJSON.insurers);
 
         }
-        // Territories
+       // Territories
         if(agencyLocationJSON.additionalInfo && agencyLocationJSON.additionalInfo.territories){
             // log.debug("Using agencyLocationJSON.additionalInfo.territories ")
             agencyLocationJSON.territories = agencyLocationJSON.additionalInfo.territories;
         }
         else {
-            //  log.debug("Using agencyLocationTerritory  ")
+            log.debug("Using agencyLocationTerritory  ")
             const agencyLocationTerritory = new AgencyLocationTerritory()
             const territoryList = await agencyLocationTerritory.getListByAgencyLocationForAgencyPortal(agencyLocationId).catch(function(error) {
                 // Check if this was
@@ -239,6 +337,7 @@ module.exports = class AgencyLocationBO{
 
     }
 
+
     async addInsureInfoTolocationInsurers(locationInsurerInfoArray){
         if(locationInsurerInfoArray){
             // let error = null;
@@ -250,15 +349,21 @@ module.exports = class AgencyLocationBO{
             })
             if(insurerList){
                 for(let i = 0; i < locationInsurerInfoArray.length; i++){
-                    if(typeof locationInsurerInfoArray[i].insurer === "string"){
+                    if(typeof locationInsurerInfoArray[i].insurerId === "string"){
                         locationInsurerInfoArray[i].insurer = parseInt(locationInsurerInfoArray[i].insurer,10);
                     }
                     const insurer = insurerList.find(insurertest => insurertest.id === locationInsurerInfoArray[i].insurer);
-                    locationInsurerInfoArray[i].logo = insurer.logo;
-                    locationInsurerInfoArray[i].name = insurer.name;
-                    locationInsurerInfoArray[i].agency_id_label = insurer.agency_id_label;
-                    locationInsurerInfoArray[i].agent_id_label = insurer.agent_id_label;
-                    locationInsurerInfoArray[i].enable_agent_id = insurer.enable_agent_id;
+                    if(insurer){
+                        locationInsurerInfoArray[i].logo = insurer.logo;
+                        locationInsurerInfoArray[i].name = insurer.name;
+                        locationInsurerInfoArray[i].agency_id_label = insurer.agency_id_label;
+                        locationInsurerInfoArray[i].agent_id_label = insurer.agent_id_label;
+                        locationInsurerInfoArray[i].enable_agent_id = insurer.enable_agent_id;
+                    }
+                    else {
+                        log.error(`addInsureInfoTolocationInsurers Error insurerId = ${JSON.stringify(locationInsurerInfoArray[i])} `)
+                    }
+
                 }
             }
             else {
@@ -269,25 +374,29 @@ module.exports = class AgencyLocationBO{
 
 
     getById(id, children = true) {
-        return new Promise(async(resolve, reject) => {
-            //validate
-            if(id && id > 0){
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
-                const agencyLocationJSON = this.#dbTableORM.cleanJSON();
-                if(children === true){
-                    await this.loadChildren(id, agencyLocationJSON)
-                }
-                resolve(agencyLocationJSON);
-            }
-            else {
-                reject(new Error('no id supplied'))
-            }
-        });
+        return this.getMongoDocbyMysqlId(id, children)
+        // return new Promise(async(resolve, reject) => {
+        //     //validate
+        //     if(id && id > 0){
+
+
+
+        //         // await this.#dbTableORM.getById(id).catch(function(err) {
+        //         //     log.error(`Error getting  ${tableName} from Database ` + err + __location);
+        //         //     reject(err);
+        //         //     return;
+        //         // });
+        //         // this.updateProperty();
+        //         // const agencyLocationJSON = this.#dbTableORM.cleanJSON();
+        //         // if(children === true){
+        //         //     await this.loadChildren(id, agencyLocationJSON)
+        //         // }
+        //         resolve(agencyLocationJSON);
+        //     }
+        //     else {
+        //         reject(new Error('no id supplied'))
+        //     }
+        // });
     }
 
     deleteSoftById(id) {
@@ -520,7 +629,7 @@ module.exports = class AgencyLocationBO{
         try{
             const agencyLocationJSON = await this.getById(agencyLocationId);
             const insurerJSON = agencyLocationJSON.insurers.find(insurer => insurerId === insurer.insurer);
-            policyInfoJSON = insurerJSON.policy_type_info;
+            policyInfoJSON = insurerJSON.policyTypeInfo;
         }
         catch(err){
             log.error(`Error get PolicyTypeInfo agencyLocationId ${agencyLocationId} ` + err + __location)
@@ -538,7 +647,7 @@ module.exports = class AgencyLocationBO{
             const agencyLocationJSON = await this.getById(agencyLocationId);
             const insurerJSON = agencyLocationJSON.insurers.find(insurer => insurerId === insurer.insurer);
             if(insurerJSON){
-                const policyInfoJSON = insurerJSON.policy_type_info;
+                const policyInfoJSON = insurerJSON.policyTypeInfo;
                 if(policyInfoJSON.notifyTalage){
                     notifyTalage = true;
                 }

@@ -2565,7 +2565,7 @@ module.exports = class ApplicationModel {
             });
             if (agencylocationJSON && agencylocationJSON.insurers && agencylocationJSON.insurers.length > 0) {
                 for(let i = 0; i < agencylocationJSON.insurers.length; i++){
-                    insurerArray.push(agencylocationJSON.insurers[i].insurer)
+                    insurerArray.push(agencylocationJSON.insurers[i].insurerId)
                 }
             }
             else {

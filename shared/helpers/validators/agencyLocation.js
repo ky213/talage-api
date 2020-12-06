@@ -10,6 +10,7 @@ const regex = /^[1-9]\d*$/;
  */
 module.exports = async function(id){
     if(regex.test(id)){
+        //TODO change to mongo lookup
         let hadError = false;
         const sql = `SELECT COUNT(${db.quoteName('id')}) FROM ${db.quoteName('#__agency_locations')} WHERE ${db.quoteName('id')} = ${db.escape(id)} AND ${db.quoteName('state')} = 1 LIMIT 1;`;
         const rows = await db.query(sql).catch(function(error){

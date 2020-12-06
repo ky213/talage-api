@@ -478,7 +478,7 @@ async function postAgency(req, res, next) {
             "wc": 1,
             "bop": 0,
             "agencyId": agencyIds[insurerID],
-            "policy_type_info": {
+            "policyTypeInfo": {
                 "WC": {
                     "enabled": true,
                     "useAcord": false,

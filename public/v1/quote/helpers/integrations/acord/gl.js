@@ -115,7 +115,6 @@ module.exports = class ACORDGL extends Integration{
 
         //Retrieve the email address for GL
         //BO returns JSON.
-        //const policyTypeInfoJSON = await JSON.parse(policyTypeInfoJSON[0].policy_type_info);
 
         let email_address = null;
         try{

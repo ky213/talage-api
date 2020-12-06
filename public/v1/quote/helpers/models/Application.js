@@ -174,6 +174,7 @@ module.exports = class Application {
             let stop = false;
             this.policies.forEach((policy) => {
                 if (Array.isArray(policy.insurers)) {
+                    log.debug("policy.insurers " + JSON.stringify(policy.insurers))
                     policy.insurers.forEach((insurer) => {
                         if (desired_insurers.indexOf(insurer) === -1) {
                             // Check that the agent supports this insurer for this policy type
@@ -181,7 +182,7 @@ module.exports = class Application {
                             for (const agent_insurer in this.agencyLocation.insurers) {
                                 if (Object.prototype.hasOwnProperty.call(this.agencyLocation.insurers, agent_insurer)) {
                                     // Find the matching insurer
-                                    if (this.agencyLocation.insurers[agent_insurer].id === parseInt(agent_insurer, 10)) {
+                                    if (this.agencyLocation.insurers[agent_insurer].insurerId === parseInt(agent_insurer, 10)) {
                                         // Check the policy type
                                         if (this.agencyLocation.insurers[agent_insurer][policy.type.toLowerCase()] === 1) {
                                             match_found = true;
@@ -231,6 +232,7 @@ module.exports = class Application {
             // Loop through each desired insurer
             let insurers = [];
             const insurer_promises = [];
+            log.debug("desired_insurers " + JSON.stringify(desired_insurers));
             desired_insurers.forEach((id) => {
                 // Create a new insurer object
                 const insurer = new Insurer();
@@ -322,14 +324,14 @@ module.exports = class Application {
                 // Check that the given policy type is enabled for this insurer
                 if (insurer.policy_types.indexOf(policy.type) >= 0) {
                     // Get the agency_location_insurer data for this insurer from the agency location
-                    if (this.agencyLocation.insurers[insurer.id].policy_type_info) {
-                        //Retrieve the data for this policy type
-                        const agency_location_insurer_data = this.agencyLocation.insurers[insurer.id].policy_type_info[policy.type];
-                        if (agency_location_insurer_data) {
-                            if (agency_location_insurer_data.enabled) {
+                    if (this.agencyLocation.insurers[insurer.id].policyTypeInfo) {
+                        //Retrieve the data for this policy type us
+                        const agency_location_insurer_Policyinfo_typeJSON = this.agencyLocation.insurers[insurer.id].policyTypeInfo[policy.type];
+                        if (agency_location_insurer_Policyinfo_typeJSON) {
+                            if (agency_location_insurer_Policyinfo_typeJSON.enabled) {
                                 let slug = '';
                                 // If agency wants to send acord, send acord
-                                if (agency_location_insurer_data.useAcord === true && insurer.policy_type_details[policy.type].acord_support === 1) {
+                                if (agency_location_insurer_Policyinfo_typeJSON.useAcord === true && insurer.policy_type_details[policy.type].acord_support === 1) {
                                     slug = 'acord';
                                 }
                                 else if (insurer.policy_type_details[policy.type.toUpperCase()].api_support === 1) {
@@ -357,7 +359,7 @@ module.exports = class Application {
                                 }
                             }
                             else {
-                                log.error(`${policy.type} is not enabled for insurer ${insurer.id} for Agency location ${this.agencyLocation.id}` + __location);
+                                log.error(`${policy.type} is not enabled for insurer ${insurer.id} for Agency location ${this.agencyLocation.id} JSON ${JSON.stringify(agency_location_insurer_Policyinfo_typeJSON)}` + __location);
                             }
                         }
                         else {

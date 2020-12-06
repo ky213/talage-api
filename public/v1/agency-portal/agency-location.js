@@ -460,7 +460,7 @@ async function getSelectionList(req, res, next) {
     res.send(200, locationList);
     return next();
 }
-// Agency portal does not send bop, gl, wc properties, just policy_type_info
+// Agency portal does not send bop, gl, wc properties, just policyTypeInfo
 async function legacyFieldUpdate(requestALJSON) {
     const policyTypeList = ["GL", "WC", "BOP"];
     if (requestALJSON.insurers) {
@@ -469,12 +469,12 @@ async function legacyFieldUpdate(requestALJSON) {
             insurer.bop = 0;
             insurer.gl = 0;
             insurer.wc = 0;
-            if (insurer.policy_type_info) {
+            if (insurer.policyTypeInfo) {
                 for (let j = 0; j < policyTypeList.length; j++) {
                     const policyType = policyTypeList[j];
                     //log.debug("policyType " + policyType);
-                    if (insurer.policy_type_info[policyType] && insurer.policy_type_info[policyType].enabled) {
-                        insurer[policyType.toLowerCase()] = insurer.policy_type_info[policyType].enabled ? 1 : 0;
+                    if (insurer.policyTypeInfo[policyType] && insurer.policyTypeInfo[policyType].enabled) {
+                        insurer[policyType.toLowerCase()] = insurer.policyTypeInfo[policyType].enabled ? 1 : 0;
                     }
                     else {
                         insurer[policyType.toLowerCase()] = 0;
