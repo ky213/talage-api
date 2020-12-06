@@ -477,8 +477,8 @@ async function applicationSave(req, res, next) {
             const locationPrimaryJSON = await agencyLocationBO.getByAgencyPrimary(req.body.agencyId).catch(function(err) {
                 log.error(`Error getting Agency Primary Location ${req.body.agencyId} ` + err + __location);
             });
-            if(locationPrimaryJSON && locationPrimaryJSON.id){
-                req.body.agencyLocationId = locationPrimaryJSON.id;
+            if(locationPrimaryJSON && locationPrimaryJSON.systemId){
+                req.body.agencyLocationId = locationPrimaryJSON.systemId;
             }
         }
     }
