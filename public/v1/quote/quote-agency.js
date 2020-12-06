@@ -1,3 +1,4 @@
+/* eslint-disable array-element-newline */
 /* eslint-disable prefer-const */
 /**
  * Handles all tasks related to managing quotes
@@ -195,24 +196,39 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
     let locations = null;
     try{
         const query = {"agency": agency.id}
+        const getAgencyName = true;
         const getChildren = true;
         const agencyLocationBO = new AgencyLocationBO();
-        locations = await agencyLocationBO.getList(query, getChildren);
+        locations = await agencyLocationBO.getList(query, getAgencyName,getChildren);
         let insurerList = [];
         // eslint-disable-next-line array-element-newline
-        let removeList = ["doNotSnakeCase", "territories", "created", "modified", "modified_by","checked_out", "checked_out_time"]
+        let removeList = ["additionalInfo", "territories", "createdAt", "updatedAt", "agencyPortalModifiedUser","active"]
         if(locations){
             for(let j = 0; j < locations.length; j++) {
                 let location = locations[j];
-                location.openTime = location.open_time;
-                location.closeTime = location.close_time;
-                location.territory = location.state_abbr;
+                location.id = location.systemId;
+                location.fname = location.firstName;
+                location.lname = location.lastName;
+                location.territory = location.state;
                 location.zip = location.zipcode;
                 location.appointments = location.territories;
                 if(location.insurers){
                     for(let i = 0; i < location.insurers.length; i++) {
                         let insurer = location.insurers[i];
                         insurer.agencylocation = location.id;
+                        //backward compatible for Quote App.  properties for WC, BOP, GL
+                        if(insurer.policyTypeInfo){
+                            insurer.policy_type_info = insurer.policyTypeInfo
+                            const policyTypeCd = ['WC','BOP','GL']
+                            for(const pt of policyTypeCd){
+                                if(insurer.policy_type_info[pt] && insurer.policy_type_info[pt].enabled === true){
+                                    insurer[pt.toLowerCase()] = 1;
+                                }
+                                else {
+                                    insurer[pt.toLowerCase()] = 0;
+                                }
+                            }
+                        }
                         insurerList.push(insurer);
                     }
                     delete location.insurers;
