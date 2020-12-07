@@ -219,20 +219,21 @@ module.exports = class Integration {
     }
 
     /**
-     * Retrieves an Employers-specific NCCI code for a given activity code
+     * Retrieves an insurer-specific NCCI code for a given activity code
      *
+     * @param {number} insurerId - The insurer ID
      * @param {string} territory - The 2 character territory code
      * @param {number} activityCode - The 4 digit Talage activity code
      * @returns {number} The 4 digit NCCI code
      */
-    async get_employers_code_for_activity_code(territory, activityCode) {
+    async get_insurer_code_for_activity_code(insurerId, territory, activityCode) {
         const sql = `
             SELECT inc.code, inc.sub, inc.attributes
             FROM clw_talage_insurer_ncci_codes AS inc 
             LEFT JOIN clw_talage_activity_code_associations AS aca ON aca.insurer_code = inc.id
             WHERE
                 inc.state = 1
-                AND inc.insurer = 1
+                AND inc.insurer = ${insurerId}
                 AND inc.territory = '${territory}'
                 AND aca.code = ${activityCode};
         `;
@@ -270,14 +271,14 @@ module.exports = class Integration {
     async get_national_ncci_code_from_activity_code(territory, activityCode) {
         // Retrieve a national NCCI code.
         // NOTE: we do not currently have these mapped but are in process; Adam is getting them.
-        // Employers codes mostly follow the national NCCI code numbering and we have most Employers codes
-        // mapped. So we use the employers code mapping for now until we have an official map of the
+        // Liberty codes mostly follow the national NCCI code numbering and we have most Liberty codes
+        // mapped. So we use the Liberty code mapping for now until we have an official map of the
         // national NCCI codes. -SF
-        const employersRecord = await this.get_employers_code_for_activity_code(territory, activityCode);
-        if (!employersRecord) {
+        const libertyRecord = await this.get_insurer_code_for_activity_code(14, territory, activityCode);
+        if (!libertyRecord) {
             return null;
         }
-        return employersRecord.code;
+        return libertyRecord.code;
     }
 
     /**
@@ -288,7 +289,9 @@ module.exports = class Integration {
      * @returns {number} The 6+ digit naics code
      */
     async get_naics_code_from_activity_code(territory, activityCode) {
-        const employersRecord = await this.get_employers_code_for_activity_code(territory, activityCode);
+        // The Employers codes have associated NAICs codes. Again, this needs to be mapped
+        // which is in progress -SF
+        const employersRecord = await this.get_insurer_code_for_activity_code(1, territory, activityCode);
         if (!employersRecord) {
             return null;
         }
