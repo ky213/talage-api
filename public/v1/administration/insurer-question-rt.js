@@ -69,7 +69,6 @@ async function add(req, res, next) {
     const insurerQuestionBO = new InsurerQuestionBO();
     let error = null;
     const newRecord = true;
-    console.log(req.body);
     await insurerQuestionBO.saveModel(req.body, newRecord).catch(function(err) {
         log.error("insurer question save error " + err + __location);
         error = err;
