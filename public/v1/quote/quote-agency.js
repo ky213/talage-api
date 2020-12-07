@@ -78,6 +78,19 @@ function parseQuoteURL(url) {
  */
 async function getAgencyFromSlugs(agencySlug, pageSlug) {
     let agency = null;
+    //Get agency record.
+    //TODO .....
+
+    //If get landing page  
+    // let landingPageQuery = {};
+    // if(pageSlug){
+    //     landingPageQuery.slug = pageSlug;
+    // }
+    // else {
+    //     landingPageQuery.primary = true;
+    // }
+
+
     let sql = `
 			SELECT
 				alp.about,

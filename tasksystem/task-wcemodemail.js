@@ -142,8 +142,9 @@ const sendEmodEmail = async function(applicationId) {
 
             //get AgencyLocationBO
             const agencyLocationBO = new AgencyLocationBO();
+            let agencyLocationJSON = null;
             try{
-                await agencyLocationBO.loadFromId(applicationDoc.agencyLocationId)
+                agencyLocationJSON = await agencyLocationBO.getMongoDocbyMysqlId(applicationDoc.agencyLocationId)
             }
             catch(err){
                 log.error("Error getting agencyLocationBO " + err + __location);
@@ -156,8 +157,8 @@ const sendEmodEmail = async function(applicationId) {
 
 
             let agencyLocationEmail = null;
-            if(agencyLocationBO.email){
-                agencyLocationEmail = agencyLocationBO.email
+            if(agencyLocationJSON.email){
+                agencyLocationEmail = agencyLocationJSON.email
             }
             else if(agencyBO.email){
                 agencyLocationEmail = agencyBO.email;

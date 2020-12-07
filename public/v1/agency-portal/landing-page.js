@@ -6,6 +6,7 @@ const validator = global.requireShared('./helpers/validator.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const colorConverter = require('color-converter').default;
+const AgencyLandingPageBO = global.requireShared('./models/AgencyLandingPage-BO.js');
 
 /**
  * Checks whether the provided agency has a primary page other than the current page
@@ -392,49 +393,38 @@ async function createLandingPage(req, res, next) {
     // Define the data to be inserted, column: value
     const insertData = {
         about: data.about,
-        agency: agency,
+        agencyId: agency,
         banner: data.banner,
         color_scheme: data.colorScheme,
         heading: data.heading,
-        agency_location_id: landingPage.agencyLocationId,
-        industry_code: data.industryCode,
-        industry_code_category: data.industryCodeCategory,
+        agencyLocationId: landingPage.agencyLocationId,
+        industryCodeId: data.industryCode,
+        industryCodeCategoryId: data.industryCodeCategory,
         intro_heading: data.introHeading,
-        intro_text: data.introText,
+        introText: data.introText,
         name: data.name,
-        show_industry_section: data.showIndustrySection,
+        showIndustrySection: data.showIndustrySection,
         slug: data.slug,
         additionalInfo: data.additionalInfo
     };
 
-    if(!insertData.agency_location_id){
-        insertData.agency_location_id = 0;
+    if(!insertData.agencyLocationId){
+        insertData.agencyLocationId = 0;
     }
-    // Create the SQL to insert this item into the database
-    const sql = `
-			INSERT INTO \`#__agency_landing_pages\` (${Object.keys(insertData).
-        map((key) => `\`${key}\``).
-        join(',')})
-			VALUES (${Object.values(insertData).
-        map((key) => db.escape(key)).
-        join(',')});
-		`;
 
-    // Commit this update to the database
-    const result = await db.query(sql).catch(function(err) {
-        log.error(err.message);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+    const agencyLandingPageBO = new AgencyLandingPageBO();
+    await agencyLandingPageBO.saveModel(insertData).catch(function(err) {
+        log.error("Insert Landing Page" + err.message + __location);
+        error = err;
     });
-
-    // Make sure the query was successful
-    if (result.affectedRows !== 1) {
-        log.error('Landing page update failed. Query ran successfully; however, no records were affected.');
+    if(error){
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     }
-
-    // Send back a success response
-    res.send(200, 'Created');
-    return next();
+    else {
+        // Send back a success response
+        res.send(200, 'Created');
+        return next();
+    }
 }
 
 /**
@@ -458,9 +448,9 @@ async function deleteLandingPage(req, res, next) {
     if (!Object.prototype.hasOwnProperty.call(req.query, 'id')) {
         return next(serverHelper.requestError('ID missing'));
     }
-    if (!await validator.landingPageId(req.query.id, agency)) {
-        return next(serverHelper.requestError('ID is invalid'));
-    }
+    // if (!await validator.landingPageId(req.query.id, agency)) {
+    //     return next(serverHelper.requestError('ID is invalid'));
+    // }
     const id = req.query.id;
 
     // Make sure there is a primary page for this agency (we are not removing the primary page)
@@ -641,9 +631,9 @@ async function updateLandingPage(req, res, next) {
     if (!Object.prototype.hasOwnProperty.call(landingPage, 'id')) {
         throw new Error('ID missing');
     }
-    if (!await validator.landingPageId(landingPage.id)) {
-        throw new Error('ID is invalid');
-    }
+    // if (!await validator.landingPageId(landingPage.id)) {
+    //     throw new Error('ID is invalid');
+    // }
     data.id = landingPage.id;
     data.agencyLocationId = landingPage.agencyLocationId;
     if(!data.agencyLocationId){

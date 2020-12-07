@@ -131,8 +131,9 @@ var emailbindagency = async function(applicationId, quoteId) {
 
                 //get AgencyLocationBO
                 const agencyLocationBO = new AgencyLocationBO();
+                let agencyLocationJSON = null;
                 try{
-                    await agencyLocationBO.loadFromId(applicationDoc.agencyLocationId)
+                    agencyLocationJSON = await agencyLocationBO.getById(applicationDoc.agencyLocationId)
                 }
                 catch(err){
                     log.error("Error getting agencyLocationBO " + err + __location);
@@ -145,8 +146,8 @@ var emailbindagency = async function(applicationId, quoteId) {
 
                 let agencyLocationEmail = '';
                 //decrypt info...
-                if(agencyLocationBO.email){
-                    agencyLocationEmail = agencyLocationBO.email
+                if(agencyLocationJSON.email){
+                    agencyLocationEmail = agencyLocationJSON.email
                 }
                 else if(agencyBO.email){
                     agencyLocationEmail = agencyBO.email;
@@ -183,8 +184,8 @@ var emailbindagency = async function(applicationId, quoteId) {
                 const fullName = stringFunctions.ucwords(stringFunctions.strtolower(customerContact.firstName) + ' ' + stringFunctions.strtolower(customerContact.lastName));
 
                 let agencyPhone = '';
-                if (agencyLocationBO.phone) {
-                    agencyPhone = formatPhone(agencyLocationBO.phone);
+                if (agencyLocationJSON.phone) {
+                    agencyPhone = formatPhone(agencyLocationJSON.phone);
                 }
 
                 let quoteResult = stringFunctions.ucwords(quoteDoc.apiResult);
