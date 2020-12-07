@@ -89,11 +89,11 @@ module.exports = class AcuityWC extends Integration {
                     ncciCode = await this.get_national_ncci_code_from_activity_code(location.territory, activityCode.id);
                 }
                 else {
-                    return this.client_error(`We can't locate NCCI codes without a valid insurer. Slug used: ${insurerSlug}.`);
+                    return this.client_error(`We can't locate NCCI codes without a valid insurer. Slug used: ${insurerSlug}.`, __location);
                 }
-
+                ncciCode = null;
                 if (!ncciCode) {
-                    return this.client_error('We could not locate an NCCI code for one or more of the provided activities.', {activityCode: activityCode.id});
+                    return this.client_error('We could not locate an NCCI code for one or more of the provided activities.', __location, {activityCode: activityCode.id});
                 }
 
                 activityCode.ncciCode = acuityWCCodes.getAcuityNCCICode(ncciCode, location.territory);
