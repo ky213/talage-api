@@ -81,12 +81,12 @@ module.exports = class Location {
         this.state_abbr = locationDocJson.state;
         this.state = locationDocJson.state;
         this.county = locationDocJson.county;
-        if(this.unemployment_num){
+        if(locationDocJson.unemployment_num){
             try{
-                this.unemployment_number = parseInt(this.unemployment_num, 10);
+                this.unemployment_number = parseInt(locationDocJson.unemployment_num, 10);
             }
             catch(err){
-                log.error(`Int Parse error on unemployment_num s${this.unemployment_num} ` + err + __location)
+                log.error(`Int Parse error on unemployment_num s${locationDocJson.unemployment_num} ` + err + __location)
             }
         }
         //log.debug("Location finished load " + JSON.stringify(this));
