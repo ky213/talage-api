@@ -94,7 +94,6 @@
                     </Policy>
 					{{for app.business.locations itemVar='~location'}}
 					<Location id="L{{:#index + 1}}">
-                            <Primary>{{:~location.primary}}</Primary>
                             <Addr>
                                 <AddrTypeCd>StreetAddress</AddrTypeCd>
                                 <Addr1>{{:~location.address.substring(0, 30)}}</Addr1>
