@@ -91,7 +91,6 @@ module.exports = class AcuityWC extends Integration {
                 else {
                     return this.client_error(`We can't locate NCCI codes without a valid insurer. Slug used: ${insurerSlug}.`, __location);
                 }
-                ncciCode = null;
                 if (!ncciCode) {
                     return this.client_error('We could not locate an NCCI code for one or more of the provided activities.', __location, {activityCode: activityCode.id});
                 }
