@@ -32,7 +32,7 @@ async function GetACORDFormWC(req, res, next){
     }
     let policy_type = 'GL';
     if(req.query.policy_type){
-        if(req.query.policy_type === "GL" || req.query.policy_type === "WC"){
+        if(req.query.policy_type === "GL" || req.query.policy_type === "WC" || req.query.policy_type === "BOP"){
             policy_type = req.query.policy_type
         }
         else {
