@@ -1090,110 +1090,107 @@ module.exports = class ApplicationModel {
 
 
             }
-            if (applicationJSON.business) {
-                //have businessId
-                const businessJSON = {"id": applicationJSON.business};
-                const locationJSON = {"business": applicationJSON.business}
+
+            //have businessId
+            const businessJSON = {"id": applicationJSON.business};
+            const locationJSON = {"business": applicationJSON.business}
 
 
-                if (afBusinessDataJSON.afgCompany) {
+            if (afBusinessDataJSON.afgCompany) {
 
-                    //employees.
-                    if (afBusinessDataJSON.afgPreFill.number_of_employee) {
-                        locationJSON.full_time_employees = afBusinessDataJSON.afgPreFill.number_of_employee;
-                    }
-                    else if (afBusinessDataJSON.afgPreFill.employee_count) {
-                        locationJSON.full_time_employees = afBusinessDataJSON.afgPreFill.employee_count;
-                    }
+                //employees.
+                if (afBusinessDataJSON.afgPreFill.number_of_employee) {
+                    locationJSON.full_time_employees = afBusinessDataJSON.afgPreFill.number_of_employee;
+                }
+                else if (afBusinessDataJSON.afgPreFill.employee_count) {
+                    locationJSON.full_time_employees = afBusinessDataJSON.afgPreFill.employee_count;
+                }
 
-                    const companyFieldList = ["street_addr1",
-                        "street_addr2",
-                        "city",
-                        "state",
-                        "zip",
-                        "website"];
-                    const company2BOMap = {
-                        "street_addr1": "mailing_address",
-                        "street_addr2": "mailing_address2",
-                        "city": "mailing_city",
-                        "state": "mailing_state_abbr",
-                        "zip": "mailing_zipcode"
-                    };
-                    const company2LocationBOMap = {
-                        "street_addr1": "address",
-                        "street_addr2": "address2",
-                        "city": "city",
-                        "state": "state_abbr",
-                        "zip": "zipcode"
-                    };
-                    try {
-                        for (let i = 0; i < companyFieldList.length; i++) {
-                            if (afBusinessDataJSON.afgCompany[companyFieldList[i]]) {
-                                let propertyName = companyFieldList[i];
-                                if (company2BOMap[companyFieldList[i]]) {
-                                    propertyName = company2BOMap[companyFieldList[i]]
-                                }
-                                businessJSON[propertyName] = afBusinessDataJSON.afgCompany[companyFieldList[i]];
-                                //location
-                                propertyName = companyFieldList[i];
-                                if (company2LocationBOMap[companyFieldList[i]]) {
-                                    propertyName = company2LocationBOMap[companyFieldList[i]]
-                                }
-                                locationJSON[propertyName] = afBusinessDataJSON.afgCompany[companyFieldList[i]];
+                const companyFieldList = ["street_addr1",
+                    "street_addr2",
+                    "city",
+                    "state",
+                    "zip",
+                    "website"];
+                const company2BOMap = {
+                    "street_addr1": "mailing_address",
+                    "street_addr2": "mailing_address2",
+                    "city": "mailing_city",
+                    "state": "mailing_state_abbr",
+                    "zip": "mailing_zipcode"
+                };
+                const company2LocationBOMap = {
+                    "street_addr1": "address",
+                    "street_addr2": "address2",
+                    "city": "city",
+                    "state": "state_abbr",
+                    "zip": "zipcode"
+                };
+                try {
+                    for (let i = 0; i < companyFieldList.length; i++) {
+                        if (afBusinessDataJSON.afgCompany[companyFieldList[i]]) {
+                            let propertyName = companyFieldList[i];
+                            if (company2BOMap[companyFieldList[i]]) {
+                                propertyName = company2BOMap[companyFieldList[i]]
                             }
-
-                        }
-                        // log.debug("afBusinessDataJSON.afgCompany " + JSON.stringify(afBusinessDataJSON.afgCompany));
-                        // log.debug("businessJSON " + JSON.stringify(businessJSON));
-                        if (businessJSON.mailing_zipcode) {
-                            businessJSON.mailing_zipcode = businessJSON.mailing_zipcode.toString();
-                        }
-                        if (locationJSON.zipcode) {
-                            locationJSON.zipcode = locationJSON.zipcode.toString();
+                            businessJSON[propertyName] = afBusinessDataJSON.afgCompany[companyFieldList[i]];
+                            //location
+                            propertyName = companyFieldList[i];
+                            if (company2LocationBOMap[companyFieldList[i]]) {
+                                propertyName = company2LocationBOMap[companyFieldList[i]]
+                            }
+                            locationJSON[propertyName] = afBusinessDataJSON.afgCompany[companyFieldList[i]];
                         }
 
-                        if (afBusinessDataJSON.afgCompany.employee_count) {
-                            locationJSON.full_time_employees = afBusinessDataJSON.afgCompany.employee_count;
-                        }
                     }
-                    catch (err) {
-                        log.error("error mapping AF Company data to BO " + err + __location);
+                    // log.debug("afBusinessDataJSON.afgCompany " + JSON.stringify(afBusinessDataJSON.afgCompany));
+                    // log.debug("businessJSON " + JSON.stringify(businessJSON));
+                    if (businessJSON.mailing_zipcode) {
+                        businessJSON.mailing_zipcode = businessJSON.mailing_zipcode.toString();
                     }
-
-                }
-
-                if (afBusinessDataJSON.afgPreFill && afBusinessDataJSON.afgPreFill.company) {
-                    if (afBusinessDataJSON.afgPreFill.company.legal_entity) {
-                        businessJSON.entity_type = afBusinessDataJSON.afgPreFill.company.legal_entity;
-                    }
-                    if (afBusinessDataJSON.afgPreFill.company.industry_experience) {
-                        businessJSON.years_of_exp = afBusinessDataJSON.afgPreFill.company.industry_experience;
+                    if (locationJSON.zipcode) {
+                        locationJSON.zipcode = locationJSON.zipcode.toString();
                     }
 
-                }
-                businessJSON.locations = [];
-                businessJSON.locations.push(locationJSON)
-
-
-                try {
-                    log.debug(`updating  application business data from afBusinessDataJSON  appId: ${applicationJSON.id} ` + __location)
-                    await this.processMongooseBusiness(businessJSON)
+                    if (afBusinessDataJSON.afgCompany.employee_count) {
+                        locationJSON.full_time_employees = afBusinessDataJSON.afgCompany.employee_count;
+                    }
                 }
                 catch (err) {
-                    log.error("Error Mapping AF Business Data to BO Saving " + err + __location);
-                }
-                this.processLocationsMongo(businessJSON.locations);
-                try {
-                    this.updateMongo(this.#applicationMongooseDB.applicationId, this.#applicationMongooseJSON)
-                }
-                catch (err) {
-                    log.error("Error Mapping AF Business Data to Mongo Saving " + err + __location);
+                    log.error("error mapping AF Company data to BO " + err + __location);
                 }
 
             }
-            else {
-                log.error(`No business id for application ${this.id}`)
+
+            if (afBusinessDataJSON.afgPreFill && afBusinessDataJSON.afgPreFill.company) {
+                if (afBusinessDataJSON.afgPreFill.company.legal_entity) {
+                    businessJSON.entity_type = afBusinessDataJSON.afgPreFill.company.legal_entity;
+                }
+                if (afBusinessDataJSON.afgPreFill.company.industry_experience) {
+                    businessJSON.years_of_exp = afBusinessDataJSON.afgPreFill.company.industry_experience;
+                }
+
             }
+            businessJSON.locations = [];
+            businessJSON.locations.push(locationJSON)
+
+
+            try {
+                log.debug(`updating  application business data from afBusinessDataJSON  appId: ${applicationJSON.id} ` + __location)
+                await this.processMongooseBusiness(businessJSON)
+            }
+            catch (err) {
+                log.error("Error Mapping AF Business Data to BO Saving " + err + __location);
+            }
+            this.processLocationsMongo(businessJSON.locations);
+            try {
+                this.updateMongo(this.#applicationMongooseDB.applicationId, this.#applicationMongooseJSON)
+            }
+            catch (err) {
+                log.error("Error Mapping AF Business Data to Mongo Saving " + err + __location);
+            }
+
+
             //clw_talage_application_activity_codes - default from industry_code???
             // payroll ?????
         }
@@ -1224,76 +1221,72 @@ module.exports = class ApplicationModel {
 
 
             }
-            if (applicationJSON.business) {
-                //have businessId
-                const businessJSON = {"id": applicationJSON.business};
-                const locationJSON = {"business": applicationJSON.business}
-                if (googlePlaceJSON.address) {
-                    const companyFieldList = ["address",
-                        "address2",
-                        "city",
-                        "state_abbr",
-                        "zip"];
-                    const company2BOMap = {
-                        "address": "mailing_address",
-                        "address2": "mailing_address2",
-                        "city": "mailing_city",
-                        "state_abbr": "mailing_state_abbr",
-                        "zip": "mailing_zipcode"
-                    };
-                    const company2LocationBOMap = {"zip": "zipcode"};
-                    try {
-                        for (let i = 0; i < companyFieldList.length; i++) {
-                            if (googlePlaceJSON.address[companyFieldList[i]]) {
-                                let propertyName = companyFieldList[i];
-                                if (company2BOMap[companyFieldList[i]]) {
-                                    propertyName = company2BOMap[companyFieldList[i]]
-                                }
-                                businessJSON[propertyName] = googlePlaceJSON.address[companyFieldList[i]];
-                                //location
-                                propertyName = companyFieldList[i];
-                                if (company2LocationBOMap[companyFieldList[i]]) {
-                                    propertyName = company2LocationBOMap[companyFieldList[i]]
-                                }
-                                locationJSON[propertyName] = googlePlaceJSON.address[companyFieldList[i]];
-                            }
-
-                        }
-                        // log.debug("googlePlaceJSON.address " + JSON.stringify(googlePlaceJSON.address));
-                        // log.debug("businessJSON " + JSON.stringify(businessJSON));
-                        if (businessJSON.mailing_zipcode) {
-                            businessJSON.mailing_zipcode = businessJSON.mailing_zipcode.toString();
-                        }
-                        if (locationJSON.zipcode) {
-                            locationJSON.zipcode = locationJSON.zipcode.toString();
-                        }
-
-                        if (googlePlaceJSON.address.employee_count) {
-                            locationJSON.full_time_employees = googlePlaceJSON.address.employee_count;
-                        }
-                    }
-                    catch (err) {
-                        log.error("error mapping Google Place  Company data to BO " + err + __location);
-                    }
-
-                }
-
-
-                businessJSON.locations = [];
-                businessJSON.locations.push(locationJSON)
+            //have businessId
+            const businessJSON = {"id": applicationJSON.business};
+            const locationJSON = {"business": applicationJSON.business}
+            if (googlePlaceJSON.address) {
+                const companyFieldList = ["address",
+                    "address2",
+                    "city",
+                    "state_abbr",
+                    "zip"];
+                const company2BOMap = {
+                    "address": "mailing_address",
+                    "address2": "mailing_address2",
+                    "city": "mailing_city",
+                    "state_abbr": "mailing_state_abbr",
+                    "zip": "mailing_zipcode"
+                };
+                const company2LocationBOMap = {"zip": "zipcode"};
                 try {
-                    log.debug(`updating  application business data from Google Place data appId: ${applicationJSON.id} ` + __location)
-                    await this.processMongooseBusiness(businessJSON)
+                    for (let i = 0; i < companyFieldList.length; i++) {
+                        if (googlePlaceJSON.address[companyFieldList[i]]) {
+                            let propertyName = companyFieldList[i];
+                            if (company2BOMap[companyFieldList[i]]) {
+                                propertyName = company2BOMap[companyFieldList[i]]
+                            }
+                            businessJSON[propertyName] = googlePlaceJSON.address[companyFieldList[i]];
+                            //location
+                            propertyName = companyFieldList[i];
+                            if (company2LocationBOMap[companyFieldList[i]]) {
+                                propertyName = company2LocationBOMap[companyFieldList[i]]
+                            }
+                            locationJSON[propertyName] = googlePlaceJSON.address[companyFieldList[i]];
+                        }
 
+                    }
+                    // log.debug("googlePlaceJSON.address " + JSON.stringify(googlePlaceJSON.address));
+                    // log.debug("businessJSON " + JSON.stringify(businessJSON));
+                    if (businessJSON.mailing_zipcode) {
+                        businessJSON.mailing_zipcode = businessJSON.mailing_zipcode.toString();
+                    }
+                    if (locationJSON.zipcode) {
+                        locationJSON.zipcode = locationJSON.zipcode.toString();
+                    }
+
+                    if (googlePlaceJSON.address.employee_count) {
+                        locationJSON.full_time_employees = googlePlaceJSON.address.employee_count;
+                    }
                 }
                 catch (err) {
-                    log.error("Error Mapping AF Business Data to BO Saving " + err + __location);
+                    log.error("error mapping Google Place  Company data to BO " + err + __location);
                 }
-                this.processLocationsMongo(businessJSON.locations);
+
             }
-            else {
-                log.error(`No business id for application ${this.id}`)
+
+
+            businessJSON.locations = [];
+            businessJSON.locations.push(locationJSON)
+            try {
+                log.debug(`updating  application business data from Google Place data appId: ${applicationJSON.id} ` + __location)
+                await this.processMongooseBusiness(businessJSON)
+
             }
+            catch (err) {
+                log.error("Error Mapping AF Business Data to BO Saving " + err + __location);
+            }
+            this.processLocationsMongo(businessJSON.locations);
+
         }
         else {
             log.warn("updateFromAfBusinessData missing parameters " + __location)
@@ -1488,28 +1481,46 @@ module.exports = class ApplicationModel {
         return true;
 
     }
+    async checkLocations(applicationJSON){
+        if(applicationJSON.locations && applicationJSON.locations.length > 0){
+            let hasBillingLocation = false;
+            for(let location of applicationJSON.locations){
+                if(hasBillingLocation === true && location.billing === true){
+                    log.warn(`Application will mutliple billing received AppId ${applicationJSON.applicationId} fixing location ${JSON.stringify(location)} to billing = false` + __location)
+                    location.billing = false;
+                }
+                else if(location.billing === true){
+                    hasBillingLocation = true;
+                }
+            }
+        }
+        return true;
+    }
 
     async updateMongo(uuid, newObjectJSON, updateMysql = false) {
         if (uuid) {
             if (typeof newObjectJSON === "object") {
-                const changeNotUpdateList = ["active",
-                    "id",
-                    "mysqlId",
-                    "applicationId",
-                    "uuid"]
-                for (let i = 0; i < changeNotUpdateList.length; i++) {
-                    if (newObjectJSON[changeNotUpdateList[i]]) {
-                        delete newObjectJSON[changeNotUpdateList[i]];
-                    }
-                }
+
                 const query = {"applicationId": uuid};
                 let newApplicationJSON = null;
                 try {
                     //because Virtual Sets.  new need to get the model and save.
                     await this.checkExpiration(newObjectJSON);
                     await this.setupDocEinEncrypt(newObjectJSON);
+                    await this.checkLocations(newObjectJSON);
+
                     if(newObjectJSON.ein){
                         delete newObjectJSON.ein
+                    }
+                    const changeNotUpdateList = ["active",
+                        "id",
+                        "mysqlId",
+                        "applicationId",
+                        "uuid"]
+                    for (let i = 0; i < changeNotUpdateList.length; i++) {
+                        if (newObjectJSON[changeNotUpdateList[i]]) {
+                            delete newObjectJSON[changeNotUpdateList[i]];
+                        }
                     }
 
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
@@ -1568,6 +1579,8 @@ module.exports = class ApplicationModel {
 
         await this.checkExpiration(newObjectJSON);
         await this.setupDocEinEncrypt(newObjectJSON);
+        await this.checkLocations(newObjectJSON);
+
         if(newObjectJSON.ein){
             delete newObjectJSON.ein
         }
@@ -1692,9 +1705,6 @@ module.exports = class ApplicationModel {
                 log.error('Mongo Application Getfor mysqlId err ' + err + __location);
                 error = err;
             });
-            if(!applicationJSON.business){
-                log.error("Mysql application missing business reference " + __location + ": " + JSON.stringify(applicationJSON));
-            }
         }
         else if(!applicationJSON || !applicationJSON.id){
             log.error("NO Appid in mongoDoc2MySqlUpdate " + __location);
@@ -2193,7 +2203,7 @@ module.exports = class ApplicationModel {
                     //let queryProjection = {"__v": 0, questions:0};
                     let queryProjection = {
                         uuid: 1,
-                        appicationID:1,
+                        appicationId:1,
                         mysqlId:1,
                         status: 1,
                         appStatusId:1,
@@ -2226,6 +2236,7 @@ module.exports = class ApplicationModel {
                             application.id = application.mysqlId;
                             await this.setDocEinClear(application);
                             delete application._id;
+
                             // Load the request data into it
                             if(agencyMap[application.agencyId]){
                                 application.agencyName = agencyMap[application.agencyId];
@@ -2499,17 +2510,6 @@ module.exports = class ApplicationModel {
             questionsObject.answeredList = applicationDocDB.questions;
         }
 
-        //get activitycodes.
-        let activityCodeArray = [];
-        if(applicationDocDB.activityCodes && applicationDocDB.activityCodes.length > 0){
-            for(let i = 0; i < applicationDocDB.activityCodes.length; i++){
-                activityCodeArray.push(applicationDocDB.activityCodes[i].ncciCode);
-            }
-
-        }
-        else {
-            throw new Error("Incomplete Application: Missing Application Activity Codes")
-        }
         //industrycode
         let industryCodeString = '';
         if(applicationDocDB.industryCode){
@@ -2519,6 +2519,7 @@ module.exports = class ApplicationModel {
         else {
             throw new Error("Incomplete Application: Application Industry Code")
         }
+
         //policyType.
         let policyTypeArray = [];
         if(applicationDocDB.policies && applicationDocDB.policies.length > 0){
@@ -2529,6 +2530,21 @@ module.exports = class ApplicationModel {
         else {
             throw new Error("Incomplete Application: Application Policy Types")
         }
+
+        //get activitycodes.
+        // activity codes are not required for GL
+        const requireActivityCodes = Boolean(policyTypeArray.filter(policy => policy !== "GL").length);
+        let activityCodeArray = [];
+        if(applicationDocDB.activityCodes && applicationDocDB.activityCodes.length > 0){
+            for(let i = 0; i < applicationDocDB.activityCodes.length; i++){
+                activityCodeArray.push(applicationDocDB.activityCodes[i].ncciCode);
+            }
+
+        }
+        else if(requireActivityCodes) {
+            throw new Error("Incomplete Application: Missing Application Activity Codes")
+        }
+
         //zipCodes
         let zipCodeArray = [];
         if(applicationDocDB.locations && applicationDocDB.locations.length > 0){
@@ -2569,6 +2585,10 @@ module.exports = class ApplicationModel {
         try {
             log.debug("insurerArray: " + insurerArray);
             getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, returnHidden);
+            if(getQuestionsResult && getQuestionsResult.length === 0){
+                //no questions returned.
+                log.warn(`No questions returned for AppId ${appId} parameter activityCodeArray: ${activityCodeArray}  industryCodeString: ${industryCodeString}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${policyTypeArray} insurerArray: ${insurerArray} `)
+            }
         }
         catch (err) {
             log.error("Error call in question service " + err + __location);

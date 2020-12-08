@@ -242,7 +242,7 @@ async function GetResources(req, res, next){
     if (!rejected) {
         const legalArticles = {};
         for(let i = 0; i < result.length; i++){
-            const dbRec = result[0];
+            const dbRec = result[i];
             legalArticles[dbRec.id] = dbRec
         }
         responseObj.legalArticles = legalArticles;
@@ -323,7 +323,7 @@ async function CheckZip(req, res, next){
         // log.debug("zipCodeBO: " + JSON.stringify(zipCodeBO.cleanJSON()))
 
         // Check if we have coverage.
-        const sql = `select  z.territory, t.name, t.licensed 
+        const sql = `select  z.city, z.territory, t.name, t.licensed
             from clw_talage_zip_codes z
             inner join clw_talage_territories t  on z.territory = t.abbr
             where z.zip  = ${db.escape(req.body.zip)}`;
@@ -334,7 +334,8 @@ async function CheckZip(req, res, next){
         });
         if (!rejected) {
             if(result && result.length > 0){
-                responseObj.territory = result[0].territory
+				responseObj.territory = result[0].territory;
+				responseObj.city = result[0].city;
                 if(result[0].licensed === 1){
                     responseObj['error'] = false;
                     responseObj['message'] = '';

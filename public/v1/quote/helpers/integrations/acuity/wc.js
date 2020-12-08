@@ -17,9 +17,19 @@ const moment_timezone = require('moment-timezone');
 const Integration = require('../Integration.js');
 const acuityWCTemplate = require('jsrender').templates('./public/v1/quote/helpers/integrations/acuity/wc.xmlt');
 const utility = require('../../../../../../shared/helpers/utility');
+const acuityWCCodes = require('./acuity-wc-codes.js');
 global.requireShared('./helpers/tracker.js');
 
 module.exports = class AcuityWC extends Integration {
+
+    /**
+     * Initializes this integration.
+     *
+     * @returns {void}
+     */
+    _insurer_init() {
+        this.requiresInsurerIndustryCodes = true;
+    }
 
     /**
 	 * Requests a quote from Acuity and returns. This request is not intended to be called directly.
@@ -76,18 +86,16 @@ module.exports = class AcuityWC extends Integration {
 
                 let ncciCode = null;
                 if (insurer) {
-                    ncciCode = await this.get_ncci_code_from_activity_code(location.territory, activityCode.id);
+                    ncciCode = await this.get_national_ncci_code_from_activity_code(location.territory, activityCode.id);
                 }
                 else {
-                    return this.client_error(`We can't locate NCCI codes without a valid insurer. Slug used: ${insurerSlug}.`);
+                    return this.client_error(`We can't locate NCCI codes without a valid insurer. Slug used: ${insurerSlug}.`, __location);
                 }
-
                 if (!ncciCode) {
-                    return this.client_error('We could not locate an NCCI code for one or more of the provided activities.', {activityCode: activityCode.id});
+                    return this.client_error('We could not locate an NCCI code for one or more of the provided activities.', __location, {activityCode: activityCode.id});
                 }
 
-                activityCode.ncciCode = `${ncciCode}00`;
-                activityCode.ncciCodeDescription = ncciCode.description;
+                activityCode.ncciCode = acuityWCCodes.getAcuityNCCICode(ncciCode, location.territory);
             }
         }
 
@@ -222,6 +230,8 @@ module.exports = class AcuityWC extends Integration {
             path = '/ws/irate/rating/RatingService/Talage';
             credentials = {'x-acuity-api-key': this.password};
         }
+
+        // console.log('request', xml);
 
         // Send the XML to the insurer
         let result = null;

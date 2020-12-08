@@ -353,7 +353,7 @@ module.exports = class Application {
                                     quote_promises.push(integration.quote());
                                 }
                                 else {
-                                    log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} insurer ${insurer.name} polocytype ${policy.type} slug: ${slug} path: ${normalizedPath} ` + __location);
+                                    log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} insurer ${insurer.name} policytype ${policy.type} slug: ${slug} path: ${normalizedPath} ` + __location);
                                 }
                             }
                             else {
