@@ -64,9 +64,29 @@ const validInsurers = [
  */
 async function main(){
 
+    // Get slug from command line arguments
+    const cliArgs = process.argv.slice(2);
+    if (!cliArgs || !cliArgs.length > 0) {
+        logErrorAndExit('Insurer slug not provided as command line argument. Stopping.');
+    } else if (!validInsurers.includes(cliArgs[0])) {
+        logErrorAndExit(`Provided insurer slug "${cliArgs[0]}" is not valid. Please provide one of the following: \n${validInsurers.join(', ')}. \nStopping.`);
+    }
+
+    // Get insurer information using passed in slug
+    let insurer = null;
+    try {
+        insurer = await getInsurer(cliArgs[0]);
+    } catch (e) {
+        logErrorAndExit(`There was an error getting the insurer from the database: ${e}. Stopping.`);
+    }
+
+    if (!insurer) {
+        logErrorAndExit(`Could not find insurer from provided Insurer slug ${cliArgs[0]}. Stopping.`);
+    }
+
     logSuccess('\n');
     logSuccess("========================================================================");
-    logSuccess("Creating CSV file for CNA Industry Code to Talage Industry Code Mappings");
+    logSuccess(`Creating CSV file for ${insurer.slug} Industry Code to Talage Industry Code Mappings`);
     logSuccess("========================================================================");
     logSuccess('\n');
 
@@ -92,24 +112,6 @@ async function main(){
 
     // Load the database module and make it globally available
     global.db = global.requireShared('./services/db.js');
-
-    const cliArgs = process.argv.slice(2);
-    if (!cliArgs || !cliArgs.length > 0) {
-        logErrorAndExit('Insurer slug not provided as command line argument. Stopping.');
-    } else if (!validInsurers.includes(cliArgs[0])) {
-        logErrorAndExit(`Provided insurer slug "${cliArgs[0]}" is not valid. Please provide one of the following: \n${validInsurers.join(', ')}. \nStopping.`);
-    }
-
-    let insurer = null;
-    try {
-        insurer = await getInsurer(cliArgs[0]);
-    } catch (e) {
-        logErrorAndExit(`There was an error getting the insurer from the database: ${e}. Stopping.`);
-    }
-
-    if (!insurer) {
-        logErrorAndExit(`Could not find insurer from provided Insurer slug ${cliArgs[0]}. Stopping.`);
-    }
 
     let sql = `
         SELECT ic.id, ic.description AS 'Talage Industry', iic.code AS 'code', iic.description AS '${insurer.slug} Industry', iic.territory
