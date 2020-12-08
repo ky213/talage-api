@@ -67,7 +67,9 @@ module.exports = function() {
     require('./shared/models/mongoose/AgencyEmail.model');
     require('./shared/models/mongoose/Quote.model');
     require('./shared/models/mongoose/AgencyLocation.model');
-    require('./shared/models/mongoose/AgencyLandingPage.model');    
+    require('./shared/models/mongoose/AgencyLandingPage.model');
+
+
     return mongodb;
 
 };

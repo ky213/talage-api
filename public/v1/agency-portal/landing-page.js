@@ -18,36 +18,31 @@ const AgencyLandingPageBO = global.requireShared('./models/AgencyLandingPage-BO.
  */
 function hasOtherPrimary(agency, page) {
     return new Promise(async function(fulfill) {
-        let error = false;
 
-        const sql = `
-				SELECT id
-				FROM \`#__agency_landing_pages\`
-				WHERE
-					\`agency\` = ${parseInt(agency, 10)} AND
-					\`primary\` = 1 AND
-					\`id\` != ${parseInt(page, 10)} AND
-					\`state\` > 0
-				LIMIT 1;
-			`;
+        let gotHit = false;
+        try{
+            const systemId = parseInt(page, 10);
+            const agencyLandingPageBO = new AgencyLandingPageBO();
+            const nameQuery = {
+                primary: true,
+                agencyId: agency
+            };
+            const primaryList = await agencyLandingPageBO.getList(nameQuery);
 
-        // Run the query
-        const result = await db.query(sql).catch(function(err) {
-            log.error('agency_landing_pages error ' + err + __location);
-            error = true;
-            fulfill(false);
-        });
-        if (error) {
-            return;
+            if (primaryList && primaryList.length){
+                for(const landingPage of primaryList){
+                    if(landingPage.systemId !== systemId
+                        && landingPage.primary === true){
+                        gotHit = true;
+                    }
+                }
+            }
         }
-
-        // Check the result
-        if (!result || !result.length) {
-            fulfill(false);
-            return;
+        catch(err){
+            log.error('agency_landing_pages error ' + err + __location)
         }
-
-        fulfill(true);
+        fulfill(gotHit);
+        return;
     });
 }
 
@@ -178,14 +173,15 @@ async function retrieveAuthenticatedAgency(req, data, next){
  * @param {object} request - HTTP request object
  * @param {function} next - The next function from the request
  * @param {int} agency - The agency id for landing page
+ * @param {boolean} isUpdate - True if update request
  * @return {object} Object containing landing page information
  */
-async function validate(request, next, agency) {
+async function validate(request, next, agency, isUpdate = false) {
     // Establish default values
     const data = {
         about: '',
         banner: '',
-        colorScheme: 1,
+        colorSchemeId: 1,
         heading: null,
         industryCode: null,
         industryCodeCategory: null,
@@ -224,11 +220,11 @@ async function validate(request, next, agency) {
     // else just set the color_scheme to the one the user provided color scheme (a.k.a Theme)
     //
     if (Object.prototype.hasOwnProperty.call(landingPage, 'customColorScheme') && landingPage.customColorScheme) {
-        data.colorScheme = await retrieveCustomColorScheme(landingPage.customColorScheme, next);
+        data.colorSchemeId = await retrieveCustomColorScheme(landingPage.customColorScheme, next);
 
     }
     else if (Object.prototype.hasOwnProperty.call(landingPage, 'colorScheme') && landingPage.colorScheme) {
-        data.colorScheme = landingPage.colorScheme;
+        data.colorSchemeId = landingPage.colorScheme;
     }
 
     // Heading (optional)
@@ -259,6 +255,11 @@ async function validate(request, next, agency) {
     }
 
     // Intro Heading (optional)
+    if (Object.prototype.hasOwnProperty.call(landingPage, 'heading') && landingPage.heading) {
+        landingPage.introHeading = landingPage.heading;
+    }
+
+
     if (Object.prototype.hasOwnProperty.call(landingPage, 'introHeading') && landingPage.introHeading) {
         if (landingPage.introHeading.length > 70) {
             throw new Error('Introduction Heading must be less the 70 characters');
@@ -306,43 +307,44 @@ async function validate(request, next, agency) {
         throw new Error('Link is invalid');
     }
     data.slug = landingPage.slug;
-
-    // Check for duplicate name
-    const nameSQL = `
-			SELECT \`id\`
-			FROM \`#__agency_landing_pages\`
-			WHERE \`name\` = ${db.escape(data.name)}
-				AND \`state\` > -2
-				AND \`agency\` = ${db.escape(agency)}
-				${landingPage.id ? `AND \`id\` != ${db.escape(landingPage.id)}` : ''}
-			;
-		`;
-    const nameResult = await db.query(nameSQL).catch(function(error) {
-        log.error(error.message + __location);
+    let hitLimit = 0;
+    if(isUpdate === true){
+        hitLimit = 1;
+    }
+    log.debug("hitLimit: " + hitLimit);
+    let gotHit = false;
+    try{
+        const agencyLandingPageBO = new AgencyLandingPageBO();
+        const nameQuery = {
+            nameExact: data.name,
+            agencyId: agency
+        };
+        const nameList = await agencyLandingPageBO.getList(nameQuery);
+        if (nameList && nameList.length > hitLimit){
+            log.debug("nameList.length " + nameList.length)
+            gotHit = true;
+        }
+        else {
+            const slugQuery = {
+                slugExact: data.slug,
+                agencyId: agency
+            };
+            const slugList = await agencyLandingPageBO.getList(slugQuery);
+            if(slugList && slugList.length > hitLimit){
+                gotHit = true;
+            }
+        }
+    }
+    catch(err){
+        log.error("Landing page validation " + err + __location);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    });
-    if (nameResult.length > 0) {
-        throw new Error('This name is already in use. Choose a different one.');
     }
 
-    // Check for duplicate slug
-    const slugSQL = `
-			SELECT \`id\`
-			FROM \`#__agency_landing_pages\`
-			WHERE \`slug\` = ${db.escape(data.slug)}
-				AND \`state\` > -2
-				AND \`agency\` = ${db.escape(agency)}
-				${landingPage.id ? `AND \`id\` != ${db.escape(landingPage.id)}` : ''}
-			;
-		`;
-    const slugResult = await db.query(slugSQL).catch(function(error) {
-        log.error(error.message);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    });
-    if (slugResult.length > 0) {
-        throw new Error('This link is already in use. Choose a different one.');
+    if (gotHit === true) {
+        throw new Error('This name or link is already in use. Choose a different one.');
     }
     return data;
+
 }
 
 /**
@@ -391,16 +393,18 @@ async function createLandingPage(req, res, next) {
     data.additionalInfo = JSON.stringify(data.additionalInfo);
 
     // Define the data to be inserted, column: value
-    const insertData = {
+    // eslint-disable-next-line prefer-const
+    let insertData = {
         about: data.about,
         agencyId: agency,
         banner: data.banner,
-        color_scheme: data.colorScheme,
+        colorSchemeId: data.colorSchemeId,
         heading: data.heading,
         agencyLocationId: landingPage.agencyLocationId,
         industryCodeId: data.industryCode,
         industryCodeCategoryId: data.industryCodeCategory,
-        intro_heading: data.introHeading,
+        introHeading: data.introHeading,
+        showIntroText: landingPage.showIntroText,
         introText: data.introText,
         name: data.name,
         showIndustrySection: data.showIndustrySection,
@@ -460,30 +464,14 @@ async function deleteLandingPage(req, res, next) {
         return next(serverHelper.requestError('This landing page is the primary page. You must make another page primary before deleting this one.'));
     }
 
-    // Update the landing page (we set the state to -2 to signify that the user is deleted)
-    const updateSQL = `
-			UPDATE \`#__agency_landing_pages\`
-			SET
-				\`state\` = -2
-			WHERE
-				\`id\` = ${parseInt(id, 10)} AND
-				\`agency\` = ${parseInt(agency, 10)}
-			LIMIT 1;
-		`;
-
-    // Run the query
-    const result = await db.query(updateSQL).catch(function(err) {
-        log.error('agency_landing_pages error ' + err + __location);
-        error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+    const systemId = parseInt(id, 10);
+    const agencyLandingPageBO = new AgencyLandingPageBO();
+    await agencyLandingPageBO.deleteSoftById(systemId).catch(function(err) {
+        log.error("agencyLandingPageBO deleteSoft load error " + err + __location);
+        error = err;
     });
     if (error) {
         return next(error);
-    }
-
-    // Make sure the query was successful
-    if (result.affectedRows !== 1) {
-        log.error('Landing page delete failed');
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     }
 
     res.send(200, 'Deleted');
@@ -513,55 +501,40 @@ async function getLandingPage(req, res, next) {
 
 
     const agency = await retrieveAuthenticatedAgency(req, req.query,next);
-    // Build a query that will return all of the landing pages
-    const landingPageSQL = `
-            SELECT
-                id,
-                agency_location_id as agencyLocationId,
-                about,
-                banner,
-                color_scheme AS 'colorScheme',
-                industry_code AS 'industryCode',
-                industry_code_category AS 'industryCodeCategory',
-                intro_heading AS 'introHeading',
-                intro_text AS 'introText',
-                name,
-                show_industry_section AS 'showIndustrySection',
-                slug,
-                \`primary\`,
-                heading,
-                additionalInfo
-            FROM clw_talage_agency_landing_pages
-            WHERE agency = ${parseInt(agency, 10)} AND state > 0 AND id = ${parseInt(req.query.id, 10)}
-            LIMIT 1;
-		`;
 
-    // Run the query
+    const agencyLandingPageBO = new AgencyLandingPageBO();
+    let error = null
+    const landingPageId = parseInt(req.query.id, 10)
     // eslint-disable-next-line prefer-const
-    let landingPage = await db.query(landingPageSQL).catch(function(err) {
+    let landingPageJSON = await agencyLandingPageBO.getById(landingPageId).catch(function(err) {
         log.error(err.message + __location);
+        error = err;
+    });
+    if(error){
         res.send(500, {});
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    });
-
+    }
     // Make sure a page was found
-    if (landingPage.length !== 1) {
+    if (!landingPageJSON) {
         log.warn('Page not found' + __location);
         res.send(500, {});
         return next(serverHelper.requestError('Page not found'));
     }
-    // Pull showIntroText from additional_info json
-    landingPage[0].showIntroText = false;
-
-    if(landingPage[0].additionalInfo){
-        landingPage[0].additionalInfo = JSON.parse(landingPage[0].additionalInfo)
-        if(landingPage[0].additionalInfo.showIntroText){
-            landingPage[0].showIntroText = landingPage[0].additionalInfo.showIntroText;
-        }
+    //check Agency for rights.
+    const agencyId = parseInt(agency, 10);
+    if(landingPageJSON.agencyId !== agencyId){
+        res.send(400, {});
+        return next(serverHelper.requestError('Page not found'));
     }
+    //lagecy name
+    landingPageJSON.id = landingPageJSON.systemId;
+    landingPageJSON.colorScheme = landingPageJSON.colorSchemeId
+    landingPageJSON.industryCode = landingPageJSON.industryCodeId
+    landingPageJSON.industryCodeCategory = landingPageJSON.industryCodeCategoryId
+    landingPageJSON.industryCodeCategory = landingPageJSON.industryCodeCategoryId
 
     // Convert the showIndustrySection value to a boolean
-    landingPage[0].showIndustrySection = Boolean(landingPage[0].showIndustrySection);
+    landingPageJSON.showIndustrySection = Boolean(landingPageJSON.showIndustrySection);
 
     // if the page was found continue and query for the page color scheme
     const colorInformationSQL = `
@@ -570,7 +543,7 @@ async function getLandingPage(req, res, next) {
 				\`primary\`,
 				\`secondary\`
 				FROM  \`#__color_schemes\`
-				WHERE \`id\` = ${landingPage[0].colorScheme}
+				WHERE \`id\` = ${landingPageJSON.colorSchemeId}
 			`;
     let colorSchemeInfo = null;
     try {
@@ -582,17 +555,17 @@ async function getLandingPage(req, res, next) {
     }
 
     // make sure the color scheme was found
-    if (landingPage.length !== 1) {
+    if (colorSchemeInfo.length !== 1) {
         log.warn('Page not found');
         return next(serverHelper.requestError('Page not found'));
     }
     else {
         // if found go ahead and add and then set the customColorInfo field to either the scheme info or null which indicates it is not a custom color info
-        landingPage[0].customColorInfo = colorSchemeInfo[0].name === 'Custom' ? colorSchemeInfo[0] : null;
+        landingPageJSON.customColorInfo = colorSchemeInfo[0].name === 'Custom' ? colorSchemeInfo[0] : null;
     }
 
     // Send the user's data back
-    res.send(200, landingPage[0]);
+    res.send(200, landingPageJSON);
     return next();
 }
 
@@ -617,8 +590,14 @@ async function updateLandingPage(req, res, next) {
         return next(serverHelper.requestError('Parameters missing'));
     }
 
+    // Validate the ID
+    if (!Object.prototype.hasOwnProperty.call(landingPage, 'id')) {
+        throw new Error('ID missing');
+    }
+
     // Validate the request and get back the data
-    const data = await validate(req, next, agency).catch(function(err) {
+    const isUpdate = true;
+    const data = await validate(req, next, agency, isUpdate).catch(function(err) {
         error = err.message;
     });
     if (error) {
@@ -627,71 +606,61 @@ async function updateLandingPage(req, res, next) {
     }
 
 
-    // Validate the ID
-    if (!Object.prototype.hasOwnProperty.call(landingPage, 'id')) {
-        throw new Error('ID missing');
-    }
     // if (!await validator.landingPageId(landingPage.id)) {
     //     throw new Error('ID is invalid');
     // }
     data.id = landingPage.id;
+
     data.agencyLocationId = landingPage.agencyLocationId;
     if(!data.agencyLocationId){
         data.agencyLocationId = 0;
     }
-
-    // showIntroText update additional_info json
-    if(landingPage.additionalInfo && typeof landingPage.showIntroText === "boolean"){
-        landingPage.additionalInfo.showIntroText = landingPage.showIntroText;
-    }
-    else if (typeof landingPage.showIntroText === "boolean"){
-        landingPage.additionalInfo = {};
-        landingPage.additionalInfo.showIntroText = landingPage.showIntroText;
-    }
-    data.additionalInfo = landingPage.additionalInfo;
-    if(!data.additionalInfo) {
-        data.additionalInfo = {};
+    if(landingPage.additionalInfo && typeof landingPage.additionalInfo === "string"){
+        landingPage.additionalInfo = JSON.parse(landingPage.additionalInfo);
     }
 
-    // Commit this update to the database
-    const sql = `
-			UPDATE \`#__agency_landing_pages\`
-			SET \`about\` = ${db.escape(data.about)},
-				\`banner\` = ${db.escape(data.banner)},
-				\`color_scheme\` = ${db.escape(data.colorScheme)},
-                \`heading\` = ${db.escape(data.heading)},
-                \`agency_location_id\` = ${db.escape(data.agencyLocationId)},
-				\`industry_code\` = ${db.escape(data.industryCode)},
-				\`industry_code_category\` = ${db.escape(data.industryCodeCategory)},
-				\`intro_heading\` = ${db.escape(data.introHeading)},
-				\`intro_text\` = ${db.escape(data.introText)},
-				\`name\` = ${db.escape(data.name)},
-				\`show_industry_section\` = ${db.escape(data.showIndustrySection)},
-                \`slug\` = ${db.escape(data.slug)},
-                \`additionalInfo\` = ${db.escape(JSON.stringify(data.additionalInfo))}
-			WHERE \`id\` = ${db.escape(data.id)} AND \`agency\` = ${db.escape(agency)}
-			LIMIT 1;
-		`;
-    log.debug(sql);
-    // Run the query
-    let result = null;
-    try {
-        result = await db.query(sql);
-    }
-    catch (err) {
-        log.error(err.message + __location);
+    // // showIntroText update additional_info json
+    // if(landingPage.additionalInfo && typeof landingPage.showIntroText === "boolean"){
+    //     landingPage.additionalInfo.showIntroText = landingPage.showIntroText;
+    // }
+    // else if (typeof landingPage.showIntroText === "boolean"){
+    //     landingPage.additionalInfo = {};
+    //     landingPage.additionalInfo.showIntroText = landingPage.showIntroText;
+    // }
+
+    const updateData = {
+        id: data.id,
+        about: data.about,
+        agencyId: agency,
+        banner: data.banner,
+        colorSchemeId: data.colorSchemeId,
+        heading: data.heading,
+        agencyLocationId: data.agencyLocationId,
+        industryCodeId: data.industryCode,
+        industryCodeCategoryId: data.industryCodeCategory,
+        introHeading: data.introHeading,
+        showIntroText: landingPage.showIntroText,
+        introText: data.introText,
+        name: data.name,
+        showIndustrySection: data.showIndustrySection,
+        slug: data.slug,
+        additionalInfo: data.additionalInfo
+    };
+
+    log.debug("updateData: " + JSON.stringify(updateData))
+    const agencyLandingPageBO = new AgencyLandingPageBO();
+    await agencyLandingPageBO.saveModel(updateData).catch(function(err) {
+        log.error("Update Landing Page" + err.message + __location);
+        error = err;
+    });
+    if(error){
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     }
-
-    // Make sure the query was successful
-    if (result.affectedRows !== 1) {
-        log.error('Landing page update failed. Query ran successfully; however, no records were affected.');
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+    else {
+        // Send back a success response
+        res.send(200, 'Saved');
+        return next();
     }
-
-    // Send back a success response
-    res.send(200, 'Saved');
-    return next();
 }
 
 exports.registerEndpoint = (server, basePath) => {

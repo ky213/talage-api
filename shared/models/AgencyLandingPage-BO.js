@@ -39,19 +39,12 @@ module.exports = class AgencyLandingPageBO {
               });
               if(dbDocJSON){
                   newDoc = false;
-                  if(newObjectJSON.primary){
-                      await this.resetPrimary(dbDocJSON.agencyId, dbDocJSON.systemId);
-                  }
-                  this.updateMongo(dbDocJSON.agencyLocationId,newObjectJSON)
+                  this.updateMongo(dbDocJSON.agencyLandingPageId, newObjectJSON)
               }
           }
           if(newDoc === true) {
               const newAgencyLandingPageDoc = this.insertMongo(newObjectJSON);
               this.id = newAgencyLandingPageDoc.systemId;
-              if(newObjectJSON.primary){
-                  await this.resetPrimary(newAgencyLandingPageDoc.agencyId, newAgencyLandingPageDoc.systemId);
-              }
-
           }
 
           resolve(true);
@@ -63,13 +56,13 @@ module.exports = class AgencyLandingPageBO {
       if (docId) {
           if (typeof newObjectJSON === "object") {
 
-              const query = {"agencyLocationId": docId};
+              const query = {"agencyLandingPageId": docId};
               let newAgencyLocationJSON = null;
               try {
                   const changeNotUpdateList = ["active",
                       "id",
                       "mysqlId",
-                      "agencyLocationId",
+                      "agencyLandingPageId",
                       "uuid"]
                   for (let i = 0; i < changeNotUpdateList.length; i++) {
                       if (newObjectJSON[changeNotUpdateList[i]]) {
@@ -132,7 +125,7 @@ module.exports = class AgencyLandingPageBO {
 
           //small collection - get the collection and loop through it.
           // TODO refactor to use mongo aggretation.
-          const query = {active: true}
+          const query = {}
           const queryProjection = {"systemId": 1}
           var queryOptions = {lean:true};
           queryOptions.sort = {};
@@ -179,57 +172,130 @@ module.exports = class AgencyLandingPageBO {
   getList(queryJSON) {
       return new Promise(async(resolve, reject) => {
 
-          let rejected = false;
-          // Create the update query
-          let sql = `
-                    select *  from ${tableName}  
-                `;
-          let hasWhere = false;
-          if (queryJSON) {
-              if (queryJSON.name) {
-                  sql += hasWhere ? " AND " : " WHERE ";
-                  sql += ` name like ${db.escape(queryJSON.name)} `
-                  hasWhere = true;
-              }
-              if (queryJSON.agency) {
-                  sql += hasWhere ? " AND " : " WHERE ";
-                  sql += ` agency = ${db.escape(queryJSON.agency)} `
-                  hasWhere = true;
-              }
-          }
-          sql += hasWhere ? " AND " : " WHERE ";
-          sql += ` state > 0 `
-          // Run the query
-          //log.debug("AgencyLandingPageBO getlist sql: " + sql);
-          const result = await db.query(sql).catch(function(error) {
-              // Check if this was
+          const queryProjection = {"__v": 0}
 
-              rejected = true;
-              log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
-              reject(error);
-          });
-          if (rejected) {
-              return;
-          }
-          const boList = [];
-          if (result && result.length > 0) {
-              for (let i = 0; i < result.length; i++) {
-                  const agencyLandingPageBO = new AgencyLandingPageBO();
-                  await agencyLandingPageBO.#dbTableORM.decryptFields(result[i]);
-                  await agencyLandingPageBO.#dbTableORM.convertJSONColumns(result[i]);
-                  const resp = await agencyLandingPageBO.loadORM(result[i], skipCheckRequired).catch(function(err) {
-                      log.error(`getList error loading object: ` + err + __location);
-                  })
-                  if (!resp) {
-                      log.debug("Bad BO load" + __location)
-                  }
-                  boList.push(agencyLandingPageBO);
+          let findCount = false;
+
+          let rejected = false;
+          // eslint-disable-next-line prefer-const
+          let query = {active: true};
+          let error = null;
+
+          var queryOptions = {lean:true};
+          queryOptions.sort = {};
+          if (queryJSON.sort) {
+              var acs = 1;
+              if (queryJSON.desc) {
+                  acs = -1;
+                  delete queryJSON.desc
               }
-              resolve(boList);
+              queryOptions.sort[queryJSON.sort] = acs;
+              delete queryJSON.sort
           }
           else {
-              //Search so no hits ok.
-              resolve([]);
+              // default to DESC on sent
+              queryOptions.sort.createdAt = -1;
+
+          }
+          const queryLimit = 500;
+          if (queryJSON.limit) {
+              var limitNum = parseInt(queryJSON.limit, 10);
+              delete queryJSON.limit
+              if (limitNum < queryLimit) {
+                  queryOptions.limit = limitNum;
+              }
+              else {
+                  queryOptions.limit = queryLimit;
+              }
+          }
+          else {
+              queryOptions.limit = queryLimit;
+          }
+          if (queryJSON.count) {
+              if (queryJSON.count === "1") {
+                  findCount = true;
+              }
+              delete queryJSON.count;
+          }
+          //hard match on name for duplicate checking.
+          if(queryJSON.nameExact){
+              query.name = queryJSON.nameExact;
+              delete queryJSON.nameExact;
+          }
+
+          if(queryJSON.slugExact){
+              query.slug = queryJSON.slugExact;
+              delete queryJSON.slugExact;
+          }
+
+          if(queryJSON.agencyId && Array.isArray(queryJSON.agencyId)){
+              query.agencyId = {$in: queryJSON.agencyId};
+              delete queryJSON.agencyId
+          }
+          else if(queryJSON.agencyId){
+              query.agencyId = queryJSON.agencyId;
+              delete queryJSON.agencyId
+          }
+
+          if(queryJSON.agency && Array.isArray(queryJSON.agency)){
+              query.agencyId = {$in: queryJSON.agency};
+              delete queryJSON.agency
+          }
+          else if(queryJSON.agency){
+              query.agencyId = queryJSON.agency;
+              delete queryJSON.agency
+          }
+
+
+          if (queryJSON) {
+              for (var key in queryJSON) {
+                  if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
+                      let clearString = queryJSON[key].replace("%", "");
+                      clearString = clearString.replace("%", "");
+                      query[key] = {
+                          "$regex": clearString,
+                          "$options": "i"
+                      };
+                  }
+                  else {
+                      query[key] = queryJSON[key];
+                  }
+              }
+          }
+
+
+          if (findCount === false) {
+              let docList = null;
+              try {
+                  log.debug("AgencyLandingPageModel GetList query " + JSON.stringify(query) + __location)
+                  docList = await AgencyLandingPageModel.find(query,queryProjection, queryOptions);
+              }
+              catch (err) {
+                  log.error(err + __location);
+                  error = null;
+                  rejected = true;
+              }
+              if(rejected){
+                  reject(error);
+                  return;
+              }
+
+
+              resolve(mongoUtils.objListCleanup(docList));
+              return;
+          }
+          else {
+              const docCount = await AgencyLandingPageModel.countDocuments(query).catch(err => {
+                  log.error("AgencyLandingPageModel.countDocuments error " + err + __location);
+                  error = null;
+                  rejected = true;
+              })
+              if(rejected){
+                  reject(error);
+                  return;
+              }
+              resolve({count: docCount});
+              return;
           }
 
 

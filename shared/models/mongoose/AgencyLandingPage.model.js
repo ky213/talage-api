@@ -13,7 +13,10 @@ var mongooseHistory = require('mongoose-history');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-
+const MetaSchema = new Schema({
+    description:{type: String, required: false},
+    title: {type: String, required: false}
+},{_id : false})
 
 const AgencyLandingPageSchema = new Schema({
     agencyLandingPageId: {type: String, required: [true, 'agencyLandingPageId required'], unique: true},
@@ -21,20 +24,21 @@ const AgencyLandingPageSchema = new Schema({
     mysqlId: {type: Number, unique: true},
     agencyId: {type: Number},
     agencyLocationId: {type: Number},
+    about: {type: String, required: false},
+    banner: {type: String, required: false},
     primary: {type: Boolean, default: false},
     industryCodeId: {type: Number},
     industryCodeCategoryId: {type: Number},
     colorSchemeId: {type: Number},
+    heading: {type: String, required: false},
+    hits: {type: Number},
     introHeading: {type: String, required: false},
     introText: {type: String, required: false},
+    showIntroText: {type: Boolean, default: false},
+    meta: MetaSchema,
     name: {type: String, required: false},
     showIndustrySection: {type: Boolean, required: false},
-    zipcode: {type: String, required: false},
-    phone: {type: String, required: false},
-    email: {type: String, required: false},
     slug: {type: String, required: false},
-    banner: {type: String, required: false},
-    about: {type: String, required: false},
     additionalInfo: {type: Schema.Types.Mixed},
     agencyPortalCreatedUser: {type: String},
     agencyPortalModifiedUser: {type: String},
