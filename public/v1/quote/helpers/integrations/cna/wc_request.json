@@ -144,9 +144,6 @@
 						}
 					}
 				},
-				"NumLosses": {
-					"value": 0
-				},
 				"OtherOrPriorPolicy": [{
 					"InsurerName": {
 						"value": "None"
@@ -172,6 +169,10 @@
 							"value": 0
 						}
 					}
+                },
+                "Loss": [],
+                "NumLosses": {
+					"value": 0
 				}
 			},
 			"Location": [{
