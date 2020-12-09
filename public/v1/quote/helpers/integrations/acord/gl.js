@@ -9,7 +9,7 @@ const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 
 // Email template
 let email_subject = 'ACORD Application from TEMPLATE_AGENCY_NAME';
-let email_body = 'Attached is the ACORD 126 application from TEMPLATE_AGENCY_NAME for a General Liability policy';
+let email_body = 'Attached is the ACORD application from TEMPLATE_AGENCY_NAME for a General Liability policy';
 
 module.exports = class ACORDGL extends Integration{
 
@@ -25,7 +25,7 @@ module.exports = class ACORDGL extends Integration{
 
         // Check the acord generated successfully
         if(generated_acord.error){
-            log.error(`Appid: ${this.app.id} Acord form could not be generated for application ${this.app.id} insurer ${this.insurer.id}: ` + generated_acord.error + __location);
+            log.error(`Appid: ${this.app.id} Acord form could not be generated for application ${this.app.id} insurer ${this.insurer.id} policy GL: ` + generated_acord.error + __location);
             return this.return_result('error');
         }
         // Retrieve email address to send to
@@ -62,7 +62,7 @@ module.exports = class ACORDGL extends Integration{
             const result = Buffer.concat(chunks);
             const attachment = {
                 'content': result.toString('base64'),
-                'filename': 'acord-126.pdf',
+                'filename': 'acord-gl.pdf',
                 'type': 'application/pdf',
                 'disposition': 'attachment'
             };

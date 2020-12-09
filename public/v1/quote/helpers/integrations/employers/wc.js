@@ -89,18 +89,25 @@ module.exports = class EmployersWC extends Integration {
             // Prepare limits
             this.bestLimits = this.getBestLimits(carrierLimits);
             if (!this.bestLimits) {
-                log.warn(`Appid: ${this.app.id} autodeclined: no best limits  ${this.insurer.name} does not support the requested liability limits ` + __location)
+                log.warn(`Appid: ${this.app.id} autodeclined: no best limits  ${this.insurer.name} does not support the requested liability limits ` + __location);
                 this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} does not support the requested liability limits`);
                 fulfill(this.return_result('autodeclined'));
                 return;
             }
 
-            //Check business locations Length
+            // Check business locations Length
             this.app.business.locations.forEach((location) => {
                 if(location.address.length > 300){
                     location.address = location.address.substr(0, 299);
                 }
             });
+
+            // Log a warning message if there is no location territory that matches the business primary territory, as Employers will decline
+            // NOTE: Employers assumes the 'first' location with territory matching ControllingStateProvCd is the primary location in ACORD XML.
+            //       JSON requests require explicit primary property be set.
+            if (!this.app.business.locations.find(location => location.territory === this.app.business.primary_territory)) {
+                log.warn(`Appid: ${this.app.id} No location matches primary territory ${this.app.business.primary_territory}. This will likely result in an autodecline from Employers.`);
+            }
 
             // Prepare questions
             this.validQuestions = [];

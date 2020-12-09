@@ -242,7 +242,7 @@ async function GetResources(req, res, next){
     if (!rejected) {
         const legalArticles = {};
         for(let i = 0; i < result.length; i++){
-            const dbRec = result[0];
+            const dbRec = result[i];
             legalArticles[dbRec.id] = dbRec
         }
         responseObj.legalArticles = legalArticles;

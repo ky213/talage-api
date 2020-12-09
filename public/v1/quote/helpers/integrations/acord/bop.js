@@ -9,9 +9,9 @@ const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 
 // Email template
 let email_subject = 'ACORD Application from TEMPLATE_AGENCY_NAME';
-let email_body = 'Attached is the ACORD 130 application from TEMPLATE_AGENCY_NAME for a Worker\'s Compensation policy';
+let email_body = `Attached is the ACORD application from TEMPLATE_AGENCY_NAME for a Business Owner's Policy`;
 
-module.exports = class ACORDWC extends Integration {
+module.exports = class ACORDBOP extends Integration {
 
     /**
 	 * Generate and sends ACORD email and returns
@@ -21,11 +21,11 @@ module.exports = class ACORDWC extends Integration {
     async _insurer_quote() {
 
         // Generate acord
-        const generated_acord = await acordsvc.create(this.app.id, this.insurer.id, 'wc');
+        const generated_acord = await acordsvc.create(this.app.id, this.insurer.id, 'bop');
 
         // Check the acord generated successfully
         if (generated_acord.error) {
-            log.error(`Acord form could not be generated for application ${this.app.id} insurer ${this.insurer.id} policy WC: ` + generated_acord.error + __location);
+            log.error(`Acord form could not be generated for application ${this.app.id} insurer ${this.insurer.id} policy BOP: ` + generated_acord.error + __location);
             return this.return_result('error');
         }
         // Retrieve email address to send to
@@ -37,7 +37,7 @@ module.exports = class ACORDWC extends Integration {
 
         //Check the email was retrieved successfully
         if (acord_email === false) {
-            log.error(`Failed to retrieve Email for agency location ${this.app.agencyLocation.id}, insurer ${this.insurer.id} for WC` + __location);
+            log.error(`Failed to retrieve Email for agency location ${this.app.agencyLocation.id}, insurer ${this.insurer.id} for BOP` + __location);
             return this.return_result('error');
         }
 
@@ -61,7 +61,7 @@ module.exports = class ACORDWC extends Integration {
             const result = Buffer.concat(chunks);
             const attachment = {
                 'content': result.toString('base64'),
-                'filename': 'acord-wc.pdf',
+                'filename': 'acord-bop.pdf',
                 'type': 'application/pdf',
                 'disposition': 'attachment'
             };
@@ -111,10 +111,10 @@ module.exports = class ACORDWC extends Integration {
 
         let email_address = null;
         try {
-            email_address = policyTypeInfoJSON.WC.acordInfo.sendToEmail;
+            email_address = policyTypeInfoJSON.BOP.acordInfo.sendToEmail;
         }
         catch (e) {
-            log.error(`Missing acord email address WC agency location id ${this.app.agencyLocation.id} insurer: ${this.insurer.id} ` + __location)
+            log.error(`Missing acord email address BOP agency location id ${this.app.agencyLocation.id} insurer: ${this.insurer.id} ` + __location)
         }
 
         //Check the email was found
@@ -122,7 +122,7 @@ module.exports = class ACORDWC extends Integration {
             return email_address;
         }
         else {
-            log.error(`Email for agency location ${this.app.agencyLocation.id}, insurer ${this.insurer.id}, policy type WC, was not found.` + __location);
+            log.error(`Email for agency location ${this.app.agencyLocation.id}, insurer ${this.insurer.id}, policy type BOP, was not found.` + __location);
             return false;
         }
     }

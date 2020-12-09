@@ -2,6 +2,7 @@ node_modules
 local.env
 *.env
 .DS_store
+insurer industry mapping files
 
 # Coverage and Unit Test Reports #
 ####################
