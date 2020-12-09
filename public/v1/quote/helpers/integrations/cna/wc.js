@@ -346,7 +346,7 @@ module.exports = class CnaWC extends Integration {
             // TODO: Once CNA fixes their bug, use the claims length again... 
             commlPolicy.NumLosses.value = 0; //this.app.applicationDocData.claims.length; 
             if (this.app.applicationDocData.claims.length > 0) {
-                commlPolicy.Loss = this.getLosses();
+                wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Loss = this.getLosses();
             }
 
             // ====== Location Information ======

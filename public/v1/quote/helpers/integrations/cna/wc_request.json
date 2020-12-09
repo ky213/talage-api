@@ -170,11 +170,11 @@
 						}
 					}
                 },
-                "Loss": [],
                 "NumLosses": {
 					"value": 0
 				}
-			},
+            },
+            "Loss": [],
 			"Location": [{
 				"ItemIdInfo": {
 					"AgencyId": {
