@@ -101,10 +101,10 @@ async function update(req, res, next) {
 
 exports.registerEndpoint = (server, basePath) => {
     // We require the 'administration.read' permission
-    server.addGetAuthAdmin('Get Industry Code Category list', `${basePath}/industry-code`, findAll, 'administration', 'all');
-    server.addGetAuthAdmin('Get Industry Code Category Object', `${basePath}/industry-code/:id`, findOne, 'administration', 'all');
-    server.addPostAuthAdmin('Post Industry Code Category Object', `${basePath}/industry-code`, add, 'administration', 'all');
-    server.addPutAuthAdmin('Put Industry Code Category Object', `${basePath}/industry-code/:id`, update, 'administration', 'all');
+    server.addGetAuthAdmin('Get Industry Code Category list', `${basePath}/industry-code-category`, findAll, 'administration', 'all');
+    server.addGetAuthAdmin('Get Industry Code Category Object', `${basePath}/industry-code-category/:id`, findOne, 'administration', 'all');
+    server.addPostAuthAdmin('Post Industry Code Category Object', `${basePath}/industry-code-category`, add, 'administration', 'all');
+    server.addPutAuthAdmin('Put Industry Code Category Object', `${basePath}/industry-code-category/:id`, update, 'administration', 'all');
 
     // server.addGet('Get Industry Code Category list', `${basePath}/agency-network`, findAll, 'administration', 'all');
     // server.addGet('Get Industry Code Category Object', `${basePath}/agency-network/:id`, findOne, 'administration', 'all');
