@@ -304,21 +304,10 @@ module.exports = class Application {
         const policyTypeReferred = {};
         const policyTypeQuoted = {};
 
-        let requestedInsurer = null;
-        if (global.settings.QUOTE_ONLY_INSURER) {
-            requestedInsurer = global.settings.QUOTE_ONLY_INSURER;
-            log.info('================================================================================');
-            log.info(`QUOTE_ONLY_INSURER is set. Running quotes again '${requestedInsurer}'`);
-            log.info('================================================================================');
-        }
-
         this.policies.forEach((policy) => {
             // Generate quotes for each insurer for the given policy type
             this.insurers.forEach((insurer) => {
                 // Only run quotes against requested insurers (if present)
-                if (requestedInsurer && requestedInsurer !== insurer.slug) {
-                    return;
-                }
                 // Check that the given policy type is enabled for this insurer
                 if (insurer.policy_types.indexOf(policy.type) >= 0) {
                     // Get the agency_location_insurer data for this insurer from the agency location
