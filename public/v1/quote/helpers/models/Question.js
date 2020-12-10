@@ -154,12 +154,10 @@ module.exports = class Question{
                     const answerInt = parseInt(answer, 10);
                     answer = [answerInt]
                 }
-                // Every answer must be numeric, if they are not, they are wrong
-                if(typeof answer !== 'object' || !answer.length){
-                    const errorMessage = `Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)}) (For Checkbox questions, expecting an array of answer IDs) answer: ${answer}`
-                    log.error(errorMessage + __location);
-                    reject(serverHelper.requestError(errorMessage));
-                    return;
+                // If we don't have a valid array, that means they either didn't provide an array, or we couldn't parse an array above.
+                // This can happen if they don't enable any checkboxes for a question. -SF
+                if (!Array.isArray(answer)) {
+                    answer = [];
                 }
 
                 // Loop through each answer and make sure they are what we are expecting
