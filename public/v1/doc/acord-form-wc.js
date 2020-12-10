@@ -66,7 +66,7 @@ async function GetACORDFormWC(req, res, next){
 
         }
         else{
-            const doc = Buffer.from(await form.doc.save());
+            const doc = Buffer.from(form.doc);
             res.writeHead(200, {
                 'Content-Disposition': 'attachment; filename=acord-form.pdf',
                 'Content-Length': doc.length,

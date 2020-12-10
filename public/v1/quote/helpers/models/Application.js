@@ -168,7 +168,6 @@ module.exports = class Application {
         // requestedInsureres not longer sent from Web app.
         //get_insurers(requestedInsurers) {
         return new Promise(async(fulfill, reject) => {
-            log.debug("IN GET INSURERS FROM REQUESTED INSURERS FOR Agency Location ID " + this.agencyLocation.id)
             // Get a list of desired insurers
             let desired_insurers = [];
             let stop = false;
@@ -305,34 +304,42 @@ module.exports = class Application {
         const policyTypeQuoted = {};
 
         this.policies.forEach((policy) => {
+
             // Generate quotes for each insurer for the given policy type
             this.insurers.forEach((insurer) => {
                 // Only run quotes against requested insurers (if present)
                 // Check that the given policy type is enabled for this insurer
                 if (insurer.policy_types.indexOf(policy.type) >= 0) {
+
                     // Get the agency_location_insurer data for this insurer from the agency location
                     if (this.agencyLocation.insurers[insurer.id].policy_type_info) {
+
                         //Retrieve the data for this policy type
                         const agency_location_insurer_data = this.agencyLocation.insurers[insurer.id].policy_type_info[policy.type];
                         if (agency_location_insurer_data) {
-                            if (agency_location_insurer_data.enabled) {
-                                let slug = '';
-                                // If agency wants to send acord, send acord
-                                if (agency_location_insurer_data.useAcord === true && insurer.policy_type_details[policy.type].acord_support === 1) {
-                                    slug = 'acord';
-                                }
-                                else if (insurer.policy_type_details[policy.type.toUpperCase()].api_support === 1) {
-                                    // Otherwise use the api
-                                    slug = insurer.slug;
-                                }
-                                let policyTypeAbbr = '';
-                                if(policy && policy.type){
-                                    policyTypeAbbr = policy.type.toLowerCase()
-                                }
-                                else {
-                                    log.error(`Policy Type info not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} Policy ${JSON.stringify(policy)}` + __location);
-                                }
 
+                            if (agency_location_insurer_data.enabled) {
+                                let policyTypeAbbr = '';
+                                let slug = '';
+                                try{
+                                    // If agency wants to send acord, send acord
+                                    if (agency_location_insurer_data.useAcord === true && insurer.policy_type_details[policy.type].acord_support === 1) {
+                                        slug = 'acord';
+                                    }
+                                    else if (insurer.policy_type_details[policy.type.toUpperCase()].api_support === 1) {
+                                        // Otherwise use the api
+                                        slug = insurer.slug;
+                                    }
+                                    if(policy && policy.type){
+                                        policyTypeAbbr = policy.type.toLowerCase()
+                                    }
+                                    else {
+                                        log.error(`Policy Type info not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} Policy ${JSON.stringify(policy)}` + __location);
+                                    }
+                                }
+                                catch(err){
+                                    log.error('SLUG ERROR ' + err + __location);
+                                }
 
                                 const normalizedPath = `${__dirname}/../integrations/${slug}/${policyTypeAbbr}.js`;
                                 if (slug.length > 0 && fs.existsSync(normalizedPath)) {
