@@ -479,8 +479,20 @@ module.exports = class Integration {
             const answers = [];
 
             // Loop over each possible answer
-            for (const answer_id of question.answer) {
+            for (let answer_id of question.answer) {
                 // Make sure the answer is permitted
+
+                // Ensure that the answer_id is a string, not a number.
+                // Note: on AWS servers, answer_id is a number; on other platforms, it is a string.
+                if (typeof answer_id !== "string") {
+                    try {
+                        answer_id = answer_id.toString();
+                    }
+                    catch (error) {
+                        log.error(`Could not convert answer_id value ${answer_id} (type ${typeof answer_id}) to a string. Using original value.`);
+                    }
+                }
+
                 if (!Object.prototype.hasOwnProperty.call(question.possible_answers, answer_id)) {
                     // This shouldn't have happened, throw an error
                     log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible. This should have been caught in the validation stage.` + __location);
