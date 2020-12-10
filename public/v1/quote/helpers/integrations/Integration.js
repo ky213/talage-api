@@ -280,7 +280,7 @@ module.exports = class Integration {
         // Liberty codes mostly follow the national NCCI code numbering and we have most Liberty codes
         // mapped. So we use the Liberty code mapping for now until we have an official map of the
         // national NCCI codes. -SF
-        const libertyRecord = await this.get_insurer_code_for_activity_code(14, territory, activityCode);
+        const libertyRecord = await this.get_insurer_code_for_activity_code(3, territory, activityCode);
         if (!libertyRecord) {
             return null;
         }
