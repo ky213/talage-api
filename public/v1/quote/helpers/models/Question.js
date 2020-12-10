@@ -145,8 +145,14 @@ module.exports = class Question{
                     }
                 }
                 else if (typeof answer === 'number') {
-                    // Only 1 checkbox was selected and it was retrieved as a number (answer ID) instead of a pipe-delimited string. Put it in an array by itself.
+                    // Only 1 checkbox was selected and it is number in the JSON
                     answer = [answer];
+                }
+                else if(typeof answer === 'string'){
+                    // Only 1 checkbox was selected and it is string in the JSON
+                    //convert to number
+                    const answerInt = parseInt(answer, 10);
+                    answer = [answerInt]
                 }
                 // Every answer must be numeric, if they are not, they are wrong
                 if(typeof answer !== 'object' || !answer.length){
