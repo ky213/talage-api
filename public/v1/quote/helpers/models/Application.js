@@ -886,7 +886,27 @@ module.exports = class Application {
                 const question_promises = [];
                 for (const question_id in this.questions) {
                     if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
-                        question_promises.push(this.questions[question_id].validate());
+                        const question = this.questions[question_id];
+                        // Determine if this question is visible. We walk up through the ancestors to make sure each of them
+                        // are visible. If any of them are not, then this question is not visible.
+                        let questionIsVisible = true;
+                        let childQuestionId = question_id.toString();
+                        while (this.questions[childQuestionId].parent !== 0) {
+                            // Get the parent ID. Ensure it is a string since the questions keys are strings.
+                            let parentQuestionId = this.questions[childQuestionId].parent.toString();
+                            // Determine if the child question is visible
+                            if (this.questions[childQuestionId].parent_answer !== this.questions[parentQuestionId].answer_id) {
+                                // Not visible so clear the flag and break
+                                questionIsVisible = false;
+                                break;
+                            }
+                            // Move up to the parent
+                            childQuestionId = parentQuestionId;
+                        }
+                        // Only validate questions which are visible
+                        if (questionIsVisible) {
+                            question_promises.push(question.validate());
+                        }
                     }
                 }
                 await Promise.all(question_promises).catch(function(error) {
