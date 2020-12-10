@@ -111,7 +111,7 @@ module.exports = class ACORDWC extends Integration {
 
         let email_address = null;
         try {
-            email_address = policyTypeInfoJSON.GL.acordInfo.sendToEmail;
+            email_address = policyTypeInfoJSON.WC.acordInfo.sendToEmail;
         }
         catch (e) {
             log.error(`Missing acord email address WC agency location id ${this.app.agencyLocation.id} insurer: ${this.insurer.id} ` + __location)
