@@ -75,7 +75,12 @@ module.exports = class Integration {
 
         // Initialize the integration
         if (typeof this._insurer_init === "function") {
-            this._insurer_init();
+            try{
+                this._insurer_init();
+            }
+            catch(err){
+                log.error('Integration insurer')
+            }
         }
 
         // Apply WC payroll caps for Nevada
@@ -96,7 +101,6 @@ module.exports = class Integration {
                 });
             });
         }
-
     }
 
     /**
@@ -255,6 +259,7 @@ module.exports = class Integration {
             }
             catch (error) {
                 // continue. We may not need the attributes column
+                log.error('JSON.parse(result[0].attributes) ' + error + __location);
                 result[0].attributes = {};
             }
         }
@@ -717,16 +722,21 @@ module.exports = class Integration {
 
                 // Convert this into an object for easy reference
                 const question_details = {};
-                results.forEach((result) => {
-                    question_details[result.question] = {
-                        attributes: result.attributes ? JSON.parse(result.attributes) : '',
-                        identifier: result.identifier,
-                        universal: result.universal
-                    };
-                    if (result.universal) {
-                        this.universal_questions.push(result.question);
-                    }
-                });
+                try{
+                    results.forEach((result) => {
+                        question_details[result.question] = {
+                            attributes: result.attributes ? JSON.parse(result.attributes) : '',
+                            identifier: result.identifier,
+                            universal: result.universal
+                        };
+                        if (result.universal) {
+                            this.universal_questions.push(result.question);
+                        }
+                    });
+                }
+                catch(err){
+                    log.error('Question details: ' + err + __location);
+                }
 
                 // Return the mapping
                 fulfill(question_details);

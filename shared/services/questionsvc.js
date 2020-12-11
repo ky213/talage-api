@@ -210,55 +210,28 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     // Notes:
     //      - pull in all insurer questions which are for the requested policy types (clw_talage_insurer_questions.policy_type IN policy_types)
     //      - group by clw_talage_insurer_questions.question (Talage question) to ensure we don't get duplicate questions
-
-    // Get ISO questions
     sql = `
         SELECT ${select}
-        FROM clw_talage_industry_code_questions AS icq
-        LEFT JOIN clw_talage_questions AS q ON (q.id = icq.question)
-        LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
-        LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
+        FROM clw_talage_industry_codes AS ic
+        INNER JOIN industry_code_to_insurer_industry_code AS industryCodeMap ON industryCodeMap.talageIndustryCodeId = ic.id
+        INNER JOIN clw_talage_insurer_industry_codes AS iic ON iic.id = industryCodeMap.insurerIndustryCodeId
+        INNER JOIN clw_talage_industry_code_questions AS icq ON icq.insurerIndustryCodeId = iic.id
+        INNER JOIN clw_talage_questions AS q ON q.id = icq.talageQuestionId
+        INNER JOIN clw_talage_insurer_questions AS iq ON iq.question = q.id
+        INNER JOIN clw_talage_question_types AS qt ON qt.id = q.type
         WHERE
-            icq.insurer_industry_code = (SELECT code FROM clw_talage_industry_codes_iso WHERE id = (SELECT iso FROM clw_talage_industry_codes WHERE id = ${db.escape(industry_code)}) LIMIT 1)
+            ic.id = ${db.escape(industry_code)}
             AND iq.policy_type IN ("${policy_types.join("\",\"")}")
-            AND ${where} 
-            GROUP BY iq.question;
-    `;
-    const iso_questions = await db.queryReadonly(sql).catch(function(err) {
-        error = err.message;
-    });
-    if (error) {
-        return false;
-    }
-    questions = questions.concat(iso_questions);
-
-    // Get CGL, Hiscox questions
-    sql = `
-        SELECT ${select}
-        FROM clw_talage_industry_code_questions AS icq
-        LEFT JOIN clw_talage_questions AS q ON (q.id = icq.question)
-        LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
-        LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
-        LEFT JOIN clw_talage_insurer_industry_codes AS iic ON icq.insurer_industry_code = iic.id
-        LEFT JOIN clw_talage_industry_codes AS ic ON 
-            (
-                (ic.cgl = iic.code AND iic.type = 'c')
-                OR (ic.hiscox = iic.code AND iic.type = 'h')
-                OR (ic.sic = iic.code AND iic.type = 's')
-            )
-        WHERE
-            ic.id = ${db.escape(industry_code)} 
-            AND iq.policy_type IN ("${policy_types.join("\",\"")}")            
             AND ${where}
             GROUP BY iq.question;
     `;
-    const cgl_questions = await db.queryReadonly(sql).catch(function(err) {
+    const industryCodeQuestions = await db.queryReadonly(sql).catch(function(err) {
         error = err.message;
     });
     if (error) {
         return false;
     }
-    questions = questions.concat(cgl_questions);
+    questions = questions.concat(industryCodeQuestions);
 
     // ============================================================
     // Get activity-based questions
@@ -276,14 +249,15 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
             WHERE iq.policy_type IN ('WC') AND ${where} GROUP BY q.id;
         `;
-        const wc_questions = await db.queryReadonly(sql).catch(function(err) {
+        const activityCodeQuestions = await db.queryReadonly(sql).catch(function(err) {
             error = err.message;
         });
         if (error) {
             return false;
         }
-        questions = questions.concat(wc_questions);
+        questions = questions.concat(activityCodeQuestions);
     }
+
     // Remove Duplicates
     if (questions) {
         questions = questions.filter((question, index, self) => index === self.findIndex((t) => t.id === question.id));
