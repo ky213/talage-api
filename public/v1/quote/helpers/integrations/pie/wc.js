@@ -16,6 +16,15 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 module.exports = class PieWC extends Integration {
 
+    /**
+     * Initializes this integration.
+     *
+     * @returns {void}
+     */
+    _insurer_init() {
+        this.requiresInsurerActivityClassCodes = true;
+    }
+
 	/**
 	 * Requests a quote from Pie and returns. This request is not intended to be called directly.
 	 *
@@ -292,12 +301,31 @@ module.exports = class PieWC extends Integration {
 
         // Send JSON to the insurer
         let res = null;
+        let questionsArray = [];
         try {
+            console.log('');
+            console.log(JSON.stringify(data, null, 4));
+            console.log('')
+            console.log('this.questions:',this.questions);
             res = await this.send_json_request(host, '/api/v1/Quotes', JSON.stringify(data), {Authorization: token});
         } catch (error) {
             log.error(`Appid: ${this.app.id} Pie WC: Error  ${error} ` + __location)
-            return this.return_result('error');
+            // return this.return_result('error');
         }
+
+        for(const question_id in this.questions){
+            if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
+                const question = this.questions[question_id];
+                const answer = question.answer;
+
+                questionsArray.push({
+                    "id": `${question.id}`,
+                    "answer": answer
+                })
+            }
+        }
+
+        data.eligibilityAnswers = questionsArray;
 
         // Pie only returns indications
         this.indication = true;

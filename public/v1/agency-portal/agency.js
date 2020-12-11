@@ -4,7 +4,7 @@
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 const AgencyLandingPageBO = global.requireShared('./models/AgencyLandingPage-BO.js');
-const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
+//const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
 
 const crypt = global.requireShared('./services/crypt.js');
 const util = require('util');
@@ -72,27 +72,19 @@ async function deleteAgency(req, res, next) {
         return next(serverHelper.forbiddenError('You are not authorized to delete this agency'));
     }
 
-    // Update the Agency (we set the state to -2 to signify that the Agency is deleted)
-    const updateSQL = `
-			UPDATE clw_talage_agencies
-			SET
-				state = -2
-			WHERE
-				id = ${id}
-			LIMIT 1;
-		`;
-
-    // Run the query
-    const result = await db.query(updateSQL).catch(function(err) {
-        log.error('clw_talage_agencies error ' + err + __location);
-        error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
+  
+    const agencyBO = new AgencyBO();
+    // Load the request data into it
+    const resp = await agencyBO.deleteSoftById(id).catch(function(err) {
+        log.error("Agency Delete load error " + err + __location);
+        error = err;
     });
     if (error) {
         return next(error);
     }
 
     // Make sure the query was successful
-    if (result.affectedRows !== 1) {
+    if (resp === false) {
         log.error('User delete failed');
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     }
@@ -422,24 +414,20 @@ async function postAgency(req, res, next) {
     let slug = initalSlug;
     let verifiedUnique = false;
     let slugCount = 1;
+    const agencyBO = new AgencyBO();
     while (!verifiedUnique) {
-        // SQL to check if the generated agency slug already exists
-        const slugSQL = `
-				SELECT ${db.quoteName('id')}
-				FROM ${db.quoteName('#__agencies')}
-				WHERE ${db.quoteName('slug')} = ${db.escape(slug)}
-				LIMIT 1;
-			`;
-
-        // Run the query
-        // eslint-disable-next-line  no-await-in-loop
-        const slugExists = await db.query(slugSQL).catch(function(e) {
-            log.error(e.message);
+        let slugExists = false;
+        try{
+            slugExists = await agencyBO.checkIfSlugExists(slug);
+        }
+        catch(err){
+            log.error("Agency slug check db error " + err + __location);
             return next(serverHelper.internalError('Error querying database. Check logs.'));
-        });
+        }
+
 
         // If no response was received, this is unique
-        if (slugExists.length === 0) {
+        if (slugExists === false) {
             verifiedUnique = true;
         }
         else {
@@ -470,7 +458,6 @@ async function postAgency(req, res, next) {
         wholesale: wholesale
     }
     error = null;
-    const agencyBO = new AgencyBO();
     // Load the request data into it
     await agencyBO.saveModel(newAgencyJSON).catch(function(err) {
         log.error("agencyBO.save error " + err + __location);

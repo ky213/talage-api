@@ -58,6 +58,29 @@ async function findOne(req, res, next) {
     }
 }
 
+async function add(req, res, next) {
+
+    log.debug("insurer question post " + JSON.stringify(req.body));
+    //TODO Validate
+    if(!req.body.text){
+        return next(serverHelper.requestError("bad missing question"));
+    }
+
+    const insurerQuestionBO = new InsurerQuestionBO();
+    let error = null;
+    const newRecord = true;
+    await insurerQuestionBO.saveModel(req.body, newRecord).catch(function(err) {
+        log.error("insurer question save error " + err + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+
+    res.send(200, insurerQuestionBO.cleanJSON());
+    return next();
+}
+
 async function update(req, res, next) {
     const id = req.params.id;
     if (!id) {
@@ -84,6 +107,6 @@ exports.registerEndpoint = (server, basePath) => {
     // We require the 'administration.read' permission
     server.addGetAuthAdmin('GET Insurer Question list', `${basePath}/insurer-question`, findAll, 'administration', 'all');
     server.addGetAuthAdmin('GET Insurer Question Object', `${basePath}/insurer-question/:id`, findOne, 'administration', 'all');
-    // server.addPostAuthAdmin('POST Insurer Question Object', `${basePath}/insurer-question`, add, 'administration', 'all');
+    server.addPostAuthAdmin('POST Insurer Question Object', `${basePath}/insurer-question`, add, 'administration', 'all');
     server.addPutAuthAdmin('PUT Insurer Question Object', `${basePath}/insurer-question/:id`, update, 'administration', 'all');
 };

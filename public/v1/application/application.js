@@ -12,7 +12,6 @@ const serverHelper = require('../../../server.js');
 const tracker = global.requireShared('./helpers/tracker.js');
 //Models
 const ApplicationBO = global.requireShared('models/Application-BO.js');
-const BusinessBO = global.requireShared('models/Business-model.js');
 const contactStepParser = require('./parsers/contact-step-parser.js')
 const coverageStepParser = require('./parsers/coverage-step-parser.js');
 const locationStepParser = require('./parsers/location-step_parser.js')
@@ -324,7 +323,7 @@ async function CheckZip(req, res, next){
         // log.debug("zipCodeBO: " + JSON.stringify(zipCodeBO.cleanJSON()))
 
         // Check if we have coverage.
-        const sql = `select  z.territory, t.name, t.licensed 
+        const sql = `select  z.city, z.territory, t.name, t.licensed
             from clw_talage_zip_codes z
             inner join clw_talage_territories t  on z.territory = t.abbr
             where z.zip  = ${db.escape(req.body.zip)}`;
@@ -335,7 +334,8 @@ async function CheckZip(req, res, next){
         });
         if (!rejected) {
             if(result && result.length > 0){
-                responseObj.territory = result[0].territory
+				responseObj.territory = result[0].territory;
+				responseObj.city = result[0].city;
                 if(result[0].licensed === 1){
                     responseObj['error'] = false;
                     responseObj['message'] = '';
@@ -618,73 +618,12 @@ async function GetQuestions(req, res, next){
 
 }
 
-/**
- * GET returns updated address and business info on App
- *
- * @param {object} req - HTTP request object
- * @param {object} res - HTTP response object
- * @param {function} next - The next function to execute
- *
- * @returns {void}
- */
-async function AppInfo(req, res, next){
-    const responseAppInfoJSON = {};
-    // eslint-disable-next-line array-element-newline
-    const propertyToNotSend = ['id','uuid','created', 'created_by', 'modified', 'deleted', 'dba_clear','file_num','checked_out', 'checked_out_time','state','mailing_zip', 'ein']
-    if(req.query && req.query.appid){
-        const appId = req.query.appid
-        try{
-            //TODO switch to Mongo.....
-            const applicationBO = new ApplicationBO();
-            const appDBJSON = await applicationBO.getById(appId);
-            if(appDBJSON){
-                responseAppInfoJSON.id = appDBJSON.id;
-                responseAppInfoJSON.gross_sales_amt = appDBJSON.gross_sales_amt;
-                responseAppInfoJSON.city = appDBJSON.city;
-                responseAppInfoJSON.state = appDBJSON.state_abbr;
-                responseAppInfoJSON.zip = appDBJSON.zipcode;
-                responseAppInfoJSON.entityType = appDBJSON.entity_type;
-                //get business
-                const businessBO = new BusinessBO();
-                // eslint-disable-next-line prefer-const
-                let businessDBJSON = await businessBO.getById(appDBJSON.business);
-                if(businessDBJSON){
-                    for (let i = 0; i < propertyToNotSend.length; i++){
-                        if(businessDBJSON[propertyToNotSend[i]] !== 'undefined' || businessDBJSON[propertyToNotSend[i]] === 0 && businessDBJSON[propertyToNotSend[i]] === ''){
-                            delete businessDBJSON[propertyToNotSend[i]]
-                        }
-                    }
-                    responseAppInfoJSON.business = businessDBJSON
-                }
-
-            }
-
-        }
-        catch(err){
-            log.error(`AppInfo error getting app info req.query ${JSON.stringify(req.query)} ` + err + __location)
-        }
-        res.send(200,responseAppInfoJSON)
-        return next();
-    }
-    else {
-        const responseObj = {};
-        responseObj['error'] = true;
-        responseObj['message'] = 'Invalid input received.';
-        res.send(400, responseObj);
-        return next(serverHelper.requestError('Bad request'));
-    }
-
-}
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
     //POSTs Quote Application workflow steps
     server.addPostAuthAppWF('Post Application Workflow', `${basePath}/applicationwf`, Save);
     server.addPostAuthAppWF('Post Application Workflow(depr)', `${basePath}wf`, Save);
-
-    //GET Quote Application - updated address and business info (before location step)
-    server.addGetAuthAppWF('GET Application info)', `${basePath}wf/appinfo`, AppInfo);
-
 
     // Email and error reporting for Quote App.
     server.addPostAuthAppWF('Post Application Error', `${basePath}/applicationwf/reporterror`, ReportError);

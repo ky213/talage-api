@@ -218,7 +218,7 @@ module.exports = class ACORD{
 
         // Add activity codes
         let pdfKey = 65;
-        this.activityCodeList.forEach((activityCode, index) => {
+        this.activityCodeList.forEach((activityCode) => {
             const currentLetter = String.fromCharCode(pdfKey);
             pdfDataFieldsObj["GeneralLiability_Hazard_Classification_" + currentLetter] = activityCode.description;
             pdfKey += 1;
@@ -301,7 +301,12 @@ module.exports = class ACORD{
 
             questionTree.slice(15 * currentPage, 15 * (currentPage + 1)).forEach((question, index) => {
                 pdfDataFieldsObj["Question_" + index] = question.questionText;
-                pdfDataFieldsObj["Answer_" + index] = question.answerValue;
+                if(question.answerList.length){
+                    pdfDataFieldsObj["Answer_" + index] = question.answerList.join('/ ');
+                }
+                else{
+                    pdfDataFieldsObj["Answer_" + index] = question.answerValue;
+                }
             })
 
             const pdf = await PdfHelper.createPDF('question-table.pdf', pdfDataFieldsObj);
@@ -355,7 +360,7 @@ module.exports = class ACORD{
             "Policy_Payment_DirectBillIndicator_A": 1,
             "NamedInsured_InspectionContact_FullName_A": this.primaryContactObj.firstName + ' ' + this.primaryContactObj.lastName,
             "NamedInsured_InspectionContact_PhoneNumber_A": this.primaryContactObj.phone,
-            "NamedInsured_InspectionContact_EmailAddress_A": this.primaryContactObj.email,
+            "NamedInsured_InspectionContact_EmailAddress_A": this.primaryContactObj.email
         }
 
         let pdfKey = 65;
@@ -418,10 +423,44 @@ module.exports = class ACORD{
             })
         }
 
+        // State rating sheets
+        const stateRatingPdfList = [];
+        let pageCounter = 1;
+
+        for(const state of uniqueStateList){
+            pdfKey = 65;
+            const statePdfDataFieldsObj = {
+                'WorkersCompensation_RateState_PageNumber_A': pageCounter,
+                'WorkersCompensation_RateState_TotalPageNumber_A': uniqueStateList.length,
+                'WorkersCompensation_RateState_StateOrProvinceName_A': state
+            };
+
+            const locationsInStateList = this.applicationDoc.locations.filter(location => location.state === state);
+            for(const location of locationsInStateList){
+                const locationNumber = this.applicationDoc.locations.indexOf(location) + 1;
+                for(const activity of location.activityPayrollList){
+                    const currentLetter = String.fromCharCode(pdfKey);
+                    statePdfDataFieldsObj['WorkersCompensation_RateClass_LocationProducerIdentifier_' + currentLetter] = locationNumber;
+                    statePdfDataFieldsObj['WorkersCompensation_RateClass_ClassificationCode_' + currentLetter] = activity.ncciCode;
+                    const activityCodeWithDescriptionObj = this.activityCodeList.find(code => code.ncciCode === activity.ncciCode)
+                    if(activityCodeWithDescriptionObj){
+                        statePdfDataFieldsObj['WorkersCompensation_RateClass_DutiesDescription_' + currentLetter] = this.activityCodeList.find(code => code.ncciCode === activity.ncciCode).description;
+                    }
+                    statePdfDataFieldsObj['WorkersCompensation_RateClass_SICCode_' + currentLetter] = this.industryCodeDoc.sic;
+                    statePdfDataFieldsObj['WorkersCompensation_RateClass_NAICSCode_' + currentLetter] = this.industryCodeDoc.naics;
+                    statePdfDataFieldsObj['WorkersCompensation_RateClass_RemunerationAmount_' + currentLetter] = '$' + activity.payroll;
+                    pdfKey += 1;
+                }
+            }
+
+            stateRatingPdfList.push(await PdfHelper.createPDF('acord130/page-2.pdf', statePdfDataFieldsObj));
+            pageCounter += 1;
+        }
+
         const page3Obj = {"CommercialPolicy_OperationsDescription_A": this.industryCodeDoc.description};
 
         pdfList.push(await PdfHelper.createPDF('acord130/page-1.pdf', page1Obj));
-        pdfList.push(await PdfHelper.createPDF('acord130/page-2.pdf', {}));
+        pdfList.push(await PdfHelper.createMultiPagePDF(stateRatingPdfList));
         pdfList.push(await PdfHelper.createPDF('acord130/page-3.pdf', page3Obj));
         pdfList.push(await PdfHelper.createPDF('acord130/page-4.pdf', {}));
 

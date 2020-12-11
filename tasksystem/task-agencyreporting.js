@@ -11,6 +11,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
+const AgencyBO = global.requireShared('./models/Agency-BO.js');
 
 /**
  * Agency report Task processor
@@ -64,25 +65,21 @@ exports.taskProcessorExternal = async function(){
 var agencyReportTask = async function(){
 
     const startOfMonth = moment().tz("America/Los_Angeles").startOf('month');
-    //const currentDate = moment().utc().format(db.dbTimeFormat())
 
-    //S QLAgency locations
-    const agencySQL = `
-    select 
-            id, name, slug, agency_network, created, modified, deleted, wholesale_agreement_signed
-        from    
-            clw_talage_agencies 
-        where 
-            state = 1;`
 
-    // AND created BETWEEN '${startOfMonth.utc().format(db.dbTimeFormat())}' AND '${currentDate}'`;
+    let agencyList = null;
+    try{
+        // Load the request data into it
+        // get all non-deleted agencies
+        const query = {};
+        const agencyBO = new AgencyBO();
+        agencyList = await agencyBO.getList(query);
+    }
+    catch(err){
+        log.error("AgencyReporting agencybo getList error " + err + __location);
+    }
 
-    let agencyListDBJSON = null;
 
-    agencyListDBJSON = await db.query(agencySQL).catch(function(err){
-        log.error(`Error get agency list from DB. error:  ${err}` + __location);
-        return false;
-    });
     const dbDataColumns = {
         "id": "Agency ID",
         "name": "Angency Name",
@@ -95,7 +92,7 @@ var agencyReportTask = async function(){
     };
 
     // Loop locations setting up activity codes.
-    if(agencyListDBJSON && agencyListDBJSON.length > 0){
+    if(agencyList && agencyList.length > 0){
         //Load AgencyNetwork Map
         const agencyNetworkBO = new AgencyNetworkBO();
         let agencyNetworkNameMapJSON = {};
@@ -103,8 +100,8 @@ var agencyReportTask = async function(){
             log.error("Could not get agency network id to name map " + err + __location);
         })
 
-        for(let i = 0; i < agencyListDBJSON.length; i++){
-            const agency = agencyListDBJSON[i];
+        for(let i = 0; i < agencyList.length; i++){
+            const agency = agencyList[i];
 
             const createdDtm = moment_timezone(agency.created).tz('America/Los_Angeles');
             agency.created = moment_timezone(agency.created).tz('America/Los_Angeles').format('YYYY-MM-DD');
@@ -130,8 +127,8 @@ var agencyReportTask = async function(){
                 agency.deleted = moment_timezone(agency.deleted).tz('America/Los_Angeles').format('YYYY-MM-DD');
             }
             // get AgencyNetwork name from map
-            if(agencyNetworkNameMapJSON[agencyListDBJSON[i].agency_network]){
-                agencyListDBJSON[i].networkName = agencyNetworkNameMapJSON[agencyListDBJSON[i].agency_network];
+            if(agencyNetworkNameMapJSON[agencyList[i].agency_network]){
+                agencyList[i].networkName = agencyNetworkNameMapJSON[agencyList[i].agency_network];
             }
 
         }
@@ -142,7 +139,7 @@ var agencyReportTask = async function(){
             "header": true,
             "columns": dbDataColumns
         };
-        const csvData = await csvStringify(agencyListDBJSON, stringifyOptions).catch(function(err){
+        const csvData = await csvStringify(agencyList, stringifyOptions).catch(function(err){
             log.error("Agency Report JSON to CSV error: " + err + __location);
             return;
         });

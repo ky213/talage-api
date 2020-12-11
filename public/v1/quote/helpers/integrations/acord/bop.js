@@ -9,9 +9,9 @@ const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 
 // Email template
 let email_subject = 'ACORD Application from TEMPLATE_AGENCY_NAME';
-let email_body = 'Attached is the ACORD application from TEMPLATE_AGENCY_NAME for a General Liability policy';
+let email_body = `Attached is the ACORD application from TEMPLATE_AGENCY_NAME for a Business Owner's Policy`;
 
-module.exports = class ACORDGL extends Integration{
+module.exports = class ACORDBOP extends Integration {
 
     /**
 	 * Generate and sends ACORD email and returns
@@ -23,7 +23,7 @@ module.exports = class ACORDGL extends Integration{
         const appId = this.app.id;
         // Generate acord
         let error = null;
-        const generated_acord = await acordsvc.create(this.app.id, this.insurer.id, 'gl').catch(function(err){
+        const generated_acord = await acordsvc.create(this.app.id, this.insurer.id, 'bop').catch(function(err){
             error = err;
         });
 
@@ -41,7 +41,7 @@ module.exports = class ACORDGL extends Integration{
 
         //Check the email was retrieved successfully
         if(acord_email === false){
-            log.error(`Appid: ${this.app.id} Failed to retrieve Email for agency location ${this.app.agencyLocation.id}, insurer ${this.insurer.id} for GL` + __location);
+            log.error(`Appid: ${this.app.id} Failed to retrieve Email for agency location ${this.app.agencyLocation.id}, insurer ${this.insurer.id} for BOP` + __location);
             return this.return_result('error');
         }
 
@@ -57,7 +57,7 @@ module.exports = class ACORDGL extends Integration{
 
         const attachment = {
             'content': generated_acord.doc.toString('base64'),
-            'filename': 'acordGL.pdf',
+            'filename': 'acordBOP.pdf',
             'type': 'application/pdf',
             'disposition': 'attachment'
         };
@@ -77,7 +77,7 @@ module.exports = class ACORDGL extends Integration{
     // TODO getEmail logic should be in the agency location's BO  NOT HERE.
 
     /**
-	 * Retrieve agency location/insurer email address to send acord form to for GL
+	 * Retrieve agency location/insurer email address to send acord form to for BOP
 	 *
 	 * @returns {Promise<string|false>} A promise that contains an email address if resolved, false otherwise
 	 */
@@ -101,10 +101,10 @@ module.exports = class ACORDGL extends Integration{
 
         let email_address = null;
         try{
-            email_address = policyTypeInfoJSON.GL.acordInfo.sendToEmail;
+            email_address = policyTypeInfoJSON.BOP.acordInfo.sendToEmail;
         }
         catch(e){
-            log.error(`Appid: ${this.app.id} Missing acord email address GL agency location id ${this.app.agencyLocation.id} insurer: ${this.insurer.id}` + __location)
+            log.error(`Appid: ${this.app.id} Missing acord email address BOP agency location id ${this.app.agencyLocation.id} insurer: ${this.insurer.id}` + __location)
         }
 
         //Check the email was found
@@ -112,7 +112,7 @@ module.exports = class ACORDGL extends Integration{
             return email_address;
         }
         else{
-            log.error(`Appid: ${this.app.id} Email for agency location ${this.app.agencyLocation.id}, insurer ${this.insurer.id}, policy type GL, was not found.` + __location);
+            log.error(`Appid: ${this.app.id} Email for agency location ${this.app.agencyLocation.id}, insurer ${this.insurer.id}, policy type BOP, was not found.` + __location);
             return false;
         }
     }

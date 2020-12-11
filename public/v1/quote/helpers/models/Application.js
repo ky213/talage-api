@@ -23,7 +23,6 @@ const helper = global.requireShared('./helpers/helper.js');
 
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
-const ApplicationQuestionBO = global.requireShared('./models/ApplicationQuestion-BO.js');
 
 module.exports = class Application {
     constructor() {
@@ -50,7 +49,7 @@ module.exports = class Application {
         this.id = parseInt(data.id, 10);
 
         // load application from database.
-        let error = null
+        //let error = null
         let applicationBO = new ApplicationBO();
         // await applicationBO.loadFromId(this.id).catch(function(err) {
         //     error = err;
@@ -128,18 +127,21 @@ module.exports = class Application {
             throw new Error(`Missing agencyLocationId application ${this.id}`);
         }
 
-        //this.questions = data.questions;
-        let applicationQuestionBO = new ApplicationQuestionBO();
-        const GET_QUESTION_LIST = true;
-        //TODO bet frm ApplicationBO applicationDocData
-        this.questions = await applicationQuestionBO.loadFromApplicationId(this.id,GET_QUESTION_LIST).catch(function(err){
-            log.error("Quote Application error get question list " + err + __location);
-            error = err;
-        })
-        if (error) {
-            throw error;
-        }
+        // TODO Refactor Integration to use full Questions list.
+        if(this.applicationDocData.questions && this.applicationDocData.questions.length > 0){
+            let questionJSON = {};
+            for(const question of this.applicationDocData.questions){
+                if (question.questionType.toLowerCase().startsWith('text')
+                    || question.questionType === 'Checkboxes' && question.answerValue) {
 
+                    questionJSON[question.questionId] = question.answerValue
+                }
+                else {
+                    questionJSON[question.questionId] = question.answerId
+                }
+            }
+            this.questions = questionJSON
+        }
         //log.debug("Quote Application Model: " + JSON.stringify(this))
         //throw new Error("stop");
     }
@@ -166,7 +168,6 @@ module.exports = class Application {
         // requestedInsureres not longer sent from Web app.
         //get_insurers(requestedInsurers) {
         return new Promise(async(fulfill, reject) => {
-            log.debug("IN GET INSURERS FROM REQUESTED INSURERS FOR Agency Location ID " + this.agencyLocation.id)
             // Get a list of desired insurers
             let desired_insurers = [];
             let stop = false;
@@ -302,46 +303,43 @@ module.exports = class Application {
         const policyTypeReferred = {};
         const policyTypeQuoted = {};
 
-        let requestedInsurer = null;
-        if (global.settings.QUOTE_ONLY_INSURER) {
-            requestedInsurer = global.settings.QUOTE_ONLY_INSURER;
-            log.info('================================================================================');
-            log.info(`QUOTE_ONLY_INSURER is set. Running quotes again '${requestedInsurer}'`);
-            log.info('================================================================================');
-        }
-
         this.policies.forEach((policy) => {
+
             // Generate quotes for each insurer for the given policy type
             this.insurers.forEach((insurer) => {
                 // Only run quotes against requested insurers (if present)
-                if (requestedInsurer && requestedInsurer !== insurer.slug) {
-                    return;
-                }
                 // Check that the given policy type is enabled for this insurer
                 if (insurer.policy_types.indexOf(policy.type) >= 0) {
+
                     // Get the agency_location_insurer data for this insurer from the agency location
                     if (this.agencyLocation.insurers[insurer.id].policy_type_info) {
+
                         //Retrieve the data for this policy type
                         const agency_location_insurer_data = this.agencyLocation.insurers[insurer.id].policy_type_info[policy.type];
                         if (agency_location_insurer_data) {
-                            if (agency_location_insurer_data.enabled) {
-                                let slug = '';
-                                // If agency wants to send acord, send acord
-                                if (agency_location_insurer_data.useAcord === true && insurer.policy_type_details[policy.type].acord_support === 1) {
-                                    slug = 'acord';
-                                }
-                                else if (insurer.policy_type_details[policy.type.toUpperCase()].api_support === 1) {
-                                    // Otherwise use the api
-                                    slug = insurer.slug;
-                                }
-                                let policyTypeAbbr = '';
-                                if(policy && policy.type){
-                                    policyTypeAbbr = policy.type.toLowerCase()
-                                }
-                                else {
-                                    log.error(`Policy Type info not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} Policy ${JSON.stringify(policy)}` + __location);
-                                }
 
+                            if (agency_location_insurer_data.enabled) {
+                                let policyTypeAbbr = '';
+                                let slug = '';
+                                try{
+                                    // If agency wants to send acord, send acord
+                                    if (agency_location_insurer_data.useAcord === true && insurer.policy_type_details[policy.type].acord_support === 1) {
+                                        slug = 'acord';
+                                    }
+                                    else if (insurer.policy_type_details[policy.type.toUpperCase()].api_support === 1) {
+                                        // Otherwise use the api
+                                        slug = insurer.slug;
+                                    }
+                                    if(policy && policy.type){
+                                        policyTypeAbbr = policy.type.toLowerCase()
+                                    }
+                                    else {
+                                        log.error(`Policy Type info not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} Policy ${JSON.stringify(policy)}` + __location);
+                                    }
+                                }
+                                catch(err){
+                                    log.error('SLUG ERROR ' + err + __location);
+                                }
 
                                 const normalizedPath = `${__dirname}/../integrations/${slug}/${policyTypeAbbr}.js`;
                                 if (slug.length > 0 && fs.existsSync(normalizedPath)) {
