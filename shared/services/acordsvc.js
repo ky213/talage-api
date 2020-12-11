@@ -6,8 +6,6 @@ const AcordGL = require('./acord/policies/gl.js');
 const AcordWC = require('./acord/policies/wc.js');
 const AcordBOP = require('./acord/policies/bop.js');
 
-const validator = global.requireShared('./helpers/validator.js');
-
 /**
  * @typedef generatedAcord
  * @type {Object}
@@ -48,6 +46,16 @@ exports.create = async function(application_id, insurer_id, policy_type){
         throw err;
     }
 
-    return {'doc': acordForm};
-}
+    let pdfUint8Array = null;
 
+    try{
+        pdfUint8Array = await acordForm.save();
+    }
+    catch(err){
+        log.error('Acord for PDF save() ' + err + __location);
+    }
+
+    const pdfBuffer = new Buffer.from(pdfUint8Array.buffer);
+
+    return {'doc': pdfBuffer};
+}
