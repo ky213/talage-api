@@ -504,36 +504,40 @@ module.exports = class Integration {
         if (question.type === 'Checkboxes') {
             const answers = [];
 
-            // Loop over each possible answer
-            for (let answer_id of question.answer) {
-                // Make sure the answer is permitted
+            // Ensure the answers are an array
+            if (Array.isArray(question.answer)) {
+                // Loop over each possible answer
+                for (let answer_id of question.answer) {
+                    // Make sure the answer is permitted
 
-                // Ensure that the answer_id is a string, not a number.
-                // Note: on AWS servers, answer_id is a number; on other platforms, it is a string.
-                if (typeof answer_id !== "string") {
-                    try {
-                        answer_id = answer_id.toString();
+                    // Ensure that the answer_id is a string, not a number.
+                    // Note: on AWS servers, answer_id is a number; on other platforms, it is a string.
+                    if (typeof answer_id !== "string") {
+                        try {
+                            answer_id = answer_id.toString();
+                        }
+                        catch (error) {
+                            log.error(`Could not convert answer_id value ${answer_id} (type ${typeof answer_id}) to a string. Using original value.`);
+                        }
                     }
-                    catch (error) {
-                        log.error(`Could not convert answer_id value ${answer_id} (type ${typeof answer_id}) to a string. Using original value.`);
+
+                    if (!Object.prototype.hasOwnProperty.call(question.possible_answers, answer_id)) {
+                        // This shouldn't have happened, throw an error
+                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible. This should have been caught in the validation stage.` + __location);
+                        log.verbose(`Appid: ${this.app.id} The question is as follows:`);
+                        log.verbose(util.inspect(question, false, null));
+                        throw new Error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible`);
                     }
-                }
 
-                if (!Object.prototype.hasOwnProperty.call(question.possible_answers, answer_id)) {
-                    // This shouldn't have happened, throw an error
-                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible. This should have been caught in the validation stage.` + __location);
-                    log.verbose(`Appid: ${this.app.id} The question is as follows:`);
-                    log.verbose(util.inspect(question, false, null));
-                    throw new Error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible`);
+                    // Add the answer to the answers array
+                    answers.push(question.possible_answers[answer_id].answer);
                 }
-
-                // Add the answer to the answers array
-                answers.push(question.possible_answers[answer_id].answer);
+                // Return the answers as a comma separated string
+                answer = answers.join(', ');
             }
-
-            // Return the answers as a comma separated string
-            answer = answers.join(', ');
-
+            else {
+                answer = '';
+            }
             // If this is a Boolean or Select List question, get the answer expected by the carrier
         }
         else if (question.type === 'Yes/No' || question.type === 'Select List') {
