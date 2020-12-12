@@ -373,10 +373,7 @@ var imgSize = function(address) {
 };
 
 var getAgencyLogoHtml = async function(agencyId) {
-    // Query the database to get some information
-    //const sql = `SELECT \`name\`, \`logo\`, \`website\` WHERE \`id\` = ${db.escape(agencyId)} AND \`state\` = 1 LIMIT 1;`;
     const agencyBO = new AgencyBO();
-    // Load the request data into it
     const agencyDB = await agencyBO.getById(agencyId).catch(function(err) {
         log.error(`Email Service getAgencyLogoHtml: Agency getbyId ${agencyId} error ` + err + __location);
         throw err;
@@ -410,11 +407,8 @@ var getAgencyLogoHtml = async function(agencyId) {
 
     // If the user had a website, we should wrap the logo in a link
     if (agencyDB.website) {
-        // Decrypt the website address
-        const website = await crypt.decrypt(agencyDB.website);
-
         // Wrap the logo in a link
-        logoHTML = `<a href="${website}" target="_blank">${logoHTML}</a>`;
+        logoHTML = `<a href="${agencyDB.website}" target="_blank">${logoHTML}</a>`;
     }
 
     return logoHTML;
