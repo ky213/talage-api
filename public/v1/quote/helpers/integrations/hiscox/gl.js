@@ -222,7 +222,7 @@ module.exports = class HiscoxGL extends Integration {
                         location.county = "Harris county (other than Houston)";
                     }
                 }
-                else if (!location.county.toLowerCase().endsWith("county")) {
+                else if (location.county.length > 0 && !location.county.toLowerCase().endsWith("county")) {
                     // Hiscox requires the word 'county' on the end of the county name
                     location.county += " county";
                 }
@@ -252,10 +252,8 @@ module.exports = class HiscoxGL extends Integration {
         this.questionList = [];
         this.additionalCOBs = [];
         for (const question of Object.values(this.questions)) {
-            // const questionIsVisible = question.parent === 0 || this.questions.hasOwnProperty(question.parent) && question.parent_answer === this.questions[question.parent].answer_id;
-            const questionAnswer = this.determine_question_answer(question, question.required);
-            // console.log(`${question.text}? ${questionAnswer} ${questionIsVisible}`);
-            if (questionAnswer) {
+            let questionAnswer = this.determine_question_answer(question, question.required);
+            if (questionAnswer !== false) {
                 let elementName = questionDetails[question.id].attributes.elementName;
                 if (elementName === 'GLHireNonOwnVehicleUse') {
                     elementName = 'HireNonOwnVehclUse';
@@ -275,6 +273,17 @@ module.exports = class HiscoxGL extends Integration {
                     }
                     // Don't add this to the question list
                     continue;
+                }
+                else if (elementName === 'EstmtdPayrollSC') {
+                    if (questionAnswer === null) {
+                        questionAnswer = 0;
+                    }
+                    // EstmtdPayrollSCContractors is a duplicate of EstmtdPayrollSC but they require both. Since we only ask EstmtdPayrollSC,
+                    // we need to add the duplicate answer here.
+                    this.questionList.push({
+                        nodeName: 'EstmtdPayrollSCContractors',
+                        answer: questionAnswer
+                    });
                 }
                 this.questionList.push({
                     nodeName: elementName,
