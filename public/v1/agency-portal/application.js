@@ -24,6 +24,9 @@ const jwt = require('jsonwebtoken');
 const moment = require('moment');
 
 
+// Application Messages Imports
+const mongoUtils = global.requireShared('./helpers/mongoutils.js');
+var Message = require('mongoose').model('Message');
 /**
  * Responds to get requests for the application endpoint
  *
@@ -342,7 +345,17 @@ async function getApplication(req, res, next) {
         }
     }
 
-
+	let docList = null;
+	try {
+		docList = await Message.find( {$or:[ {'applicationId':applicationJSON.applicationId}, {'mysqlId':applicationJSON.mysqlId} ]}, '-__v');
+	}catch (err) {
+		log.error(err + __location);
+		return serverHelper.sendError(res, next, 'Internal Error');
+	}
+	log.debug("docList.length: " + docList.length);
+	if(docList.length){
+		applicationJSON.messages = docList;
+	}
     // Return the response
     res.send(200, applicationJSON);
     return next();
@@ -1412,5 +1425,4 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Agency Application Resources', `${basePath}/application/getresources`, GetResources)
     server.addGetAuth('GetAssociations', `${basePath}/application/getassociations`, GetAssociations)
     server.addPostAuth('Checkzip for Quote Engine', `${basePath}/application/checkzip`, CheckZip)
-
 };
