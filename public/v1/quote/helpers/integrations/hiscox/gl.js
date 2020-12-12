@@ -12,6 +12,7 @@ const momentTimezone = require("moment-timezone");
 const stringFunctions = global.requireShared("./helpers/stringFunctions.js"); // eslint-disable-line no-unused-vars
 // const util = require('util');
 const xmlToObj = require("xml2js").parseString;
+const smartystreetSvc = global.requireShared('./services/smartystreetssvc.js');
 
 // Read the template into memory at load
 const hiscoxGLTemplate = require("jsrender").templates("./public/v1/quote/helpers/integrations/hiscox/gl.xmlt");
@@ -197,11 +198,37 @@ module.exports = class HiscoxGL extends Integration {
         // Hiscox requires a county be supplied in three states, in all other states, remove the county
         for (const location of locations) {
             if (["FL", "MO", "TX"].includes(location.territory)) {
-                // Hiscox requires a county
-                // in case country is missing. so the later code will not throw exception.
-                if(!location.county){
-                    location.county = '';
+                // Hiscox requires a county in these states
+                if (!location.county) {
+                    const smartyStreetsResponse = await smartystreetSvc.checkAddress(this.app.business.locations[0].address,
+                        this.app.business.locations[0].city,
+                        this.app.business.locations[0].state_abbr,
+                        this.app.business.locations[0].zip);
+                    // If the responsee has an error property, or doesn't have addressInformation.county_name, we can't determine
+                    // a county so return an error.
+                    if (smartyStreetsResponse.hasOwnProperty("error") ||
+                        !smartyStreetsResponse.hasOwnProperty("addressInformation") ||
+                        !smartyStreetsResponse.addressInformation.hasOwnProperty("county_name")) {
+                        if (smartyStreetsResponse.hasOwnProperty("error")) {
+                            this.log += `Invalid business address: ${this.app.business.locations[0].address}, ${this.app.business.locations[0].city}, ${this.app.business.locations[0].state_abbr}, ${this.app.business.locations[0].zip}<br>`;
+                            this.log += `${smartyStreetsResponse.error}<br>`;
+                            this.log += `SmartyStreets error reason: ${smartyStreetsResponse.errorReason}<br><br>`;
+                        }
+                        else {
+                            this.log += `SmartyStreets could not determine the county: ${this.app.business.locations[0].address}, ${this.app.business.locations[0].city}, ${this.app.business.locations[0].state_abbr}, ${this.app.business.locations[0].zip}<br>`;
+                        }
+                        if (smartyStreetsResponse.hasOwnProperty("errorReason")) {
+                            // If SmartyStreets returned a error reason, show that to the user
+                            return this.client_error(`Invalid business address: ${smartyStreetsResponse.errorReason}`);
+                        }
+                        else {
+                            // If not, show that it was unable to validate the address
+                            return this.client_error('Unable to validate address before submission.');
+                        }
+                    }
+                    location.county = smartyStreetsResponse.addressInformation.county_name;
                 }
+                // We have a valid county now.
 
                 // There are special conditions in Harris County, TX, Jackson County, MO, Clay County, MO, Cass County, MO, and Platte County, MO
                 if (location.territory === "MO" && ["Cass", "Clay", "Jackson", "Platte"].includes(location.county)) {
