@@ -75,7 +75,12 @@ module.exports = class Integration {
 
         // Initialize the integration
         if (typeof this._insurer_init === "function") {
-            this._insurer_init();
+            try{
+                this._insurer_init();
+            }
+            catch(err){
+                log.error('Integration insurer')
+            }
         }
 
         // Apply WC payroll caps for Nevada
@@ -96,7 +101,6 @@ module.exports = class Integration {
                 });
             });
         }
-
     }
 
     /**
@@ -255,6 +259,7 @@ module.exports = class Integration {
             }
             catch (error) {
                 // continue. We may not need the attributes column
+                log.error('JSON.parse(result[0].attributes) ' + error + __location);
                 result[0].attributes = {};
             }
         }
@@ -500,8 +505,20 @@ module.exports = class Integration {
             const answers = [];
 
             // Loop over each possible answer
-            for (const answer_id of question.answer) {
+            for (let answer_id of question.answer) {
                 // Make sure the answer is permitted
+
+                // Ensure that the answer_id is a string, not a number.
+                // Note: on AWS servers, answer_id is a number; on other platforms, it is a string.
+                if (typeof answer_id !== "string") {
+                    try {
+                        answer_id = answer_id.toString();
+                    }
+                    catch (error) {
+                        log.error(`Could not convert answer_id value ${answer_id} (type ${typeof answer_id}) to a string. Using original value.`);
+                    }
+                }
+
                 if (!Object.prototype.hasOwnProperty.call(question.possible_answers, answer_id)) {
                     // This shouldn't have happened, throw an error
                     log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible. This should have been caught in the validation stage.` + __location);
@@ -705,16 +722,21 @@ module.exports = class Integration {
 
                 // Convert this into an object for easy reference
                 const question_details = {};
-                results.forEach((result) => {
-                    question_details[result.question] = {
-                        attributes: result.attributes ? JSON.parse(result.attributes) : '',
-                        identifier: result.identifier,
-                        universal: result.universal
-                    };
-                    if (result.universal) {
-                        this.universal_questions.push(result.question);
-                    }
-                });
+                try{
+                    results.forEach((result) => {
+                        question_details[result.question] = {
+                            attributes: result.attributes ? JSON.parse(result.attributes) : '',
+                            identifier: result.identifier,
+                            universal: result.universal
+                        };
+                        if (result.universal) {
+                            this.universal_questions.push(result.question);
+                        }
+                    });
+                }
+                catch(err){
+                    log.error('Question details: ' + err + __location);
+                }
 
                 // Return the mapping
                 fulfill(question_details);

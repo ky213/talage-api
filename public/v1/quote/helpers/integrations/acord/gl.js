@@ -19,13 +19,17 @@ module.exports = class ACORDGL extends Integration{
 	 * @returns {object | error} A promise that returns an object containing quote information if resolved, or an error if rejected
 	 */
     async _insurer_quote(){
+
         const appId = this.app.id;
         // Generate acord
-        const generated_acord = await acordsvc.create(this.app.id, this.insurer.id, 'gl');
+        let error = null;
+        const generated_acord = await acordsvc.create(this.app.id, this.insurer.id, 'gl').catch(function(err){
+            error = err;
+        });
 
         // Check the acord generated successfully
-        if(generated_acord.error){
-            log.error(`Appid: ${this.app.id} Acord form could not be generated for application ${this.app.id} insurer ${this.insurer.id} policy GL: ` + generated_acord.error + __location);
+        if(generated_acord && generated_acord.error || error){
+            log.error(`Appid: ${this.app.id} Acord form could not be generated for application ${this.app.id} insurer ${this.insurer.id}: ` + generated_acord.error + __location);
             return this.return_result('error');
         }
         // Retrieve email address to send to
@@ -51,47 +55,29 @@ module.exports = class ACORDGL extends Integration{
             'agencyLocationId': this.app.agencyLocation.id
         }
 
-        const chunks = [];
+        const attachment = {
+            'content': generated_acord.doc.toString('base64'),
+            'filename': 'acordGL.pdf',
+            'type': 'application/pdf',
+            'disposition': 'attachment'
+        };
 
-        generated_acord.doc.on('data', function(chunk){
-            chunks.push(chunk);
-        });
-        // eslint-disable-next-line consistent-this
+        const attachmentList = [attachment];
+        const emailResp = await emailsvc.send(acord_email, email_subject, email_body, email_keys, this.app.agencyLocation.agencyNetwork, this.app.agencyLocation.email_brand, this.app.agencyLocation.agencyId, attachmentList);
 
-        generated_acord.doc.on('end', async() => {
-            const result = Buffer.concat(chunks);
-            const attachment = {
-                'content': result.toString('base64'),
-                'filename': 'acord-gl.pdf',
-                'type': 'application/pdf',
-                'disposition': 'attachment'
-            };
-            const attachments = [];
-            attachments.push(attachment);
-            // Email it
-            const emailResp = await emailsvc.send(acord_email, email_subject, email_body, email_keys, this.app.agencyLocation.agencyNetwork, this.app.agencyLocation.email_brand, this.app.agencyLocation.agencyId, attachments);
-            if(emailResp === false){
-                log.error(`Appid: ${this.app.id} Unable to send acord for applicationId ${this.app.id}` + __location)
-            }
-            //  if(emailResp === true){
-            //     self.return_result('referred');
-            // }
-            // else{
-            //     self.return_result('error');
-            // }
-            return emailResp;
-        });
-        // always referred regardless of email .
-        // eslint-disable-next-line no-unused-vars
-        const email_sent = generated_acord.doc.end();
+        if(emailResp === false){
+            log.error(`Appid: ${this.app.id} Unable to send acord for applicationId ${this.app.id}` + __location)
+        }
+
         return this.return_result('acord_emailed');
+
     }
 
 
     // TODO getEmail logic should be in the agency location's BO  NOT HERE.
 
     /**
-	 * Retrieve agency location/insurer email address to send acord form to for GL - This logic snou
+	 * Retrieve agency location/insurer email address to send acord form to for GL
 	 *
 	 * @returns {Promise<string|false>} A promise that contains an email address if resolved, false otherwise
 	 */
@@ -112,9 +98,6 @@ module.exports = class ACORDGL extends Integration{
             log.error(`Appid: ${this.app.id} not policyTypeInfo found for ACORD email for agency location: ${this.app.agencyLocation.id} insurer: ${this.insurer.id}` + __location);
             return false;
         }
-
-        //Retrieve the email address for GL
-        //BO returns JSON.
 
         let email_address = null;
         try{

@@ -330,20 +330,23 @@ module.exports = class CnaWC extends Integration {
             commlPolicy.ContractTerm.ExpirationDt.value = policy.expiration_date.format('YYYY-MM-DD');
             commlPolicy.ContractTerm.DurationPeriod.NumUnits.value = durationPeriod;
             commlPolicy.ContractTerm.DurationPeriod.UnitMeasurementCd.value = "MON";
-            commlPolicy.NumLosses.value = this.app.applicationDocData.claims.length; 
             
             // Should properly fill this out IFF we support history of previous policies
             commlPolicy.OtherOrPriorPolicy[0].InsurerName.value = "None";
 
             // ====== Supplemental Commercial Policy Information ======
-            commlPolicy.CommlPolicySupplement.PolicyTypeCd.value = "SPC";
-            commlPolicy.CommlPolicySupplement.LengthTimeInBusiness.NumUnits.value = this.get_years_in_business();
-            commlPolicy.CommlPolicySupplement.OtherSafetyProgramInd.value = false;
-            commlPolicy.CommlPolicySupplement['com.cna_LengthTimeIndustyManagement'].NumUnits = {};
-            commlPolicy.CommlPolicySupplement['com.cna_NumPowerUnitsOwned'].NumUnits.value = 0;
+            delete commlPolicy.CommlPolicySupplement.PolicyTypeCd; //.value = "SPC";
+            delete commlPolicy.CommlPolicySupplement.OtherSafetyProgramInd; //.value = false;
+            delete commlPolicy.CommlPolicySupplement['com.cna_NumPowerUnitsOwned']; //.NumUnits.value = 0;
 
+            commlPolicy.CommlPolicySupplement.LengthTimeInBusiness.NumUnits.value = this.get_years_in_business();
+            commlPolicy.CommlPolicySupplement['com.cna_LengthTimeIndustyManagement'].NumUnits = {};
+
+            // NOTE: CNA has a bug on their side which requires NumLosses be 0 as a workaround
+            // TODO: Once CNA fixes their bug, use the claims length again... 
+            commlPolicy.NumLosses.value = 0; //this.app.applicationDocData.claims.length; 
             if (this.app.applicationDocData.claims.length > 0) {
-                commlPolicy.Loss = this.getLosses();
+                wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].Loss = this.getLosses();
             }
 
             // ====== Location Information ======
@@ -588,7 +591,9 @@ module.exports = class CnaWC extends Integration {
                 "com.cna_LossTypeCd": {
                     value: "Both"
                 },
-                ClaimStatusCd: claim.open ? "O" : "C",
+                ClaimStatusCd: {
+                    value: claim.open ? "O" : "C"
+                },
                 TotalPaidAmt: {
                     Amt: {
                         value: claim.amountPaid

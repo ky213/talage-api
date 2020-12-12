@@ -218,7 +218,7 @@ module.exports = class ACORD{
 
         // Add activity codes
         let pdfKey = 65;
-        this.activityCodeList.forEach((activityCode, index) => {
+        this.activityCodeList.forEach((activityCode) => {
             const currentLetter = String.fromCharCode(pdfKey);
             pdfDataFieldsObj["GeneralLiability_Hazard_Classification_" + currentLetter] = activityCode.description;
             pdfKey += 1;
@@ -301,7 +301,12 @@ module.exports = class ACORD{
 
             questionTree.slice(15 * currentPage, 15 * (currentPage + 1)).forEach((question, index) => {
                 pdfDataFieldsObj["Question_" + index] = question.questionText;
-                pdfDataFieldsObj["Answer_" + index] = question.answerValue;
+                if(question.answerList.length){
+                    pdfDataFieldsObj["Answer_" + index] = question.answerList.join('/ ');
+                }
+                else{
+                    pdfDataFieldsObj["Answer_" + index] = question.answerValue;
+                }
             })
 
             const pdf = await PdfHelper.createPDF('question-table.pdf', pdfDataFieldsObj);
@@ -355,7 +360,7 @@ module.exports = class ACORD{
             "Policy_Payment_DirectBillIndicator_A": 1,
             "NamedInsured_InspectionContact_FullName_A": this.primaryContactObj.firstName + ' ' + this.primaryContactObj.lastName,
             "NamedInsured_InspectionContact_PhoneNumber_A": this.primaryContactObj.phone,
-            "NamedInsured_InspectionContact_EmailAddress_A": this.primaryContactObj.email,
+            "NamedInsured_InspectionContact_EmailAddress_A": this.primaryContactObj.email
         }
 
         let pdfKey = 65;
