@@ -402,88 +402,59 @@ async function getAgencySocialMetadata(req, res, next) {
     if (!agencySlug) {
         agencySlug = 'talage';
     }
-    // Retrieve the information needed to create the social media sharing metadata
-    const sql = `
-		SELECT
-            ag.agency_network as agencyNetwork,
-            ag.name as agencyName,
-			ag.logo,
-            ag.website,
-            ag.id,
-            ag.additionalInfo
-		FROM clw_talage_agency_landing_pages as alp
-		LEFT JOIN clw_talage_agencies AS ag ON alp.agency = ag.id
-		WHERE
-			ag.slug = ${db.escape(agencySlug)}
-			AND ag.state = 1
-			AND alp.state = 1
-			AND ${pageSlug ? 'alp.slug = ' + db.escape(pageSlug) : 'alp.primary = 1'}
-	`;
-    let agency = null;
+
+    let agencyJson = null;
+    //Get agency record.
+    const agencyBO = new AgencyBO();
+
     try {
-        const result = await db.query(sql);
-        if (result.length === 0) {
-            throw new Error('zero-length query result');
-        }
-        if(result && result.length > 0){
-            agency = result[0];
-        }
+        agencyJson = await agencyBO.getbySlug(agencySlug);
     }
-    catch (error) {
-        log.warn(`Could not retrieve quote engine agency slug '${agencySlug}' (${pageSlug ? 'page ' + pageSlug : 'no page'}) for social metadata: ${error} ${__location}`);
-        res.send(400, {error: 'Could not retrieve agency'});
-        return next();
+    catch (err) {
+        log.error(`Error retrieving Agency in quote engine agency ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${err} ${__location}`);
+        return null;
     }
-    if (!agency) {
+    if(!agencyJson){
+        log.error(`Could not retrieve Agency quote engine agencySlug ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${__location}`);
         res.send(404, {error: 'Could not retrieve agency'});
         return next();
     }
+
     try {
         const agencyNetworkBO = new AgencyNetworkBO();
         // eslint-disable-next-line no-unused-vars
         let error = null;
-        // TODO refactor into BO function with list of default fields to use.
-        const agencyNetworkJSON = await agencyNetworkBO.getById(agency.agencyNetwork).catch(function(err){
+        const agencyNetworkJSON = await agencyNetworkBO.getById(agencyJson.agencyNetworkId).catch(function(err){
             error = err;
             log.error("Get AgencyNetwork Error " + err + __location);
         })
-        if(agencyNetworkJSON && agencyNetworkJSON.footer_logo){
-            agency.footer_logo = agencyNetworkJSON.footer_logo
-        }
         if(agencyNetworkJSON && agencyNetworkJSON.landing_page_content){
-            agency.landingPageContent = agencyNetworkJSON.landing_page_content;
+            agencyJson.landingPageContent = agencyNetworkJSON.landing_page_content;
         }
         else {
             //get from default AgencyNetwork
-            log.debug(`AgencyNetwork ${agency.agencyNetwork} using default landingpage`)
+            log.debug(`AgencyNetwork ${agencyJson.agencyNetworkId} using default landingpage`)
             const agencyNetworkJSONDefault = await agencyNetworkBO.getById(1).catch(function(err){
                 error = err;
                 log.error("Get AgencyNetwork 1 Error " + err + __location);
             });
 
             if(agencyNetworkJSONDefault && agencyNetworkJSONDefault.landing_page_content){
-                agency.landingPageContent = agencyNetworkJSONDefault.landing_page_content;
-                if(!agency.footer_logo){
-                    agency.footer_logo = agencyNetworkJSONDefault.footer_logo;
-                }
+                agencyJson.landingPageContent = agencyNetworkJSONDefault.landing_page_content;
             }
         }
 
-        if (agency.website) {
-            agency.website = await crypt.decrypt(agency.website);
-        }
     }
     catch (error) {
-        log.error(`Could not parse landingPageContent/defaultLandingPageContent in agency slug '${agencySlug}' for social metadata: ${error} ${__location}`);
+        log.error(`Could not parse landingPageContent in agency slug '${agencySlug}' for social metadata: ${error} ${__location}`);
         res.send(400, {error: 'Could not process agency data'});
         return next();
     }
 
     try {
-        agency.additionalInfo = JSON.parse(agency.additionalInfo);
 
-        if (agency.additionalInfo && agency.additionalInfo.socialMediaTags && agency.additionalInfo.socialMediaTags.facebookPixel) {
-            agency.facebookPixel = agency.additionalInfo.socialMediaTags.facebookPixel;
+        if (agencyJson.additionalInfo && agencyJson.additionalInfo.socialMediaTags && agencyJson.additionalInfo.socialMediaTags.facebookPixel) {
+            agencyJson.facebookPixel = agencyJson.additionalInfo.socialMediaTags.facebookPixel;
         }
 
     }
@@ -491,19 +462,17 @@ async function getAgencySocialMetadata(req, res, next) {
         log.error(`Getting Facebook Pixel ${err} ${__location}`);
     }
 
-    if(!agency.landingPageContent){
-        agency.landingPageContent = {bannerHeadingDefault: ""};
+    if(!agencyJson.landingPageContent){
+        agencyJson.landingPageContent = {bannerHeadingDefault: ""};
     }
-    if(!agency.defaultLandingPageContent){
-        agency.defaultLandingPageContent = {bannerHeadingDefault: ""}
-    }
+  
 
     res.send(200, {
-        metaTitle: agency.agencyName,
-        metaDescription: agency.landingPageContent.bannerHeadingDefault ? agency.landingPageContent.bannerHeadingDefault : agency.defaultLandingPageContent.bannerHeadingDefault,
-        metaImage: `${global.settings.IMAGE_URL}/public/agency-logos/${agency.logo}`,
-        metaURL: agency.website,
-        metaPixel: agency.facebookPixel
+        metaTitle: agencyJson.name,
+        metaDescription: agencyJson.landingPageContent.bannerHeadingDefault ? agencyJson.landingPageContent.bannerHeadingDefault : agencyJson.defaultLandingPageContent.bannerHeadingDefault,
+        metaImage: `${global.settings.IMAGE_URL}/public/agency-logos/${agencyJson.logo}`,
+        metaURL: agencyJson.website,
+        metaPixel: agencyJson.facebookPixel
     });
     return next();
 }

@@ -367,7 +367,7 @@ module.exports = class AgencyLocationBO{
             if (findCount === false) {
                 let docList = null;
                 try {
-                    log.debug("AgencyLocation GetList query " + JSON.stringify(query) + __location)
+                    //log.debug("AgencyLocation GetList query " + JSON.stringify(query) + __location)
                     docList = await AgencyLocationMongooseModel.find(query,queryProjection, queryOptions);
                     if((getAgencyName || loadChildren) && docList.length > 0){
                         //Get Agency Name -- potential change to one request to mongo and match lists.
