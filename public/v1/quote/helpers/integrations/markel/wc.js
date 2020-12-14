@@ -1267,13 +1267,22 @@ module.exports = class MarkelWC extends Integration {
             if (response[rquIdKey].errors[1]) {
                 declinedReasons = response[rquIdKey].errors[1].DeclineReasons;
             }
+            else if (response[rquIdKey].errors[0] && typeof response[rquIdKey].errors[0] === 'string') {
+                this.reasons.push(`Markel  Error ${response[rquIdKey].errors[0]}`);
+            }
+            else {
+                for(const errorNode of response[rquIdKey].errors){
+                    this.reasons.push(`Markel  Error ${JSON.stringify(errorNode)}`);
+                }
+                return this.return_result('error');
+            }
         }
 
         if (response[rquIdKey].underwritingDecisionCode === 'DECLINED') {
             this.reasons.push(declinedReasons);
             return this.return_result('declined');
         }
-        this.reasons.push(`Markel does not cover ${this.app.business.industry_code_description} in ${primaryAddress.territory}`);
+        this.reasons.push(`Markel Error unknown for ${this.app.business.industry_code_description} in ${primaryAddress.territory}`);
         return this.return_result('error');
 
     }
