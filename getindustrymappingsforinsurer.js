@@ -47,6 +47,8 @@ function logSuccess(message){
     console.log(colors.green(message));
 }
 
+// NOTE: This list will need to be updated as we add insurers (or update existing insurers) with Industry Codes
+// To add an insurer, simply add the insurer slug to the list below...
 const validInsurers = [
     "cna",
     "chubb",
@@ -69,7 +71,11 @@ async function main(){
     if (!cliArgs || !cliArgs.length > 0) {
         logErrorAndExit('Insurer slug not provided as command line argument. Stopping.');
     } else if (!validInsurers.includes(cliArgs[0])) {
-        logErrorAndExit(`Provided insurer slug "${cliArgs[0]}" is not valid. Please provide one of the following: \n${validInsurers.join(', ')}. \nStopping.`);
+        logErrorAndExit(
+            `Provided insurer slug "${cliArgs[0]}" is not valid. Please provide one of the following:\n` + 
+            `${validInsurers.join(', ')}.\n` + 
+            `If this insurer has been updated to have Industry Codes, please update the validInsurers array in this script with their slug. Stopping.`
+        );
     }
 
     // Get insurer information using passed in slug
