@@ -305,12 +305,27 @@ module.exports = class HiscoxGL extends Integration {
                     if (questionAnswer === null) {
                         questionAnswer = 0;
                     }
+                    else {
+                        try {
+                            questionAnswer = parseInt(questionAnswer, 10);
+                        }
+                        catch (error) {
+                            questionAnswer = 0;
+                        }
+                    }
                     // EstmtdPayrollSCContractors is a duplicate of EstmtdPayrollSC but they require both. Since we only ask EstmtdPayrollSC,
                     // we need to add the duplicate answer here.
                     this.questionList.push({
                         nodeName: 'EstmtdPayrollSCContractors',
                         answer: questionAnswer
                     });
+
+                    // Add total payroll
+                    this.questionList.push({
+                        nodeName: 'EstmtdPayrollSC',
+                        answer: this.get_total_payroll() + questionAnswer
+                    });
+                    continue;
                 }
                 this.questionList.push({
                     nodeName: elementName,
@@ -412,7 +427,7 @@ module.exports = class HiscoxGL extends Integration {
                     if (errorResponse.Code && errorResponse.Description) {
                         if (errorResponse.Code[0].startsWith("DECLINE")) {
                             // Return an error result
-                            return this.return_result("declined");
+                            return this.client_declined(`${errorResponse.Code[0]}: ${errorResponse.Description}`);
                         }
                         else {
                             // Non-decline error
