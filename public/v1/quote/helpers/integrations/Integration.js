@@ -75,7 +75,12 @@ module.exports = class Integration {
 
         // Initialize the integration
         if (typeof this._insurer_init === "function") {
-            this._insurer_init();
+            try{
+                this._insurer_init();
+            }
+            catch(err){
+                log.error('Integration insurer')
+            }
         }
 
         // Apply WC payroll caps for Nevada
@@ -96,7 +101,6 @@ module.exports = class Integration {
                 });
             });
         }
-
     }
 
     /**
@@ -219,20 +223,21 @@ module.exports = class Integration {
     }
 
     /**
-     * Retrieves an Employers-specific NCCI code for a given activity code
+     * Retrieves an insurer-specific NCCI code for a given activity code
      *
+     * @param {number} insurerId - The insurer ID
      * @param {string} territory - The 2 character territory code
      * @param {number} activityCode - The 4 digit Talage activity code
      * @returns {number} The 4 digit NCCI code
      */
-    async get_employers_code_for_activity_code(territory, activityCode) {
+    async get_insurer_code_for_activity_code(insurerId, territory, activityCode) {
         const sql = `
             SELECT inc.code, inc.sub, inc.attributes
             FROM clw_talage_insurer_ncci_codes AS inc 
             LEFT JOIN clw_talage_activity_code_associations AS aca ON aca.insurer_code = inc.id
             WHERE
                 inc.state = 1
-                AND inc.insurer = 1
+                AND inc.insurer = ${insurerId}
                 AND inc.territory = '${territory}'
                 AND aca.code = ${activityCode};
         `;
@@ -254,6 +259,7 @@ module.exports = class Integration {
             }
             catch (error) {
                 // continue. We may not need the attributes column
+                log.error('JSON.parse(result[0].attributes) ' + error + __location);
                 result[0].attributes = {};
             }
         }
@@ -270,14 +276,14 @@ module.exports = class Integration {
     async get_national_ncci_code_from_activity_code(territory, activityCode) {
         // Retrieve a national NCCI code.
         // NOTE: we do not currently have these mapped but are in process; Adam is getting them.
-        // Employers codes mostly follow the national NCCI code numbering and we have most Employers codes
-        // mapped. So we use the employers code mapping for now until we have an official map of the
+        // Liberty codes mostly follow the national NCCI code numbering and we have most Liberty codes
+        // mapped. So we use the Liberty code mapping for now until we have an official map of the
         // national NCCI codes. -SF
-        const employersRecord = await this.get_employers_code_for_activity_code(territory, activityCode);
-        if (!employersRecord) {
+        const libertyRecord = await this.get_insurer_code_for_activity_code(14, territory, activityCode);
+        if (!libertyRecord) {
             return null;
         }
-        return employersRecord.code;
+        return libertyRecord.code;
     }
 
     /**
@@ -288,7 +294,9 @@ module.exports = class Integration {
      * @returns {number} The 6+ digit naics code
      */
     async get_naics_code_from_activity_code(territory, activityCode) {
-        const employersRecord = await this.get_employers_code_for_activity_code(territory, activityCode);
+        // The Employers codes have associated NAICs codes. Again, this needs to be mapped
+        // which is in progress -SF
+        const employersRecord = await this.get_insurer_code_for_activity_code(1, territory, activityCode);
         if (!employersRecord) {
             return null;
         }
@@ -496,24 +504,40 @@ module.exports = class Integration {
         if (question.type === 'Checkboxes') {
             const answers = [];
 
-            // Loop over each possible answer
-            for (const answer_id of question.answer) {
-                // Make sure the answer is permitted
-                if (!Object.prototype.hasOwnProperty.call(question.possible_answers, answer_id)) {
-                    // This shouldn't have happened, throw an error
-                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible. This should have been caught in the validation stage.` + __location);
-                    log.verbose(`Appid: ${this.app.id} The question is as follows:`);
-                    log.verbose(util.inspect(question, false, null));
-                    throw new Error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible`);
+            // Ensure the answers are an array
+            if (Array.isArray(question.answer)) {
+                // Loop over each possible answer
+                for (let answer_id of question.answer) {
+                    // Make sure the answer is permitted
+
+                    // Ensure that the answer_id is a string, not a number.
+                    // Note: on AWS servers, answer_id is a number; on other platforms, it is a string.
+                    if (typeof answer_id !== "string") {
+                        try {
+                            answer_id = answer_id.toString();
+                        }
+                        catch (error) {
+                            log.error(`Could not convert answer_id value ${answer_id} (type ${typeof answer_id}) to a string. Using original value.`);
+                        }
+                    }
+
+                    if (!Object.prototype.hasOwnProperty.call(question.possible_answers, answer_id)) {
+                        // This shouldn't have happened, throw an error
+                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible. This should have been caught in the validation stage.` + __location);
+                        log.verbose(`Appid: ${this.app.id} The question is as follows:`);
+                        log.verbose(util.inspect(question, false, null));
+                        throw new Error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} encountered an answer to a question that is not possible`);
+                    }
+
+                    // Add the answer to the answers array
+                    answers.push(question.possible_answers[answer_id].answer);
                 }
-
-                // Add the answer to the answers array
-                answers.push(question.possible_answers[answer_id].answer);
+                // Return the answers as a comma separated string
+                answer = answers.join(', ');
             }
-
-            // Return the answers as a comma separated string
-            answer = answers.join(', ');
-
+            else {
+                answer = '';
+            }
             // If this is a Boolean or Select List question, get the answer expected by the carrier
         }
         else if (question.type === 'Yes/No' || question.type === 'Select List') {
@@ -702,16 +726,21 @@ module.exports = class Integration {
 
                 // Convert this into an object for easy reference
                 const question_details = {};
-                results.forEach((result) => {
-                    question_details[result.question] = {
-                        attributes: result.attributes ? JSON.parse(result.attributes) : '',
-                        identifier: result.identifier,
-                        universal: result.universal
-                    };
-                    if (result.universal) {
-                        this.universal_questions.push(result.question);
-                    }
-                });
+                try{
+                    results.forEach((result) => {
+                        question_details[result.question] = {
+                            attributes: result.attributes ? JSON.parse(result.attributes) : '',
+                            identifier: result.identifier,
+                            universal: result.universal
+                        };
+                        if (result.universal) {
+                            this.universal_questions.push(result.question);
+                        }
+                    });
+                }
+                catch(err){
+                    log.error('Question details: ' + err + __location);
+                }
 
                 // Return the mapping
                 fulfill(question_details);

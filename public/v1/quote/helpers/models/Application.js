@@ -168,7 +168,6 @@ module.exports = class Application {
         // requestedInsureres not longer sent from Web app.
         //get_insurers(requestedInsurers) {
         return new Promise(async(fulfill, reject) => {
-            log.debug("IN GET INSURERS FROM REQUESTED INSURERS FOR Agency Location ID " + this.agencyLocation.id)
             // Get a list of desired insurers
             let desired_insurers = [];
             let stop = false;
@@ -304,46 +303,43 @@ module.exports = class Application {
         const policyTypeReferred = {};
         const policyTypeQuoted = {};
 
-        let requestedInsurer = null;
-        if (global.settings.QUOTE_ONLY_INSURER) {
-            requestedInsurer = global.settings.QUOTE_ONLY_INSURER;
-            log.info('================================================================================');
-            log.info(`QUOTE_ONLY_INSURER is set. Running quotes again '${requestedInsurer}'`);
-            log.info('================================================================================');
-        }
-
         this.policies.forEach((policy) => {
+
             // Generate quotes for each insurer for the given policy type
             this.insurers.forEach((insurer) => {
                 // Only run quotes against requested insurers (if present)
-                if (requestedInsurer && requestedInsurer !== insurer.slug) {
-                    return;
-                }
                 // Check that the given policy type is enabled for this insurer
                 if (insurer.policy_types.indexOf(policy.type) >= 0) {
+
                     // Get the agency_location_insurer data for this insurer from the agency location
                     if (this.agencyLocation.insurers[insurer.id].policy_type_info) {
+
                         //Retrieve the data for this policy type
                         const agency_location_insurer_data = this.agencyLocation.insurers[insurer.id].policy_type_info[policy.type];
                         if (agency_location_insurer_data) {
-                            if (agency_location_insurer_data.enabled) {
-                                let slug = '';
-                                // If agency wants to send acord, send acord
-                                if (agency_location_insurer_data.useAcord === true && insurer.policy_type_details[policy.type].acord_support === 1) {
-                                    slug = 'acord';
-                                }
-                                else if (insurer.policy_type_details[policy.type.toUpperCase()].api_support === 1) {
-                                    // Otherwise use the api
-                                    slug = insurer.slug;
-                                }
-                                let policyTypeAbbr = '';
-                                if(policy && policy.type){
-                                    policyTypeAbbr = policy.type.toLowerCase()
-                                }
-                                else {
-                                    log.error(`Policy Type info not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} Policy ${JSON.stringify(policy)}` + __location);
-                                }
 
+                            if (agency_location_insurer_data.enabled) {
+                                let policyTypeAbbr = '';
+                                let slug = '';
+                                try{
+                                    // If agency wants to send acord, send acord
+                                    if (agency_location_insurer_data.useAcord === true && insurer.policy_type_details[policy.type].acord_support === 1) {
+                                        slug = 'acord';
+                                    }
+                                    else if (insurer.policy_type_details[policy.type.toUpperCase()].api_support === 1) {
+                                        // Otherwise use the api
+                                        slug = insurer.slug;
+                                    }
+                                    if(policy && policy.type){
+                                        policyTypeAbbr = policy.type.toLowerCase()
+                                    }
+                                    else {
+                                        log.error(`Policy Type info not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} Policy ${JSON.stringify(policy)}` + __location);
+                                    }
+                                }
+                                catch(err){
+                                    log.error('SLUG ERROR ' + err + __location);
+                                }
 
                                 const normalizedPath = `${__dirname}/../integrations/${slug}/${policyTypeAbbr}.js`;
                                 if (slug.length > 0 && fs.existsSync(normalizedPath)) {
@@ -886,7 +882,27 @@ module.exports = class Application {
                 const question_promises = [];
                 for (const question_id in this.questions) {
                     if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
-                        question_promises.push(this.questions[question_id].validate());
+                        const question = this.questions[question_id];
+                        // Determine if this question is visible. We walk up through the ancestors to make sure each of them
+                        // are visible. If any of them are not, then this question is not visible.
+                        let questionIsVisible = true;
+                        let childQuestionId = question_id.toString();
+                        while (this.questions[childQuestionId].parent !== 0) {
+                            // Get the parent ID. Ensure it is a string since the questions keys are strings.
+                            let parentQuestionId = this.questions[childQuestionId].parent.toString();
+                            // Determine if the child question is visible
+                            if (this.questions[childQuestionId].parent_answer !== this.questions[parentQuestionId].answer_id) {
+                                // Not visible so clear the flag and break
+                                questionIsVisible = false;
+                                break;
+                            }
+                            // Move up to the parent
+                            childQuestionId = parentQuestionId;
+                        }
+                        // Only validate questions which are visible
+                        if (questionIsVisible) {
+                            question_promises.push(question.validate());
+                        }
                     }
                 }
                 await Promise.all(question_promises).catch(function(error) {

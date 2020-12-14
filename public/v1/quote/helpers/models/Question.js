@@ -145,15 +145,19 @@ module.exports = class Question{
                     }
                 }
                 else if (typeof answer === 'number') {
-                    // Only 1 checkbox was selected and it was retrieved as a number (answer ID) instead of a pipe-delimited string. Put it in an array by itself.
+                    // Only 1 checkbox was selected and it is number in the JSON
                     answer = [answer];
                 }
-                // Every answer must be numeric, if they are not, they are wrong
-                if(typeof answer !== 'object' || !answer.length){
-                    const errorMessage = `Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)}) (For Checkbox questions, expecting an array of answer IDs) answer: ${answer}`
-                    log.error(errorMessage + __location);
-                    reject(serverHelper.requestError(errorMessage));
-                    return;
+                else if(typeof answer === 'string'){
+                    // Only 1 checkbox was selected and it is string in the JSON
+                    //convert to number
+                    const answerInt = parseInt(answer, 10);
+                    answer = [answerInt]
+                }
+                // If we don't have a valid array, that means they either didn't provide an array, or we couldn't parse an array above.
+                // This can happen if they don't enable any checkboxes for a question. -SF
+                if (!Array.isArray(answer)) {
+                    answer = [];
                 }
 
                 // Loop through each answer and make sure they are what we are expecting
