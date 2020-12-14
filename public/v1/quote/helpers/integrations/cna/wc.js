@@ -26,13 +26,11 @@ const wcRequest = require('./wc_request.json');
  * Quote URL
  *  Required Headers: 
  *  branch-producer-cd - combination of branch code and producer code (test: 010000000)
- *  agentId - (test: TEST19)
+ *  agentId - (test: TALAGAPI, prod: TLAGEAPI)
  *  Content-Type - application/json
  *  Accept - application/json
 */
-
-//TODO: Implement url / cred swap between dev and prod 
-const HOST = 'drt-apis.cna.com';
+let host = "";
 const QUOTE_URL = '/policy/small-business/full-quote';
 const AUTH_URL = '/security/external-token/small-business';
 
@@ -130,6 +128,23 @@ module.exports = class CnaWC extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an error if rejected
 	 */
     async _insurer_quote() {
+
+        // swap host and creds based off whether this is sandbox or prod
+        let agentId = null;
+        let basicAuth = null;
+        let branchProdCd = null;
+        if (this.insurer && this.insurer.useSandbox) {
+            agentId = "TALAGAPI";
+            host = "drt-apis.cna.com";
+            basicAuth = "VEFMQUdBUEk6VEdhOTU4M2h3OTM3MTghIw==";
+            branchProdCd = "010018297"
+        } else {
+            agentId = "TLAGEAPI";
+            host = "apis.cna.com";
+            basicAuth = "VExBR0VBUEk6VEdzNzQ5MXNkNzkyMjUhPw==";
+            branchProdCd = "540085091";
+        }
+
         const business = this.app.business;
         const policy = this.app.policies[0]; // currently just ['WC']
 
@@ -226,7 +241,6 @@ module.exports = class CnaWC extends Integration {
 
             // ====== Agency API Information ======
             wcRequest.InsuranceSvcRq[0].WorkCompPolicyQuoteInqRq[0].InsuredOrPrincipal[0].ItemIdInfo.AgencyId.value = `${contractNumber}-${branchCode}`;
-
         }
         catch (err) {
             return this.client_error(`CNA WC JSON processing error ${err} ` + __location);
@@ -382,7 +396,7 @@ module.exports = class CnaWC extends Integration {
         // =================================================================
 
         // authenticate with CNA before running quote
-        const jwt = await this.auth();
+        const jwt = await this.auth(basicAuth);
         if (jwt.includes("Error")) {
             log.error(jwt);
             this.client_connection_error(__location, jwt);
@@ -391,8 +405,8 @@ module.exports = class CnaWC extends Integration {
         // create request headers using auth access token (jwt)
         const headers = {
             'authorization': `Bearer ${jwt.trim()}`,
-            'branch-producer-cd': "010018297",
-            'agentid': 'TALAGAPI',
+            'branch-producer-cd': branchProdCd,
+            'agentid': agentId,
             'content-type': 'application/json'
         }
 
@@ -403,7 +417,7 @@ module.exports = class CnaWC extends Integration {
             log.debug("=================== QUOTE REQUEST ===================");
             log.debug("CNA request: " + JSON.stringify(wcRequest, null, 4));
             log.debug("=================== QUOTE REQUEST ===================");
-            result = await this.send_json_request(HOST, QUOTE_URL, JSON.stringify(wcRequest), headers, "POST");
+            result = await this.send_json_request(host, QUOTE_URL, JSON.stringify(wcRequest), headers, "POST");
         }
         catch (error) {
             let errorJSON = null;
@@ -417,6 +431,8 @@ module.exports = class CnaWC extends Integration {
             log.debug("=================== QUOTE ERROR ===================");
             log.error("CNA WC send_json_request error " + JSON.stringify(errorJSON ? errorJSON : "Null", null, 4));
             log.debug("=================== QUOTE ERROR ===================");
+            
+            this.reasons.push(errorJSON);
 
             let errorMessage = "";
             try {
@@ -425,7 +441,7 @@ module.exports = class CnaWC extends Integration {
                 try {
                     errorMessage = `CNA: status code ${error.httpStatusCode}: ${errorJSON.message}`;
                 } catch (e2) {
-                    log.error(`CNA: Couldn't parse error object for description. Parsing errors: ${[e1, e2]}.`);
+                    log.error(`CNA: Couldn't parse error object for description. Parsing errors: ${JSON.stringify([e1, e2], null, 4)}.`);
                 }
             }
 
@@ -644,7 +660,7 @@ module.exports = class CnaWC extends Integration {
         return workCompRateStates;    
     }
 
-    // generates the WorkCompLocInfo objets
+    // generates the WorkCompLocInfo objects
     getWorkCompLocInfo(location, index) {        
         const wcli = {
             NumEmployees: {value: location.full_time_employees + location.part_time_employees},
@@ -669,11 +685,9 @@ module.exports = class CnaWC extends Integration {
     getNameRef(index) {
         if (index >= 100) {
             return `N${index}`;
-        }
-        else if (index >= 10) {
+        } else if (index >= 10) {
             return `N0${index}`;
-        }
-        else {
+        } else {
             return `N00${index}`;
         }
     }
@@ -736,14 +750,16 @@ module.exports = class CnaWC extends Integration {
         });
     }
 
-    async auth() {
+    async auth(basicAuth) {
         const data = {"id": "11248"}
-        const headers = {headers: {
+        const headers = {
+            headers: {
                 'Content-Type': 'application/json',
-                'Authorization': 'Basic VEFMQUdBUEk6VEdhOTU4M2h3OTM3MTghIw=='
-            }}
+                'Authorization': `Basic ${basicAuth}`
+            }
+        }
         try {
-            const result = await axios.post(`https://${HOST}${AUTH_URL}`, data, headers);
+            const result = await axios.post(`https://${host}${AUTH_URL}`, data, headers);
             return result.data.access_token;
         }
         catch (err) {
