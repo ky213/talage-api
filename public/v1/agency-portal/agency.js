@@ -209,24 +209,7 @@ async function getAgency(req, res, next) {
         log.error('Agency not found after having passed validation' + __location);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     }
-
-    //do some cleanup
-    // eslint-disable-next-line guard-for-in
-    for (const property in agency) {
-        if (property === 'ca_license_number') {
-            agency.caLicenseNumber = agency.ca_license_number
-        }
-        else if (property === 'state') {
-            agency.state = agency.state > 0 ? "Active" : "Inactive";
-        }
-
-        if (typeof agency[property] === 'object' && agency[property] !== null && agency[property].length === 0) {
-            agency[property] = null;
-        }
-    }
-    const agencyNetworkId = agency.agency_network
-    log.debug('agencyNetworkId: ' + agencyNetworkId);
-
+    agency.state = agency.state > 0 ? "Active" : "Inactive";
 
     // Build the response
     const response = {...agency};
@@ -451,9 +434,9 @@ async function postAgency(req, res, next) {
     const newAgencyJSON = {
         name: name,
         email: email,
-        agency_network: req.authentication.agencyNetwork,
-        fname: firstName,
-        lname: lastName,
+        agencyNetworkId: req.authentication.agencyNetwork,
+        firstName: firstName,
+        lastName: lastName,
         slug: slug,
         wholesale: wholesale
     }
@@ -619,7 +602,7 @@ async function updateAgency(req, res, next) {
         return next(serverHelper.requestError('ID is invalid'));
     }
     const id = parseInt(req.body.id, 10);
-
+    req.body.id = id;
     // Get the agencies that we are permitted to manage
     const agencies = await auth.getAgents(req).catch(function(e) {
         error = e;
@@ -661,7 +644,7 @@ async function updateAgency(req, res, next) {
  * @returns {void}
  */
 async function postSocialMediaTags(req, res, next) {
-    let error = false;
+
 
     // Check for data
     if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0 && !req.body.id) {
@@ -670,8 +653,9 @@ async function postSocialMediaTags(req, res, next) {
     }
 
     const agencies = await auth.getAgents(req).catch(function(e) {
-        error = e;
+        log.error("unable to getAgents for user " + e + __location);
     });
+
     const id = parseInt(req.body.id, 10);
 
     // Make sure this Agency Network has access to this Agency
@@ -701,7 +685,7 @@ async function postSocialMediaTags(req, res, next) {
         agencyJSON.additionalInfo.socialMediaTags.facebookPixel = req.body.pixelId;
 
 
-        const result = await agency.saveModel(agencyJSON).catch(function(err) {
+        await agency.saveModel(agencyJSON).catch(function(err) {
             log.error('Save Agency:',err, __location);
         });
 

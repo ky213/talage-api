@@ -171,8 +171,9 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
         const agencyNetworkId = applicationDoc.agencyNetworkid;
         let error = null;
         const agencyBO = new AgencyBO();
+        let agencyJSON = {};
         try{
-            await agencyBO.loadFromId(applicationDoc.agencyId)
+            agencyJSON = await agencyBO.getById(applicationDoc.agencyId)
         }
         catch(err){
             log.error("Error getting agencyBO " + err + __location);
@@ -211,18 +212,18 @@ var processAbandonQuote = async function(applicationDoc, insurerList, policyType
             if(agencyLocationJSON.email){
                 agencyLocationEmail = agencyLocationJSON.email
             }
-            else if(agencyBO.email){
-                agencyLocationEmail = agencyBO.email;
+            else if(agencyJSON.email){
+                agencyLocationEmail = agencyJSON.email;
             }
             //get primary contact from ApplicationDoc.
             const customerContact = applicationDoc.contacts.find(contactTest => contactTest.primary === true);
 
             const customerEmail = customerContact.email;
-            let agencyPhone = agencyBO.phone;
-            let agencyWebsite = agencyBO.website;
+            let agencyPhone = agencyJSON.phone;
+            let agencyWebsite = agencyJSON.website;
 
 
-            let agencyName = agencyBO.name;
+            let agencyName = agencyJSON.name;
 
 
             if(applicationDoc.wholesale || applicationDoc.agencyId === 1 || applicationDoc.agencyId === 2){

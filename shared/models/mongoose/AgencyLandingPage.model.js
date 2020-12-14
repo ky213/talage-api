@@ -18,6 +18,8 @@ const MetaSchema = new Schema({
     title: {type: String, required: false}
 },{_id : false})
 
+const opts = {toJSON: {virtuals: true}};
+
 const AgencyLandingPageSchema = new Schema({
     agencyLandingPageId: {type: String, required: [true, 'agencyLandingPageId required'], unique: true},
     systemId: {type: Number, unique: true},
@@ -31,7 +33,7 @@ const AgencyLandingPageSchema = new Schema({
     industryCodeCategoryId: {type: Number},
     colorSchemeId: {type: Number},
     heading: {type: String, required: false},
-    hits: {type: Number},
+    hits: {type: Number, default: 0},
     introHeading: {type: String, required: false},
     introText: {type: String, required: false},
     showIntroText: {type: Boolean, default: false},
@@ -44,7 +46,35 @@ const AgencyLandingPageSchema = new Schema({
     agencyPortalModifiedUser: {type: String},
     agencyPortalDeletedUser: {type: String},
     active: {type: Boolean, default: true}
-})
+},opts)
+
+// //***** Virtuals old field names ****************** */
+
+AgencyLandingPageSchema.virtual('id').
+    get(function() {
+        if(this.systemId){
+            return this.systemId;
+        }
+        else {
+            return 0;
+        }
+    });
+
+AgencyLandingPageSchema.virtual('agency').
+    get(function() {
+        if(this.agencyId){
+            return this.agencyId;
+        }
+        else {
+            return 0;
+        }
+    }).
+    set(function(v){
+        this.agencyId = v;
+    });
+
+
+
 
 AgencyLandingPageSchema.plugin(timestamps);
 AgencyLandingPageSchema.plugin(mongooseHistory);
@@ -63,12 +93,6 @@ AgencyLandingPageSchema.pre('save', function(next) {
     next();
 });
 
-
-// Configure the 'AgencyLandingPageSchema' to use getters and virtuals when transforming to JSON
-AgencyLandingPageSchema.set('toJSON', {
-    getters: true,
-    virtuals: true
-});
 
 mongoose.set('useCreateIndex', true);
 mongoose.model('AgencyLandingPage', AgencyLandingPageSchema);

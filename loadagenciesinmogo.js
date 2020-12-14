@@ -154,112 +154,110 @@ function mapToMongooseJSON(sourceJSON, targetJSON, propMappings){
 async function runFunction() {
 
 
-    const AgencyLandingPageBO = global.requireShared('./models/AgencyLandingPage-BO.js');
-    var AgencyLandingPage = require('mongoose').model('AgencyLandingPage');
+    const AgencyBO = global.requireShared('models/Agency-BO.js');
+    var Agency = require('mongoose').model('Agency');
 
     // local development of tasks run one of the task.
 
     //load message model and get message list.
-    const sql = `SELECT
-                id as systemId,
-                id as mysqlId,
-                agency as agencyId,
-                agency_location_id as agencyLocationId,
-                about,
-                banner,
-                meta,
-                hits,
-                color_scheme AS 'colorSchemeId',
-                industry_code AS 'industryCodeId',
-                industry_code_category AS 'industryCodeCategoryId',
-                intro_heading AS 'introHeading',
-                intro_text AS 'introText',
-                name,
-                show_industry_section AS 'showIndustrySection',
-                slug,
-                \`primary\`,
-                heading,
-                additionalInfo,
-                created as  createdAt,
-                modified as  updateAt
-            FROM clw_talage_agency_landing_pages
-            WHERE agency > 0 AND state > 0 order by id `;
+    const sql = "SELECT id from clw_talage_agencies where state > 0  order by id ";
 
-    const mysqlRows = await db.query(sql).catch(function(error) {
+    const result = await db.query(sql).catch(function(error) {
         // Check if this was
         log.error("error");
         process.exit(1);
     });
-    log.debug("Got MySql applications - mysqlRows.length - " + mysqlRows.length);
-    for(let i = 0; i < mysqlRows.length; i++){
-        let mysqlRec = mysqlRows[i];
+    log.debug("Got MySql agencies - result.length - " + result.length);
+    for(let i = 0; i < result.length; i++){
         let newMongoDoc = true;
         //load applicationBO
-
-        const agencyLandingPageBO = new AgencyLandingPageBO();
-        let loadResp = true;
-        // const mysqlId = mysqlRows[i].id;
-        // try{
-        //     loadResp = await agencyLandingPageBO.loadFromId(mysqlId);
-        // }
-        // catch(err){
-        //     log.error("load application error " + err)
-        // }
+        const agencyBO = new AgencyBO();
+        let loadResp = false;
+        const mysqlId = result[i].id;
+        try{
+            loadResp = await agencyBO.loadFromIdMysql(mysqlId);
+        }
+        catch(err){
+            log.error("load application error " + err)
+        }
         if(loadResp){
-            //let agencyLocationJSON = {};
-            // try{
-            //     const mongoApp = await agencyLandingPageBO.getMongoDocbyMysqlId(mysqlId)
-            //     if(mongoApp){
-            //         agencyLocationJSON = mongoApp;
-            //         newMongoDoc = false;
-            //     }
-            // }
-            // catch(err){
-            //     log.error("Getting mongo application error " + err + __location)
-            // }
-
-            if(mysqlRec.additionalInfo && mysqlRec.additionalInfo.showIntroText){
-                mysqlRec.showIntroText = mysqlRec.additionalInfo.showIntroText;
+            let agencyJSON = {};
+            try{
+                const mongoApp = await agencyBO.getMongoDocbyMysqlId(mysqlId)
+                if(mongoApp){
+                    agencyJSON = mongoApp;
+                    newMongoDoc = false;
+                }
             }
-            if(mysqlRec.meta){
-                mysqlRec.meta = JSON.parse(mysqlRec.meta);
+            catch(err){
+                log.error("Getting mongo application error " + err + __location)
+            }
+            agencyJSON.mysqlId = agencyBO.id;
+            agencyJSON.systemId = agencyBO.id;
+
+            //mapp app to app
+            const alPropMappings = {
+                agency_network: "agencyNetworkId",
+                ca_license_number: "caLicenseNumber",
+                "fname": "firstName",
+                "lname": "lastName",
+                wholesale_agreement_signed: "wholesaleAgreementSigned",
+                docusign_envelope_id: "docusignEnvelopeId",
+                do_not_report: "doNotReport",
+                enable_optout: "enabelOptOut",
+                "created": "createdAt",
+                "modified": "updateAt",
+                "created_by": "agencyPortalCreatedUser",
+                "modified_by": "agencyPortalModifiedUser"
+            }
+            if(agencyBO.created === '0000-00-00 00:00:00'){
+                delete agencyBO.created
+            }
+            if(agencyBO.modified === '0000-00-00 00:00:00'){
+                delete agencyBO.modified
+            }
+            mapToMongooseJSON(agencyBO, agencyJSON, alPropMappings);
+
+            if(agencyBO.additionalInfo){
+                agencyJSON.additionalInfo = agencyBO.additionalInfo;
+                if(agencyJSON.additionalInfo.donotShowEmailAddress){
+                    agencyJSON.donotShowEmailAddress = agencyJSON.additionalInfo.donotShowEmailAddress;
+                }
             }
 
-            let agencyLandingPageModel = new AgencyLandingPage(mysqlRec);
-            log.debug("Pre Save " + JSON.stringify(agencyLandingPageModel));
-            // log.debug("insert agencyLocationModel Doc: " + JSON.stringify(agencyLocationModel))
+            let agencyModel = new Agency(agencyJSON);
+            log.debug("Pre Save " + JSON.stringify(agencyModel));
             if(newMongoDoc){
-                await agencyLandingPageModel.save().catch(function(err) {
-                    log.error('Mongo agencyLandingPageModel Save err ' + err + __location);
+                await agencyModel.save().catch(function(err) {
+                    log.error('Mongo agencyModel Save err ' + err + __location);
                     process.exit(1);
                 });
-                log.debug("inserted agencyLandingPageModel " + agencyLandingPageModel.agencyLandingPageId + " mysqlId: " + agencyLandingPageModel.mysqlId);
+                log.debug("inserted agencyId " + agencyModel.agencyId + " mysqlId: " + mysqlId);
             }
-            // else {
-            //     try {
-            //         const updateAppDoc = JSON.parse(JSON.stringify(agencyLandingPageModel));
-            //         const changeNotUpdateList = ["active",
-            //             "_id",
-            //             "id",
-            //             "mysqlId",
-            //             "agencyLocationId",
-            //             "uuid"]
-            //         for (let j = 0; j < changeNotUpdateList.length; j++) {
-            //             if (updateAppDoc[changeNotUpdateList[j]]) {
-            //                 delete updateAppDoc[changeNotUpdateList[j]];
-            //             }
-            //         }
-            //         const query = {"agencyLocationId": agencyLandingPageModel.agencyLocationId};
-            //         await AgencyLandingPage.updateOne(query, updateAppDoc);
-            //         log.debug("UPDATED: agencyLocationId " + agencyLandingPageModel.agencyLocationId + " mysqlId: " + mysqlId);
+            else {
+                try {
+                    const updateAppDoc = JSON.parse(JSON.stringify(agencyModel));
+                    const changeNotUpdateList = ["active",
+                        "_id",
+                        "id",
+                        "mysqlId",
+                        "agencyId"]
+                    for (let j = 0; j < changeNotUpdateList.length; j++) {
+                        if (updateAppDoc[changeNotUpdateList[j]]) {
+                            delete updateAppDoc[changeNotUpdateList[j]];
+                        }
+                    }
+                    const query = {"agencyId": agencyModel.agencyId};
+                    await Agency.updateOne(query, updateAppDoc);
+                    log.debug("UPDATED: agencyId " + agencyModel.agencyId + " mysqlId: " + mysqlId);
 
-            //     }
-            //     catch(err){
-            //         log.error("Updating Application error " + err + __location);
-            //         process.exit(1);
-            //     }
+                }
+                catch(err){
+                    log.error("Updating Agency error " + err + __location);
+                    process.exit(1);
+                }
 
-            // }
+            }
         }
 
 

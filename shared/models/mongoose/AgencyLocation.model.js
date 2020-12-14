@@ -39,6 +39,8 @@ const AgencyLocationInsurersSchema = new Schema({
     policyTypeInfo: PolicyTypeInfoSchema
 },{_id : false})
 
+const opts = {toJSON: {virtuals: true}};
+
 const AgencyLocationSchema = new Schema({
     agencyLocationId: {type: String, required: [true, 'agencyLocationId required'], unique: true},
     systemId: {type: Number, unique: true},
@@ -63,7 +65,72 @@ const AgencyLocationSchema = new Schema({
     agencyPortalModifiedUser: {type: String},
     agencyPortalDeletedUser: {type: String},
     active: {type: Boolean, default: true}
-})
+},opts)
+
+// //***** Virtuals old field names ****************** */
+
+AgencyLocationSchema.virtual('id').
+    get(function() {
+        if(this.systemId){
+            return this.systemId;
+        }
+        else {
+            return 0;
+        }
+    });
+
+AgencyLocationSchema.virtual('agency').
+    get(function() {
+        if(this.agencyId){
+            return this.agencyId;
+        }
+        else {
+            return 0;
+        }
+    }).
+    set(function(v){
+        this.agencyId = v;
+    });
+
+AgencyLocationSchema.virtual('fname').
+    get(function() {
+        if(this.firstName){
+            return this.firstName;
+        }
+        else {
+            return "";
+        }
+    });
+
+AgencyLocationSchema.virtual('lname').
+    get(function() {
+        if(this.lastName){
+            return this.lastName;
+        }
+        else {
+            return "";
+        }
+    });
+
+AgencyLocationSchema.virtual('state_abbr').
+    get(function() {
+        if(this.state){
+            return this.state;
+        }
+        else {
+            return "";
+        }
+    });
+
+AgencyLocationSchema.virtual('zip').
+    get(function() {
+        if(this.zipcode){
+            return this.zipcode;
+        }
+        else {
+            return "";
+        }
+    });
 
 AgencyLocationSchema.plugin(timestamps);
 AgencyLocationSchema.plugin(mongooseHistory);
@@ -82,12 +149,6 @@ AgencyLocationSchema.pre('save', function(next) {
     next();
 });
 
-
-// Configure the 'AgencyLocationSchema' to use getters and virtuals when transforming to JSON
-AgencyLocationSchema.set('toJSON', {
-    getters: true,
-    virtuals: true
-});
 
 mongoose.set('useCreateIndex', true);
 mongoose.model('AgencyLocation', AgencyLocationSchema);

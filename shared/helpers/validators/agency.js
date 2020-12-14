@@ -28,7 +28,7 @@ module.exports = async function(agent){
         if (had_error) {
             return false;
         }
-        else if(agency && agency.id > 0){
+        else if(agency && agency.systemId > 0){
             return true;
         }
         else {

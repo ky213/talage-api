@@ -11,11 +11,13 @@ const fileSvc = global.requireShared('services/filesvc.js');
 const {'v4': uuidv4} = require('uuid');
 var AgencyEmail = require('mongoose').model('AgencyEmail');
 
-const additionalInfo2toplevel = ['donotShowEmailAddress'];
+var AgencyModel = require('mongoose').model('Agency');
+const mongoUtils = global.requireShared('./helpers/mongoutils.js');
+
 
 const s3AgencyLogoPath = "public/agency-logos/";
 const tableName = 'clw_talage_agencies'
-const skipCheckRequired = false;
+
 module.exports = class AgencyBO {
 
     #dbTableORM = null;
@@ -40,74 +42,83 @@ module.exports = class AgencyBO {
             if (!newObjectJSON) {
                 reject(new Error(`empty ${tableName} object given`));
             }
-            await this.cleanupInput(newObjectJSON);
-            //propery mapping
-            if (newObjectJSON.caLicenseNumber) {
-                newObjectJSON.ca_license_number = newObjectJSON.caLicenseNumber
+            //convert old snake case to new camel case
+            const alPropMappings = {
+                agency_network: "agencyNetworkId",
+                ca_license_number: "caLicenseNumber",
+                "fname": "firstName",
+                "lname": "lastName",
+                wholesale_agreement_signed: "wholesaleAgreementSigned",
+                docusign_envelope_id: "docusignEnvelopeId",
+                do_not_report: "doNotReport",
+                enable_optout: "enabelOptOut"
             }
+            this.mapToMongooseJSON(newObjectJSON, newObjectJSON, alPropMappings);
 
-            if (newObjectJSON.id) {
-                await this.#dbTableORM.getById(newObjectJSON.id).catch(function(err) {
+            let newDoc = true;
+            if(newObjectJSON.id){
+                const dbDocJSON = await this.getById(newObjectJSON.id).catch(function(err) {
                     log.error(`Error getting ${tableName} from Database ` + err + __location);
                     reject(err);
                     return;
                 });
-                this.updateProperty();
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
-                if (!this.#dbTableORM.additionalInfo) {
-                    this.#dbTableORM.additionalInfo = {}
-                }
-                for (let i = 0; i < additionalInfo2toplevel.length; i++) {
-                    const featureName = additionalInfo2toplevel[i]
-                    if (newObjectJSON[featureName] || newObjectJSON[featureName] === false) {
-                        this.#dbTableORM.additionalInfo[featureName] = newObjectJSON[featureName];
-                    }
-                }
+                if(dbDocJSON){
 
-                // Logo are not sent in during agency create
-                // file naming requires agencyId
-                if (newObjectJSON.logo && newObjectJSON.logo.startsWith('data:')) {
-
-                    if (this.logo) {
+                    if (newObjectJSON.logo && newObjectJSON.logo.startsWith('data:')) {
+                        if (dbDocJSON.logo) {
                         //removed old logo from S3.
+                            try {
+                                log.debug("Removing logo " + s3AgencyLogoPath + dbDocJSON.logo);
+                                await fileSvc.deleteFile(s3AgencyLogoPath + dbDocJSON.logo)
+                            }
+                            catch (e) {
+                                log.error("Agency Logo delete error: " + e + __location);
+                            }
+                        }
+
                         try {
-                            log.debug("Removing logo " + s3AgencyLogoPath + this.logo);
-                            await fileSvc.deleteFile(s3AgencyLogoPath + this.logo)
+                            const fileName = await this.processLogo(newObjectJSON);
+                            newObjectJSON.logo = fileName;
+                            log.debug("new logo file " + newObjectJSON.logo);
                         }
                         catch (e) {
-                            log.error("Agency Logo delete error: " + e + __location);
+                            log.error("Agency SaveModel error processing logo " + e + __location);
+                            //newObjectJSON.logo = null;
+                            delete newObjectJSON.logo
                         }
                     }
-
-                    try {
-                        const fileName = await this.processLogo(newObjectJSON);
-                        newObjectJSON.logo = fileName;
-                        this.logo = fileName;
-                        this.#dbTableORM.logo = fileName;
-                        log.debug("new logo file " + newObjectJSON.logo);
-                    }
-                    catch (e) {
-                        log.error("Agency SaveModel error processing logo " + e + __location);
-                        //newObjectJSON.logo = null;
-                        delete newObjectJSON.logo
-                    }
+                    newDoc = false;
+                    this.updateMongo(dbDocJSON.agencyId,newObjectJSON)
+                }
+                else {
+                    log.error("Agency PUT id not found " + newObjectJSON.id + __location)
                 }
             }
-            else {
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
+            if(newDoc === true) {
+                const newAgencyDoc = this.insertMongo(newObjectJSON);
+                this.id = newAgencyDoc.systemId;
+                if(newObjectJSON.primary){
+                    await this.resetPrimary(newAgencyDoc.agencyId, newAgencyDoc.systemId);
+                }
+
             }
-            log.debug("preSave logo " + this.#dbTableORM.logo)
-            //save
-            await this.#dbTableORM.save().catch(function(err) {
-                reject(err);
-            });
-            this.updateProperty();
-            this.id = this.#dbTableORM.id;
 
             resolve(true);
 
         });
     }
+
+    mapToMongooseJSON(sourceJSON, targetJSON, propMappings){
+        for(const sourceProp in sourceJSON){
+            if(typeof sourceJSON[sourceProp] !== "object"){
+                if(propMappings[sourceProp]){
+                    const appProp = propMappings[sourceProp]
+                    targetJSON[appProp] = sourceJSON[sourceProp];
+                }
+            }
+        }
+    }
+
 
     processLogo(newObjectJSON) {
         return new Promise(async(fulfill, reject) => {
@@ -138,7 +149,7 @@ module.exports = class AgencyBO {
                     }
 
                     // Generate a random file name (defeats caching issues issues)
-                    const fileName = `${this.id}-${uuidv4().substring(24)}.${extension}`;
+                    const fileName = `${newObjectJSON.id}-${uuidv4().substring(24)}.${extension}`;
 
                     // Store on S3
                     log.debug("Agency saving logo " + fileName)
@@ -160,24 +171,96 @@ module.exports = class AgencyBO {
         });
     }
 
-    loadFromId(id) {
+
+    async getMongoDocbyMysqlId(mysqlId, returnMongooseModel = false, getAgencyNetwork = false) {
         return new Promise(async(resolve, reject) => {
-            //validate
-            if (id && id > 0) {
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
+            if (mysqlId) {
+                const query = {
+                    "mysqlId": mysqlId,
+                    active: true
+                };
+                let docDB = null;
+                try {
+                    docDB = await AgencyModel.findOne(query, '-__v');
+                    if(getAgencyNetwork === true){
+                        const agencyNetworkBO = new AgencyNetworkBO();
+                        try {
+                            const agencyNetworkJSON = await agencyNetworkBO.getById(docDB.agencyNetworkId);
+                            docDB.agencyNetworkName = agencyNetworkJSON.name;
+                        }
+                        catch (err) {
+                            log.error("Error getting Agency Network  " + err + __location);
+                        }
+
+                    }
+                }
+                catch (err) {
+                    log.error("Getting Agency error " + err + __location);
                     reject(err);
-                    return;
-                });
-                this.updateProperty();
-                this.moveAdditionalInfoFeatures(this)
-                resolve(true);
+                }
+                if(returnMongooseModel){
+                    resolve(docDB);
+                }
+                else if(docDB){
+                    const agencyDoc = mongoUtils.objCleanup(docDB);
+                    resolve(agencyDoc);
+                }
+                else {
+                    resolve(null);
+                }
+
             }
             else {
                 reject(new Error('no id supplied'))
             }
         });
     }
+
+
+    async getbySlug(slug, returnMongooseModel = false, getAgencyNetwork = false) {
+        return new Promise(async(resolve, reject) => {
+            if (slug) {
+                const query = {
+                    "slug": slug,
+                    active: true
+                };
+                let docDB = null;
+                try {
+                    docDB = await AgencyModel.findOne(query, '-__v');
+                    if(getAgencyNetwork === true){
+                        const agencyNetworkBO = new AgencyNetworkBO();
+                        try {
+                            const agencyNetworkJSON = await agencyNetworkBO.getById(docDB.agencyNetworkId);
+                            docDB.agencyNetworkName = agencyNetworkJSON.name;
+                        }
+                        catch (err) {
+                            log.error("Error getting Agency Network  " + err + __location);
+                        }
+
+                    }
+                }
+                catch (err) {
+                    log.error("Getting Agency error " + err + __location);
+                    reject(err);
+                }
+                if(returnMongooseModel){
+                    resolve(docDB);
+                }
+                else if(docDB){
+                    const agencyDoc = mongoUtils.objCleanup(docDB);
+                    resolve(agencyDoc);
+                }
+                else {
+                    resolve(null);
+                }
+
+            }
+            else {
+                reject(new Error('no slug supplied'))
+            }
+        });
+    }
+
 
     getList(queryJSON, getAgencyNetwork = false) {
         return new Promise(async(resolve, reject) => {
@@ -193,130 +276,158 @@ module.exports = class AgencyBO {
                 }
             }
 
+            const queryProjection = {"__v": 0}
+
+            let findCount = false;
+
             let rejected = false;
-            // Create the update query
-            let sql = `
-                  select * from ${tableName}  
-              `;
-            let hasWhere = false;
-            if (queryJSON) {
-                if (queryJSON.agencies) {
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` id IN (${queryJSON.agencies.join(',')}) `
-                    hasWhere = true;
+            // eslint-disable-next-line prefer-const
+            let query = {};
+            let error = null;
+
+            var queryOptions = {};
+            queryOptions.sort = {};
+            if (queryJSON.sort) {
+                var acs = 1;
+                if (queryJSON.desc) {
+                    acs = -1;
+                    delete queryJSON.desc
                 }
-                if (queryJSON.agency_network) {
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` agency_network = ${db.escape(queryJSON.agency_network)} `
-                    hasWhere = true;
-                }
-                if (queryJSON.agencyNetworkId) {
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` agency_network = ${db.escape(queryJSON.agencyNetworkId)} `
-                    hasWhere = true;
-                }
-                if (queryJSON.name) {
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` name like ${db.escape(`%${queryJSON.name}%`)} `
-                    hasWhere = true;
-                }
-                if (queryJSON.do_not_report) {
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` do_not_report =  ${db.escape(queryJSON.do_not_report)} `
-                    hasWhere = true;
-                }
-                if (queryJSON.state) {
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` state = ${db.escape(queryJSON.state)} `
-                    hasWhere = true;
+                queryOptions.sort[queryJSON.sort] = acs;
+                delete queryJSON.sort
+            }
+            else {
+                // default to DESC on sent
+                queryOptions.sort.createdAt = -1;
+
+            }
+            const queryLimit = 500;
+            if (queryJSON.limit) {
+                var limitNum = parseInt(queryJSON.limit, 10);
+                delete queryJSON.limit
+                if (limitNum < queryLimit) {
+                    queryOptions.limit = limitNum;
                 }
                 else {
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` state > 0 `
-                    hasWhere = true;
-                }
-                if (queryJSON.searchbegindate && queryJSON.searchenddate) {
-                    const fromDate = moment(queryJSON.searchbegindate);
-                    const toDate = moment(queryJSON.searchenddate);
-                    if (fromDate.isValid() && toDate.isValid()) {
-                        sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` created BETWEEN '${fromDate.utc().format(db.dbTimeFormat())}' AND '${toDate.utc().format(db.dbTimeFormat())}' `
-                        hasWhere = true;
-                    }
-                }
-                else if (queryJSON.searchbegindate) {
-                // eslint-disable-next-line no-redeclare
-                    const fromDate = moment(queryJSON.searchbegindate);
-                    if (fromDate.isValid()) {
-                        sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` created > '${fromDate.utc().format(db.dbTimeFormat())}' `
-                        hasWhere = true;
-                    }
-                }
-                else if (queryJSON.searchenddate) {
-                    const toDate = moment(queryJSON.searchenddate);
-                    if (toDate.isValid()) {
-                        sql += hasWhere ? " AND " : " WHERE ";
-                        sql += ` created < '${toDate.utc().format(db.dbTimeFormat())}' `
-                        hasWhere = true;
-                    }
+                    queryOptions.limit = queryLimit;
                 }
             }
             else {
-                sql += hasWhere ? " AND " : " WHERE ";
-                sql += ` state > 0 `
-                hasWhere = true;
+                queryOptions.limit = queryLimit;
+            }
+            if (queryJSON.count) {
+                if (queryJSON.count === "1") {
+                    findCount = true;
+                }
+                delete queryJSON.count;
+            }
+
+            if(queryJSON.systemId && Array.isArray(queryJSON.systemId)){
+                query.systemId = {$in: queryJSON.systemId};
+                delete queryJSON.systemId
+            }
+            else if(queryJSON.systemId){
+                query.systemId = queryJSON.systemId;
+                delete queryJSON.systemId
+            }
+
+            if(queryJSON.agencyId && Array.isArray(queryJSON.agencyId)){
+                query.agencyId = {$in: queryJSON.agencyId};
+                delete queryJSON.agencyId
+            }
+            else if(queryJSON.agencyId){
+                query.agencyId = queryJSON.agencyId;
+                delete queryJSON.agencyId
+            }
+            //doNotReport false
+            if(queryJSON.doNotReport === false){
+                query.doNotReport = false;
+                delete queryJSON.doNotReport
+            }
+
+            // Old Mysql reference
+            if(queryJSON.agency && Array.isArray(queryJSON.agency)){
+                query.systemId = {$in: queryJSON.agency};
+                delete queryJSON.agency
+            }
+            else if(queryJSON.agency){
+                query.systemId = queryJSON.agency;
+                delete queryJSON.agency
             }
 
 
-            // Run the query
-            //log.debug("AgencyBO getlist sql: " + sql);
-            const result = await db.query(sql).catch(function(error) {
-                // Check if this was
+            if (queryJSON) {
+                for (var key in queryJSON) {
+                    if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
+                        let clearString = queryJSON[key].replace("%", "");
+                        clearString = clearString.replace("%", "");
+                        query[key] = {
+                            "$regex": clearString,
+                            "$options": "i"
+                        };
+                    }
+                    else {
+                        query[key] = queryJSON[key];
+                    }
+                }
+            }
 
-                rejected = true;
-                log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
-                reject(error);
-            });
-            if (rejected) {
+
+            if (findCount === false) {
+                let docList = null;
+                // eslint-disable-next-line prefer-const
+                try {
+                    log.debug("AgencyModel GetList query " + JSON.stringify(query) + __location)
+                    docList = await AgencyModel.find(query,queryProjection, queryOptions);
+                    if(getAgencyNetwork === true){
+                        // eslint-disable-next-line prefer-const
+                        for(let agencyDoc of docList){
+                        // eslint-disable-next-line prefer-const
+                            if (agencyDoc.agencyNetworkId && agencyNetworkList && agencyNetworkList.length > 0) {
+                                try {
+                                    const agencyNetwork = agencyNetworkList.find(agencyNetwork => agencyNetwork.id === agencyDoc.agencyNetworkId);
+                                    agencyDoc.agencyNetworkName = agencyNetwork.name;
+                                }
+                                catch (err) {
+                                    log.error("Error getting agency network name " + err + __location);
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    rejected = true;
+                }
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                resolve(mongoUtils.objListCleanup(docList));
                 return;
             }
-            const boList = [];
-            if (result && result.length > 0) {
-                for (let i = 0; i < result.length; i++) {
-                    const agencyBO = new AgencyBO();
-                    await agencyBO.#dbTableORM.decryptFields(result[i]);
-                    await agencyBO.#dbTableORM.convertJSONColumns(result[i]);
-                    const resp = await agencyBO.loadORM(result[i], skipCheckRequired).catch(function(err) {
-                        log.error(`getList error loading object: ` + err + __location);
-                    })
-                    if (!resp) {
-                        log.debug("Bad BO load" + __location)
-                    }
-                    this.moveAdditionalInfoFeatures(agencyBO)
-                    if (agencyBO.agency_network && getAgencyNetwork === true && agencyNetworkList && agencyNetworkList.length > 0) {
-                        try {
-                            const agencyNetwork = agencyNetworkList.find(agencyNetwork => agencyNetwork.id === agencyBO.agency_network);
-                            agencyBO.agencyNetworkName = agencyNetwork.name;
-                        }
-                        catch (err) {
-                            log.error("Error getting agency network name " + err + __location);
-                        }
-                    }
-                    boList.push(agencyBO);
-                }
-                resolve(boList);
-            }
             else {
-                //Search so no hits ok.
-                resolve([]);
+                const docCount = await AgencyModel.countDocuments(query).catch(err => {
+                    log.error("AgencyModel.countDocuments error " + err + __location);
+                    error = null;
+                    rejected = true;
+                })
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                resolve({count: docCount});
+                return;
             }
 
 
         });
     }
 
-    getById(id, getAgencyNetwork = false) {
+    /**** Support Data Migration ************/
+
+    loadFromIdMysql(id) {
         return new Promise(async(resolve, reject) => {
             //validate
             if (id && id > 0) {
@@ -326,26 +437,27 @@ module.exports = class AgencyBO {
                     return;
                 });
                 this.updateProperty();
-                this.agencyNetworkId = this.agency_network;
-                const cleanObjJson = this.#dbTableORM.cleanJSON();
-                cleanObjJson.agencyNetworkId = cleanObjJson.agency_network;
-                this.moveAdditionalInfoFeatures(cleanObjJson)
-                if (getAgencyNetwork === true) {
-                    const agencyNetworkBO = new AgencyNetworkBO();
-                    try {
-                        const agencyNetworkJSON = await agencyNetworkBO.getById(this.agency_network);
-                        cleanObjJson.agencyNetworkName = agencyNetworkJSON.name;
-                    }
-                    catch (err) {
-                        log.error("Error getting Agency Network List " + err + __location);
-                    }
-                }
-                resolve(cleanObjJson);
+                resolve(true);
             }
             else {
                 reject(new Error('no id supplied'))
             }
         });
+    }
+
+    updateProperty() {
+        const dbJSON = this.#dbTableORM.cleanJSON()
+        // eslint-disable-next-line guard-for-in
+        for (const property in properties) {
+            this[property] = dbJSON[property];
+        }
+    }
+
+    /**** END Support Data Migration ************/
+
+    getById(id, getAgencyNetwork = false) {
+        const returnDoc = false;
+        return this.getMongoDocbyMysqlId(id, returnDoc, getAgencyNetwork)
     }
 
     async getByAgencyNetwork(agencyNetworkId) {
@@ -361,23 +473,121 @@ module.exports = class AgencyBO {
 
     }
 
+    async updateMongo(docId, newObjectJSON) {
+        if (docId) {
+            if (typeof newObjectJSON === "object") {
+
+                const query = {"agencyId": docId};
+                let newAgencyJSON = null;
+                try {
+                    const changeNotUpdateList = ["active",
+                        "id",
+                        "mysqlId",
+                        "systemId",
+                        "agencyId",
+                        "agencyNetworkId"]
+                    for (let i = 0; i < changeNotUpdateList.length; i++) {
+                        if (newObjectJSON[changeNotUpdateList[i]]) {
+                            delete newObjectJSON[changeNotUpdateList[i]];
+                        }
+                    }
+
+                    await AgencyModel.updateOne(query, newObjectJSON);
+                    const newAgencyDoc = await AgencyModel.findOne(query);
+                    //const newAgencyDoc = await AgencyModel.findOneAndUpdate(query, newObjectJSON, {new: true});
+
+                    newAgencyJSON = mongoUtils.objCleanup(newAgencyDoc);
+                }
+                catch (err) {
+                    log.error(`Updating Application error appId: ${docId}` + err + __location);
+                    throw err;
+                }
+                //
+
+                return newAgencyJSON;
+            }
+            else {
+                throw new Error(`no newObjectJSON supplied appId: ${docId}`)
+            }
+
+        }
+        else {
+            throw new Error('no id supplied')
+        }
+        // return true;
+
+    }
+
+    async insertMongo(newObjectJSON) {
+        if (!newObjectJSON) {
+            throw new Error("no data supplied");
+        }
+        //force mongo/mongoose insert
+        if(newObjectJSON._id) {
+            delete newObjectJSON._id
+        }
+        if(newObjectJSON.id) {
+            delete newObjectJSON.id
+        }
+        const newSystemId = await this.newMaxSystemId()
+        newObjectJSON.systemId = newSystemId;
+        newObjectJSON.mysqlId = newSystemId;
+        const agency = new AgencyModel(newObjectJSON);
+        //Insert a doc
+        await agency.save().catch(function(err) {
+            log.error('Mongo Application Save err ' + err + __location);
+            throw err;
+        });
+
+        return mongoUtils.objCleanup(agency);
+    }
+
+    async newMaxSystemId(){
+        let maxId = 0;
+        try{
+
+            //small collection - get the collection and loop through it.
+            // TODO refactor to use mongo aggretation.
+            const query = {}
+            const queryProjection = {"systemId": 1}
+            var queryOptions = {lean:true};
+            queryOptions.sort = {};
+            queryOptions.sort.systemId = -1;
+            queryOptions.limit = 1;
+            const docList = await AgencyModel.find(query, queryProjection, queryOptions)
+            if(docList && docList.length > 0){
+                for(let i = 0; i < docList.length; i++){
+                    if(docList[i].systemId > maxId){
+                        maxId = docList[i].systemId + 1;
+                    }
+                }
+            }
+
+
+        }
+        catch(err){
+            log.error("Get max system id " + err + __location)
+            throw err;
+        }
+        log.debug("maxId: " + maxId + __location)
+        return maxId;
+    }
+
+
     deleteSoftById(id) {
         return new Promise(async(resolve, reject) => {
             //validate
             if (id && id > 0) {
-                const rejected = null;
-                //Remove old records.
-                const sql = `Update ${tableName} 
-                SET state = -2
-                WHERE id = ${db.escape(id)}`;
-                //let rejected = false;
-                await db.query(sql).catch(function(err) {
-                    // Check if this was
-                    log.error(`Database Object ${tableName} UPDATE State error : ` + err + __location);
+                let agencyDoc = null;
+                try {
+                    const returnDoc = true;
+                    agencyDoc = await this.getMongoDocbyMysqlId(id, returnDoc);
+                    agencyDoc.active = false;
+                    await agencyDoc.save();
+                }
+                catch (err) {
+                    log.error("Error get marking agencyDoc from mysqlId " + err + __location);
                     reject(err);
-                });
-                if (rejected) {
-                    return false;
                 }
 
                 resolve(true);
@@ -393,22 +603,17 @@ module.exports = class AgencyBO {
         return new Promise(async(resolve, reject) => {
             //validate
             if (id && id > 0) {
-                const rejected = null;
-                //Remove old records.
-                const sql = `
-                    Update ${tableName} 
-                    SET wholesale_agreement_signed = CURRENT_TIMESTAMP()
-                    WHERE id = ${db.escape(id)}`;
-                //let rejected = false;
-                await db.query(sql).catch(function(err) {
-                    // Check if this was
-                    log.error(`Database Object ${tableName} UPDATE setWholesaleAgreementAsSigned error : ` + err + __location);
-                    reject(err);
-                });
-                if (rejected) {
-                    return false;
+                let agencyDoc = null;
+                try {
+                    const returnDoc = true;
+                    agencyDoc = await this.getMongoDocbyMysqlId(id, returnDoc);
+                    agencyDoc.wholesaleAgreementSigned = new moment();
+                    await agencyDoc.save();
                 }
-
+                catch (err) {
+                    log.error("Error get marking agencyDoc from mysqlId " + err + __location);
+                    reject(err);
+                }
                 resolve(true);
 
             }
@@ -422,20 +627,16 @@ module.exports = class AgencyBO {
         return new Promise(async(resolve, reject) => {
             //validate
             if (agencyId && agencyId > 0) {
-                const rejected = null;
-                //Remove old records.
-                const sql = `
-                    Update ${tableName} 
-                    SET docusign_envelope_id = ${db.escape(envelopeId)}
-                    WHERE id = ${db.escape(agencyId)}`;
-                //let rejected = false;
-                await db.query(sql).catch(function(err) {
-                    // Check if this was
-                    log.error(`Database Object ${tableName} UPDATE setDocusignEnvelopeId error : ` + err + __location);
+                let agencyDoc = null;
+                try {
+                    const returnDoc = true;
+                    agencyDoc = await this.getMongoDocbyMysqlId(agencyId, returnDoc);
+                    agencyDoc.docusignEnvelopeId = envelopeId;
+                    await agencyDoc.save();
+                }
+                catch (err) {
+                    log.error("Error get marking agencyDoc from mysqlId " + err + __location);
                     reject(err);
-                });
-                if (rejected) {
-                    return false;
                 }
 
                 resolve(true);
@@ -452,14 +653,8 @@ module.exports = class AgencyBO {
             //validate
             if (slug) {
                 const rejected = null;
-                //Remove old records.
-                const sql = `
-                    SELECT id
-                    FROM ${tableName} 
-                    WHERE slug = ${db.escape(slug)}
-                    LIMIT 1;`;
-                //let rejected = false;
-                const slugList = await db.query(sql).catch(function(err) {
+                const query = {slug: slug};
+                const docList = await this.getList(query).catch(function(err) {
                     // Check if this was
                     log.error(`Database Object ${tableName} Selete checkIfSlugExists error : ` + err + __location);
                     reject(err);
@@ -467,13 +662,12 @@ module.exports = class AgencyBO {
                 if (rejected) {
                     return false;
                 }
-                if(slugList.length > 0){
+                if(docList && docList.length > 0){
                     resolve(true);
                 }
                 else {
                     resolve(false);
                 }
-
             }
             else {
                 reject(new Error('no slug supplied'))
@@ -482,95 +676,6 @@ module.exports = class AgencyBO {
     }
 
 
-    moveAdditionalInfoFeatures(jsonObject) {
-        if (jsonObject && jsonObject.additionalInfo) {
-            for (let i = 0; i < additionalInfo2toplevel.length; i++) {
-                const featureName = additionalInfo2toplevel[i]
-                if (jsonObject.additionalInfo[featureName]) {
-                    jsonObject[featureName] = jsonObject.additionalInfo[featureName];
-                }
-                else {
-                    jsonObject[featureName] = false;
-                }
-            }
-        }
-        else if (jsonObject) {
-            for (let i = 0; i < additionalInfo2toplevel.length; i++) {
-                const featureName = additionalInfo2toplevel[i]
-                jsonObject[featureName] = false;
-            }
-        }
-    }
-
-    async cleanupInput(inputJSON) {
-        for (const property in properties) {
-            if (inputJSON[property]) {
-                // Convert to number
-                try {
-                    if (properties[property].type === "number" && typeof inputJSON[property] === "string") {
-                        if (properties[property].dbType.indexOf("int") > -1) {
-                            inputJSON[property] = parseInt(inputJSON[property], 10);
-                        }
-                        else if (properties[property].dbType.indexOf("float") > -1) {
-                            inputJSON[property] = parseFloat(inputJSON[property]);
-                        }
-                    }
-                }
-                catch (e) {
-                    log.error(`Error converting property ${property} value: ` + inputJSON[property] + __location)
-                }
-            }
-        }
-    }
-
-    updateProperty() {
-        const dbJSON = this.#dbTableORM.cleanJSON()
-        // eslint-disable-next-line guard-for-in
-        for (const property in properties) {
-            this[property] = dbJSON[property];
-        }
-    }
-
-    //
-    // Load new object JSON into ORM. can be used to filter JSON to object properties
-    //
-    // @param {object} inputJSON - input JSON
-    // @returns {void}
-    //
-    async loadORM(inputJSON) {
-        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
-        this.updateProperty();
-        return true;
-    }
-
-    markWholeSaleSignedById(id) {
-        return new Promise(async(resolve, reject) => {
-            //validate
-            if (id && id > 0) {
-
-                //Remove old records.
-                const sql = `Update ${tableName} 
-                        SET wholesale_agreement_signed = CURRENT_TIMESTAMP()
-                        WHERE id = ${db.escape(id)}
-                `;
-                let rejected = false;
-                await db.query(sql).catch(function(error) {
-                    // Check if this was
-                    log.error(`Database Object ${tableName} UPDATE wholesale_agreement_signed error :` + error + __location);
-                    rejected = true;
-                    reject(error);
-                });
-                if (rejected) {
-                    return false;
-                }
-                resolve(true);
-
-            }
-            else {
-                reject(new Error('no id supplied'))
-            }
-        });
-    }
     // ############ Email content retrievial methods ###############################
     // AgencyNetwork does not need to be loaded AgencyNetwork Id is passed in.
     // methods are async returning the contentJSON {"emailBrand": brandName message:" messageTemplate, "subject:" subjectTemplate}..
@@ -586,8 +691,9 @@ module.exports = class AgencyBO {
  */
     async getEmailContentAgencyAndCustomer(agencyId, agencyContentProperty, customerContentProperty) {
         if (agencyId) {
+            let agencyJSON = null;
             try {
-                await this.loadFromId(agencyId);
+                agencyJSON = await this.getGetId(agencyId);
             }
             catch (err) {
                 log.error("Error getting Agnecy Network " + err + __location)
@@ -596,7 +702,7 @@ module.exports = class AgencyBO {
             if (this.id) {
                 //get AgencyNetwork 1st than replace with Agency overwrites
                 const agencyNetworkBO = new AgencyNetworkBO();
-                const emailTemplateJSON = await agencyNetworkBO.getEmailContentAgencyAndCustomer(this.agency_network, agencyContentProperty, customerContentProperty).catch(function(err) {
+                const emailTemplateJSON = await agencyNetworkBO.getEmailContentAgencyAndCustomer(agencyJSON.agencyNetworkId, agencyContentProperty, customerContentProperty).catch(function(err) {
                     log.error(`Email content Error Unable to get email content for no quotes.  error: ${err}` + __location);
                     throw new Error(`Email content Error Unable to get email content for no quotes.  error: ${err}`)
                 });
@@ -646,8 +752,9 @@ module.exports = class AgencyBO {
     async getEmailContent(agencyId, contentProperty) {
 
         if (agencyId) {
+            let agencyJSON = {};
             try {
-                await this.loadFromId(agencyId);
+                agencyJSON = await this.getById(agencyId);
             }
             catch (err) {
                 log.error("Error getting Agnecy Network " + err + __location)
@@ -656,7 +763,7 @@ module.exports = class AgencyBO {
             if (this.id) {
                 //get AgencyNetwork 1st than replace with Agency overwrites
                 const agencyNetworkBO = new AgencyNetworkBO();
-                const emailTemplateJSON = await agencyNetworkBO.getEmailContent(this.agency_network, contentProperty).catch(function(err) {
+                const emailTemplateJSON = await agencyNetworkBO.getEmailContent(agencyJSON.agencyNetworkId, contentProperty).catch(function(err) {
                     log.error(`Email content Error Unable to get email content for no quotes.  error: ${err}` + __location);
                     throw new Error(`Email content Error Unable to get email content for no quotes.  error: ${err}`)
                 });
@@ -681,7 +788,7 @@ module.exports = class AgencyBO {
 
                 }
                 else {
-                    log.error(`No emailcontent from agencyNetworkBO.getEmailContent ${this.agency_network} ` + __location)
+                    log.error(`No emailcontent from agencyNetworkBO.getEmailContent ${agencyJSON.agencyNetworkId} ` + __location)
                 }
             }
             else {

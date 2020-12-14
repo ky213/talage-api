@@ -367,6 +367,77 @@ module.exports = class AgencyLandingPageBO {
       });
   }
 
+  async getbySlug(agencyId, slug, getPrimary = false, returnMongooseModel = false) {
+      return new Promise(async(resolve, reject) => {
+
+          const query = {
+              agencyId: agencyId,
+              active: true
+          };
+
+          if(getPrimary){
+              query.primary = true;
+          }
+          else {
+              query.slug = slug;
+          }
+          //pageSlug
+          let agencyLandingPageDoc = null;
+          let docDB = null;
+          try {
+              docDB = await AgencyLandingPageModel.findOne(query, '-__v');
+              if (docDB) {
+                  agencyLandingPageDoc = mongoUtils.objCleanup(docDB);
+              }
+          }
+          catch (err) {
+              log.error("Getting Agency Location error " + err + __location);
+              reject(err);
+          }
+          if(returnMongooseModel){
+              resolve(docDB);
+          }
+          else {
+              resolve(agencyLandingPageDoc);
+          }
+
+
+      });
+  }
+
+  async addPageHit(systemId){
+      if (systemId) {
+          const query = {"systemId": systemId};
+          //   const updateJSON = {};
+          //   updateJSON.$inc = {"hits": 1}
+          // $inc throwing error via mongoose.  Works in mongo shell;
+          //   try {
+          //       await AgencyLandingPageModel.findOneAndUpdate(query, updateJSON);
+          //   }
+          //   catch (err) {
+          //       log.error(`Updating Landing Page error Id: ${systemId} ` + err + __location);
+          //       throw err;
+          //   }
+
+          try {
+              // eslint-disable-next-line prefer-const
+              let docDB = await AgencyLandingPageModel.findOne(query, '-__v');
+              if (docDB) {
+                  docDB.hits += 1;
+              }
+              await docDB.save();
+          }
+          catch (err) {
+              log.error(`Updating Landing Page error Id: ${systemId} ` + err + __location);
+              throw err;
+          }
+      }
+      else {
+          throw new Error('no id supplied')
+      }
+
+  }
+
   cleanJSON(noNulls = true) {
       return this.#dbTableORM.cleanJSON(noNulls);
   }

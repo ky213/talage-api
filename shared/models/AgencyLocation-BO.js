@@ -757,10 +757,7 @@ module.exports = class AgencyLocationBO{
                 // eslint-disable-next-line prefer-const
                 let agencyIdList = [];
                 for(const agency of agencyList){
-                    if(agency.id){
-                        agencyIdList.push(agency.id)
-                    }
-                    else if (agency.systemId){
+                    if (agency.systemId){
                         agencyIdList.push(agency.systemId)
                     }
                 }

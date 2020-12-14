@@ -87,8 +87,9 @@ var soleproApplicationEmailTask = async function(applicationId) {
     if (applicationDoc) {
         let error = null;
         const agencyBO = new AgencyBO();
+        let agencyJSON = {};
         try{
-            await agencyBO.loadFromId(applicationDoc.agencyId)
+            agencyJSON = await agencyBO.getById(applicationDoc.agencyId)
         }
         catch(err){
             log.error("Error getting agencyBO " + err + __location);
@@ -120,8 +121,8 @@ var soleproApplicationEmailTask = async function(applicationId) {
         if(agencyLocationJSON.email){
             agencyLocationEmail = agencyLocationJSON.email
         }
-        else if(agencyBO.email){
-            agencyLocationEmail = agencyBO.email;
+        else if(agencyJSON.email){
+            agencyLocationEmail = agencyJSON.email;
         }
 
         const message = `<p>Good news! A business owner is being routed to SolePro through your Digalent site. It’s a business that fell below normal appetite and will be handled by the SolePro team. Nothing else for you to do, we just wanted you to know!</p>

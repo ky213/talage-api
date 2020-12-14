@@ -117,8 +117,9 @@ var emailbindagency = async function(applicationId, quoteId) {
 
             if (emailContentJSON && emailContentJSON.customerMessage && emailContentJSON.customerSubject) {
                 //get AgencyBO
+                let agencyJSON = {};
                 try{
-                    await agencyBO.loadFromId(applicationDoc.agencyId)
+                    agencyJSON = await agencyBO.getById(applicationDoc.agencyId)
                 }
                 catch(err){
                     log.error("Error getting agencyBO " + err + __location);
@@ -149,8 +150,8 @@ var emailbindagency = async function(applicationId, quoteId) {
                 if(agencyLocationJSON.email){
                     agencyLocationEmail = agencyLocationJSON.email
                 }
-                else if(agencyBO.email){
-                    agencyLocationEmail = agencyBO.email;
+                else if(agencyJSON.email){
+                    agencyLocationEmail = agencyJSON.email;
                 }
 
                 //Insurer
@@ -228,13 +229,13 @@ var emailbindagency = async function(applicationId, quoteId) {
                     subject = emailContentJSON.customerSubject;
 
 
-                    message = message.replace(/{{Agency}}/g, agencyBO.name);
-                    message = message.replace(/{{Agency Email}}/g, agencyBO.email);
+                    message = message.replace(/{{Agency}}/g, agencyJSON.name);
+                    message = message.replace(/{{Agency Email}}/g, agencyJSON.email);
                     message = message.replace(/{{Agency Phone}}/g, agencyPhone);
-                    message = message.replace(/{{Agency Website}}/g, agencyBO.website ? '<a href="' + agencyBO.website + '" rel="noopener noreferrer" target="_blank">' + agencyBO.website + '</a>' : '');
+                    message = message.replace(/{{Agency Website}}/g, agencyJSON.website ? '<a href="' + agencyJSON.website + '" rel="noopener noreferrer" target="_blank">' + agencyJSON.website + '</a>' : '');
                     message = message.replace(/{{Quotes}}/g, '<br /><div align="center"><table border="0" cellpadding="0" cellspacing="0" width="350"><tr><td width="200"><img alt="' + insurerJson.name + '" src="https://img.talageins.com/' + insurerJson.logo + '" width="100%" /></td><td width="20"></td><td style="padding-left:20px;font-size:30px;">$' + stringFunctions.number_format(quoteDoc.amount) + '</td></tr></table></div><br />');
 
-                    subject = subject.replace(/{{Agency}}/g, agencyBO.name);
+                    subject = subject.replace(/{{Agency}}/g, agencyJSON.name);
 
                     //log.debug("sending customer email " + __location);
                     const brand = emailContentJSON.emailBrand === 'wheelhouse' ? 'agency' : `${emailContentJSON.emailBrand}-agency`

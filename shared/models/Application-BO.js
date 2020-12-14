@@ -272,8 +272,8 @@ module.exports = class ApplicationModel {
                     error = err;
                 });
                 if (agency) {
-                    applicationJSON.agencyNetworkId = agency.agency_network;
-                    applicationJSON.agency_network = agency.agency_network;
+                    applicationJSON.agencyNetworkId = agency.agencyNetworkId;
+                    applicationJSON.agency_network = agency.agencyNetworkId;
                 }
                 else {
                     log.error(`no agency record for id ${applicationJSON.agency} ` + __location);

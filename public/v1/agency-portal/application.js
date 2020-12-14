@@ -189,12 +189,12 @@ async function getApplication(req, res, next) {
     //add Agency name
     const agencyBO = new AgencyBO();
     try{
-        await agencyBO.loadFromId(applicationJSON.agencyId)
-        applicationJSON.name = agencyBO.name;
-        applicationJSON.agencyName = agencyBO.name;
-        applicationJSON.agencyPhone = agencyBO.phone;
-        applicationJSON.agencyOwnerName = `${agencyBO.fname} ${agencyBO.lname}`;
-        applicationJSON.agencyOwnerEmail = agencyBO.email;
+        const agencyJSON = await agencyBO.getById(applicationJSON.agencyId)
+        applicationJSON.name = agencyJSON.name;
+        applicationJSON.agencyName = agencyJSON.name;
+        applicationJSON.agencyPhone = agencyJSON.phone;
+        applicationJSON.agencyOwnerName = `${agencyJSON.firstName} ${agencyJSON.lastName}`;
+        applicationJSON.agencyOwnerEmail = agencyJSON.email;
     }
     catch(err){
         log.error("Error getting agencyBO " + err + __location);
@@ -458,7 +458,7 @@ async function applicationSave(req, res, next) {
             const agencyBO = new AgencyBO()
             const agencyDB = await agencyBO.getById(req.body.agencyId)
             if(agencyDB){
-                req.body.agencyNetworkId = agencyDB.agency_network;
+                req.body.agencyNetworkId = agencyDB.agencyNetworkId;
             }
             else {
                 log.warn("Application Save agencyId not found in db " + req.body.agencyId + __location)

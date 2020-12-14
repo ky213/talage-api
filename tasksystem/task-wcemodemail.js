@@ -128,8 +128,9 @@ const sendEmodEmail = async function(applicationId) {
             // log.debug("agencyNetworkEnvSettings: " + JSON.stringify(agencyNetworkEnvSettings))
 
             const agencyBO = new AgencyBO();
+            let agencyJSON = {};
             try{
-                await agencyBO.loadFromId(applicationDoc.agencyId)
+                agencyJSON = await agencyBO.getById(applicationDoc.agencyId)
             }
             catch(err){
                 log.error("Error getting agencyBO " + err + __location);
@@ -160,8 +161,8 @@ const sendEmodEmail = async function(applicationId) {
             if(agencyLocationJSON.email){
                 agencyLocationEmail = agencyLocationJSON.email
             }
-            else if(agencyBO.email){
-                agencyLocationEmail = agencyBO.email;
+            else if(agencyJSON.email){
+                agencyLocationEmail = agencyJSON.email;
             }
 
             // Get AgencyNetwork's portal url
