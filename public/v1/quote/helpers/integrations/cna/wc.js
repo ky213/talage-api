@@ -132,14 +132,17 @@ module.exports = class CnaWC extends Integration {
         // swap host and creds based off whether this is sandbox or prod
         let agentId = null;
         let basicAuth = null;
+        let branchProdCd = null;
         if (this.insurer && this.insurer.useSandbox) {
             agentId = "TALAGAPI";
             host = "drt-apis.cna.com";
             basicAuth = "VEFMQUdBUEk6VEdhOTU4M2h3OTM3MTghIw==";
+            branchProdCd = "010018297"
         } else {
             agentId = "TLAGEAPI";
             host = "apis.cna.com";
             basicAuth = "VExBR0VBUEk6VEdzNzQ5MXNkNzkyMjUhPw==";
+            branchProdCd = "540085091";
         }
 
         const business = this.app.business;
@@ -402,7 +405,7 @@ module.exports = class CnaWC extends Integration {
         // create request headers using auth access token (jwt)
         const headers = {
             'authorization': `Bearer ${jwt.trim()}`,
-            'branch-producer-cd': "010018297",
+            'branch-producer-cd': branchProdCd,
             'agentid': agentId,
             'content-type': 'application/json'
         }
