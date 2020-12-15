@@ -21,12 +21,12 @@ async function findAll(req, res, next) {
     const rows = await insurerIndustryCodeBO.getList(req.query).catch(function(err) {
         log.error("admin agencynetwork error: " + err + __location);
         error = err;
-    })
+    });
     if (error) {
         return next(error);
     }
     if (rows) {
-        res.send(200, rows);
+        res.send(200, {rows});
         return next();
     }
     else {

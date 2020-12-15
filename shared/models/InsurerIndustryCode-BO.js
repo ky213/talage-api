@@ -1,13 +1,11 @@
 'use strict';
 
-
 const DatabaseObject = require('./DatabaseObject.js');
 const crypt = requireShared('./services/crypt.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const {debug} = require('request');
-
 
 const tableName = 'clw_talage_insurer_industry_codes'
 const skipCheckRequired = false;
@@ -98,53 +96,60 @@ module.exports = class InsurerIndustryCodeBO{
         return new Promise(async(resolve, reject) => {
             let rejected = false;
             // Create the update query
-            let sql = `
-                    SELECT * FROM ${tableName}  
-                `;
+            const sqlSelect = `
+                SELECT * FROM ${tableName}  
+            `;
+            const sqlCount = `
+                SELECT count(*) FROM ${tableName}  
+            `;
+            let sqlWhere = "";
+            let sqlPaging = "";
             if(queryJSON){
                 let hasWhere = false;
                 if(queryJSON.description){
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` description like ${db.escape(`%${queryJSON.description}%`)} `;
+                    sqlWhere += hasWhere ? " AND " : " WHERE ";
+                    sqlWhere += ` description like ${db.escape(`%${queryJSON.description}%`)} `;
                     hasWhere = true;
                 }
                 if(queryJSON.territory){
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` territory like ${db.escape(`%${queryJSON.territory}%`)} `;
+                    sqlWhere += hasWhere ? " AND " : " WHERE ";
+                    sqlWhere += ` territory like ${db.escape(`%${queryJSON.territory}%`)} `;
                     hasWhere = true;
                 }
                 if(queryJSON.type){
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` type = ${db.escape(`${queryJSON.type}`)} `;
+                    sqlWhere += hasWhere ? " AND " : " WHERE ";
+                    sqlWhere += ` type = ${db.escape(`${queryJSON.type}`)} `;
                     hasWhere = true;
                 }
                 if(queryJSON.code){
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` code like ${db.escape(`%${queryJSON.code}%`)} `;
+                    sqlWhere += hasWhere ? " AND " : " WHERE ";
+                    sqlWhere += ` code like ${db.escape(`%${queryJSON.code}%`)} `;
                     hasWhere = true;
                 }
-                if(queryJSON.insurerList){
-                    // TODO: allow a list of insurer ids
-                    // sql += hasWhere ? " AND " : " WHERE ";
-                    // sql += ` code like ${db.escape(`%${queryJSON.code}%`)} `;
-                    // hasWhere = true;
+                if(queryJSON.insurers) {
+                    // TODO: insurers arent being loaded correctly if there are multiple
+                    sqlWhere += hasWhere ? " AND " : " WHERE ";
+                    sqlWhere += ` insurer IN (${db.escape(queryJSON.insurers)}) `;
+                    hasWhere = true;
                 }
 
                 const maxRows = queryJSON.maxRows ? stringFunctions.santizeNumber(queryJSON.maxRows, true) : 20;
                 const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : 1;
                 if(maxRows && page) {
-                    sql += ` LIMIT ${db.escape(maxRows)} `;
+                    sqlPaging += ` LIMIT ${db.escape(maxRows)} `;
                     // offset by page number * max rows, so we go that many rows
-                    sql += ` OFFSET ${db.escape((page - 1) * maxRows)}`;
+                    sqlPaging += ` OFFSET ${db.escape((page - 1) * maxRows)}`;
                 }
             }
             // Run the query
-            //log.debug("InsurerIndustryCodeBO getlist sql: " + sql);
-            const result = await db.query(sql).catch(function(error) {
-                // Check if this was
-
+            const count = await db.query(sqlCount + sqlWhere + sqlPaging).catch(function(error) {
                 rejected = true;
-                log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
+                log.error(`getList ${tableName} sql: ${sqlCount + sqlWhere + sqlPaging}  error ` + error + __location)
+                reject(error);
+            });
+            const result = await db.query(sqlSelect + sqlWhere + sqlPaging).catch(function(error) {
+                rejected = true;
+                log.error(`getList ${tableName} sql: ${sqlSelect + sqlWhere + sqlPaging}  error ` + error + __location)
                 reject(error);
             });
             if (rejected) {
@@ -164,7 +169,10 @@ module.exports = class InsurerIndustryCodeBO{
                     }
                     boList.push(insurerIndustryCodeBO);
                 }
-                resolve(boList);
+                resolve({
+                    data: boList,
+                    count: count[0]["count(*)"]
+                });
             }
             else {
                 //Search so no hits ok.
