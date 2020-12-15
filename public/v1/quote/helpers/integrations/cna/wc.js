@@ -751,7 +751,6 @@ module.exports = class CnaWC extends Integration {
     }
 
     async auth(basicAuth) {
-        const data = {"id": "11248"}
         const headers = {
             headers: {
                 'Content-Type': 'application/json',
@@ -759,7 +758,7 @@ module.exports = class CnaWC extends Integration {
             }
         }
         try {
-            const result = await axios.post(`https://${host}${AUTH_URL}`, data, headers);
+            const result = await axios.post(`https://${host}${AUTH_URL}`, null, headers);
             return result.data.access_token;
         }
         catch (err) {
