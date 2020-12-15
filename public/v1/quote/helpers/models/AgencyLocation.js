@@ -251,7 +251,7 @@ module.exports = class AgencyLocation {
             this.business.locations.forEach((location) => {
                 // log.debug(`this.territories` + JSON.stringify(this.territories))
                 if (!this.territories.includes(location.state)) {
-                    log.error(`Agent does not have ${location.state} enabled` + __location);
+                    log.error(`Agent ${this.agencyId} does not have ${location.state} enabled` + __location);
                     reject(new Error(`The specified agent is not setup to support this application in territory ${location.state}.`));
 
                 }
@@ -270,7 +270,7 @@ module.exports = class AgencyLocation {
                     }
                 }
                 if (!match_found) {
-                    log.error(`Agent does not have ${policy.type} policies enabled`);
+                    log.error(`Agent ${this.agencyId} does not have ${policy.type} policies enabled`);
                     reject(new Error('The specified agent is not setup to support this application.'));
                 }
             });
