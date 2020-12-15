@@ -127,9 +127,10 @@ module.exports = class InsurerIndustryCodeBO{
                     hasWhere = true;
                 }
                 if(queryJSON.insurers) {
-                    // TODO: insurers arent being loaded correctly if there are multiple
+                    // if its a string turn it into an array
+                    const insurers = typeof queryJSON.insurers === "string" ? queryJSON.insurers.split(",") : queryJSON.insurers;
                     sqlWhere += hasWhere ? " AND " : " WHERE ";
-                    sqlWhere += ` insurer IN (${db.escape(queryJSON.insurers)}) `;
+                    sqlWhere += ` insurer IN (${db.escape(insurers)}) `;
                     hasWhere = true;
                 }
 
@@ -142,9 +143,9 @@ module.exports = class InsurerIndustryCodeBO{
                 }
             }
             // Run the query
-            const count = await db.query(sqlCount + sqlWhere + sqlPaging).catch(function(error) {
+            const count = await db.query(sqlCount + sqlWhere).catch(function(error) {
                 rejected = true;
-                log.error(`getList ${tableName} sql: ${sqlCount + sqlWhere + sqlPaging}  error ` + error + __location)
+                log.error(`getList ${tableName} sql: ${sqlCount + sqlWhere}  error ` + error + __location)
                 reject(error);
             });
             const result = await db.query(sqlSelect + sqlWhere + sqlPaging).catch(function(error) {
@@ -171,7 +172,7 @@ module.exports = class InsurerIndustryCodeBO{
                 }
                 resolve({
                     data: boList,
-                    count: count[0]["count(*)"]
+                    count: count[0] ? count[0]["count(*)"] : 0
                 });
             }
             else {
