@@ -39,11 +39,12 @@ module.exports = class AgencyLandingPageBO {
               });
               if(dbDocJSON){
                   newDoc = false;
-                  this.updateMongo(dbDocJSON.agencyLandingPageId, newObjectJSON)
+                  this.id = dbDocJSON.systemId;
+                  await this.updateMongo(dbDocJSON.agencyLandingPageId, newObjectJSON)
               }
           }
           if(newDoc === true) {
-              const newAgencyLandingPageDoc = this.insertMongo(newObjectJSON);
+              const newAgencyLandingPageDoc = await this.insertMongo(newObjectJSON);
               this.id = newAgencyLandingPageDoc.systemId;
           }
 
@@ -115,7 +116,7 @@ module.exports = class AgencyLandingPageBO {
           log.error('Mongo Application Save err ' + err + __location);
           throw err;
       });
-
+      this.id = newSystemId;
       return mongoUtils.objCleanup(agencyLandingPage);
   }
 
@@ -734,6 +735,7 @@ const properties = {
 
 class DbTableOrm extends DatabaseObject {
 
+    // eslint-disable-next-line no-shadow
     constructor(tableName) {
         super(tableName, properties);
     }

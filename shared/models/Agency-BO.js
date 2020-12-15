@@ -63,7 +63,7 @@ module.exports = class AgencyBO {
                     return;
                 });
                 if(dbDocJSON){
-
+                    newObjectJSON.systemId = dbDocJSON.newSystemId;
                     if (newObjectJSON.logo && newObjectJSON.logo.startsWith('data:')) {
                         if (dbDocJSON.logo) {
                         //removed old logo from S3.
@@ -88,14 +88,14 @@ module.exports = class AgencyBO {
                         }
                     }
                     newDoc = false;
-                    this.updateMongo(dbDocJSON.agencyId,newObjectJSON)
+                    await this.updateMongo(dbDocJSON.agencyId,newObjectJSON)
                 }
                 else {
                     log.error("Agency PUT id not found " + newObjectJSON.id + __location)
                 }
             }
             if(newDoc === true) {
-                const newAgencyDoc = this.insertMongo(newObjectJSON);
+                const newAgencyDoc = await this.insertMongo(newObjectJSON);
                 this.id = newAgencyDoc.systemId;
                 if(newObjectJSON.primary){
                     await this.resetPrimary(newAgencyDoc.agencyId, newAgencyDoc.systemId);
@@ -538,7 +538,7 @@ module.exports = class AgencyBO {
             log.error('Mongo Application Save err ' + err + __location);
             throw err;
         });
-
+        newObjectJSON.id = newSystemId;
         return mongoUtils.objCleanup(agency);
     }
 

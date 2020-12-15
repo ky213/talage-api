@@ -49,15 +49,16 @@ module.exports = class AgencyLocationBO{
                     return;
                 });
                 if(dbDocJSON){
+                    this.id = dbDocJSON.systemId;
                     newDoc = false;
                     if(newObjectJSON.primary){
                         await this.resetPrimary(dbDocJSON.agencyId, dbDocJSON.systemId);
                     }
-                    this.updateMongo(dbDocJSON.agencyLocationId,newObjectJSON)
+                    await this.updateMongo(dbDocJSON.agencyLocationId,newObjectJSON)
                 }
             }
             if(newDoc === true) {
-                const newAgencyLocationDoc = this.insertMongo(newObjectJSON);
+                const newAgencyLocationDoc = await this.insertMongo(newObjectJSON);
                 this.id = newAgencyLocationDoc.systemId;
                 if(newObjectJSON.primary){
                     await this.resetPrimary(newAgencyLocationDoc.agencyId, newAgencyLocationDoc.systemId);
@@ -133,7 +134,7 @@ module.exports = class AgencyLocationBO{
             log.error('Mongo Application Save err ' + err + __location);
             throw err;
         });
-
+        this.id = newSystemId;
         return mongoUtils.objCleanup(agencyLocation);
     }
 

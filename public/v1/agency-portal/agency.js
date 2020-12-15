@@ -456,7 +456,7 @@ async function postAgency(req, res, next) {
     for (const insurerID in agencyIds) {
         const insurerIdInt = parseInt(insurerID, 10)
         const insurer = {
-            "insurer": insurerIdInt,
+            "insurerId": insurerIdInt,
             "gl": 0,
             "wc": 1,
             "bop": 0,
@@ -487,12 +487,13 @@ async function postAgency(req, res, next) {
     }
     // Create a default location for this agency
     const newAgencyLocationJSON = {
-        agency: agencyId,
+        agencyId: agencyId,
         email: email,
-        agency_network: req.authentication.agencyNetwork,
-        fname: firstName,
-        lname: lastName,
+        agencyNetworkId: req.authentication.agencyNetwork,
+        firstName: firstName,
+        lastName: lastName,
         insurers: insurerArray,
+        territories: territories,
         additionalInfo: {territories: territories}
     }
 
@@ -506,7 +507,7 @@ async function postAgency(req, res, next) {
     }
 
     const newAgencyLandingPageJSON = {
-        agency: agencyId,
+        agencyId: agencyId,
         name: 'Get Quotes',
         slug: 'get-quotes',
         primary: 1

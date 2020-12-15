@@ -24,7 +24,7 @@ const AgencyLandingPageSchema = new Schema({
     agencyLandingPageId: {type: String, required: [true, 'agencyLandingPageId required'], unique: true},
     systemId: {type: Number, unique: true},
     mysqlId: {type: Number, unique: true},
-    agencyId: {type: Number},
+    agencyId: {type: Number,required: true},
     agencyLocationId: {type: Number},
     about: {type: String, required: false},
     banner: {type: String, required: false},
