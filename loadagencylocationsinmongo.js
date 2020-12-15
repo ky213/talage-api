@@ -183,7 +183,8 @@ async function runFunction() {
         if(loadResp){
             let agencyLocationJSON = {};
             try{
-                const mongoApp = await agencyLocationBO.getMongoDocbyMysqlId(mysqlId)
+                const loadChildren = false;
+                const mongoApp = await agencyLocationBO.getMongoDocbyMysqlId(mysqlId, loadChildren)
                 if(mongoApp){
                     agencyLocationJSON = mongoApp;
                     newMongoDoc = false;

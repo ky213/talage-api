@@ -209,7 +209,7 @@ async function getAgency(req, res, next) {
         log.error('Agency not found after having passed validation' + __location);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     }
-    agency.state = agency.state > 0 ? "Active" : "Inactive";
+    agency.state = agency.active ? "Active" : "Inactive";
 
     // Build the response
     const response = {...agency};
