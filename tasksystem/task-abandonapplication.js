@@ -124,8 +124,9 @@ var processAbandonApp = async function(applicationDoc){
         // TODO only uses customer...
         let error = null;
         const agencyBO = new AgencyBO();
+        let agencyJSON = {};
         try{
-            await agencyBO.loadFromId(applicationDoc.agencyId)
+            agencyJSON = await agencyBO.getById(applicationDoc.agencyId)
         }
         catch(err){
             error = true;
@@ -148,8 +149,8 @@ var processAbandonApp = async function(applicationDoc){
             const customerContact = applicationDoc.contacts.find(contactTest => contactTest.primary === true);
             const customerEmail = customerContact.email;
 
-            let agencyPhone = agencyBO.phone;
-            let agencyWebsite = agencyBO.website;
+            let agencyPhone = agencyJSON.phone;
+            let agencyWebsite = agencyJSON.website;
 
 
             if(!agencyWebsite){
@@ -164,14 +165,14 @@ var processAbandonApp = async function(applicationDoc){
             }
             //  get from AgencyNetwork BO
             const brandurl = emailContentJSON.APPLICATION_URL;
-            const agencyLandingPage = `${brandurl}/${agencyBO.slug}`;
+            const agencyLandingPage = `${brandurl}/${agencyJSON.slug}`;
 
             let message = emailContentJSON.customerMessage;
             const subject = emailContentJSON.customerSubject;
 
             // Perform content replacements
-            message = message.replace(/{{Agency}}/g, agencyBO.name);
-            message = message.replace(/{{Agency Email}}/g, agencyBO.email);
+            message = message.replace(/{{Agency}}/g, agencyJSON.name);
+            message = message.replace(/{{Agency Email}}/g, agencyJSON.email);
             message = message.replace(/{{Agency Page Link}}/g, `<a href="${agencyLandingPage}" rel="noopener noreferrer" target="_blank">${agencyLandingPage}</a>`);
             message = message.replace(/{{Agency Phone}}/g, agencyPhone);
             message = message.replace(/{{Agency Website}}/g, `<a href="${agencyWebsite}" rel="noopener noreferrer" target="_blank">${agencyWebsite}</a>`);

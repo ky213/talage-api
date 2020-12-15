@@ -254,12 +254,12 @@ module.exports = class ApplicationModel {
                     const locationPrimaryJSON = await agencyLocationBO.getByAgencyPrimary(applicationJSON.agency).catch(function(err) {
                         log.error(`Error getting Agency Primary Location ${applicationJSON.uuid} ` + err + __location);
                     });
-                    if (locationPrimaryJSON && locationPrimaryJSON.id) {
-                        applicationJSON.agency_location = locationPrimaryJSON.id
-                        log.info(`Set App agency location to primary for ${applicationJSON.uuid} agency ${applicationJSON.agency} Location ${applicationJSON.agency_location}` + __location)
+                    if (locationPrimaryJSON && locationPrimaryJSON.systemId) {
+                        applicationJSON.agency_location = locationPrimaryJSON.systemId
+                        log.info(`Set App agency location to primary for ${applicationJSON.uuid} agency ${applicationJSON.agencyId} Location ${applicationJSON.agencyLocationId}` + __location)
                     }
                     else {
-                        log.warn(`Data problem prevented setting App agency location to primary for ${applicationJSON.uuid} agency ${applicationJSON.agency} Location ${applicationJSON.agency_location}` + __location)
+                        log.warn(`Data problem prevented setting App agency location to primary for ${applicationJSON.uuid} agency ${applicationJSON.agencyId} Location ${applicationJSON.agencyLocationId}` + __location)
                     }
 
                 }
@@ -272,8 +272,8 @@ module.exports = class ApplicationModel {
                     error = err;
                 });
                 if (agency) {
-                    applicationJSON.agencyNetworkId = agency.agency_network;
-                    applicationJSON.agency_network = agency.agency_network;
+                    applicationJSON.agencyNetworkId = agency.agencyNetworkId;
+                    applicationJSON.agency_network = agency.agencyNetworkId;
                 }
                 else {
                     log.error(`no agency record for id ${applicationJSON.agency} ` + __location);
@@ -2009,9 +2009,9 @@ module.exports = class ApplicationModel {
             if (findCount === false) {
                 let docList = null;
                 try {
-                    log.debug("ApplicationList query " + JSON.stringify(query))
-                    log.debug("ApplicationList options " + JSON.stringify(queryOptions))
-                    log.debug("queryProjection: " + JSON.stringify(queryProjection))
+                    // log.debug("ApplicationList query " + JSON.stringify(query))
+                    // log.debug("ApplicationList options " + JSON.stringify(queryOptions))
+                    // log.debug("queryProjection: " + JSON.stringify(queryProjection))
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions);
                     // log.debug("docList.length: " + docList.length);
                     // log.debug("docList: " + JSON.stringify(docList));
@@ -2565,7 +2565,7 @@ module.exports = class ApplicationModel {
             });
             if (agencylocationJSON && agencylocationJSON.insurers && agencylocationJSON.insurers.length > 0) {
                 for(let i = 0; i < agencylocationJSON.insurers.length; i++){
-                    insurerArray.push(agencylocationJSON.insurers[i].insurer)
+                    insurerArray.push(agencylocationJSON.insurers[i].insurerId)
                 }
             }
             else {

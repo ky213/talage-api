@@ -1,3 +1,4 @@
+/* eslint-disable object-property-newline */
 /* eslint-disable guard-for-in */
 /* eslint-disable prefer-const */
 /* eslint-disable array-element-newline */
@@ -57,7 +58,13 @@ async function getbyId(req, res, next) {
     const agencyLocationBO = new AgencyLocationBO();
 
     // Load the request data into it
-    const locationJSON = await agencyLocationBO.getByIdAndAgencyListForAgencyPortal(id, agencyList).catch(function(err) {
+    //const locationJSON = await agencyLocationBO.getByIdAndAgencyListForAgencyPortal(id, agencyList).catch(function(err) {
+    // eslint-disable-next-line object-curly-newline
+    const query = {"systemId": id, agencyId: agencyList};
+    log.debug("AL GET query: " + JSON.stringify(query));
+    const getAgencyName = false;
+    const loadChildren = true;
+    const locationJSONList = await agencyLocationBO.getList(query, getAgencyName, loadChildren).catch(function(err) {
         log.error("Location load error " + err + __location);
         error = err;
     });
@@ -65,8 +72,28 @@ async function getbyId(req, res, next) {
         return next(error);
     }
     // Send back a success response
-    if (locationJSON) {
-        res.send(200, locationJSON);
+    if (locationJSONList && locationJSONList.length > 0) {
+        let location = locationJSONList[0];
+        location.id = location.systemId;
+        if(location.insurers){
+            for(let i = 0; i < location.insurers.length; i++) {
+                let insurer = location.insurers[i];
+                //backward compatible for Quote App.  properties for WC, BOP, GL
+                if(insurer.policyTypeInfo){
+                    insurer.policy_type_info = insurer.policyTypeInfo
+                    const policyTypeCd = ['WC','BOP','GL']
+                    for(const pt of policyTypeCd){
+                        if(insurer.policy_type_info[pt] && insurer.policy_type_info[pt].enabled === true){
+                            insurer[pt.toLowerCase()] = 1;
+                        }
+                        else {
+                            insurer[pt.toLowerCase()] = 0;
+                        }
+                    }
+                }
+            }
+        }
+        res.send(200, locationJSONList[0]);
         return next();
     }
     else {
@@ -111,11 +138,42 @@ async function createAgencyLocation(req, res, next) {
 
     // Make sure the ID is 0 (this is how the system knows to create a new record)
     req.body.id = 0;
-    //correct legacy properties
-    await legacyFieldUpdate(req.body)
+
     //log.debug("update legacy " + JSON.stringify(req.body))
     //get Agency insures data from body
 
+
+    log.debug("AP Agency location POST " + JSON.stringify(req.body))
+    if(req.body.fname){
+        req.body.firstName = req.body.fname
+    }
+
+    if(req.body.lname){
+        req.body.lastName = req.body.lname
+    }
+
+    if(req.body.policy_type_info){
+        req.body.policyTypeInfo = req.body.policy_type_info
+    }
+
+    //Fix insures
+    if (req.body.insurers) {
+        for (let i = 0; i < req.body.insurers.length; i++) {
+            // eslint-disable-next-line prefer-const
+            let insurer = req.body.insurers[i];
+            if(insurer.insurer){
+                insurer.insurerId = insurer.insurer;
+            }
+            if(insurer.policy_type_info){
+                insurer.policyTypeInfo = insurer.policy_type_info
+            }
+        }
+    }
+
+    //convert legacy property Name
+    if(req.body.agency){
+        req.body.agencyId = req.body.agency;
+    }
 
     // Initialize an agency object
     const agencyLocationBO = new AgencyLocationBO();
@@ -176,9 +234,7 @@ async function deleteAgencyLocation(req, res, next) {
     if (!Object.prototype.hasOwnProperty.call(req.query, 'id')) {
         return next(serverHelper.requestError('ID missing'));
     }
-    if (!await validator.agencyLocation(req.query.id)) {
-        return next(serverHelper.requestError('ID is invalid'));
-    }
+
     const id = parseInt(req.query.id, 10);
 
     // Get the Agency ID corresponding to this location and load it into the request object
@@ -231,30 +287,18 @@ function getAgencyByLocationId(id) {
             reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
             return;
         }
-
-        // Get the agency ID to which this location belongs
-        const sql = `
-			SELECT
-				\`agency\`
-			FROM
-				\`#__agency_locations\`
-			WHERE
-				\`id\` = ${db.escape(id)}
-			LIMIT 1;
-		`;
-        const result = await db.query(sql).catch(function(e) {
-            log.error(e.message + __location);
+        const agencyLocationBO = new AgencyLocationBO();
+        const locationJSON = await agencyLocationBO.getById(id).catch(function(err) {
+            log.error("Location load error " + err + __location);
             reject(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
         });
-
-        // Make sure an agency was found
-        if (result.length !== 1) {
-            log.warn('Agency ID not found in getAgencyLocation()' + __location);
+        if(locationJSON){
+            fulfill(locationJSON.agencyId);
+        }
+        else{
+            log.warn(`Agency ID not found in getAgencyLocation() id ${id}` + __location);
             reject(serverHelper.requestError('No agency found. Please contact us.'));
         }
-
-        // Isolate and return the agency ID
-        fulfill(result[0].agency);
     });
 }
 
@@ -268,6 +312,8 @@ function getAgencyByLocationId(id) {
  * @returns {void}
  */
 async function updateAgencyLocation(req, res, next) {
+
+    // log.debug("AP Agency location PUT " + JSON.stringify(req.body))
 
     let error = false;
 
@@ -297,9 +343,7 @@ async function updateAgencyLocation(req, res, next) {
     if (!Object.prototype.hasOwnProperty.call(req.body, 'id')) {
         return next(serverHelper.requestError('ID missing'));
     }
-    if (!await validator.agencyLocation(req.body.id)) {
-        return next(serverHelper.requestError('ID is invalid'));
-    }
+
     const id = parseInt(req.body.id, 10);
 
     // Get the agencies that the user is permitted to manage
@@ -340,21 +384,24 @@ async function updateAgencyLocation(req, res, next) {
         for (let i = 0; i < req.body.insurers.length; i++) {
             // eslint-disable-next-line prefer-const
             let insurer = req.body.insurers[i];
-            if (insurer.locationID) {
-                insurer.agencyLocation = insurer.locationID;
 
+            if(insurer.insurer){
+                insurer.insurerId = insurer.insurer;
             }
-            else {
-                //Fix client not setting location id
-                insurer.agencyLocation = req.body.id;
+            if(insurer.policy_type_info){
+                insurer.policyTypeInfo = insurer.policy_type_info
             }
         }
     }
 
-    //correct legacy properties
-    await legacyFieldUpdate(req.body)
-    // log.debug("update legacy " + JSON.stringify(req.body))
+    //convert legacy property Name
+    if(req.body.fname){
+        req.body.firstName = req.body.fname
+    }
 
+    if(req.body.lname){
+        req.body.lastName = req.body.lname
+    }
 
     // Initialize an agency object
     const agencyLocationBO = new AgencyLocationBO();
@@ -365,24 +412,6 @@ async function updateAgencyLocation(req, res, next) {
     if (error) {
         return next(error);
     }
-
-    // //process insurers
-    // // body.insurers
-    // if(req.body.insurers){
-    //     for(let i = 0; i < req.body.insurers.length; i++){
-    //         let reqAlInsurer  = req.body.insurers[i];
-    //         reqAlInsurer.agency_location = agencyLocationBO.id;
-    //         let agencyLocationInsurerBO = new AgencyLocationInsurerBO()
-    //         await agencyLocationInsurerBO.saveModel(reqAlInsurer).catch(function(err) {
-    //             log.error("agencyLocationInsurerBO.save error " + err + __location);
-    //             error = err;
-    //         });
-    //         if (error) {
-    //             return next(error);
-    //         }
-
-    //     }
-    // }
 
     // Send back a success response
     res.send(200, 'Updated');
@@ -444,50 +473,43 @@ async function getSelectionList(req, res, next) {
     const agencyLocationBO = new AgencyLocationBO();
 
     let locationList = null;
-    const query = {"agency": agencyId}
+    const query = {"agencyId": agencyId}
+    const getAgencyName = true;
     const getChildren = true;
 
-    locationList = await agencyLocationBO.getList(query, getChildren).catch(function(err){
+    locationList = await agencyLocationBO.getList(query, getAgencyName, getChildren).catch(function(err){
         log.error(err.message + __location);
         error = err;
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     });
+    //Backward compatible for mysql columns
     locationList.forEach((location) => {
-        location.openTime = location.open_time;
-        location.closeTime = location.close_time;
+        location.fname = location.firstName;
+        location.lname = location.lastName;
+        location.id = location.systemId;
+        if(location.insurers){
+            for(let i = 0; i < location.insurers.length; i++) {
+                let insurer = location.insurers[i];
+                insurer.insurer = insurer.insurerId
+                //backward compatible for Quote App.  properties for WC, BOP, GL
+                if(insurer.policyTypeInfo){
+                    insurer.policy_type_info = insurer.policyTypeInfo
+                    const policyTypeCd = ['WC','BOP','GL']
+                    for(const pt of policyTypeCd){
+                        if(insurer.policy_type_info[pt] && insurer.policy_type_info[pt].enabled === true){
+                            insurer[pt] = 1;
+                        }
+                        else {
+                            insurer[pt] = 0;
+                        }
+                    }
+                }
+            }
+        }
     });
     // Send back a success response
     res.send(200, locationList);
     return next();
-}
-// Agency portal does not send bop, gl, wc properties, just policy_type_info
-async function legacyFieldUpdate(requestALJSON) {
-    const policyTypeList = ["GL", "WC", "BOP"];
-    if (requestALJSON.insurers) {
-        for (let i = 0; i < requestALJSON.insurers.length; i++) {
-            let insurer = requestALJSON.insurers[i];
-            insurer.bop = 0;
-            insurer.gl = 0;
-            insurer.wc = 0;
-            if (insurer.policy_type_info) {
-                for (let j = 0; j < policyTypeList.length; j++) {
-                    const policyType = policyTypeList[j];
-                    //log.debug("policyType " + policyType);
-                    if (insurer.policy_type_info[policyType] && insurer.policy_type_info[policyType].enabled) {
-                        insurer[policyType.toLowerCase()] = insurer.policy_type_info[policyType].enabled ? 1 : 0;
-                    }
-                    else {
-                        insurer[policyType.toLowerCase()] = 0;
-                    }
-                    // log.debug(`Set ${policyType.toLowerCase()} to ` + insurer[policyType.toLowerCase()])
-                }
-            }
-            //log.debug("insurer: " + JSON.stringify(insurer))
-        }
-
-    }
-
-    return true;
 }
 
 exports.registerEndpoint = (server, basePath) => {

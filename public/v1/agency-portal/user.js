@@ -357,7 +357,7 @@ async function createUser(req, res, next) {
             log.error(`Error getting Agency: ${agencyId} ` + error + __location);
             return next(error);
         }
-        agencyNetwork = agency.agency_network;
+        agencyNetwork = agency.agencyNetworkId;
     }
 
     // Get the content of the new user email

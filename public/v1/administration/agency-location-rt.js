@@ -20,14 +20,40 @@ async function findAll(req, res, next) {
     let error = null;
     const agencyLocationBO = new AgencyLocationBO();
     if(req.query.agencysearch === "1"){
-        const rows = await agencyLocationBO.getSearchListForAdmin(req.query).catch(function(err) {
+        delete req.query.agencysearch;
+        let rows = await agencyLocationBO.getSearchListForAdmin(req.query).catch(function(err) {
             error = err;
         })
         if (error) {
             return next(error);
         }
         if (rows) {
+            const propertyToRemove = ["territories",
+                "email",
+                "agencyPortalModifiedUser",
+                "additionalInfo",
+                "insurers"]
+            for(let agencyLocation of rows){
+                //Admin is expecting agencyLocationid as integer
+                agencyLocation.agencyLocationid = agencyLocation.mysqlId;
+                agencyLocation.state_abbr = agencyLocation.state;
 
+                if(agencyLocation.address){
+                    agencyLocation.displayString = `${agencyLocation.name}: ${agencyLocation.address}, ${agencyLocation.city}, ${agencyLocation.state} ${agencyLocation.zipcode}`;
+                }
+                else if(agencyLocation.zip){
+                    agencyLocation.displayString = `${agencyLocation.name}: ${agencyLocation.city}, ${agencyLocation.state} ${agencyLocation.zipcode}`
+                }
+                else {
+                    agencyLocation.displayString = `${agencyLocation.name}: no address`
+                }
+                for(const removeProp of propertyToRemove){
+                    if(agencyLocation[removeProp]){
+                        delete agencyLocation[removeProp]
+                    }
+                }
+
+            }
             res.send(200, rows);
             return next();
         }

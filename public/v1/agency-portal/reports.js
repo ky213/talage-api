@@ -57,7 +57,7 @@ async function getReports(req, res, next) {
     if (error) {
         return next(error);
     }
-
+    
     // Get the filter parameters
     let startDate = req.query.startDate;
     let endDate = req.query.endDate;
