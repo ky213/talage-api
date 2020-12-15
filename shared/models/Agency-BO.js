@@ -282,7 +282,7 @@ module.exports = class AgencyBO {
 
             let rejected = false;
             // eslint-disable-next-line prefer-const
-            let query = {};
+            let query = {active: true};
             let error = null;
 
             var queryOptions = {};
