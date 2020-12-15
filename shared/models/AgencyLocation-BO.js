@@ -435,6 +435,9 @@ module.exports = class AgencyLocationBO{
     }
 
     async loadChildrenMongo(agencyLocationId, agencyLocationJSON){
+        if(!agencyLocationJSON){
+            return;
+        }
         if(agencyLocationJSON.insurers){
             //Map to current Insurers
             await this.addInsureInfoTolocationInsurersMongo(agencyLocationJSON.insurers);
