@@ -39,7 +39,7 @@ const AgencyLandingPageSchema = new Schema({
     showIntroText: {type: Boolean, default: false},
     meta: MetaSchema,
     name: {type: String, required: false},
-    showIndustrySection: {type: Boolean, required: true},
+    showIndustrySection: {type: Boolean, default: false},
     slug: {type: String, required: false},
     additionalInfo: {type: Schema.Types.Mixed},
     agencyPortalCreatedUser: {type: String},
