@@ -63,7 +63,7 @@ module.exports = class AgencyBO {
                     return;
                 });
                 if(dbDocJSON){
-                    newObjectJSON.systemId = dbDocJSON.newSystemId;
+                    newObjectJSON.systemId = dbDocJSON.systemId;
                     if (newObjectJSON.logo && newObjectJSON.logo.startsWith('data:')) {
                         if (dbDocJSON.logo) {
                         //removed old logo from S3.
