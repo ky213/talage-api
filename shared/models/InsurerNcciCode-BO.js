@@ -120,7 +120,6 @@ module.exports = class InsurerNcciCodeBO{
                                         WHERE code = ${db.escape(queryJSON.activityCodeNotLinked)}) `;
                         hasWhere = true;
                     }
-                    // TODO: find a way to make this a valid sql list of ids (might just be json parse)
                     if(queryJSON.insurers) {
                         sql += hasWhere ? " AND " : " WHERE ";
                         sql += ` insurer IN (${db.escape(queryJSON.insurers)}) `;
@@ -150,8 +149,8 @@ module.exports = class InsurerNcciCodeBO{
                     }
                     hasWhere = true;
 
-                    const maxRows = stringFunctions.santizeNumber(queryJSON.maxRows, true);
-                    const page = stringFunctions.santizeNumber(queryJSON.page, true);
+                    const maxRows = queryJSON.maxRows ? stringFunctions.santizeNumber(queryJSON.maxRows, true) : 20;
+                    const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : 1;
                     if(maxRows && page) {
                         sql += ` LIMIT ${db.escape(maxRows)} `;
                         // offset by page number * max rows, so we go that many rows
@@ -172,10 +171,10 @@ module.exports = class InsurerNcciCodeBO{
                 if (rejected) {
                     return;
                 }
-                let boList = [];
-                if(result && result.length > 0 ){
-                    for(let i=0; i < result.length; i++ ){
-                        let insurerNcciCodeBO = new InsurerNcciCodeBO();
+                const boList = [];
+                if(result && result.length > 0){
+                    for(let i = 0; i < result.length; i++){
+                        const insurerNcciCodeBO = new InsurerNcciCodeBO();
                         await insurerNcciCodeBO.#dbTableORM.decryptFields(result[i]);
                         await insurerNcciCodeBO.#dbTableORM.convertJSONColumns(result[i]);
                         const resp = await insurerNcciCodeBO.loadORM(result[i], skipCheckRequired).catch(function(err){
