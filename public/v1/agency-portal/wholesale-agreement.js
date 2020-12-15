@@ -73,7 +73,7 @@ async function getWholesaleAgreementLink(req, res, next) {
     // const lastName = await crypt.decrypt(agentInfo.lname);
 
     const user = req.authentication.userID;
-    const name = `${agentInfo.fname} ${agentInfo.lname}`;
+    const name = `${agentInfo.firstName} ${agentInfo.lastName}`;
     const email = agentInfo.email;
     const template = global.settings.ENV === 'production' ? productionDocusignWholesaleAgreementTemplate : stagingDocusignWholesaleAgreementTemplate;
     //Get AgencyNetworkBO settings
@@ -93,7 +93,7 @@ async function getWholesaleAgreementLink(req, res, next) {
     const returnUrl = `${agencyNetworkEnvSettings.PORTAL_URL}/wholesale-agreement`;
 
     // Check if the user has signed. If they have, then don't have them sign again.
-    if (agentInfo.docusign_envelope_id !== null && await docusign.userHasSigned(user, agentInfo.docusign_envelope_id)) {
+    if (agentInfo.docusignEnvelopeId !== null && await docusign.userHasSigned(user, agentInfo.docusign_envelope_id)) {
         // If it isn't, mark it as signed. It is possible that they never called back into the updateWholesaleAgreementSigned endpoint.
         if (agentInfo.wholesale_agreement_signed === null) {
             if (!await SetWholesaleAgreementAsSigned(agencyID)) {

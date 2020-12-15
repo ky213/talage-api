@@ -100,9 +100,9 @@ module.exports = class AgencyLocation {
             let agencyInfo = null;
             try{
                 const agencyBO = new AgencyBO();
-                agencyInfo = await agencyBO.getById(agencyLocation.agency);
+                agencyInfo = await agencyBO.getById(agencyLocation.agencyId);
                 agencyInfo.email = agencyLocation.email;
-                agencyInfo.fname = agencyLocation.fname;
+                agencyInfo.fname = agencyLocation.firstName;
                 agencyInfo.additionalInfo = agencyLocation.additionalInfo;
             }
             catch(err){
@@ -110,8 +110,6 @@ module.exports = class AgencyLocation {
                 reject(err);
                 hadError = true;
             }
-            // Get the query results
-            const insurers = alInsurerList;
 
             const agency_network = agencyInfo.agency_network;
             const agencyNetworkBO = new AgencyNetworkBO();
@@ -136,15 +134,15 @@ module.exports = class AgencyLocation {
             this.wholesale = Boolean(agencyInfo.wholesale);
 
             // Extract the insurer info
-            for (const insurerId in insurers) {
-                if (Object.prototype.hasOwnProperty.call(insurers, insurerId)) {
-                    const insurer = insurers[insurerId];
+            for (const insurerIndex in alInsurerList) {
+                if (Object.prototype.hasOwnProperty.call(alInsurerList, insurerIndex)) {
+                    const insurer = alInsurerList[insurerIndex];
                     // Decrypt the agent's information
                     if(insurer.agencyId){
                         insurer.agency_id = insurer.agencyId;
                     }
-                    if(insurer.insurer){
-                        insurer.id = insurer.insurer;
+                    if(insurer.insurerId){
+                        insurer.id = insurer.insurerId;
                     }
                     if(insurer.agentId){
                         insurer.agent_id = insurer.agentId;
@@ -253,26 +251,27 @@ module.exports = class AgencyLocation {
             this.business.locations.forEach((location) => {
                 // log.debug(`this.territories` + JSON.stringify(this.territories))
                 if (!this.territories.includes(location.state)) {
-                    log.error(`Agent does not have ${location.state} enabled` + __location);
+                    log.error(`Agent ${this.agencyId} does not have ${location.state} enabled` + __location);
                     reject(new Error(`The specified agent is not setup to support this application in territory ${location.state}.`));
 
                 }
             });
 
             // Policy Types
+            //this being down twice once here and one on application.get_insurers()
             this.appPolicies.forEach((policy) => {
                 let match_found = false;
-                for (const insurer in this.insurers) {
-                    if (Object.prototype.hasOwnProperty.call(this.insurers, insurer)) {
-                        if (this.insurers[insurer][policy.type.toLowerCase()] === 1) {
-                            match_found = true;
-                        }
+                // eslint-disable-next-line guard-for-in
+                for (const insurerKey in this.insurers) {
+                    const insurer = this.insurers[insurerKey];
+                    if(insurer.policyTypeInfo && insurer.policyTypeInfo[policy.type.toUpperCase()]
+                            && insurer.policyTypeInfo[policy.type.toUpperCase()].enable === true){
+                        match_found = true;
                     }
                 }
                 if (!match_found) {
-                    log.error(`Agent does not have ${policy.type} policies enabled`);
+                    log.error(`Agent ${this.agencyId} does not have ${policy.type} policies enabled`);
                     reject(new Error('The specified agent is not setup to support this application.'));
-
                 }
             });
 
@@ -308,9 +307,9 @@ module.exports = class AgencyLocation {
         //  const insurerIdTest = insureId.toString;
         let notifyTalage = false;
         if(this.insurers){
-            if(this.insurers[insureId] && this.insurers[insureId].policy_type_info){
+            if(this.insurers[insureId] && this.insurers[insureId].policyTypeInfo){
                 try{
-                    if(this.insurers[insureId].policy_type_info.notifyTalage === true){
+                    if(this.insurers[insureId].policyTypeInfo.notifyTalage === true){
                         notifyTalage = true;
                     }
                 }
@@ -318,8 +317,8 @@ module.exports = class AgencyLocation {
                     log.error(`Error getting notifyTalage from agencyLocation ${this.id} insureid ${insureId} ` + e + __location);
                 }
             }
-            else if(this.insurers[insureId] && !this.insurers[insureId].policy_type_info){
-                log.error(`Quote Agency Location no policy_type_info for insurer ${insureId} in shouldNotifyTalage ` + __location);
+            else if(this.insurers[insureId] && !this.insurers[insureId].policyTypeInfo){
+                log.error(`Quote Agency Location no policyTypeInfo for insurer ${insureId} in shouldNotifyTalage ` + __location);
             }
         }
         else {

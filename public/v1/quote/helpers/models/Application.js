@@ -51,14 +51,6 @@ module.exports = class Application {
         // load application from database.
         //let error = null
         let applicationBO = new ApplicationBO();
-        // await applicationBO.loadFromId(this.id).catch(function(err) {
-        //     error = err;
-        //     log.error("Unable to get application for quoting appId: " + data.id + __location);
-        // });
-
-        // if (error) {
-        //     throw error;
-        // }
 
         try{
             this.applicationDocData = await applicationBO.loadfromMongoBymysqlId(this.id);
@@ -312,10 +304,11 @@ module.exports = class Application {
                 if (insurer.policy_types.indexOf(policy.type) >= 0) {
 
                     // Get the agency_location_insurer data for this insurer from the agency location
-                    if (this.agencyLocation.insurers[insurer.id].policy_type_info) {
+                    log.debug(JSON.stringify(this.agencyLocation.insurers[insurer.id]))
+                    if (this.agencyLocation.insurers[insurer.id].policyTypeInfo) {
 
                         //Retrieve the data for this policy type
-                        const agency_location_insurer_data = this.agencyLocation.insurers[insurer.id].policy_type_info[policy.type];
+                        const agency_location_insurer_data = this.agencyLocation.insurers[insurer.id].policyTypeInfo[policy.type];
                         if (agency_location_insurer_data) {
 
                             if (agency_location_insurer_data.enabled) {
@@ -349,19 +342,19 @@ module.exports = class Application {
                                     quote_promises.push(integration.quote());
                                 }
                                 else {
-                                    log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} insurer ${insurer.name} policytype ${policy.type} slug: ${slug} path: ${normalizedPath} ` + __location);
+                                    log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} insurer ${insurer.name} policytype ${policy.type} slug: ${slug} path: ${normalizedPath} app ${this.id} ` + __location);
                                 }
                             }
                             else {
-                                log.error(`${policy.type} is not enabled for insurer ${insurer.id} for Agency location ${this.agencyLocation.id}` + __location);
+                                log.error(`${policy.type} is not enabled for insurer ${insurer.id} for Agency location ${this.agencyLocation.id} app ${this.id}` + __location);
                             }
                         }
                         else {
-                            log.error(`Info for policy type ${policy.type} not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id}` + __location);
+                            log.error(`Info for policy type ${policy.type} not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} app ${this.id}` + __location);
                         }
                     }
                     else {
-                        log.error(`Policy info not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id}` + __location);
+                        log.error(`Policy info not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} app ${this.id}` + __location);
                     }
                 }
             });

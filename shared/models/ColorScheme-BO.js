@@ -6,9 +6,9 @@ const DatabaseObject = require('./DatabaseObject.js');
 const tracker = global.requireShared('./helpers/tracker.js');
 
 
-const tableName = 'clw_talage_industry_code_categories'
+const tableName = 'clw_talage_color_schemes'
 const skipCheckRequired = false;
-module.exports = class IndustryCodeCategoryBO{
+module.exports = class ColorSchemeBO{
 
     #dbTableORM = null;
 
@@ -50,13 +50,13 @@ module.exports = class IndustryCodeCategoryBO{
             });
             this.updateProperty();
             this.id = this.#dbTableORM.id;
+            //MongoDB
 
 
             resolve(true);
 
         });
     }
-
 
     loadFromId(id) {
         return new Promise(async(resolve, reject) => {
@@ -93,7 +93,6 @@ module.exports = class IndustryCodeCategoryBO{
                 }
             }
             // Run the query
-            log.debug("AgencyNetworkBO getlist sql: " + sql);
             const result = await db.query(sql).catch(function(error) {
                 // Check if this was
 
@@ -107,17 +106,16 @@ module.exports = class IndustryCodeCategoryBO{
             const boList = [];
             if(result && result.length > 0){
                 for(let i = 0; i < result.length; i++){
-                    // eslint-disable-next-line prefer-const
-                    let industryCodeCategoryBO = new IndustryCodeCategoryBO();
-                    await industryCodeCategoryBO.#dbTableORM.decryptFields(result[i]);
-                    await industryCodeCategoryBO.#dbTableORM.convertJSONColumns(result[i]);
-                    const resp = await industryCodeCategoryBO.loadORM(result[i], skipCheckRequired).catch(function(err){
+                    const colorSchemeBO = new ColorSchemeBO();
+                    await colorSchemeBO.#dbTableORM.decryptFields(result[i]);
+                    await colorSchemeBO.#dbTableORM.convertJSONColumns(result[i]);
+                    const resp = await colorSchemeBO.loadORM(result[i], skipCheckRequired).catch(function(err){
                         log.error(`getList error loading object: ` + err + __location);
                     })
                     if(!resp){
                         log.debug("Bad BO load" + __location)
                     }
-                    boList.push(industryCodeCategoryBO);
+                    boList.push(colorSchemeBO);
                 }
                 resolve(boList);
             }
@@ -194,34 +192,6 @@ module.exports = class IndustryCodeCategoryBO{
     }
 
 
-    // ***************************
-    //    For administration site
-    //
-    // *************************
-
-    async getSelectionList(){
-
-        let rejected = false;
-        const responseLandingPageJSON = {};
-        const reject = false;
-        const sql = `select id, name, logo  
-            from clw_talage_insurers
-            where state > 0
-            order by name`
-        const result = await db.query(sql).catch(function(error) {
-            // Check if this was
-            rejected = true;
-            log.error(`${tableName} error on select ` + error + __location);
-        });
-        if (!rejected && result && result.length > 0) {
-            return result;
-        }
-        else {
-            return [];
-        }
-
-    }
-
 }
 
 const properties = {
@@ -232,7 +202,7 @@ const properties = {
         "required": false,
         "rules": null,
         "type": "number",
-        "dbType": "int(11) unsigned"
+        "dbType": "tinyint(3) unsigned"
     },
     "state": {
         "default": "1",
@@ -250,16 +220,61 @@ const properties = {
         "required": true,
         "rules": null,
         "type": "string",
-        "dbType": "varchar(50)"
+        "dbType": "varchar(20)"
     },
-    "featured": {
-        "default": 0,
+    "primary": {
+        "default": "",
         "encrypted": false,
         "hashed": false,
         "required": true,
         "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
+        "type": "string",
+        "dbType": "varchar(7)"
+    },
+    "primary_accent": {
+        "default": "",
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(7)"
+    },
+    "secondary": {
+        "default": "",
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(7)"
+    },
+    "secondary_accent": {
+        "default": "",
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(7)"
+    },
+    "tertiary": {
+        "default": "",
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(7)"
+    },
+    "tertiary_accent": {
+        "default": "",
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(7)"
     },
     "created": {
         "default": null,
@@ -337,6 +352,7 @@ const properties = {
 
 class DbTableOrm extends DatabaseObject {
 
+    // eslint-disable-next-line no-shadow
     constructor(tableName){
         super(tableName, properties);
     }

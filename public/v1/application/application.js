@@ -497,13 +497,13 @@ async function AgencyEmail(req, res, next){
         const messageKeys = {agencyLocationId: agencyLocationId};
         let error = null;
         const agencyLocationBO = new AgencyLocationBO();
-        await agencyLocationBO.loadFromId(agencyLocationId).catch(function(err) {
+        const agencyLocationJSON = await agencyLocationBO.getById(agencyLocationId).catch(function(err) {
             log.error(`Loading agency in AgencyEmail error:` + err + __location);
             error = err;
         });
         if(!error){
-            if(agencyLocationBO.email){
-                const agencyEmail = agencyLocationBO.email;
+            if(agencyLocationJSON.email){
+                const agencyEmail = agencyLocationJSON.email;
                 // Build the email
                 let message = '<p style="text-align:left;">You received the following message from ' + name + ' (' + email + '):</p>';
                 message = message + '<p style="text-align:left;margin-top:10px;">"' + messageText + '"</p>';

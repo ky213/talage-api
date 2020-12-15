@@ -34,7 +34,7 @@ async function getAgencies(req, res, next){
     let retAgencies = null;
     try{
         error = null;
-        const query = {agencies: agents}
+        const query = {systemId: agents}
         const agencyBO = new AgencyBO();
         // Load the request data into it
         retAgencies = await agencyBO.getList(query);
@@ -54,11 +54,11 @@ async function getAgencies(req, res, next){
             try{
                 // eslint-disable-next-line prefer-const
                 let agencyInfo = {};
-                agencyInfo.id = retAgencies[i].id;
+                agencyInfo.id = retAgencies[i].systemId;
                 agencyInfo.name = retAgencies[i].name;
-                agencyInfo.state = retAgencies[i].state > 0 ? "Active" : "Inactive";
+                agencyInfo.state = retAgencies[i].active ? "Active" : "Inactive";
                 const query = {
-                    "agencyId": retAgencies[i].id,
+                    "agencyId": retAgencies[i].systemId,
                     count: 1
                 };
                 const appCount = await applicationBO.getList(query);
