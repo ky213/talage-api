@@ -184,14 +184,21 @@ exports.send = async function(recipients, subject, content, keys = {}, agencyNet
         subject: emailJSON.subject
     };
     //keys.applicationDoc
-    if(applicationDoc && applicationDoc.applicationId){
-        columns.applicationId = applicationDoc.applicationId;
-        columns.businessName = applicationDoc.businessName;
-        columns.agencyLocationId = applicationDoc.agencyLocationId;
-    }
     // TODO Eliminate when rest of emails about Apps move to AppDoc. If there were keys supplied, write the appropriate records to the database
     if (keys && typeof keys === 'object' && Object.keys(keys).length) {
         // Handle the Application key
+        if(keys.applicationId){
+            columns.applicationId = keys.application;
+            if(keys.applicationDoc && keys.applicationDoc.businessName){
+                columns.businessName = keys.applicationDoc.businessName;
+            }
+        }
+        if(keys.application){
+            columns.applicationId = keys.application;
+            if(keys.applicationDoc && keys.applicationDoc.businessName){
+                columns.businessName = keys.applicationDoc.businessName;
+            }
+        }
         if (Object.prototype.hasOwnProperty.call(keys, 'applicationId')) {
             // Add the application to the columns list
             columns.application = keys.application;
@@ -205,6 +212,14 @@ exports.send = async function(recipients, subject, content, keys = {}, agencyNet
             columns.agencyLocationId = keys.agencyLocationId;
         }
     }
+
+    //applicationDoc override keys sent.
+    if(applicationDoc && applicationDoc.applicationId){
+        columns.applicationId = applicationDoc.applicationId;
+        columns.businessName = applicationDoc.businessName;
+        columns.agencyLocationId = applicationDoc.agencyLocationId;
+    }
+
 
     // Adjust the subject based on the environment
     if (emailJSON && emailJSON.subject && typeof emailJSON.subject === 'string' && global.settings.ENV !== 'production') {
