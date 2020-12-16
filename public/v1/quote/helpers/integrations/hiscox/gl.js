@@ -73,6 +73,38 @@ module.exports = class HiscoxGL extends Integration {
         // Define the limits supported by this carrier
         let carrierLimits = ["300000/600000", "500000/1000000", "1000000/2000000", "2000000/2000000"];
 
+        const validCounties = [
+            "Broward county",
+            "Duval county",
+            "Hillsborough county",
+            "Miami-Dade county",
+            "Palm Beach county",
+            "Pinellas county",
+            "Remainder of State",
+            "Bexar county",
+            "Cameron county",
+            "Dallas county",
+            "El Paso county",
+            "Galveston county",
+            "Harris county (Houston)",
+            "Harris county (other than Houston)",
+            "Hidalgo county",
+            "Jefferson county",
+            "Nueces county",
+            "Tarrant county",
+            "Travis county",
+            "Willacy county",
+            "Jackson county (Kansas City)",
+            "Jackson county (other than Kansas City)",
+            "Clay county (Kansas City)",
+            "Clay county (other than Kansas City)",
+            "Cass county (Kansas City)",
+            "Cass county (other than Kansas City)",
+            "Platte county (Kansas City)",
+            "Platte county (other than Kansas City)",
+            "Saint Louis county"
+        ];
+
         /**
          * All classes of business mapped to Hiscox's Small Contractor, Landscape/Janitorial/Retail, and Mobile Food Classes use different limits.
          * These categories are not returned by their API, but can be found in the Development Guidelines for Quote API on the Reference Data tab.
@@ -255,6 +287,11 @@ module.exports = class HiscoxGL extends Integration {
                 }
                 // "county" MUST be lower case. MUST.
                 location.county = location.county.replace("County", "county");
+
+                // If it isn't in the list of valid counties, set it to "Remainder of State"
+                if (!validCounties.includes(location.county)) {
+                    location.county = "Remainder of state";
+                }
             }
             else {
                 // Hiscox does not want a territory, set it to false so the integration doesn't include it
