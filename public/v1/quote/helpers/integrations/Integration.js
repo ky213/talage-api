@@ -489,8 +489,21 @@ module.exports = class Integration {
         // Default required
         required = required ? required : false;
 
-        // If this question has a parent, is not required, and the parent question answer does not trigger this question
-        if (question.parent && Object.prototype.hasOwnProperty.call(this.questions, question.parent) && !required && this.questions[question.parent].answer_id !== question.parent_answer) {
+        // Determine if the question is visible (its ancestors are all visible)
+        let questionWasAnswered = true;
+        let childQuestionId = question.id;
+        while (this.questions.hasOwnProperty(childQuestionId) && this.questions[childQuestionId].parent !== 0) {
+            // Get the parent ID. Ensure it is a string since the questions keys are strings.
+            const parentQuestionId = this.questions[childQuestionId].parent;
+            // Determine if the child question is visible
+            if (!this.questions.hasOwnProperty(parentQuestionId) || this.questions[childQuestionId].parent_answer !== this.questions[parentQuestionId].answer_id) {
+                questionWasAnswered = false;
+                break;
+            }
+            childQuestionId = parentQuestionId;
+        }
+        // If not required and not answered, we return no answer
+        if (!required && !questionWasAnswered) {
             return false;
         }
 
