@@ -32,7 +32,7 @@ module.exports = class AgencyBO {
 
 
     /**
-     * Save Model
+     * Save ModelagencyInfo
      *
      * @param {object} newObjectJSON - newObjectJSON JSON
      * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
@@ -690,53 +690,58 @@ module.exports = class AgencyBO {
  * @returns {Promise.<JSON, Error>} A promise that returns an JSON with BrandName. message template and subject template, or an Error if rejected
  */
     async getEmailContentAgencyAndCustomer(agencyId, agencyContentProperty, customerContentProperty) {
-        if (agencyId) {
-            let agencyJSON = null;
+        //log.debug("agencyId " + agencyId + __location)
+        if(!agencyId){
+            log.error(`No agencyId ${agencyId} supplied for getEmailContentAgencyAndCustomer` + __location)
+            throw new Error("No agencyId supplied");
+        }
+        // if (agencyId > 0) {
+        let agencyJSON = null;
+        try {
+            agencyJSON = await this.getById(agencyId);
+        }
+        catch (err) {
+            log.error("Error getting Agency Network " + err + __location)
+            throw new Error('Error getting Agency Network');
+        }
+        if (agencyJSON) {
+            //get AgencyNetwork 1st than replace with Agency overwrites
+            const agencyNetworkBO = new AgencyNetworkBO();
+            const emailTemplateJSON = await agencyNetworkBO.getEmailContentAgencyAndCustomer(agencyJSON.agencyNetworkId, agencyContentProperty, customerContentProperty).catch(function(err) {
+                log.error(`Email content Error Unable to get email content for no quotes.  error: ${err}` + __location);
+                throw new Error(`Email content Error Unable to get email content for no quotes.  error: ${err}`)
+            });
+
+            const query = {active: true};
+            query.agencyMySqlId = agencyId
+
+            let agencyEmailDB = null;
             try {
-                agencyJSON = await this.getGetId(agencyId);
+                agencyEmailDB = await AgencyEmail.findOne(query, '-__v');
             }
             catch (err) {
-                log.error("Error getting Agnecy Network " + err + __location)
-                throw new Error('Error getting Agnecy Network');
+                log.error(`Getting AgencyEmail error agencyId ${agencyId}` + err + __location);
             }
-            if (this.id) {
-                //get AgencyNetwork 1st than replace with Agency overwrites
-                const agencyNetworkBO = new AgencyNetworkBO();
-                const emailTemplateJSON = await agencyNetworkBO.getEmailContentAgencyAndCustomer(agencyJSON.agencyNetworkId, agencyContentProperty, customerContentProperty).catch(function(err) {
-                    log.error(`Email content Error Unable to get email content for no quotes.  error: ${err}` + __location);
-                    throw new Error(`Email content Error Unable to get email content for no quotes.  error: ${err}`)
-                });
+            if (agencyEmailDB) {
+                if (agencyEmailDB[agencyContentProperty] && agencyEmailDB[agencyContentProperty].subject && agencyEmailDB[agencyContentProperty].subject.length > 0) {
 
-                const query = {active: true};
-                query.agencyMySqlId = agencyId
-
-                let agencyEmailDB = null;
-                try {
-                    agencyEmailDB = await AgencyEmail.findOne(query, '-__v');
+                    emailTemplateJSON.agencyMessage = agencyEmailDB[agencyContentProperty].message;
+                    emailTemplateJSON.agencySubject = agencyEmailDB[agencyContentProperty].subject;
                 }
-                catch (err) {
-                    log.error(`Getting AgencyEmail error agencyId ${agencyId}` + err + __location);
-                }
-                if (agencyEmailDB) {
-                    if (agencyEmailDB[agencyContentProperty] && agencyEmailDB[agencyContentProperty].subject && agencyEmailDB[agencyContentProperty].subject.length > 0) {
+                if (agencyEmailDB[customerContentProperty] && agencyEmailDB[customerContentProperty].subject && agencyEmailDB[customerContentProperty].subject.length > 0) {
 
-                        emailTemplateJSON.agencyMessage = agencyEmailDB[agencyContentProperty].message;
-                        emailTemplateJSON.agencySubject = agencyEmailDB[agencyContentProperty].subject;
-                    }
-                    if (agencyEmailDB[customerContentProperty] && agencyEmailDB[customerContentProperty].subject && agencyEmailDB[customerContentProperty].subject.length > 0) {
-
-                        emailTemplateJSON.customerMessage = agencyEmailDB[customerContentProperty].message;
-                        emailTemplateJSON.customerSubject = agencyEmailDB[customerContentProperty].subject;
-                    }
+                    emailTemplateJSON.customerMessage = agencyEmailDB[customerContentProperty].message;
+                    emailTemplateJSON.customerSubject = agencyEmailDB[customerContentProperty].subject;
                 }
-                log.debug("");
-                log.debug("emailTemplateJSON:  " + JSON.stringify(emailTemplateJSON));
-                return emailTemplateJSON;
             }
-            else {
-                log.error("No agencyId supplied " + __location)
-                throw new Error("No agencyId supplied");
-            }
+            log.debug("");
+            log.debug("emailTemplateJSON:  " + JSON.stringify(emailTemplateJSON));
+            return emailTemplateJSON;
+            // }
+            // else {
+            //     log.error(`No agencyId ${agencyId} supplied for getEmailContentAgencyAndCustomer` + __location)
+            //     throw new Error("No agencyId supplied");
+            // }
 
         }
     }

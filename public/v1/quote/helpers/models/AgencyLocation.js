@@ -124,7 +124,7 @@ module.exports = class AgencyLocation {
             // Extract the agent info
             this.agency = agencyInfo.name;
             this.agencyEmail = agencyInfo.email;
-            this.agencyId = agencyInfo.id;
+            this.agencyId = agencyInfo.systemId;
             this.agencyNetwork = agencyInfo.agency_network;
             this.agencyPhone = agencyInfo.phone;
             this.agencyWebsite = agencyInfo.website;
@@ -265,12 +265,12 @@ module.exports = class AgencyLocation {
                 for (const insurerKey in this.insurers) {
                     const insurer = this.insurers[insurerKey];
                     if(insurer.policyTypeInfo && insurer.policyTypeInfo[policy.type.toUpperCase()]
-                            && insurer.policyTypeInfo[policy.type.toUpperCase()].enable === true){
+                            && insurer.policyTypeInfo[policy.type.toUpperCase()].enabled === true){
                         match_found = true;
                     }
                 }
                 if (!match_found) {
-                    log.error(`Agent ${this.agencyId} does not have ${policy.type} policies enabled`);
+                    log.error(`Agent ${this.agencyId} location ${this.id} does not have ${policy.type} policies enabled` + __location);
                     reject(new Error('The specified agent is not setup to support this application.'));
                 }
             });
