@@ -49,8 +49,8 @@ const createMultiPagePDF = async(pdfList) => {
         if (!pdf) {
             throw new Error("Invalid PDF file passed in")
         }
-        const test = await PDFDocument.load(pdf);
-        const copiedPages = await mergedPdf.copyPages(test, test.getPageIndices());
+        const pdfDoc = await PDFDocument.load(pdf);
+        const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
         copiedPages.forEach((page) => mergedPdf.addPage(page));
     }
 
