@@ -143,9 +143,9 @@ async function findAll(req, res, next) {
             return serverHelper.sendError(res, next, 'Internal Error');
         }
         log.debug("docList.length: " + docList.length);
-        if (flippedSort === true) {
-            docList.sort((a, b) => parseInt(b.mysqlId, 10) - parseInt(a.mysqlId, 10));
-        }
+        // if (flippedSort === true) {
+        //     docList.sort((a, b) => parseInt(b.mysqlId, 10) - parseInt(a.mysqlId, 10));
+        // }
 
 
         res.send(200, mongoUtils.objListCleanup(docList));
