@@ -46,16 +46,7 @@ exports.create = async function(application_id, insurer_id, policy_type){
         throw err;
     }
 
-    let pdfUint8Array = null;
-
-    try{
-        pdfUint8Array = await acordForm.save();
-    }
-    catch(err){
-        log.error('Acord for PDF save() ' + err + __location);
-    }
-
-    const pdfBuffer = new Buffer.from(pdfUint8Array.buffer);
+    const pdfBuffer = new Buffer.from(acordForm.buffer);
 
     return {'doc': pdfBuffer};
 }
