@@ -491,14 +491,14 @@ module.exports = class Business {
             if(!this.num_owners){
                 //Depend on insurer and policyType.
                 // reject decision should be in insurer integration file.  as of 11/14/2020 only Acuity and BTIS are using num_owners
-                log.error(`You must specify the number of owners in the business appId: ${this.appId}` + __location);
+                log.warn(`You must specify the number of owners in the business appId: ${this.appId}` + __location);
                 //reject(new Error('You must specify the number of owners in the business.'));
                 //return;
             }
 
             if (this.num_owners && isNaN(this.num_owners)) {
-                log.error('You must specify the number of owners in the business' + __location);
-                reject(new Error('You must specify the number of owners in the business.'));
+                log.error('Number of owners in the business must be a number' + __location);
+                reject(new Error('Number of owners in the business must be a number.'));
                 return;
             }
             if (this.num_owners && this.num_owners < 1) {

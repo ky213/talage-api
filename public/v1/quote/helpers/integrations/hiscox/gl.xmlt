@@ -150,6 +150,14 @@
                     <CoverId>TRIA</CoverId>
                 </TRIACoverQuoteRq>
                 {{/if}}
+                {{if hnoaAmount}}
+                <HNOACoverQuoteRq>
+                    <CoverId>CGLHNOA</CoverId>
+                    <RatingInfo>
+                        <LOI>{{>hnoaAmount}}</LOI>
+                    </RatingInfo>
+                </HNOACoverQuoteRq>
+                {{/if}}
             </GeneralLiabilityQuoteRq>
         </ProductQuoteRqs>
     </QuoteRq>
