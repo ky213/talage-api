@@ -313,6 +313,20 @@ module.exports = class HiscoxGL extends Integration {
             return this.return_result('error', "Could not retrieve the Hiscox question identifiers");
         }
 
+        // Determine total payroll
+        this.totalPayroll = this.get_total_payroll();
+        const totalPayrollQuestionId = Object.keys(questionDetails).find(questionId => (questionDetails[questionId].identifier.startsWith("CustomTotalPayroll") ? questionId : null));
+        if (totalPayrollQuestionId) {
+            try {
+                this.totalPayroll = parseInt(this.questions[totalPayrollQuestionId].answer, 10);
+            }
+            catch (error) {
+                this.log_warn(`Could not convert custom total payroll '${this.questions[totalPayrollQuestionId].answer}' to a number.`, __location);
+            }
+            delete this.questions[totalPayrollQuestionId];
+        }
+
+        // Add questions
         this.questionList = [];
         this.additionalCOBs = [];
         for (const question of Object.values(this.questions)) {
@@ -322,14 +336,19 @@ module.exports = class HiscoxGL extends Integration {
                 if (elementName === 'GLHireNonOwnVehicleUse') {
                     elementName = 'HireNonOwnVehclUse';
                 }
+                else if (elementName === 'SCForbiddenProjects') {
+                    elementName = 'ForbiddenProjectsSmallContractors';
+                }
                 else if (elementName === 'HNOACoverQuoteRq') {
                     if (questionAnswer !== 'No') {
                         this.hnoaAmount = questionAnswer;
+                        // this.questionList.push({
+                        //     nodeName: 'HireNonOwnVehclCoverage',
+                        //     answer: 'Yes'
+                        // });
                     }
+                    // Don't add this to the question list
                     continue;
-                }
-                else if (elementName === 'SCForbiddenProjects') {
-                    elementName = 'ForbiddenProjectsSmallContractors';
                 }
                 else if (elementName === 'ClassOfBusinessCd') {
                     const cobDescriptionList = questionAnswer.split(", ");
@@ -353,11 +372,11 @@ module.exports = class HiscoxGL extends Integration {
                             questionAnswer = parseInt(questionAnswer, 10);
                         }
                         catch (error) {
+                            this.log_warn(`Could not convert contractor payroll '${questionAnswer}' to a number.`, __location);
                             questionAnswer = 0;
                         }
                     }
-                    // EstmtdPayrollSCContractors is a duplicate of EstmtdPayrollSC but they require both. Since we only ask EstmtdPayrollSC,
-                    // we need to add the duplicate answer here.
+                    // Add contractor payroll
                     this.questionList.push({
                         nodeName: 'EstmtdPayrollSCContractors',
                         answer: questionAnswer
@@ -366,8 +385,9 @@ module.exports = class HiscoxGL extends Integration {
                     // Add total payroll
                     this.questionList.push({
                         nodeName: 'EstmtdPayrollSC',
-                        answer: this.get_total_payroll() + questionAnswer
+                        answer: this.totalPayroll + questionAnswer
                     });
+                    // Don't add more to the question list
                     continue;
                 }
                 this.questionList.push({
