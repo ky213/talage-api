@@ -113,6 +113,9 @@ module.exports = class Application {
         // Note: The front-end is sending in 'agent' but this is really a reference to the 'agency location'
         if (this.applicationDocData.agencyLocationId) {
             await this.agencyLocation.load({id: this.applicationDocData.agencyLocationId});
+            await this.agencyLocation.init().catch(function(error) {
+                log.error('Location.init() error ' + error + __location);
+            });
         }
         else {
             log.error(`Missing agencyLocationId application ${this.id} ${__location}`);
@@ -539,6 +542,9 @@ module.exports = class Application {
                         this.agencyLocation.agencyId);
                 }
             }
+        }
+        else {
+            log.warn(`No Email content for Appid ${this.id} Agency$ {this.agencyLocation.agencyId} for no quotes.` + __location);
         }
 
         // Only send Slack messages on Talage applications  this.agencyLocation.agency
