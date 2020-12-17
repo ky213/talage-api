@@ -298,14 +298,13 @@ module.exports = class ACORD{
         for(let currentPage = 0; currentPage < totalPages; currentPage += 1){
 
             const pdfDataFieldsObj = {};
-
             questionTree.slice(15 * currentPage, 15 * (currentPage + 1)).forEach((question, index) => {
-                pdfDataFieldsObj["Question_" + index] = question.questionText;
+                pdfDataFieldsObj["Question_" + index] = question.questionText.toString();
                 if(question.answerList.length){
-                    pdfDataFieldsObj["Answer_" + index] = question.answerList.join('/ ');
+                    pdfDataFieldsObj["Answer_" + index] = question.answerList.join('/ ').toString();
                 }
                 else{
-                    pdfDataFieldsObj["Answer_" + index] = question.answerValue;
+                    pdfDataFieldsObj["Answer_" + index] = question.answerValue.toString();
                 }
             })
 
