@@ -52,7 +52,8 @@ module.exports = class ACORDGL extends Integration{
         // Prepare keys so that the record of the email being sent is written
         const email_keys = {
             'applicationId': this.app.id,
-            'agencyLocationId': this.app.agencyLocation.id
+            'agencyLocationId': this.app.agencyLocation.id,
+            'applicationDoc': this.app.applicationDocData
         }
 
         const attachment = {

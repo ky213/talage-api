@@ -156,6 +156,9 @@ async function getAgencyNetworkInsurersList(req, res, next) {
             if(typeof policyTypeObj.acord_support !== 'undefined'){
                 reducedPolicyTypeObj.acord_support = policyTypeObj.acord_support;
             }
+            if(insurerId === 1){
+                reducedPolicyTypeObj.api_bind_support = 1;
+            }
             insurer.policyTypes.push(reducedPolicyTypeObj);
         });
     }

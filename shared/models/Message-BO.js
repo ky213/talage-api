@@ -15,7 +15,6 @@ module.exports = class MessageBO{
     async saveMessage(columns, recipients, sendGridResp, attachments, applicationDoc){
         const mongoModelMapping = {
             application: "applicationId",
-            business: "businessId",
             agency_location: "agencyLocationId"
         }
         //For MongoDB
@@ -35,13 +34,6 @@ module.exports = class MessageBO{
             delete columns.sent;
         }
 
-        if(applicationDoc){
-            mongoMessageDoc.agencyId = applicationDoc.agencyId;
-            mongoMessageDoc.agencyNetworkId = applicationDoc.agencyNetworkId;
-        }
-        if(attachments){
-            mongoMessageDoc.attachments = attachments;
-        }
         //Map columns
         Object.entries(columns).forEach(([key, value]) => {
             let mongoProp = key;
@@ -50,6 +42,17 @@ module.exports = class MessageBO{
             }
             mongoMessageDoc[mongoProp] = value;
         });
+
+        if(applicationDoc){
+            mongoMessageDoc.agencyId = applicationDoc.agencyId;
+            mongoMessageDoc.agencyNetworkId = applicationDoc.agencyNetworkId;
+            mongoMessageDoc.applicationId = applicationDoc.applicationId;
+            mongoMessageDoc.businessName = applicationDoc.businessName;
+        }
+        if(attachments){
+            mongoMessageDoc.attachments = attachments;
+        }
+
 
         var message = new Message(mongoMessageDoc);
 
