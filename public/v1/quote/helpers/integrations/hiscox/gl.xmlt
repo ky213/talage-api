@@ -111,7 +111,7 @@
 					{{!-- Questions which we ask separately --}}
                     <CoverageStartDate>{{>effectiveDate}}</CoverageStartDate>
                     <BusinessOwnershipStructure>{{>entityType}}</BusinessOwnershipStructure>
-                    <EstmtdPayrollExpense>{{>get_total_payroll()}}</EstmtdPayrollExpense> {{!-- ALL CLASSES EXCEPT SC, LJR-Retail COBs, Home Health --}}
+                    <EstmtdPayrollExpense>{{>totalPayroll}}</EstmtdPayrollExpense> {{!-- ALL CLASSES EXCEPT SC, LJR-Retail COBs, Home Health --}}
                     <NumOfEmployees>{{>employeeCount}}</NumOfEmployees> {{!-- ALL CLASSES EXCEPT Real estate agent/broker: Numeric, 1-999 (includes temporary employees) --}}
                     <EstmtdAnnualGrossSales>{{>policy.gross_sales}}</EstmtdAnnualGrossSales> {{!-- For the following COB groups: A&E, AH, LJR (Retail), SC, Photography, Real Estate, Home health aide, Personal care aide and Mobile Food Services --}}{{!-- ENFOCE LIMITS? $1 - $1m --}}
                     <AdditionalLocation>{{>secondaryLocationsCount}}</AdditionalLocation> {{!-- 0, 1, 2, 3, 4, 5+ --}}
