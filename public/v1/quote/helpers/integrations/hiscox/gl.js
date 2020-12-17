@@ -322,6 +322,12 @@ module.exports = class HiscoxGL extends Integration {
                 if (elementName === 'GLHireNonOwnVehicleUse') {
                     elementName = 'HireNonOwnVehclUse';
                 }
+                else if (elementName === 'HNOACoverQuoteRq') {
+                    if (questionAnswer !== 'No') {
+                        this.hnoaAmount = questionAnswer;
+                    }
+                    continue;
+                }
                 else if (elementName === 'SCForbiddenProjects') {
                     elementName = 'ForbiddenProjectsSmallContractors';
                 }
@@ -503,7 +509,7 @@ module.exports = class HiscoxGL extends Integration {
         }
 
         // We have received a quote. Parse it.
-        // console.log("response", result);
+        // console.log("response", JSON.stringify(result, null, 4));
 
         // Get the limits (required)
         const loi = this.get_xml_child(result, "InsuranceSvcRs.QuoteRs.ProductQuoteRs.GeneralLiabilityQuoteRs.RatingResult.LOI");
