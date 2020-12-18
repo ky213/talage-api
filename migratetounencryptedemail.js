@@ -146,7 +146,7 @@ async function runFunction() {
 
     logSuccess(`========================================\n`);
     logSuccess(`Successfully migrated encrypted emails to clear text.`);
-    logSuccess(`Note: Old encrypted email data is preserved in the new \`email_old\` column in the clw_talage_agency_portal_users table.`);
+    logSuccess(`Note: Old encrypted email data is preserved in the existing \`email\` column in the clw_talage_agency_portal_users table.`);
 }
 
 main();
