@@ -13,6 +13,9 @@
 const Integration = require('../Integration.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+const axios = require('axios');
+const moment = require('moment');
+
 
 module.exports = class PieWC extends Integration {
 
@@ -37,7 +40,7 @@ module.exports = class PieWC extends Integration {
 		this.possible_api_responses.Refer = 'referred';
 		this.possible_api_responses.Reject = 'declined';
 		*/
-
+        const appDoc = this.app.applicationDocData;
         // These are the limits supported by Pie
         const carrierLimits = ['100000/500000/100000',
             '500000/500000/500000',
@@ -61,9 +64,9 @@ module.exports = class PieWC extends Integration {
         // Determine which URL to use
         let host = '';
         if (this.insurer.useSandbox) {
-            host = 'quote-stg.pieinsurance.com';
+            host = 'api.post-prod.pieinsurance.com';
         } else {
-            host = 'quote.pieinsurance.com';
+            host = 'api.pieinsurance.com';
         }
 
         // Prepare limits
@@ -80,25 +83,24 @@ module.exports = class PieWC extends Integration {
             this.reasons.push(`Pie does not support owners being included in a WC policy at this time.`);
             return this.return_result('autodeclined');
         }
-
-        // Get a token from their auth server
-        const token_request_data = {
-            client_id: this.username,
-            client_secret: this.password,
-            grant_type: 'client_credentials',
-            scopes: 'api/v1'
-        };
+        // "clientId": "2esslhgcdg3olble0hc8g5jb1q",
+        // "clientSecret": "14ae6f52aij7ebnaircrpvs3uc18p4vgpf3pg5mj8lgcdfsi5qql"
 
         let token_response = null;
         try {
-            token_response = await this.send_request(host, '/connect/token', token_request_data, {'Content-Type': 'application/x-www-form-urlencoded'});
-        } catch (error) {
-            log.error(`Appid: ${this.app.id} Pie WC: to get token error ${error}` + __location)
+            const headers = {auth: {
+                username: '2esslhgcdg3olble0hc8g5jb1q',
+                password: '14ae6f52aij7ebnaircrpvs3uc18p4vgpf3pg5mj8lgcdfsi5qql'
+            }};
+            //token_response = await this.send_request(host, '/oauth2/token', "", headers);
+            token_response = await axios.post(`https://${host}/oauth2/token`, null, headers);
+        } catch (err) {
+            log.error(`Appid: ${this.app.id} Pie WC ERROR: Get token error ${err}` + __location)
             return this.return_result('error');
         }
 
-        const token_object = JSON.parse(token_response);
-        const token = `${token_object.token_type} ${token_object.access_token}`;
+
+        const token = `${token_response.data.token_type} ${token_response.data.id_token}`;
 
         // Get all territories present in this appilcation
         const territories = this.app.business.getTerritories();
@@ -111,6 +113,7 @@ module.exports = class PieWC extends Integration {
         // Begin the 'workersCompensation' data object
         data.workersCompensation = {};
 
+        data.workersCompensation.currentlyCovered = !this.policy.coverage_lapse;
         // Begin the 'legalEntities' data object
         data.workersCompensation.legalEntities = [];
 
@@ -119,7 +122,6 @@ module.exports = class PieWC extends Integration {
 
         data.workersCompensation.legalEntities[0].businessType = entityMatrix[this.app.business.entity_type];
         data.workersCompensation.legalEntities[0].states = [];
-
         // Create an object for each state
         for (const territory_index in territories) {
             if (Object.prototype.hasOwnProperty.call(territories, territory_index)) {
@@ -177,20 +179,14 @@ module.exports = class PieWC extends Integration {
 
                             // Officers
                             location_object.officers = [];
-                            for (const owner_index in this.app.business.owners) {
-                                if (Object.prototype.hasOwnProperty.call(this.app.business.owners, owner_index)) {
-
-                                    /* Per Pie: Omit this until we can send in an ownership percentage and birthdate
-                                                const owner = this.app.business.owners[owner_index];
-                                                const officer = {};
-
-                                                officer.included = false;
-                                                officer.name = owner;
-
-                                                // Append this officer to the location
-                                                location_object.officers.push(officer);
-                                                */
-                                }
+                            for (const ownerJson of appDoc.owners) {
+                                    const officer = {};
+                                    officer.name = ownerJson.fname + " " + ownerJson.lname;
+                                    officer.ownershipPercentage = ownerJson.ownership / 100;
+                                    const officeBirthDate = moment(ownerJson.birthdate)
+                                    officer.birthDate = officeBirthDate.format("YYYY-MM-DD")
+                                    // Append this officer to the location
+                                    location_object.officers.push(officer);
                             }
 
                             location_object.fullTimeEmployeeCount = loc.full_time_employees;
@@ -236,8 +232,11 @@ module.exports = class PieWC extends Integration {
                 // Waiver of Subrogation
                 state_object.blanketWaiver = false;
 
+                //
+
                 // Append the state into the states array
                 data.workersCompensation.legalEntities[0].states.push(state_object);
+
             }
         }
 
@@ -292,40 +291,62 @@ module.exports = class PieWC extends Integration {
             }
         }
 
-        data.namedInsured = this.app.business.name;
-        data.description = this.get_operation_description();
-        data.customerKey = this.app.id;
-        data.partnerAgentFirstName = 'Adam';
-        data.partnerAgentLastName = 'Kiefer';
-        data.partnerAgentEmail = 'customersuccess@talageins.com';
 
-        // Send JSON to the insurer
-        let res = null;
+        // eslint-disable-next-line prefer-const
         let questionsArray = [];
-        try {
-            console.log('');
-            console.log(JSON.stringify(data, null, 4));
-            console.log('')
-            console.log('this.questions:',this.questions);
-            res = await this.send_json_request(host, '/api/v1/Quotes', JSON.stringify(data), {Authorization: token});
-        } catch (error) {
-            log.error(`Appid: ${this.app.id} Pie WC: Error  ${error} ` + __location)
-            // return this.return_result('error');
-        }
 
         for(const question_id in this.questions){
             if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
                 const question = this.questions[question_id];
-                const answer = question.answer;
-
-                questionsArray.push({
-                    "id": `${question.id}`,
-                    "answer": answer
-                })
+                const pieQuestionId = this.question_identifiers[question.id];
+                const questionAnswer = this.determine_question_answer(question, question.required);
+                if (questionAnswer) {
+                    questionsArray.push({
+                        "id": pieQuestionId,
+                        "answer": questionAnswer
+                    })
+                }
             }
         }
 
         data.eligibilityAnswers = questionsArray;
+
+        data.namedInsured = this.app.business.name;
+        data.description = this.get_operation_description();
+        data.customerKey = this.app.id;
+        data.partnerAgentIsAdmin = false;
+        data.partnerAgentFirstName = 'Adam';
+        data.partnerAgentLastName = 'Kiefer';
+        data.partnerAgentEmail = 'customersuccess@talageins.com';
+
+
+        // eslint-disable-next-line prefer-const
+        let address = {};
+
+        address.country = 'US';
+        address.line1 = appDoc.mailingAddress;
+        if (appDoc.mailingAddress2) {
+            address.line2 = appDoc.mailingAddress2;
+        }
+        address.city = appDoc.mailingCity;
+        address.state = appDoc.mailingState;
+        address.zip = appDoc.mailingZipcode;
+
+        data.mailingAddress = address;
+
+        // Send JSON to the insurer
+        let res = null;
+
+        try {
+            log.debug('');
+            log.debug(JSON.stringify(data, null, 4));
+            log.debug('')
+            log.debug('this.questions:',this.questions);
+            res = await this.send_json_request(host, '/api/v1/Quotes', JSON.stringify(data), {Authorization: token});
+        } catch (error) {
+            log.error(`Appid: ${this.app.id} Pie WC Request: Error  ${error} ` + __location)
+            return this.return_result('error');
+        }
 
         // Pie only returns indications
         this.indication = true;
