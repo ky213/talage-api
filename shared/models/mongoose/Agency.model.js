@@ -39,8 +39,8 @@ const AgencySchema = new Schema({
     agencyPortalCreatedUser: {type: String},
     agencyPortalModifiedUser: {type: String},
     agencyPortalDeletedUser: {type: String},
-    active: {type: Boolean, default: true},
-    primaryAgency: {type: Boolean, default: false}
+    primaryAgency: {type: Boolean, default: false},
+    active: {type: Boolean, default: true}
 },opts)
 
 
