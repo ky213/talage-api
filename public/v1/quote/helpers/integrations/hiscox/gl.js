@@ -403,7 +403,7 @@ module.exports = class HiscoxGL extends Integration {
             xml = hiscoxGLTemplate.render(this, {ucwords: (val) => stringFunctions.ucwords(val.toLowerCase())}).replace(/\n\s*\n/g, "\n");
         }
         catch (error) {
-            return this.client_error('An unexpected error occurred when creating the quote request.', __location { error: "Could not render template file" });
+            return this.client_error('An unexpected error occurred when creating the quote request.', __location, {error: "Could not render template file"});
         }
 
         // Get a token from their auth server
@@ -416,13 +416,13 @@ module.exports = class HiscoxGL extends Integration {
             tokenResponse = await this.send_request(host, "/toolbox/auth/accesstoken", tokenRequestData, {"Content-Type": "application/x-www-form-urlencoded"});
         }
         catch (error) {
-            return this.client_error("Could not retrieve the access token from the Hiscox server.", __location, { error });
+            return this.client_error("Could not retrieve the access token from the Hiscox server.", __location, {error: error});
         }
         const responseObject = JSON.parse(tokenResponse);
 
         // Verify that we got back what we expected
         if (responseObject.status !== "approved" || !responseObject.access_token) {
-            return this.client_error("Could not retrieve the access token from the Hiscox server.", __location, { responseObject });
+            return this.client_error("Could not retrieve the access token from the Hiscox server.", __location, {responseObject: responseObject});
         }
         const token = responseObject.access_token;
 
@@ -518,19 +518,19 @@ module.exports = class HiscoxGL extends Integration {
         // Get the limits (required)
         const loi = this.get_xml_child(result, "InsuranceSvcRs.QuoteRs.ProductQuoteRs.GeneralLiabilityQuoteRs.RatingResult.LOI");
         if (!loi) {
-            return this.client_error("Hiscox quoted the application, but the limits could not be found in the response.", __location, { result });
+            return this.client_error("Hiscox quoted the application, but the limits could not be found in the response.", __location, {result: result});
         }
         this.limits[4] = parseInt(loi, 10);
         const aggLOI = this.get_xml_child(result, "InsuranceSvcRs.QuoteRs.ProductQuoteRs.GeneralLiabilityQuoteRs.RatingResult.AggLOI");
         if (!aggLOI) {
-            return this.client_error("Hiscox quoted the application, but the limits could not be found in the response.", __location, { result });
+            return this.client_error("Hiscox quoted the application, but the limits could not be found in the response.", __location, {result: result});
         }
         this.limits[8] = parseInt(aggLOI, 10);
 
         // Get the premium amount (required)
         const premium = this.get_xml_child(result, "InsuranceSvcRs.QuoteRs.ProductQuoteRs.Premium.Annual");
         if (!premium) {
-            return this.client_error("Hiscox quoted the application, but the premium amount could not be found in the response.", __location, { result });
+            return this.client_error("Hiscox quoted the application, but the premium amount could not be found in the response.", __location, {result: result});
         }
         this.amount = premium;
 
