@@ -63,6 +63,7 @@ async function put_account(req, res, next){
 
     // Establish some variables
     let email = '';
+    let clearEmail = '';
     let password = '';
     let timezone = 0;
     let timezone_name = null;
@@ -74,6 +75,7 @@ async function put_account(req, res, next){
         if(validator.email(req.body.email)){
             // Encrypt the email
             email = await crypt.encrypt(req.body.email);
+            clearEmail = req.body.email;
         }
         else{
             log.warn('Email does not meet requirements');
@@ -140,6 +142,7 @@ async function put_account(req, res, next){
     const set_statements = [];
     if(email){
         set_statements.push(`\`email\`=${db.escape(email)}`);
+        set_statements.push(`\`clear_email\`=${db.escape(clearEmail)}`);
         set_statements.push(`\`email_hash\`=${db.escape(await crypt.hash(req.body.email))}`);
     }
     if(password){

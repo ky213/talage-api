@@ -101,12 +101,12 @@ module.exports = class AgencyPortalUserBO{
         });
     }
 
-    getList(queryJSON, addPermissions = false) {
+    getList(queryJSON, addPermissions = false, includeDisabled = false) {
         return new Promise(async (resolve, reject) => {
                 let rejected = false;
                 // Create the update query
                 let sql = `
-                    select *  from ${tableName}  
+                    select * from ${tableName}  
                 `;
                 if(queryJSON){
                     let hasWhere = false;
@@ -115,8 +115,10 @@ module.exports = class AgencyPortalUserBO{
                         sql += ` state = ${db.escape(queryJSON.state)} `
                         hasWhere = true;
                     } else {
-                        sql += 'where state > 0';
-                        hasWhere = true;
+                        if (!includeDisabled) {
+                            sql += 'where state > 0';
+                            hasWhere = true;
+                        }
                     }
                     if(queryJSON.agencynetworkid){
                         sql += hasWhere ? " AND " : " WHERE ";
@@ -159,7 +161,7 @@ module.exports = class AgencyPortalUserBO{
                         hasWhere = true;
                     }
                 }
-                else {
+                else if (!includeDisabled) {
                     sql += 'where state > 0';
                 }
                 // Run the query
@@ -538,6 +540,15 @@ const properties = {
       "rules": null,
       "type": "number",
       "dbType": "int(11) unsigned"
+    },
+    "clear_email": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(255)"
     }
   }
 

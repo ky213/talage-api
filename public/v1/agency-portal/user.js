@@ -274,6 +274,7 @@ async function createUser(req, res, next) {
 
     // Prepare the email address
     const emailHash = await crypt.hash(data.email);
+    const clearEmail = data.email;
     const encryptedEmail = await crypt.encrypt(data.email);
 
     // Generate a random password for this user (they won't be using it anyway)
@@ -338,8 +339,8 @@ async function createUser(req, res, next) {
     } else {
         // else we don't have a deleted user. This is a new user, so insert them
         userSQL = `
-            INSERT INTO \`#__agency_portal_users\` (\`state\`, \`${controlColumn}\`, \`can_sign\`, \`email\`, \`email_hash\`, \`group\`, \`password\`, \`reset_required\`)
-            VALUES (1, ${parseInt(controlValue, 10)}, ${data.canSign}, ${db.escape(encryptedEmail)}, ${db.escape(emailHash)}, ${parseInt(data.group, 10)}, ${db.escape(passwordHash)}, 1);
+            INSERT INTO \`#__agency_portal_users\` (\`state\`, \`${controlColumn}\`, \`can_sign\`, \`email\`, \`clear_email\`, \`email_hash\`, \`group\`, \`password\`, \`reset_required\`)
+            VALUES (1, ${parseInt(controlValue, 10)}, ${data.canSign}, ${db.escape(encryptedEmail)}, ${db.escape(clearEmail)}, ${db.escape(emailHash)}, ${parseInt(data.group, 10)}, ${db.escape(passwordHash)}, 1);
 	    `;
     }
 
@@ -759,6 +760,7 @@ async function updateUser(req, res, next) {
 
     // Prepare the email address
     const emailHash = await crypt.hash(data.email);
+    const clearEmail = data.email;
     data.email = await crypt.encrypt(data.email);
 
     // Update the user
@@ -766,7 +768,8 @@ async function updateUser(req, res, next) {
 			UPDATE \`#__agency_portal_users\`
 			SET
 				\`can_sign\` = ${data.canSign},
-				\`email\` = ${db.escape(data.email)},
+                \`email\` = ${db.escape(data.email)},
+                \`clear_email\` = ${db.escape(clearEmail)},
 				\`email_hash\` = ${db.escape(emailHash)},
 				\`group\` = ${parseInt(data.group, 10)}
 			WHERE
