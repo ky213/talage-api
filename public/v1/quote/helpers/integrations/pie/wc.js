@@ -298,12 +298,12 @@ module.exports = class PieWC extends Integration {
         for(const question_id in this.questions){
             if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
                 const question = this.questions[question_id];
-                if(question.answer){
-                    const answer = question.answer;
-
+                const pieQuestionId = this.question_identifiers[question.id];
+                const questionAnswer = this.determine_question_answer(question, question.required);
+                if (questionAnswer) {
                     questionsArray.push({
-                        "id": `${question.id}`,
-                        "answer": answer
+                        "id": pieQuestionId,
+                        "answer": questionAnswer
                     })
                 }
             }
