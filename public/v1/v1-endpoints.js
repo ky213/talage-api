@@ -105,7 +105,6 @@ exports.registerEndpoints = (server) => {
     // Quote
     registerEndpoint(server, 'quote', 'quote-agency');
     registerEndpoint(server, 'quote', 'application');
-    registerEndpoint(server, 'quote', 'bind');
     registerEndpoint(server, 'quote', 'quotes');
 
     // Site

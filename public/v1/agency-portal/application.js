@@ -19,6 +19,7 @@ const PaymentPlanBO = global.requireShared('models/PaymentPlan-BO.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
 
 const ApplicationQuoting = global.requireRootPath('public/v1/quote/helpers/models/Application.js');
+const QuoteBind = global.requireRootPath('public/v1/quote/helpers/models/QuoteBind.js');
 const status = global.requireShared('./models/application-businesslogic/status.js');
 const jwt = require('jsonwebtoken');
 const moment = require('moment');
@@ -1046,7 +1047,6 @@ async function GetQuestions(req, res, next){
     res.send(200, getQuestionsResult);
 }
 
-
 async function bindQuote(req, res, next) {
     //Double check it is TalageStaff user
 
@@ -1093,6 +1093,9 @@ async function bindQuote(req, res, next) {
         return next(serverHelper.requestError('Invalid id'));
     }
 
+    console.log('hitz body: ', req.body);
+    console.log('hitz application: ', applicationDB);
+
     //TODO Check agency Network or Agency rights....
     const agents = await auth.getAgents(req).catch(function(e) {
         error = e;
@@ -1109,12 +1112,18 @@ async function bindQuote(req, res, next) {
         return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
     }
 
-
     try {
+        if (req.body.markAsBound !== 'true') {
+            const quoteBind = new QuoteBind();
+            await quoteBind.load(quoteId);
+            quoteBind.bindPolicy();
+        }
+
         const quoteBO = new QuoteBO();
-        await quoteBO.bindQuote(quoteId, applicationId, req.authentication.userID)
+        await quoteBO.bindQuote(quoteId, applicationId, req.authentication.userID);
     }
     catch (err) {
+        console.log(err);
         log.error(`Error loading application ${applicationId ? applicationId : ''}: ${err.message}` + __location);
         res.send(err);
         return next();
