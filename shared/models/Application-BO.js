@@ -2571,7 +2571,6 @@ module.exports = class ApplicationModel {
             else {
                 log.error(`Data problem prevented getting App agency location for ${applicationDocDB.uuid} agency ${applicationDocDB.agencyId} Location ${applicationDocDB.agencyLocationId}` + __location)
             }
-
         }
         else {
             throw new Error("Incomplete Application: Missing AgencyLocation")
@@ -2603,7 +2602,38 @@ module.exports = class ApplicationModel {
     }
 
     // for Quote App
-    async GetQuestionsForFrontend(appId, activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden = false) {
+    async GetQuestionsForFrontend(appId, activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, return_hidden = false) {
+
+        let applicationDoc = null;
+        try {
+            applicationDoc = await this.loadfromMongoBymysqlId(appId);
+        }
+        catch (err) {
+            log.error("error calling loadfromMongoByAppId " + err + __location);
+        }
+
+        const insurerArray = [];
+        if (applicationDoc && applicationDoc.agencyLocationId > 0) {
+            const agencyLocationBO = new AgencyLocationBO();
+            const agencyLocation = await agencyLocationBO.getById(applicationDoc.agencyLocationId);
+            if (agencyLocation && agencyLocation.insurers && agencyLocation.insurers.length > 0) {
+                for (const insurer of agencyLocation.insurers) {
+                    if (insurer && insurer.insurerId) {
+                        insurerArray.push(insurer.insurerId);
+                    }
+                    else {
+                        log.error(`Data problem prevented getting insurer ID for ${applicationDoc.uuid} agency ${applicationDoc.agencyId} Location ${applicationDoc.agencyLocationId}` + __location)
+                    }
+                }
+            }
+            else {
+                log.error(`Data problem prevented getting agency location for ${applicationDoc.uuid} agency ${applicationDoc.agencyId} Location ${applicationDoc.agencyLocationId}` + __location)
+            }
+        }
+        else {
+            log.error(`Received an invalid agency location ID for ${applicationDoc.uuid} Location '${applicationDoc.agencyLocationId}'` + __location);
+            throw new Error('An error occured while retrieving application questions' + __location);
+        }
 
         log.debug("in AppBO.GetQuestionsForFrontend")
         //Call questions.......
@@ -2619,15 +2649,6 @@ module.exports = class ApplicationModel {
         if (!getQuestionsResult) {
             log.error("No questions returned from question service " + __location);
             throw new Error('An error occured while retrieving application questions.');
-
-        }
-
-        let applicationDoc = null;
-        try {
-            applicationDoc = await this.loadfromMongoBymysqlId(appId);
-        }
-        catch (err) {
-            log.error("error calling loadfromMongoByAppId " + err + __location);
         }
 
         //question answers from AF business data.
