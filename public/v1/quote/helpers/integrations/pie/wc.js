@@ -13,6 +13,7 @@ const Integration = require('../Integration.js');
 const tracker = global.requireShared('./helpers/tracker.js');
 const axios = require('axios');
 const moment = require('moment');
+const fs = require('fs')
 
 
 module.exports = class PieWC extends Integration {
@@ -463,6 +464,21 @@ module.exports = class PieWC extends Integration {
                 // Send the result of the request
                 if(res.bindStatus === "Quotable"){
 
+                    const config = {
+                        "Content-Type": 'application/pdf',
+                        headers: {Authorization: `${token}`},
+                        responseType: 'arraybuffer'
+                    };
+                    try{
+                        const quoteDocResponse = await axios.get(`https://${host}/api/v1/QuotePDF/${this.number}`, config);
+                        const buff = Buffer.from(quoteDocResponse.data);
+                        this.quote_letter.data = buff.toString('base64');
+                    }
+                    catch(err){
+                        log.error(`Appid: ${this.app.id} Pie WC: Error getting quote doc ${err} ` + __location)
+                    }
+
+
                     return this.return_result('quoted');
                 }
                 else {
@@ -500,6 +516,20 @@ module.exports = class PieWC extends Integration {
             this.reasons.push("unknown response from Pie");
             return this.return_result('declined');
         }
+    }
+
+    async getQuoteLetter(pieQuoteId, host, token){
+        //this.quote_letter.data;
+        const config = {headers: {Authorization: `Bearer ${token}`}};
+        try{
+            const quoteDocResponse = await axios.get(`https://${host}/oauth2/token`, config);
+            this.quote_letter.data = quoteDocResponse;
+        }
+        catch(err){
+            log.error(`Appid: ${this.app.id} Pie WC: Error getting quote doc ${err} ` + __location)
+        }
+
+
     }
 
 
