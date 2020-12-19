@@ -1,5 +1,3 @@
-/* eslint-disable brace-style */
-/* eslint indent: 0 */
 /* eslint multiline-comment-style: 0 */
 
 /**
@@ -15,6 +13,7 @@ const Integration = require('../Integration.js');
 const tracker = global.requireShared('./helpers/tracker.js');
 const axios = require('axios');
 const moment = require('moment');
+const fs = require('fs')
 
 
 module.exports = class PieWC extends Integration {
@@ -28,14 +27,14 @@ module.exports = class PieWC extends Integration {
         this.requiresInsurerActivityClassCodes = true;
     }
 
-	/**
+    /**
 	 * Requests a quote from Pie and returns. This request is not intended to be called directly.
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
     async _insurer_quote() {
         // These are the statuses returned by the insurer and how they map to our Talage statuses
-		/*
+        /*
 		This.possible_api_responses.Accept = 'quoted';
 		this.possible_api_responses.Refer = 'referred';
 		this.possible_api_responses.Reject = 'declined';
@@ -65,7 +64,8 @@ module.exports = class PieWC extends Integration {
         let host = '';
         if (this.insurer.useSandbox) {
             host = 'api.post-prod.pieinsurance.com';
-        } else {
+        }
+        else {
             host = 'api.pieinsurance.com';
         }
 
@@ -83,18 +83,17 @@ module.exports = class PieWC extends Integration {
             this.reasons.push(`Pie does not support owners being included in a WC policy at this time.`);
             return this.return_result('autodeclined');
         }
-        // "clientId": "2esslhgcdg3olble0hc8g5jb1q",
-        // "clientSecret": "14ae6f52aij7ebnaircrpvs3uc18p4vgpf3pg5mj8lgcdfsi5qql"
 
         let token_response = null;
         try {
             const headers = {auth: {
-                username: '2esslhgcdg3olble0hc8g5jb1q',
-                password: '14ae6f52aij7ebnaircrpvs3uc18p4vgpf3pg5mj8lgcdfsi5qql'
+                username: this.app.agencyLocation.insurers[this.insurer.id].agency_id,
+                password: this.app.agencyLocation.insurers[this.insurer.id].agent_id
             }};
             //token_response = await this.send_request(host, '/oauth2/token', "", headers);
             token_response = await axios.post(`https://${host}/oauth2/token`, null, headers);
-        } catch (err) {
+        }
+        catch (err) {
             log.error(`Appid: ${this.app.id} Pie WC ERROR: Get token error ${err}` + __location)
             return this.return_result('error');
         }
@@ -114,6 +113,33 @@ module.exports = class PieWC extends Integration {
         data.workersCompensation = {};
 
         data.workersCompensation.currentlyCovered = !this.policy.coverage_lapse;
+        //If false provide reason.  If company less then 2 months old reason is "NewBusiness"
+        if(data.workersCompensation.currentlyCovered === false){
+            if(this.app.applicationDocData.founded){
+                let isNewCompany = false;
+                try{
+                    const foundingDate = new moment(this.app.applicationDocData.founded);
+                    const now = new moment();
+                    const monthsOld = now.diff(foundingDate, 'months', true);
+                    if(monthsOld < 2){
+                        isNewCompany = true;
+                    }
+                }
+                catch(err){
+                    log.error(`Appid: ${this.app.id} Pie WC ERROR: Calculating Age ${err}` + __location)
+                }
+                // [ NonPayment, AuditNonCompliance, NoEmployees, Other, NewBusiness ]
+                if(isNewCompany){
+                    data.workersCompensation.notCurrentlyCoveredReason = "NewBusiness"
+                }
+                else if(this.policy && this.policy.coverage_lapse_non_payment) {
+                    data.workersCompensation.notCurrentlyCoveredReason = "NonPayment"
+                }
+                else {
+                    data.workersCompensation.notCurrentlyCoveredReason = "Other"
+                }
+            }
+        }
         // Begin the 'legalEntities' data object
         data.workersCompensation.legalEntities = [];
 
@@ -180,13 +206,13 @@ module.exports = class PieWC extends Integration {
                             // Officers
                             location_object.officers = [];
                             for (const ownerJson of appDoc.owners) {
-                                    const officer = {};
-                                    officer.name = ownerJson.fname + " " + ownerJson.lname;
-                                    officer.ownershipPercentage = ownerJson.ownership / 100;
-                                    const officeBirthDate = moment(ownerJson.birthdate)
-                                    officer.birthDate = officeBirthDate.format("YYYY-MM-DD")
-                                    // Append this officer to the location
-                                    location_object.officers.push(officer);
+                                const officer = {};
+                                officer.name = ownerJson.fname + " " + ownerJson.lname;
+                                officer.ownershipPercentage = ownerJson.ownership / 100;
+                                const officeBirthDate = moment(ownerJson.birthdate)
+                                officer.birthDate = officeBirthDate.format("YYYY-MM-DD")
+                                // Append this officer to the location
+                                location_object.officers.push(officer);
                             }
 
                             location_object.fullTimeEmployeeCount = loc.full_time_employees;
@@ -194,7 +220,8 @@ module.exports = class PieWC extends Integration {
                             if (loc.address === this.app.business.mailing_address) {
                                 location_object.mailingAddress = true;
                                 mailing_address_found = true;
-                            } else {
+                            }
+                            else {
                                 location_object.mailingAddress = false;
                             }
 
@@ -338,74 +365,182 @@ module.exports = class PieWC extends Integration {
         let res = null;
 
         try {
-            log.debug('');
-            log.debug(JSON.stringify(data, null, 4));
-            log.debug('')
-            log.debug('this.questions:',this.questions);
             res = await this.send_json_request(host, '/api/v1/Quotes', JSON.stringify(data), {Authorization: token});
-        } catch (error) {
-            log.error(`Appid: ${this.app.id} Pie WC Request: Error  ${error} ` + __location)
-            return this.return_result('error');
         }
-
-        // Pie only returns indications
-        this.indication = true;
-
-        // Attempt to get the quote number
-        try {
-            this.request_id = res.id;
-        } catch (e) {
-            log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.` + __location);
-        }
-
-        // Attempt to get the amount of the quote
-        try {
-            this.amount = parseInt(res.premiumDetails.totalEstimatedPremium, 10);
-        } catch (error) {
-            log.error(`Appid: ${this.app.id} Pie WC: Error getting amount ${error} ` + __location)
-            return this.return_result('error');
-        }
-
-        // Attempt to grab the limits info
-        try {
-            for (const limit_name in res.employersLiabilityLimits) {
-                if (Object.prototype.hasOwnProperty.call(res.employersLiabilityLimits, limit_name)) {
-                    const limit = res.employersLiabilityLimits[limit_name];
-
-                    switch (limit_name) {
-                        case 'eachAccident':
-                            this.limits[1] = limit;
-                            break;
-                        case 'eachEmployee':
-                            this.limits[2] = limit;
-                            break;
-                        case 'eachPolicy':
-                            this.limits[3] = limit;
-                            break;
-                        default:
-                            log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response` + __location);
-                            return this.return_result('error');
-                    }
+        catch (error) {
+            if(error.httpStatusCode === 400 && error.response){
+                log.error(`Appid: ${this.app.id} Pie WC BAD Request: Error  ${error} ` + __location)
+                try{
+                    res = JSON.parse(error.response);
+                }
+                catch(e){
+                    log.error(`Appid: ${this.app.id} Pie error parsing error response: Error  ${error} ` + __location)
                 }
             }
-        } catch (e) {
-            log.error(`Appid: ${this.app.id} Pie WC: Error getting limit ${e} ` + __location)
-            return this.return_result('error');
+            else {
+                log.error(`Appid: ${this.app.id} Pie WC Request: Error  ${error} ` + __location)
+                return this.return_result('error');
+            }
         }
 
-        // Grab the writing company
-        try {
-            this.writer = res.insuranceCompany;
-        } catch (e) {
-            log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.` + __location);
+        //check for return not error
+        if(res.bindStatus){
+            if(res.bindStatus === "Quotable" || res.bindStatus === "Refer"){
+                //Check for Declines
+
+                // Pie only returns indications
+                // this.indication = true;
+
+                // Attempt to get the quote number
+                if(res.id){
+                    this.request_id = res.id;
+                    this.number = res.id;
+                }
+                else {
+                    log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.` + __location);
+                }
+
+                // Attempt to get the amount of the quote
+                if (res.premiumDetails.totalEstimatedPremium){
+                    try {
+                        this.amount = parseInt(res.premiumDetails.totalEstimatedPremium, 10);
+                    }
+                    catch (error) {
+                        log.error(`Appid: ${this.app.id} Pie WC: Error getting amount ${error} ` + __location)
+                        //return this.return_result('error');
+                    }
+                }
+                else if (res.bindStatus === "Quotable") {
+                    log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find Premium from Quote.` + __location);
+                }
+
+
+                // Attempt to grab the limits info
+                if(res.employersLiabilityLimits){
+                    try {
+                        for (const limit_name in res.employersLiabilityLimits) {
+                            if (Object.prototype.hasOwnProperty.call(res.employersLiabilityLimits, limit_name)) {
+                                const limit = res.employersLiabilityLimits[limit_name];
+
+                                switch (limit_name) {
+                                    case 'eachAccident':
+                                        this.limits[1] = limit;
+                                        break;
+                                    case 'eachEmployee':
+                                        this.limits[2] = limit;
+                                        break;
+                                    case 'eachPolicy':
+                                        this.limits[3] = limit;
+                                        break;
+                                    default:
+                                        log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unexpected limit found in response` + __location);
+                                        return this.return_result('error');
+                                }
+                            }
+                        }
+                    }
+                    catch (e) {
+                        log.error(`Appid: ${this.app.id} Pie WC: Error getting limit ${e} ` + __location)
+                        return this.return_result('error');
+                    }
+                }
+                else if (res.bindStatus === "Quotable") {
+                    log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find limits from Quote.` + __location);
+                }
+
+                // Grab the writing company
+                if(res.insuranceCompany){
+                    this.writer = res.insuranceCompany;
+                }
+                else {
+                    log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.` + __location);
+                }
+
+
+                // Dirty? (Indicates a Valen outage)
+                if (res.isDirty) {
+                    this.reasons.push('Valen is Down: Quote generated during a Valen outage are less likely to go unrevised by Underwriting.');
+                }
+                // Send the result of the request
+                if(res.bindStatus === "Quotable"){
+
+                    const config = {
+                        "Content-Type": 'application/pdf',
+                        headers: {Authorization: `${token}`},
+                        responseType: 'arraybuffer'
+                    };
+                    try{
+                        const quoteDocResponse = await axios.get(`https://${host}/api/v1/QuotePDF/${this.number}`, config);
+                        const buff = Buffer.from(quoteDocResponse.data);
+                        this.quote_letter.data = buff.toString('base64');
+                    }
+                    catch(err){
+                        log.error(`Appid: ${this.app.id} Pie WC: Error getting quote doc ${err} ` + __location)
+                    }
+
+
+                    return this.return_result('quoted');
+                }
+                else {
+                    //loop referReasons
+                    this.processReason(res.referReasons)
+                    return this.return_result('referred');
+                }
+            }
+            else if(res.bindStatus === "Decline"){
+                //loop declineReasons
+                this.processReason(res.declineReasons)
+
+                return this.return_result('declined');
+            }
+            else {
+                this.reasons.push("unknown or missing bindStatus from Pie");
+                return this.return_result('declined');
+            }
+        }
+        else if (res.errors){
+            if(res.title){
+                this.reasons.push(res.title);
+            }
+            //loop res.errors
+            // eslint-disable-next-line guard-for-in
+            for(const errorReason in res.errors){
+                this.reasons.push("PIE: " + errorReason);
+                this.processReason(res.errors[errorReason])
+            }
+            this.processReason(res.errors)
+
+            return this.return_result('declined');
+        }
+        else {
+            this.reasons.push("unknown response from Pie");
+            return this.return_result('declined');
+        }
+    }
+
+    async getQuoteLetter(pieQuoteId, host, token){
+        //this.quote_letter.data;
+        const config = {headers: {Authorization: `Bearer ${token}`}};
+        try{
+            const quoteDocResponse = await axios.get(`https://${host}/oauth2/token`, config);
+            this.quote_letter.data = quoteDocResponse;
+        }
+        catch(err){
+            log.error(`Appid: ${this.app.id} Pie WC: Error getting quote doc ${err} ` + __location)
         }
 
-        // Dirty? (Indicates a Valen outage)
-        if (res.isDirty) {
-            this.reasons.push('Valen is Down: Quote generated during a Valen outage are less likely to go unrevised by Underwriting.');
-        }
 
-        // Send the result of the request
-        return this.return_result('quoted');
+    }
+
+
+    processReason(reasonArray){
+        log.debug("IN Processing PIE reason: " + reasonArray + __location)
+        if(reasonArray && Array.isArray(reasonArray)){
+            for(let i = 0; i < reasonArray.length; i++){
+                const reason = reasonArray[i]
+                log.debug("Adding PIE reason: " + reason + __location)
+                this.reasons.push("PIE: " + reason);
+            }
+        }
     }
 };
