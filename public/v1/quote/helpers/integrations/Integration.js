@@ -53,6 +53,7 @@ module.exports = class Integration {
         this.grouped_activity_codes = [];
         this.limits = {};
         this.log = '';
+        //This is the quote number/id from
         this.number = '';
         this.policy = policy;
         this.questions = {};
