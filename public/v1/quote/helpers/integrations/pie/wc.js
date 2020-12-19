@@ -83,14 +83,12 @@ module.exports = class PieWC extends Integration {
             this.reasons.push(`Pie does not support owners being included in a WC policy at this time.`);
             return this.return_result('autodeclined');
         }
-        // "clientId": "2esslhgcdg3olble0hc8g5jb1q",
-        // "clientSecret": "14ae6f52aij7ebnaircrpvs3uc18p4vgpf3pg5mj8lgcdfsi5qql"
 
         let token_response = null;
         try {
             const headers = {auth: {
-                username: '2esslhgcdg3olble0hc8g5jb1q',
-                password: '14ae6f52aij7ebnaircrpvs3uc18p4vgpf3pg5mj8lgcdfsi5qql'
+                username: this.app.agencyLocation.insurers[this.insurer.id].agency_id,
+                password: this.app.agencyLocation.insurers[this.insurer.id].agent_id
             }};
             //token_response = await this.send_request(host, '/oauth2/token', "", headers);
             token_response = await axios.post(`https://${host}/oauth2/token`, null, headers);
@@ -338,10 +336,6 @@ module.exports = class PieWC extends Integration {
         let res = null;
 
         try {
-            log.debug('');
-            log.debug(JSON.stringify(data, null, 4));
-            log.debug('')
-            log.debug('this.questions:',this.questions);
             res = await this.send_json_request(host, '/api/v1/Quotes', JSON.stringify(data), {Authorization: token});
         } catch (error) {
             log.error(`Appid: ${this.app.id} Pie WC Request: Error  ${error} ` + __location)
