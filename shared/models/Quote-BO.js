@@ -102,14 +102,17 @@ module.exports = class QuoteBO {
 
     saveIntegrationQuote(quoteJSON, columns, values) {
         return new Promise(async(resolve, reject) => {
-
+            let quoteID = 0;
             const quoteResult = await db.query(`INSERT INTO \`#__quotes\` (\`${columns.join('`,`')}\`) VALUES (${values.map(db.escape).join(',')});`).catch(function(err) {
                 log.error("Error QuoteBO insertByColumnValue " + err + __location);
-                reject(err);
+               // reject(err);
             });
-            const quoteID = quoteResult.insertId;
-            log.debug(`${tableName} saved id ` + quoteID);
-            quoteJSON.mysqlId = quoteID;
+            if(quoteResult){
+                quoteID = quoteResult.insertId;
+                log.debug(`${tableName} saved id ` + quoteID);
+                quoteJSON.mysqlId = quoteID;
+            }
+
             //mongo save.
             try{
                 // eslint-disable-next-line no-unused-vars
