@@ -96,27 +96,15 @@ module.exports = class InsurerIndustryCodeBO{
         return new Promise(async(resolve, reject) => {
             let rejected = false;
             // Create the update query
-            let sqlSelect = `
+            const sqlSelect = `
                 SELECT * FROM ${tableName}  
             `;
-            let sqlCount = `
+            const sqlCount = `
                 SELECT count(*) FROM ${tableName}  
             `;
             let sqlWhere = "";
             let sqlPaging = "";
             if(queryJSON){
-                if(queryJSON.mergeTerritories){
-                    sqlSelect = `
-                        SELECT DISTINCT type, insurer, code, description, attributes 
-                        FROM ${tableName}
-                    `;
-                    sqlCount = `
-                        SELECT count(*) FROM (
-                            SELECT DISTINCT type, insurer, code, description, attributes 
-                            FROM ${tableName}
-                        ) as a
-                    `;
-                }
                 let hasWhere = false;
                 if(queryJSON.description){
                     sqlWhere += hasWhere ? " AND " : " WHERE ";

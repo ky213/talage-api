@@ -19,14 +19,12 @@ async function getQuestionInsurerIndustryCodes(req, res, next){
     // Define a query to get a list of activity codes, given a talageQuestionId
     // TODO: id might be used instead of code
     const qIndustryCodeSQL = `
-            SELECT * FROM (            
-                SELECT DISTINCT type, insurer, code, description, attributes FROM clw_talage_insurer_industry_codes
-            ) as dis
-            WHERE dis.code IN (
+            SELECT * FROM clw_talage_insurer_industry_codes
+            WHERE id IN (
                 SELECT DISTINCT insurerIndustryCodeId 
                 FROM clw_talage_industry_code_questions 
                 WHERE talageQuestionId = ${db.escape(req.query.talageQuestionId)}
-            ) 
+            )
 		`;
 
     // Get the agencies from the database

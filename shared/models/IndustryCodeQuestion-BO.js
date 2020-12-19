@@ -32,8 +32,11 @@ module.exports = class IndustryCodeQuestionBO{
             if(!newObjectJSON){
                 reject(new Error(`empty ${tableName} object given`));
             }
+
             // TODO: remove when table is changed
             newObjectJSON.question = newObjectJSON.talageQuestionId;
+            newObjectJSON.insurer_industry_code = newObjectJSON.insurerIndustryCodeId;
+
             await this.cleanupInput(newObjectJSON);
             if(newObjectJSON.id){
                 await this.#dbTableORM.getById(newObjectJSON.id).catch(function (err) {
@@ -165,7 +168,7 @@ module.exports = class IndustryCodeQuestionBO{
         });
     }
 
-    delete(insurerIndustryCodeId, talageQuestionId) {
+    delete(talageQuestionId, insurerIndustryCodeId) {
         return new Promise(async (resolve, reject) => {
             //validate
             if(insurerIndustryCodeId > 0 && talageQuestionId > 0){
@@ -178,7 +181,7 @@ module.exports = class IndustryCodeQuestionBO{
                 let rejected = false;
                 const result = await db.query(sql).catch(function (error) {
                     // Check if this was
-                    log.error(`Database Object ${tableName} UPDATE State error :` + error + __location);
+                    log.error(`Database Object ${tableName} DELETE State error :` + error + __location);
                     rejected = true;
                     reject(error);
                 });
@@ -188,7 +191,7 @@ module.exports = class IndustryCodeQuestionBO{
                 resolve(true);
             }
             else {
-                reject(new Error('no industryCodeId and activityCodeId supplied'))
+                reject(new Error('no insurerIndustryCodeId and talageQuestionId supplied'))
             }
         });
     }
