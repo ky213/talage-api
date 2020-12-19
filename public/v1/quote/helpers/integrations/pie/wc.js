@@ -393,7 +393,7 @@ module.exports = class PieWC extends Integration {
                 // Attempt to get the quote number
                 if(res.id){
                     this.request_id = res.id;
-                    this.number = this.id;
+                    this.number = res.id;
                 }
                 else {
                     log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.` + __location);

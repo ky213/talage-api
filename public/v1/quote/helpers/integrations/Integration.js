@@ -1150,9 +1150,9 @@ module.exports = class Integration {
 
         // Number
         if (this.number) {
+            quoteJSON.quoteNumber = this.number
             columns.push('number');
             values.push(this.number);
-            quoteJSON.quoteNumber = this.number
         }
 
         // Request ID
