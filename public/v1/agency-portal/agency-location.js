@@ -154,7 +154,7 @@ async function createAgencyLocation(req, res, next) {
 
     if(req.body.policy_type_info){
         req.body.policyTypeInfo = req.body.policy_type_info
-    }
+    } 
 
     //Fix insures
     if (req.body.insurers) {
