@@ -111,7 +111,7 @@ module.exports = class InsurerIndustryCodeBO{
                     sqlWhere += ` description like ${db.escape(`%${queryJSON.description}%`)} `;
                     hasWhere = true;
                 }
-                if(queryJSON.territory){
+                if(queryJSON.territory && !queryJSON.mergeTerritories){
                     sqlWhere += hasWhere ? " AND " : " WHERE ";
                     sqlWhere += ` territory like ${db.escape(`%${queryJSON.territory}%`)} `;
                     hasWhere = true;
