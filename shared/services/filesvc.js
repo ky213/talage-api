@@ -32,7 +32,7 @@ exports.PutFile = function(s3Key, fileContent) {
         // Make sure a file path was provided
         if (!s3Path) {
             const errorMsg = 'You must specify a s3Key path';
-            log.warn("File Service PUT: " + errorMsg + __location);
+            log.error("File Service PUT: " + errorMsg + __location);
             reject(errorMsg);
         }
 
@@ -43,7 +43,7 @@ exports.PutFile = function(s3Key, fileContent) {
             // Make sure the data is valid
             if (fileBuffer.toString('base64') !== fileContent) {
                 const errorMsg = 'The data you supplied is not valid. It must be base64 encoded';
-                log.warn("File Service PUT: " + errorMsg + __location);
+                log.error("File Service PUT: " + errorMsg + __location);
                 reject(errorMsg);
             }
 
