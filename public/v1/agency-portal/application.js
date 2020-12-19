@@ -636,6 +636,8 @@ async function applicationCopy(req, res, next) {
                 delete newApplicationDoc[propsToRemove[i]]
             }
         }
+        //default back not pre quoting for mysql State.
+        newApplicationDoc.processStateOld = 1;
 
         //include Questions
         if(req.body.includeQuestions === false){
