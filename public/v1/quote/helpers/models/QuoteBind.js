@@ -26,9 +26,8 @@ module.exports = class QuoteBind{
     }
 
     /**
-     * Binds this quote, if possible
-     *
-     * @returns {Promise.<string, ServerError>} A promise that returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a ServerError on failure
+     * Marks this quote as bound.
+     * @returns {Promise.<string, ServerError>} Returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a ServerError on failure
      */
     async markAsBind(){
         if(!this.quoteDoc){
@@ -58,9 +57,8 @@ module.exports = class QuoteBind{
     }
 
     /**
-     * Binds this quote, if possible
-     *
-     * @returns {Promise.<string, ServerError>} A promise that returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a ServerError on failure
+     * Binds this quote via API, if possible. If successful, this method
+     * returns nothing. If not successful, then an Exception is thrown.
      */
     async bindPolicy(){
         this.markAsBind();

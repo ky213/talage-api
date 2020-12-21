@@ -1122,7 +1122,6 @@ async function bindQuote(req, res, next) {
         await quoteBO.bindQuote(quoteId, applicationId, req.authentication.userID);
     }
     catch (err) {
-        console.log(err);
         log.error(`Error loading application ${applicationId ? applicationId : ''}: ${err.message}` + __location);
         res.send(err);
         return next();
