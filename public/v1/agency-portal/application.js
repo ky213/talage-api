@@ -1093,9 +1093,6 @@ async function bindQuote(req, res, next) {
         return next(serverHelper.requestError('Invalid id'));
     }
 
-    console.log('hitz body: ', req.body);
-    console.log('hitz application: ', applicationDB);
-
     //TODO Check agency Network or Agency rights....
     const agents = await auth.getAgents(req).catch(function(e) {
         error = e;
@@ -1114,9 +1111,11 @@ async function bindQuote(req, res, next) {
 
     try {
         if (req.body.markAsBound !== 'true') {
+            const insurerBO = new InsurerBO();
+
             const quoteBind = new QuoteBind();
             await quoteBind.load(quoteId);
-            quoteBind.bindPolicy();
+            await quoteBind.bindPolicy();
         }
 
         const quoteBO = new QuoteBO();

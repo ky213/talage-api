@@ -1,5 +1,6 @@
 module.exports = class Bind {
-    constructor(quote_id) {
-        this.quote_id = quote_id;
+    constructor(quote, insurer) {
+        this.insurer = insurer;
+        this.quote = quote;
     }
 };

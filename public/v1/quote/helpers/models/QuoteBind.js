@@ -74,7 +74,7 @@ module.exports = class QuoteBind{
             // Create an instance of the Integration class
             const BindClass = require(path);
 
-            const integration = new BindClass(this.quoteDoc);
+            const integration = new BindClass(this.quoteDoc, this.insurer);
             // Begin the binding process
             try {
                 return await integration.bind();
