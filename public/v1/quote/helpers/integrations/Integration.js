@@ -53,6 +53,7 @@ module.exports = class Integration {
         this.grouped_activity_codes = [];
         this.limits = {};
         this.log = '';
+        //This is the quote number/id from
         this.number = '';
         this.policy = policy;
         this.questions = {};
@@ -1149,9 +1150,9 @@ module.exports = class Integration {
 
         // Number
         if (this.number) {
+            quoteJSON.quoteNumber = this.number
             columns.push('number');
             values.push(this.number);
-            quoteJSON.quoteNumber = this.number
         }
 
         // Request ID
@@ -1196,7 +1197,7 @@ module.exports = class Integration {
                 // Secure
                 const result = await fileSvc.PutFileSecure(`secure/quote-letters/${fileName}`, this.quote_letter.data);
                 // The file was successfully saved, store the file name in the database
-                if (result && Object.prototype.hasOwnProperty.call(result, 'code') && result.code === 'Success') {
+                if (result && result.code === 'Success') {
                     columns.push('quote_letter');
                     values.push(fileName);
                     quoteJSON.quoteLetter = fileName

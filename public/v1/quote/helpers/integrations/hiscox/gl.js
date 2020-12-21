@@ -385,7 +385,7 @@ module.exports = class HiscoxGL extends Integration {
                     // Add total payroll
                     this.questionList.push({
                         nodeName: 'EstmtdPayrollSC',
-                        answer: this.totalPayroll + questionAnswer
+                        answer: this.totalPayroll
                     });
                     // Don't add more to the question list
                     continue;
@@ -403,8 +403,7 @@ module.exports = class HiscoxGL extends Integration {
             xml = hiscoxGLTemplate.render(this, {ucwords: (val) => stringFunctions.ucwords(val.toLowerCase())}).replace(/\n\s*\n/g, "\n");
         }
         catch (error) {
-            this.log_error('Could not render the request. There is an error in the gl.xmlt file.' + __location);
-            return this.return_result('error', 'An unexpected error occurred when creating the quote request.');
+            return this.client_error('An unexpected error occurred when creating the quote request.', __location, {error: "Could not render template file"});
         }
 
         // Get a token from their auth server
@@ -417,15 +416,13 @@ module.exports = class HiscoxGL extends Integration {
             tokenResponse = await this.send_request(host, "/toolbox/auth/accesstoken", tokenRequestData, {"Content-Type": "application/x-www-form-urlencoded"});
         }
         catch (error) {
-            this.log_error(`Unable to obtain authentication token. API returned error: ${error.message}`, __location);
-            return this.return_error("error", "Could not retrieve the access token from the Hiscox server.");
+            return this.client_error("Could not retrieve the access token from the Hiscox server.", __location, {error: error});
         }
         const responseObject = JSON.parse(tokenResponse);
 
         // Verify that we got back what we expected
         if (responseObject.status !== "approved" || !responseObject.access_token) {
-            this.log_error(`Unable to authenticate with API.`, __location);
-            return this.return_error("error", "Could not retrieve the access token from the Hiscox server.");
+            return this.client_error("Could not retrieve the access token from the Hiscox server.", __location, {responseObject: responseObject});
         }
         const token = responseObject.access_token;
 
@@ -445,7 +442,6 @@ module.exports = class HiscoxGL extends Integration {
                 Accept: "application/xml",
                 "Content-Type": "application/xml"
             });
-            // console.log("result", JSON.stringify(result, null, 4));
         }
         catch (error) {
             requestError = error;
@@ -455,15 +451,11 @@ module.exports = class HiscoxGL extends Integration {
         if (requestError) {
             if (!requestError.httpStatusCode) {
                 // There is no response from the API server to help us understand the error
-                this.log_error('Unable to connect to insurer. An unknown error was encountered.', __location);
-                this.reasons.push("Unable to connect to insurer. An unknown error was encountered.");
-                return this.return_result("error", 'The Hiscox servers returned an unknown error.');
+                return this.client_error('Unable to connect to the Hiscox API. An unknown error was encountered.', __location, {requestError: requestError});
             }
             if (requestError.httpStatusCode !== 422 || !requestError.response) {
                 // An HTTP error was encountered other than a 422 error
-                this.log_error(`Unable to connect to the Hiscox server. API returned HTTP status code ${requestError.httpStatusCode}`, __location);
-                this.reasons.push(`Unable to connect to the Hiscox server. API returned HTTP status code ${requestError.httpStatusCode}`);
-                return this.return_result("error", `The Hiscox servers returned HTTP error ${requestError.httpStatusCode}.`);
+                return this.client_error(`Unable to connect to the Hiscox server. The Hiscox API returned HTTP status code ${requestError.httpStatusCode}`, __location, {requestError: requestError});
             }
 
             // console.log("error", requestError.response);
@@ -479,8 +471,7 @@ module.exports = class HiscoxGL extends Integration {
             // console.log("xmlResponse error", JSON.stringify(xmlResponse, null, 4));
             // Check if there was an error parsing the XML
             if (e) {
-                this.log_error(`Response error 422 could not be parsed: ${requestError.response}`, __location);
-                return this.return_error("error", "Hiscox returned an unknown error response.");
+                return this.client_error(`The Hiscox API returned an error: ${requestError.response}`, __location, {requestError: requestError});
             }
             // Check for errors
             const errorResponseList = this.get_xml_child(xmlResponse, "InsuranceSvcRq.Errors.Error", true);
@@ -495,37 +486,30 @@ module.exports = class HiscoxGL extends Integration {
                         else {
                             // Non-decline error
                             const reason = `${errorResponse.Description[0]} (${errorResponse.Code[0]})`;
-                            this.log_error(reason, __location);
-                            this.reasons.push(reason);
                             errors += (errors.length ? ", " : "") + reason;
                         }
                     }
                 }
-                return this.return_result('error', `The Hiscox server returned the following errors: ${errors}`);
+                return this.client_error(`The Hiscox server returned the following errors: ${errors}`, __location);
             }
             // Check for validation errors
             const validationErrorList = this.get_xml_child(xmlResponse, "InsuranceSvcRq.Validations.Validation", true);
             if (validationErrorList) {
                 // Loop through and capture each validation message
+                let validationMessage = "Validation errors: ";
                 for (const validationError of validationErrorList) {
-                    const reason = `Validation error: ${validationError.Status} (${validationError.DataItem}) at ${validationError.XPath}`;
-                    this.log_error(reason, __location);
-                    this.reasons.push(reason);
+                    validationMessage += `${validationError.Status} (${validationError.DataItem}) at ${validationError.XPath}, `;
                 }
-                return this.return_error('error', 'Hiscox could not process the request due to validation errors.');
+                return this.client_error(validationMessage, __location, {validationErrorList: validationErrorList});
             }
             // Check for a fault string (unknown node name)
             const faultString = this.get_xml_child(xmlResponse, "fault.faultstring");
             if (faultString) {
                 // Check for a system fault
-                this.log_error(`API returned fault string: ${faultString}`, __location);
-                this.reasons.push(`API returned fault string: ${faultString}`);
-                return this.return_result('error', 'Hiscox could not process the request due to an unknown XML node.');
+                return this.client_error(`The Hiscox API returned a fault string: ${faultString}`, __location, {requestError: requestError});
             }
             // Return an error result
-            this.log_error(`An unknown error occurred: ${requestError.response}`, __location);
-            this.reasons.push(`An unknown error occurred: ${requestError.response}`);
-            return this.return_result("error", 'An unknown error occurred when processing the request.');
+            return this.client_error(`The Hiscox API returned an error of ${requestError.httpStatusCode} without explanation`, __location, {requestError: requestError});
         }
 
         // We have received a quote. Parse it.
@@ -534,22 +518,19 @@ module.exports = class HiscoxGL extends Integration {
         // Get the limits (required)
         const loi = this.get_xml_child(result, "InsuranceSvcRs.QuoteRs.ProductQuoteRs.GeneralLiabilityQuoteRs.RatingResult.LOI");
         if (!loi) {
-            this.log_error('Could not locate the LOI (each occurrence) node. This is non-fatal. Continuing.');
-            return this.return_result("error", "Hiscox quoted the application, but the limits could not be found in the response.");
+            return this.client_error("Hiscox quoted the application, but the limits could not be found in the response.", __location, {result: result});
         }
         this.limits[4] = parseInt(loi, 10);
         const aggLOI = this.get_xml_child(result, "InsuranceSvcRs.QuoteRs.ProductQuoteRs.GeneralLiabilityQuoteRs.RatingResult.AggLOI");
         if (!aggLOI) {
-            this.log_error('Could not locate the AggLOI (general aggregate) node. This is non-fatal. Continuing.');
-            return this.return_result("error", "Hiscox quoted the application, but the limits could not be found in the response.");
+            return this.client_error("Hiscox quoted the application, but the limits could not be found in the response.", __location, {result: result});
         }
         this.limits[8] = parseInt(aggLOI, 10);
 
         // Get the premium amount (required)
         const premium = this.get_xml_child(result, "InsuranceSvcRs.QuoteRs.ProductQuoteRs.Premium.Annual");
         if (!premium) {
-            this.log_error('Could not locate the Premium price node.');
-            return this.return_result("error", "Hiscox quoted the application, but the premium amount could not be found in the response.");
+            return this.client_error("Hiscox quoted the application, but the premium amount could not be found in the response.", __location, {result: result});
         }
         this.amount = premium;
 

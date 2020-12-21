@@ -334,8 +334,8 @@ async function CheckZip(req, res, next){
         });
         if (!rejected) {
             if(result && result.length > 0){
-				responseObj.territory = result[0].territory;
-				responseObj.city = result[0].city;
+                responseObj.territory = result[0].territory;
+                responseObj.city = result[0].city;
                 if(result[0].licensed === 1){
                     responseObj['error'] = false;
                     responseObj['message'] = '';
@@ -599,10 +599,8 @@ async function GetQuestions(req, res, next){
     let getQuestionsResult = null;
     try{
         // insurers is optional
-        const insurers = req.query.insurers ? req.query.insurers.split(',') : [];
         const applicationBO = new ApplicationBO();
-
-        getQuestionsResult = await applicationBO.GetQuestionsForFrontend(req.query.appId, req.query.activity_codes.split(','), req.query.industry_code, req.query.zips.split(','), req.query.policy_types.split(','), insurers, return_hidden);
+        getQuestionsResult = await applicationBO.GetQuestionsForFrontend(req.query.appId, req.query.activity_codes.split(','), req.query.industry_code, req.query.zips.split(','), req.query.policy_types.split(','), return_hidden);
     }
     catch(error){
         log.error("Error getting questions " + error + __location);
