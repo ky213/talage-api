@@ -94,7 +94,7 @@ async function PostResetPassword(req, res, next){
             'to': req.body.email
         };
 
-        const emailResp = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {},result[0].agency_network, "");
+        const emailResp = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, agencyNetworkId, "");
         if(emailResp === false){
             log.error(`Failed to send the password reset email to ${req.body.email}. Please contact the user.`);
             slack.send('#alerts', 'warning',`Failed to send the password reset email to ${req.body.email}. Please contact the user.`);
