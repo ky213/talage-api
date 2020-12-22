@@ -19,6 +19,7 @@ const PaymentPlanBO = global.requireShared('models/PaymentPlan-BO.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
 
 const ApplicationQuoting = global.requireRootPath('public/v1/quote/helpers/models/Application.js');
+const QuoteBind = global.requireRootPath('public/v1/quote/helpers/models/QuoteBind.js');
 const status = global.requireShared('./models/application-businesslogic/status.js');
 const jwt = require('jsonwebtoken');
 const moment = require('moment');
@@ -1048,7 +1049,6 @@ async function GetQuestions(req, res, next){
     res.send(200, getQuestionsResult);
 }
 
-
 async function bindQuote(req, res, next) {
     //Double check it is TalageStaff user
 
@@ -1111,10 +1111,17 @@ async function bindQuote(req, res, next) {
         return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
     }
 
-
     try {
+        if (req.body.markAsBound !== 'true') {
+            const insurerBO = new InsurerBO();
+
+            const quoteBind = new QuoteBind();
+            await quoteBind.load(quoteId);
+            await quoteBind.bindPolicy();
+        }
+
         const quoteBO = new QuoteBO();
-        await quoteBO.bindQuote(quoteId, applicationId, req.authentication.userID)
+        await quoteBO.bindQuote(quoteId, applicationId, req.authentication.userID);
     }
     catch (err) {
         log.error(`Error loading application ${applicationId ? applicationId : ''}: ${err.message}` + __location);

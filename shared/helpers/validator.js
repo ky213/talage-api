@@ -67,12 +67,11 @@ exports.is_valid_zip = function(given_zip){
 // ============================================================
 // Auth-api, code-api, quote-api (different), slack-api
 
-exports.isID = function(val){
-    if(isNaN(val) || val < 1){
-        return false;
-    }
-    return true;
-};
+exports.isID = val =>
+    !isNaN(val) && val >= 1;
+
+exports.isUuid = uuid =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid);
 
 
 exports.isValidInsurer = async function(id){

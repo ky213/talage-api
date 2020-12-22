@@ -167,22 +167,21 @@ module.exports = class QuoteBO {
         });
     }
 
-    getById(id) {
-        return new Promise(async(resolve, reject) => {
-            //validate
-            if(id && id > 0){
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
-                resolve(this.#dbTableORM.cleanJSON());
+    async getById(quoteId) {
+        try {
+            const docDB = await Quote.findOne({
+                quoteId,
+                active: true,
+            }, '-__v');
+            if (docDB) {
+                return mongoUtils.objCleanup(docDB);
             }
-            else {
-                reject(new Error('no id supplied'))
-            }
-        });
+        }
+        catch (err) {
+            log.error("Getting Application error " + err + __location);
+            throw err;
+        }
+        return null;
     }
 
     getList(queryJSON, getOptions = null) {
