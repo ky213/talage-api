@@ -677,13 +677,10 @@ module.exports = class MarkelWC extends Integration {
         }
 
         const claims_by_year = this.claims_to_policy_years();
-        let losses = '';
+        let losses = 'No';
 
         for (let i = 1; i <= 3; i++) {
-            if (claims_by_year[i].count === 0) {
-                losses = 'No'
-            }
-            else {
+            if (claims_by_year[i].count > 0) {
                 losses = 'Yes'
             }
         }
