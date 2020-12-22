@@ -41,20 +41,12 @@ module.exports = class QuoteBind{
         }
 
         let statusWithinBindingRange = false;
-        switch(this.quoteDoc.apiResult){
-            case 'acord emailed':
-                statusWithinBindingRange = true;
-                break;
-            case 'bind requested':
-                statusWithinBindingRange = true;
-                break;
-            case 'referred': 
-                statusWithinBindingRange = true;
-                break;
-            case 'referred with price':
-                statusWithinBindingRange = true;
-                break;
+        switch(this.quoteDoc.aggregatedStatus){
+            case 'referred':
             case 'quoted':
+            case 'request_to_bind':
+            case 'request_to_bind_referred:':
+            case 'quoted_referred':
                 statusWithinBindingRange = true;
                 break;
             default: 
