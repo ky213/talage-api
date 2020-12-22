@@ -432,7 +432,7 @@ module.exports = class CnaWC extends Integration {
             log.error("CNA WC send_json_request error " + JSON.stringify(errorJSON ? errorJSON : "Null", null, 4));
             log.debug("=================== QUOTE ERROR ===================");
             
-            this.reasons.push(errorJSON);
+            this.reasons.push(JSON.stringify(errorJSON));
 
             let errorMessage = "";
             try {
