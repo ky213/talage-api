@@ -32,7 +32,7 @@ module.exports = class QuoteBind{
     async markAsBind(){
         if(!this.quoteDoc){
             log.error('Missing QuoteDoc ' + __location);
-            throw new Error('Qoute not Found. No action taken.');
+            throw new Error('Quote not Found. No action taken.');
         }
         // Make sure this quote is not already bound
         if(this.quoteDoc && this.quoteDoc.bound){
