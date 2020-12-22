@@ -381,6 +381,8 @@ module.exports = class Integration {
             c.amountPaid = 0;
             c.amountReserved = 0;
             c.count = 0;
+            c.zeroPaidCount = 0;
+            c.nonzeroPaidCount = 0;
             c.effective_date = effective_date.clone().subtract(i, 'years');
             c.expiration_date = c.effective_date.clone().add(1, 'years');
             c.missedWork = 0;
@@ -409,6 +411,12 @@ module.exports = class Integration {
             claims[year].count++;
             if (claim.missedWork) {
                 claims[year].missedWork++;
+            }
+            if (claim.amountReserved || claim.amountPaid) {
+                claims[year].nonzeroPaidCount++;
+            }
+            else {
+                claims[year].zeroPaidCount++;
             }
         });
 
