@@ -82,15 +82,20 @@ module.exports = class ZipCodeBO{
     }
 
     async loadByZipCode(zipCode) {
+        let zip = zipCode;
        
         if(zipCode){
+
+           if(zipCode.length === 9){
+               zip = zipCode.slice(0,5);
+           }
             if(  typeof zipCode === 'string'){
                 zipCode = parseInt(zipCode, 10);
             }
             let rejected = false;
             // Create the update query
             const sql = `
-                select *  from clw_talage_zip_codes where zip = ${zipCode}
+                select *  from clw_talage_zip_codes where zip = ${zip}
             `;
 
             // Run the query
@@ -174,12 +179,13 @@ module.exports = class ZipCodeBO{
         newJSON.territory = response.state_abbreviation;
         newJSON.county = response.county_name;
         this.loadORM(newJSON);
-        
-        await this.#dbTableORM.insert();
 
+        if(response.zipCode.length < 6){
+            await this.#dbTableORM.insert();
+        }
         return this.#dbTableORM.cleanJSON();
 
-
+        
     }
     else {
         return null;
