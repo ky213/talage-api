@@ -75,7 +75,7 @@ module.exports = class Policy {
         this.territories = appBusiness.getTerritories();
         this.primary_territory = appBusiness.primary_territory;
 
-
+ 
         //make moment objects.
         try{
             this.effective_date = moment(this.effective_date);
@@ -87,14 +87,21 @@ module.exports = class Policy {
 
         //load claims from db
         // Load the policy information
+
         try{
             if(applicationDocData.claims && applicationDocData.claims.length > 0){
-                for(let i = 0; i < applicationDocData.claims; i++){
+                for(let i = 0; i < applicationDocData.claims.length; i++){
                     const claimJSON = applicationDocData.claims[i];
-                    const claim = new Claim();
-                    claim.load(claimJSON);
-                    this.claims.push(claim);
+                    if(this.type.toLowerCase() === claimJSON.policyType.toLowerCase()){
+                        // eslint-disable-next-line prefer-const
+                        let claim = new Claim();
+                        claim.load(claimJSON);
+                        this.claims.push(claim);
+                    }
                 }
+            }
+            else {
+                log.debug("")
             }
         }
         catch(e){

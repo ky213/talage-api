@@ -105,7 +105,6 @@ exports.registerEndpoints = (server) => {
     // Quote
     registerEndpoint(server, 'quote', 'quote-agency');
     registerEndpoint(server, 'quote', 'application');
-    registerEndpoint(server, 'quote', 'bind');
     registerEndpoint(server, 'quote', 'quotes');
 
     // Site
@@ -133,6 +132,7 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'administration', 'insurer-ncci-code-rt');
     registerEndpoint(server, 'administration', 'industry-code-rt');
     registerEndpoint(server, 'administration', 'industry-code-association-rt');
+    registerEndpoint(server, 'administration', 'industry-code-question-rt');
     registerEndpoint(server, 'administration', 'industry-code-category-rt');
     registerEndpoint(server, 'administration', 'industry-code-activity-codes-rt');
     registerEndpoint(server, 'administration', 'industry-code-insurer-industry-codes-rt');
@@ -143,6 +143,8 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'administration', 'question-answer-rt');
     registerEndpoint(server, 'administration', 'question-type-rt');
     registerEndpoint(server, 'administration', 'question-activity-codes-rt');
+    registerEndpoint(server, 'administration', 'question-insurer-industry-codes-rt');
+    registerEndpoint(server, 'administration', 'insurer-industry-code-talage-questions-rt');
     registerEndpoint(server, 'administration', 'activity-code-questions-rt');
     registerEndpoint(server, 'administration', 'activity-code-association-rt');
     registerEndpoint(server, 'administration', 'payment-plan-rt');

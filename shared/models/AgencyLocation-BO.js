@@ -3,12 +3,12 @@
 const DatabaseObject = require('./DatabaseObject.js');
 const AgencyLocationInsurerBO = require('./AgencyLocationInsurer-BO.js');
 const AgencyLocationTerritory = require('./AgencyLocationTerritory-BO.js');
-//const TerritoryBO = global.requireShared('./models/Territory-BO.js');
+
 const InsurerBO = require('./Insurer-BO.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-// const crypt = global.requireShared('./services/crypt.js');
-// const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
+
 
 var AgencyLocationMongooseModel = require('mongoose').model('AgencyLocation');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
@@ -40,8 +40,23 @@ module.exports = class AgencyLocationBO{
             if(!newObjectJSON){
                 reject(new Error(`empty ${tableName} object given`));
             }
+            //check if city and state sent
+            // if not but zip was get city/state from zip code BO
+            //Agency Portal does not send city and state in. 2020-12-19
+            if(newObjectJSON.zipcode && (!newObjectJSON.city || !newObjectJSON.state)){
+                try{
+                    const zipCodeBO = new ZipCodeBO();
+                    const zipCodeJSON = await zipCodeBO.loadByZipCode(newObjectJSON.zipcode);
+                    if(zipCodeJSON.city){
+                        newObjectJSON.city = zipCodeJSON.city
+                        newObjectJSON.state = zipCodeJSON.territory;
+                    }
+                }
+                catch(err){
+                    log.error("AgencyLocation Error looking up City and State from zipcode " + err + __location)
+                }
+            }
             let newDoc = true;
-            await this.cleanupInput(newObjectJSON);
             if(newObjectJSON.id){
                 const dbDocJSON = await this.getById(newObjectJSON.id).catch(function(err) {
                     log.error(`Error getting ${tableName} from Database ` + err + __location);
@@ -592,28 +607,6 @@ module.exports = class AgencyLocationBO{
                 reject(new Error('no id supplied'))
             }
         });
-    }
-
-
-    async cleanupInput(inputJSON){
-        for (const property in properties) {
-            if(inputJSON[property]){
-                // Convert to number
-                try{
-                    if (properties[property].type === "number" && typeof inputJSON[property] === "string"){
-                        if (properties[property].dbType.indexOf("int") > -1){
-                            inputJSON[property] = parseInt(inputJSON[property], 10);
-                        }
-                        else if (properties[property].dbType.indexOf("float") > -1){
-                            inputJSON[property] = parseFloat(inputJSON[property]);
-                        }
-                    }
-                }
-                catch(e){
-                    log.error(`Error converting property ${property} value: ` + inputJSON[property] + __location)
-                }
-            }
-        }
     }
 
     updateProperty(){

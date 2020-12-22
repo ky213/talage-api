@@ -319,10 +319,47 @@ async function CheckZip(req, res, next){
             }
         }
 
+<<<<<<< HEAD
         if(zipCodeBO.territory){
             responseObj.territory = zipCodeBO.territory;
             res.send(200, responseObj);
             return next();
+=======
+        // log.debug("zipCodeBO: " + JSON.stringify(zipCodeBO.cleanJSON()))
+
+        // Check if we have coverage.
+        const sql = `select  z.city, z.territory, t.name, t.licensed
+            from clw_talage_zip_codes z
+            inner join clw_talage_territories t  on z.territory = t.abbr
+            where z.zip  = ${db.escape(req.body.zip)}`;
+        const result = await db.query(sql).catch(function(err) {
+            // Check if this was
+            rejected = true;
+            log.error(`clw_content error on select ` + err + __location);
+        });
+        if (!rejected) {
+            if(result && result.length > 0){
+                responseObj.territory = result[0].territory;
+                responseObj.city = result[0].city;
+                if(result[0].licensed === 1){
+                    responseObj['error'] = false;
+                    responseObj['message'] = '';
+                }
+                else {
+                    responseObj['error'] = true;
+                    responseObj['message'] = 'We do not currently provide coverage in ' + responseObj.territory;
+                }
+                res.send(200, responseObj);
+                return next();
+
+            }
+            else {
+                responseObj['error'] = true;
+                responseObj['message'] = 'The zip code you entered is invalid.';
+                res.send(404, responseObj);
+                return next(serverHelper.requestError('The zip code you entered is invalid.'));
+            }
+>>>>>>> develop
         }
         else {
             responseObj['error'] = true;
@@ -564,10 +601,8 @@ async function GetQuestions(req, res, next){
     let getQuestionsResult = null;
     try{
         // insurers is optional
-        const insurers = req.query.insurers ? req.query.insurers.split(',') : [];
         const applicationBO = new ApplicationBO();
-
-        getQuestionsResult = await applicationBO.GetQuestionsForFrontend(req.query.appId, req.query.activity_codes.split(','), req.query.industry_code, req.query.zips.split(','), req.query.policy_types.split(','), insurers, return_hidden);
+        getQuestionsResult = await applicationBO.GetQuestionsForFrontend(req.query.appId, req.query.activity_codes.split(','), req.query.industry_code, req.query.zips.split(','), req.query.policy_types.split(','), return_hidden);
     }
     catch(error){
         log.error("Error getting questions " + error + __location);

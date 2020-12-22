@@ -118,7 +118,7 @@ module.exports = class ActivityCodeBO{
             }
 
             // reverse the list to sort by id descending by default
-            sql += " GROUP BY id DESC"
+            sql += " GROUP BY id order by id DESC"
 
             // Run the query
             log.debug("ActivityCodeBO getlist sql: " + sql);
