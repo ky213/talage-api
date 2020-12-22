@@ -61,7 +61,7 @@ module.exports = class QuoteBind{
      * returns nothing. If not successful, then an Exception is thrown.
      */
     async bindPolicy(){
-        this.markAsBind();
+        await this.markAsBind();
 
         // Check that an integration file exists for this insurer and store a reference to it for later use
         const path = `${__dirname}/../integrations/${this.insurer.slug}/${this.quoteDoc.policyType.toLowerCase()}-bind.js`;
