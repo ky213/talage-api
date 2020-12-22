@@ -40,8 +40,29 @@ module.exports = class QuoteBind{
             throw new Error('Quote already bound. No action taken.');
         }
 
+        let statusWithinBindingRange = false;
+        switch(this.quoteDoc.apiResult){
+            case 'acord emailed':
+                statusWithinBindingRange = true;
+                break;
+            case 'bind requested':
+                statusWithinBindingRange = true;
+                break;
+            case 'referred': 
+                statusWithinBindingRange = true;
+                break;
+            case 'referred with price':
+                statusWithinBindingRange = true;
+                break;
+            case 'quoted':
+                statusWithinBindingRange = true;
+                break;
+            default: 
+                break;
+        }
+
         // Make sure that this quote was quoted by the API
-        if(this.quoteDoc.apiResult !== 'quoted'){
+        if(statusWithinBindingRange){
             // If this was a price indication, let's send a Slack message
             if(this.quoteDoc.apiResult === 'referred_with_price'){
                 this.send_slack_notification('indication');
