@@ -222,7 +222,7 @@ module.exports = class HiscoxGL extends Integration {
             this.reasons.push(`${this.insurer.name} does not support effective dates more than 60 days in the future`);
             return this.return_result("autodeclined");
         }
-        this.effectiveDate = this.policy.effective_date.format("YYYY-MM-DD");
+        this.effective_date = this.policy.effective_date.format("YYYY-MM-DD");
 
         // Make a local copy of locations so that any Hiscox specific changes we make don't affect other integrations
         const locations = [...this.app.business.locations];

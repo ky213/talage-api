@@ -19,6 +19,12 @@ const Insurer = require('./Insurer.js');
 const Policy = require('./Policy.js');
 const Question = require('./Question.js');
 const validator = global.requireShared('./helpers/validator.js');
+const { 
+    validateAgencyLocation,
+    validateBusiness,
+    validatePolicy,
+    validateQuestion
+} = global.requireShared('./helpers/applicationValidator.js');
 const helper = global.requireShared('./helpers/helper.js');
 
 const AgencyBO = global.requireShared('models/Agency-BO.js');
@@ -61,7 +67,6 @@ module.exports = class Application {
             throw err;
         }
 
-
         //age check - add override Age parameter to allow requoting.
         if (forceQuoting === false){
             const bypassAgeCheck = global.settings.ENV === 'development' && global.settings.APPLICATION_AGE_CHECK_BYPASS === 'YES';
@@ -97,7 +102,7 @@ module.exports = class Application {
                 const p = new Policy();
                 await p.load(policyJSON, this.business,this.applicationDocData);
                 this.policies.push(p);
-                appPolicyTypeList.push(policyJSON.policyType);
+                appPolicyTypeList.push(policyJSON.type);
             }
         }
         catch(err){
@@ -345,7 +350,7 @@ module.exports = class Application {
                                     quote_promises.push(integration.quote());
                                 }
                                 else {
-                                    log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} insurer ${insurer.name} policytype ${policy.type} slug: ${slug} path: ${normalizedPath} app ${this.id} ` + __location);
+                                    log.error(`Database and Implementation mismatch: Integration confirmed in the database but implementation file was not found. Agency location ID: ${this.agencyLocation.id} insurer ${insurer.name} policyType ${policy.type} slug: ${slug} path: ${normalizedPath} app ${this.id} ` + __location);
                                 }
                             }
                             else {
@@ -640,8 +645,8 @@ module.exports = class Application {
             let stop = false;
 
             // Agent
-            await this.agencyLocation.validate().catch(function(error) {
-                log.error('Location.validate() error ' + error + __location);
+            await validateAgencyLocation(this.agencyLocation).catch(function(error) {
+                log.error('validateAgencyLocation() error ' + error + __location);
                 reject(error);
                 stop = true;
             });
@@ -708,8 +713,8 @@ module.exports = class Application {
 
             // Validate the business
 
-            await this.business.validate().catch(function(error) {
-                log.error('business.validate() error ' + error + __location);
+            await validateBusiness(this.business).catch(function(error) {
+                log.error('validateBusiness() error ' + error + __location);
                 reject(error);
                 stop = true;
             });
@@ -794,18 +799,18 @@ module.exports = class Application {
 
             // Validate all policies
             const policy_types = [];
-            const policy_promises = [];
-            this.policies.forEach(function(policy) {
-                policy_promises.push(policy.validate());
+            for (const [i, policy] of this.applicationDocData.policies.entries()) {
                 policy_types.push(policy.type);
-            });
-            await Promise.all(policy_promises).catch(function(error) {
-                log.error('Policy Validation error. ' + error + __location);
-                reject(error);
-                stop = true;
-            });
-            if (stop) {
-                return;
+                try {
+                    // validatePolicy updates the policy
+                    // TODO: validation functions should NOT update the value being validated, that is not their responsability.
+                    //       This should be updated to happen before validation is called. 
+                    const newPolicy = await validatePolicy(policy);
+                    this.policies[i] = newPolicy;
+                } catch (e) {
+                    log.error('Policy Validation error. ' + e + __location);
+                    return reject(e);
+                }
             }
 
             // Get a list of all questions the user may need to answer
@@ -877,30 +882,30 @@ module.exports = class Application {
             }
 
             // Validate all of the questions
-            if (this.questions) {
+            if (this.applicationDocData.questions) {
                 const question_promises = [];
-                for (const question_id in this.questions) {
-                    if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
-                        const question = this.questions[question_id];
-                        // Determine if this question is visible. We walk up through the ancestors to make sure each of them
-                        // are visible. If any of them are not, then this question is not visible.
-                        let questionIsVisible = true;
-                        let childQuestionId = question_id.toString();
-                        while (this.questions[childQuestionId].parent !== 0) {
-                            // Get the parent ID. Ensure it is a string since the questions keys are strings.
-                            let parentQuestionId = this.questions[childQuestionId].parent.toString();
-                            // Determine if the child question is visible
-                            if (this.questions[childQuestionId].parent_answer !== this.questions[parentQuestionId].answer_id) {
-                                // Not visible so clear the flag and break
-                                questionIsVisible = false;
-                                break;
-                            }
-                            // Move up to the parent
-                            childQuestionId = parentQuestionId;
-                        }
+                for (const questionId in this.applicationDocData.questions) {
+                    if (Object.prototype.hasOwnProperty.call(this.applicationDocData.questions, questionId)) {
+                        const question = this.applicationDocData.questions.find(q => q.questionId === questionId);
+                        // // Determine if this question is visible. We walk up through the ancestors to make sure each of them
+                        // // are visible. If any of them are not, then this question is not visible.
+                        // let questionIsVisible = true;
+                        // let childQuestionId = questionId.toString();
+                        // while (this.applicationDocData.questions[childQuestionId].parent !== 0) {
+                        //     // Get the parent ID. Ensure it is a string since the questions keys are strings.
+                        //     let parentQuestionId = this.applicationDocData.questions[childQuestionId].parent.toString();
+                        //     // Determine if the child question is visible
+                        //     if (this.applicationDocData.questions[childQuestionId].parent_answer !== this.applicationDocData.questions[parentQuestionId].answerId) {
+                        //         // Not visible so clear the flag and break
+                        //         questionIsVisible = false;
+                        //         break;
+                        //     }
+                        //     // Move up to the parent
+                        //     childQuestionId = parentQuestionId;
+                        // }
                         // Only validate questions which are visible
-                        if (questionIsVisible) {
-                            question_promises.push(question.validate());
+                        if (!question.hidden) {
+                            question_promises.push(validateQuestion(question));
                         }
                     }
                 }

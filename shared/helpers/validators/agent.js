@@ -10,30 +10,29 @@ const positive_integer = /^[1-9]\d*$/;
  * @param {number} agent - The ID of the agent
  * @returns {boolean} - True if valid, false otherwise
  */
-module.exports = async function(agent){
-    if(positive_integer.test(agent)){
+module.exports = async (agent) => {
+    if (positive_integer.test(agent)) {
         let had_error = false;
         let agency = null;
-        try{
+        
+        try {
             // Load the request data into it
             const AgencyBO = global.requireShared('./models/Agency-BO.js');
             const agencyBO = new AgencyBO();
             agency = await agencyBO.getById(agent);
-        }
-        catch(err){
+        } catch(err) {
             log.error("agencyBO.getbyid load error " + err + __location);
 
             had_error = true;
         }
         if (had_error) {
             return false;
-        }
-        else if(agency && agency.systemId > 0){
+        } else if (agency && agency.systemId > 0) {
             return true;
-        }
-        else {
+        } else {
             return false;
         }
     }
+
     return false;
 };

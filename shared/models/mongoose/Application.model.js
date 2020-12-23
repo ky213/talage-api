@@ -172,7 +172,7 @@ const ApplicationSchema = new Schema({
     agencyPortalModifiedUser: {type: String},
     active: {type: Boolean, default: true}
 })
-// NOTE:  EIN is not everysaved to database.
+// NOTE:  EIN is not ever saved to database.
 
 /********************************** */
 ApplicationSchema.plugin(timestamps);
