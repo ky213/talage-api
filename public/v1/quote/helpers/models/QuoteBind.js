@@ -54,7 +54,7 @@ module.exports = class QuoteBind{
         }
 
         // Make sure that this quote was quoted by the API
-        if(statusWithinBindingRange){
+        if(!statusWithinBindingRange){
             // If this was a price indication, let's send a Slack message
             if(this.quoteDoc.apiResult === 'referred_with_price'){
                 this.send_slack_notification('indication');
