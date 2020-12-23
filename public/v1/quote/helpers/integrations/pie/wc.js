@@ -60,6 +60,15 @@ module.exports = class PieWC extends Integration {
             'Trust - Non-Profit': 'TrustOrEstate'
         };
 
+        // Map the lapse reason question answer to the JSON enum value
+        const lapseInCoverageReasonMap = {
+            "Non-Payment": "NonPayment",
+            "Audit Non-compliance": "AuditNonCompliance",
+            "No Employees": "NoEmployees",
+            "New Business": "NewBusiness",
+            "Other": "Other"
+        };
+
         // Determine which URL to use
         let host = '';
         if (this.insurer.useSandbox) {
@@ -98,7 +107,6 @@ module.exports = class PieWC extends Integration {
             return this.return_result('error');
         }
 
-
         const token = `${token_response.data.token_type} ${token_response.data.id_token}`;
 
         // Get all territories present in this appilcation
@@ -112,34 +120,80 @@ module.exports = class PieWC extends Integration {
         // Begin the 'workersCompensation' data object
         data.workersCompensation = {};
 
-        data.workersCompensation.currentlyCovered = !this.policy.coverage_lapse;
-        //If false provide reason.  If company less then 2 months old reason is "NewBusiness"
-        if(data.workersCompensation.currentlyCovered === false){
-            if(this.app.applicationDocData.founded){
-                let isNewCompany = false;
-                try{
-                    const foundingDate = new moment(this.app.applicationDocData.founded);
-                    const now = new moment();
-                    const monthsOld = now.diff(foundingDate, 'months', true);
-                    if(monthsOld < 2){
-                        isNewCompany = true;
+        // Custom coverage and lapse reason questions
+        const coverageQuestions = {
+            PieCustomWCCurrentCoverage: "Yes",
+            PieCustomWCCurrentCoverageReason: "",
+            PieCustomWCCurrentCoverageReasonOther: null,
+            PieCustomWCContinuousCoverage: "Yes",
+            PieCustomWCContinuousCoverage1Year: "No",
+            PieCustomWCContinuousCoverage2Year: "No",
+            PieCustomWCContinuousCoverage3Year: "No",
+            PieCustomWCPaymentLapse: "No",
+            PieCustomWCPaymentLapse1Year: "No",
+            PieCustomWCPaymentLapse1YearReason: "",
+            PieCustomWCPaymentLapse1YearReasonOther: null,
+            PieCustomWCPaymentLapse2Year: "No",
+            PieCustomWCPaymentLapse2YearReason: "",
+            PieCustomWCPaymentLapse2YearReasonOther: null,
+            PieCustomWCPaymentLapse3Year: "No",
+            PieCustomWCPaymentLapse3YearReason: "",
+            PieCustomWCPaymentLapse3YearReasonOther: null
+        };
+        const coverageQuestionsIdentifierList = Object.keys(coverageQuestions);
+        const coverageQuestionsTalageIdList = [];
+        for (const talageQuestionId in this.questions) {
+            if (this.question_identifiers.hasOwnProperty(talageQuestionId) && this.questions.hasOwnProperty(talageQuestionId)) {
+                const questionInsuranceIdentifier = this.question_identifiers[talageQuestionId];
+                if (coverageQuestionsIdentifierList.includes(questionInsuranceIdentifier)) {
+                    const questionAnswer = this.determine_question_answer(this.questions[talageQuestionId]);
+                    if (questionAnswer) {
+                        coverageQuestions[questionInsuranceIdentifier] = questionAnswer;
                     }
-                }
-                catch(err){
-                    log.error(`Appid: ${this.app.id} Pie WC ERROR: Calculating Age ${err}` + __location)
-                }
-                // [ NonPayment, AuditNonCompliance, NoEmployees, Other, NewBusiness ]
-                if(isNewCompany){
-                    data.workersCompensation.notCurrentlyCoveredReason = "NewBusiness"
-                }
-                else if(this.policy && this.policy.coverage_lapse_non_payment) {
-                    data.workersCompensation.notCurrentlyCoveredReason = "NonPayment"
-                }
-                else {
-                    data.workersCompensation.notCurrentlyCoveredReason = "Other"
+                    coverageQuestionsTalageIdList.push(talageQuestionId);
                 }
             }
         }
+        // Remove the coverage questions from the questions list. We can't do it above because we can't remove parent questions before child question
+        // visibility is checked. After this point, only carrier-sent
+        for (const coverageQuestionsTalageId of coverageQuestionsTalageIdList) {
+            delete this.questions[coverageQuestionsTalageId];
+        }
+
+        // Determine business age in months
+        let businessAgeInMonths = 0;
+        if (this.app.applicationDocData.founded) {
+            try {
+                const foundingDate = new moment(this.app.applicationDocData.founded);
+                const now = new moment();
+                businessAgeInMonths = now.diff(foundingDate, 'months', true);
+            }
+            catch (err) {
+                log.error(`Appid: ${this.app.id} Pie WC ERROR: Calculating Age ${err}` + __location)
+            }
+        }
+
+        // Determine if they are currently covered.
+        data.workersCompensation.currentlyCovered = coverageQuestions.PieCustomWCCurrentCoverage === 'Yes';
+        if (data.workersCompensation.currentlyCovered === false) {
+            // Determine if this is a new company.
+            const isNewCompany = businessAgeInMonths < 2;
+            // [ NonPayment, AuditNonCompliance, NoEmployees, Other, NewBusiness ]
+            if (isNewCompany) {
+                // If it is a new company, set it to "NewBusiness" regardless of what they chose
+                data.workersCompensation.notCurrentlyCoveredReason = "NewBusiness";
+            }
+            else if (lapseInCoverageReasonMap.hasOwnProperty(coverageQuestions.PieCustomWCCurrentCoverageReason)) {
+                // If they chose a reason and it exists, use it. null description is valid.
+                data.workersCompensation.notCurrentlyCoveredReason = lapseInCoverageReasonMap[coverageQuestions.PieCustomWCCurrentCoverageReason];
+                data.workersCompensation.notCurrentlyCoveredDescription = coverageQuestions.PieCustomWCCurrentCoverageReasonOther;
+            }
+            else {
+                // Fall back to "Other" if no valid response.
+                data.workersCompensation.notCurrentlyCoveredReason = "Other";
+            }
+        }
+
         // Begin the 'legalEntities' data object
         data.workersCompensation.legalEntities = [];
 
@@ -282,23 +336,6 @@ module.exports = class PieWC extends Integration {
         // Territories
         data.workersCompensation.otherStates = territories;
 
-        // Claims
-        if (this.policy.claims.length) {
-            data.workersCompensation.lossHistory = [];
-
-            for (const claim_index in this.policy.claims) {
-                if (Object.prototype.hasOwnProperty.call(this.policy.claims, claim_index)) {
-                    const claim = this.policy.claims[claim_index];
-                    const loss_object = {};
-
-                    loss_object.data = claim.date.format('YYYY-MM-DD');
-
-                    // Append the loss to the loss history
-                    data.workersCompensation.lossHistory.push(loss_object);
-                }
-            }
-        }
-
         // Contacts
         data.contacts = [];
         for (const contact_index in this.app.business.contacts) {
@@ -318,10 +355,7 @@ module.exports = class PieWC extends Integration {
             }
         }
 
-
-        // eslint-disable-next-line prefer-const
-        let questionsArray = [];
-
+        const questionsArray = [];
         for(const question_id in this.questions){
             if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
                 const question = this.questions[question_id];
@@ -346,6 +380,34 @@ module.exports = class PieWC extends Integration {
         data.partnerAgentLastName = 'Kiefer';
         data.partnerAgentEmail = 'customersuccess@talageins.com';
 
+        // Prior carriers
+        if (coverageQuestions.PieCustomWCContinuousCoverage === 'No') {
+            data.workersCompensation.priorCarriers = [];
+            const claims = this.claims_to_policy_years();
+            for (let i = 1; i < 4; i++) {
+                // Check if they had coverage and were in business XX monthsago. If so, populate a prior coverage entry, including any claim information
+                if (coverageQuestions[`PieCustomWCContinuousCoverage${i}Year`] === 'Yes' && businessAgeInMonths > 12 * (i - 1)) {
+                    const hadLapse = coverageQuestions[`PieCustomWCPaymentLapse${i}Year`] === 'Yes';
+                    const priorCarrier = {
+                        name: "Unknown", // Placeholder: this isn't currently captured anywhere, but Pie said it was ok -SF
+                        effectiveDate: claims[i].effective_date.format("YYYY-MM-DD"),
+                        expirationDate: claims[i].expiration_date.format("YYYY-MM-DD"),
+                        nonZeroClaimCount: claims[i].nonzeroPaidCount,
+                        zeroClaimCount: claims[i].zeroPaidCount,
+                        amountPaid: claims[i].amountPaid,
+                        amountReserved: claims[i].amountReserved,
+                        lapseInPeriod: hadLapse
+                        // Optional property
+                        // amountIncurred:
+                    };
+                    if (hadLapse) {
+                        priorCarrier.lapseReason = lapseInCoverageReasonMap[coverageQuestions[`PieCustomWCPaymentLapse${i}YearReason`]];
+                        priorCarrier.lapseReasonDescription = coverageQuestions[`PieCustomWCPaymentLapse${i}YearReasonOther`];
+                    }
+                    data.workersCompensation.priorCarriers.push(priorCarrier);
+                }
+            }
+        }
 
         // eslint-disable-next-line prefer-const
         let address = {};
