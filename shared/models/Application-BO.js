@@ -1592,6 +1592,8 @@ module.exports = class ApplicationModel {
             log.error('Mongo Application Save err ' + err + __location);
             throw err;
         });
+        //add calculated fields EIN
+        await this.setDocEinClear(application);
         this.#applicationMongooseDB = application;
         if(updateMysql === true){
             // save mysql applicaition
