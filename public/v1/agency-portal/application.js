@@ -25,8 +25,9 @@ const moment = require('moment');
 
 
 // Application Messages Imports
-const mongoUtils = global.requireShared('./helpers/mongoutils.js');
+//const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 var Message = require('mongoose').model('Message');
+
 /**
  * Responds to get requests for the application endpoint
  *
@@ -114,133 +115,7 @@ async function getApplication(req, res, next) {
         //Return not found so do not expose that the application exists
         return next(serverHelper.notFoundError('Application Not Found'));
     }
-
-    const mapDoc2OldPropName = {
-        agencyLocationId: "agency_location",
-        lastStep: "last_step",
-        grossSalesAmt: "gross_sales_amt",
-        mailingCity: "city",
-        mailingAddress: "address",
-        mailingAddress2: "address2",
-        mailingState: "territory",
-        mailingZipcode: "zip",
-        optedOutOnlineEmailsent: "opted_out_online_emailsent",
-        optedOutOnline: "opted_out_online"
-    }
-    for(const sourceProp in mapDoc2OldPropName){
-        if(typeof applicationJSON[sourceProp] !== "object"){
-            if(mapDoc2OldPropName[sourceProp]){
-                const appProp = mapDoc2OldPropName[sourceProp]
-                applicationJSON[appProp] = applicationJSON[sourceProp];
-            }
-        }
-    }
-    // eslint-disable-next-line array-element-newline
-    const propsToRemove = ["_id","einEncrypted","einHash","questions"];
-    for(let i = 0; i < propsToRemove.length; i++){
-        if(applicationJSON[propsToRemove[i]]){
-            delete applicationJSON[propsToRemove[i]]
-        }
-    }
-
-    // // owners birthday formatting
-    try{
-        if(applicationJSON.owners && applicationJSON.owners.length > 0){
-            for(let i = 0; i < applicationJSON.owners.length; i++){
-                // eslint-disable-next-line prefer-const
-                let owner = applicationJSON.owners[i];
-                if(owner._id){
-                    delete owner._id;
-                }
-                if(owner.ownership){
-                    owner.ownership = owner.ownership.toString();
-                }
-                if(owner.birthdate){
-                    owner.birthdate = moment(owner.birthdate).format("MM/DD/YYYY");
-                }
-            }
-        }
-    }
-    catch(err){
-        log.error("Application Owner processing error " + err + __location)
-    }
-
-    // process location for Activity Code Description
-    if(applicationJSON.locations && applicationJSON.locations.length > 0){
-        for(let i = 0; i < applicationJSON.locations.length; i++){
-            const location = applicationJSON.locations[i];
-            if(location.activityPayrollList && location.activityPayrollList.length > 0){
-                const activityCodeBO = new ActivityCodeBO();
-                for(let j = 0; j < location.activityPayrollList.length; j++){
-                    try{
-                        // eslint-disable-next-line prefer-const
-                        let activityPayroll = location.activityPayrollList[j];
-                        const activtyCodeJSON = await activityCodeBO.getById(activityPayroll.ncciCode);
-                        activityPayroll.description = activtyCodeJSON.description;
-                        if(activityPayroll.ownerPayRoll){
-                            activityPayroll.payroll += activityPayroll.ownerPayRoll
-                        }
-                    }
-                    catch(err){
-                        log.error(`Error getting activity code  ${location.activityPayrollList[j].ncciCode} ` + err + __location);
-                    }
-                }
-            }
-        }
-    }
-
-    //add Agency name
-    const agencyBO = new AgencyBO();
-    try{
-        await agencyBO.loadFromId(applicationJSON.agencyId)
-        applicationJSON.name = agencyBO.name;
-        applicationJSON.agencyName = agencyBO.name;
-        applicationJSON.agencyPhone = agencyBO.phone;
-        applicationJSON.agencyOwnerName = `${agencyBO.fname} ${agencyBO.lname}`;
-        applicationJSON.agencyOwnerEmail = agencyBO.email;
-    }
-    catch(err){
-        log.error("Error getting agencyBO " + err + __location);
-        error = true;
-    }
-
-    // add information about the creator if it was created in the agency portal
-    if(applicationJSON.agencyPortalCreated && applicationJSON.agencyPortalCreatedUser){
-        const agencyPortalUserBO = new AgencyPortalUserBO();
-        try{
-            await agencyPortalUserBO.loadFromId(applicationJSON.agencyPortalCreatedUser);
-            applicationJSON.creatorEmail = agencyPortalUserBO.email;
-        }
-        catch(err){
-            log.error("Error getting agencyPortalUserBO " + err + __location);
-            error = true;
-        }
-    }
-
-    //add industry description
-    const industryCodeBO = new IndustryCodeBO();
-    try{
-        const industryCodeJson = await industryCodeBO.getById(applicationJSON.industryCode);
-        if(industryCodeJson){
-            applicationJSON.industryCodeName = industryCodeJson.description;
-            const industryCodeCategoryBO = new IndustryCodeCategoryBO()
-            const industryCodeCategoryJson = await industryCodeCategoryBO.getById(industryCodeJson.category);
-            if(industryCodeCategoryJson){
-                applicationJSON.industryCodeCategory = industryCodeCategoryJson.name;
-            }
-        }
-    }
-    catch(err){
-        log.error("Error getting industryCodeBO " + err + __location);
-    }
-    //Primary Contact
-    const customerContact = applicationJSON.contacts.find(contactTest => contactTest.primary === true);
-    if(customerContact){
-        applicationJSON.email = customerContact.email;
-        applicationJSON.fname = customerContact.firstName;
-        applicationJSON.lname = customerContact.lastName;
-        applicationJSON.phone = customerContact.phone;
-    }
+    await setupReturnedApplicationJSON(applicationJSON)
 
     // Get the quotes from the database
     const quoteBO = new QuoteBO()
@@ -322,8 +197,8 @@ async function getApplication(req, res, next) {
                 // i.logo,
                 //i.name as insurerName,
                 quoteJSON.logo = insurer.logo
-				quoteJSON.insurerName = insurer.name
-				quoteJSON.website = insurer.website
+                quoteJSON.insurerName = insurer.name
+                quoteJSON.website = insurer.website
             }
             //policyType
             if(policyTypeList){
@@ -345,17 +220,18 @@ async function getApplication(req, res, next) {
         }
     }
 
-	let docList = null;
-	try {
-		docList = await Message.find( {$or:[ {'applicationId':applicationJSON.applicationId}, {'mysqlId':applicationJSON.mysqlId} ]}, '-__v');
-	}catch (err) {
-		log.error(err + __location);
-		return serverHelper.sendError(res, next, 'Internal Error');
-	}
-	log.debug("docList.length: " + docList.length);
-	if(docList.length){
-		applicationJSON.messages = docList;
-	}
+    let docList = null;
+    try {
+        docList = await Message.find({$or:[{'applicationId':applicationJSON.applicationId}, {'mysqlId':applicationJSON.mysqlId}]}, '-__v');
+    }
+    catch (err) {
+        log.error(err + __location);
+        return serverHelper.sendError(res, next, 'Internal Error');
+    }
+    log.debug("docList.length: " + docList.length);
+    if(docList.length){
+        applicationJSON.messages = docList;
+    }
     // Return the response
     res.send(200, applicationJSON);
     return next();
@@ -417,6 +293,134 @@ async function getApplicationDoc(req, res ,next){
     }
 
 
+}
+
+
+async function setupReturnedApplicationJSON(applicationJSON){
+    const mapDoc2OldPropName = {
+        agencyLocationId: "agency_location",
+        lastStep: "last_step",
+        grossSalesAmt: "gross_sales_amt",
+        mailingCity: "city",
+        mailingAddress: "address",
+        mailingAddress2: "address2",
+        mailingState: "territory",
+        mailingZipcode: "zip",
+        optedOutOnlineEmailsent: "opted_out_online_emailsent",
+        optedOutOnline: "opted_out_online"
+    }
+    for(const sourceProp in mapDoc2OldPropName){
+        if(typeof applicationJSON[sourceProp] !== "object"){
+            if(mapDoc2OldPropName[sourceProp]){
+                const appProp = mapDoc2OldPropName[sourceProp]
+                applicationJSON[appProp] = applicationJSON[sourceProp];
+            }
+        }
+    }
+    // eslint-disable-next-line array-element-newline
+    const propsToRemove = ["_id","einEncrypted","einHash","questions"];
+    for(let i = 0; i < propsToRemove.length; i++){
+        if(applicationJSON[propsToRemove[i]]){
+            delete applicationJSON[propsToRemove[i]]
+        }
+    }
+
+    // // owners birthday formatting
+    try{
+        if(applicationJSON.owners && applicationJSON.owners.length > 0){
+            for(let i = 0; i < applicationJSON.owners.length; i++){
+                // eslint-disable-next-line prefer-const
+                let owner = applicationJSON.owners[i];
+                if(owner._id){
+                    delete owner._id;
+                }
+                if(owner.ownership){
+                    owner.ownership = owner.ownership.toString();
+                }
+                if(owner.birthdate){
+                    owner.birthdate = moment(owner.birthdate).format("MM/DD/YYYY");
+                }
+            }
+        }
+    }
+    catch(err){
+        log.error("Application Owner processing error " + err + __location)
+    }
+
+    // process location for Activity Code Description
+    if(applicationJSON.locations && applicationJSON.locations.length > 0){
+        for(let i = 0; i < applicationJSON.locations.length; i++){
+            const location = applicationJSON.locations[i];
+            if(location.activityPayrollList && location.activityPayrollList.length > 0){
+                const activityCodeBO = new ActivityCodeBO();
+                for(let j = 0; j < location.activityPayrollList.length; j++){
+                    try{
+                        // eslint-disable-next-line prefer-const
+                        let activityPayroll = location.activityPayrollList[j];
+                        const activtyCodeJSON = await activityCodeBO.getById(activityPayroll.ncciCode);
+                        activityPayroll.description = activtyCodeJSON.description;
+                        if(activityPayroll.ownerPayRoll){
+                            activityPayroll.payroll += activityPayroll.ownerPayRoll
+                        }
+                    }
+                    catch(err){
+                        log.error(`Error getting activity code  ${location.activityPayrollList[j].ncciCode} ` + err + __location);
+                    }
+                }
+            }
+        }
+    }
+
+    //add Agency name
+    const agencyBO = new AgencyBO();
+    try{
+        const agencyJSON = await agencyBO.getById(applicationJSON.agencyId)
+        applicationJSON.name = agencyJSON.name;
+        applicationJSON.agencyName = agencyJSON.name;
+        applicationJSON.agencyPhone = agencyJSON.phone;
+        applicationJSON.agencyOwnerName = `${agencyJSON.firstName} ${agencyJSON.lastName}`;
+        applicationJSON.agencyOwnerEmail = agencyJSON.email;
+    }
+    catch(err){
+        log.error("Error getting agencyBO " + err + __location);
+    }
+
+    // add information about the creator if it was created in the agency portal
+    if(applicationJSON.agencyPortalCreated && applicationJSON.agencyPortalCreatedUser){
+        const agencyPortalUserBO = new AgencyPortalUserBO();
+        try{
+            await agencyPortalUserBO.loadFromId(applicationJSON.agencyPortalCreatedUser);
+            applicationJSON.creatorEmail = agencyPortalUserBO.email;
+        }
+        catch(err){
+            log.error("Error getting agencyPortalUserBO " + err + __location);
+        }
+    }
+
+    //add industry description
+    const industryCodeBO = new IndustryCodeBO();
+    try{
+        const industryCodeJson = await industryCodeBO.getById(applicationJSON.industryCode);
+        if(industryCodeJson){
+            applicationJSON.industryCodeName = industryCodeJson.description;
+            const industryCodeCategoryBO = new IndustryCodeCategoryBO()
+            const industryCodeCategoryJson = await industryCodeCategoryBO.getById(industryCodeJson.category);
+            if(industryCodeCategoryJson){
+                applicationJSON.industryCodeCategory = industryCodeCategoryJson.name;
+            }
+        }
+    }
+    catch(err){
+        log.error("Error getting industryCodeBO " + err + __location);
+    }
+    //Primary Contact
+    const customerContact = applicationJSON.contacts.find(contactTest => contactTest.primary === true);
+    if(customerContact){
+        applicationJSON.email = customerContact.email;
+        applicationJSON.fname = customerContact.firstName;
+        applicationJSON.lname = customerContact.lastName;
+        applicationJSON.phone = customerContact.phone;
+    }
 }
 
 //Both POST and PUT
@@ -636,6 +640,8 @@ async function applicationCopy(req, res, next) {
                 delete newApplicationDoc[propsToRemove[i]]
             }
         }
+        //default back not pre quoting for mysql State.
+        newApplicationDoc.processStateOld = 1;
 
         //include Questions
         if(req.body.includeQuestions === false){
@@ -665,6 +671,7 @@ async function applicationCopy(req, res, next) {
         req.body.agencyPortalCreated = true;
         const updateMysql = true;
         responseAppDoc = await applicationBO.insertMongo(newApplicationDoc, updateMysql);
+        await setupReturnedApplicationJSON(responseAppDoc)
     }
     catch(err){
         log.error("Error checking application doc " + err + __location)
@@ -1265,7 +1272,7 @@ async function GetResources(req, res, next){
 async function CheckZip(req, res, next){
     const responseObj = {};
     if(req.body && req.body.zip){
-        let rejected = false;
+        const rejected = false;
         //make sure we have a valid zip code
         const zipCodeBO = new ZipCodeBO();
         let error = null;
@@ -1405,6 +1412,7 @@ async function GetAssociations(req, res, next){
     }
 
 }
+
 
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
