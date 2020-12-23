@@ -62,7 +62,7 @@ module.exports = class QuoteBind{
 
             // Return an error
             log.info(`Quotes with an api_result of '$this.quoteDoc.apiResult}' are not eligible to be bound.`);
-            throw new Error('Quote not eligible for binding');
+            throw new Error(`Quote ${this.quoteDoc.quoteId} is not eligible for binding with status ${this.quoteDoc.aggregatedStatus}`);
         }
 
         this.send_slack_notification('requested');
