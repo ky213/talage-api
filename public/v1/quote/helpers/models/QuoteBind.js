@@ -41,12 +41,23 @@ module.exports = class QuoteBind{
         }
 
         let statusWithinBindingRange = false;
-        switch(this.quoteDoc.aggregatedStatus){
-            case 'referred':
+        let quoteStatus = '';
+        if(this.quoteDoc.aggregatedStatus){
+            quoteStatus = this.quoteDoc.aggregatedStatus;
+        }else if (this.quoteDoc.status){
+            quoteStatus = this.quoteDoc.status;
+        }else if (this.quoteDoc.apiResult){
+            quoteStatus = this.quoteDoc.apiResult
+        }
+        switch(quoteStatus){
+            case 'acord_emailed':
+            case 'bind_requested':
             case 'quoted':
+            case 'quoted_referred':
+            case 'referred':
+            case 'referred_with_price':
             case 'request_to_bind':
             case 'request_to_bind_referred:':
-            case 'quoted_referred':
                 statusWithinBindingRange = true;
                 break;
             default: 
@@ -61,7 +72,7 @@ module.exports = class QuoteBind{
             }
 
             // Return an error
-            log.info(`Quotes with an api_result of '$this.quoteDoc.apiResult}' are not eligible to be bound.`);
+            log.info(`Quotes with an api_result of '${this.quoteDoc.apiResult}' are not eligible to be bound.`);
             throw new Error(`Quote ${this.quoteDoc.quoteId} is not eligible for binding with status ${this.quoteDoc.aggregatedStatus}`);
         }
 
