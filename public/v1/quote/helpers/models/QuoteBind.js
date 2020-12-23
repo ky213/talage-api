@@ -40,8 +40,21 @@ module.exports = class QuoteBind{
             throw new Error('Quote already bound. No action taken.');
         }
 
+        let statusWithinBindingRange = false;
+        switch(this.quoteDoc.aggregatedStatus){
+            case 'referred':
+            case 'quoted':
+            case 'request_to_bind':
+            case 'request_to_bind_referred:':
+            case 'quoted_referred':
+                statusWithinBindingRange = true;
+                break;
+            default: 
+                break;
+        }
+
         // Make sure that this quote was quoted by the API
-        if(this.quoteDoc.apiResult !== 'quoted'){
+        if(statusWithinBindingRange){
             // If this was a price indication, let's send a Slack message
             if(this.quoteDoc.apiResult === 'referred_with_price'){
                 this.send_slack_notification('indication');
