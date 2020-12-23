@@ -125,6 +125,10 @@ module.exports = class PieWC extends Integration {
             PieCustomWCCurrentCoverage: "Yes",
             PieCustomWCCurrentCoverageReason: "",
             PieCustomWCCurrentCoverageReasonOther: null,
+            PieCustomWCContinuousCoverage: "Yes",
+            PieCustomWCContinuousCoverage1Year: "No",
+            PieCustomWCContinuousCoverage2Year: "No",
+            PieCustomWCContinuousCoverage3Year: "No",
             PieCustomWCPaymentLapse: "No",
             PieCustomWCPaymentLapse1Year: "No",
             PieCustomWCPaymentLapse1YearReason: "",
@@ -156,24 +160,24 @@ module.exports = class PieWC extends Integration {
             delete this.questions[coverageQuestionsTalageId];
         }
 
+        // Determine business age in months
+        let businessAgeInMonths = 0;
+        if (this.app.applicationDocData.founded) {
+            try {
+                const foundingDate = new moment(this.app.applicationDocData.founded);
+                const now = new moment();
+                businessAgeInMonths = now.diff(foundingDate, 'months', true);
+            }
+            catch (err) {
+                log.error(`Appid: ${this.app.id} Pie WC ERROR: Calculating Age ${err}` + __location)
+            }
+        }
+
         // Determine if they are currently covered.
         data.workersCompensation.currentlyCovered = coverageQuestions.PieCustomWCCurrentCoverage === 'Yes';
-        if(data.workersCompensation.currentlyCovered === false){
+        if (data.workersCompensation.currentlyCovered === false) {
             // Determine if this is a new company.
-            let isNewCompany = false;
-            if (this.app.applicationDocData.founded) {
-                try {
-                    const foundingDate = new moment(this.app.applicationDocData.founded);
-                    const now = new moment();
-                    const monthsOld = now.diff(foundingDate, 'months', true);
-                    if (monthsOld < 2) {
-                        isNewCompany = true;
-                    }
-                }
-                catch (err) {
-                    log.error(`Appid: ${this.app.id} Pie WC ERROR: Calculating Age ${err}` + __location)
-                }
-            }
+            const isNewCompany = businessAgeInMonths < 2;
             // [ NonPayment, AuditNonCompliance, NoEmployees, Other, NewBusiness ]
             if (isNewCompany) {
                 // If it is a new company, set it to "NewBusiness" regardless of what they chose
@@ -377,11 +381,12 @@ module.exports = class PieWC extends Integration {
         data.partnerAgentEmail = 'customersuccess@talageins.com';
 
         // Prior carriers
-        if (this.policy.claims.length && coverageQuestions.PieCustomWCPaymentLapse === 'Yes') {
+        if (coverageQuestions.PieCustomWCContinuousCoverage === 'No') {
             data.workersCompensation.priorCarriers = [];
             const claims = this.claims_to_policy_years();
             for (let i = 1; i < 4; i++) {
-                if (claims[i].count) {
+                // Check if they had coverage and were in business XX monthsago. If so, populate a prior coverage entry, including any claim information
+                if (coverageQuestions[`PieCustomWCContinuousCoverage${i}Year`] === 'Yes' && businessAgeInMonths > 12 * (i - 1)) {
                     const hadLapse = coverageQuestions[`PieCustomWCPaymentLapse${i}Year`] === 'Yes';
                     const priorCarrier = {
                         name: "Unknown", // Placeholder: this isn't currently captured anywhere, but Pie said it was ok -SF
