@@ -11,13 +11,13 @@ const { curly } = require('node-libcurl');
 
 class EmployersBind extends Bind {
     async bind() {
-        const headers = {
-            httpHeader: [
-                `appKey: ${global.settings.EMPLOYERS_APP_KEY}`,
-                `appToken: ${global.settings.EMPLOYERS_APP_TOKEN}`,
-                'Accept: application/json',
-            ]
-        }
+        const appKeyEmployers = await this.insurer.get_username()
+        const appTokenEmployers = await this.insurer.get_password()
+        const headers = {httpHeader: [
+            `appKey: ${appKeyEmployers}`,
+            `appToken: ${appTokenEmployers}`,
+            'Accept: application/json'
+        ]}
         let host = this.insurer.useSandbox ? 'api-qa.employers.com' : 'api.employers.com';
         /** See Note above about using curly for Employers. */
         const result = await curly.put(`https://${host}/DigitalAgencyServices/quote/${this.quote.requestId}/bind`, headers);
