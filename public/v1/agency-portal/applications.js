@@ -311,7 +311,7 @@ async function getApplications(req, res, next){
             const agencyBO = new AgencyBO();
             // eslint-disable-next-line prefer-const
             let agencyQuery = {
-                do_not_report: 0,
+                doNotReport: false,
                 agency_network: agencyNetwork
             }
             if(req.params.searchText){
@@ -325,7 +325,7 @@ async function getApplications(req, res, next){
                 // eslint-disable-next-line prefer-const
                 let agencyIdArray = [];
                 for (const agency of agencyList) {
-                    agencyIdArray.push(agency.id);
+                    agencyIdArray.push(agency.systemId);
                 }
                 const agencyListFilter = {agencyId: {$in: agencyIdArray}};
                 orClauseArray.push(agencyListFilter);
@@ -356,7 +356,7 @@ async function getApplications(req, res, next){
 
         const industryCodeBO = new IndustryCodeBO();
         // eslint-disable-next-line prefer-const
-        let industryCodeQuery = {do_not_report: 0}
+        let industryCodeQuery = {};
         if(req.params.searchText){
             industryCodeQuery.description = req.params.searchText
         }
