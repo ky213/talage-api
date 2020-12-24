@@ -173,11 +173,11 @@ module.exports = class PieWC extends Integration {
             }
         }
 
+        const isNewCompany = businessAgeInMonths < 2;
         // Determine if they are currently covered.
         data.workersCompensation.currentlyCovered = coverageQuestions.PieCustomWCCurrentCoverage === 'Yes';
         if (data.workersCompensation.currentlyCovered === false) {
             // Determine if this is a new company.
-            const isNewCompany = businessAgeInMonths < 2;
             // [ NonPayment, AuditNonCompliance, NoEmployees, Other, NewBusiness ]
             if (isNewCompany) {
                 // If it is a new company, set it to "NewBusiness" regardless of what they chose
@@ -381,13 +381,15 @@ module.exports = class PieWC extends Integration {
         data.partnerAgentEmail = 'customersuccess@talageins.com';
 
         // Prior carriers
-        if (coverageQuestions.PieCustomWCContinuousCoverage === 'No') {
+        if (isNewCompany === false) {
             data.workersCompensation.priorCarriers = [];
             const claims = this.claims_to_policy_years();
             for (let i = 1; i < 4; i++) {
                 // Check if they had coverage and were in business XX monthsago. If so, populate a prior coverage entry, including any claim information
-                if (coverageQuestions[`PieCustomWCContinuousCoverage${i}Year`] === 'Yes' && businessAgeInMonths > 12 * (i - 1)) {
+                const hadCoverage = coverageQuestions.PieCustomWCContinuousCoverage === 'Yes' || coverageQuestions[`PieCustomWCContinuousCoverage${i}Year`] === 'Yes';
+                if (hadCoverage && businessAgeInMonths > 12 * (i - 1)) {
                     const hadLapse = coverageQuestions[`PieCustomWCPaymentLapse${i}Year`] === 'Yes';
+
                     const priorCarrier = {
                         name: "Unknown", // Placeholder: this isn't currently captured anywhere, but Pie said it was ok -SF
                         effectiveDate: claims[i].effective_date.format("YYYY-MM-DD"),
