@@ -46,7 +46,7 @@ exports.getAgents = async function(req) {
 
     // Everything appears to be okay, return the requested agents
     return agencyResult.map(function(agency) {
-        return agency.id;
+        return agency.systemId;
     });
 };
 

@@ -59,28 +59,28 @@ async function postResendOnboardingEmail(req, res, next){
     //  previous bad SQL logic allowed this vs an Error  when sending false as agencyNetwork
     // and the beauty of non Type languages.
 
-    let agencyNetwork = req.authentication.agencyNetwork;
-    if(agencyNetwork === false || agencyNetwork === "false"){
+    let agencyNetworkId = req.authentication.agencyNetwork;
+    if(agencyNetworkId === false || agencyNetworkId === "false"){
         //get agency to get agencyNetwork.
         const reqAgency = req.authentication.agents[0];
         let error = null;
-        const agencyModel = new AgencyBO();
-        await agencyModel.loadFromId(reqAgency).catch(function(err) {
+        const agencyBO = new AgencyBO();
+        const agencyJSON = await agencyBO.getById(reqAgency).catch(function(err) {
             log.error(`Loading agency in resend-onboarding-mail error:` + err + __location);
-            agencyNetwork = 1;
+            agencyNetworkId = 1;
             error = err;
         });
         if(!error){
-            agencyNetwork = agencyModel.agency_network;
-            if(!agencyNetwork){
-                agencyNetwork = 1;
+            agencyNetworkId = agencyJSON.agencyNetworkId;
+            if(!agencyNetworkId){
+                agencyNetworkId = 1;
             }
         }
     }
     // req.authentication.agencyNetwork = false for Agency user.
     //const onboardingEmailResponse = await sendOnboardingEmail(req.authentication.agencyNetwork,
 
-    const onboardingEmailResponse = await sendOnboardingEmail(agencyNetwork,
+    const onboardingEmailResponse = await sendOnboardingEmail(agencyNetworkId,
         req.body.userID,
         req.body.firstName,
         req.body.lastName,

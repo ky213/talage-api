@@ -274,6 +274,7 @@ async function createUser(req, res, next) {
 
     // Prepare the email address
     const emailHash = await crypt.hash(data.email);
+    const clearEmail = data.email;
     const encryptedEmail = await crypt.encrypt(data.email);
 
     // Generate a random password for this user (they won't be using it anyway)
@@ -303,13 +304,48 @@ async function createUser(req, res, next) {
         controlValue = agents[0];
     }
 
-    const insertSQL = `
-			INSERT INTO \`#__agency_portal_users\` (\`state\`, \`${controlColumn}\`, \`can_sign\`, \`email\`, \`email_hash\`, \`group\`, \`password\`, \`reset_required\`)
-			VALUES (1, ${parseInt(controlValue, 10)}, ${data.canSign}, ${db.escape(encryptedEmail)}, ${db.escape(emailHash)}, ${parseInt(data.group, 10)}, ${db.escape(passwordHash)}, 1);
-		`;
+    // check if this user exists already but their state === -2 (they were created, then deleted)
+    const deletedUserSQL = `
+        SELECT id
+        FROM \`#__agency_portal_users\`
+        WHERE \`email_hash\` = ${db.escape(emailHash)}
+            AND state = -2
+    `;
+
+    let deletedUser = null;
+    try {
+        const result = await db.query(deletedUserSQL, connection);
+        deletedUser = result[0];
+    } catch (e) {
+        log.error(`__agency_portal_users error: ${e}. ${__location}`);
+    }
+
+    let userSQL = '';
+    if (deletedUser) {
+        // If we have a deleted user, update them instead of trying to insert them (as they already exist)
+        // don't need to set: 
+        // \`email\` = \`${db.escape(encryptedEmail)}\`
+        // \`email_hash\` = \`${db.escape(emailHash)}\`
+        userSQL = `
+            UPDATE \`#__agency_portal_users\`
+            SET \`state\` = 1,
+                \`${controlColumn}\` = ${parseInt(controlValue, 10)},
+                \`can_sign\` = ${data.canSign},
+                \`group\` = ${parseInt(data.group, 10)},
+                \`password\` = ${db.escape(passwordHash)},
+                \`reset_required\` = 1
+            WHERE id = ${deletedUser.id}
+        `;
+    } else {
+        // else we don't have a deleted user. This is a new user, so insert them
+        userSQL = `
+            INSERT INTO \`#__agency_portal_users\` (\`state\`, \`${controlColumn}\`, \`can_sign\`, \`email\`, \`clear_email\`, \`email_hash\`, \`group\`, \`password\`, \`reset_required\`)
+            VALUES (1, ${parseInt(controlValue, 10)}, ${data.canSign}, ${db.escape(encryptedEmail)}, ${db.escape(clearEmail)}, ${db.escape(emailHash)}, ${parseInt(data.group, 10)}, ${db.escape(passwordHash)}, 1);
+	    `;
+    }
 
     // Run the query
-    const result = await db.query(insertSQL, connection).catch(function(err) {
+    const result = await db.query(userSQL, connection).catch(function(err) {
         log.error('__agency_portal_users error ' + err + __location);
         error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
     });
@@ -357,7 +393,7 @@ async function createUser(req, res, next) {
             log.error(`Error getting Agency: ${agencyId} ` + error + __location);
             return next(error);
         }
-        agencyNetwork = agency.agency_network;
+        agencyNetwork = agency.agencyNetworkId;
     }
 
     // Get the content of the new user email
@@ -724,6 +760,7 @@ async function updateUser(req, res, next) {
 
     // Prepare the email address
     const emailHash = await crypt.hash(data.email);
+    const clearEmail = data.email;
     data.email = await crypt.encrypt(data.email);
 
     // Update the user
@@ -731,7 +768,8 @@ async function updateUser(req, res, next) {
 			UPDATE \`#__agency_portal_users\`
 			SET
 				\`can_sign\` = ${data.canSign},
-				\`email\` = ${db.escape(data.email)},
+                \`email\` = ${db.escape(data.email)},
+                \`clear_email\` = ${db.escape(clearEmail)},
 				\`email_hash\` = ${db.escape(emailHash)},
 				\`group\` = ${parseInt(data.group, 10)}
 			WHERE

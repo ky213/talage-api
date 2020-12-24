@@ -24,7 +24,6 @@ var internalObjCleanup = function(dbJson, extraFields) {
     }
     var dbJsonClean = JSON.parse(JSON.stringify(dbJson));
     var propertiesToBeCleanedOut = ['_id',
-        'id',
         '__v',
         '_v',
         'timestamp'];

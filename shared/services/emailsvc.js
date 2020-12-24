@@ -334,7 +334,7 @@ var sendUsingSendGrid = async function(emailJSON) {
 
                     // Build the message to be sent
                     const message = `Sendgrid returned the following errors: ${errors.join(', ')}`;
-                    log.warn(`Email Failed: ${message}` + __location);
+                    log.error(`Email Failed: ${message}` + __location);
 
                 }
             }

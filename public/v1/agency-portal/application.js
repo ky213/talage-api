@@ -19,9 +19,11 @@ const PaymentPlanBO = global.requireShared('models/PaymentPlan-BO.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
 
 const ApplicationQuoting = global.requireRootPath('public/v1/quote/helpers/models/Application.js');
+const QuoteBind = global.requireRootPath('public/v1/quote/helpers/models/QuoteBind.js');
 const status = global.requireShared('./models/application-businesslogic/status.js');
 const jwt = require('jsonwebtoken');
 const moment = require('moment');
+const { Error } = require('mongoose');
 
 
 // Application Messages Imports
@@ -475,7 +477,7 @@ async function applicationSave(req, res, next) {
             const agencyBO = new AgencyBO()
             const agencyDB = await agencyBO.getById(req.body.agencyId)
             if(agencyDB){
-                req.body.agencyNetworkId = agencyDB.agency_network;
+                req.body.agencyNetworkId = agencyDB.agencyNetworkId;
             }
             else {
                 log.warn("Application Save agencyId not found in db " + req.body.agencyId + __location)
@@ -494,8 +496,8 @@ async function applicationSave(req, res, next) {
             const locationPrimaryJSON = await agencyLocationBO.getByAgencyPrimary(req.body.agencyId).catch(function(err) {
                 log.error(`Error getting Agency Primary Location ${req.body.agencyId} ` + err + __location);
             });
-            if(locationPrimaryJSON && locationPrimaryJSON.id){
-                req.body.agencyLocationId = locationPrimaryJSON.id;
+            if(locationPrimaryJSON && locationPrimaryJSON.systemId){
+                req.body.agencyLocationId = locationPrimaryJSON.systemId;
             }
         }
     }
@@ -1053,7 +1055,6 @@ async function GetQuestions(req, res, next){
     res.send(200, getQuestionsResult);
 }
 
-
 async function bindQuote(req, res, next) {
     //Double check it is TalageStaff user
 
@@ -1089,7 +1090,7 @@ async function bindQuote(req, res, next) {
         error = err;
     });
     if (error) {
-        return next(error);
+        return next(Error);
     }
     if(applicationDB){
         log.debug("Have doc for " + applicationDB.applicationId)
@@ -1116,13 +1117,20 @@ async function bindQuote(req, res, next) {
         return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
     }
 
-
     try {
+        if (req.body.markAsBound !== 'true') {
+            const insurerBO = new InsurerBO();
+
+            const quoteBind = new QuoteBind();
+            await quoteBind.load(quoteId);
+            await quoteBind.bindPolicy();
+        }
+
         const quoteBO = new QuoteBO();
-        await quoteBO.bindQuote(quoteId, applicationId, req.authentication.userID)
+        await quoteBO.bindQuote(quoteId, applicationId, req.authentication.userID);
     }
     catch (err) {
-        log.error(`Error loading application ${applicationId ? applicationId : ''}: ${err.message}` + __location);
+        log.error(`Error Binding  application ${applicationId ? applicationId : ''}: ${err}` + __location);
         res.send(err);
         return next();
     }
@@ -1303,53 +1311,18 @@ async function CheckZip(req, res, next){
                 return next(serverHelper.requestError('internal error'));
             }
         }
-
-        // log.debug("zipCodeBO: " + JSON.stringify(zipCodeBO.cleanJSON()))
-
-        // Check if we have coverage.
-        const sql = `select  z.territory, t.name, t.licensed 
-            from clw_talage_zip_codes z
-            inner join clw_talage_territories t  on z.territory = t.abbr
-            where z.zip  = ${db.escape(req.body.zip)}`;
-        const result = await db.query(sql).catch(function(err) {
-            // Check if this was
-            rejected = true;
-            log.error(`clw_content error on select ` + err + __location);
-        });
-        if (!rejected) {
-            if(result && result.length > 0){
-                responseObj.territory = result[0].territory
-                if(result[0].licensed === 1){
-                    responseObj['error'] = false;
-                    responseObj['message'] = '';
-                }
-                else {
-                    responseObj['error'] = true;
-                    responseObj['message'] = 'We do not currently provide coverage in ' + responseObj.territory;
-                }
-                res.send(200, responseObj);
-                return next();
-
-            }
-            else {
-                responseObj['error'] = true;
-                responseObj['message'] = 'The zip code you entered is invalid.';
-                res.send(404, responseObj);
-                return next(serverHelper.requestError('The zip code you entered is invalid.'));
-            }
+        if(zipCodeBO.territory){
+            responseObj.territory = zipCodeBO.territory;
+            res.send(200, responseObj);
+            return next();
         }
         else {
             responseObj['error'] = true;
-            responseObj['message'] = 'internal error.';
-            res.send(500, responseObj);
-            return next(serverHelper.requestError('internal error'));
+            responseObj['message'] = 'The zip code you entered is invalid.';
+            res.send(404, responseObj);
+            return next(serverHelper.requestError('The zip code you entered is invalid.'));
         }
-    }
-    else {
-        responseObj['error'] = true;
-        responseObj['message'] = 'Invalid input received.';
-        res.send(400, responseObj);
-        return next(serverHelper.requestError('Bad request'));
+        // log.debug("zipCodeBO: " + JSON.stringify(zipCodeBO.cleanJSON()))
     }
 
 }
@@ -1422,7 +1395,7 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPutAuth('PUT Re-Quote Application', `${basePath}/application/:id/requote`, requote, 'applications', 'manage');
     server.addPutAuth('PUT Validate Application', `${basePath}/application/:id/validate`, validate, 'applications', 'manage');
 
-    server.addPutAuth('PUT bindQuote Application', `${basePath}/application/:id/bind`, bindQuote, 'applications', 'bind');
+    //server.addPutAuth('PUT bindQuote Application', `${basePath}/application/:id/bind`, bindQuote, 'applications', 'bind');
 
     server.addDeleteAuth('DELETE Application', `${basePath}/application/:id`, deleteObject, 'applications', 'manage');
 

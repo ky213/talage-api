@@ -130,11 +130,11 @@ async function createToken(req, res, next){
     const agencyBO = new AgencyBO();
     // For agency networks get the agencies they are allowed to access
     if (payload.agencyNetwork) {
-        let agencies = null;
+        let agencyJSONList = null;
         try{
 
             // Load the request data into it
-            agencies = await agencyBO.getByAgencyNetwork(payload.agencyNetwork);
+            agencyJSONList = await agencyBO.getByAgencyNetwork(payload.agencyNetwork);
         }
         catch(err){
             log.error("agencyBO.getByAgencyNetwork load error " + err + __location);
@@ -148,8 +148,8 @@ async function createToken(req, res, next){
 
         // Store the agencies in the payload
         payload.agents = [];
-        agencies.forEach((agency) => {
-            payload.agents.push(agency.id);
+        agencyJSONList.forEach((agencyJSON) => {
+            payload.agents.push(agencyJSON.systemId);
         });
     }
     else{
@@ -176,12 +176,12 @@ async function createToken(req, res, next){
         if(agency){
             // Only agencies who have wholesale enabled and have not signed before should be required to sign
             // Only for for Digalent is the process handle in the software.
-            if (agency.agency_network === 2 && agency.wholesale && !agency.wholesale_agreement_signed) {
+            if (agency.agencyNetworkId === 2 && agency.wholesale && !agency.wholesaleAgreementSigned) {
                 payload.signatureRequired = true;
             }
 
             // Store the agency network ID locally for later use
-            agencyNetworkId = agency.agency_network;
+            agencyNetworkId = agency.agencyNetworkId;
         }
 
     }
