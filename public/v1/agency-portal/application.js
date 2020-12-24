@@ -23,6 +23,7 @@ const QuoteBind = global.requireRootPath('public/v1/quote/helpers/models/QuoteBi
 const status = global.requireShared('./models/application-businesslogic/status.js');
 const jwt = require('jsonwebtoken');
 const moment = require('moment');
+const { Error } = require('mongoose');
 
 
 // Application Messages Imports
@@ -1089,7 +1090,7 @@ async function bindQuote(req, res, next) {
         error = err;
     });
     if (error) {
-        return next(error);
+        return next(Error);
     }
     if(applicationDB){
         log.debug("Have doc for " + applicationDB.applicationId)
@@ -1129,7 +1130,7 @@ async function bindQuote(req, res, next) {
         await quoteBO.bindQuote(quoteId, applicationId, req.authentication.userID);
     }
     catch (err) {
-        log.error(`Error loading application ${applicationId ? applicationId : ''}: ${err.message}` + __location);
+        log.error(`Error Binding  application ${applicationId ? applicationId : ''}: ${err}` + __location);
         res.send(err);
         return next();
     }
