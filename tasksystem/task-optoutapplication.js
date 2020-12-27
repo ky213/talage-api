@@ -124,8 +124,9 @@ var processOptOutEmail = async function(applicationDoc) {
     if (applicationDoc) {
         let error = null;
         const agencyBO = new AgencyBO();
+        let agencyJSON = {};
         try{
-            await agencyBO.loadFromId(applicationDoc.agencyId)
+            agencyJSON = await agencyBO.getById(applicationDoc.agencyId)
         }
         catch(err){
             log.error("Error getting agencyBO " + err + __location);
@@ -138,8 +139,9 @@ var processOptOutEmail = async function(applicationDoc) {
 
 
         const agencyLocationBO = new AgencyLocationBO();
+        let agencyLocationJSON = null;
         try{
-            await agencyLocationBO.loadFromId(applicationDoc.agencyLocationId)
+            agencyLocationJSON = await agencyLocationBO.getById(applicationDoc.agencyLocationId)
         }
         catch(err){
             log.error("Error getting agencyLocationBO " + err + __location);
@@ -153,11 +155,11 @@ var processOptOutEmail = async function(applicationDoc) {
 
         //decrypt info...
         let agencyLocationEmail = null;
-        if (agencyLocationBO.email && agencyLocationBO.email.length > 0) {
-            agencyLocationEmail = agencyLocationBO.email;
+        if (agencyLocationJSON.email && agencyLocationJSON.email.length > 0) {
+            agencyLocationEmail = agencyLocationJSON.email;
         }
-        else if (agencyBO.email) {
-            agencyLocationEmail = agencyBO.email;
+        else if (agencyJSON.email) {
+            agencyLocationEmail = agencyJSON.email;
         }
 
         log.debug("processing appDoc in processOptOutEmail agencyLocationEmail " + agencyLocationEmail);

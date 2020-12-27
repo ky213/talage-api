@@ -19,14 +19,17 @@ const PaymentPlanBO = global.requireShared('models/PaymentPlan-BO.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
 
 const ApplicationQuoting = global.requireRootPath('public/v1/quote/helpers/models/Application.js');
+const QuoteBind = global.requireRootPath('public/v1/quote/helpers/models/QuoteBind.js');
 const status = global.requireShared('./models/application-businesslogic/status.js');
 const jwt = require('jsonwebtoken');
 const moment = require('moment');
+const { Error } = require('mongoose');
 
 
 // Application Messages Imports
-const mongoUtils = global.requireShared('./helpers/mongoutils.js');
+//const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 var Message = require('mongoose').model('Message');
+
 /**
  * Responds to get requests for the application endpoint
  *
@@ -114,133 +117,7 @@ async function getApplication(req, res, next) {
         //Return not found so do not expose that the application exists
         return next(serverHelper.notFoundError('Application Not Found'));
     }
-
-    const mapDoc2OldPropName = {
-        agencyLocationId: "agency_location",
-        lastStep: "last_step",
-        grossSalesAmt: "gross_sales_amt",
-        mailingCity: "city",
-        mailingAddress: "address",
-        mailingAddress2: "address2",
-        mailingState: "territory",
-        mailingZipcode: "zip",
-        optedOutOnlineEmailsent: "opted_out_online_emailsent",
-        optedOutOnline: "opted_out_online"
-    }
-    for(const sourceProp in mapDoc2OldPropName){
-        if(typeof applicationJSON[sourceProp] !== "object"){
-            if(mapDoc2OldPropName[sourceProp]){
-                const appProp = mapDoc2OldPropName[sourceProp]
-                applicationJSON[appProp] = applicationJSON[sourceProp];
-            }
-        }
-    }
-    // eslint-disable-next-line array-element-newline
-    const propsToRemove = ["_id","einEncrypted","einHash","questions"];
-    for(let i = 0; i < propsToRemove.length; i++){
-        if(applicationJSON[propsToRemove[i]]){
-            delete applicationJSON[propsToRemove[i]]
-        }
-    }
-
-    // // owners birthday formatting
-    try{
-        if(applicationJSON.owners && applicationJSON.owners.length > 0){
-            for(let i = 0; i < applicationJSON.owners.length; i++){
-                // eslint-disable-next-line prefer-const
-                let owner = applicationJSON.owners[i];
-                if(owner._id){
-                    delete owner._id;
-                }
-                if(owner.ownership){
-                    owner.ownership = owner.ownership.toString();
-                }
-                if(owner.birthdate){
-                    owner.birthdate = moment(owner.birthdate).format("MM/DD/YYYY");
-                }
-            }
-        }
-    }
-    catch(err){
-        log.error("Application Owner processing error " + err + __location)
-    }
-
-    // process location for Activity Code Description
-    if(applicationJSON.locations && applicationJSON.locations.length > 0){
-        for(let i = 0; i < applicationJSON.locations.length; i++){
-            const location = applicationJSON.locations[i];
-            if(location.activityPayrollList && location.activityPayrollList.length > 0){
-                const activityCodeBO = new ActivityCodeBO();
-                for(let j = 0; j < location.activityPayrollList.length; j++){
-                    try{
-                        // eslint-disable-next-line prefer-const
-                        let activityPayroll = location.activityPayrollList[j];
-                        const activtyCodeJSON = await activityCodeBO.getById(activityPayroll.ncciCode);
-                        activityPayroll.description = activtyCodeJSON.description;
-                        if(activityPayroll.ownerPayRoll){
-                            activityPayroll.payroll += activityPayroll.ownerPayRoll
-                        }
-                    }
-                    catch(err){
-                        log.error(`Error getting activity code  ${location.activityPayrollList[j].ncciCode} ` + err + __location);
-                    }
-                }
-            }
-        }
-    }
-
-    //add Agency name
-    const agencyBO = new AgencyBO();
-    try{
-        await agencyBO.loadFromId(applicationJSON.agencyId)
-        applicationJSON.name = agencyBO.name;
-        applicationJSON.agencyName = agencyBO.name;
-        applicationJSON.agencyPhone = agencyBO.phone;
-        applicationJSON.agencyOwnerName = `${agencyBO.fname} ${agencyBO.lname}`;
-        applicationJSON.agencyOwnerEmail = agencyBO.email;
-    }
-    catch(err){
-        log.error("Error getting agencyBO " + err + __location);
-        error = true;
-    }
-
-    // add information about the creator if it was created in the agency portal
-    if(applicationJSON.agencyPortalCreated && applicationJSON.agencyPortalCreatedUser){
-        const agencyPortalUserBO = new AgencyPortalUserBO();
-        try{
-            await agencyPortalUserBO.loadFromId(applicationJSON.agencyPortalCreatedUser);
-            applicationJSON.creatorEmail = agencyPortalUserBO.email;
-        }
-        catch(err){
-            log.error("Error getting agencyPortalUserBO " + err + __location);
-            error = true;
-        }
-    }
-
-    //add industry description
-    const industryCodeBO = new IndustryCodeBO();
-    try{
-        const industryCodeJson = await industryCodeBO.getById(applicationJSON.industryCode);
-        if(industryCodeJson){
-            applicationJSON.industryCodeName = industryCodeJson.description;
-            const industryCodeCategoryBO = new IndustryCodeCategoryBO()
-            const industryCodeCategoryJson = await industryCodeCategoryBO.getById(industryCodeJson.category);
-            if(industryCodeCategoryJson){
-                applicationJSON.industryCodeCategory = industryCodeCategoryJson.name;
-            }
-        }
-    }
-    catch(err){
-        log.error("Error getting industryCodeBO " + err + __location);
-    }
-    //Primary Contact
-    const customerContact = applicationJSON.contacts.find(contactTest => contactTest.primary === true);
-    if(customerContact){
-        applicationJSON.email = customerContact.email;
-        applicationJSON.fname = customerContact.firstName;
-        applicationJSON.lname = customerContact.lastName;
-        applicationJSON.phone = customerContact.phone;
-    }
+    await setupReturnedApplicationJSON(applicationJSON)
 
     // Get the quotes from the database
     const quoteBO = new QuoteBO()
@@ -322,8 +199,8 @@ async function getApplication(req, res, next) {
                 // i.logo,
                 //i.name as insurerName,
                 quoteJSON.logo = insurer.logo
-				quoteJSON.insurerName = insurer.name
-				quoteJSON.website = insurer.website
+                quoteJSON.insurerName = insurer.name
+                quoteJSON.website = insurer.website
             }
             //policyType
             if(policyTypeList){
@@ -345,17 +222,18 @@ async function getApplication(req, res, next) {
         }
     }
 
-	let docList = null;
-	try {
-		docList = await Message.find( {$or:[ {'applicationId':applicationJSON.applicationId}, {'mysqlId':applicationJSON.mysqlId} ]}, '-__v');
-	}catch (err) {
-		log.error(err + __location);
-		return serverHelper.sendError(res, next, 'Internal Error');
-	}
-	log.debug("docList.length: " + docList.length);
-	if(docList.length){
-		applicationJSON.messages = docList;
-	}
+    let docList = null;
+    try {
+        docList = await Message.find({$or:[{'applicationId':applicationJSON.applicationId}, {'mysqlId':applicationJSON.mysqlId}]}, '-__v');
+    }
+    catch (err) {
+        log.error(err + __location);
+        return serverHelper.sendError(res, next, 'Internal Error');
+    }
+    log.debug("docList.length: " + docList.length);
+    if(docList.length){
+        applicationJSON.messages = docList;
+    }
     // Return the response
     res.send(200, applicationJSON);
     return next();
@@ -419,6 +297,134 @@ async function getApplicationDoc(req, res ,next){
 
 }
 
+
+async function setupReturnedApplicationJSON(applicationJSON){
+    const mapDoc2OldPropName = {
+        agencyLocationId: "agency_location",
+        lastStep: "last_step",
+        grossSalesAmt: "gross_sales_amt",
+        mailingCity: "city",
+        mailingAddress: "address",
+        mailingAddress2: "address2",
+        mailingState: "territory",
+        mailingZipcode: "zip",
+        optedOutOnlineEmailsent: "opted_out_online_emailsent",
+        optedOutOnline: "opted_out_online"
+    }
+    for(const sourceProp in mapDoc2OldPropName){
+        if(typeof applicationJSON[sourceProp] !== "object"){
+            if(mapDoc2OldPropName[sourceProp]){
+                const appProp = mapDoc2OldPropName[sourceProp]
+                applicationJSON[appProp] = applicationJSON[sourceProp];
+            }
+        }
+    }
+    // eslint-disable-next-line array-element-newline
+    const propsToRemove = ["_id","einEncrypted","einHash","questions"];
+    for(let i = 0; i < propsToRemove.length; i++){
+        if(applicationJSON[propsToRemove[i]]){
+            delete applicationJSON[propsToRemove[i]]
+        }
+    }
+
+    // // owners birthday formatting
+    try{
+        if(applicationJSON.owners && applicationJSON.owners.length > 0){
+            for(let i = 0; i < applicationJSON.owners.length; i++){
+                // eslint-disable-next-line prefer-const
+                let owner = applicationJSON.owners[i];
+                if(owner._id){
+                    delete owner._id;
+                }
+                if(owner.ownership){
+                    owner.ownership = owner.ownership.toString();
+                }
+                if(owner.birthdate){
+                    owner.birthdate = moment(owner.birthdate).format("MM/DD/YYYY");
+                }
+            }
+        }
+    }
+    catch(err){
+        log.error("Application Owner processing error " + err + __location)
+    }
+
+    // process location for Activity Code Description
+    if(applicationJSON.locations && applicationJSON.locations.length > 0){
+        for(let i = 0; i < applicationJSON.locations.length; i++){
+            const location = applicationJSON.locations[i];
+            if(location.activityPayrollList && location.activityPayrollList.length > 0){
+                const activityCodeBO = new ActivityCodeBO();
+                for(let j = 0; j < location.activityPayrollList.length; j++){
+                    try{
+                        // eslint-disable-next-line prefer-const
+                        let activityPayroll = location.activityPayrollList[j];
+                        const activtyCodeJSON = await activityCodeBO.getById(activityPayroll.ncciCode);
+                        activityPayroll.description = activtyCodeJSON.description;
+                        if(activityPayroll.ownerPayRoll){
+                            activityPayroll.payroll += activityPayroll.ownerPayRoll
+                        }
+                    }
+                    catch(err){
+                        log.error(`Error getting activity code  ${location.activityPayrollList[j].ncciCode} ` + err + __location);
+                    }
+                }
+            }
+        }
+    }
+
+    //add Agency name
+    const agencyBO = new AgencyBO();
+    try{
+        const agencyJSON = await agencyBO.getById(applicationJSON.agencyId)
+        applicationJSON.name = agencyJSON.name;
+        applicationJSON.agencyName = agencyJSON.name;
+        applicationJSON.agencyPhone = agencyJSON.phone;
+        applicationJSON.agencyOwnerName = `${agencyJSON.firstName} ${agencyJSON.lastName}`;
+        applicationJSON.agencyOwnerEmail = agencyJSON.email;
+    }
+    catch(err){
+        log.error("Error getting agencyBO " + err + __location);
+    }
+
+    // add information about the creator if it was created in the agency portal
+    if(applicationJSON.agencyPortalCreated && applicationJSON.agencyPortalCreatedUser){
+        const agencyPortalUserBO = new AgencyPortalUserBO();
+        try{
+            await agencyPortalUserBO.loadFromId(applicationJSON.agencyPortalCreatedUser);
+            applicationJSON.creatorEmail = agencyPortalUserBO.email;
+        }
+        catch(err){
+            log.error("Error getting agencyPortalUserBO " + err + __location);
+        }
+    }
+
+    //add industry description
+    const industryCodeBO = new IndustryCodeBO();
+    try{
+        const industryCodeJson = await industryCodeBO.getById(applicationJSON.industryCode);
+        if(industryCodeJson){
+            applicationJSON.industryCodeName = industryCodeJson.description;
+            const industryCodeCategoryBO = new IndustryCodeCategoryBO()
+            const industryCodeCategoryJson = await industryCodeCategoryBO.getById(industryCodeJson.category);
+            if(industryCodeCategoryJson){
+                applicationJSON.industryCodeCategory = industryCodeCategoryJson.name;
+            }
+        }
+    }
+    catch(err){
+        log.error("Error getting industryCodeBO " + err + __location);
+    }
+    //Primary Contact
+    const customerContact = applicationJSON.contacts.find(contactTest => contactTest.primary === true);
+    if(customerContact){
+        applicationJSON.email = customerContact.email;
+        applicationJSON.fname = customerContact.firstName;
+        applicationJSON.lname = customerContact.lastName;
+        applicationJSON.phone = customerContact.phone;
+    }
+}
+
 //Both POST and PUT
 async function applicationSave(req, res, next) {
     log.debug("Application Post: " + JSON.stringify(req.body));
@@ -471,7 +477,7 @@ async function applicationSave(req, res, next) {
             const agencyBO = new AgencyBO()
             const agencyDB = await agencyBO.getById(req.body.agencyId)
             if(agencyDB){
-                req.body.agencyNetworkId = agencyDB.agency_network;
+                req.body.agencyNetworkId = agencyDB.agencyNetworkId;
             }
             else {
                 log.warn("Application Save agencyId not found in db " + req.body.agencyId + __location)
@@ -490,8 +496,8 @@ async function applicationSave(req, res, next) {
             const locationPrimaryJSON = await agencyLocationBO.getByAgencyPrimary(req.body.agencyId).catch(function(err) {
                 log.error(`Error getting Agency Primary Location ${req.body.agencyId} ` + err + __location);
             });
-            if(locationPrimaryJSON && locationPrimaryJSON.id){
-                req.body.agencyLocationId = locationPrimaryJSON.id;
+            if(locationPrimaryJSON && locationPrimaryJSON.systemId){
+                req.body.agencyLocationId = locationPrimaryJSON.systemId;
             }
         }
     }
@@ -636,6 +642,8 @@ async function applicationCopy(req, res, next) {
                 delete newApplicationDoc[propsToRemove[i]]
             }
         }
+        //default back not pre quoting for mysql State.
+        newApplicationDoc.processStateOld = 1;
 
         //include Questions
         if(req.body.includeQuestions === false){
@@ -665,6 +673,7 @@ async function applicationCopy(req, res, next) {
         req.body.agencyPortalCreated = true;
         const updateMysql = true;
         responseAppDoc = await applicationBO.insertMongo(newApplicationDoc, updateMysql);
+        await setupReturnedApplicationJSON(responseAppDoc)
     }
     catch(err){
         log.error("Error checking application doc " + err + __location)
@@ -1046,7 +1055,6 @@ async function GetQuestions(req, res, next){
     res.send(200, getQuestionsResult);
 }
 
-
 async function bindQuote(req, res, next) {
     //Double check it is TalageStaff user
 
@@ -1082,7 +1090,7 @@ async function bindQuote(req, res, next) {
         error = err;
     });
     if (error) {
-        return next(error);
+        return next(Error);
     }
     if(applicationDB){
         log.debug("Have doc for " + applicationDB.applicationId)
@@ -1109,13 +1117,20 @@ async function bindQuote(req, res, next) {
         return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
     }
 
-
     try {
+        if (req.body.markAsBound !== 'true') {
+            const insurerBO = new InsurerBO();
+
+            const quoteBind = new QuoteBind();
+            await quoteBind.load(quoteId);
+            await quoteBind.bindPolicy();
+        }
+
         const quoteBO = new QuoteBO();
-        await quoteBO.bindQuote(quoteId, applicationId, req.authentication.userID)
+        await quoteBO.bindQuote(quoteId, applicationId, req.authentication.userID);
     }
     catch (err) {
-        log.error(`Error loading application ${applicationId ? applicationId : ''}: ${err.message}` + __location);
+        log.error(`Error Binding  application ${applicationId ? applicationId : ''}: ${err}` + __location);
         res.send(err);
         return next();
     }
@@ -1265,7 +1280,7 @@ async function GetResources(req, res, next){
 async function CheckZip(req, res, next){
     const responseObj = {};
     if(req.body && req.body.zip){
-        let rejected = false;
+        const rejected = false;
         //make sure we have a valid zip code
         const zipCodeBO = new ZipCodeBO();
         let error = null;
@@ -1296,53 +1311,18 @@ async function CheckZip(req, res, next){
                 return next(serverHelper.requestError('internal error'));
             }
         }
-
-        // log.debug("zipCodeBO: " + JSON.stringify(zipCodeBO.cleanJSON()))
-
-        // Check if we have coverage.
-        const sql = `select  z.territory, t.name, t.licensed 
-            from clw_talage_zip_codes z
-            inner join clw_talage_territories t  on z.territory = t.abbr
-            where z.zip  = ${db.escape(req.body.zip)}`;
-        const result = await db.query(sql).catch(function(err) {
-            // Check if this was
-            rejected = true;
-            log.error(`clw_content error on select ` + err + __location);
-        });
-        if (!rejected) {
-            if(result && result.length > 0){
-                responseObj.territory = result[0].territory
-                if(result[0].licensed === 1){
-                    responseObj['error'] = false;
-                    responseObj['message'] = '';
-                }
-                else {
-                    responseObj['error'] = true;
-                    responseObj['message'] = 'We do not currently provide coverage in ' + responseObj.territory;
-                }
-                res.send(200, responseObj);
-                return next();
-
-            }
-            else {
-                responseObj['error'] = true;
-                responseObj['message'] = 'The zip code you entered is invalid.';
-                res.send(404, responseObj);
-                return next(serverHelper.requestError('The zip code you entered is invalid.'));
-            }
+        if(zipCodeBO.territory){
+            responseObj.territory = zipCodeBO.territory;
+            res.send(200, responseObj);
+            return next();
         }
         else {
             responseObj['error'] = true;
-            responseObj['message'] = 'internal error.';
-            res.send(500, responseObj);
-            return next(serverHelper.requestError('internal error'));
+            responseObj['message'] = 'The zip code you entered is invalid.';
+            res.send(404, responseObj);
+            return next(serverHelper.requestError('The zip code you entered is invalid.'));
         }
-    }
-    else {
-        responseObj['error'] = true;
-        responseObj['message'] = 'Invalid input received.';
-        res.send(400, responseObj);
-        return next(serverHelper.requestError('Bad request'));
+        // log.debug("zipCodeBO: " + JSON.stringify(zipCodeBO.cleanJSON()))
     }
 
 }
@@ -1406,6 +1386,7 @@ async function GetAssociations(req, res, next){
 
 }
 
+
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
     server.addGetAuth('Get Application Doc', `${basePath}/application/:id`, getApplicationDoc, 'applications', 'view');
@@ -1414,7 +1395,7 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPutAuth('PUT Re-Quote Application', `${basePath}/application/:id/requote`, requote, 'applications', 'manage');
     server.addPutAuth('PUT Validate Application', `${basePath}/application/:id/validate`, validate, 'applications', 'manage');
 
-    server.addPutAuth('PUT bindQuote Application', `${basePath}/application/:id/bind`, bindQuote, 'applications', 'bind');
+    //server.addPutAuth('PUT bindQuote Application', `${basePath}/application/:id/bind`, bindQuote, 'applications', 'bind');
 
     server.addDeleteAuth('DELETE Application', `${basePath}/application/:id`, deleteObject, 'applications', 'manage');
 

@@ -50,7 +50,6 @@ module.exports = class IndustryCodeCategoryBO{
             });
             this.updateProperty();
             this.id = this.#dbTableORM.id;
-            //MongoDB
 
 
             resolve(true);

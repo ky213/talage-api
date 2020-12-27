@@ -105,10 +105,4 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGetAuthAdmin('Get Industry Code Object', `${basePath}/industry-code/:id`, findOne, 'administration', 'all');
     server.addPostAuthAdmin('Post Industry Code Object', `${basePath}/industry-code`, add, 'administration', 'all');
     server.addPutAuthAdmin('Put Industry Code Object', `${basePath}/industry-code/:id`, update, 'administration', 'all');
-
-    // server.addGet('Get Industry Code list', `${basePath}/agency-network`, findAll, 'administration', 'all');
-    // server.addGet('Get Industry Code Object', `${basePath}/agency-network/:id`, findOne, 'administration', 'all');
-    // server.addPost('Post Industry Code Object', `${basePath}/agency-network`, add, 'administration', 'all');
-    // server.addPut('Put Industry Code Object', `${basePath}/agency-network/:id`, update, 'administration', 'all');
-
 };
