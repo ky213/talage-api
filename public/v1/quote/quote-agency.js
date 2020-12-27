@@ -375,6 +375,9 @@ async function getAgency(req, res, next) {
         if (agency === null) {
             agency = await getAgencyFromSlugs('talage', null);
         }
+        if(!agency){
+            log.warn(`No agency for url ${req.query.url}` + __location);
+        }
 
     }
     res.send(200, {agency: agency});
@@ -411,11 +414,11 @@ async function getAgencySocialMetadata(req, res, next) {
         agencyJson = await agencyBO.getbySlug(agencySlug);
     }
     catch (err) {
-        log.error(`Error retrieving Agency in quote engine agency ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${err} ${__location}`);
+        log.error(`Error retrieving Agency in quote engine agency ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}) url ${req.query.url}: ${err} ${__location}`);
         return null;
     }
     if(!agencyJson){
-        log.error(`Could not retrieve Agency quote engine agencySlug ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${__location}`);
+        log.warn(`Could not retrieve Agency quote engine agencySlug ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}) url ${req.query.url}: ${__location}`);
         res.send(404, {error: 'Could not retrieve agency'});
         return next();
     }
