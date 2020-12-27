@@ -100,7 +100,7 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
         return null;
     }
     if(!agencyWebInfo){
-        log.error(`Could not retrieve Agency quote engine agencySlug ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${__location}`);
+        log.warn(`Could not retrieve Agency quote engine agencySlug ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${__location}`);
         return null;
     }
     try{
@@ -122,7 +122,6 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
     }
     catch (err) {
         log.error(`Error mapping to response properties quote engine agency ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${err} ${__location}`);
-        return null;
     }
 
     //If get landing page
@@ -211,7 +210,6 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
     }
     catch(err){
         log.error(`Error retrieving IndustryCodeCategory in quote engine agency ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${err} ${__location}`);
-        return null;
     }
     try {
         //Get AgencyNetworkBO  If missing landing page content get AgnencyNetwork = 1 for it.
@@ -312,8 +310,7 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
         agencyWebInfo.insurers = insurerList;
     }
     catch(err){
-        log.error(err.message + __location);
-        return null;
+        log.error("Error processing Agency locations " + err + __location);
     }
     // Retrieve Officer Titles
     const officerTitlesSql = `SELECT officerTitle from \`officer_titles\``;
