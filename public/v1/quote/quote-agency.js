@@ -151,23 +151,25 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
             colorSchemeId: "colorSchemeId"
         }
 
-        for (const property in lpPropToAdd) {
-            if(landingPageJSON[property]){
-                agencyWebInfo[lpPropToAdd[property]] = landingPageJSON[property];
-                //new style
-                agencyWebInfo[property] = landingPageJSON[property];
+        if(landingPageJSON){
+            for (const property in lpPropToAdd) {
+                if(landingPageJSON[property]){
+                    agencyWebInfo[lpPropToAdd[property]] = landingPageJSON[property];
+                    //new style
+                    agencyWebInfo[property] = landingPageJSON[property];
+                }
             }
-        }
 
-        haveLandingPage = true;
+            haveLandingPage = true;
+        }
     }
     catch(err){
-        log.error(`Error retrieving Landing Page in quote engine agency ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${err} ${__location}`);
+        log.error(`Error retrieving Landing Page in quote engine agency ${agencySlug} id: ${agencyWebInfo.agencyId} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${err} ${__location}`);
         return null;
     }
 
     if(haveLandingPage === false){
-        log.error(`Could not retrieve Landing Page quote engine agency ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${__location}`);
+        log.warn(`Could not retrieve Landing Page quote engine agency ${agencySlug} id: ${agencyWebInfo.agencyId} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${__location}`);
         return null;
     }
 
