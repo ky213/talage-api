@@ -169,7 +169,7 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
     }
 
     if(haveLandingPage === false){
-        log.error(`Could not retrieve Landing Page quote engine agency ${agencySlug} id: ${agencyWebInfo.agencyId} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${__location}`);
+        log.warn(`Could not retrieve Landing Page quote engine agency ${agencySlug} id: ${agencyWebInfo.agencyId} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${__location}`);
         return null;
     }
 
