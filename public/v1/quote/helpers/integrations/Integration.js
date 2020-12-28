@@ -2016,7 +2016,7 @@ module.exports = class Integration {
             if (!result || !result.length) {
                 if (this.requiresInsurerIndustryCodes) {
                     this.reasons.push("An insurer industry class code was not found for the given industry.");
-                    log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} _insurer_supports_industry_codes failed on application that passed validation. query=${sql} ` + __location);
+                    log.warn(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} _insurer_supports_industry_codes failed on application. query=${sql} ` + __location);
                 }
                 fulfill(false);
                 return;
