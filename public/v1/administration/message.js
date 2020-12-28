@@ -20,103 +20,62 @@ if(global.settings.USE_MONGO === "YES"){
 
 
 async function findAll(req, res, next) {
-    let findCount = false;
-    let options = {};
-    let query = {};
-    options.sort = {};
-    // log.debug("Message List req.query: " + JSON.stringify(req.query))
-    if (req.query.sort) {
-        var acs = 1;
-        if (req.query.desc) {
-            acs = -1;
-            delete req.query.desc
-        }
-        options.sort[req.query.sort] = acs;
-        delete req.query.sort
-    }
-    else {
-        // default to DESC on sent
-        options.sort.sent = -1;
-        options.sort.mysqlId = -1;
-
-    }
-    const queryLimit = 500;
-    if (req.query.limit) {
-        var limitNum = parseInt(req.query.limit, 10);
-        delete req.query.limit
-        if (limitNum < queryLimit) {
-            options.limit = limitNum;
-        }
-        else {
-            options.limit = queryLimit;
-        }
-    }
-    else {
-        options.limit = queryLimit;
-    }
-    if (req.query.count) {
-        if (req.query.count === "1") {
-            findCount = true;
-        }
-        delete req.query.count;
-    }
-    let flippedSort = false;
-    if (req.query.maxid && req.query.minid) {
-        query.mysqlId = {$lte: parseInt(req.query.maxid, 10),$gte: parseInt(req.query.minid, 10)};
-        delete req.query.maxid;
-    }
-    else if (req.query.maxid) {
-        query.mysqlId = {$lte: parseInt(req.query.maxid, 10)};
-        delete req.query.maxid;
-    }
-    else if (req.query.minid) {
-        query.mysqlId = {$gte: parseInt(req.query.minid, 10)};
-        delete req.query.minid;
-        //change sort
-        options.sort.sent = 1;
-        options.sort.mysqlId = 1;
-        flippedSort = true;
-    }
-    if (req.query.searchbegindate && req.query.searchenddate) {
-        var fromDate = moment(req.query.searchbegindate);
-        var toDate = moment(req.query.searchenddate);
-        if (fromDate.isValid() && toDate.isValid()) {
-            query.sent = {$lte: toDate,$gte: fromDate};
-            delete req.query.searchbegindate;
-            delete req.query.searchenddate;
-        }
-        else {
-            res.status(400).send({"error": "Date format"});
-            return serverHelper.requestError('invalid Date format');
-        }
-    }
-    else if (req.query.searchbegindate) {
-        // eslint-disable-next-line no-redeclare
-        var fromDate = moment(req.query.searchbegindate);
-        if (fromDate.isValid()) {
-            query.sent = {$gte: fromDate};
-            delete req.query.searchbegindate;
-        }
-        else {
-            res.status(400).send({"error": "Date format"});
-            return serverHelper.requestError('invalid Date format');
-        }
-    }
-    else if (req.query.searchenddate) {
-        // eslint-disable-next-line no-redeclare
-        var toDate = moment(req.query.searchenddate);
-        if (toDate.isValid()) {
-            query.sent = {$lte: toDate};
-            delete req.query.searchenddate;
-        }
-        else {
-            res.status(400).send({"error": "Date format"});
-            return serverHelper.requestError('invalid Date format');
-        }
-    }
-
+    const options = {sort: {}};
+    const query = {};
 
     if (req.query) {
+        let minId = null;
+        let maxId = null;
+        if (req.query.minid) {
+            minId = parseInt(req.query.minid, 10);
+            delete req.query.minid;
+            //change sort
+            options.sort.sent = 1;
+            options.sort.mysqlId = 1;
+        }
+        if (req.query.maxid) {
+            maxId = parseInt(req.query.maxid, 10);
+            delete req.query.maxid;
+        }
+        if(minId || maxId){
+            query.mysqlId = {$lte: maxId, $gte: minId};
+        }
+
+        let fromDate = null;
+        let toDate = null;
+        if (req.query.searchbegindate) {
+            fromDate = moment(req.query.searchbegindate);
+            if (fromDate.isValid()) {
+                delete req.query.searchbegindate;
+            }
+            else {
+                res.status(400).send({"error": "Date format"});
+                return serverHelper.requestError('invalid Date format');
+            }
+        }
+        if (req.query.searchenddate) {
+            toDate = moment(req.query.searchenddate);
+            if (toDate.isValid()) {
+                delete req.query.searchenddate;
+            }
+            else {
+                res.status(400).send({"error": "Date format"});
+                return serverHelper.requestError('invalid Date format');
+            }
+        }
+        if(fromDate || toDate){
+            query.sent = {$gte: fromDate, $lte: toDate};
+        }
+
+        const maxRows = req.query.maxRows ? stringFunctions.santizeNumber(req.query.maxRows, true) : 20;
+        delete req.query.maxRows;
+        const page = req.query.page ? stringFunctions.santizeNumber(req.query.page, true) : 1;
+        delete req.query.page;
+        if(maxRows && page) {
+            options.limit = maxRows;
+            options.skip = (page - 1) * maxRows;
+        }
+
         for (var key in req.query) {
             if (req.query[key].includes('%')) {
                 let clearString = req.query[key].replace("%", "");
@@ -126,41 +85,28 @@ async function findAll(req, res, next) {
                     "$options": "i"
                 };
             }
-            else {
+            else if(req.query[key]){
                 query[key] = req.query[key];
             }
         }
     }
-    if (findCount === false) {
-        let docList = null;
-        try {
-            log.debug("MessageList query " + JSON.stringify(query))
-            log.debug("MessageList options " + JSON.stringify(options))
-            docList = await Message.find(query, '-__v', options);
-        }
-        catch (err) {
-            log.error(err + __location);
-            return serverHelper.sendError(res, next, 'Internal Error');
-        }
+
+    let docList = null;
+    let count = 0;
+    try {
+        log.debug("MessageList query " + JSON.stringify(query))
+        log.debug("MessageList options " + JSON.stringify(options))
+        docList = await Message.find(query, '-__v', options);
         log.debug("docList.length: " + docList.length);
-        // if (flippedSort === true) {
-        //     docList.sort((a, b) => parseInt(b.mysqlId, 10) - parseInt(a.mysqlId, 10));
-        // }
-
-
-        res.send(200, mongoUtils.objListCleanup(docList));
-        return next();
+        count = await Message.countDocuments(query);
     }
-    else {
-        Message.countDocuments(query).then(count => {
-            res.send(200, {count: count});
-            return next();
-        })
-            .catch(err => {
-                log.error("Message.countDocuments error " + err + __location);
-                return serverHelper.sendError(res, next, 'Internal Error');
-            })
+    catch (err) {
+        log.error(err + __location);
+        return serverHelper.sendError(res, next, 'Internal Error');
     }
+
+    res.send(200, {data: {data: mongoUtils.objListCleanup(docList), count: count}});
+    return next();
 
 }
 
