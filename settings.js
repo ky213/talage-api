@@ -76,6 +76,8 @@ exports.load = () => {
     variables.AWS_USE_KEYS = "NO";
     //Default to no use mongo if there are not ENV settings for it.
     variables.USE_MONGO = "NO";
+    // Disable binding
+    variables.DISABLE_BINDING = "NO";
 
 
     if (fs.existsSync('local.env')){
