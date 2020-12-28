@@ -24,28 +24,12 @@ async function findAll(req, res, next) {
     const query = {};
 
     if (req.query) {
-        let minId = null;
-        let maxId = null;
-        if (req.query.minid) {
-            minId = parseInt(req.query.minid, 10);
-            delete req.query.minid;
-            //change sort
-            options.sort.sent = 1;
-            options.sort.mysqlId = 1;
-        }
-        if (req.query.maxid) {
-            maxId = parseInt(req.query.maxid, 10);
-            delete req.query.maxid;
-        }
-        if(minId || maxId){
-            query.mysqlId = {$lte: maxId, $gte: minId};
-        }
-
         let fromDate = null;
         let toDate = null;
         if (req.query.searchbegindate) {
             fromDate = moment(req.query.searchbegindate);
             if (fromDate.isValid()) {
+                query.sent = {};
                 delete req.query.searchbegindate;
             }
             else {
@@ -56,6 +40,7 @@ async function findAll(req, res, next) {
         if (req.query.searchenddate) {
             toDate = moment(req.query.searchenddate);
             if (toDate.isValid()) {
+                query.sent = {};
                 delete req.query.searchenddate;
             }
             else {
@@ -63,8 +48,12 @@ async function findAll(req, res, next) {
                 return serverHelper.requestError('invalid Date format');
             }
         }
-        if(fromDate || toDate){
-            query.sent = {$gte: fromDate, $lte: toDate};
+
+        if(fromDate){
+            query.sent.$gte = fromDate;
+        }
+        if(toDate){
+            query.sent.$lte = toDate;
         }
 
         const maxRows = req.query.maxRows ? stringFunctions.santizeNumber(req.query.maxRows, true) : 20;
@@ -72,7 +61,8 @@ async function findAll(req, res, next) {
         const page = req.query.page ? stringFunctions.santizeNumber(req.query.page, true) : 1;
         delete req.query.page;
         if(maxRows && page) {
-            options.limit = maxRows;
+            // set a hard limit for the max number of rows
+            options.limit = maxRows <= 500 ? maxRows : 500;
             options.skip = (page - 1) * maxRows;
         }
 
@@ -107,7 +97,6 @@ async function findAll(req, res, next) {
 
     res.send(200, {data: {data: mongoUtils.objListCleanup(docList), count: count}});
     return next();
-
 }
 
 async function findOne(req, res, next) {
