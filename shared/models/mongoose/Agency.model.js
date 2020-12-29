@@ -62,7 +62,7 @@ AgencySchema.virtual('enableOptOut').
             return this.enabelOptOut;
         }
         else {
-            return "";
+            return false;
         }
     }).
     set(function(v){
