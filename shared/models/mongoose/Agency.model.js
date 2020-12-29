@@ -56,6 +56,18 @@ AgencySchema.virtual('id').
         }
     });
 
+AgencySchema.virtual('enableOptOut').
+    get(function() {
+        if(this.enabelOptOut){
+            return this.enabelOptOut;
+        }
+        else {
+            return false;
+        }
+    }).
+    set(function(v){
+        this.enabelOptOut = v;
+    });
 
 AgencySchema.virtual('fname').
     get(function() {

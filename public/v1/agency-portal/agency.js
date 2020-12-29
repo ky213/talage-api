@@ -72,7 +72,7 @@ async function deleteAgency(req, res, next) {
         return next(serverHelper.forbiddenError('You are not authorized to delete this agency'));
     }
 
-  
+
     const agencyBO = new AgencyBO();
     // Load the request data into it
     const resp = await agencyBO.deleteSoftById(id).catch(function(err) {
@@ -210,6 +210,13 @@ async function getAgency(req, res, next) {
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     }
     agency.state = agency.active ? "Active" : "Inactive";
+    //remove old property names.
+    const removePropList = ["agency_network","ca_license_number","fname", "lname", "wholesale_agreement_signed", "docusign_envelope_id","do_not_report", "enable_optout"];
+    for(let i = 0; i < removePropList.length; i++){
+        if(agency[removePropList[i]]){
+            delete agency[removePropList[i]]
+        }
+    }
 
     // Build the response
     const response = {...agency};
