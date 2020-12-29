@@ -113,7 +113,9 @@ module.exports = class AgencyBO {
             if(typeof sourceJSON[sourceProp] !== "object"){
                 if(propMappings[sourceProp]){
                     const appProp = propMappings[sourceProp]
-                    targetJSON[appProp] = sourceJSON[sourceProp];
+                    if(!targetJSON[appProp]){ 
+                        targetJSON[appProp] = sourceJSON[sourceProp];
+                    }
                 }
             }
         }
