@@ -51,7 +51,9 @@ module.exports = class AgencyBO {
                 wholesale_agreement_signed: "wholesaleAgreementSigned",
                 docusign_envelope_id: "docusignEnvelopeId",
                 do_not_report: "doNotReport",
-                enable_optout: "enabelOptOut"
+                enable_optout: "enabelOptOut",
+                enableOptOut:"enabelOptOut"
+
             }
             this.mapToMongooseJSON(newObjectJSON, newObjectJSON, alPropMappings);
 
