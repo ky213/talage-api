@@ -51,7 +51,9 @@ module.exports = class AgencyBO {
                 wholesale_agreement_signed: "wholesaleAgreementSigned",
                 docusign_envelope_id: "docusignEnvelopeId",
                 do_not_report: "doNotReport",
-                enable_optout: "enabelOptOut"
+                enable_optout: "enabelOptOut",
+                enableOptOut:"enabelOptOut"
+
             }
             this.mapToMongooseJSON(newObjectJSON, newObjectJSON, alPropMappings);
 
@@ -113,7 +115,9 @@ module.exports = class AgencyBO {
             if(typeof sourceJSON[sourceProp] !== "object"){
                 if(propMappings[sourceProp]){
                     const appProp = propMappings[sourceProp]
-                    targetJSON[appProp] = sourceJSON[sourceProp];
+                    if(!targetJSON[appProp]){ 
+                        targetJSON[appProp] = sourceJSON[sourceProp];
+                    }
                 }
             }
         }
