@@ -56,14 +56,16 @@ async function findAll(req, res, next) {
             query.sent.$lte = toDate;
         }
 
-        const maxRows = req.query.maxRows ? stringFunctions.santizeNumber(req.query.maxRows, true) : 20;
-        delete req.query.maxRows;
+        let limit = req.query.limit ? stringFunctions.santizeNumber(req.query.limit, true) : 20;
+        // set a hard limit for the max number of rows
+        limit = limit <= 100 ? limit : 100;
+        delete req.query.limit;
+
         const page = req.query.page ? stringFunctions.santizeNumber(req.query.page, true) : 1;
         delete req.query.page;
-        if(maxRows && page) {
-            // set a hard limit for the max number of rows
-            options.limit = maxRows <= 100 ? maxRows : 100;
-            options.skip = (page - 1) * maxRows;
+        if(limit && page) {
+            options.limit = limit;
+            options.skip = (page - 1) * limit;
         }
 
         for (var key in req.query) {
