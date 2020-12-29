@@ -762,10 +762,10 @@ module.exports = class AgencyBO {
                 agencyJSON = await this.getById(agencyId);
             }
             catch (err) {
-                log.error("Error getting Agnecy Network " + err + __location)
-                throw new Error('Error getting Agnecy Network');
+                log.error("Error getting Agency " + err + __location)
+                throw new Error('Error getting Agnecy in getEmailContent ');
             }
-            if (this.id) {
+            if (agencyJSON) {
                 //get AgencyNetwork 1st than replace with Agency overwrites
                 const agencyNetworkBO = new AgencyNetworkBO();
                 const emailTemplateJSON = await agencyNetworkBO.getEmailContent(agencyJSON.agencyNetworkId, contentProperty).catch(function(err) {
@@ -797,10 +797,14 @@ module.exports = class AgencyBO {
                 }
             }
             else {
-                log.error(`No agencyId bad loadFromID ${agencyId} ` + __location)
-                throw new Error("No agencyId bad loadFromID");
+                log.error(`No agency doc for systemId ${agencyId} ` + __location)
+                throw new Error("No agency doc bad getEmailContent");
             }
 
+        }
+        else {
+            log.error(`No agencyId bad getEmailContent ${agencyId} ` + __location)
+            throw new Error("No agencyId bad getEmailContent");
         }
     }
 }
