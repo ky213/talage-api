@@ -395,6 +395,7 @@ module.exports = class AgencyLocationBO{
                                     doc.name = agencyJSON.name;
                                     doc.agencyNetworkId = agencyJSON.agencyNetworkId;
                                     doc.agencyEmail = agencyJSON.email;
+                                    doc.doNotReport = agencyJSON.doNotReport;
                                 }
                             }
                             if(loadChildren === true){
