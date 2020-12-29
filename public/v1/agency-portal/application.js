@@ -540,7 +540,7 @@ async function applicationSave(req, res, next) {
 
         // if there were no activity codes passed in on the application, pull them from the locations activityPayrollList
         const activityCodes = [];
-        if(req.body.locations && req.body.locations.length && (!req.body.activityCodes || !req.body.activityCodes.length)){
+        if(req.body.locations && req.body.locations.length){
             req.body.locations.forEach((location) => {
                 location.activityPayrollList.forEach((activityCode) => {
                     const foundCode = activityCodes.find((code) => code.ncciCode === activityCode.ncciCode);
@@ -548,13 +548,16 @@ async function applicationSave(req, res, next) {
                         foundCode.payroll += parseInt(activityCode.payroll, 10);
                     }
                     else{
-                        activityCode.payroll = parseInt(activityCode.payroll, 10);
-                        activityCodes.push(activityCode);
+                        // eslint-disable-next-line prefer-const
+                        let newActivityCode = {};
+                        newActivityCode.ncciCode = activityCode.ncciCode;
+                        newActivityCode.payroll = parseInt(activityCode.payroll, 10);
+                        activityCodes.push(newActivityCode);
                     }
                 });
             });
-            req.body.activityCodes = activityCodes;
         }
+        req.body.activityCodes = activityCodes;
 
         if(req.body.applicationId){
             log.debug("App Doc UPDATE.....")
