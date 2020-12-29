@@ -304,7 +304,7 @@ module.exports = class AgencyLocationBO{
 
             let rejected = false;
             // eslint-disable-next-line prefer-const
-            let query = {};
+            let query = {active: true};
             let error = null;
 
             var queryOptions = {lean:true};
@@ -395,6 +395,7 @@ module.exports = class AgencyLocationBO{
                                     doc.name = agencyJSON.name;
                                     doc.agencyNetworkId = agencyJSON.agencyNetworkId;
                                     doc.agencyEmail = agencyJSON.email;
+                                    doc.doNotReport = agencyJSON.doNotReport;
                                 }
                             }
                             if(loadChildren === true){
