@@ -23,7 +23,7 @@ const QuoteBind = global.requireRootPath('public/v1/quote/helpers/models/QuoteBi
 const status = global.requireShared('./models/application-businesslogic/status.js');
 const jwt = require('jsonwebtoken');
 const moment = require('moment');
-const { Error } = require('mongoose');
+const {Error} = require('mongoose');
 
 
 // Application Messages Imports
@@ -1057,6 +1057,11 @@ async function GetQuestions(req, res, next){
 
 async function bindQuote(req, res, next) {
     //Double check it is TalageStaff user
+
+    // Check if binding is disabled
+    if (global.settings.DISABLE_BINDING === "YES") {
+        return next(serverHelper.requestError('Binding is disabled'));
+    }
 
     // Check for data
     if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
