@@ -113,9 +113,7 @@ module.exports = class AgencyBO {
             if(typeof sourceJSON[sourceProp] !== "object"){
                 if(propMappings[sourceProp]){
                     const appProp = propMappings[sourceProp]
-                    if(targetJSON[appProp]){
-                        log.debug(`Not mapping to mongoos for property: ${appProp}, it already exists.`);    
-                    }else {
+                    if(!targetJSON[appProp]){ 
                         targetJSON[appProp] = sourceJSON[sourceProp];
                     }
                 }
