@@ -62,7 +62,7 @@ async function findAll(req, res, next) {
         delete req.query.page;
         if(maxRows && page) {
             // set a hard limit for the max number of rows
-            options.limit = maxRows <= 500 ? maxRows : 500;
+            options.limit = maxRows <= 500 ? maxRows : 100;
             options.skip = (page - 1) * maxRows;
         }
 
