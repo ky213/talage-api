@@ -1956,7 +1956,7 @@ module.exports = class Integration {
             // Make sure the number of codes matched (otherwise there were codes unsupported by this insurer)
             if (this.requiresInsurerActivityClassCodes && (!codes.length || Object.keys(wcCodes).length !== codes.length)) {
                 this.reasons.push("Insurer activity class codes were not found for all activities in the application.");
-                log.error(`AppId: ${appId} InsurerId: ${insurerId} _insurer_supports_activity_codes failed on application that passed validation. query=${sql}` + __location);
+                log.warn(`AppId: ${appId} InsurerId: ${insurerId} _insurer_supports_activity_codes failed on application. query=${sql}` + __location);
                 fulfill(false);
                 return;
             }
