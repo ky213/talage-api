@@ -46,12 +46,12 @@ module.exports = class AgencyBO {
             const alPropMappings = {
                 agency_network: "agencyNetworkId",
                 ca_license_number: "caLicenseNumber",
-                // "fname": "firstName",
-                // "lname": "lastName",
-                // wholesale_agreement_signed: "wholesaleAgreementSigned",
+                "fname": "firstName",
+                "lname": "lastName",
+                wholesale_agreement_signed: "wholesaleAgreementSigned",
                 docusign_envelope_id: "docusignEnvelopeId",
-                // do_not_report: "doNotReport",
-                // enable_optout: "enabelOptOut"
+                do_not_report: "doNotReport",
+                enable_optout: "enabelOptOut"
             }
             this.mapToMongooseJSON(newObjectJSON, newObjectJSON, alPropMappings);
 
@@ -113,7 +113,11 @@ module.exports = class AgencyBO {
             if(typeof sourceJSON[sourceProp] !== "object"){
                 if(propMappings[sourceProp]){
                     const appProp = propMappings[sourceProp]
-                    targetJSON[appProp] = sourceJSON[sourceProp];
+                    if(targetJSON[appProp]){
+                        log.debug(`Not mapping to mongoos for property: ${appProp}, it already exists.`);    
+                    }else {
+                        targetJSON[appProp] = sourceJSON[sourceProp];
+                    }
                 }
             }
         }
