@@ -1915,7 +1915,9 @@ module.exports = class Integration {
                 });
             });
             if(hasActivityCodes === false) {
-                log.error(`Integration Missing Activity codes Appid ${this.app.id} locations ${JSON.stringify(this.app.business.locations)}` + __location);
+                if(this.requiresInsurerActivityClassCodes){
+                    log.warn(`Integration Missing Activity codes Appid ${this.app.id} locations ${JSON.stringify(this.app.business.locations)}` + __location);
+                }
                 fulfill(false);
                 return;
             }
