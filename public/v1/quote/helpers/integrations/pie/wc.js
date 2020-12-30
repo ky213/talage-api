@@ -107,6 +107,11 @@ module.exports = class PieWC extends Integration {
             return this.return_result('error');
         }
 
+        if(!token_response.data){
+            log.error(`Appid: ${this.app.id} Pie WC ERROR: Get token error no response data` + __location)
+            return this.return_result('error');
+        }
+
         const token = `${token_response.data.token_type} ${token_response.data.id_token}`;
 
         // Get all territories present in this appilcation
@@ -468,6 +473,10 @@ module.exports = class PieWC extends Integration {
                 if (res.premiumDetails.totalEstimatedPremium){
                     try {
                         this.amount = parseInt(res.premiumDetails.totalEstimatedPremium, 10);
+                        // Per Pie we should add totalTaxesAndAssessments to the amount we show.
+                        if(res.premiumDetails.totalTaxesAndAssessments){
+                            this.amount += parseInt(res.premiumDetails.totalTaxesAndAssessments, 10);
+                        }
                     }
                     catch (error) {
                         log.error(`Appid: ${this.app.id} Pie WC: Error getting amount ${error} ` + __location)

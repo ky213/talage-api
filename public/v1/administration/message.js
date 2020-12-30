@@ -13,7 +13,8 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
-const moment = require("moment")
+const moment = require("moment");
+const rowLimit = 100;
 if(global.settings.USE_MONGO === "YES"){
     var Message = require('mongoose').model('Message');
 }
@@ -24,6 +25,21 @@ async function findAll(req, res, next) {
     const query = {};
 
     if (req.query) {
+        if (req.query.sort) {
+            var asc = 1;
+            if (req.query.desc) {
+                asc = -1;
+                delete req.query.desc;
+            }
+            options.sort[req.query.sort] = asc;
+            delete req.query.sort;
+        }
+        else {
+            // default to DESC on sent
+            options.sort.sent = -1;
+            options.sort.mysqlId = -1;
+        }
+
         let fromDate = null;
         let toDate = null;
         if (req.query.searchbegindate) {
@@ -58,7 +74,7 @@ async function findAll(req, res, next) {
 
         let limit = req.query.limit ? stringFunctions.santizeNumber(req.query.limit, true) : 20;
         // set a hard limit for the max number of rows
-        limit = limit <= 100 ? limit : 100;
+        limit = limit <= rowLimit ? limit : rowLimit;
         delete req.query.limit;
 
         const page = req.query.page ? stringFunctions.santizeNumber(req.query.page, true) : 1;
