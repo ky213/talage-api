@@ -81,14 +81,11 @@ var dailyDigestTask = async function(){
     if(agencyLocationList && agencyLocationList.length > 0){
         for(let i = 0; i < agencyLocationList.length; i++){
             const agencyLocationDB = agencyLocationList[i];
-            // process each agency location. make sure we have a good record
+            // process each agency location. make sure we have an active Agency
             if(agencyLocationDB && agencyLocationDB.systemId && agencyLocationDB.agencyNetworkId && (agencyLocationDB.email || agencyLocationDB.agencyEmail)){
                 await processAgencyLocation(agencyLocationDB, yesterdayBegin, yesterdayEnd).catch(function(err){
                     log.error("Error Agency Location Daily Digest error. AL: " + JSON.stringify(agencyLocationDB) + " error: " + err + __location);
                 })
-            }
-            else {
-                log.error("Bad Agency Location record Daily Digest. AL: " + JSON.stringify(agencyLocationList[i]) + __location);
             }
         }
     }

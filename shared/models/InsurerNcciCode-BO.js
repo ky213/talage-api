@@ -149,12 +149,12 @@ module.exports = class InsurerNcciCodeBO{
                     }
                     hasWhere = true;
 
-                    const maxRows = queryJSON.maxRows ? stringFunctions.santizeNumber(queryJSON.maxRows, true) : 20;
+                    const limit = queryJSON.limit ? stringFunctions.santizeNumber(queryJSON.limit, true) : 20;
                     const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : 1;
-                    if(maxRows && page) {
-                        sql += ` LIMIT ${db.escape(maxRows)} `;
+                    if(limit && page) {
+                        sql += ` LIMIT ${db.escape(limit)} `;
                         // offset by page number * max rows, so we go that many rows
-                        sql += ` OFFSET ${db.escape((page - 1) * maxRows)}`;
+                        sql += ` OFFSET ${db.escape((page - 1) * limit)}`;
                     }
                 }
                 

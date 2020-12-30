@@ -134,12 +134,12 @@ module.exports = class InsurerIndustryCodeBO{
                     hasWhere = true;
                 }
 
-                const maxRows = queryJSON.maxRows ? stringFunctions.santizeNumber(queryJSON.maxRows, true) : 20;
+                const limit = queryJSON.limit ? stringFunctions.santizeNumber(queryJSON.limit, true) : 20;
                 const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : 1;
-                if(maxRows && page) {
-                    sqlPaging += ` LIMIT ${db.escape(maxRows)} `;
+                if(limit && page) {
+                    sqlPaging += ` LIMIT ${db.escape(limit)} `;
                     // offset by page number * max rows, so we go that many rows
-                    sqlPaging += ` OFFSET ${db.escape((page - 1) * maxRows)}`;
+                    sqlPaging += ` OFFSET ${db.escape((page - 1) * limit)}`;
                 }
             }
             // Run the query
