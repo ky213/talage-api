@@ -169,27 +169,6 @@ module.exports = class QuoteBind{
         // Validate the payment plan
         // - Only set payment plan if passed in.
         if (payment_plan) {
-            //Note Validator was doinng same query as below.
-            // Since validator is unclear what is doing and on using BO
-            // Validator is being remvoved = BP 2020-12-31
-            // if(!await validator.payment_plan(payment_plan)){
-            //     throw new Error('Invalid payment plan');
-            // }
-
-            // TODO refactor for using BO.
-            // Check that this payment plan belongs to the insurer
-            // const payment_plan_sql = `SELECT COUNT(\`id\`) FROM \`#__insurer_payment_plans\` WHERE \`payment_plan\` = ${db.escape(parseInt(payment_plan, 10))} AND \`insurer\` = ${db.escape(parseInt(this.insurer.id, 10))} LIMIT 1;`;
-            // let payment_plan_rows = null;
-            // try {
-            //     payment_plan_rows = await db.query(payment_plan_sql);
-            // }
-            // catch (error) {
-            //     log.error("DB payment plan SELECT error: " + error + __location);
-            // }
-            // if(!payment_plan_rows || payment_plan_rows.length !== 1 || !Object.prototype.hasOwnProperty.call(payment_plan_rows[0], 'COUNT(`id`)') || payment_plan_rows[0]['COUNT(`id`)'] !== 1){
-            //     throw new Error('Payment plan does not belong to the insurer who provided this quote');
-            // }
-
             const insurerPaymentPlanBO = new InsurerPaymentPlanBO();
             let insurerPaymentPlan = null;
             try {
