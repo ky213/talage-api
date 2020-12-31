@@ -10,7 +10,6 @@ const validator = global.requireShared('helpers/validator.js');
 const serverHelper = require('../../../../server.js');
 
 
-
 /**
  * Returns a list of agents that this user is permitted to access. You must call validateJWT() before using this method.
  *
@@ -135,9 +134,10 @@ exports.validateJWT = async function(req, permission, permissionType) {
             return 'User is not properly authenticated';
         }
 
-        // Make sure the User ID is valid
+        // Make sure the User ID is user on the system - Hits database.
         if (!await validator.agency_portal_user(req.authentication.userID)) {
-            log.info('Forbidden: JWT payload is invalid (invalid User ID)');
+            //Something might be up (attack) if we get here. - BP
+            log.error('JWT payload does not have a valid UserId (invalid User ID)' + __location);
             return 'User is not properly authenticated';
         }
     }

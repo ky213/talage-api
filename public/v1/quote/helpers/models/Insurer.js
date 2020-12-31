@@ -63,11 +63,6 @@ module.exports = class Insurer {
 	 * @returns {Promise.<object, Error>} True on success, Error on failure.
 	 */
     async init(id) {
-        // Validate the provided ID
-        if (!await validator.insurer(id)) {
-            log.error(`Could not validate insurer ${id} ${__location}`);
-            return new Error('Invalid insurer');
-        }
 
         // Build a query to get some basic information about this insurer from the database
         const sql = `
@@ -86,7 +81,7 @@ module.exports = class Insurer {
             rows = await db.query(sql);
         }
         catch (error) {
-            log.error(`Could not query the database for insurer ${id} information: ${error} ${__location}`);
+            log.error(`Error getting insurer ${id} error: ${error} ${__location}`);
             return new Error('Database error');
         }
         // Make sure we found the insurer, if not, the ID is bad

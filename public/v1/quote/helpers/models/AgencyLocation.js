@@ -28,7 +28,6 @@ module.exports = class AgencyLocation {
         this.emailBrand = '';
         this.first_name = '';
         this.id = 0;
-        this.key = '';
         this.insurers = {};
         this.last_name = '';
         this.territories = [];
@@ -286,18 +285,6 @@ module.exports = class AgencyLocation {
 	 */
     validate() {
         return new Promise(async(fulfill, reject) => {
-
-            /**
-			 * Key (required) - This is how we uniquelly identify agents
-			 */
-            if (this.key) {
-                // Check formatting
-                if (!await validator.agent(this.key)) {
-                    reject(new Error('Invalid agent provided.'));
-                    return;
-                }
-            }
-
             fulfill(true);
         });
     }
