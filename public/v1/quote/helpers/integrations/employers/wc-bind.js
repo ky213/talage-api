@@ -17,10 +17,11 @@ class EmployersBind extends Bind {
             result = await axios.put(`https://${host}/DigitalAgencyServices/quote/${this.quote.requestId}/bind`, null, axiosOptions);
         }
         catch (error) {
-            log.error(`AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind request failed: ${error} ${__location}`);
+            log.error(`Employers Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind request Error: ${error} ${__location}`);
             throw new Error(JSON.stringify(error));
         }
         if (!result.data.success) {
+            log.error(`Employers Binding AppId: ${this.quote.applicationId} QuoteId: ${this.quote.quoteId} Bind request failed: ${JSON.stringify(result.data)} ${__location}`);
             throw new Error(JSON.stringify(result.data.errors));
         }
         return result.data;
