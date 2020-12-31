@@ -35,7 +35,7 @@ async function getUsers(req, res, next){
         if(error){
             return next(error);
         }
-        if (!await validator.agent(req.query.agency)) {
+        if (!await validator.integer(req.query.agency)) {
             log.warn(`Agency validation error: ${__location}`)
             return next(serverHelper.notFoundError('Agency is invalid'));
         }
