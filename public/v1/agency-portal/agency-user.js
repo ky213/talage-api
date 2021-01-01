@@ -29,7 +29,7 @@ async function deleteAgencyUser(req, res, next){
     if (!Object.prototype.hasOwnProperty.call(req.query, 'id')){
         return next(serverHelper.requestError('ID missing'));
     }
-    if (!await validator.userId(req.query.id)){
+    if (!await validator.integer(req.query.id)){
         return next(serverHelper.requestError('ID is invalid'));
     }
     const id = req.query.id;
@@ -39,11 +39,14 @@ async function deleteAgencyUser(req, res, next){
 
     // Run the query
     const userResult = await db.query(userSQL).catch(function(err){
-        log.error('agency_portal_users error ' + err + __location);
+        log.error(`Get agency_portal_users id ${id} error ` + err + __location);
         error = serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
     });
     if (error){
         return next(error);
+    }
+    if(!userResult || !userResult.length === 0){
+        return next(serverHelper.requestError('ID is invalid'));
     }
 
     // Isolate the user's agency

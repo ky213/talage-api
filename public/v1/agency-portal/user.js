@@ -142,10 +142,6 @@ async function validate(user) {
     }
     data.email = user.email;
 
-    // Group (optional) moved to Mongo
-    // if (Object.prototype.hasOwnProperty.call(user, 'group') && !validator.userGroup(user.group)) {
-    //     throw new Error('User group (role) is invalid');
-    // }
     data.group = user.group;
 
     // Prepare the email hash
@@ -503,7 +499,7 @@ async function deleteUser(req, res, next) {
     if (!Object.prototype.hasOwnProperty.call(req.query, 'id')) {
         return next(serverHelper.requestError('ID missing'));
     }
-    if (!await validator.userId(req.query.id, agencyOrNetworkID, isThisAgencyNetwork)) {
+    if (!await validator.integer(req.query.id, agencyOrNetworkID, isThisAgencyNetwork)) {
         return next(serverHelper.requestError('ID is invalid'));
     }
     const id = req.query.id;

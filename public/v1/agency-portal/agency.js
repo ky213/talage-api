@@ -53,7 +53,8 @@ async function deleteAgency(req, res, next) {
     if (!Object.prototype.hasOwnProperty.call(req.query, 'id')) {
         return next(serverHelper.requestError('ID missing'));
     }
-    if (!await validator.agent(req.query.id)) {
+
+    if (!await validator.integer(req.query.id)) {
         return next(serverHelper.requestError('ID is invalid'));
     }
     const id = parseInt(req.query.id, 10);
@@ -175,18 +176,17 @@ async function getAgency(req, res, next) {
         agent = parseInt(req.query.agent, 10);
     }
 
+    // Validate parameters
+    if (!await validator.integer(agent)) {
+        log.info('Bad Request: Invalid agent selected');
+        return next(serverHelper.requestError('The agent you selected is invalid'));
+    }
+
     // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
     if (!agents.includes(parseInt(agent, 10))) {
         log.info('Forbidden: User is not authorized to access the requested agent');
         return next(serverHelper.forbiddenError('You are not authorized to access the requested agent'));
     }
-
-    // Validate parameters
-    if (!await validator.agent(agent)) {
-        log.info('Bad Request: Invalid agent selected');
-        return next(serverHelper.requestError('The agent you selected is invalid'));
-    }
-
 
     error = null;
     const agencyBO = new AgencyBO();
@@ -606,7 +606,7 @@ async function updateAgency(req, res, next) {
     if (!Object.prototype.hasOwnProperty.call(req.body, 'id')) {
         return next(serverHelper.requestError('ID missing'));
     }
-    if (!await validator.agent(req.body.id)) {
+    if (!await validator.integer(req.body.id)) {
         return next(serverHelper.requestError('ID is invalid'));
     }
     const id = parseInt(req.body.id, 10);
