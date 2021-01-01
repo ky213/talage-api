@@ -6,6 +6,9 @@ const DatabaseObject = require('./DatabaseObject.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
+var InsurerPolicyTypeModel = require('mongoose').model('InsurerPolicyType');
+const mongoUtils = global.requireShared('./helpers/mongoutils.js');
+
 
 const tableName = 'clw_talage_insurer_policy_types'
 const skipCheckRequired = false;
@@ -31,33 +34,28 @@ module.exports = class InsurerPolicyTypeBO{
                 reject(new Error(`empty ${tableName} object given`));
             }
             await this.cleanupInput(newObjectJSON);
-            let rejected = false;
+        
+            let newDoc = true;
             if(newObjectJSON.id){
-                await this.#dbTableORM.getById(newObjectJSON.id).catch(function(err) {
+                const dbDocJSON = await this.getById(newObjectJSON.id).catch(function(err) {
                     log.error(`Error getting ${tableName} from Database ` + err + __location);
-                    const errMessage = `InsurerPolicyTypeBO saveModel getById ${newObjectJSON.id} ` + err;
-                    reject(errMessage);
-                    rejected = true;
+                    reject(err);
                     return;
                 });
-                if(rejected){
-                    return;
+                if(dbDocJSON){
+                    newObjectJSON.systemId = dbDocJSON.systemId;
+                    newDoc = false;
+                    await this.updateMongo(dbDocJSON.insurerPolicyTypeId,newObjectJSON)
                 }
-
-                this.updateProperty();
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
+                else {
+                    log.error("Insurer PUT object not found " + newObjectJSON.id + __location)
+                }
             }
-            else{
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
-            }
+            if(newDoc === true) {
+                const newAgencyDoc = await this.insertMongo(newObjectJSON);
+                this.id = newAgencyDoc.systemId;
 
-            //save
-            await this.#dbTableORM.save().catch(function(err){
-                reject(err);
-            });
-            this.updateProperty();
-            this.id = this.#dbTableORM.id;
-            //MongoDB
+            }
 
 
             resolve(true);
@@ -65,23 +63,7 @@ module.exports = class InsurerPolicyTypeBO{
         });
     }
 
-    /**
-	 * saves this object.
-     *
-	 * @returns {Promise.<JSON, Error>} save return true , or an Error if rejected
-	 */
-    save(){
-        return new Promise(async(resolve, reject) => {
-            //validate
-            this.#dbTableORM.load(this, skipCheckRequired);
-            await this.#dbTableORM.save().catch(function(err){
-                reject(err);
-            });
-            resolve(true);
-        });
-    }
-
-    loadFromId(id) {
+    loadFromIdMysql(id) {
         return new Promise(async(resolve, reject) => {
             //validate
             if(id && id > 0){
@@ -99,91 +81,273 @@ module.exports = class InsurerPolicyTypeBO{
         });
     }
 
+
     getList(queryJSON) {
         return new Promise(async(resolve, reject) => {
 
-            let rejected = false;
-            // Create the update query
-            let sql = `
-                    select * from ${tableName}  
-                `;
-            if(queryJSON){
-                let hasWhere = false;
-                if(queryJSON.policy_type){
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` policy_type = ${db.escape(queryJSON.policy_type)} `
-                    hasWhere = true;
-                }
-                if(queryJSON.insurer){
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` insurer = ${db.escape(queryJSON.insurer)} `
-                    hasWhere = true;
-                }
-                if(queryJSON.wheelhouse_support){
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` wheelhouse_support = ${db.escape(queryJSON.wheelhouse_support)} `
-                    hasWhere = true;
-                }
-                if(queryJSON.api_support){
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` api_support = ${db.escape(queryJSON.api_support)} `
-                    hasWhere = true;
-                }
-                if(queryJSON.distinct_insurer) {
-                    sql += ` GROUP BY insurer `
-                }
-            }
-            sql += ` order by insurer `
-            // Run the query
-            const result = await db.query(sql).catch(function(error) {
-                // Check if this was
+            const queryProjection = {"__v": 0}
 
-                rejected = true;
-                log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
-                reject(error);
-            });
-            if (rejected) {
-                return;
-            }
-            const boList = [];
-            if(result && result.length > 0){
-                for(let i = 0; i < result.length; i++){
-                    const insurerPolicyTypeBO = new InsurerPolicyTypeBO();
-                    //await insurerPolicyTypeBO.#dbTableORM.decryptFields(result[i]);
-                    //await insurerPolicyTypeBO.#dbTableORM.convertJSONColumns(result[i]);
-                    const resp = await insurerPolicyTypeBO.loadORM(result[i], skipCheckRequired).catch(function(err){
-                        log.error(`getList error loading object: ` + err + __location);
-                    })
-                    if(!resp){
-                        log.debug("Bad BO load" + __location)
-                    }
-                    boList.push(insurerPolicyTypeBO);
+            let findCount = false;
+
+            let rejected = false;
+            // eslint-disable-next-line prefer-const
+            let query = {active: true};
+            let error = null;
+
+            var queryOptions = {};
+            queryOptions.sort = {systemId: 1};
+            if (queryJSON.sort) {
+                var acs = 1;
+                if (queryJSON.desc) {
+                    acs = -1;
+                    delete queryJSON.desc
                 }
-                resolve(boList);
+                queryOptions.sort[queryJSON.sort] = acs;
+                delete queryJSON.sort
             }
             else {
-                //Search so no hits ok.
-                resolve([]);
+                // default to DESC on sent
+                queryOptions.sort.createdAt = -1;
+
             }
+            const queryLimit = 500;
+            if (queryJSON.limit) {
+                var limitNum = parseInt(queryJSON.limit, 10);
+                delete queryJSON.limit
+                if (limitNum < queryLimit) {
+                    queryOptions.limit = limitNum;
+                }
+                else {
+                    queryOptions.limit = queryLimit;
+                }
+            }
+            else {
+                queryOptions.limit = queryLimit;
+            }
+            if (queryJSON.count) {
+                if (queryJSON.count === "1") {
+                    findCount = true;
+                }
+                delete queryJSON.count;
+            }
+
+            if(queryJSON.systemId && Array.isArray(queryJSON.systemId)){
+                query.systemId = {$in: queryJSON.systemId};
+                delete queryJSON.systemId
+            }
+            else if(queryJSON.systemId){
+                query.systemId = queryJSON.systemId;
+                delete queryJSON.systemId
+            }
+
+            if(queryJSON.insurerId && Array.isArray(queryJSON.insurerId)){
+                query.insurerId = {$in: queryJSON.insurerId};
+                delete queryJSON.insurerId
+            }
+            else if(queryJSON.insurerId){
+                query.insurerId = queryJSON.insurerId;
+                delete queryJSON.insurerId
+            }
+
+            // // Old Mysql reference
+            // if(queryJSON.insurer && Array.isArray(queryJSON.insurer)){
+            //     query.systemId = {$in: queryJSON.insurer};
+            //     delete queryJSON.insurer
+            // }
+            // else if(queryJSON.insurer){
+            //     query.systemId = queryJSON.insurer;
+            //     delete queryJSON.insurer
+            // }
+
+
+            if (queryJSON) {
+                for (var key in queryJSON) {
+                    if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
+                        let clearString = queryJSON[key].replace("%", "");
+                        clearString = clearString.replace("%", "");
+                        query[key] = {
+                            "$regex": clearString,
+                            "$options": "i"
+                        };
+                    }
+                    else {
+                        query[key] = queryJSON[key];
+                    }
+                }
+            }
+
+
+            if (findCount === false) {
+                let docList = null;
+                // eslint-disable-next-line prefer-const
+                try {
+                    log.debug("InsurerPolicyTypeModel GetList query " + JSON.stringify(query) + __location)
+                    docList = await InsurerPolicyTypeModel.find(query,queryProjection, queryOptions);
+                }
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    rejected = true;
+                }
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                resolve(mongoUtils.objListCleanup(docList));
+                return;
+            }
+            else {
+                const docCount = await InsurerPolicyTypeModel.countDocuments(query).catch(err => {
+                    log.error("InsurerPolicyTypeModel.countDocuments error " + err + __location);
+                    error = null;
+                    rejected = true;
+                })
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                resolve({count: docCount});
+                return;
+            }
+
+
         });
     }
 
-    getById(id) {
+    async getMongoDocbyMysqlId(mysqlId, returnMongooseModel = false) {
         return new Promise(async(resolve, reject) => {
-            //validate
-            if(id && id > 0){
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
+            if (mysqlId) {
+                const query = {
+                    "systemId": mysqlId,
+                    active: true
+                };
+                let docDB = null;
+                try {
+                    docDB = await InsurerPolicyTypeModel.findOne(query, '-__v');
+                }
+                catch (err) {
+                    log.error("Getting Agency error " + err + __location);
                     reject(err);
-                    return;
-                });
-                this.updateProperty();
-                resolve(this.#dbTableORM.cleanJSON());
+                }
+                if(returnMongooseModel){
+                    resolve(docDB);
+                }
+                else if(docDB){
+                    const insurerPolicyTypeDoc = mongoUtils.objCleanup(docDB);
+                    resolve(insurerPolicyTypeDoc);
+                }
+                else {
+                    resolve(null);
+                }
+
             }
             else {
                 reject(new Error('no id supplied'))
             }
         });
+    }
+
+    getById(id) {
+        return this.getMongoDocbyMysqlId(id);
+    }
+
+    async updateMongo(docId, newObjectJSON) {
+        if (docId) {
+            if (typeof newObjectJSON === "object") {
+
+                const query = {"agencyId": docId};
+                let newAgencyJSON = null;
+                try {
+                    const changeNotUpdateList = ["active",
+                        "id",
+                        "mysqlId",
+                        "systemId",
+                        "insurerPolicyTypeId",
+                        "insurerId"]
+                    for (let i = 0; i < changeNotUpdateList.length; i++) {
+                        if (newObjectJSON[changeNotUpdateList[i]]) {
+                            delete newObjectJSON[changeNotUpdateList[i]];
+                        }
+                    }
+
+                    await InsurerPolicyTypeModel.updateOne(query, newObjectJSON);
+                    const newDoc = await InsurerPolicyTypeModel.findOne(query);
+                    //const newDoc = await InsurerPolicyTypeModel.findOneAndUpdate(query, newObjectJSON, {new: true});
+
+                    newAgencyJSON = mongoUtils.objCleanup(newDoc);
+                }
+                catch (err) {
+                    log.error(`Updating InsurerPolicyTypeModel error appId: ${docId}` + err + __location);
+                    throw err;
+                }
+                //
+
+                return newAgencyJSON;
+            }
+            else {
+                throw new Error(`no newObjectJSON supplied appId: ${docId}`)
+            }
+
+        }
+        else {
+            throw new Error('no id supplied')
+        }
+        // return true;
+
+    }
+
+    async insertMongo(newObjectJSON) {
+        if (!newObjectJSON) {
+            throw new Error("no data supplied");
+        }
+        //force mongo/mongoose insert
+        if(newObjectJSON._id) {
+            delete newObjectJSON._id
+        }
+        if(newObjectJSON.id) {
+            delete newObjectJSON.id
+        }
+        const newSystemId = await this.newMaxSystemId()
+        newObjectJSON.systemId = newSystemId;
+        newObjectJSON.insurerId = newSystemId;
+        const insurerPolicyType = new InsurerPolicyTypeModel(newObjectJSON);
+        //Insert a doc
+        await insurerPolicyType.save().catch(function(err) {
+            log.error('Mongo InsurerPolicyTypeModel Save err ' + err + __location);
+            throw err;
+        });
+        newObjectJSON.id = newSystemId;
+        return mongoUtils.objCleanup(insurerPolicyType);
+    }
+
+    async newMaxSystemId(){
+        let maxId = 0;
+        try{
+
+            //small collection - get the collection and loop through it.
+            // TODO refactor to use mongo aggretation.
+            const query = {}
+            const queryProjection = {"systemId": 1}
+            var queryOptions = {lean:true};
+            queryOptions.sort = {};
+            queryOptions.sort.systemId = -1;
+            queryOptions.limit = 1;
+            const docList = await InsurerPolicyTypeModel.find(query, queryProjection, queryOptions)
+            if(docList && docList.length > 0){
+                for(let i = 0; i < docList.length; i++){
+                    if(docList[i].systemId > maxId){
+                        maxId = docList[i].systemId + 1;
+                    }
+                }
+            }
+
+        }
+        catch(err){
+            log.error("Get max system id " + err + __location)
+            throw err;
+        }
+        log.debug("maxId: " + maxId + __location)
+        return maxId;
     }
 
     deleteById(id) {

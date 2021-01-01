@@ -539,7 +539,7 @@ module.exports = class AgencyBO {
         const agency = new AgencyModel(newObjectJSON);
         //Insert a doc
         await agency.save().catch(function(err) {
-            log.error('Mongo Application Save err ' + err + __location);
+            log.error('Mongo Agency Save err ' + err + __location);
             throw err;
         });
         newObjectJSON.id = newSystemId;
