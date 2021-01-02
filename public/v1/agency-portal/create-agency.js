@@ -33,18 +33,6 @@ async function createAgency(req, res, next){
     // Begin compiling a list of territories
     let territoryAbbreviations = [];
     const agencyNetworkId = req.authentication.agencyNetworkId
-    // Build a query for getting all insurers with their territories
-    // const insurersSQL = `
-    //             SELECT i.id, i.logo, i.name, i.agency_id_label, i.agent_id_label, i.enable_agent_id, GROUP_CONCAT(it.territory) AS 'territories'
-    //             FROM clw_talage_insurers AS i
-    //                 LEFT JOIN clw_talage_insurer_territories AS it ON it.insurer = i.id
-    //                 LEFT JOIN clw_talage_insurer_policy_types AS pti ON i.id = pti.insurer
-    //             WHERE
-    //                 i.id IN (select insurer from clw_talage_agency_network_insurers where agency_network = ${agencyNetworkId} ) AND i.state > 0 AND
-    //                 pti.wheelhouse_support = 1
-    //             GROUP BY i.id
-    //             ORDER BY i.name ASC;
-    //     `;
 
 
     // eslint-disable-next-line prefer-const
