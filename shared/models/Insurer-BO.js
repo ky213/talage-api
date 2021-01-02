@@ -84,7 +84,9 @@ module.exports = class InsurerBO{
 
     getList(queryJSON) {
         return new Promise(async(resolve, reject) => {
-
+            if(!queryJSON){
+                queryJSON = {};
+            }
             const queryProjection = {"__v": 0}
 
             let findCount = false;
@@ -94,6 +96,7 @@ module.exports = class InsurerBO{
             let query = {active: true};
             let error = null;
 
+            
             var queryOptions = {};
             queryOptions.sort = {systemId: 1};
             if (queryJSON.sort) {
@@ -404,7 +407,13 @@ module.exports = class InsurerBO{
         catch(err){
             log.error("Getting mongo clw_talage_insurer_policy_types error " + err + __location)
         }
-        return territoryArray.sort();
+        if(territoryArray && territoryArray.length > 0){
+             return territoryArray.sort();
+        }
+        else {
+            return [];
+        }
+       
 
     }
 

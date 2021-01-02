@@ -75,16 +75,6 @@ module.exports = class Insurer {
             log.error(`Error getting insurer ${id} error: ${err} ${__location}`);
             return new Error('Database error');
         }
-        // Build a query to get some basic information about this insurer from the database
-        // const sql = `
-        // 		SELECT i.id, i.state, i.logo, i.name, i.slug, i.rating, i.test_username, i.test_password, i.username
-        // 			,i.password, GROUP_CONCAT(DISTINCT ipt.policy_type) AS 'policy_types'
-        // 			,ipt.slug as policyslug
-        // 		FROM clw_talage_insurers AS i
-        // 			 LEFT JOIN clw_talage_insurer_policy_types AS ipt ON ipt.insurer = i.id
-        // 		WHERE i.id = ${db.escape(parseInt(id, 10))}
-        // 		GROUP BY i.id;
-        // 	`;
 
         if(insurerJson){
             //fill in model.
@@ -99,7 +89,7 @@ module.exports = class Insurer {
             //Get insure policy Types
             try{
                 const insurerPolicyTypeBO = new InsurerPolicyTypeBO();
-                const insurerPolicyTypeList = await insurerPolicyTypeBO.getList({"insureId": id});
+                const insurerPolicyTypeList = await insurerPolicyTypeBO.getList({"insurerId": id});
                 if(insurerPolicyTypeList && insurerPolicyTypeList.length > 0){
                     //override slug with policyslug if policyslug exists.
                     if(insurerPolicyTypeList[0].policyslug && insurerPolicyTypeList[0].policyslug.length > 0){
@@ -108,12 +98,16 @@ module.exports = class Insurer {
                     //list of policyttypes.
                     this.policy_types = [];
                     for(const insurerPolicyTypeJSON of insurerPolicyTypeList){
+                        log.debug(`insurer ${id} policy type ${insurerPolicyTypeJSON.policy_type}`)
                         this.policy_types.push(insurerPolicyTypeJSON.policy_type);
                         this.policy_type_details[insurerPolicyTypeJSON.policy_type] = {
                             'api_support': insurerPolicyTypeJSON.api_support,
                             'acord_support': insurerPolicyTypeJSON.acord_support
                         }
                     }
+                }
+                else {
+                    log.error(`Quoting No insurerPolicyTypeList for insurer ${id} ` + __location)
                 }
             }
             catch(err){

@@ -678,7 +678,7 @@ module.exports = class AgencyLocationBO{
         let notifyTalage = false;
         try{
             const agencyLocationJSON = await this.getById(agencyLocationId);
-            const insurerJSON = agencyLocationJSON.insurers.find(insurer => insurerId === insurer.insurer);
+            const insurerJSON = agencyLocationJSON.insurers.find(insurer => insurerId === insurer.insurerId);
             if(insurerJSON){
                 const policyInfoJSON = insurerJSON.policyTypeInfo;
                 if(policyInfoJSON.notifyTalage){

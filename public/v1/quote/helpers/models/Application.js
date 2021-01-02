@@ -55,7 +55,7 @@ module.exports = class Application {
 
         try{
             this.applicationDocData = await applicationBO.loadfromMongoBymysqlId(this.id);
-            log.debug("Quote Application added applicationData")
+            log.debug("Quote Application added applicationData" + __location)
         }
         catch(err){
             log.error("Unable to get applicationData for quoting appId: " + data.id + __location);
@@ -299,8 +299,11 @@ module.exports = class Application {
         const policyTypeReferred = {};
         const policyTypeQuoted = {};
 
-        this.policies.forEach((policy) => {
+        if(this.policies && this.policies.length === 0){
+            log.error(`No policies for Application ${this.id} ` + __location)
+        }
 
+        this.policies.forEach((policy) => {
             // Generate quotes for each insurer for the given policy type
             this.insurers.forEach((insurer) => {
                 // Only run quotes against requested insurers (if present)
@@ -308,7 +311,7 @@ module.exports = class Application {
                 if (insurer.policy_types.indexOf(policy.type) >= 0) {
 
                     // Get the agency_location_insurer data for this insurer from the agency location
-                    log.debug(JSON.stringify(this.agencyLocation.insurers[insurer.id]))
+                    //log.debug(JSON.stringify(this.agencyLocation.insurers[insurer.id]))
                     if (this.agencyLocation.insurers[insurer.id].policyTypeInfo) {
 
                         //Retrieve the data for this policy type
@@ -323,7 +326,7 @@ module.exports = class Application {
                                     if (agency_location_insurer_data.useAcord === true && insurer.policy_type_details[policy.type].acord_support === 1) {
                                         slug = 'acord';
                                     }
-                                    else if (insurer.policy_type_details[policy.type.toUpperCase()].api_support === 1) {
+                                    else if (insurer.policy_type_details[policy.type.toUpperCase()].api_support) {
                                         // Otherwise use the api
                                         slug = insurer.slug;
                                     }

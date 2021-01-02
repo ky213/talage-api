@@ -106,7 +106,7 @@ async function postApplication(req, res, next) {
  * @returns {void}
  */
 async function runQuotes(application) {
-    log.debug('running quotes')
+    log.debug('running quotes' + __location)
     try {
         await application.run_quotes();
     }
