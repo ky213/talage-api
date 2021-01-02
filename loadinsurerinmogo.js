@@ -213,7 +213,7 @@ async function runFunction() {
 
 
             let insurerModel = new InsurerModel(insurerJSON);
-            log.debug("Pre Save " + JSON.stringify(insurerModel));
+            // log.debug("Pre Save " + JSON.stringify(insurerModel));
             if(newMongoDoc){
                 await insurerModel.save().catch(function(err) {
                     log.error('Mongo insurerModel Save err ' + err + __location);
@@ -240,7 +240,7 @@ async function runFunction() {
 
                 }
                 catch(err){
-                    log.error("Updating Agency error " + err + __location);
+                    log.error("Updating Insurer error " + err + __location);
                     process.exit(1);
                 }
 

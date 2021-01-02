@@ -1,6 +1,11 @@
+/* eslint-disable prefer-const */
+/* eslint-disable object-curly-newline */
 'use strict';
 
 const serverHelper = require('../../../server.js');
+const AgencyNetworkInsurerBO = global.requireShared('./models/AgencyNetworkInsurer-BO.js');
+const InsurerBO = global.requireShared('models/Insurer-BO.js');
+const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
 
 /**
  * Returns data necessary for creating an agency
@@ -29,31 +34,61 @@ async function createAgency(req, res, next){
     let territoryAbbreviations = [];
     const agencyNetworkId = req.authentication.agencyNetworkId
     // Build a query for getting all insurers with their territories
-    const insurersSQL = `
-                SELECT i.id, i.logo, i.name, i.agency_id_label, i.agent_id_label, i.enable_agent_id, GROUP_CONCAT(it.territory) AS 'territories'
-                FROM clw_talage_insurers AS i
-                    LEFT JOIN clw_talage_insurer_territories AS it ON it.insurer = i.id
-                    LEFT JOIN clw_talage_insurer_policy_types AS pti ON i.id = pti.insurer
-                WHERE 
-                    i.id IN (select insurer from clw_talage_agency_network_insurers where agency_network = ${agencyNetworkId} ) AND i.state > 0 AND
-                    pti.wheelhouse_support = 1
-                GROUP BY i.id
-                ORDER BY i.name ASC;
-        `;
+    // const insurersSQL = `
+    //             SELECT i.id, i.logo, i.name, i.agency_id_label, i.agent_id_label, i.enable_agent_id, GROUP_CONCAT(it.territory) AS 'territories'
+    //             FROM clw_talage_insurers AS i
+    //                 LEFT JOIN clw_talage_insurer_territories AS it ON it.insurer = i.id
+    //                 LEFT JOIN clw_talage_insurer_policy_types AS pti ON i.id = pti.insurer
+    //             WHERE
+    //                 i.id IN (select insurer from clw_talage_agency_network_insurers where agency_network = ${agencyNetworkId} ) AND i.state > 0 AND
+    //                 pti.wheelhouse_support = 1
+    //             GROUP BY i.id
+    //             ORDER BY i.name ASC;
+    //     `;
 
-    // Run the query
-    const insurers = await db.query(insurersSQL).catch(function(err){
-        log.error(err.message);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    });
 
-    // Convert the territories list into an array
-    insurers.forEach(function(insurer){
-        if(insurer.territories){
-            insurer.territories = insurer.territories.split(',');
-            territoryAbbreviations = territoryAbbreviations.concat(insurer.territories);
+    // eslint-disable-next-line prefer-const
+    let insurers = [];
+    try{
+        const agencyNetworkInsurerBO = new AgencyNetworkInsurerBO();
+        const queryAgencyNetwork = {"agencyNetworkId": agencyNetworkId}
+        const agencyNetworkInsurers = await agencyNetworkInsurerBO.getList(queryAgencyNetwork)
+        // eslint-disable-next-line prefer-const
+        let insurerIdArray = [];
+        agencyNetworkInsurers.forEach(function(agencyNetworkInsurer){
+            if(agencyNetworkInsurer.insurer){
+                insurerIdArray.push(agencyNetworkInsurer.insurer);
+            }
+        });
+        if(insurerIdArray.length > 0){
+            const insurerBO = new InsurerBO();
+            const insurerPolicyTypeBO = new InsurerPolicyTypeBO();
+            const query = {"insurerId": insurerIdArray}
+            let insurerDBJSONList = await insurerBO.getList(query);
+            if(insurerDBJSONList && insurerDBJSONList.length > 0){
+                for(let insureDB of insurerDBJSONList){
+                    insureDB.territories = await insurerBO.getTerritories(insureDB.insurerId);
+                    //check if any insurerPolicyType is wheelhouse enabled.
+                    // eslint-disable-next-line object-property-newline
+                    const queryPT = {"wheelhouse_support": true, insurerId: insureDB.insurerId};
+                    const insurerPtDBList = await insurerPolicyTypeBO.getList(queryPT)
+                    if(insurerPtDBList && insurerPtDBList.length > 0){
+                        if(insureDB.territories){
+                            territoryAbbreviations = territoryAbbreviations.concat(insureDB.territories);
+                        }
+                        insurers.push(insureDB)
+                    }
+                    else {
+                        log.info(`No wheelhouse enabled products for insurer ${insureDB.insurerId}` + __location)
+                    }
+                }
+            }
         }
-    });
+
+    }
+    catch(err){
+        log.error(`Error get Agency Network Insurer List ` + err + __location);
+    }
 
     // Add the insurers to the response
     response.insurers = insurers;

@@ -157,6 +157,7 @@ async function runFunction() {
     const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
     var InsurerPolicyTypeModel = require('mongoose').model('InsurerPolicyType');
 
+    const InsurerTerritoryBO = global.requireShared('models/InsurerTerritory-BO.js');
     // local development of tasks run one of the task.
 
     //load message model and get message list.
@@ -171,57 +172,76 @@ async function runFunction() {
     for(let i = 0; i < result.length; i++){
         let newMongoDoc = true;
         //load applicationBO
-        const insurerBO = new InsurerPolicyTypeBO();
+        const insurerPolicyTypeBO = new InsurerPolicyTypeBO();
         let loadResp = false;
         const mysqlId = result[i].id;
         try{
-            loadResp = await insurerBO.loadFromIdMySql(mysqlId);
+            loadResp = await insurerPolicyTypeBO.loadFromIdMysql(mysqlId);
         }
         catch(err){
             log.error("load clw_talage_insurer_policy_types error " + err)
         }
         if(loadResp){
-            let insurerJSON = {};
+            let insurerPolicyTypeJSON = {};
             try{
-                const mongoApp = await insurerBO.getMongoDocbyMysqlId(mysqlId)
+                const mongoApp = await insurerPolicyTypeBO.getMongoDocbyMysqlId(mysqlId)
                 if(mongoApp){
-                    insurerJSON = mongoApp;
+                    insurerPolicyTypeJSON = mongoApp;
                     newMongoDoc = false;
                 }
             }
             catch(err){
                 log.error("Getting mongo clw_talage_insurer_policy_types error " + err + __location)
             }
-            insurerJSON.systemId = insurerBO.id;
-            insurerJSON.insurerId = insurerBO.id;
+            insurerPolicyTypeJSON.systemId = insurerPolicyTypeBO.id;
+            insurerPolicyTypeJSON.insurerId = insurerPolicyTypeBO.insurer;
 
             //mapp app to app
             const alPropMappings = {
                 "created": "createdAt",
                 "modified": "updateAt"
             }
-            if(insurerBO.created === '0000-00-00 00:00:00'){
-                delete insurerBO.created
+            if(insurerPolicyTypeBO.created === '0000-00-00 00:00:00'){
+                delete insurerPolicyTypeBO.created
             }
-            if(insurerBO.modified === '0000-00-00 00:00:00'){
-                delete insurerBO.modified
+            if(insurerPolicyTypeBO.modified === '0000-00-00 00:00:00'){
+                delete insurerPolicyTypeBO.modified
             }
-            mapToMongooseJSON(insurerBO, insurerJSON, alPropMappings);
+            mapToMongooseJSON(insurerPolicyTypeBO, insurerPolicyTypeJSON, alPropMappings);
 
+            //get Territories from
+            try{
+                const insurerTerritoryBO = new InsurerTerritoryBO();
+                const policyType = insurerPolicyTypeJSON.policy_type.toLowerCase();
+                let query = {insurer: insurerPolicyTypeJSON.insurerId};
+                query[policyType] = 1;
+                const insurerTerrirtoryDBList = await insurerTerritoryBO.getList(query);
+                if(insurerTerrirtoryDBList && insurerTerrirtoryDBList.length){
+                    insurerPolicyTypeJSON.territories = [];
+                    for(const insurerTerritoryJSON of insurerTerrirtoryDBList){
+                        insurerPolicyTypeJSON.territories.push(insurerTerritoryJSON.territory)
+                    }
+                }
+                else {
+                    log.debug(`No territories for insurer ${insurerPolicyTypeJSON.insurerId} policy type ${policyType} `)
+                }
+            }
+            catch(err){
+                log.error("Error getting insurer Territories " + err + __location);
+            }
 
-
-            let insurerModel = new InsurerPolicyTypeModel(insurerJSON);
-            log.debug("Pre Save " + JSON.stringify(insurerModel));
+            let insurerPolicyTypeModel = new InsurerPolicyTypeModel(insurerPolicyTypeJSON);
+            //log.debug("Pre Save " + JSON.stringify(insurerPolicyTypeModel));
             if(newMongoDoc){
-                await insurerModel.save().catch(function(err) {
+                await insurerPolicyTypeModel.save().catch(function(err) {
                     log.error('Mongo insurerModel Save err ' + err + __location);
                     process.exit(1);
                 });
-                log.debug("inserted insurerId " + insurerModel.insurerUuidId + " mysqlId: " + mysqlId);
+                log.debug("inserted insurerPolicyTypeId " + insurerPolicyTypeModel.insurerPolicyTypeId + " mysqlId: " + mysqlId);
             }
             else {
                 try {
-                    const updateAppDoc = JSON.parse(JSON.stringify(insurerModel));
+                    const updateAppDoc = JSON.parse(JSON.stringify(insurerPolicyTypeModel));
                     const changeNotUpdateList = ["active",
                         "_id",
                         "id",
@@ -232,13 +252,13 @@ async function runFunction() {
                             delete updateAppDoc[changeNotUpdateList[j]];
                         }
                     }
-                    const query = {"insurerId": insurerModel.insurerId};
+                    const query = {"insurerId": insurerPolicyTypeModel.insurerId};
                     await InsurerPolicyTypeModel.updateOne(query, updateAppDoc);
-                    log.debug("UPDATED: insurerId " + insurerModel.insurerId + " mysqlId: " + mysqlId);
+                    log.debug("UPDATED: insurerId " + insurerPolicyTypeModel.insurerId + " mysqlId: " + mysqlId);
 
                 }
                 catch(err){
-                    log.error("Updating Agency error " + err + __location);
+                    log.error("Updating InsurerPolicyType error " + err + __location);
                     process.exit(1);
                 }
 

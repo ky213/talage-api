@@ -8,7 +8,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 var InsurerModel = require('mongoose').model('Insurer');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
-
+const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
 
 const tableName = 'clw_talage_insurers'
 const skipCheckRequired = false;
@@ -181,7 +181,7 @@ module.exports = class InsurerBO{
                 let docList = null;
                 // eslint-disable-next-line prefer-const
                 try {
-                    log.debug("InsurerModel GetList query " + JSON.stringify(query) + __location)
+                    // log.debug("InsurerModel GetList query " + JSON.stringify(query) + __location)
                     docList = await InsurerModel.find(query,queryProjection, queryOptions);
                 }
                 catch (err) {
@@ -193,7 +193,12 @@ module.exports = class InsurerBO{
                     reject(error);
                     return;
                 }
-                resolve(mongoUtils.objListCleanup(docList));
+                if(docList && docList.length > 0){
+                    resolve(mongoUtils.objListCleanup(docList));
+                }
+                else {
+                    resolve([]);
+                }
                 return;
             }
             else {
@@ -376,6 +381,32 @@ module.exports = class InsurerBO{
         return true;
     }
 
+    async getTerritories(insurerId){
+        let territoryArray = [];
+        let insurerPolicyTypeListJSON = {};
+        try{
+            const insurerPolicyTypeBO = new InsurerPolicyTypeBO();
+            const query = {"insurerId": insurerId}
+            insurerPolicyTypeListJSON = await insurerPolicyTypeBO.getList(query)
+            if(insurerPolicyTypeListJSON){
+                for(const insurerPolicyTypeJSON of insurerPolicyTypeListJSON){
+                    if(insurerPolicyTypeJSON.territories && insurerPolicyTypeJSON.territories.length > 0){
+                        for(let i = 0; i < insurerPolicyTypeJSON.territories.length; i++){
+                            const ptTerritory = insurerPolicyTypeJSON.territories[i];
+                            if (territoryArray.indexOf(ptTerritory) === -1) {
+                                territoryArray.push(ptTerritory);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch(err){
+            log.error("Getting mongo clw_talage_insurer_policy_types error " + err + __location)
+        }
+        return territoryArray.sort();
+
+    }
 
     // ***************************
     //    For administration site

@@ -181,7 +181,7 @@ module.exports = class InsurerPolicyTypeBO{
                 let docList = null;
                 // eslint-disable-next-line prefer-const
                 try {
-                    log.debug("InsurerPolicyTypeModel GetList query " + JSON.stringify(query) + __location)
+                    //log.debug("InsurerPolicyTypeModel GetList query " + JSON.stringify(query) + __location)
                     docList = await InsurerPolicyTypeModel.find(query,queryProjection, queryOptions);
                 }
                 catch (err) {

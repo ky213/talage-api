@@ -68,4 +68,4 @@ InsurerPolicyTypeSchema.pre('save', function(next) {
 // });
 
 mongoose.set('useCreateIndex', true);
-mongoose.model('Insurer', InsurerPolicyTypeSchema);
+mongoose.model('InsurerPolicyType', InsurerPolicyTypeSchema);

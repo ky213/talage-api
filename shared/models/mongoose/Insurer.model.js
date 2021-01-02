@@ -32,7 +32,7 @@ const InsurerSchema = new Schema({
     insurerId: {type: Number, unique: true},
     systemId: {type: Number, unique: true},
     name: {type: String, required: true},
-    slug: {type: String, required: true, unique: true},
+    slug: {type: String, required: false, unique: true},
     logo: {type: String, required: false},
     featured: {type: Boolean, default: false},
     ordering: {type: Number, required: true, default: 0},
@@ -75,6 +75,19 @@ InsurerSchema.virtual('id').
         else {
             return 0;
         }
+    });
+
+InsurerSchema.virtual('insurer').
+    get(function() {
+        if(this.insurerId){
+            return this.insurerId;
+        }
+        else {
+            return null;
+        }
+    }).
+    set(function(v){
+        this.insurerId = v;
     });
 
 InsurerSchema.plugin(timestamps);
