@@ -16,7 +16,6 @@ const tracker = global.requireShared('./helpers/tracker.js');
 const opts = {toJSON: {virtuals: true}};
 
 
-
 // const contactSchema = new Schema({
 //     email: {type: String, required: true},
 //     name: {type: String, required: false},
@@ -24,7 +23,6 @@ const opts = {toJSON: {virtuals: true}};
 //     title: {type: String, required: false},
 //     type: {type: String, required: false}
 // });
-
 
 
 const InsurerSchema = new Schema({

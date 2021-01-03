@@ -264,7 +264,7 @@ module.exports = class InsurerBO{
         if (docId) {
             if (typeof newObjectJSON === "object") {
 
-                const query = {"agencyId": docId};
+                const query = {"insurerUuidId": docId};
                 let newAgencyJSON = null;
                 try {
                     const changeNotUpdateList = ["active",

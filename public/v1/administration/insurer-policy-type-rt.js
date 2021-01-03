@@ -80,7 +80,11 @@ async function add(req, res, next) {
         return next(error);
     }
 
-    res.send(200, insurerPolicyTypeBO.cleanJSON());
+    const newDocJson = await insurerPolicyTypeBO.getById(insurerPolicyTypeBO.id).catch(function(err) {
+        log.error("insurerPolicyTypeBO save Get newdoc error " + err + __location);
+        error = err;
+    });
+    res.send(200, newDocJson);
     return next();
 
 }
@@ -102,8 +106,12 @@ async function update(req, res, next) {
     if (error) {
         return next(error);
     }
+    const newDocJson = await insurerPolicyTypeBO.getById(id).catch(function(err) {
+        log.error("insurerPolicyTypeBO save Get newdoc error " + err + __location);
+        error = err;
+    });
 
-    res.send(200, insurerPolicyTypeBO.cleanJSON());
+    res.send(200, newDocJson);
     return next();
 
 }

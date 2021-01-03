@@ -34,7 +34,7 @@ module.exports = class InsurerPolicyTypeBO{
                 reject(new Error(`empty ${tableName} object given`));
             }
             await this.cleanupInput(newObjectJSON);
-        
+
             let newDoc = true;
             if(newObjectJSON.id){
                 const dbDocJSON = await this.getById(newObjectJSON.id).catch(function(err) {
@@ -43,7 +43,7 @@ module.exports = class InsurerPolicyTypeBO{
                     return;
                 });
                 if(dbDocJSON){
-                    newObjectJSON.systemId = dbDocJSON.systemId;
+                    this.id = dbDocJSON.systemId;
                     newDoc = false;
                     await this.updateMongo(dbDocJSON.insurerPolicyTypeId,newObjectJSON)
                 }
@@ -54,7 +54,6 @@ module.exports = class InsurerPolicyTypeBO{
             if(newDoc === true) {
                 const newAgencyDoc = await this.insertMongo(newObjectJSON);
                 this.id = newAgencyDoc.systemId;
-
             }
 
 
@@ -150,14 +149,14 @@ module.exports = class InsurerPolicyTypeBO{
             }
 
             // // Old Mysql reference
-            // if(queryJSON.insurer && Array.isArray(queryJSON.insurer)){
-            //     query.systemId = {$in: queryJSON.insurer};
-            //     delete queryJSON.insurer
-            // }
-            // else if(queryJSON.insurer){
-            //     query.systemId = queryJSON.insurer;
-            //     delete queryJSON.insurer
-            // }
+            if(queryJSON.insurer && Array.isArray(queryJSON.insurer)){
+                query.insurerId = {$in: queryJSON.insurer};
+                delete queryJSON.insurer
+            }
+            else if(queryJSON.insurer){
+                query.insurerId = queryJSON.insurer;
+                delete queryJSON.insurer
+            }
 
 
             if (queryJSON) {
@@ -255,7 +254,7 @@ module.exports = class InsurerPolicyTypeBO{
         if (docId) {
             if (typeof newObjectJSON === "object") {
 
-                const query = {"agencyId": docId};
+                const query = {"insurerPolicyTypeId": docId};
                 let newAgencyJSON = null;
                 try {
                     const changeNotUpdateList = ["active",
@@ -269,10 +268,8 @@ module.exports = class InsurerPolicyTypeBO{
                             delete newObjectJSON[changeNotUpdateList[i]];
                         }
                     }
-
                     await InsurerPolicyTypeModel.updateOne(query, newObjectJSON);
                     const newDoc = await InsurerPolicyTypeModel.findOne(query);
-                    //const newDoc = await InsurerPolicyTypeModel.findOneAndUpdate(query, newObjectJSON, {new: true});
 
                     newAgencyJSON = mongoUtils.objCleanup(newDoc);
                 }
@@ -309,7 +306,6 @@ module.exports = class InsurerPolicyTypeBO{
         }
         const newSystemId = await this.newMaxSystemId()
         newObjectJSON.systemId = newSystemId;
-        newObjectJSON.insurerId = newSystemId;
         const insurerPolicyType = new InsurerPolicyTypeModel(newObjectJSON);
         //Insert a doc
         await insurerPolicyType.save().catch(function(err) {
@@ -354,21 +350,20 @@ module.exports = class InsurerPolicyTypeBO{
         return new Promise(async(resolve, reject) => {
             //validate
             if(id && id > 0){
-
-                //Remove old records.
-                const sql = `DELETE FROM ${tableName} 
-                        WHERE id = ${id}
-                `;
-                let rejected = false;
-                await db.query(sql).catch(function(error) {
-                    // Check if this was
-                    log.error(`Database Object ${tableName} DELETE  error :` + error + __location);
-                    rejected = true;
-                    reject(error);
-                });
-                if (rejected) {
-                    return false;
+                let doc = null;
+                try {
+                    const returnDoc = true;
+                    doc = await this.getMongoDocbyMysqlId(id, returnDoc);
+                    if(doc && doc.systemId){
+                        doc.active = false;
+                        await doc.save();
+                    }
                 }
+                catch (err) {
+                    log.error(`Error marking deleted Doc from mysqlId ${id}` + err + __location);
+                    reject(err);
+                }
+
                 resolve(true);
 
             }
