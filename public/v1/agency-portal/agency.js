@@ -1,10 +1,15 @@
+/* eslint-disable object-curly-newline */
+/* eslint-disable prefer-const */
 /* eslint-disable guard-for-in */
 /* eslint-disable array-element-newline */
 'use strict';
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 const AgencyLandingPageBO = global.requireShared('./models/AgencyLandingPage-BO.js');
-//const AgencyPortalUserBO = global.requireShared('models/AgencyPortalUser-BO.js');
+const AgencyNetworkInsurerBO = global.requireShared('./models/AgencyNetworkInsurer-BO.js');
+const InsurerBO = global.requireShared('models/Insurer-BO.js');
+const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
+
 
 const crypt = global.requireShared('./services/crypt.js');
 const util = require('util');
@@ -287,35 +292,49 @@ async function postAgency(req, res, next) {
     // Build a query for getting all insurers with their territories
     const agencyNetworkId = req.authentication.agencyNetworkId
 
-    const insurersSQL = `
-                SELECT
-                    i.id,
-                    i.enable_agent_id,
-                    GROUP_CONCAT(it.territory) AS territories
-                FROM clw_talage_insurers as i
-                LEFT JOIN clw_talage_insurer_territories as it ON it.insurer = i.id
-                WHERE i.id IN (select insurer from clw_talage_agency_network_insurers where agency_network = ${agencyNetworkId} ) AND i.state > 0
-                GROUP BY i.id
-                ORDER BY i.name ASC;
-		`;
-
-    // Run the query
-    const insurers = await db.query(insurersSQL).catch(function(err) {
-        log.error(err.message);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    });
-
-    // Convert the territories list into an array
-    insurers.forEach(function(insurer) {
-        if (insurer.territories) {
-            insurer.territories = insurer.territories.split(',');
-            territoryAbbreviations = territoryAbbreviations.concat(insurer.territories);
+    let insurers = [];
+    try{
+        const agencyNetworkInsurerBO = new AgencyNetworkInsurerBO();
+        const queryAgencyNetwork = {"agencyNetworkId": agencyNetworkId}
+        const agencyNetworkInsurers = await agencyNetworkInsurerBO.getList(queryAgencyNetwork)
+        // eslint-disable-next-line prefer-const
+        let insurerIdArray = [];
+        agencyNetworkInsurers.forEach(function(agencyNetworkInsurer){
+            if(agencyNetworkInsurer.insurer){
+                insurerIdArray.push(agencyNetworkInsurer.insurer);
+            }
+        });
+        if(insurerIdArray.length > 0){
+            const insurerBO = new InsurerBO();
+            const insurerPolicyTypeBO = new InsurerPolicyTypeBO();
+            const query = {"insurerId": insurerIdArray}
+            let insurerDBJSONList = await insurerBO.getList(query);
+            if(insurerDBJSONList && insurerDBJSONList.length > 0){
+                for(let insurerDB of insurerDBJSONList){
+                    insurerDB.territories = await insurerBO.getTerritories(insurerDB.insurerId);
+                    //check if any insurerPolicyType is wheelhouse enabled.
+                    // eslint-disable-next-line object-property-newline
+                    const queryPT = {"wheelhouse_support": true, insurerId: insurerDB.insurerId};
+                    const insurerPtDBList = await insurerPolicyTypeBO.getList(queryPT)
+                    if(insurerPtDBList && insurerPtDBList.length > 0){
+                        insurerDB.policyTypes = insurerPtDBList;
+                        if(insurerDB.territories){
+                            territoryAbbreviations = territoryAbbreviations.concat(insurerDB.territories);
+                        }
+                        insurerIDs.push(insurerDB.insurerId);
+                        insurers.push(insurerDB)
+                    }
+                    else {
+                        log.info(`No wheelhouse enabled products for insurer ${insurerDB.insurerId}` + __location)
+                    }
+                }
+            }
         }
-        else {
-            log.warn(`Creating Agency Insurer has not territories ${insurer.id}` + __location)
-        }
-        insurerIDs.push(insurer.id);
-    });
+
+    }
+    catch(err){
+        log.error(`Error get Agency Network Insurer List ` + err + __location);
+    }
 
     // Validate
     if (!validator.agency_name(req.body.name)) {
@@ -350,7 +369,7 @@ async function postAgency(req, res, next) {
             }
 
             // Make sure the agentId field wasn't left blank for insurers that require agent id
-            const maybeInsurer = insurers.filter((ins) => ins.id === insurerID);
+            const maybeInsurer = insurers.filter((ins) => ins.insurerId === insurerID);
             const insurer = maybeInsurer.length > 0 ? maybeInsurer[0] : null;
             // if we find the insurer and the enable agent id is true and the agentId field is empty then throw error
             if (insurer !== null) {
@@ -462,35 +481,44 @@ async function postAgency(req, res, next) {
     const insurerArray = [];
     for (const insurerID in agencyIds) {
         const insurerIdInt = parseInt(insurerID, 10)
-        const insurer = {
-            "insurerId": insurerIdInt,
-            "gl": 0,
-            "wc": 1,
-            "bop": 0,
-            "agencyId": agencyIds[insurerID],
-            "policyTypeInfo": {
-                "WC": {
-                    "enabled": true,
-                    "useAcord": false,
-                    "acordInfo": {"sendToEmail": ""}
-                },
-                "GL": {
-                    "enabled": false,
-                    "useAcord": false,
-                    "acordInfo": {"sendToEmail": ""}
-                },
-                "BOP": {
-                    "enabled": false,
-                    "useAcord": false,
-                    "acordInfo": {"sendToEmail": ""}
-                },
-                "notifyTalage": false
+        // Do not default to WC only.
+        // base it on the insurer setup.
+        //Find insurer in insurelist
+        try{
+            const insurerJSON = insurers.find((ins) => ins.insurerId === insurerIdInt);
+            if(insurerJSON){
+                //insurerDB.policyTypes = insurerPtDBList;
+                const insurerAL = {
+                    "insurerId": insurerIdInt,
+                    "agencyId": agencyIds[insurerID],
+                    "policyTypeInfo": {
+                        "notifyTalage": false
+                    }
+                };
+                if(insurerJSON.policyTypes && insurerJSON.policyTypes.length > 0){
+                    for(const insurerPolicyType of insurerJSON.policyTypes){
+                        insurerAL.policyTypeInfo[insurerPolicyType.policy_type] = {
+                            "enabled": true,
+                            "useAcord": false,
+                            "acordInfo": {"sendToEmail": ""}
+                        }
+                    }
+                    if (agentIds[insurerID]) {
+                        insurerAL.agentId = agentIds[insurerID];
+                    }
+                }
+                else {
+                    log.error(`did not find policyTypes for ${JSON.stringify(insurerJSON)}` + __location)
+                }
+                insurerArray.push(insurerAL);
             }
-        };
-        if (agentIds[insurerID]) {
-            insurer.agentId = agentIds[insurerID];
+            else {
+                log.error(`did not find insurer ${insurerID}  in list ${JSON.stringify(insurers)}` + __location)
+            }
         }
-        insurerArray.push(insurer);
+        catch(err){
+            log.error(`Create Agency add agency location insurer ` + err + __location)
+        }
     }
     // Create a default location for this agency
     const newAgencyLocationJSON = {

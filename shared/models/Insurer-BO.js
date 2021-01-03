@@ -3,13 +3,12 @@
 
 
 const DatabaseObject = require('./DatabaseObject.js');
-const crypt = requireShared('./services/crypt.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const moment = require('moment');
-const moment_timezone = require('moment-timezone');
-const {debug} = require('request');
 
+var InsurerModel = require('mongoose').model('Insurer');
+const mongoUtils = global.requireShared('./helpers/mongoutils.js');
+const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
 
 const tableName = 'clw_talage_insurers'
 const skipCheckRequired = false;
@@ -35,27 +34,29 @@ module.exports = class InsurerBO{
             if(!newObjectJSON){
                 reject(new Error(`empty ${tableName} object given`));
             }
-            await this.cleanupInput(newObjectJSON);
+
+            let newDoc = true;
             if(newObjectJSON.id){
-                await this.#dbTableORM.getById(newObjectJSON.id).catch(function(err) {
+                const dbDocJSON = await this.getById(newObjectJSON.id).catch(function(err) {
                     log.error(`Error getting ${tableName} from Database ` + err + __location);
                     reject(err);
                     return;
                 });
-                this.updateProperty();
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
+                if(dbDocJSON){
+                    newObjectJSON.systemId = dbDocJSON.systemId;
+                    newObjectJSON.insurerId = dbDocJSON.systemId;
+                    newDoc = false;
+                    await this.updateMongo(dbDocJSON.insurerUuidId,newObjectJSON)
+                }
+                else {
+                    log.error("Insurer PUT object not found " + newObjectJSON.id + __location)
+                }
             }
-            else{
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
-            }
+            if(newDoc === true) {
+                const newAgencyDoc = await this.insertMongo(newObjectJSON);
+                this.id = newAgencyDoc.systemId;
 
-            //save
-            await this.#dbTableORM.save().catch(function(err){
-                reject(err);
-            });
-            this.updateProperty();
-            this.id = this.#dbTableORM.id;
-            //MongoDB
+            }
 
 
             resolve(true);
@@ -63,23 +64,7 @@ module.exports = class InsurerBO{
         });
     }
 
-    /**
-	 * saves this object.
-     *
-	 * @returns {Promise.<JSON, Error>} save return true , or an Error if rejected
-	 */
-    save(){
-        return new Promise(async(resolve, reject) => {
-            //validate
-            this.#dbTableORM.load(this, skipCheckRequired);
-            await this.#dbTableORM.save().catch(function(err){
-                reject(err);
-            });
-            resolve(true);
-        });
-    }
-
-    loadFromId(id) {
+    loadFromIdMySql(id) {
         return new Promise(async(resolve, reject) => {
             //validate
             if(id && id > 0){
@@ -99,68 +84,171 @@ module.exports = class InsurerBO{
 
     getList(queryJSON) {
         return new Promise(async(resolve, reject) => {
+            if(!queryJSON){
+                queryJSON = {};
+            }
+            const queryProjection = {"__v": 0}
+
+            let findCount = false;
 
             let rejected = false;
-            // Create the update query
-            let sql = `
-                    select *  from ${tableName}  
-                `;
-            if(queryJSON){
-                let hasWhere = false;
-                if(queryJSON.name){
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` name like ${db.escape(queryJSON.name)} `
-                    hasWhere = true;
-                }
-            }
-            // Run the query
-            // log.debug("InsurersBO getlist sql: " + sql);
-            const result = await db.query(sql).catch(function(error) {
-                // Check if this was
+            // eslint-disable-next-line prefer-const
+            let query = {active: true};
+            let error = null;
 
-                rejected = true;
-                log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
-                reject(error);
-            });
-            if (rejected) {
-                return;
-            }
-            const boList = [];
-            if(result && result.length > 0){
-                for(let i = 0; i < result.length; i++){
-                    const insurerBO = new InsurerBO();
-                    await insurerBO.#dbTableORM.decryptFields(result[i]);
-                    await insurerBO.#dbTableORM.convertJSONColumns(result[i]);
-                    const resp = await insurerBO.loadORM(result[i], skipCheckRequired).catch(function(err){
-                        log.error(`getList error loading object: ` + err + __location);
-                    })
-                    if(!resp){
-                        log.debug("Bad BO load" + __location)
-                    }
-                    boList.push(insurerBO);
+            
+            var queryOptions = {};
+            queryOptions.sort = {systemId: 1};
+            if (queryJSON.sort) {
+                var acs = 1;
+                if (queryJSON.desc) {
+                    acs = -1;
+                    delete queryJSON.desc
                 }
-                resolve(boList);
+                queryOptions.sort[queryJSON.sort] = acs;
+                delete queryJSON.sort
             }
             else {
-                //Search so no hits ok.
-                resolve([]);
+                // default to DESC on sent
+                queryOptions.sort.createdAt = -1;
+
+            }
+            const queryLimit = 500;
+            if (queryJSON.limit) {
+                var limitNum = parseInt(queryJSON.limit, 10);
+                delete queryJSON.limit
+                if (limitNum < queryLimit) {
+                    queryOptions.limit = limitNum;
+                }
+                else {
+                    queryOptions.limit = queryLimit;
+                }
+            }
+            else {
+                queryOptions.limit = queryLimit;
+            }
+            if (queryJSON.count) {
+                if (queryJSON.count === "1") {
+                    findCount = true;
+                }
+                delete queryJSON.count;
+            }
+
+            if(queryJSON.systemId && Array.isArray(queryJSON.systemId)){
+                query.systemId = {$in: queryJSON.systemId};
+                delete queryJSON.systemId
+            }
+            else if(queryJSON.systemId){
+                query.systemId = queryJSON.systemId;
+                delete queryJSON.systemId
+            }
+
+            if(queryJSON.insurerId && Array.isArray(queryJSON.insurerId)){
+                query.insurerId = {$in: queryJSON.insurerId};
+                delete queryJSON.insurerId
+            }
+            else if(queryJSON.insurerId){
+                query.insurerId = queryJSON.insurerId;
+                delete queryJSON.insurerId
+            }
+
+            // Old Mysql reference
+            if(queryJSON.insurer && Array.isArray(queryJSON.insurer)){
+                query.systemId = {$in: queryJSON.insurer};
+                delete queryJSON.insurer
+            }
+            else if(queryJSON.insurer){
+                query.systemId = queryJSON.insurer;
+                delete queryJSON.insurer
+            }
+
+
+            if (queryJSON) {
+                for (var key in queryJSON) {
+                    if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
+                        let clearString = queryJSON[key].replace("%", "");
+                        clearString = clearString.replace("%", "");
+                        query[key] = {
+                            "$regex": clearString,
+                            "$options": "i"
+                        };
+                    }
+                    else {
+                        query[key] = queryJSON[key];
+                    }
+                }
+            }
+
+
+            if (findCount === false) {
+                let docList = null;
+                // eslint-disable-next-line prefer-const
+                try {
+                    // log.debug("InsurerModel GetList query " + JSON.stringify(query) + __location)
+                    docList = await InsurerModel.find(query,queryProjection, queryOptions);
+                }
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    rejected = true;
+                }
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                if(docList && docList.length > 0){
+                    resolve(mongoUtils.objListCleanup(docList));
+                }
+                else {
+                    resolve([]);
+                }
+                return;
+            }
+            else {
+                const docCount = await InsurerModel.countDocuments(query).catch(err => {
+                    log.error("InsurerModel.countDocuments error " + err + __location);
+                    error = null;
+                    rejected = true;
+                })
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                resolve({count: docCount});
+                return;
             }
 
 
         });
     }
 
-    getById(id) {
+
+    async getMongoDocbyMysqlId(mysqlId, returnMongooseModel = false) {
         return new Promise(async(resolve, reject) => {
-            //validate
-            if(id && id > 0){
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
+            if (mysqlId) {
+                const query = {
+                    "systemId": mysqlId,
+                    active: true
+                };
+                let docDB = null;
+                try {
+                    docDB = await InsurerModel.findOne(query, '-__v');
+                }
+                catch (err) {
+                    log.error("Getting Agency error " + err + __location);
                     reject(err);
-                    return;
-                });
-                this.updateProperty();
-                resolve(this.#dbTableORM.cleanJSON());
+                }
+                if(returnMongooseModel){
+                    resolve(docDB);
+                }
+                else if(docDB){
+                    const insurerDoc = mongoUtils.objCleanup(docDB);
+                    resolve(insurerDoc);
+                }
+                else {
+                    resolve(null);
+                }
+
             }
             else {
                 reject(new Error('no id supplied'))
@@ -168,30 +256,113 @@ module.exports = class InsurerBO{
         });
     }
 
+    getById(id) {
+        return this.getMongoDocbyMysqlId(id);
+    }
+
+    async updateMongo(docId, newObjectJSON) {
+        if (docId) {
+            if (typeof newObjectJSON === "object") {
+
+                const query = {"insurerUuidId": docId};
+                let newAgencyJSON = null;
+                try {
+                    const changeNotUpdateList = ["active",
+                        "id",
+                        "mysqlId",
+                        "systemId",
+                        "insurerUuidId",
+                        "insurerId"]
+                    for (let i = 0; i < changeNotUpdateList.length; i++) {
+                        if (newObjectJSON[changeNotUpdateList[i]]) {
+                            delete newObjectJSON[changeNotUpdateList[i]];
+                        }
+                    }
+
+                    await InsurerModel.updateOne(query, newObjectJSON);
+                    const newAgencyDoc = await InsurerModel.findOne(query);
+                    //const newAgencyDoc = await InsurerModel.findOneAndUpdate(query, newObjectJSON, {new: true});
+
+                    newAgencyJSON = mongoUtils.objCleanup(newAgencyDoc);
+                }
+                catch (err) {
+                    log.error(`Updating Application error appId: ${docId}` + err + __location);
+                    throw err;
+                }
+                //
+
+                return newAgencyJSON;
+            }
+            else {
+                throw new Error(`no newObjectJSON supplied appId: ${docId}`)
+            }
+
+        }
+        else {
+            throw new Error('no id supplied')
+        }
+        // return true;
+
+    }
+
+    async insertMongo(newObjectJSON) {
+        if (!newObjectJSON) {
+            throw new Error("no data supplied");
+        }
+        //force mongo/mongoose insert
+        if(newObjectJSON._id) {
+            delete newObjectJSON._id
+        }
+        if(newObjectJSON.id) {
+            delete newObjectJSON.id
+        }
+        const newSystemId = await this.newMaxSystemId()
+        newObjectJSON.systemId = newSystemId;
+        newObjectJSON.insurerId = newSystemId;
+        const insurer = new InsurerModel(newObjectJSON);
+        //Insert a doc
+        await insurer.save().catch(function(err) {
+            log.error('Mongo insurer Save err ' + err + __location);
+            throw err;
+        });
+        newObjectJSON.id = newSystemId;
+        return mongoUtils.objCleanup(insurer);
+    }
+
+    async newMaxSystemId(){
+        let maxId = 0;
+        try{
+
+            //small collection - get the collection and loop through it.
+            // TODO refactor to use mongo aggretation.
+            const query = {}
+            const queryProjection = {"systemId": 1}
+            var queryOptions = {lean:true};
+            queryOptions.sort = {};
+            queryOptions.sort.systemId = -1;
+            queryOptions.limit = 1;
+            const docList = await InsurerModel.find(query, queryProjection, queryOptions)
+            if(docList && docList.length > 0){
+                for(let i = 0; i < docList.length; i++){
+                    if(docList[i].systemId > maxId){
+                        maxId = docList[i].systemId + 1;
+                    }
+                }
+            }
+
+        }
+        catch(err){
+            log.error("Get max system id " + err + __location)
+            throw err;
+        }
+        log.debug("maxId: " + maxId + __location)
+        return maxId;
+    }
+
     cleanJSON(noNulls = true){
         return this.#dbTableORM.cleanJSON(noNulls);
     }
 
-    async cleanupInput(inputJSON){
-        for (const property in properties) {
-            if(inputJSON[property]){
-                // Convert to number
-                try{
-                    if (properties[property].type === "number" && typeof inputJSON[property] === "string"){
-                        if (properties[property].dbType.indexOf("int") > -1){
-                            inputJSON[property] = parseInt(inputJSON[property], 10);
-                        }
-                        else if (properties[property].dbType.indexOf("float") > -1){
-                            inputJSON[property] = parseFloat(inputJSON[property]);
-                        }
-                    }
-                }
-                catch(e){
-                    log.error(`Error converting property ${property} value: ` + inputJSON[property] + __location)
-                }
-            }
-        }
-    }
 
     updateProperty(){
         const dbJSON = this.#dbTableORM.cleanJSON()
@@ -213,6 +384,38 @@ module.exports = class InsurerBO{
         return true;
     }
 
+    async getTerritories(insurerId){
+        let territoryArray = [];
+        let insurerPolicyTypeListJSON = {};
+        try{
+            const insurerPolicyTypeBO = new InsurerPolicyTypeBO();
+            const query = {"insurerId": insurerId}
+            insurerPolicyTypeListJSON = await insurerPolicyTypeBO.getList(query)
+            if(insurerPolicyTypeListJSON){
+                for(const insurerPolicyTypeJSON of insurerPolicyTypeListJSON){
+                    if(insurerPolicyTypeJSON.territories && insurerPolicyTypeJSON.territories.length > 0){
+                        for(let i = 0; i < insurerPolicyTypeJSON.territories.length; i++){
+                            const ptTerritory = insurerPolicyTypeJSON.territories[i];
+                            if (territoryArray.indexOf(ptTerritory) === -1) {
+                                territoryArray.push(ptTerritory);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        catch(err){
+            log.error("Getting mongo clw_talage_insurer_policy_types error " + err + __location)
+        }
+        if(territoryArray && territoryArray.length > 0){
+             return territoryArray.sort();
+        }
+        else {
+            return [];
+        }
+       
+
+    }
 
     // ***************************
     //    For administration site
@@ -221,23 +424,32 @@ module.exports = class InsurerBO{
 
     async getSelectionList(){
 
-        let rejected = false;
-        const sql = `select id, name, logo  
-            from clw_talage_insurers
-            where state > 0
-            order by name`
-        const result = await db.query(sql).catch(function(error) {
-            // Check if this was
-            rejected = true;
-            log.error(`${tableName} error on select ` + error + __location);
-        });
-        if (!rejected && result && result.length > 0) {
-            return result;
+        // let rejected = false;
+        // const sql = `select id, name, logo
+        //     from clw_talage_insurers
+        //     where state > 0
+        //     order by name`
+        // const result = await db.query(sql).catch(function(error) {
+        //     // Check if this was
+        //     rejected = true;
+        //     log.error(`${tableName} error on select ` + error + __location);
+        // });
+        // if (!rejected && result && result.length > 0) {
+        //     return result;
+        // }
+        // else {
+        //     return [];
+        // }
+        //Only used be Outage page.
+        //TODO refactor to only return id, name and logo.
+        let insurerList = [];
+        try{
+            insurerList = await this.getList({});
         }
-        else {
-            return [];
+        catch(err){
+            log.error(`Insurer GetList error on select ` + err + __location);
         }
-
+        return insurerList;
     }
 
 }
@@ -598,6 +810,7 @@ const properties = {
 
 class DbTableOrm extends DatabaseObject {
 
+    // eslint-disable-next-line no-shadow
     constructor(tableName){
         super(tableName, properties);
     }

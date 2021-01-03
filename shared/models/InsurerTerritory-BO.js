@@ -112,8 +112,24 @@ module.exports = class InsurerTerritoryBO{
                     sql += ` insurer = ${db.escape(queryJSON.insurer)} `
                     hasWhere = true;
                 }
+                if(queryJSON.gl){
+                    sql += hasWhere ? " AND " : " WHERE ";
+                    sql += ` gl = ${db.escape(queryJSON.gl)} `
+                    hasWhere = true;
+                }
+                if(queryJSON.wc){
+                    sql += hasWhere ? " AND " : " WHERE ";
+                    sql += ` wc = ${db.escape(queryJSON.wc)} `
+                    hasWhere = true;
+                }
+                if(queryJSON.bop){
+                    sql += hasWhere ? " AND " : " WHERE ";
+                    sql += ` bop = ${db.escape(queryJSON.bop)} `
+                    hasWhere = true;
+                }
             }
             // Run the query
+            
             const result = await db.query(sql).catch(function(error) {
                 // Check if this was
 
