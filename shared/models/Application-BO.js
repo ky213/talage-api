@@ -2561,10 +2561,14 @@ module.exports = class ApplicationModel {
         //Agency Location insurer list.
         let insurerArray = [];
         if(applicationDocDB.agencyLocationId && applicationDocDB.agencyLocationId > 0){
+            //TODO Agency Prime
             const agencyLocationBO = new AgencyLocationBO();
-            const agencylocationJSON = await agencyLocationBO.getById(applicationDocDB.agencyLocationId).catch(function(err) {
+            const getChildren = true;
+            const addAgencyPrimaryLocation = true;
+            const agencylocationJSON = await agencyLocationBO.getById(applicationDocDB.agencyLocationId, getChildren, addAgencyPrimaryLocation).catch(function(err) {
                 log.error(`Error getting Agency Primary Location ${applicationDocDB.uuid} ` + err + __location);
             });
+
             if (agencylocationJSON && agencylocationJSON.insurers && agencylocationJSON.insurers.length > 0) {
                 for(let i = 0; i < agencylocationJSON.insurers.length; i++){
                     insurerArray.push(agencylocationJSON.insurers[i].insurerId)

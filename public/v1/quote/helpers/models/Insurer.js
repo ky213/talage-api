@@ -98,7 +98,6 @@ module.exports = class Insurer {
                     //list of policyttypes.
                     this.policy_types = [];
                     for(const insurerPolicyTypeJSON of insurerPolicyTypeList){
-                        log.debug(`insurer ${id} policy type ${insurerPolicyTypeJSON.policy_type}`)
                         this.policy_types.push(insurerPolicyTypeJSON.policy_type);
                         this.policy_type_details[insurerPolicyTypeJSON.policy_type] = {
                             'api_support': insurerPolicyTypeJSON.api_support,

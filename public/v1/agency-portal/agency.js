@@ -280,10 +280,7 @@ async function postAgency(req, res, next) {
         log.warn('territories are required');
         return next(serverHelper.requestError('You must select at least one Territory'));
     }
-    if (!Object.prototype.hasOwnProperty.call(req.body, 'agencyIds') || typeof req.body.agencyIds !== 'object' || Object.keys(req.body.agencyIds).length < 1) {
-        log.warn('agencyIds are required');
-        return next(serverHelper.requestError('You must enter at least one Agency ID'));
-    }
+
 
     // Begin compiling a list of territories
     const insurerIDs = [];
@@ -292,49 +289,6 @@ async function postAgency(req, res, next) {
     // Build a query for getting all insurers with their territories
     const agencyNetworkId = req.authentication.agencyNetworkId
 
-    let insurers = [];
-    try{
-        const agencyNetworkInsurerBO = new AgencyNetworkInsurerBO();
-        const queryAgencyNetwork = {"agencyNetworkId": agencyNetworkId}
-        const agencyNetworkInsurers = await agencyNetworkInsurerBO.getList(queryAgencyNetwork)
-        // eslint-disable-next-line prefer-const
-        let insurerIdArray = [];
-        agencyNetworkInsurers.forEach(function(agencyNetworkInsurer){
-            if(agencyNetworkInsurer.insurer){
-                insurerIdArray.push(agencyNetworkInsurer.insurer);
-            }
-        });
-        if(insurerIdArray.length > 0){
-            const insurerBO = new InsurerBO();
-            const insurerPolicyTypeBO = new InsurerPolicyTypeBO();
-            const query = {"insurerId": insurerIdArray}
-            let insurerDBJSONList = await insurerBO.getList(query);
-            if(insurerDBJSONList && insurerDBJSONList.length > 0){
-                for(let insurerDB of insurerDBJSONList){
-                    insurerDB.territories = await insurerBO.getTerritories(insurerDB.insurerId);
-                    //check if any insurerPolicyType is wheelhouse enabled.
-                    // eslint-disable-next-line object-property-newline
-                    const queryPT = {"wheelhouse_support": true, insurerId: insurerDB.insurerId};
-                    const insurerPtDBList = await insurerPolicyTypeBO.getList(queryPT)
-                    if(insurerPtDBList && insurerPtDBList.length > 0){
-                        insurerDB.policyTypes = insurerPtDBList;
-                        if(insurerDB.territories){
-                            territoryAbbreviations = territoryAbbreviations.concat(insurerDB.territories);
-                        }
-                        insurerIDs.push(insurerDB.insurerId);
-                        insurers.push(insurerDB)
-                    }
-                    else {
-                        log.info(`No wheelhouse enabled products for insurer ${insurerDB.insurerId}` + __location)
-                    }
-                }
-            }
-        }
-
-    }
-    catch(err){
-        log.error(`Error get Agency Network Insurer List ` + err + __location);
-    }
 
     // Validate
     if (!validator.agency_name(req.body.name)) {
@@ -345,43 +299,106 @@ async function postAgency(req, res, next) {
         log.warn('Invalid email address');
         return next(serverHelper.requestError('The email address entered is not valid.'));
     }
-    req.body.territories.forEach(function(territoryAbbreviation) {
-        if (!territoryAbbreviations.includes(territoryAbbreviation)) {
-            error = serverHelper.requestError('Invalid territory in request. Please contact us.');
-        }
-    });
-    if (error) {
-        return next(error);
+
+    let useAgencyPrime = false;
+
+    if(req.body.useAgencyPrime){
+        useAgencyPrime = req.body.useAgencyPrime;
     }
-    for (let insurerID in req.body.agencyIds) {
-        if (Object.prototype.hasOwnProperty.call(req.body.agencyIds, insurerID)) {
-            // Convert the insurer ID into a number
-            insurerID = parseInt(insurerID, 10);
 
-            // Make sure the insurer ID is permitted
-            if (!insurerIDs.includes(insurerID)) {
-                return next(serverHelper.requestError('Invalid insurer ID in request. Please contact us.'));
-            }
+    let insurers = [];
+    if(useAgencyPrime === false){
+        if (!Object.prototype.hasOwnProperty.call(req.body, 'agencyIds') || typeof req.body.agencyIds !== 'object' || Object.keys(req.body.agencyIds).length < 1) {
+            log.warn('agencyIds are required');
+            return next(serverHelper.requestError('You must enter at least one Agency ID'));
+        }
 
-            // Make sure the field wasn't left blank
-            if (!req.body.agencyIds[insurerID]) {
-                return next(serverHelper.requestError('An agency ID is required for each insurer.'));
-            }
 
-            // Make sure the agentId field wasn't left blank for insurers that require agent id
-            const maybeInsurer = insurers.filter((ins) => ins.insurerId === insurerID);
-            const insurer = maybeInsurer.length > 0 ? maybeInsurer[0] : null;
-            // if we find the insurer and the enable agent id is true and the agentId field is empty then throw error
-            if (insurer !== null) {
-                if (insurer.enable_agent_id === 1 && !req.body.agentIds[insurerID]) {
-                    return next(serverHelper.requestError('An Agent ID is required for each insurer.'));
+        try{
+            const agencyNetworkInsurerBO = new AgencyNetworkInsurerBO();
+            const queryAgencyNetwork = {"agencyNetworkId": agencyNetworkId}
+            const agencyNetworkInsurers = await agencyNetworkInsurerBO.getList(queryAgencyNetwork)
+            // eslint-disable-next-line prefer-const
+            let insurerIdArray = [];
+            agencyNetworkInsurers.forEach(function(agencyNetworkInsurer){
+                if(agencyNetworkInsurer.insurer){
+                    insurerIdArray.push(agencyNetworkInsurer.insurer);
+                }
+            });
+            if(insurerIdArray.length > 0){
+                const insurerBO = new InsurerBO();
+                const insurerPolicyTypeBO = new InsurerPolicyTypeBO();
+                const query = {"insurerId": insurerIdArray}
+                let insurerDBJSONList = await insurerBO.getList(query);
+                if(insurerDBJSONList && insurerDBJSONList.length > 0){
+                    for(let insurerDB of insurerDBJSONList){
+                        insurerDB.territories = await insurerBO.getTerritories(insurerDB.insurerId);
+                        //check if any insurerPolicyType is wheelhouse enabled.
+                        // eslint-disable-next-line object-property-newline
+                        const queryPT = {"wheelhouse_support": true, insurerId: insurerDB.insurerId};
+                        const insurerPtDBList = await insurerPolicyTypeBO.getList(queryPT)
+                        if(insurerPtDBList && insurerPtDBList.length > 0){
+                            insurerDB.policyTypes = insurerPtDBList;
+                            if(insurerDB.territories){
+                                territoryAbbreviations = territoryAbbreviations.concat(insurerDB.territories);
+                            }
+                            insurerIDs.push(insurerDB.insurerId);
+                            insurers.push(insurerDB)
+                        }
+                        else {
+                            log.info(`No wheelhouse enabled products for insurer ${insurerDB.insurerId}` + __location)
+                        }
+                    }
                 }
             }
-            else {
-                log.error('We have in insurer info being sent to the backend with an insurer id that does not exist in the db. Error at ' + __location)
+
+        }
+        catch(err){
+            log.error(`Error get Agency Network Insurer List ` + err + __location);
+        }
+
+        req.body.territories.forEach(function(territoryAbbreviation) {
+            if (!territoryAbbreviations.includes(territoryAbbreviation)) {
+                error = serverHelper.requestError('Invalid territory in request. Please contact us.');
+            }
+        });
+        if (error) {
+            return next(error);
+        }
+
+
+        for (let insurerID in req.body.agencyIds) {
+            if (Object.prototype.hasOwnProperty.call(req.body.agencyIds, insurerID)) {
+            // Convert the insurer ID into a number
+                insurerID = parseInt(insurerID, 10);
+
+                // Make sure the insurer ID is permitted
+                if (!insurerIDs.includes(insurerID)) {
+                    return next(serverHelper.requestError('Invalid insurer ID in request. Please contact us.'));
+                }
+
+                // Make sure the field wasn't left blank
+                if (!req.body.agencyIds[insurerID]) {
+                    return next(serverHelper.requestError('An agency ID is required for each insurer.'));
+                }
+
+                // Make sure the agentId field wasn't left blank for insurers that require agent id
+                const maybeInsurer = insurers.filter((ins) => ins.insurerId === insurerID);
+                const insurer = maybeInsurer.length > 0 ? maybeInsurer[0] : null;
+                // if we find the insurer and the enable agent id is true and the agentId field is empty then throw error
+                if (insurer !== null) {
+                    if (insurer.enable_agent_id === 1 && !req.body.agentIds[insurerID]) {
+                        return next(serverHelper.requestError('An Agent ID is required for each insurer.'));
+                    }
+                }
+                else {
+                    log.error('We have in insurer info being sent to the backend with an insurer id that does not exist in the db. Error at ' + __location)
+                }
             }
         }
+
     }
+
 
     // Localize data variables
     const email = req.body.email.toLowerCase();
@@ -391,6 +408,7 @@ async function postAgency(req, res, next) {
     const territories = req.body.territories;
     const agencyIds = req.body.agencyIds;
     const agentIds = req.body.agentIds;
+
 
     // Make sure we don't already have an user tied to this email address
     const emailHash = await crypt.hash(email);
@@ -465,6 +483,7 @@ async function postAgency(req, res, next) {
         lastName: lastName,
         slug: slug,
         wholesale: wholesale
+
     }
     error = null;
     // Load the request data into it
@@ -479,47 +498,51 @@ async function postAgency(req, res, next) {
     // Create Insurers array:
     // Defaults to WC being enbled only.
     const insurerArray = [];
-    for (const insurerID in agencyIds) {
-        const insurerIdInt = parseInt(insurerID, 10)
-        // Do not default to WC only.
-        // base it on the insurer setup.
-        //Find insurer in insurelist
-        try{
-            const insurerJSON = insurers.find((ins) => ins.insurerId === insurerIdInt);
-            if(insurerJSON){
+    if(useAgencyPrime === false){
+        for (const insurerID in agencyIds) {
+            const insurerIdInt = parseInt(insurerID, 10)
+            // Do not default to WC only.
+            // base it on the insurer setup.
+            //Find insurer in insurelist
+            try{
+                const insurerJSON = insurers.find((ins) => ins.insurerId === insurerIdInt);
+                if(insurerJSON){
                 //insurerDB.policyTypes = insurerPtDBList;
-                const insurerAL = {
-                    "insurerId": insurerIdInt,
-                    "agencyId": agencyIds[insurerID],
-                    "policyTypeInfo": {
-                        "notifyTalage": false
-                    }
-                };
-                if(insurerJSON.policyTypes && insurerJSON.policyTypes.length > 0){
-                    for(const insurerPolicyType of insurerJSON.policyTypes){
-                        insurerAL.policyTypeInfo[insurerPolicyType.policy_type] = {
-                            "enabled": true,
-                            "useAcord": false,
-                            "acordInfo": {"sendToEmail": ""}
+                    const insurerAL = {
+                        "insurerId": insurerIdInt,
+                        "agencyId": agencyIds[insurerID],
+                        "policyTypeInfo": {
+                            "notifyTalage": false
+                        }
+                    };
+                    if(insurerJSON.policyTypes && insurerJSON.policyTypes.length > 0){
+                        for(const insurerPolicyType of insurerJSON.policyTypes){
+                            insurerAL.policyTypeInfo[insurerPolicyType.policy_type] = {
+                                "enabled": true,
+                                "useAcord": false,
+                                "acordInfo": {"sendToEmail": ""}
+                            }
+                        }
+                        if (agentIds[insurerID]) {
+                            insurerAL.agentId = agentIds[insurerID];
                         }
                     }
-                    if (agentIds[insurerID]) {
-                        insurerAL.agentId = agentIds[insurerID];
+                    else {
+                        log.error(`did not find policyTypes for ${JSON.stringify(insurerJSON)}` + __location)
                     }
+                    insurerArray.push(insurerAL);
                 }
                 else {
-                    log.error(`did not find policyTypes for ${JSON.stringify(insurerJSON)}` + __location)
+                    log.error(`did not find insurer ${insurerID}  in list ${JSON.stringify(insurers)}` + __location)
                 }
-                insurerArray.push(insurerAL);
             }
-            else {
-                log.error(`did not find insurer ${insurerID}  in list ${JSON.stringify(insurers)}` + __location)
+            catch(err){
+                log.error(`Create Agency add agency location insurer ` + err + __location)
             }
         }
-        catch(err){
-            log.error(`Create Agency add agency location insurer ` + err + __location)
-        }
+
     }
+
     // Create a default location for this agency
     const newAgencyLocationJSON = {
         agencyId: agencyId,
@@ -527,6 +550,7 @@ async function postAgency(req, res, next) {
         agencyNetworkId: req.authentication.agencyNetwork,
         firstName: firstName,
         lastName: lastName,
+        useAgencyPrime: useAgencyPrime,
         insurers: insurerArray,
         territories: territories,
         additionalInfo: {territories: territories}

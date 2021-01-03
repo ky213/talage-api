@@ -4,6 +4,7 @@
 
 const serverHelper = require('../../../server.js');
 const AgencyNetworkInsurerBO = global.requireShared('./models/AgencyNetworkInsurer-BO.js');
+const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const InsurerBO = global.requireShared('models/Insurer-BO.js');
 const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
 
@@ -25,6 +26,7 @@ async function createAgency(req, res, next){
 
     // Begin building the response
     const response = {
+        "showUseAgencyPrime": false,
         "insurers": [],
         "territories": {}
     };
@@ -38,9 +40,16 @@ async function createAgency(req, res, next){
     // eslint-disable-next-line prefer-const
     let insurers = [];
     try{
-        const agencyNetworkInsurerBO = new AgencyNetworkInsurerBO();
+        const agencyNetworkBO = new AgencyNetworkBO();
         const queryAgencyNetwork = {"agencyNetworkId": agencyNetworkId}
+        const agencyNetwork = await agencyNetworkBO.getById(agencyNetworkId);
+        if(agencyNetwork.feature_json && agencyNetwork.feature_json.enablePrimeAgency) {
+            response.showUseAgencyPrime = agencyNetwork.feature_json.enablePrimeAgency
+        }
+        const agencyNetworkInsurerBO = new AgencyNetworkInsurerBO();
         const agencyNetworkInsurers = await agencyNetworkInsurerBO.getList(queryAgencyNetwork)
+
+
         // eslint-disable-next-line prefer-const
         let insurerIdArray = [];
         agencyNetworkInsurers.forEach(function(agencyNetworkInsurer){

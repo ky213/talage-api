@@ -73,7 +73,9 @@ module.exports = class AgencyLocation {
             let agencyLocation = null;
             try{
                 const agencyLocationBO = new AgencyLocationBO();
-                agencyLocation = await agencyLocationBO.getById(this.id);
+                const getChildren = true;
+                const addAgencyPrimaryLocation = true;
+                agencyLocation = await agencyLocationBO.getById(this.id, getChildren, addAgencyPrimaryLocation );
                 if(agencyLocation.insurers){
                     alInsurerList = agencyLocation.insurers;
                 }
