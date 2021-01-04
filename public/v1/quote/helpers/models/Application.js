@@ -58,14 +58,16 @@ module.exports = class Application {
         //let error = null
         let applicationBO = new ApplicationBO();
 
-        try{
+        try {
             this.applicationDocData = await applicationBO.loadfromMongoBymysqlId(this.id);
             log.debug("Quote Application added applicationData")
-        }
-        catch(err){
+        } catch(err){
             log.error("Unable to get applicationData for quoting appId: " + data.id + __location);
             throw err;
         }
+
+        //TODO: move this to an init or translate style function that massages the data into a form the integrations will expect
+        this.applicationDocData.founded = moment(this.applicationDocData.founded);
 
         //age check - add override Age parameter to allow requoting.
         if (forceQuoting === false){
@@ -97,10 +99,9 @@ module.exports = class Application {
         // Load the policy information
         try{
             for (let i = 0; i < this.applicationDocData.policies.length; i++) {
-                //const policyTypeBO = policyTypeList[i];
                 const policyJSON = this.applicationDocData.policies[i];
                 const p = new Policy();
-                await p.load(policyJSON, this.business,this.applicationDocData);
+                await p.load(policyJSON, this.business, this.applicationDocData);
                 this.policies.push(p);
                 appPolicyTypeList.push(policyJSON.type);
             }
@@ -640,103 +641,92 @@ module.exports = class Application {
 	 *
 	 * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
 	 */
-    validate() {
+    async validate() {
         return new Promise(async(fulfill, reject) => {
-            let stop = false;
 
             // Agent
-            await validateAgencyLocation(this.agencyLocation).catch(function(error) {
-                log.error('validateAgencyLocation() error ' + error + __location);
-                reject(error);
-                stop = true;
-            });
-            if (stop) {
-                return;
+            try {
+                await validateAgencyLocation(this.agencyLocation);
+            } catch (e) {
+                log.error(`validateAgencyLocation() error: ${e}. ` + __location);
+                return reject(e);
             }
-
-            // Initialize the agent so it is ready for later
-            //TODO move to application load.  init loads data.
-            await this.agencyLocation.init().catch(function(error) {
-                log.error('Location.init() error ' + error + __location);
-                reject(error);
-                stop = true;
-            });
 
             // Validate the ID
             let applicationBO = new ApplicationBO();
-            if (!await applicationBO.isValidApplicationId(this.id)) {
-                //if applicationId suppled in the starting quoting requeset was bad
+            if (!await applicationBO.isValidApplicationId(this.applicationDocData.mysqlId)) {
+                // if applicationId suppled in the starting quoting requeset was bad
                 // the quoting process would have been stopped before validate was called.
-                log.error('applicationBO.isValidApplicationId ' + this.id + __location);
-                //reject(new Error('Invalid application ID specified.'));
-                // return;
+                log.error(`Error validating application ID: ${this.applicationDocData.mysqlId}. ` + __location);
             }
 
             // Get a list of insurers and wait for it to return
             // Determine if WholeSale shoud be used.  (this might have already been determined in the app workflow.)
-            const insurers = await this.get_insurers().catch(async(error) => {
-                if (error === 'Agent does not support this request') {
+            let insurers = null;
+            try { 
+                insurers = await this.get_insurers();
+            } catch (e) {
+                if (e.toLowerCase() === 'agent does not support this request') {
                     if (this.agencyLocation.wholesale) {
                         // Switching to the Talage agent
-                        log.info("Quote Application model Switching to the Talage agent appId: " + this.id + __location)
+                        log.info(`Quote Application model Switching to the Talage agent appId: ${this.applicationDocData.mysqlId}` + __location)
                         this.agencyLocation = new AgencyLocation(this);
                         await this.agencyLocation.load({id: 1}); // This is Talage's agency location record
 
                         // Initialize the agent so we can use it
-                        await this.agencyLocation.init().catch(function(init_error) {
-                            log.error('Location.init() error ' + init_error + __location);
-                            reject(init_error);
-                            stop = true;
-                        });
+                        try {
+                            await this.agencyLocation.init();
+                        } catch (e) {
+                            log.error(`Error in this.agencyLocation.init(): ${e}. ` + __location);
+                            return reject(init_error);
+                        }
 
                         // Try to get the insurers again
-                        return this.get_insurers();
+                        try {
+                            insurers = await this.get_insurers();
+                        } catch (e) {
+                            log.error(`Error in get_insurers: ${e}. ` + __location);
+                            return reject(e);
+                        }
                     }
 
-                    reject(new Error('The Agent specified cannot support this policy.'));
-                    stop = true;
+                    return reject(new Error('The Agent specified cannot support this policy.'));
+                } else {
+                    log.error(`Error in get_insurers: ${e}. ` + __location);
+                    return reject(e);
                 }
-                else {
-                    log.error('get insurers error ' + error + __location);
-                    reject(error);
-                    stop = true;
-                }
-            });
-            if (stop) {
-                return;
             }
-            if (!insurers || insurers.length === 0 || Object.prototype.toString.call(insurers) !== '[object Array]') {
+            
+            if (!insurers || !Array.isArray(insurers) || insurers.length === 0) {
                 log.error('Invalid insurer(s) specified in policy. ' + __location);
-                reject(new Error('Invalid insurer(s) specified in policy.'));
-                return;
+                return reject(new Error('Invalid insurer(s) specified in policy.'));
             }
 
             // Validate the business
-
-            await validateBusiness(this.business).catch(function(error) {
-                log.error('validateBusiness() error ' + error + __location);
-                reject(error);
-                stop = true;
-            });
-            if (stop) {
-                return;
+            try {
+                await validateBusiness(this.applicationDocData);
+            } catch (e) {
+                log.error(`Error in validateBusiness: ${e}. ` + __location);
+                return reject(error);
             }
-            //Rules related Business rules based on application level data.
+
             /**
+             * Rules related Business rules based on application level data.
 			 * Management Structure (required only for LLCs in MT)
 			 * - Must be either 'member' or 'manager'
 			 */
-            if (this.has_policy_type('WC') && this.business.entity_type === 'Limited Liability Company' && this.business.primary_territory === 'MT') {
-                if (this.business.management_structure) {
-                    if (!validator.management_structure(this.business.management_structure)) {
-                        log.warn(`Invalid management structure. Must be either "member" or "manager."` + this.id + __location)
-                        reject(new Error('Invalid management structure. Must be either "member" or "manager."'));
-                        return;
+            if (
+                this.has_policy_type('WC') && 
+                this.applicationDocData.entityType === 'Limited Liability Company' && 
+                this.applicationDocData.mailingState === 'MT'
+            ) {
+                if (this.applicationDocData.management_structure) {
+                    if (!validator.management_structure(this.applicationDocData.management_structure)) {
+                        log.warn(`Invalid management structure. Must be either "member" or "manager."` + this.applicationDocData.mysqlId + __location)
+                        return reject(new Error('Invalid management structure. Must be either "member" or "manager."'));
                     }
-                }
-                else {
-                    reject(new Error('Missing required field: management_structure'));
-                    return;
+                } else {
+                    return reject(new Error('Missing required field: management_structure'));
                 }
             }
 
@@ -744,56 +734,60 @@ module.exports = class Application {
 			 * Corporation type (required only for WC for Corporations in PA that are excluding owners)
 			 * - Must be one of 'c', 'n', or 's'
 			 */
-            if (this.has_policy_type('WC') && this.business.entity_type === 'Corporation' && this.business.primary_territory === 'PA' && !this.business.owners_included) {
-                if (this.business.corporation_type) {
+            if (
+                this.has_policy_type('WC') && 
+                this.applicationDocData.entityType === 'Corporation' && 
+                this.applicationDocData.mailingState === 'PA' && 
+                !this.applicationDocData.ownersCovered
+            ) {
+                // TODO: this will always fail because current mongoose schema doesn't have corporationType
+                if (this.applicationDocData.corporationType) {
                     // eslint-disable-next-line array-element-newline
-                    const pa_corp_valid_types = ['c','n','s'];
-                    if (!pa_corp_valid_types.includes(this.business.corporation_type)) {
-                        log.warn(`Invalid corporation type. Must be "c" (c-corp), "n" (non-profit), or "s" (s-corp)." ` + this.id + __location)
-                        reject(new Error('Invalid corporation type. Must be "c" (c-corp), "n" (non-profit), or "s" (s-corp).'));
-                        return;
+                    const paCorpValidTypes = ['c', 'n', 's'];
+                    if (!paCorpValidTypes.includes(this.applicationDocData.corporationType)) {
+                        log.warn(`Invalid corporation type. Must be "c" (c-corp), "n" (non-profit), or "s" (s-corp). ${this.applicationDocData.mysqlId}. ` + __location)
+                        return reject(new Error('Invalid corporation type. Must be "c" (c-corp), "n" (non-profit), or "s" (s-corp).'));
                     }
-                }
-                else {
-                    reject(new Error('Missing required field: corporation_type'));
-                    return;
+                } else {
+                    return reject(new Error('Missing required field: corporationType'));
                 }
             }
 
             /**
 			 * Owners (conditionally required)
 			 * - Only used for WC policies, ignored otherwise
-			 * - Only required if owners_included is false
+			 * - Only required if ownersCovered is false
 			 */
-            if (this.has_policy_type('WC') && !this.business.owners_included) {
-                if (this.business.owners.length) {
-                    // TO DO: Owner validation is needed here
-                }
-                else {
-                    reject(new Error('The names of owners must be supplied if they are not included in this policy.'));
-                    return;
+            if (this.has_policy_type('WC') && !this.applicationDocData.ownersCovered) {
+                if (this.applicationDocData.owners.length) {
+                    // TODO: Owner validation is needed here
+                } else {
+                    return reject(new Error('The names of owners must be supplied if they are not included in this policy.'));
                 }
             }
 
             /**
 			 * Unincorporated Association (Required only for WC, in NH, and for LLCs and Corporations)
 			 */
-            if (this.has_policy_type('WC') && (this.business.entity_type === 'Corporation' || this.business.entity_type === 'Limited Liability Company') && this.business.primary_territory === 'NH') {
+            if (
+                this.has_policy_type('WC') && 
+                (this.applicationDocData.entityType === 'Corporation' || this.applicationDocData.entityType === 'Limited Liability Company') && 
+                this.applicationDocData.mailingState === 'NH'
+            ) {
 
                 // This is required
-                if (this.business.unincorporated_association === null) {
-                    reject(new Error('Missing required field: unincorporated_association'));
-                    return;
+                if (this.applicationDocData.unincorporated_association === null) {
+                    return reject(new Error('Missing required field: unincorporated_association'));
                 }
 
                 // Validate
-                if (!validator.boolean(this.business.unincorporated_association)) {
-                    reject(new Error('Invalid value for unincorporated_association, please use a boolean value'));
-                    return;
+                if (!validator.boolean(this.applicationDocData.unincorporated_association)) {
+                    return reject(new Error('Invalid value for unincorporated_association, please use a boolean value'));
                 }
 
-                // Prepare the value for later use
-                this.business.unincorporated_association = helper.convert_to_boolean(this.business.unincorporated_association);
+                //TODO: validation functions should NOT update the value being validated, that is not their responsability.
+                //      This should be updated to happen before validation is called, or after.
+                this.applicationDocData.unincorporated_association = helper.convert_to_boolean(this.applicationDocData.unincorporated_association);
             }
 
 
@@ -804,8 +798,8 @@ module.exports = class Application {
                 try {
                     // validatePolicy updates the policy
                     // TODO: validation functions should NOT update the value being validated, that is not their responsability.
-                    //       This should be updated to happen before validation is called. 
-                    const newPolicy = await validatePolicy(policy);
+                    //       This should be updated to happen before validation is called, or after. 
+                    const newPolicy = await validatePolicy(applicationDocData, policy);
                     this.policies[i] = newPolicy;
                 } catch (e) {
                     log.error('Policy Validation error. ' + e + __location);
@@ -816,18 +810,23 @@ module.exports = class Application {
             // Get a list of all questions the user may need to answer
             const insurer_ids = this.get_insurer_ids();
             const wc_codes = this.get_wc_codes();
-            const questions = await questionsSvc.GetQuestionsForBackend(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids, true).catch(function(error) {
-                log.error('get_questions error ' + error + __location);
-                reject(error);
-            });
+
+            let questions = null;
+            try {
+                questions = await questionsSvc.GetQuestionsForBackend(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids, true);
+            } catch (e) {
+                log.error(`Error in get_questions: ${e}. ` + __location);
+                return reject(e);
+            }
+
             // Grab the answers the user provided to our questions and reset the question object
             const user_questions = this.questions;
             this.questions = {};
 
-            // Convert each question from the databse into a question object and load in the user's answer to each
-            let has_error = false;
+            // Convert each question from the database into a question object and load in the user's answer to each
             if (questions) {
-                await questions.forEach((question) => {
+                //await questions.forEach((question) => {
+                for (const question of questions) {
                     // Prepare a Question object based on this data and store it
                     const q = new Question();
                     q.load(question);
@@ -837,27 +836,24 @@ module.exports = class Application {
                         if (Object.prototype.hasOwnProperty.call(user_questions, q.id)) {
                             const user_answer = user_questions[q.id];
 
-                            q.set_answer(user_answer).catch(function(error) {
-                                log.error('set answers error ' + error + __location);
-                                reject(error);
-                                has_error = true;
-                            });
+                            try {
+                                q.set_answer(user_answer);
+                            } catch (e) {
+                                return reject(e);
+                            }
                         }
                     }
 
                     // Store the question object in the Application for later use
                     this.questions[q.id] = q;
-                });
-            }
-            if (has_error) {
-                return;
+                }
             }
 
             // Enforce required questions (this must be done AFTER all questions are loaded with their answers)
-            if (this.questions) {
-                for (const question_id in this.questions) {
-                    if (Object.prototype.hasOwnProperty.call(this.questions, question_id)) {
-                        const question = this.questions[question_id];
+            if (this.applicationDocData.questions) {
+                for (const questionId in this.applicationDocData.questions) {
+                    if (Object.prototype.hasOwnProperty.call(this.applicationDocData.questions, questionId)) {
+                        const question = this.applicationDocData.questions[questionId];
 
                         // Hidden questions are not required
                         if (question.hidden) {
@@ -870,10 +866,8 @@ module.exports = class Application {
 
                             // If no parent was found, throw an error
                             if (!parent_question) {
+                                // No one question issue should stop quoting with all insureres - BP 2020-10-04
                                 log.error(`Question ${question.id} has invalid parent setting. (${htmlentities.decode(question.text).replace('%', '%%')})` + __location);
-                                // No one question issue stop quoting with all insureres - BP 2020-10-04
-                                // reject(new Error('An unexpected error has occurred. Our team has been alerted and will contact you.'));
-                                // return;
                             }
                         }
 
@@ -883,49 +877,25 @@ module.exports = class Application {
 
             // Validate all of the questions
             if (this.applicationDocData.questions) {
-                const question_promises = [];
                 for (const questionId in this.applicationDocData.questions) {
                     if (Object.prototype.hasOwnProperty.call(this.applicationDocData.questions, questionId)) {
                         const question = this.applicationDocData.questions.find(q => q.questionId === questionId);
-                        // // Determine if this question is visible. We walk up through the ancestors to make sure each of them
-                        // // are visible. If any of them are not, then this question is not visible.
-                        // let questionIsVisible = true;
-                        // let childQuestionId = questionId.toString();
-                        // while (this.applicationDocData.questions[childQuestionId].parent !== 0) {
-                        //     // Get the parent ID. Ensure it is a string since the questions keys are strings.
-                        //     let parentQuestionId = this.applicationDocData.questions[childQuestionId].parent.toString();
-                        //     // Determine if the child question is visible
-                        //     if (this.applicationDocData.questions[childQuestionId].parent_answer !== this.applicationDocData.questions[parentQuestionId].answerId) {
-                        //         // Not visible so clear the flag and break
-                        //         questionIsVisible = false;
-                        //         break;
-                        //     }
-                        //     // Move up to the parent
-                        //     childQuestionId = parentQuestionId;
-                        // }
-                        // Only validate questions which are visible
+
                         if (!question.hidden) {
-                            question_promises.push(validateQuestion(question));
+                            try {
+                                await validateQuestion(question);
+                            } catch (e) {
+                                log.error(`Error validating question ${question.questionId}: ${e}. ` + __location);
+                            }
                         }
                     }
                 }
-                await Promise.all(question_promises).catch(function(error) {
-                    log.error('question_promises error. ' + error + __location);
-                    // No one question issue stop quoting with all insureres - BP 2020-10-04
-                    //reject(error);
-                    //stop = true;
-                });
             }
-
-            // (id: 1015 should have been removed as it was not required). What is the correct way to handle this?
-            // Note: we cannot hurt questions where a child must be sent
 
             // Check agent support
             await this.agencyLocation.supports_application().catch(function(error) {
+                // This issue should not result in a stoppage of quoting with all insureres - BP 2020-10-04
                 log.error('agencyLocation.supports_application() error ' + error + __location);
-                // No one question issue stop quoting with all insureres - BP 2020-10-04
-                // reject(error);
-                // stop = true;
             });
 
             fulfill(true);

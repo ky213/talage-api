@@ -16,7 +16,7 @@ exports.process = async function(requestJSON) {
     //Clean inputs
     requestJSON.businessInfo = {};
 
-    requestJSON.corporation_type = stringFunctions.santizeString(requestJSON.corporation_type);
+    requestJSON.corporationType = stringFunctions.santizeString(requestJSON.corporationType);
     requestJSON.coverage_lapse = stringFunctions.santizeNumber(requestJSON.coverage_lapse, makeInt);
     requestJSON.coverage_lapse_non_payment = stringFunctions.santizeNumber(requestJSON.coverage_lapse_non_payment, makeInt);
     requestJSON.entity_type = stringFunctions.santizeString(requestJSON.entity_type);

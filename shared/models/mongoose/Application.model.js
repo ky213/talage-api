@@ -170,9 +170,41 @@ const ApplicationSchema = new Schema({
     businessDataJSON: {type: Schema.Types.Mixed},
     agencyPortalCreatedUser: {type: String},
     agencyPortalModifiedUser: {type: String},
-    active: {type: Boolean, default: true}
+    active: {type: Boolean, default: true},
+    corporationType: {type: String, required: false}
 })
 // NOTE:  EIN is not ever saved to database.
+
+/********************************** */
+// Virtuals to preserve backwards compatability with old field names
+
+PolicySchema.virtual('type')
+    .get(() => {
+        if (this.policyType) {
+            return this.policyType;
+        } else {
+            return '';
+        }
+    });
+
+PolicySchema.virtual('effective_date')
+    .get(() => {
+        if (this.effectiveDate) {
+            return this.effectiveDate;
+        } else {
+            return null;
+        }
+    });
+
+PolicySchema.virtual('expiration_date')
+    .get(() => {
+        if (this.expirationDate) {
+            return this.expirationDate;
+        } else {
+            return null;
+        }
+    });
+
 
 /********************************** */
 ApplicationSchema.plugin(timestamps);

@@ -16,9 +16,8 @@ const moment = require('moment');
  *
  * @returns {Promise.<array, Error>} A promise that returns a boolean indicating whether or not this record is valid, or an Error if rejected
 */
-const validateBusiness = async (business) => {
+const validateBusiness = async (applicationDocData) => {
     return new Promise(async(fulfill, reject) => {
-
         /**
          * Bureau Number (optional)
          * - <= 999999999
@@ -26,42 +25,34 @@ const validateBusiness = async (business) => {
          * - All other states, must be formatted as #########
          */
         try {
-            if (business.bureau_number) {
-                if (business.bureau_number.length > 9) {
-                    log.warn(`Bureau Number max length is 9 appId: ${business.appId}` + __location);
+            if (applicationDocData.bureauNumber) {
+                if (applicationDocData.bureauNumber.length > 9) {
+                    log.warn(`Bureau Number max length is 9 applicationId: ${applicationDocData.applicationId}` + __location);
                 }
-                if (business.primary_territory.toString().toUpperCase() === 'CA') {
-                // Expected Formatting for 'CA' is 99-99-99
-                    if (!validator.isBureauNumberCA(business.bureau_number)) {
-                        log.error(`Bureau Number must be formatted as 99-99-99 appId: ${business.appId}` + __location);
+                if (applicationDocData.primary_territory.toString().toUpperCase() === 'CA') {
+                    // Expected Formatting for 'CA' is 99-99-99
+                    if (!validator.isBureauNumberCA(applicationDocData.bureauNumber)) {
+                        log.error(`Bureau Number must be formatted as 99-99-99 applicationId: ${applicationDocData.applicationId}` + __location);
                     }
                 }
-                else if (!validator.isBureauNumberNotCA(business.bureau_number)) {
-                // Expected Formatting for all other states is 999999999
-                    log.error(`Bureau Number must be numeric appId: ${business.appId}` + __location);
+                else if (!validator.isBureauNumberNotCA(applicationDocData.bureauNumber)) {
+                    // Expected Formatting for all other states is 999999999
+                    log.error(`Bureau Number must be numeric applicationId: ${applicationDocData.applicationId}` + __location);
                 }
             }
         } catch (e) {
-            log.error(`Business Validation bureau_number error: ${e} ${__location}`)
+            log.error(`Business Validation bureauNumber error: ${e} ${__location}`)
         }
 
 
         /**
          * Contacts (required - validation handled in Contact object)
          */
-        if (business.contacts.length) {
-            const contact_promises = [];
-            business.contacts.forEach(contact => {
-                contact_promises.push(validateContact(contact)); 
-            });
-
-            let error = null;
-            await Promise.all(contact_promises).catch(contact_error => {
-                error = contact_error;
-            });
-            if (error) {
-                // TODO Consistent return ERROR type - currently mixed
-                return reject(error);
+        if (applicationDocData.contacts.length) {
+            try {
+                validateContacts(applicationDocData);
+            } catch (e) {
+                return reject(`Failed validating contacts: ${e}`);
             }
         } else {
             return reject(new Error('At least 1 contact must be provided'));
@@ -72,22 +63,19 @@ const validateBusiness = async (business) => {
          * - Must be a valid business name
          * - Must be 100 characters or less
          */
-        if (business.dba) {
+        if (applicationDocData.dba) {
             // Check for invalid characters
             //Do not stop the quote over dba name.  Different insurers have different rules
-            if (!validator.isBusinessName(business.dba)) {
-                log.warn(`Invalid characters in DBA. Appid ${business.appId}` + __location)
-                //reject(new Error('Invalid characters in DBA')
-                //return;
+            if (!validator.isBusinessName(applicationDocData.dba)) {
+                log.warn(`Invalid characters in DBA. applicationId ${applicationDocData.applicationId}` + __location)
             }
 
+            // TODO: Move this to a translate method
             // Check for max length
             //Do not stop the quote over dba name.  Different insurers have different rules
-            if (business.dba.length > 100) {
-                log.warn(`DBA exceeds maximum length of 100 characters Appid ${business.appId}` + __location);
-                business.dba = business.dba.substring(0,100);
-                // reject(new Error('DBA exceeds maximum length of 100 characters'));
-                // return;
+            if (applicationDocData.dba.length > 100) {
+                log.warn(`DBA exceeds maximum length of 100 characters applicationId ${applicationDocData.applicationId}` + __location);
+                applicationDocData.dba = applicationDocData.dba.substring(0, 100);
             }
         }
 
@@ -95,7 +83,7 @@ const validateBusiness = async (business) => {
          * Entity Type (required)
          * - Must be one of our supported entity types
          */
-        if (business.entity_type) {
+        if (applicationDocData.entityType) {
             // Check that provided value is one of the supported values
             const valid_types = [
                 'Association',
@@ -106,11 +94,11 @@ const validateBusiness = async (business) => {
                 'Sole Proprietorship',
                 'Other'
             ];
-            if (valid_types.indexOf(business.entity_type) === -1) {
-                log.error(`Invalid data in property: entity_type Appid ${business.appId}` + __location);
+            if (valid_types.indexOf(applicationDocData.entityType) === -1) {
+                log.error(`Invalid data in property: entityType applicationId ${applicationDocData.applicationId}` + __location);
             }
         } else {
-            return reject(new Error('Missing property: entity_type'));
+            return reject(new Error('Missing property: entityType'));
         }
 
         /**
@@ -122,9 +110,9 @@ const validateBusiness = async (business) => {
          * limited use of experience_modifier in integration files.
          *  only log warning.
          */
-        if (business.bureau_number) {
-            if (business.experience_modifier < 0.20 || business.experience_modifier > 10) {
-                log.warn(`Experience Modifier must be between 0.20 and 10 Appid ${business.appId}` + __location);
+        if (applicationDocData.bureauNumber) {
+            if (applicationDocData.experience_modifier < 0.20 || applicationDocData.experience_modifier > 10) {
+                log.warn(`Experience Modifier must be between 0.20 and 10 applicationId ${applicationDocData.applicationId}` + __location);
             }
         }
 
@@ -134,19 +122,19 @@ const validateBusiness = async (business) => {
          * - Cannot be in the future
          * - Cannot be prior to July 4, 1776
          */
-        if (business.founded) {
+        if (applicationDocData.founded) {
             // Check for mm-yyyy formatting
-            if (!business.founded.isValid()) {
+            if (!applicationDocData.founded.isValid()) {
                 return reject(new Error('Invalid Date for founded.'));
             }
 
             // Confirm date is not in the future
-            if (business.founded.isAfter(moment())) {
+            if (applicationDocData.founded.isAfter(moment())) {
                 return reject(new Error('Invalid value for property: founded. Founded date cannot be in the future'));
             }
 
             // Confirm founded date is at least somewhat reasonable
-            if (business.founded.isBefore(moment('07-04-1776', 'MM-DD-YYYY'))) {
+            if (applicationDocData.founded.isBefore(moment('07-04-1776', 'MM-DD-YYYY'))) {
                 return reject(new Error('Invalid value for property: founded. Founded date is too far in the past.'));
             }
         } else {
@@ -159,62 +147,57 @@ const validateBusiness = async (business) => {
          * - <= 99999999999
          * - Must existin our database
          */
-        if (business.industry_code) {
-            business.industry_code_description = await validator.industry_code(business.industry_code);
-            if (!business.industry_code_description) {
+        if (applicationDocData.industryCode) {
+            applicationDocData.industryCode_description = await validator.industryCode(applicationDocData.industryCode);
+            if (!applicationDocData.industryCode_description) {
                 return reject(new Error('The industry code ID you provided is not valid'));
             }
         } else {
-            return reject(new Error('Missing property: industry_code'));
+            return reject(new Error('Missing property: industryCode'));
         }
 
         /**
          * Locations (required - validation handled in Location object)
          */
-        if (business.locations.length) {
-            const location_promises = [];
-            business.locations.forEach(location => {
-                location_promises.push(validateLocation(location));
-            });
-
-            let error = null;
-            await Promise.all(location_promises).catch(location_error => {
-                error = location_error;
-            });
-            if (error) {
-                // TODO Consistent return ERROR type - currently mixed
-                return reject(error);
-            }
-        } else {
+        if (applicationDocData.locations.length === 0) { 
             return reject(new Error('At least 1 location must be provided'));
+        }
+
+        for (const location of applicationDocData.locations) {
+            try {
+                await validateLocation(location);
+            } catch (e) {
+                return reject(e);
+            }
         }
 
         /**
          * Mailing Address (required)
          * - Must be under 100 characters
          */
-        if (business.mailing_address) {
+        if (applicationDocData.mailingAddress) {
+            // TODO: Move this to a translate method
             // Check for maximum length
-            if (business.mailing_address.length > 100) {
+            if (applicationDocData.mailingAddress.length > 100) {
                 log.error('Mailing address exceeds maximum of 100 characters');
-                business.mailing_address = business.mailing_address.substring(0,100);
+                applicationDocData.mailingAddress = applicationDocData.mailingAddress.substring(0,100);
             }
         } else {
-            return reject(new Error('Missing required field: mailing_address'));
+            return reject(new Error('Missing required field: mailingAddress'));
         }
 
         /**
          * Mailing Zip (required)
          * - Must be a 5 digit string
          */
-        if (business.mailing_zipcode) {
-            //let 9 digit zipcodes process.  log an error
-            if (!validator.isZip(business.mailing_zipcode)) {
-                log.error(`Invalid formatting for business: mailing_zip. Expected 5 digit format. appId: ${business.AppId} actual zip: ` + business.mailing_zipcode + __location)
+        if (applicationDocData.mailingZipcode) {
+            //let 9 digit zipcodes process. log an error
+            if (!validator.isZip(applicationDocData.mailingZipcode)) {
+                log.error(`Invalid formatting for business: mailingZipcode. Expected 5 digit format. applicationId: ${applicationDocData.applicationId} actual zip: ` + applicationDocData.mailingZipcode + __location)
             }
         } else {
-            log.error('Missing required field: business mailing_zip' + __location);
-            return reject(new Error('Missing required field:  business mailing_zip'));
+            log.error('Missing required field: business mailingZipcode' + __location);
+            return reject(new Error('Missing required field:  business mailingZipcode'));
         }
 
         /**
@@ -222,42 +205,42 @@ const validateBusiness = async (business) => {
          * - Must be a valid business name
          * - Must be 100 characters or less
          */
-        if (business.name) {
+        if (applicationDocData.businessName) {
             // Check for invalid characters
             // Let different Insurers have different rules
             // reject and clean rules should be in insurer integrations files.
-            if (!validator.isBusinessName(business.name)) {
-                log.error(`Invalid characters in name appId: ${business.appId}` + __location);
+            if (!validator.isBusinessName(applicationDocData.businessName)) {
+                log.error(`Invalid characters in businessName applicationId: ${applicationDocData.applicationId}` + __location);
             }
 
             // Check for max length
-            if (business.name.length > 100) {
-                return reject(new Error('Name exceeds maximum length of 100 characters'));
+            if (applicationDocData.businessName.length > 100) {
+                return reject(new Error('businessName exceeds maximum length of 100 characters'));
             }
         } else {
-            return reject(new Error('Missing required field: name'));
+            return reject(new Error('Missing required field: businessName'));
         }
 
         /**
          * Number of Owners (conditionally required)
-         * 0 < num_owners <= 99
+         * 0 < numOwners <= 99
          */
-        if(!business.num_owners){
+        if(!applicationDocData.numOwners){
             // Depend on insurer and policyType.
-            // reject decision should be in insurer integration file.  as of 11/14/2020 only Acuity and BTIS are using num_owners
-            log.warn(`You must specify the number of owners in the business appId: ${business.appId}` + __location);
+            // reject decision should be in insurer integration file.  as of 11/14/2020 only Acuity and BTIS are using numOwners
+            log.warn(`You must specify the number of owners in the business applicationId: ${applicationDocData.applicationId}` + __location);
         }
 
-        if (business.num_owners && isNaN(business.num_owners)) {
+        if (applicationDocData.numOwners && isNaN(applicationDocData.numOwners)) {
             log.error('Number of owners in the business must be a number' + __location);
             return reject(new Error('Number of owners in the business must be a number.'));
         }
 
-        if (business.num_owners && business.num_owners < 1) {
+        if (applicationDocData.numOwners && applicationDocData.numOwners < 1) {
             return reject(new Error('Number of owners cannot be less than 1.'));
         }
 
-        if (business.num_owners && business.num_owners > 99) {
+        if (applicationDocData.numOwners && applicationDocData.numOwners > 99) {
             return reject(new Error('Number of owners cannot exceed 99.'));
         }
 
@@ -265,57 +248,59 @@ const validateBusiness = async (business) => {
          * Phone (required)
          * - Must be a valid 9 digit phone number
          */
-        if (business.phone) {
+        if (applicationDocData.phone) {
             // Check that it is valid
-            if (!validator.phone(business.phone)) {
+            if (!validator.phone(applicationDocData.phone)) {
                 return reject(new Error('The phone number you provided is not valid. Please try again.'));
             }
 
             // Clean up the phone number for storage
-            if (typeof business.phone === 'number') {
-                business.phone = business.phone.toString();
+            if (typeof applicationDocData.phone === 'number') {
+                applicationDocData.phone = applicationDocData.phone.toString();
             }
 
-            if (business.phone.startsWith('+')) {
-                business.phone = business.phone.slice(1);
+            if (applicationDocData.phone.startsWith('+')) {
+                applicationDocData.phone = applicationDocData.phone.slice(1);
             }
 
-            if (business.phone.startsWith('1')) {
-                business.phone = business.phone.slice(1);
+            if (applicationDocData.phone.startsWith('1')) {
+                applicationDocData.phone = applicationDocData.phone.slice(1);
             }
 
-            business.phone = business.phone.replace(/[^0-9]/ig, '');
-            business.phone = parseInt(business.phone, 10);
+            // TODO: Move this to a translate method
+            applicationDocData.phone = applicationDocData.phone.replace(/[^0-9]/ig, '');
+            applicationDocData.phone = parseInt(applicationDocData.phone, 10);
         } else {
             return reject(new Error('Missing required field: phone'));
         }
 
+        // TODO: Move this to a translate method
         /**
          * Website (optional)
          * - Must be a valid URL
          * - Must be 100 characters or less
          */
-        if (business.website) {
+        if (applicationDocData.website) {
             // Check formatting
-            if (!validator.isWebsite(business.website)) {
-                log.info(`Invalid formatting for property: website. Expected a valid URL for ${business.appId}`)
-                business.website = '';
+            if (!validator.isWebsite(applicationDocData.website)) {
+                log.info(`Invalid formatting for property: website. Expected a valid URL for ${applicationDocData.applicationId}`)
+                applicationDocData.website = '';
             }
 
             // Check length if too long eliminate from qoute app
-            if (business.website.length > 100) {
-                log.info(`Invalid value for property: website. over 100 characters for ${business.appId}`)
-                business.website = '';
+            if (applicationDocData.website.length > 100) {
+                log.info(`Invalid value for property: website. over 100 characters for ${applicationDocData.applicationId}`)
+                applicationDocData.website = '';
             }
         }
 
         // Years of Experience (conditionally required)
         // - Only required if founded less than 3 years ago
         // - Must be a number between 0 and 99
-        if (business.founded.isAfter(moment().subtract(3, 'years'))) {
-            if (business.years_of_exp < 0 || business.years_of_exp > 99) {
+        if (applicationDocData.founded.isAfter(moment().subtract(3, 'years'))) {
+            if (applicationDocData.yearsOfExp < 0 || applicationDocData.yearsOfExp > 99) {
                 //let it quote and the insurer reject it.
-                log.info(`Invalid value for property: years_of_exp. Value must be between 0 and 100 (not inclusive) for ${business.appId}`)
+                log.info(`Invalid value for property: yearsOfExp. Value must be between 0 and 100 (not inclusive) for ${applicationDocData.applicationId}`)
             }
         }
 
@@ -325,56 +310,50 @@ const validateBusiness = async (business) => {
 
 /**
  * Checks that the data supplied is valid
- *
- * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
  */
-const validateContact = async (contact) => {
-    return new Promise((fulfill, reject) => {
-
-        // TO DO: Validate all fields here
-        // Store the most recent validation message in the 'error' property
-
+const validateContacts = async (applicationDocData) => {
+    for (const contact of applicationDocData.contacts) {
         // Validate email
         if (contact.email) {
             const email_result = validator.email(contact.email);
             if (email_result !== true) {
-                return reject(new Error('Invalid email'));
+                throw new Error('Invalid email');
             }
         } else {
-            return reject(new Error('Missing required field in contact: email'));
+            throw new Error('Missing required field in contact: email');
         }
 
-        // Validate first_name
-        if (contact.first_name) {
-            if (!validator.isName(contact.first_name)) {
-                return reject(new Error('Invalid characters in first_name'));
+        // Validate firstName
+        if (contact.firstName) {
+            if (!validator.isName(contact.firstName)) {
+                throw new Error('Invalid characters in firstName');
             }
 
-            if (contact.first_name.length > 30) {
-                return reject(new Error('First name exceeds maximum length of 30 characters'));
+            if (contact.firstName.length > 30) {
+                throw new Error('First name exceeds maximum length of 30 characters');
             }
         } else {
-            return reject(new Error('Missing required field in contact: first_name'));
+            throw new Error('Missing required field in contact: firstName');
         }
 
-        // Validate last_name
-        if (contact.last_name) {
-            if (!validator.isName(contact.last_name)) {
-                return reject(new Error('Invalid characters in last_name'));
+        // Validate lastName
+        if (contact.lastName) {
+            if (!validator.isName(contact.lastName)) {
+                throw new Error('Invalid characters in lastName');
             }
 
-            if (contact.last_name.length > 30) {
-                return reject(new Error('Last name exceeds maximum length of 30 characters'));
+            if (contact.lastName.length > 30) {
+                throw new Error('Last name exceeds maximum length of 30 characters');
             }
         } else {
-            return reject(new Error('Missing required field in contact: last_name'));
+            throw new Error('Missing required field in contact: lastName');
         }
 
         // Validate phone
         if (contact.phone) {
             // Check that it is valid
             if (!validator.phone(contact.phone)) {
-                return reject(new Error('The phone number you provided is not valid. Please try again.'));
+                throw new Error('The phone number you provided is not valid. Please try again.');
             }
 
             // Clean up the phone number for storage
@@ -393,11 +372,9 @@ const validateContact = async (contact) => {
             contact.phone = contact.phone.replace(/[^0-9]/ig, '');
             contact.phone = parseInt(contact.phone, 10);
         } else {
-            return reject(new Error('Phone number is required'));
+            throw new Error('Phone number is required');
         }
-
-        fulfill(true);
-    });
+    }
 }
 
 /**
@@ -430,9 +407,10 @@ const validateLocation = async (location) => {
             if (location.activity_codes.length) {
                 for (const activityCode of location.activity_codes) {
                     try {
+                        // TODO: Move this to a translate method
                         // currently the this gets and returns the description for the activity code
-                        // TODO: This should not be the this's responsability. The activity code should 
-                        //       get its description prior to being validated
+                        // TODO: This is not its responsability. The activity code should 
+                        //       get its description prior to, or after, being validated
                         const description = validateActivityCode(activityCode);
                         activityCode.description = description;
                     } catch (e) {
@@ -444,16 +422,18 @@ const validateLocation = async (location) => {
             }
         }
 
+        // TODO: Move this to a translate method
         // Identification Number
         if (location.identification_number) {
             if (validator.ein(location.identification_number)) {
                 location.identification_number_type = 'EIN';
-            } else if (location.business_entity_type === 'Sole Proprietorship' && validator.ssn(location.identification_number)) {
+            } else if (location.business_entityType === 'Sole Proprietorship' && validator.ssn(location.identification_number)) {
                 location.identification_number_type = 'SSN';
             } else {
                 return reject(new Error(`Invalid formatting for property: EIN. Value: ${location.identification_number}.`));
             }
 
+            // TODO: Move this to a translate method
             // Strip out the slashes, insurers don't like slashes
             location.identification_number = location.identification_number.replace(/-/g, '');
         } else {
@@ -528,9 +508,11 @@ const validateLocation = async (location) => {
                 if (location.territory === 'MI' && location.unemployment_number && !Number.isInteger(location.unemployment_number)) {
                     return reject(new Error('Unemployment Number must be an integer in MI'));
                 }
+                // TODO: Move this to a translate method
                 location.unemployment_number = 0;
             }
         } else {
+            // TODO: Move this to a translate method
             location.unemployment_number = 0;
         }
 
@@ -602,20 +584,20 @@ const validatePolicy = async (policy) => {
         if (policy.effective_date) {
             // Check for mm-dd-yyyy formatting
             if (!moment(policy.effective_date).isValid()) {
-                return reject(new Error('Invalid formatting for property: effectiveDate. Expected mm-dd-yyyy'));
+                return reject(new Error('Invalid formatting for property: effective_date. Expected mm-dd-yyyy'));
             }
 
             // Check if this date is in the past
             if (moment(policy.effective_date).isBefore(moment().startOf('day'))) {
-                return reject(new Error('Invalid property: effectiveDate. The effective date cannot be in the past'));
+                return reject(new Error('Invalid property: effective_date. The effective date cannot be in the past'));
             }
 
             // Check if this date is too far in the future
             if (moment(policy.effective_date).isAfter(moment().startOf('day').add(90, 'days'))) {
-                return reject(new Error('Invalid property: effectiveDate. The effective date cannot be more than 90 days in the future'));
+                return reject(new Error('Invalid property: effective_date. The effective date cannot be more than 90 days in the future'));
             }
         } else {
-            return reject(new Error('Missing property: effectiveDate'));
+            return reject(new Error('Missing property: effective_date'));
         }
 
         // Validate claims
@@ -666,7 +648,7 @@ const validatePolicy = async (policy) => {
                 policy.deductible = parseInt(policy.deductible, 10);
             } catch (e) {
                 // Default to 500 if the parse fails
-                log.warn(`appId: ${policy.applicationId} policyType: ${policy.type} Could not parse deductible string '${policy.deductible}': ${e}. Defaulting to 500.`);
+                log.warn(`applicationId: ${policy.applicationId} policyType: ${policy.type} Could not parse deductible string '${policy.deductible}': ${e}. Defaulting to 500.`);
                 policy.deductible = 500;
             }
         }
@@ -901,7 +883,7 @@ module.exports = {
     validateAgencyLocation,
     validateBusiness,
     validateClaim,
-    validateContact,
+    validateContacts,
     validateLocation,
     validatePolicy,
     validateQuestion
