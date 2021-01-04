@@ -43,10 +43,11 @@ const AgencySchema = new Schema({
     active: {type: Boolean, default: true}
 },opts)
 
-const SocialMediaSchema = new Schema({
-    facebookPixel: {type: String, required: false},
-    googleTag: {type: String, required: false}
-},opts)
+// const SocialMediaSchema = new Schema({
+//     facebookPixel: {type: String, required: false},
+//     googleAdTag: {type: String, required: false},
+//     googleAdLabel:{type: String,required:false}
+// },opts)
 
 
 // //***** Virtuals old field names ****************** */
