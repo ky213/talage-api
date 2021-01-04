@@ -170,6 +170,7 @@ const ApplicationSchema = new Schema({
     businessDataJSON: {type: Schema.Types.Mixed},
     agencyPortalCreatedUser: {type: String},
     agencyPortalModifiedUser: {type: String},
+    quotingStartedDate: {type: Date},
     active: {type: Boolean, default: true}
 })
 // NOTE:  EIN is not everysaved to database.
