@@ -171,8 +171,9 @@ const ApplicationSchema = new Schema({
     agencyPortalCreatedUser: {type: String},
     agencyPortalModifiedUser: {type: String},
     active: {type: Boolean, default: true},
-    corporationType: {type: String, required: false}
-})
+    corporationType: {type: String, required: false},
+    quotingStartedDate: {type: Date},
+});
 // NOTE:  EIN is not ever saved to database.
 
 /********************************** */

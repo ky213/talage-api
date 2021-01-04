@@ -23,11 +23,13 @@ const QuoteBind = global.requireRootPath('public/v1/quote/helpers/models/QuoteBi
 const status = global.requireShared('./models/application-businesslogic/status.js');
 const jwt = require('jsonwebtoken');
 const moment = require('moment');
+const {Error} = require('mongoose');
 
 
 // Application Messages Imports
-const mongoUtils = global.requireShared('./helpers/mongoutils.js');
+//const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 var Message = require('mongoose').model('Message');
+
 /**
  * Responds to get requests for the application endpoint
  *
@@ -92,7 +94,7 @@ async function getApplication(req, res, next) {
             applicationDBDoc = await applicationBO.loadfromMongoBymysqlId(id);
         }
         else {
-            log.debug("Getting id from mongo")
+            log.debug(`Getting app id  ${id} from mongo` + __location)
             applicationDBDoc = await applicationBO.getfromMongoByAppId(id);
         }
 
@@ -115,7 +117,188 @@ async function getApplication(req, res, next) {
         //Return not found so do not expose that the application exists
         return next(serverHelper.notFoundError('Application Not Found'));
     }
+    await setupReturnedApplicationJSON(applicationJSON)
 
+    // Get the quotes from the database
+    const quoteBO = new QuoteBO()
+    let quoteList = null;
+    try {
+        //sort by policyType
+        const quoteQuery = {
+            "applicationId": applicationJSON.applicationId,
+            "sort": "policyType"
+        }
+        quoteList = await quoteBO.getList(quoteQuery);
+    }
+    catch(err){
+        log.error("Error getting quotes for Application GET " + err + __location);
+    }
+
+    // Add the quotes to the return object and determine the application status
+    applicationJSON.quotes = [];
+    if (quoteList.length > 0) {
+        let insurerList = null;
+        const insurerBO = new InsurerBO();
+        try{
+            insurerList = await insurerBO.getList();
+        }
+        catch(err){
+            log.error("Error get InsurerList " + err + __location)
+        }
+        let policyTypeList = null;
+        const policyTypeBO = new PolicyTypeBO()
+        try{
+            policyTypeList = await policyTypeBO.getList();
+        }
+        catch(err){
+            log.error("Error get policyTypeList " + err + __location)
+        }
+
+        let paymentPlanList = null;
+        const paymentPlanBO = new PaymentPlanBO()
+        try{
+            paymentPlanList = await paymentPlanBO.getList();
+        }
+        catch(err){
+            log.error("Error get paymentPlanList " + err + __location)
+        }
+
+
+        for (let i = 0; i < quoteList.length; i++) {
+            // eslint-disable-next-line prefer-const
+            let quoteJSON = quoteList[i];
+            if(quoteJSON.quoteLetter){
+                quoteJSON.quote_letter = quoteJSON.quoteLetter;
+            }
+            if (!quoteJSON.status && quoteJSON.apiResult) {
+                quoteJSON.status = quoteJSON.apiResult;
+            }
+            quoteJSON.number = quoteJSON.quoteNumber;
+            // Change the name of autodeclined
+            if (quoteJSON.status === 'autodeclined') {
+                quoteJSON.status = 'Out of Market';
+            }
+            if (quoteJSON.status === 'bind_requested'
+                || quoteJSON.bound
+                || quoteJSON.status === 'quoted') {
+
+                quoteJSON.reasons = '';
+            }
+            // can see log?
+            try {
+                if (!req.authentication.permissions.applications.viewlogs) {
+                    delete quoteJSON.log;
+                }
+            }
+            catch (e) {
+                delete quoteJSON.log;
+            }
+            //Insurer
+            if(insurerList){
+                const insurer = insurerList.find(insurertest => insurertest.id === quoteJSON.insurerId);
+                // i.logo,
+                //i.name as insurerName,
+                quoteJSON.logo = insurer.logo
+                quoteJSON.insurerName = insurer.name
+                quoteJSON.website = insurer.website
+            }
+            //policyType
+            if(policyTypeList){
+                const policyTypeJSON = policyTypeList.find(policyTypeTest => policyTypeTest.abbr === quoteJSON.policyType)
+                quoteJSON.policyTypeName = policyTypeJSON.name
+            }
+            //paymentplan.
+            if(paymentPlanList){
+                const paymentPlanJson = paymentPlanList.find(paymentPlanTest => paymentPlanTest.id === quoteJSON.paymentPlanId)
+                if(paymentPlanJson){
+                    quoteJSON.paymentPlan = paymentPlanJson.name
+                }
+            }
+        }
+        // Add the quotes to the response
+        applicationJSON.quotes = quoteList;
+        if (req.authentication.permissions.applications.viewlogs) {
+            applicationJSON.showLogs = true;
+        }
+    }
+
+    let docList = null;
+    try {
+        docList = await Message.find({$or:[{'applicationId':applicationJSON.applicationId}, {'mysqlId':applicationJSON.mysqlId}]}, '-__v');
+    }
+    catch (err) {
+        log.error(err + __location);
+        return serverHelper.sendError(res, next, 'Internal Error');
+    }
+    log.debug("docList.length: " + docList.length);
+    if(docList.length){
+        applicationJSON.messages = docList;
+    }
+    // Return the response
+    res.send(200, applicationJSON);
+    return next();
+}
+async function getApplicationDoc(req, res ,next){
+    let appId = null;
+    if(req.params.id) {
+        appId = req.params.id;
+    }
+    else {
+        // Check for data
+        if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
+            log.error('Bad Request: No data received ' + __location);
+            return next(serverHelper.requestError('Bad Request: No data received'));
+        }
+
+        // Make sure basic elements are present
+        if (!req.query.id) {
+            log.error('Bad Request: Missing ID ' + __location);
+            return next(serverHelper.requestError('Bad Request: You must supply an ID'));
+        }
+        appId = req.query.id
+    }
+    //Get agency List check after getting application doc
+    let error = null
+    const agencies = await auth.getAgents(req).catch(function(e) {
+        error = e;
+    });
+    if (error) {
+        return next(error);
+    }
+    let passedAgencyCheck = false;
+    let applicationDB = null;
+    const applicationBO = new ApplicationBO();
+    try{
+        applicationDB = await applicationBO.loadfromMongoByAppId(appId);
+        if(applicationDB && agencies.includes(applicationDB.agencyId)){
+            passedAgencyCheck = true;
+        }
+    }
+    catch(err){
+        log.error("Error checking application doc " + err + __location)
+        return next(serverHelper.requestError(`Bad Request: check error ${err}`));
+    }
+
+    if(applicationDB && applicationDB.applicationId && passedAgencyCheck === false){
+        log.info('Forbidden: User is not authorized for this agency' + __location);
+        return next(serverHelper.forbiddenError('You are not authorized for this agency'));
+    }
+
+    if(applicationDB && applicationDB.applicationId){
+        res.send(200, applicationDB);
+        return next();
+
+    }
+    else {
+        res.send(404,"Not found")
+        return next(serverHelper.requestError('Not Found'));
+    }
+
+
+}
+
+
+async function setupReturnedApplicationJSON(applicationJSON){
     const mapDoc2OldPropName = {
         agencyLocationId: "agency_location",
         lastStep: "last_step",
@@ -202,7 +385,6 @@ async function getApplication(req, res, next) {
     }
     catch(err){
         log.error("Error getting agencyBO " + err + __location);
-        error = true;
     }
 
     // add information about the creator if it was created in the agency portal
@@ -214,7 +396,6 @@ async function getApplication(req, res, next) {
         }
         catch(err){
             log.error("Error getting agencyPortalUserBO " + err + __location);
-            error = true;
         }
     }
 
@@ -242,182 +423,6 @@ async function getApplication(req, res, next) {
         applicationJSON.lname = customerContact.lastName;
         applicationJSON.phone = customerContact.phone;
     }
-
-    // Get the quotes from the database
-    const quoteBO = new QuoteBO()
-    let quoteList = null;
-    try {
-        //sort by policyType
-        const quoteQuery = {
-            "applicationId": applicationJSON.applicationId,
-            "sort": "policyType"
-        }
-        quoteList = await quoteBO.getList(quoteQuery);
-    }
-    catch(err){
-        log.error("Error getting quotes for Application GET " + err + __location);
-    }
-
-    // Add the quotes to the return object and determine the application status
-    applicationJSON.quotes = [];
-    if (quoteList.length > 0) {
-        let insurerList = null;
-        const insurerBO = new InsurerBO();
-        try{
-            insurerList = await insurerBO.getList();
-        }
-        catch(err){
-            log.error("Error get InsurerList " + err + __location)
-        }
-        let policyTypeList = null;
-        const policyTypeBO = new PolicyTypeBO()
-        try{
-            policyTypeList = await policyTypeBO.getList();
-        }
-        catch(err){
-            log.error("Error get policyTypeList " + err + __location)
-        }
-
-        let paymentPlanList = null;
-        const paymentPlanBO = new PaymentPlanBO()
-        try{
-            paymentPlanList = await paymentPlanBO.getList();
-        }
-        catch(err){
-            log.error("Error get paymentPlanList " + err + __location)
-        }
-
-
-        for (let i = 0; i < quoteList.length; i++) {
-            // eslint-disable-next-line prefer-const
-            let quoteJSON = quoteList[i];
-            if(quoteJSON.quoteLetter){
-                quoteJSON.quote_letter = quoteJSON.quoteLetter;
-            }
-            if (!quoteJSON.status && quoteJSON.apiResult) {
-                quoteJSON.status = quoteJSON.apiResult;
-            }
-            quoteJSON.number = quoteJSON.quoteNumber;
-            // Change the name of autodeclined
-            if (quoteJSON.status === 'autodeclined') {
-                quoteJSON.status = 'Out of Market';
-            }
-            if (quoteJSON.status === 'bind_requested'
-                || quoteJSON.bound
-                || quoteJSON.status === 'quoted') {
-
-                quoteJSON.reasons = '';
-            }
-            // can see log?
-            try {
-                if (!req.authentication.permissions.applications.viewlogs) {
-                    delete quoteJSON.log;
-                }
-            }
-            catch (e) {
-                delete quoteJSON.log;
-            }
-            //Insurer
-            if(insurerList){
-                const insurer = insurerList.find(insurertest => insurertest.id === quoteJSON.insurerId);
-                // i.logo,
-                //i.name as insurerName,
-                quoteJSON.logo = insurer.logo
-				quoteJSON.insurerName = insurer.name
-				quoteJSON.website = insurer.website
-            }
-            //policyType
-            if(policyTypeList){
-                const policyTypeJSON = policyTypeList.find(policyTypeTest => policyTypeTest.abbr === quoteJSON.policyType)
-                quoteJSON.policyTypeName = policyTypeJSON.name
-            }
-            //paymentplan.
-            if(paymentPlanList){
-                const paymentPlanJson = paymentPlanList.find(paymentPlanTest => paymentPlanTest.id === quoteJSON.paymentPlanId)
-                if(paymentPlanJson){
-                    quoteJSON.paymentPlan = paymentPlanJson.name
-                }
-            }
-        }
-        // Add the quotes to the response
-        applicationJSON.quotes = quoteList;
-        if (req.authentication.permissions.applications.viewlogs) {
-            applicationJSON.showLogs = true;
-        }
-    }
-
-	let docList = null;
-	try {
-		docList = await Message.find( {$or:[ {'applicationId':applicationJSON.applicationId}, {'mysqlId':applicationJSON.mysqlId} ]}, '-__v');
-	}catch (err) {
-		log.error(err + __location);
-		return serverHelper.sendError(res, next, 'Internal Error');
-	}
-	log.debug("docList.length: " + docList.length);
-	if(docList.length){
-		applicationJSON.messages = docList;
-	}
-    // Return the response
-    res.send(200, applicationJSON);
-    return next();
-}
-async function getApplicationDoc(req, res ,next){
-    let appId = null;
-    if(req.params.id) {
-        appId = req.params.id;
-    }
-    else {
-        // Check for data
-        if (!req.query || typeof req.query !== 'object' || Object.keys(req.query).length === 0) {
-            log.error('Bad Request: No data received ' + __location);
-            return next(serverHelper.requestError('Bad Request: No data received'));
-        }
-
-        // Make sure basic elements are present
-        if (!req.query.id) {
-            log.error('Bad Request: Missing ID ' + __location);
-            return next(serverHelper.requestError('Bad Request: You must supply an ID'));
-        }
-        appId = req.query.id
-    }
-    //Get agency List check after getting application doc
-    let error = null
-    const agencies = await auth.getAgents(req).catch(function(e) {
-        error = e;
-    });
-    if (error) {
-        return next(error);
-    }
-    let passedAgencyCheck = false;
-    let applicationDB = null;
-    const applicationBO = new ApplicationBO();
-    try{
-        applicationDB = await applicationBO.loadfromMongoByAppId(appId);
-        if(applicationDB && agencies.includes(applicationDB.agencyId)){
-            passedAgencyCheck = true;
-        }
-    }
-    catch(err){
-        log.error("Error checking application doc " + err + __location)
-        return next(serverHelper.requestError(`Bad Request: check error ${err}`));
-    }
-
-    if(applicationDB && applicationDB.applicationId && passedAgencyCheck === false){
-        log.info('Forbidden: User is not authorized for this agency' + __location);
-        return next(serverHelper.forbiddenError('You are not authorized for this agency'));
-    }
-
-    if(applicationDB && applicationDB.applicationId){
-        res.send(200, applicationDB);
-        return next();
-
-    }
-    else {
-        res.send(404,"Not found")
-        return next(serverHelper.requestError('Not Found'));
-    }
-
-
 }
 
 //Both POST and PUT
@@ -535,7 +540,7 @@ async function applicationSave(req, res, next) {
 
         // if there were no activity codes passed in on the application, pull them from the locations activityPayrollList
         const activityCodes = [];
-        if(req.body.locations && req.body.locations.length && (!req.body.activityCodes || !req.body.activityCodes.length)){
+        if(req.body.locations && req.body.locations.length){
             req.body.locations.forEach((location) => {
                 location.activityPayrollList.forEach((activityCode) => {
                     const foundCode = activityCodes.find((code) => code.ncciCode === activityCode.ncciCode);
@@ -543,13 +548,16 @@ async function applicationSave(req, res, next) {
                         foundCode.payroll += parseInt(activityCode.payroll, 10);
                     }
                     else{
-                        activityCode.payroll = parseInt(activityCode.payroll, 10);
-                        activityCodes.push(activityCode);
+                        // eslint-disable-next-line prefer-const
+                        let newActivityCode = {};
+                        newActivityCode.ncciCode = activityCode.ncciCode;
+                        newActivityCode.payroll = parseInt(activityCode.payroll, 10);
+                        activityCodes.push(newActivityCode);
                     }
                 });
             });
-            req.body.activityCodes = activityCodes;
         }
+        req.body.activityCodes = activityCodes;
 
         if(req.body.applicationId){
             log.debug("App Doc UPDATE.....")
@@ -668,6 +676,7 @@ async function applicationCopy(req, res, next) {
         req.body.agencyPortalCreated = true;
         const updateMysql = true;
         responseAppDoc = await applicationBO.insertMongo(newApplicationDoc, updateMysql);
+        await setupReturnedApplicationJSON(responseAppDoc)
     }
     catch(err){
         log.error("Error checking application doc " + err + __location)
@@ -761,7 +770,7 @@ async function validate(req, res, next) {
     }
     else {
         //assume uuid input
-        log.debug("Getting id from mongo")
+        log.debug(`Getting app id  ${id} from mongo` + __location)
         const appDoc = await applicationBO.getfromMongoByAppId(id).catch(function(err) {
             log.error(`Error getting application Doc for validate ${id} ` + err + __location);
             log.error('Bad Request: Invalid id ' + __location);
@@ -771,7 +780,7 @@ async function validate(req, res, next) {
             return next(error);
         }
         if(appDoc){
-            log.debug("Have doc for " + appDoc.mysqlId)
+            log.debug("Have app doc for " + appDoc.mysqlId + __location)
             id = appDoc.mysqlId;
         }
         else {
@@ -788,7 +797,7 @@ async function validate(req, res, next) {
     // }
 
     //Get app and check status
-    log.debug("Loading Application by mysqlId")
+    log.debug("Loading Application by mysqlId for Validation " + __location)
     const applicationDB = await applicationBO.getById(id).catch(function(err) {
         log.error("Location load error " + err + __location);
         error = err;
@@ -888,7 +897,7 @@ async function requote(req, res, next) {
     }
     else {
         //assume uuid input
-        log.debug("Getting id from mongo")
+        log.debug(`Getting app id  ${id} from mongo` + __location)
         const appDoc = await applicationBO.getfromMongoByAppId(id).catch(function(err) {
             log.error(`Error getting application Doc for requote ${id} ` + err + __location);
             log.error('Bad Request: Invalid id ' + __location);
@@ -898,7 +907,6 @@ async function requote(req, res, next) {
             return next(error);
         }
         if(appDoc){
-            log.debug("Have doc for " + appDoc.mysqlId)
             id = appDoc.mysqlId;
         }
         else {
@@ -998,7 +1006,7 @@ async function requote(req, res, next) {
  * @returns {void}
  */
 async function runQuotes(application) {
-    log.debug('running quotes')
+    log.debug('running quotes' + __location)
     try {
         await application.run_quotes();
     }
@@ -1052,6 +1060,11 @@ async function GetQuestions(req, res, next){
 async function bindQuote(req, res, next) {
     //Double check it is TalageStaff user
 
+    // Check if binding is disabled
+    if (global.settings.DISABLE_BINDING === "YES") {
+        return next(serverHelper.requestError('Binding is disabled'));
+    }
+
     // Check for data
     if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
         log.warn('No data was received' + __location);
@@ -1077,17 +1090,16 @@ async function bindQuote(req, res, next) {
     const quoteId = req.body.quoteId;
 
     //assume uuid input
-    log.debug("Getting id from mongo")
+    log.debug(`Getting app id  ${applicationId} from mongo` + __location)
     const applicationDB = await applicationBO.getfromMongoByAppId(applicationId).catch(function(err) {
         log.error(`Error getting application Doc for bound ${applicationId} ` + err + __location);
         log.error('Bad Request: Invalid id ' + __location);
         error = err;
     });
     if (error) {
-        return next(error);
+        return next(Error);
     }
     if(applicationDB){
-        log.debug("Have doc for " + applicationDB.applicationId)
         applicationId = applicationDB.applicationId;
     }
     else {
@@ -1124,7 +1136,7 @@ async function bindQuote(req, res, next) {
         await quoteBO.bindQuote(quoteId, applicationId, req.authentication.userID);
     }
     catch (err) {
-        log.error(`Error loading application ${applicationId ? applicationId : ''}: ${err.message}` + __location);
+        log.error(`Error Binding  application ${applicationId ? applicationId : ''}: ${err}` + __location);
         res.send(err);
         return next();
     }
@@ -1274,7 +1286,7 @@ async function GetResources(req, res, next){
 async function CheckZip(req, res, next){
     const responseObj = {};
     if(req.body && req.body.zip){
-        let rejected = false;
+        const rejected = false;
         //make sure we have a valid zip code
         const zipCodeBO = new ZipCodeBO();
         let error = null;
@@ -1315,7 +1327,7 @@ async function CheckZip(req, res, next){
             responseObj['message'] = 'The zip code you entered is invalid.';
             res.send(404, responseObj);
             return next(serverHelper.requestError('The zip code you entered is invalid.'));
-            }
+        }
         // log.debug("zipCodeBO: " + JSON.stringify(zipCodeBO.cleanJSON()))
     }
 
@@ -1379,6 +1391,7 @@ async function GetAssociations(req, res, next){
     }
 
 }
+
 
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');

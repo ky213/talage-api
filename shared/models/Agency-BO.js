@@ -51,7 +51,9 @@ module.exports = class AgencyBO {
                 wholesale_agreement_signed: "wholesaleAgreementSigned",
                 docusign_envelope_id: "docusignEnvelopeId",
                 do_not_report: "doNotReport",
-                enable_optout: "enabelOptOut"
+                enable_optout: "enabelOptOut",
+                enableOptOut:"enabelOptOut"
+
             }
             this.mapToMongooseJSON(newObjectJSON, newObjectJSON, alPropMappings);
 
@@ -113,7 +115,9 @@ module.exports = class AgencyBO {
             if(typeof sourceJSON[sourceProp] !== "object"){
                 if(propMappings[sourceProp]){
                     const appProp = propMappings[sourceProp]
-                    targetJSON[appProp] = sourceJSON[sourceProp];
+                    if(!targetJSON[appProp]){ 
+                        targetJSON[appProp] = sourceJSON[sourceProp];
+                    }
                 }
             }
         }
@@ -182,7 +186,7 @@ module.exports = class AgencyBO {
                 let docDB = null;
                 try {
                     docDB = await AgencyModel.findOne(query, '-__v');
-                    if(getAgencyNetwork === true){
+                    if(docDB && getAgencyNetwork === true){
                         const agencyNetworkBO = new AgencyNetworkBO();
                         try {
                             const agencyNetworkJSON = await agencyNetworkBO.getById(docDB.agencyNetworkId);
@@ -535,7 +539,7 @@ module.exports = class AgencyBO {
         const agency = new AgencyModel(newObjectJSON);
         //Insert a doc
         await agency.save().catch(function(err) {
-            log.error('Mongo Application Save err ' + err + __location);
+            log.error('Mongo Agency Save err ' + err + __location);
             throw err;
         });
         newObjectJSON.id = newSystemId;
@@ -582,11 +586,13 @@ module.exports = class AgencyBO {
                 try {
                     const returnDoc = true;
                     agencyDoc = await this.getMongoDocbyMysqlId(id, returnDoc);
-                    agencyDoc.active = false;
-                    await agencyDoc.save();
+                    if(agencyDoc && agencyDoc.systemId){
+                        agencyDoc.active = false;
+                        await agencyDoc.save();
+                    }
                 }
                 catch (err) {
-                    log.error("Error get marking agencyDoc from mysqlId " + err + __location);
+                    log.error(`Error marking deleted agencyDoc from mysqlId ${id}` + err + __location);
                     reject(err);
                 }
 
@@ -762,10 +768,10 @@ module.exports = class AgencyBO {
                 agencyJSON = await this.getById(agencyId);
             }
             catch (err) {
-                log.error("Error getting Agnecy Network " + err + __location)
-                throw new Error('Error getting Agnecy Network');
+                log.error("Error getting Agency " + err + __location)
+                throw new Error('Error getting Agnecy in getEmailContent ');
             }
-            if (this.id) {
+            if (agencyJSON) {
                 //get AgencyNetwork 1st than replace with Agency overwrites
                 const agencyNetworkBO = new AgencyNetworkBO();
                 const emailTemplateJSON = await agencyNetworkBO.getEmailContent(agencyJSON.agencyNetworkId, contentProperty).catch(function(err) {
@@ -797,10 +803,14 @@ module.exports = class AgencyBO {
                 }
             }
             else {
-                log.error(`No agencyId bad loadFromID ${agencyId} ` + __location)
-                throw new Error("No agencyId bad loadFromID");
+                log.error(`No agency doc for systemId ${agencyId} ` + __location)
+                throw new Error("No agency doc bad getEmailContent");
             }
 
+        }
+        else {
+            log.error(`No agencyId bad getEmailContent ${agencyId} ` + __location)
+            throw new Error("No agencyId bad getEmailContent");
         }
     }
 }

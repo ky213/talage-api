@@ -285,6 +285,21 @@ module.exports = class QuoteBO {
                     return;
                 }
             }
+
+            if(queryJSON.quoteId && Array.isArray(queryJSON.quoteId)){
+                queryJSON.quoteId = {$in: queryJSON.quoteId};
+            }
+
+
+            if(queryJSON.quoteId && Array.isArray(queryJSON.quoteId)){
+                queryJSON.quoteId = {$in: queryJSON.quoteId};
+            }
+
+            if(queryJSON.mysqlId && Array.isArray(queryJSON.mysqlId)){
+                queryJSON.mysqlId = {$in: queryJSON.mysqlId};
+            }
+
+
             if(queryJSON.insurerId && Array.isArray(queryJSON.insurerId)){
                 queryJSON.insurerId = {$in: queryJSON.insurerId};
             }

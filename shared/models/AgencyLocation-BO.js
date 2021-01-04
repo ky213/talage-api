@@ -258,7 +258,7 @@ module.exports = class AgencyLocationBO{
     }
 
 
-    async getMongoDocbyMysqlId(mysqlId, children = true, returnMongooseModel = false) {
+    async getMongoDocbyMysqlId(mysqlId, children = true, addAgencyPrimaryLocation = false, returnMongooseModel = false) {
         return new Promise(async(resolve, reject) => {
             if (mysqlId) {
                 const query = {
@@ -269,6 +269,12 @@ module.exports = class AgencyLocationBO{
                 let docDB = null;
                 try {
                     docDB = await AgencyLocationMongooseModel.findOne(query, '-__v');
+                    if(docDB.useAgencyPrime && addAgencyPrimaryLocation){
+                        const insurerList = await this.getAgencyPrimeInsurers(docDB.agencyId)
+                        if(insurerList){
+                            docDB.insurers = insurerList
+                        }
+                    }
                     if(children === true){
                         await this.loadChildrenMongo(mysqlId, docDB)
                     }
@@ -294,7 +300,7 @@ module.exports = class AgencyLocationBO{
         });
     }
 
-    getList(queryJSON, getAgencyName = false, loadChildren = false) {
+    getList(queryJSON, getAgencyName = false, loadChildren = false, addAgencyPrimaryLocation = false) {
         return new Promise(async(resolve, reject) => {
 
 
@@ -304,7 +310,7 @@ module.exports = class AgencyLocationBO{
 
             let rejected = false;
             // eslint-disable-next-line prefer-const
-            let query = {};
+            let query = {active: true};
             let error = null;
 
             var queryOptions = {lean:true};
@@ -385,7 +391,7 @@ module.exports = class AgencyLocationBO{
                 try {
                     //log.debug("AgencyLocation GetList query " + JSON.stringify(query) + __location)
                     docList = await AgencyLocationMongooseModel.find(query,queryProjection, queryOptions);
-                    if((getAgencyName || loadChildren) && docList.length > 0){
+                    if((getAgencyName || loadChildren || addAgencyPrimaryLocation) && docList.length > 0){
                         //Get Agency Name -- potential change to one request to mongo and match lists.
                         // eslint-disable-next-line prefer-const
                         for(let doc of docList){
@@ -395,6 +401,13 @@ module.exports = class AgencyLocationBO{
                                     doc.name = agencyJSON.name;
                                     doc.agencyNetworkId = agencyJSON.agencyNetworkId;
                                     doc.agencyEmail = agencyJSON.email;
+                                    doc.doNotReport = agencyJSON.doNotReport;
+                                }
+                            }
+                            if(doc.useAgencyPrime && addAgencyPrimaryLocation){
+                                const insurerList = await this.getAgencyPrimeInsurers(doc.agencyId, doc.agencyNetworkId)
+                                if(insurerList){
+                                    doc.insurers = insurerList
                                 }
                             }
                             if(loadChildren === true){
@@ -447,6 +460,50 @@ module.exports = class AgencyLocationBO{
         else {
             return null
         }
+    }
+
+    async getAgencyPrimeInsurers(agencyId, agencyNetworkId){
+        log.debug("in getAgencyPrimeInsurers")
+        const AgencyBO = global.requireShared('./models/Agency-BO.js');
+        const agencyBO = new AgencyBO();
+
+        let agencyPrimeInsurers = [];
+        try{
+            if(!agencyNetworkId){
+                const agencyJSON = await this.getAgencyJSON(agencyId);
+                if(agencyJSON){
+                    agencyNetworkId = agencyJSON.agencyNetworkId;
+                }
+
+            }
+            //Get newtorks prime agency.
+            const queryAgency = {
+                "agencyNetworkId": agencyNetworkId,
+                "primaryAgency": true
+            }
+            const agencyList = await agencyBO.getList(queryAgency);
+            if(agencyList && agencyList.length > 0){
+                const agencyPrime = agencyList[0];
+                //get agency's prime location
+                // return prime location's insurers.
+                const returnChildren = true;
+                const agencyLocationPrime = await this.getByAgencyPrimary(agencyPrime.systemId, returnChildren);
+                if(agencyLocationPrime && agencyLocationPrime.insurers){
+                    agencyPrimeInsurers = agencyLocationPrime.insurers
+                }
+                else {
+                    log.error(`Agency Prime id ${agencyId} as no insurers ` + __location)
+                }
+            }
+            else {
+                log.error(`No Agency Prime for agencyNetworkId ${agencyNetworkId}` + __location)
+            }
+        }
+        catch(err){
+            log.error(`Error getting AgencyPrime's insurers agencyNetworkId ${agencyNetworkId} ` + err + __location);
+        }
+
+        return agencyPrimeInsurers;
     }
 
     async loadChildrenMongo(agencyLocationId, agencyLocationJSON){
@@ -578,8 +635,8 @@ module.exports = class AgencyLocationBO{
     }
 
 
-    getById(id, children = true) {
-        return this.getMongoDocbyMysqlId(id, children)
+    getById(id, children = true, addAgencyPrimaryLocation = false) {
+        return this.getMongoDocbyMysqlId(id, children, addAgencyPrimaryLocation)
     }
 
     deleteSoftById(id) {
@@ -591,7 +648,7 @@ module.exports = class AgencyLocationBO{
                 try {
                     const returnChildren = false;
                     const returnDoc = true;
-                    agencyLocationDoc = await this.getMongoDocbyMysqlId(id, returnChildren, returnDoc);
+                    agencyLocationDoc = await this.getMongoDocbyMysqlId(id, returnChildren, returnChildren, returnDoc);
                     agencyLocationDoc.active = false;
                     await agencyLocationDoc.save();
                 }
@@ -677,7 +734,7 @@ module.exports = class AgencyLocationBO{
         let notifyTalage = false;
         try{
             const agencyLocationJSON = await this.getById(agencyLocationId);
-            const insurerJSON = agencyLocationJSON.insurers.find(insurer => insurerId === insurer.insurer);
+            const insurerJSON = agencyLocationJSON.insurers.find(insurer => insurerId === insurer.insurerId);
             if(insurerJSON){
                 const policyInfoJSON = insurerJSON.policyTypeInfo;
                 if(policyInfoJSON.notifyTalage){

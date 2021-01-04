@@ -219,10 +219,5 @@ module.exports = class Business {
         else {
             log.error("Missing locations application  " + applicationDocJSON.applicationId + __location);
         }
-
-
-        // log.debug(JSON.stringify(this));
-        return;
-
     }
-};
+}

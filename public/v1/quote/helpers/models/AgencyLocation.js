@@ -25,7 +25,6 @@ module.exports = class AgencyLocation {
         this.emailBrand = '';
         this.first_name = '';
         this.id = 0;
-        this.key = '';
         this.insurers = {};
         this.last_name = '';
         this.territories = [];
@@ -71,7 +70,9 @@ module.exports = class AgencyLocation {
             let agencyLocation = null;
             try{
                 const agencyLocationBO = new AgencyLocationBO();
-                agencyLocation = await agencyLocationBO.getById(this.id);
+                const getChildren = true;
+                const addAgencyPrimaryLocation = true;
+                agencyLocation = await agencyLocationBO.getById(this.id, getChildren, addAgencyPrimaryLocation );
                 if(agencyLocation.insurers){
                     alInsurerList = agencyLocation.insurers;
                 }

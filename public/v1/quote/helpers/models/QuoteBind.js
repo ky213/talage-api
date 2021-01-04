@@ -7,6 +7,8 @@ const ApplicationBO = global.requireShared('./models/Application-BO.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
+const InsurerPaymentPlanBO = global.requireShared('./models/InsurerPaymentPlan-BO.js');
+
 const Insurer = require('./Insurer.js');
 const fs = require('fs');
 
@@ -41,15 +43,28 @@ module.exports = class QuoteBind{
         }
 
         let statusWithinBindingRange = false;
-        switch(this.quoteDoc.aggregatedStatus){
-            case 'referred':
+        let quoteStatus = '';
+        if(this.quoteDoc.aggregatedStatus){
+            quoteStatus = this.quoteDoc.aggregatedStatus;
+        }
+        else if (this.quoteDoc.status){
+            quoteStatus = this.quoteDoc.status;
+        }
+        else if (this.quoteDoc.apiResult){
+            quoteStatus = this.quoteDoc.apiResult
+        }
+        switch(quoteStatus){
+            case 'acord_emailed':
+            case 'bind_requested':
             case 'quoted':
+            case 'quoted_referred':
+            case 'referred':
+            case 'referred_with_price':
             case 'request_to_bind':
             case 'request_to_bind_referred:':
-            case 'quoted_referred':
                 statusWithinBindingRange = true;
                 break;
-            default: 
+            default:
                 break;
         }
 
@@ -61,7 +76,7 @@ module.exports = class QuoteBind{
             }
 
             // Return an error
-            log.info(`Quotes with an api_result of '$this.quoteDoc.apiResult}' are not eligible to be bound.`);
+            log.info(`Quotes with an api_result of '${this.quoteDoc.apiResult}' are not eligible to be bound.`);
             throw new Error(`Quote ${this.quoteDoc.quoteId} is not eligible for binding with status ${this.quoteDoc.aggregatedStatus}`);
         }
 
@@ -89,7 +104,8 @@ module.exports = class QuoteBind{
             // Begin the binding process
             try {
                 return await integration.bind();
-            } catch (error) {
+            }
+            catch (error) {
                 throw error;
             }
         }
@@ -114,7 +130,8 @@ module.exports = class QuoteBind{
         const quoteModel = new QuoteBO();
         try {
             this.quoteDoc = await quoteModel.getById(id)
-        } catch (err) {
+        }
+        catch (err) {
             log.error(`Loading quote for bind request quote ${id} error:` + err + __location);
             //throw err;
             return;
@@ -139,7 +156,8 @@ module.exports = class QuoteBind{
         // Load the request data into it
         try {
             this.agencyJSON = await agencyBO.getById(this.applicationDoc.agencyId)
-        } catch (err) {
+        }
+        catch (err) {
             log.error("Agency load for bind error " + err + __location);
             return;
         }
@@ -151,19 +169,16 @@ module.exports = class QuoteBind{
         // Validate the payment plan
         // - Only set payment plan if passed in.
         if (payment_plan) {
-            if(!await validator.payment_plan(payment_plan)){
-                throw new Error('Invalid payment plan');
-            }
-
-            // Check that this payment plan belongs to the insurer
-            const payment_plan_sql = `SELECT COUNT(\`id\`) FROM \`#__insurer_payment_plans\` WHERE \`payment_plan\` = ${db.escape(parseInt(payment_plan, 10))} AND \`insurer\` = ${db.escape(parseInt(this.insurer.id, 10))} LIMIT 1;`;
+            const insurerPaymentPlanBO = new InsurerPaymentPlanBO();
+            let insurerPaymentPlan = null;
             try {
-                const payment_plan_rows = await db.query(payment_plan_sql);
-            } catch (error) {
-                log.error("DB payment plan SELECT error: " + error + __location);
-                if(!payment_plan_rows || payment_plan_rows.length !== 1 || !Object.prototype.hasOwnProperty.call(payment_plan_rows[0], 'COUNT(`id`)') || payment_plan_rows[0]['COUNT(`id`)'] !== 1){
-                    throw new Error('Payment plan does not belong to the insurer who provided this quote');
-                }
+                insurerPaymentPlan = await insurerPaymentPlanBO.getById(parseInt(payment_plan, 10));
+            }
+            catch (err) {
+                log.error(`Could not get insurer payment plan for payment_plan: ${payment_plan}:` + err + __location);
+            }
+            if(!insurerPaymentPlan){
+                throw new Error('Payment plan does not belong to the insurer who provided this quote');
             }
             this.payment_plan = payment_plan;
         }

@@ -107,6 +107,11 @@ module.exports = class PieWC extends Integration {
             return this.return_result('error');
         }
 
+        if(!token_response.data){
+            log.error(`Appid: ${this.app.id} Pie WC ERROR: Get token error no response data` + __location)
+            return this.return_result('error');
+        }
+
         const token = `${token_response.data.token_type} ${token_response.data.id_token}`;
 
         // Get all territories present in this appilcation
@@ -173,11 +178,11 @@ module.exports = class PieWC extends Integration {
             }
         }
 
+        const isNewCompany = businessAgeInMonths < 2;
         // Determine if they are currently covered.
         data.workersCompensation.currentlyCovered = coverageQuestions.PieCustomWCCurrentCoverage === 'Yes';
         if (data.workersCompensation.currentlyCovered === false) {
             // Determine if this is a new company.
-            const isNewCompany = businessAgeInMonths < 2;
             // [ NonPayment, AuditNonCompliance, NoEmployees, Other, NewBusiness ]
             if (isNewCompany) {
                 // If it is a new company, set it to "NewBusiness" regardless of what they chose
@@ -381,13 +386,15 @@ module.exports = class PieWC extends Integration {
         data.partnerAgentEmail = 'customersuccess@talageins.com';
 
         // Prior carriers
-        if (coverageQuestions.PieCustomWCContinuousCoverage === 'No') {
+        if (isNewCompany === false) {
             data.workersCompensation.priorCarriers = [];
             const claims = this.claims_to_policy_years();
             for (let i = 1; i < 4; i++) {
                 // Check if they had coverage and were in business XX monthsago. If so, populate a prior coverage entry, including any claim information
-                if (coverageQuestions[`PieCustomWCContinuousCoverage${i}Year`] === 'Yes' && businessAgeInMonths > 12 * (i - 1)) {
+                const hadCoverage = coverageQuestions.PieCustomWCContinuousCoverage === 'Yes' || coverageQuestions[`PieCustomWCContinuousCoverage${i}Year`] === 'Yes';
+                if (hadCoverage && businessAgeInMonths > 12 * (i - 1)) {
                     const hadLapse = coverageQuestions[`PieCustomWCPaymentLapse${i}Year`] === 'Yes';
+
                     const priorCarrier = {
                         name: "Unknown", // Placeholder: this isn't currently captured anywhere, but Pie said it was ok -SF
                         effectiveDate: claims[i].effective_date.format("YYYY-MM-DD"),
@@ -466,6 +473,10 @@ module.exports = class PieWC extends Integration {
                 if (res.premiumDetails.totalEstimatedPremium){
                     try {
                         this.amount = parseInt(res.premiumDetails.totalEstimatedPremium, 10);
+                        // Per Pie we should add totalTaxesAndAssessments to the amount we show.
+                        if(res.premiumDetails.totalTaxesAndAssessments){
+                            this.amount += parseInt(res.premiumDetails.totalTaxesAndAssessments, 10);
+                        }
                     }
                     catch (error) {
                         log.error(`Appid: ${this.app.id} Pie WC: Error getting amount ${error} ` + __location)

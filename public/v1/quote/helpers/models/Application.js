@@ -29,6 +29,7 @@ const helper = global.requireShared('./helpers/helper.js');
 
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const ApplicationBO = global.requireShared('./models/Application-BO.js');
+const QuoteBO = global.requireShared('./models/Quote-BO.js');
 
 module.exports = class Application {
     constructor() {
@@ -304,8 +305,14 @@ module.exports = class Application {
         const policyTypeReferred = {};
         const policyTypeQuoted = {};
 
-        this.policies.forEach((policy) => {
+        if(this.policies && this.policies.length === 0){
+            log.error(`No policies for Application ${this.id} ` + __location)
+        }
 
+        // set the quoting started date right before we start looking for quotes
+        let applicationBO = new ApplicationBO();
+        await applicationBO.updateMongo(this.applicationDocData.uuid, {quotingStartedDate: moment.utc()});
+        this.policies.forEach((policy) => {
             // Generate quotes for each insurer for the given policy type
             this.insurers.forEach((insurer) => {
                 // Only run quotes against requested insurers (if present)
@@ -313,7 +320,7 @@ module.exports = class Application {
                 if (insurer.policy_types.indexOf(policy.type) >= 0) {
 
                     // Get the agency_location_insurer data for this insurer from the agency location
-                    log.debug(JSON.stringify(this.agencyLocation.insurers[insurer.id]))
+                    //log.debug(JSON.stringify(this.agencyLocation.insurers[insurer.id]))
                     if (this.agencyLocation.insurers[insurer.id].policyTypeInfo) {
 
                         //Retrieve the data for this policy type
@@ -328,7 +335,7 @@ module.exports = class Application {
                                     if (agency_location_insurer_data.useAcord === true && insurer.policy_type_details[policy.type].acord_support === 1) {
                                         slug = 'acord';
                                     }
-                                    else if (insurer.policy_type_details[policy.type.toUpperCase()].api_support === 1) {
+                                    else if (insurer.policy_type_details[policy.type.toUpperCase()].api_support) {
                                         // Otherwise use the api
                                         slug = insurer.slug;
                                     }
@@ -379,39 +386,38 @@ module.exports = class Application {
             return;
         }
 
-        log.info(`${quoteIDs.length} quotes returned for application ${this.id}`);
+        //log.info(`${quoteIDs.length} quotes returned for application ${this.id}`);
 
         // Check for no quotes
         if (quoteIDs.length < 1) {
-            log.error(`No quotes returned for application ${this.id}` + __location);
+            log.warn(`No quotes returned for application ${this.id}` + __location);
             return;
         }
 
+        const quoteBO = new QuoteBO();
+
         // Get the quotes from the database
-        const sql = `
-			SELECT id, policy_type, insurer, amount, aggregated_status, status, api_result
-			FROM clw_talage_quotes
-			WHERE id IN (${quoteIDs.join(',')});
-		`;
-        let quotesRecordSet = null;
+        let quoteList = null;
         try {
-            quotesRecordSet = await db.query(sql);
+            const query = {"mysqlId": quoteIDs}
+            quoteList = await quoteBO.getList(query);
         }
         catch (error) {
             log.error(`Could not retrieve quotes from the database for application ${this.id} ${__location}`);
             return;
         }
 
+
         // Determine the type of policy quoted for the application state
-        quotesRecordSet.forEach((quote) => {
+        quoteList.forEach((quote) => {
             // Determine the result of this quote
-            if (Object.prototype.hasOwnProperty.call(quote, 'amount') && quote.amount) {
+            if (quote.amount) {
                 // Quote
-                policyTypeQuoted[quote.policy_type] = true;
+                policyTypeQuoted[quote.policyType] = true;
             }
-            else if (Object.prototype.hasOwnProperty.call(quote, 'status') && quote.status === 'referred') {
+            else if (quote.status === 'referred') {
                 // Referred
-                policyTypeReferred[quote.policy_type] = true;
+                policyTypeReferred[quote.policyType] = true;
             }
         });
         // Update the application state  - TODO Us BO.
@@ -419,7 +425,7 @@ module.exports = class Application {
 
         // Send a notification to Slack about this application
         try{
-            await this.send_notifications(quotesRecordSet);
+            await this.send_notifications(quoteList);
         }
         catch(err){
             log.error(`Quote Application ${this.id} error sending notifications ` + err + __location);
@@ -430,16 +436,16 @@ module.exports = class Application {
     /**
 	 * Sends a email and slack notifications based on the quotes returned
 	 *
-	 * @param {array} quotesRecordSet - An array of quote objects
+	 * @param {array} quoteList - An array of quote objects
 	 * @returns {void}
 	 */
-    async send_notifications(quotesRecordSet) {
+    async send_notifications(quoteList) {
         // Determine which message will be sent
         let all_had_quotes = true;
         let some_quotes = false;
         let notifiyTalage = false
-        quotesRecordSet.forEach((quoteRecord) => {
-            if (quoteRecord.aggregated_status === 'quoted' || quoteRecord.aggregated_status === 'quoted_referred') {
+        quoteList.forEach((quoteDoc) => {
+            if (quoteDoc.aggregatedStatus === 'quoted' || quoteDoc.aggregatedStatus === 'quoted_referred') {
                 some_quotes = true;
             }
             else {
@@ -447,7 +453,7 @@ module.exports = class Application {
             }
             //Notify Talage logic Agencylocation ->insures
             try{
-                const notifiyTalageTest = this.agencyLocation.shouldNotifyTalage(quoteRecord.insurer);
+                const notifiyTalageTest = this.agencyLocation.shouldNotifyTalage(quoteDoc.insurerId);
                 //We only need one AL insure to be set to notifyTalage to send it to Slack.
                 if(notifiyTalageTest === true){
                     notifiyTalage = notifiyTalageTest;
@@ -461,7 +467,7 @@ module.exports = class Application {
         log.info(`Quote Application ${this.id} Sending Notification to Talage is ${notifiyTalage}` + __location)
 
         // Send an emails if there were no quotes generated
-        if (!some_quotes) {
+        if (some_quotes === false) {
             let error = null;
             const agencyBO = new AgencyBO();
             const emailContentJSON = await agencyBO.getEmailContentAgencyAndCustomer(this.agencyLocation.agencyId, 'no_quotes_agency', 'no_quotes_customer').catch(function(err) {
@@ -523,7 +529,7 @@ module.exports = class Application {
                     const capitalizedBrand = emailContentJSON.emailBrand.charAt(0).toUpperCase() + emailContentJSON.emailBrand.substring(1);
                     message = message.replace(/{{Agency Portal}}/g, `<a href="${portalLink}" target="_blank" rel="noopener noreferrer">${capitalizedBrand} Agency Portal</a>`);
                     message = message.replace(/{{Agency}}/g, this.agencyLocation.agency);
-                    message = message.replace(/{{Agent Login URL}}/g, this.agencyLocation.insurers[quotesRecordSet[0].insurer].agent_login);
+                    message = message.replace(/{{Agent Login URL}}/g, this.agencyLocation.insurers[quoteList[0].insurerId].agent_login);
                     message = message.replace(/{{Brand}}/g, capitalizedBrand);
                     message = message.replace(/{{Business Name}}/g, this.business.name);
                     message = message.replace(/{{Contact Email}}/g, this.business.contacts[0].email);
@@ -531,8 +537,8 @@ module.exports = class Application {
                     message = message.replace(/{{Contact Phone}}/g, formatPhone(this.business.contacts[0].phone));
                     message = message.replace(/{{Industry}}/g, this.business.industry_code_description);
 
-                    if (quotesRecordSet[0].status) {
-                        message = message.replace(/{{Quote Result}}/g, quotesRecordSet[0].status.charAt(0).toUpperCase() + quotesRecordSet[0].status.substring(1));
+                    if (quoteList[0].status) {
+                        message = message.replace(/{{Quote Result}}/g, quoteList[0].status.charAt(0).toUpperCase() + quoteList[0].status.substring(1));
                     }
                     log.debug('sending agency email');
                     // Send the email message - development should email. change local config to get the email.
@@ -548,10 +554,11 @@ module.exports = class Application {
                         this.agencyLocation.agencyId);
                 }
             }
+            else {
+                log.warn(`No Email content for Appid ${this.id} Agency$ {this.agencyLocation.agencyId} for no quotes.` + __location);
+            }
         }
-        else {
-            log.warn(`No Email content for Appid ${this.id} Agency$ {this.agencyLocation.agencyId} for no quotes.` + __location);
-        }
+
 
         // Only send Slack messages on Talage applications  this.agencyLocation.agency
         if (this.agencyLocation.agencyId <= 2 || notifiyTalage === true) {

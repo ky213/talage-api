@@ -100,7 +100,7 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
         return null;
     }
     if(!agencyWebInfo){
-        log.error(`Could not retrieve Agency quote engine agencySlug ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${__location}`);
+        log.warn(`Could not retrieve Agency quote engine agencySlug ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${__location}`);
         return null;
     }
     try{
@@ -122,7 +122,6 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
     }
     catch (err) {
         log.error(`Error mapping to response properties quote engine agency ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${err} ${__location}`);
-        return null;
     }
 
     //If get landing page
@@ -152,23 +151,25 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
             colorSchemeId: "colorSchemeId"
         }
 
-        for (const property in lpPropToAdd) {
-            if(landingPageJSON[property]){
-                agencyWebInfo[lpPropToAdd[property]] = landingPageJSON[property];
-                //new style
-                agencyWebInfo[property] = landingPageJSON[property];
+        if(landingPageJSON){
+            for (const property in lpPropToAdd) {
+                if(landingPageJSON[property]){
+                    agencyWebInfo[lpPropToAdd[property]] = landingPageJSON[property];
+                    //new style
+                    agencyWebInfo[property] = landingPageJSON[property];
+                }
             }
-        }
 
-        haveLandingPage = true;
+            haveLandingPage = true;
+        }
     }
     catch(err){
-        log.error(`Error retrieving Landing Page in quote engine agency ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${err} ${__location}`);
+        log.error(`Error retrieving Landing Page in quote engine agency ${agencySlug} id: ${agencyWebInfo.agencyId} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${err} ${__location}`);
         return null;
     }
 
     if(haveLandingPage === false){
-        log.error(`Could not retrieve Landing Page quote engine agency ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${__location}`);
+        log.warn(`Could not retrieve Landing Page quote engine agency ${agencySlug} id: ${agencyWebInfo.agencyId} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${__location}`);
         return null;
     }
 
@@ -211,7 +212,6 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
     }
     catch(err){
         log.error(`Error retrieving IndustryCodeCategory in quote engine agency ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${err} ${__location}`);
-        return null;
     }
     try {
         //Get AgencyNetworkBO  If missing landing page content get AgnencyNetwork = 1 for it.
@@ -258,10 +258,12 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
     let locations = null;
     try{
         const query = {"agencyId": agencyWebInfo.agencyId}
-        const getAgencyName = false;
+        const getAgencyName = true;
         const getChildren = true;
+        const addAgencyPrimaryLocation = true;
         const agencyLocationBO = new AgencyLocationBO();
-        locations = await agencyLocationBO.getList(query, getAgencyName,getChildren);
+
+        locations = await agencyLocationBO.getList(query, getAgencyName,getChildren, addAgencyPrimaryLocation);
         let insurerList = [];
         // eslint-disable-next-line array-element-newline
         let removeList = ["additionalInfo", "territories", "createdAt", "updatedAt", "agencyPortalModifiedUser","active"]
@@ -274,7 +276,7 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
                 location.territory = location.state;
                 location.zip = location.zipcode;
                 location.appointments = location.territories;
-                if(location.insurers){
+                if(location.insurers && location.insurers.length > 0){
                     for(let i = 0; i < location.insurers.length; i++) {
                         let insurer = location.insurers[i];
                         insurer.agencylocation = location.id;
@@ -293,10 +295,10 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
                         }
                         insurerList.push(insurer);
                     }
-                    delete location.insurers;
+                    //delete location.insurers;
                 }
                 else {
-                    log.error("No insurers for location " + __location)
+                    log.error(`No insurers for location ${location.systemId}` + __location)
                 }
                 for(let i = 0; i < removeList.length; i++) {
                     if(location[removeList[i]]){
@@ -312,8 +314,7 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
         agencyWebInfo.insurers = insurerList;
     }
     catch(err){
-        log.error(err.message + __location);
-        return null;
+        log.error("Error processing Agency locations " + err + __location);
     }
     // Retrieve Officer Titles
     const officerTitlesSql = `SELECT officerTitle from \`officer_titles\``;
@@ -378,6 +379,9 @@ async function getAgency(req, res, next) {
         if (agency === null) {
             agency = await getAgencyFromSlugs('talage', null);
         }
+        if(!agency){
+            log.warn(`No agency for url ${req.query.url}` + __location);
+        }
 
     }
     res.send(200, {agency: agency});
@@ -414,11 +418,11 @@ async function getAgencySocialMetadata(req, res, next) {
         agencyJson = await agencyBO.getbySlug(agencySlug);
     }
     catch (err) {
-        log.error(`Error retrieving Agency in quote engine agency ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${err} ${__location}`);
+        log.error(`Error retrieving Agency in quote engine agency ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}) url ${req.query.url}: ${err} ${__location}`);
         return null;
     }
     if(!agencyJson){
-        log.error(`Could not retrieve Agency quote engine agencySlug ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${__location}`);
+        log.warn(`Could not retrieve Agency quote engine agencySlug ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}) url ${req.query.url}: ${__location}`);
         res.send(404, {error: 'Could not retrieve agency'});
         return next();
     }
