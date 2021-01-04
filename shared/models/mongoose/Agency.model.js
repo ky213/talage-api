@@ -40,14 +40,15 @@ const AgencySchema = new Schema({
     agencyPortalModifiedUser: {type: String},
     agencyPortalDeletedUser: {type: String},
     primaryAgency: {type: Boolean, default: false},
+    socialMediaTags : [SocialMediaSchema],
     active: {type: Boolean, default: true}
 },opts)
 
-// const SocialMediaSchema = new Schema({
-//     facebookPixel: {type: String, required: false},
-//     googleAdTag: {type: String, required: false},
-//     googleAdLabel:{type: String,required:false}
-// },opts)
+const SocialMediaSchema = new Schema({
+    socialMediaTag: {type: String, required: true},
+    tagLabel:{type: String, required:false},
+    tagType: {type: String, required:true}
+},opts)
 
 
 // //***** Virtuals old field names ****************** */
