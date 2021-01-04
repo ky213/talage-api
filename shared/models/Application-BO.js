@@ -49,6 +49,9 @@ const tableName = 'clw_talage_applications';
 const skipCheckRequired = false;
 //businessDataJSON
 const QUOTE_STEP_NUMBER = 9;
+const QUOTE_MIN_TIMEOUT = 5;
+const QUOTING_STATUS = 15;
+const ERROR_STATUS = 20;
 module.exports = class ApplicationModel {
 
     #dbTableORM = null;
@@ -1594,6 +1597,7 @@ module.exports = class ApplicationModel {
         });
         //add calculated fields EIN
         await this.setDocEinClear(application);
+        await this.checkAndFixAppStatus(application);
         this.#applicationMongooseDB = application;
         if(updateMysql === true){
             // save mysql applicaition
@@ -1714,6 +1718,32 @@ module.exports = class ApplicationModel {
         }
     }
 
+    // checks the status of the app and fixes it if its timed out
+    async checkAndFixAppStatus(applicationDoc){
+        // only check and fix quoting apps
+        if(applicationDoc.appStatusId === QUOTING_STATUS){
+            const now = moment.utc();
+            // if the quotingStartedDate doesnt exist, just set it and return
+            if(!applicationDoc.quotingStartedDate){
+                applicationDoc.quotingStartedDate = now;
+                await this.updateMongo(applicationDoc.uuid, {quotingStartedDate: now});
+                return;
+            }
+
+            const duration = moment.duration(now.diff(moment(applicationDoc.quotingStartedDate)));
+            if(duration.minutes() >= QUOTE_MIN_TIMEOUT){
+                log.error(`Application: ${applicationDoc.uuid} timed out ${QUOTE_MIN_TIMEOUT} minutes after quoting started`);
+                applicationDoc.appStatusId = ERROR_STATUS;
+                applicationDoc.status = 'error';
+                await this.updateMongo(applicationDoc.uuid,
+                    {
+                        appStatusId: ERROR_STATUS,
+                        status: 'error'
+                    });
+            }
+        }
+    }
+
     async setDocEinClear(applicationDoc){
         if(applicationDoc){
             if(applicationDoc.einEncrypted){
@@ -1755,6 +1785,7 @@ module.exports = class ApplicationModel {
                 try {
                     applicationDoc = await ApplicationMongooseModel.findOne(query, '-__v');
                     await this.setDocEinClear(applicationDoc);
+                    await this.checkAndFixAppStatus(applicationDoc);
                 }
                 catch (err) {
                     log.error("Getting Application error " + err + __location);
@@ -1780,6 +1811,7 @@ module.exports = class ApplicationModel {
                 try {
                     applicationDoc = await ApplicationMongooseModel.findOne(query, '-__v');
                     await this.setDocEinClear(applicationDoc);
+                    await this.checkAndFixAppStatus(applicationDoc);
                 }
                 catch (err) {
                     log.error("Getting Application error " + err + __location);
@@ -1807,6 +1839,7 @@ module.exports = class ApplicationModel {
                     const docDB = await ApplicationMongooseModel.findOne(query, '-__v');
                     if (docDB) {
                         await this.setDocEinClear(docDB);
+                        await this.checkAndFixAppStatus(docDB);
                         applicationDoc = mongoUtils.objCleanup(docDB);
                     }
                 }
@@ -1837,6 +1870,7 @@ module.exports = class ApplicationModel {
                     const docDB = await ApplicationMongooseModel.findOne(query, '-__v');
                     if (docDB) {
                         await this.setDocEinClear(docDB);
+                        await this.checkAndFixAppStatus(docDB);
                         applicationDoc = mongoUtils.objCleanup(docDB);
                     }
                 }
@@ -2019,6 +2053,7 @@ module.exports = class ApplicationModel {
                     // log.debug("docList: " + JSON.stringify(docList));
                     for (const application of docList) {
                         await this.setDocEinClear(application);
+                        await this.checkAndFixAppStatus(application);
                     }
                     if(getListOptions.getAgencyName === true && docList.length > 0){
                         //loop doclist adding agencyName
@@ -2237,6 +2272,7 @@ module.exports = class ApplicationModel {
                         for (const application of docList) {
                             application.id = application.mysqlId;
                             await this.setDocEinClear(application);
+                            await this.checkAndFixAppStatus(application);
                             delete application._id;
 
                             // Load the request data into it
@@ -2402,6 +2438,7 @@ module.exports = class ApplicationModel {
                     docDB = await ApplicationMongooseModel.findOne(query, '-__v');
                     if (docDB) {
                         await this.setDocEinClear(docDB);
+                        await this.checkAndFixAppStatus(docDB);
                         this.#applicationMongooseDB = docDB
                         appllicationDoc = mongoUtils.objCleanup(docDB);
                     }
