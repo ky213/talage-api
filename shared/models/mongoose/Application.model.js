@@ -27,6 +27,19 @@ const contactSchema = new Schema({
     primary: {type: Boolean, required: true, default: false}
 })
 
+const ActivityCodeEmployeeSchema = new Schema({
+    employeePayroll: { type: Number, required: true },
+    employeeType: { type: String, required: true },
+    employeeCount: { type: Number, required: true }
+})
+
+const ActivtyCodeSchema = new Schema({
+    ncciCode: {type: Number, required: true},
+    payroll: {type: Number, required: true},
+    ownerPayRoll: {type: Number, required: false},
+    employeeList: [ActivityCodeEmployeeSchema]
+})
+
 const ActivtyCodePayrollSchema = new Schema({
     ncciCode: {type: Number, required: true},
     payroll: {type: Number, required: true},
@@ -47,7 +60,7 @@ const locationSchema = new Schema({
     square_footage:  {type: Number, required: false},
     unemployment_num:  {type: Number, required: false},
     billing: {type: Boolean, required: false, default: false},
-    activityPayrollList: [ActivtyCodePayrollSchema]
+    activityPayrollList: [ActivtyCodeSchema]
 })
 
 const ownerSchema = new Schema({
@@ -191,7 +204,6 @@ ApplicationSchema.pre('validate', function(next) {
         delete this.ein;
     }
 
-
     next();
 });
 
@@ -200,7 +212,14 @@ ApplicationSchema.pre('save', async function() {
     if(this.ein){
         delete this.ein;
     }
+});
 
+ApplicationSchema.pre('updateOne', async function(next) {
+
+    // Populate top-level this.activityCodes array
+    populateActivityCodePayroll(this);
+
+    next();
 });
 
 // // eslint-disable-next-line object-curly-spacing
@@ -248,3 +267,30 @@ ApplicationSchema.set('toJSON', {
 
 mongoose.set('useCreateIndex', true);
 mongoose.model('Application', ApplicationSchema);
+
+// Utility Functions
+
+/**
+ * Populates the top-level activityCodes array property with the total payroll for all activity codes across all locations
+ *
+ * @param  {Object} schema - Mongoose Application schema object
+ * @returns {void}
+ */
+function populateActivityCodePayroll(schema) {
+    const application = schema.getUpdate();
+    if (application.hasOwnProperty("locations")) {
+        const activityCodeMap = {};
+        for (const location of application.locations) {
+            for (const activityCode of location.activityPayrollList) {
+                if (!activityCodeMap.hasOwnProperty(activityCode.id)) {
+                    activityCodeMap[activityCode.id] = {
+                        ncciCode: activityCode.id,
+                        payroll: 0
+                    };
+                }
+                activityCodeMap[activityCode.id].payroll += activityCode.payroll;
+            }
+        }
+        schema.set({ activityCodes: Object.values(activityCodeMap) });
+    }
+}
