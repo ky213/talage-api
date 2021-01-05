@@ -533,6 +533,7 @@ const validateActivityCode = async (activityCode) => {
         }
 
         // Check that the ID is valid
+        // TODO: Move this to a translate method
         let result = null;
         try {
             result = await db.query(`SELECT \`description\`FROM \`#__activity_codes\` WHERE \`id\` = ${activityCode.id} LIMIT 1;`);
@@ -563,297 +564,293 @@ const validateActivityCode = async (activityCode) => {
 /**
  * Checks that the data supplied is valid
  *
- * @returns {Promise.<array, Error>} A promise that returns a boolean indicating whether or not this record is valid, or an Error if rejected
+ * @returns {Policy object} TODO: REMOVE THIS
  */
 const validatePolicy = async (policy) => {
-    return new Promise(async(fulfill, reject) => {
-
-        // store a temporary limit '/' deliniated, because for some reason, we don't store it that way in mongo...
-        let indexes = [];
-        for (let i = 1; i < policy.limits.length; i++) {
-            if (policy.limits[i] !== "0") {
-                indexes.push(i);
-            }
+    // store a temporary limit '/' deliniated, because for some reason, we don't store it that way in mongo...
+    let indexes = [];
+    for (let i = 1; i < policy.limits.length; i++) {
+        if (policy.limits[i] !== "0") {
+            indexes.push(i);
         }
-        let limits = policy.limits.split("");
-        limits.splice(indexes[1], 0, "/");
-        limits.splice(indexes[0], 0, "/");
-        limits = limits.join("");
+    }
+    let limits = policy.limits.split("");
+    limits.splice(indexes[1], 0, "/");
+    limits.splice(indexes[0], 0, "/");
+    limits = limits.join("");
 
-        // Validate effective_date
-        if (policy.effective_date) {
-            // Check for mm-dd-yyyy formatting
-            if (!moment(policy.effective_date).isValid()) {
-                return reject(new Error('Invalid formatting for property: effective_date. Expected mm-dd-yyyy'));
-            }
-
-            // Check if this date is in the past
-            if (moment(policy.effective_date).isBefore(moment().startOf('day'))) {
-                return reject(new Error('Invalid property: effective_date. The effective date cannot be in the past'));
-            }
-
-            // Check if this date is too far in the future
-            if (moment(policy.effective_date).isAfter(moment().startOf('day').add(90, 'days'))) {
-                return reject(new Error('Invalid property: effective_date. The effective date cannot be more than 90 days in the future'));
-            }
-        } else {
-            return reject(new Error('Missing property: effective_date'));
+    // Validate effective_date
+    if (policy.effective_date) {
+        // Check for mm-dd-yyyy formatting
+        if (!moment(policy.effective_date).isValid()) {
+            throw new Error('Invalid formatting for property: effective_date. Expected mm-dd-yyyy');
         }
 
-        // Validate claims
-        for (const claim of policy.claims) {
-            try {
-                await validateClaim(claim);
-            } catch (e) {
-                return reject(e);
+        // Check if this date is in the past
+        if (moment(policy.effective_date).isBefore(moment().startOf('day'))) {
+            throw new Error('Invalid property: effective_date. The effective date cannot be in the past');
+        }
+
+        // Check if this date is too far in the future
+        if (moment(policy.effective_date).isAfter(moment().startOf('day').add(90, 'days'))) {
+            throw new Error('Invalid property: effective_date. The effective date cannot be more than 90 days in the future');
+        }
+    } else {
+        throw new Error('Missing property: effective_date');
+    }
+
+    // Validate claims
+    for (const claim of policy.claims) {
+        try {
+            validateClaim(claim);
+        } catch (e) {
+            return reject(e);
+        }
+    }
+
+    // TODO: Move this to a translate method
+    // Limits: If this is a WC policy, check if further limit controls are needed (IFF we have territory information)
+    if (policy.type === 'WC' && policy.territories) {
+        if (policy.territories.includes('CA')) {
+            // In CA, force limits to be at least 1,000,000/1,000,000/1,000,000
+            if (limits !== '2000000/2000000/2000000') {
+                limits = '1000000/1000000/1000000';
+            }
+
+        }
+        else if (policy.territories.includes('OR')) {
+            // In OR force limits to be at least 500,000/500,000/500,000
+            if (limits === '100000/500000/100000') {
+                limits = '500000/500000/500000';
             }
         }
+    }
 
-        // Limits: If this is a WC policy, check if further limit controls are needed (IFF we have territory information)
-        if (policy.type === 'WC' && policy.territories) {
-            if (policy.territories.includes('CA')) {
-                // In CA, force limits to be at least 1,000,000/1,000,000/1,000,000
-                if (limits !== '2000000/2000000/2000000') {
-                    limits = '1000000/1000000/1000000';
-                }
-
-            }
-            else if (policy.territories.includes('OR')) {
-                // In OR force limits to be at least 500,000/500,000/500,000
-                if (limits === '100000/500000/100000') {
-                    limits = '500000/500000/500000';
-                }
-            }
+    // Validate type
+    if (policy.type) {
+        const validTypes = [
+            'BOP',
+            'GL',
+            'WC'
+        ];
+        if (!validTypes.includes(policy.type)) {
+            throw new Error('Invalid policy type');
         }
+    }
+    else {
+        throw new Error('You must provide a policy type');
+    }
 
-        // Validate type
-        if (policy.type) {
-            const validTypes = [
-                'BOP',
-                'GL',
-                'WC'
-            ];
-            if (!validTypes.includes(policy.type)) {
-                return reject(new Error('Invalid policy type'));
-            }
+    // TODO: Move this to a translate method
+    // Determine the deductible
+    if (typeof policy.deductible === "string") {
+        // Parse the deductible string
+        try {
+            policy.deductible = parseInt(policy.deductible, 10);
+        } catch (e) {
+            // Default to 500 if the parse fails
+            log.warn(`applicationId: ${policy.applicationId} policyType: ${policy.type} Could not parse deductible string '${policy.deductible}': ${e}. Defaulting to 500.`);
+            policy.deductible = 500;
         }
-        else {
-            return reject(new Error('You must provide a policy type'));
-        }
+    }
 
-        // Determine the deductible
-        if (typeof policy.deductible === "string") {
-            // Parse the deductible string
-            try {
-                policy.deductible = parseInt(policy.deductible, 10);
-            } catch (e) {
-                // Default to 500 if the parse fails
-                log.warn(`applicationId: ${policy.applicationId} policyType: ${policy.type} Could not parse deductible string '${policy.deductible}': ${e}. Defaulting to 500.`);
-                policy.deductible = 500;
-            }
+    // BOP specific validation
+    if (policy.type === 'BOP') {
+        // Coverage Lapse Due To Non-Payment - Note: Quote does not collect this for BOP only WC.
+        if (policy.coverageLapseNonPayment === null) {
+            throw new Error('coverage_lapse_non_payment is required, and must be a true or false value');
         }
+    }
+    else if (policy.type === 'GL') {
+        // GL specific validation
+        // currently nothing specific to do here...
+    }
+    else if (policy.type === 'WC') {
+        // WC Specific Properties
 
-        // BOP specific validation
-        if (policy.type === 'BOP') {
-            // Coverage Lapse Due To Non-Payment - Note: Quote does not collect this for BOP only WC.
-            if (policy.coverageLapseNonPayment === null) {
-                return reject(new Error('coverage_lapse_non_payment is required, and must be a true or false value'));
-            }
+        /**
+         * Coverage Lapse
+         * - Boolean
+         */
+        if (policy.coverageLapse === null) {
+            throw new Error('coverage_lapse is required, and must be a true or false value');
         }
-        else if (policy.type === 'GL') {
-            // GL specific validation
-            // currently nothing specific to do here...
-        }
-        else if (policy.type === 'WC') {
-            // WC Specific Properties
+    }
 
-            /**
-             * Coverage Lapse
-             * - Boolean
-             */
-            if (policy.coverageLapse === null) {
-                return reject(new Error('coverage_lapse is required, and must be a true or false value'));
-            }
-        }
+    // Limits
+    if (!validator.limits(limits, policy.type)) {
+        throw new Error('The policy limits you supplied are invalid.');
+    }
 
-        // Limits
-        if (!validator.limits(limits, policy.type)) {
-            return reject(new Error('The policy limits you supplied are invalid.'));
-        }
+    // TODO: Move this to a translate method
+    policy.limits = limits;
 
-        policy.limits = limits;
-
-        fulfill(policy);
-    });
+    return policy;
 }
 
 /**
  * Checks that the data supplied is valid
  *
- * @returns {Promise.<array, Error>} A promise that returns a boolean indicating whether or not this record is valid, or an Error if rejected
+ * @returns {void}
  */
 const validateQuestion = async (question) => {
-    return new Promise((fulfill, reject) => {
-        // If this question is not required, just return true
-        if (!question.required) {
-            return fulfill(true);
-        }
+    // If this question is not required, just return true
+    if (!question.required) {
+        return;
+    }
 
-        // Prepare the error messages
-        let type_help = '';
-        switch(question.type){
-            case 'Yes/No':
-                type_help = 'Only boolean values are accepted';
-                break;
-            case 'Checkboxes':
-                type_help = 'Answer must match one of the available values';
-                break;
-            case 'Select List':
-                type_help = 'Answer must match one of the available values';
-                break;
-            case 'Text - Multiple Lines':
-                type_help = 'Blank values are not accepted';
-                break;
-            case 'Text - Single Line':
-                type_help = 'Blank values are not accepted';
-                break;
-            default:
-                break;
-        }
+    // Prepare the error messages
+    let type_help = '';
+    switch(question.type){
+        case 'Yes/No':
+            type_help = 'Only boolean values are accepted';
+            break;
+        case 'Checkboxes':
+            type_help = 'Answer must match one of the available values';
+            break;
+        case 'Select List':
+            type_help = 'Answer must match one of the available values';
+            break;
+        case 'Text - Multiple Lines':
+            type_help = 'Blank values are not accepted';
+            break;
+        case 'Text - Single Line':
+            type_help = 'Blank values are not accepted';
+            break;
+        default:
+            break;
+    }
 
-        // If the question is single line text, make sure we got an answer (zero is allowed, blank is not)
-        if (question.type === 'Text - Single Line' && (question.answer || question.answer === 0)) {
-            return fulfill(true);
-        }
+    // If the question is single line text, make sure we got an answer (zero is allowed, blank is not)
+    if (question.type === 'Text - Single Line' && (question.answer || question.answer === 0)) {
+        return;
+    }
 
-        // If the question is multi-line text, make sure we got something for an answer (blank is not allowed)
-        if (question.type === 'Text - Multiple Lines' && question.answer) {
-            return fulfill(true);
-        }
+    // If the question is multi-line text, make sure we got something for an answer (blank is not allowed)
+    if (question.type === 'Text - Multiple Lines' && question.answer) {
+        return;
+    }
 
-        // If the question is a checkbox, make sure we have an answer (this.answer must have an array value with one or more integer )
-        if (question.type === 'Checkboxes' && question.answer && typeof question.answer === 'object' && question.answer.length > 0) {
-            // Check each answer within the array to make sure they are all valid possible answers
-            for(const answer of question.answer){
-                // Check that the answer ID is one of those available for this question
-                if(Object.keys(question.possible_answers).indexOf(answer.toString()) < 0){
-                    // Answer is invalid, return an error and stop
-                    return reject(new Error(`Answer to question ${question.id} is invalid. (${type_help})`));
-                }
+    // If the question is a checkbox, make sure we have an answer (this.answer must have an array value with one or more integer )
+    if (question.type === 'Checkboxes' && question.answer && typeof question.answer === 'object' && question.answer.length > 0) {
+        // Check each answer within the array to make sure they are all valid possible answers
+        for(const answer of question.answer){
+            // Check that the answer ID is one of those available for this question
+            if(Object.keys(question.possible_answers).indexOf(answer.toString()) < 0){
+                // Answer is invalid, return an error and stop
+                throw new Error(`Answer to question ${question.id} is invalid. (${type_help})`);
             }
-
-            return fulfill(true);
         }
 
-        // If no answer ID is set, reject
-        if (!question.answer_id) {
-            return reject(serverHelper.requestError(`Answer to question ${question.id} is invalid. (${type_help})`));
-        }
+        return;
+    }
 
-        // Check that the answer ID is one of those available for this question
-        if (Object.keys(question.possible_answers).indexOf(question.answer_id.toString()) >= 0) {
-            return fulfill(true);
-        }
+    // If no answer ID is set, reject
+    if (!question.answer_id) {
+        throw new Error(`Answer to question ${question.id} is invalid. (${type_help})`);
+    }
 
-        reject(new Error(`Answer to question ${question.id} is invalid. (${type_help})`));
-    });
+    // Check that the answer ID is one of those available for this question
+    if (Object.keys(question.possible_answers).indexOf(question.answer_id.toString()) >= 0) {
+        return;
+    }
+
+    throw new Error(`Answer to question ${question.id} is invalid. (${type_help})`);
 }
 
 /**
- * Checks that the data supplied is valid
+ * Checks that the data supplied is valid, throws an execption (error) if not
  *
- * @returns {boolean} True if valid, false otherwise (with error text stored in the error property)
+ * @returns {void}
  */
 const validateClaim = async (claim) => {
-    return new Promise((fulfill, reject) => {
-        /**
-         * Amount Paid (dollar amount)
-         * - >= 0
-         * - < 15,000,000
-         */
-        if (claim.amountPaid) {
-            if (!validator.claim_amount(claim.amountPaid)) {
-                return reject(new Error('The amount must be a dollar value greater than 0 and below 15,000,000'));
-            }
+    /**
+     * Amount Paid (dollar amount)
+     * - >= 0
+     * - < 15,000,000
+     */
+    if (claim.amountPaid) {
+        if (!validator.claim_amount(claim.amountPaid)) {
+            throw new Error('The amount must be a dollar value greater than 0 and below 15,000,000');
+        }
 
-            // Cleanup this input
-            if (typeof claim.amountPaid === 'number') {
-                claim.amountPaid = Math.round(claim.amountPaid);
-            } else {
-                claim.amountPaid = Math.round(parseFloat(claim.amountPaid.toString().replace('$', '').replace(/,/g, '')));
-            }
+        // TODO: Move this to a translate method
+        // Cleanup this input
+        if (typeof claim.amountPaid === 'number') {
+            claim.amountPaid = Math.round(claim.amountPaid);
         } else {
-            claim.amountPaid = 0;
+            claim.amountPaid = Math.round(parseFloat(claim.amountPaid.toString().replace('$', '').replace(/,/g, '')));
+        }
+    } else {
+        claim.amountPaid = 0;
+    }
+
+    // TODO: Move this to a translate method
+    /**
+     * Amount Reserved (dollar amount)
+     * - >= 0
+     * - < 15,000,000
+     */
+    if (claim.amountReserved) {
+        if (!validator.claim_amount(claim.amountReserved)) {
+            throw new Error('The amountReserved must be a dollar value greater than 0 and below 15,000,000');
         }
 
-        /**
-         * Amount Reserved (dollar amount)
-         * - >= 0
-         * - < 15,000,000
-         */
-        if (claim.amountReserved) {
-            if (!validator.claim_amount(claim.amountReserved)) {
-                return reject(new Error('The amountReserved must be a dollar value greater than 0 and below 15,000,000'));
-            }
-
-            // Cleanup this input
-            if (typeof claim.amountReserved === 'number') {
-                claim.amountReserved = Math.round(claim.amountReserved);
-            } else {
-                claim.amountReserved = Math.round(parseFloat(claim.amountReserved.toString().replace('$', '').replace(/,/g, '')));
-            }
+        // Cleanup this input
+        if (typeof claim.amountReserved === 'number') {
+            claim.amountReserved = Math.round(claim.amountReserved);
         } else {
-            claim.amountReserved = 0;
+            claim.amountReserved = Math.round(parseFloat(claim.amountReserved.toString().replace('$', '').replace(/,/g, '')));
+        }
+    } else {
+        claim.amountReserved = 0;
+    }
+
+    /**
+     * Date
+     * - Date (enforced with moment() on load())
+     * - Cannot be in the future
+     */
+    if (claim.date) {
+        //  Valid date
+        if (!claim.date.isValid()) {
+            throw new Error('Invalid date of claim. Expected YYYY-MM-DD');
         }
 
-        /**
-         * Date
-         * - Date (enforced with moment() on load())
-         * - Cannot be in the future
-         */
-        if (claim.date) {
-            //  Valid date
-            if (!claim.date.isValid()) {
-                return reject(new Error('Invalid date of claim. Expected YYYY-MM-DD'));
-            }
-
-            // Confirm date is not in the future
-            if (claim.date.isAfter(moment())) {
-                return reject(new Error('Invalid date of claim. Date cannot be in the future'));
-            }
+        // Confirm date is not in the future
+        if (claim.date.isAfter(moment())) {
+            throw new Error('Invalid date of claim. Date cannot be in the future');
         }
+    }
 
-        /**
-         * Missed Time
-         * - Boolean
-         */
-        if (claim.missedWork) {
-            // Other than bool?
-            if (typeof claim.missedWork !== 'boolean') {
-                return reject(new Error('Invalid format for missedWork. Expected true/false'));
-            }
+    /**
+     * Missed Time
+     * - Boolean
+     */
+    if (claim.missedWork) {
+        // Other than bool?
+        if (typeof claim.missedWork !== 'boolean') {
+            throw new Error('Invalid format for missedWork. Expected true/false');
         }
+    }
 
-        /**
-         * Open
-         * - Boolean
-         */
-        if (claim.open) {
-            // Other than bool?
-            if (typeof claim.open !== 'boolean') {
-                return reject(new Error('Invalid format for open claims. Expected true/false'));
-            }
+    /**
+     * Open
+     * - Boolean
+     */
+    if (claim.open) {
+        // Other than bool?
+        if (typeof claim.open !== 'boolean') {
+            throw new Error('Invalid format for open claims. Expected true/false');
         }
+    }
 
-        /**
-         * Only open claims can have an amount reserved
-         */
-        if (!claim.open && claim.amountReserved) {
-            return reject(new Error('Only open claims can have an amount reserved'));
-        }
-
-        fulfill(true);
-    });
+    /**
+     * Only open claims can have an amount reserved
+     */
+    if (!claim.open && claim.amountReserved) {
+        throw new Error('Only open claims can have an amount reserved');
+    }
 }
 
 /**

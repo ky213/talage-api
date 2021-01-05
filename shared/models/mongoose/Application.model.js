@@ -177,37 +177,6 @@ const ApplicationSchema = new Schema({
 // NOTE:  EIN is not ever saved to database.
 
 /********************************** */
-// Virtuals to preserve backwards compatability with old field names
-
-PolicySchema.virtual('type')
-    .get(() => {
-        if (this.policyType) {
-            return this.policyType;
-        } else {
-            return '';
-        }
-    });
-
-PolicySchema.virtual('effective_date')
-    .get(() => {
-        if (this.effectiveDate) {
-            return this.effectiveDate;
-        } else {
-            return null;
-        }
-    });
-
-PolicySchema.virtual('expiration_date')
-    .get(() => {
-        if (this.expirationDate) {
-            return this.expirationDate;
-        } else {
-            return null;
-        }
-    });
-
-
-/********************************** */
 ApplicationSchema.plugin(timestamps);
 ApplicationSchema.plugin(mongooseHistory);
 

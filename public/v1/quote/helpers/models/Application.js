@@ -806,7 +806,7 @@ module.exports = class Application {
                     // validatePolicy updates the policy
                     // TODO: validation functions should NOT update the value being validated, that is not their responsability.
                     //       This should be updated to happen before validation is called, or after. 
-                    const newPolicy = await validatePolicy(applicationDocData, policy);
+                    const newPolicy = validatePolicy(applicationDocData, policy);
                     this.policies[i] = newPolicy;
                 } catch (e) {
                     log.error('Policy Validation error. ' + e + __location);
@@ -818,6 +818,7 @@ module.exports = class Application {
             const insurer_ids = this.get_insurer_ids();
             const wc_codes = this.get_wc_codes();
 
+            // TODO: Move this to a translate method
             let questions = null;
             try {
                 questions = await questionsSvc.GetQuestionsForBackend(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids, true);
@@ -830,6 +831,7 @@ module.exports = class Application {
             const user_questions = this.questions;
             this.questions = {};
 
+            // TODO: Move this to a translate method
             // Convert each question from the database into a question object and load in the user's answer to each
             if (questions) {
                 //await questions.forEach((question) => {
@@ -856,6 +858,7 @@ module.exports = class Application {
                 }
             }
 
+            // TODO: Move this to a translate method
             // Enforce required questions (this must be done AFTER all questions are loaded with their answers)
             if (this.applicationDocData.questions) {
                 for (const questionId in this.applicationDocData.questions) {
@@ -890,7 +893,7 @@ module.exports = class Application {
 
                         if (!question.hidden) {
                             try {
-                                await validateQuestion(question);
+                                validateQuestion(question);
                             } catch (e) {
                                 log.error(`Error validating question ${question.questionId}: ${e}. ` + __location);
                             }
