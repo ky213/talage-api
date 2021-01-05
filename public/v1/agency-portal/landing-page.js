@@ -531,7 +531,7 @@ async function getLandingPage(req, res, next) {
     landingPageJSON.colorScheme = landingPageJSON.colorSchemeId
     landingPageJSON.industryCode = landingPageJSON.industryCodeId
     landingPageJSON.industryCodeCategory = landingPageJSON.industryCodeCategoryId
-    landingPageJSON.industryCodeCategory = landingPageJSON.industryCodeCategoryId
+
 
     // Convert the showIndustrySection value to a boolean
     landingPageJSON.showIndustrySection = Boolean(landingPageJSON.showIndustrySection);
