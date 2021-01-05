@@ -153,7 +153,7 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
 
         if(landingPageJSON){
             for (const property in lpPropToAdd) {
-                if(landingPageJSON[property]){
+                if(landingPageJSON[property] || landingPageJSON[property] === false || landingPageJSON[property] === 0){
                     if(lpPropToAdd[property] !== property){
                         agencyWebInfo[lpPropToAdd[property]] = landingPageJSON[property];
                     }
