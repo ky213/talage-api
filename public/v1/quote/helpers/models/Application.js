@@ -299,6 +299,13 @@ module.exports = class Application {
         const policyTypeReferred = {};
         const policyTypeQuoted = {};
 
+        if(this.policies && this.policies.length === 0){
+            log.error(`No policies for Application ${this.id} ` + __location)
+        }
+
+        // set the quoting started date right before we start looking for quotes
+        let applicationBO = new ApplicationBO();
+        await applicationBO.updateMongo(this.applicationDocData.uuid, {quotingStartedDate: moment.utc()});
         this.policies.forEach((policy) => {
 
             // Generate quotes for each insurer for the given policy type
