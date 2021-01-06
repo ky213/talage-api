@@ -60,14 +60,15 @@ exports.send = async function(recipients, subject, content, keys = {}, agencyNet
     //load AgencyNetworkBO
     const agencyNetworkBO = new AgencyNetworkBO();
     let error = null;
-    const boResp = await agencyNetworkBO.loadFromId(agencyNetworkId).catch(function(err){
+
+    const agencyNetworkJSON = await agencyNetworkBO.getById(agencyNetworkId).catch(function(err){
         log.error(`Error loading AgencyNetworkBO AgencyNetworkId {agencyNetworkId} ` + err + __location);
         error = err;
     })
-    if(error || boResp === false){
+    if(error || !agencyNetworkJSON){
         return false;
     }
-    if(!agencyNetworkBO.additionalInfo || !agencyNetworkBO.additionalInfo.fromEmailAddress){
+    if(!agencyNetworkJSON.additionalInfo || !agencyNetworkJSON.additionalInfo.fromEmailAddress){
         log.error(`Error loading AgencyNetworkBO Missing additionalInfo AgencyNetworkId {agencyNetworkId} ` + __location);
         return false;
     }
@@ -130,9 +131,9 @@ exports.send = async function(recipients, subject, content, keys = {}, agencyNet
     }
 
     // ******* Begin building out the data that will be sent into the email service ****************************************
-    emailJSON.from = agencyNetworkBO.additionalInfo.fromEmailAddress
+    emailJSON.from = agencyNetworkJSON.additionalInfo.fromEmailAddress
     if (brandOverride === 'agency' || brandOverride === 'digalent-agency'){
-        emailJSON.from = agencyNetworkBO.additionalInfo.fromEmailAddressAgency
+        emailJSON.from = agencyNetworkJSON.additionalInfo.fromEmailAddressAgency
     }
     else if (brandOverride === 'talage'){
         emailJSON.from = 'info@talageins.com';
@@ -142,9 +143,9 @@ exports.send = async function(recipients, subject, content, keys = {}, agencyNet
 
     // ******  Template processing ************/
     // Make sure we have a template for this system
-    let template = `${__dirname}/emailhelpers/templates/${agencyNetworkBO.additionalInfo.emailTempateFile}`;
+    let template = `${__dirname}/emailhelpers/templates/${agencyNetworkJSON.additionalInfo.emailTempateFile}`;
     if(brandOverride === 'agency' || brandOverride === 'digalent-agency'){
-        template = `${__dirname}/emailhelpers/templates/${agencyNetworkBO.additionalInfo.emailTempateFileAgency}`;
+        template = `${__dirname}/emailhelpers/templates/${agencyNetworkJSON.additionalInfo.emailTempateFileAgency}`;
     }
     else if(brandOverride === 'talage'){
         template = `${__dirname}/emailhelpers/templates/talage.html`;
