@@ -1,13 +1,15 @@
+/* eslint-disable multiline-comment-style */
+// eslint-disable lines-around-comment
 'use strict';
 
 
 const DatabaseObject = require('./DatabaseObject.js');
-const crypt = requireShared('./services/crypt.js');
+const InsurerBO = global.requireShared('./models/Insurer-BO.js');
+
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const moment = require('moment');
 const moment_timezone = require('moment-timezone');
-const { debug } = require('request');
 
 
 const tableName = 'clw_talage_outages'
@@ -16,14 +18,14 @@ module.exports = class InsurerOutageBO{
 
     #dbTableORM = null;
 
-	constructor(){
+    constructor(){
         this.id = 0;
         this.#dbTableORM = new DbTableOrm(tableName);
     }
 
 
     /**
-	 * Save Model 
+	 * Save Model
      *
 	 * @param {object} newObjectJSON - newObjectJSON JSON
 	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
@@ -37,7 +39,7 @@ module.exports = class InsurerOutageBO{
             await this.cleanupInput(newObjectJSON);
             newObjectJSON.state = 1;
             if(newObjectJSON.id){
-                await this.#dbTableORM.getById(newObjectJSON.id).catch(function (err) {
+                await this.#dbTableORM.getById(newObjectJSON.id).catch(function(err) {
                     log.error(`Error getting ${tableName} from Database ` + err + __location);
                     reject(err);
                     return;
@@ -63,27 +65,12 @@ module.exports = class InsurerOutageBO{
         });
     }
 
-    /**
-	 * saves this object.
-     *
-	 * @returns {Promise.<JSON, Error>} save return true , or an Error if rejected
-	 */
-    save(asNew = false){
-        return new Promise(async(resolve, reject) => {
-            //validate
-            this.#dbTableORM.load(this, skipCheckRequired);
-            await this.#dbTableORM.save().catch(function(err){
-                reject(err);
-            });
-            resolve(true);
-        });
-    }
 
     getById(id) {
-        return new Promise(async (resolve, reject) => {
+        return new Promise(async(resolve, reject) => {
             //validate
-            if(id && id >0 ){
-                await this.#dbTableORM.getById(id).catch(function (err) {
+            if(id && id > 0){
+                await this.#dbTableORM.getById(id).catch(function(err) {
                     log.error(`Error getting  ${tableName} from Database ` + err + __location);
                     reject(err);
                     return;
@@ -98,19 +85,19 @@ module.exports = class InsurerOutageBO{
     }
 
     deleteSoftById(id) {
-        return new Promise(async (resolve, reject) => {
+        return new Promise(async(resolve, reject) => {
             //validate
-            if(id && id >0 ){
-              
+            if(id && id > 0){
+
                 //Remove old records.
-                const sql =`Update ${tableName} 
+                const sql = `Update ${tableName} 
                         SET state = -2
                         WHERE id = ${id}
                 `;
                 let rejected = false;
-                const result = await db.query(sql).catch(function (error) {
+                await db.query(sql).catch(function(error) {
                     // Check if this was
-                    log.error("Database Object ${tableName} UPDATE State error :" + error + __location);
+                    log.error(`Database Object ${tableName} UPDATE State error : ` + error + __location);
                     rejected = true;
                     reject(error);
                 });
@@ -118,7 +105,7 @@ module.exports = class InsurerOutageBO{
                     return false;
                 }
                 resolve(true);
-              
+
             }
             else {
                 reject(new Error('no id supplied'))
@@ -127,19 +114,19 @@ module.exports = class InsurerOutageBO{
     }
 
     cleanJSON(noNulls = true){
-		return this.#dbTableORM.cleanJSON(noNulls);
-	}
+        return this.#dbTableORM.cleanJSON(noNulls);
+    }
 
     async cleanupInput(inputJSON){
         for (const property in properties) {
             if(inputJSON[property]){
                 // Convert to number
                 try{
-                    if (properties[property].type === "number" && "string" === typeof inputJSON[property]){
-                        if (properties[property].dbType.indexOf("int")  > -1){
+                    if (properties[property].type === "number" && typeof inputJSON[property] === "string"){
+                        if (properties[property].dbType.indexOf("int") > -1){
                             inputJSON[property] = parseInt(inputJSON[property], 10);
                         }
-                        else if (properties[property].dbType.indexOf("float")  > -1){
+                        else if (properties[property].dbType.indexOf("float") > -1){
                             inputJSON[property] = parseFloat(inputJSON[property]);
                         }
                     }
@@ -157,13 +144,13 @@ module.exports = class InsurerOutageBO{
         for (const property in properties) {
             this[property] = dbJSON[property];
         }
-      }
+    }
 
     /**
 	 * Load new object JSON into ORM. can be used to filter JSON to object properties
      *
 	 * @param {object} inputJSON - input JSON
-	 * @returns {void} 
+	 * @returns {void}
 	 */
     async loadORM(inputJSON){
         await this.#dbTableORM.load(inputJSON, skipCheckRequired);
@@ -172,9 +159,9 @@ module.exports = class InsurerOutageBO{
     }
 
     async saveBoth(){
-      
+
         //************************** */
-        //   MYSQL Write 
+        //   MYSQL Write
         //************************** */
 
         // // Convert sent to Pacific timezone for mysql;
@@ -196,9 +183,9 @@ module.exports = class InsurerOutageBO{
         //         log.error('Unable to record email message in the database' + err + ' sql: ' + insertQuery + __location);
         //         throw err;
         //     });
-        
-         //************************** */
-        //   MongoDB Write 
+
+        //************************** */
+        //   MongoDB Write
         // //************************** */
         // if(global.settings.USE_MONGO === "YES"){
         //     var Message = require('mongoose').model('Message');
@@ -209,7 +196,7 @@ module.exports = class InsurerOutageBO{
         //         log.error('Mongo Message Save err ' + err + __location);
         //         //log.debug("message " + JSON.stringify(message.toJSON()));
         //     });
-           
+
         // }
 
         return true;
@@ -222,15 +209,15 @@ module.exports = class InsurerOutageBO{
                      FROM clw_talage_outages
                      WHERE insurer  = ${insurerId} AND ('${moment_timezone.tz('America/Los_Angeles').format('YYYY/MM/DD HH:mm:ss')}' BETWEEN start AND end) `;
         let error = false;
-        const result = await db.query(sql).catch(function (err) {
+        const result = await db.query(sql).catch(function(err) {
             // Check if this was
-            log.error("Database Object ${tableName} Outage check :" + err + __location);
+            log.error(` Database Object ${tableName} Outage check : ` + err + __location);
             error = err;
         });
         if (error) {
             return false;
         }
-        if(result && result.length >0){
+        if(result && result.length > 0){
             return true;
         }
         else {
@@ -238,40 +225,50 @@ module.exports = class InsurerOutageBO{
         }
 
 
-
     }
+
     /*****************************
      *   For administration site
-     * 
+     *
      ***************************/
+
     getListForAdmin(queryJSON){
-        return new Promise(async (resolve, reject) => {
+        return new Promise(async(resolve, reject) => {
             let sql = `
-				SELECT io.id, i.id as insurerId, i.name as insurerName, io.start, io.end
+				SELECT io.id, io.insurer as insurerId, io.start, io.end
 				FROM clw_talage_outages AS io 
-                     LEFT JOIN clw_talage_insurers AS i ON i.id = io.insurer
                 WHERE io.state > 0
 			`;
             let hasWhere = false;
             if(queryJSON.insurerid){
-                sql +=  ` AND io.insurer = ${db.escape(parseInt(queryJSON.insurerid, 10))} `;
+                sql += ` AND io.insurer = ${db.escape(parseInt(queryJSON.insurerid, 10))} `;
                 hasWhere = true;
 
             }
             if(queryJSON.searchdate){
-                sql +=  ` AND ('${moment(queryJSON.searchdate).tz('America/Los_Angeles').format('YYYY/MM/DD HH:mm:ss')}' BETWEEN io.start AND io.end)`;
+                sql += ` AND ('${moment(queryJSON.searchdate).tz('America/Los_Angeles').format('YYYY/MM/DD HH:mm:ss')}' BETWEEN io.start AND io.end)`;
             }
             sql += " Order by io.start desc"
 
             //log.debug('Outage list sql: ' + sql);
-            const rows = await db.query(sql).catch(function (err) {
+            const rows = await db.query(sql).catch(function(err) {
                 log.error(`Error getting  ${tableName} from Database ` + err + __location);
                 reject(err);
                 return;
             });
             //fix date to be UTC for front end.
-            if(rows.length > 0 ){
-                for(let i=0; i <rows.length;i++ ){
+            if(rows.length > 0){
+                for(let i = 0; i < rows.length; i++){
+                    //add insurer Name
+                    const insurerBO = new InsurerBO();
+                    try{
+                        const insurerJSON = await insurerBO.getById(rows[i].insurerId)
+                        rows[i].insurerName = insurerJSON.name;
+                    }
+                    catch(err){
+                        log.error(`failed to get insurerId ${rows[i].insurerId} error ${err} ` + __location)
+                    }
+
                     const dbSent = moment(rows[i].start);
                     const dbSentString = dbSent.utc().format('YYYY-MM-DD HH:mm:ss');
                     rows[i].start = moment.tz(dbSentString, "America/Los_Angeles").utc();
@@ -279,11 +276,11 @@ module.exports = class InsurerOutageBO{
                     const dbSent2 = moment(rows[i].end);
                     const dbSentString2 = dbSent2.utc().format('YYYY-MM-DD HH:mm:ss');
                     rows[i].end = moment.tz(dbSentString2, "America/Los_Angeles").utc();
-                    
+
                 }
             }
             resolve(rows);
-           
+
         });
     }
 
@@ -291,128 +288,128 @@ module.exports = class InsurerOutageBO{
 
 const properties = {
     "id": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
+        "default": 0,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "state": {
-      "default": "1",
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "tinyint(1)"
+        "default": "1",
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "tinyint(1)"
     },
     "insurer": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
+        "default": 0,
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "start": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "datetime",
-      "dbType": "datetime"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "datetime",
+        "dbType": "datetime"
     },
     "end": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "datetime",
-      "dbType": "datetime"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "datetime",
+        "dbType": "datetime"
     },
     "created": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "timestamp",
-      "dbType": "timestamp"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "timestamp",
+        "dbType": "timestamp"
     },
     "created_by": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "modified": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "timestamp",
-      "dbType": "timestamp"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "timestamp",
+        "dbType": "timestamp"
     },
     "modified_by": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "deleted": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "timestamp",
-      "dbType": "timestamp"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "timestamp",
+        "dbType": "timestamp"
     },
     "deleted_by": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11) unsigned"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11) unsigned"
     },
     "checked_out": {
-      "default": 0,
-      "encrypted": false,
-      "hashed": false,
-      "required": true,
-      "rules": null,
-      "type": "number",
-      "dbType": "int(11)"
+        "default": 0,
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "number",
+        "dbType": "int(11)"
     },
     "checked_out_time": {
-      "default": null,
-      "encrypted": false,
-      "hashed": false,
-      "required": false,
-      "rules": null,
-      "type": "datetime",
-      "dbType": "datetime"
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "datetime",
+        "dbType": "datetime"
     }
-  }
+}
 
 class DbTableOrm extends DatabaseObject {
 
-	constructor(tableName){
-		super(tableName, properties);
-	}
+    constructor(tableName){
+        super(tableName, properties);
+    }
 
 }
