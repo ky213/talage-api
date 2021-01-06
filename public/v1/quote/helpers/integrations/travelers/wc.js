@@ -29,16 +29,6 @@ module.exports = class AcuityWC extends Integration {
     }
 
     /**
-     * Formats a phone number as an AmTrust expected phone number
-     * @param  {number} phoneNumber - The phone number
-     * @returns {string} Formatted phone number of XXX-XXX-XXXX
-     */
-    // formatPhoneNumber(phoneNumber) {
-    //     const phoneNumberString = phoneNumber.toString();
-    //     return `${phoneNumberString.substring(0, 3)}-${phoneNumberString.substring(3, 6)}-${phoneNumberString.substring(6, 10)}`;
-    // }
-
-    /**
      * Gets a child property from an object
      * @param  {object} object - the parent object
      * @param  {string} childPath - period-delimited child name ("Quote.Result.Status")
