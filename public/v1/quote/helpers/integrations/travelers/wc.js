@@ -10,10 +10,10 @@ global.requireShared('./helpers/tracker.js');
 // const amtrustProductionBasePath = "/DigitalAPI";
 
 const travelersStagingHost = "swi-qa.travelers.com";
+const travelersStagingBasePath = "/biswi/api/qa/qi/wc/1-0-0";
 const travelersProductionHost = "swi.travelers.com";
-const travelersBasePath = "/biswi/api/qi/wc/1-0-0";
+const travelersProductionBasePath = "/biswi/api/qi/wc/1-0-0";
 
-const travelersTalageProducerCode = "0XL023";
 const travelersTalageUploadVendorCode = "TALG";
 
 module.exports = class AcuityWC extends Integration {
@@ -61,33 +61,38 @@ module.exports = class AcuityWC extends Integration {
      * @param {object} location - Location
      * @returns {object} Array of classifications with code, payroll, and full/part time employees for each
      */
-    getLocationClassificationList(location) {
+    async getLocationClassificationList(location) {
         const locationClassificationList = [];
-
         // Aggregate activity codes for this location, summing payroll and full/part time employees
-        const activityCodeMap = {};
-        for (const locationActivityCode of location.activity_codes) {
-            if (!activityCodeMap.hasOwnProperty(locationActivityCode.ncciCode)) {
-                activityCodeMap[locationActivityCode.ncciCode] = {
-                    payroll: 0,
-                    partTimeEmployees: 0,
-                    fullTimeEmployees: 0
+        for (const locationActivityCode of location.activityPayrollList) {
+            // Find the existing entry for this activity code
+            const ncciCode = await this.get_national_ncci_code_from_activity_code(location.state, locationActivityCode.ncciCode);
+            let locationClassification = locationClassificationList.find((lc) => lc.classCode === ncciCode.toString());
+            if (!locationClassification) {
+                // Add it if it doesn't exist
+                locationClassification = {
+                    classCode: ncciCode.toString(),
+                    totalAnnualPayroll: 0,
+                    numberFullTimeEmployees: 0,
+                    numberPartTimeEmployees: 0
                 };
+                locationClassificationList.push(locationClassification);
             }
-            activityCodeMap[locationActivityCode.ncciCode].payroll += locationActivityCode.payroll;
-            // activityCodeMap[locationActivityCode.ncciCode].fullTimeEmployees += ;
-            // activityCodeMap[locationActivityCode.ncciCode].partTimeEmployees += ;
-            activityCodeMap[locationActivityCode.ncciCode].fullTimeEmployees = 1;
-            activityCodeMap[locationActivityCode.ncciCode].partTimeEmployees = 0;
-        }
-        // Build the location classification list array
-        for (const activityCode of Object.keys(activityCodeMap)) {
-            locationClassificationList.push({
-                classCode: activityCode.toString(),
-                totalAnnualPayroll: activityCodeMap[activityCode].payroll,
-                numberFullTimeEmployees: activityCodeMap[activityCode].fullTimeEmployees,
-                numberPartTimeEmployees: activityCodeMap[activityCode].partTimeEmployees
-            });
+            // Sum the employee types
+            for (const employee of locationActivityCode.employeeList) {
+                locationClassification.totalAnnualPayroll += employee.employeePayroll;
+                switch (employee.employeeType) {
+                    case "Full Time":
+                    case "Owner":
+                        locationClassification.numberFullTimeEmployees += employee.employeeCount;
+                        break;
+                    case "Part Time":
+                        locationClassification.numberPartTimeEmployees += employee.employeeCount;
+                        break;
+                    default:
+                        break;
+                }
+            }
         }
         return locationClassificationList;
     }
@@ -96,21 +101,21 @@ module.exports = class AcuityWC extends Integration {
      * Gets a list of locations
      * @returns {object} Array of locations
      */
-    getLocationList() {
+    async getLocationList() {
         const locationList = [];
-        for (let i = 0; i < this.app.business.locations.length; i++) {
-            const location = this.app.business.locations[i];
+        for (let i = 0; i < this.app.applicationDocData.locations.length; i++) {
+            const location = this.app.applicationDocData.locations[i];
             locationList.push({
                 address: {
                     "address": location.address,
                     "addressLine2": location.address2 || "",
                     "city": location.city,
-                    "state": location.state_abbr,
-                    "zipcode": location.zip
+                    "state": location.state,
+                    "zipcode": location.zipcode
                     // "phone": "1" + location.phone ?Required?
                 },
                 primaryLocationInd: i === 0,
-                classification: this.getLocationClassificationList(location)
+                classification: await this.getLocationClassificationList(location)
             });
         }
         return locationList;
@@ -157,6 +162,29 @@ module.exports = class AcuityWC extends Integration {
             }
         }
 
+        let numberEmployeesPerShift = 1;
+        for (const question of Object.values(this.questions)) {
+            const questionAnswer = this.determine_question_answer(question);
+            if (questionAnswer) {
+                switch (this.question_identifiers[question.id]) {
+                    case "numberEmployeesPerShift":
+                        numberEmployeesPerShift = parseInt(questionAnswer, 10);
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+
+
+        const claims = this.claims_to_policy_years();
+        const claimCountCurrentPolicy = claims[1].count;
+        const claimCountPriorThreePolicy = claims[2].count + claims[3].count + claims[4].count;
+
+        //     for (const question of Object.values(this.questions)) {
+        // let questionAnswer = this.determine_question_answer(question, question.required);
+
+
         // =========================================================================================================
         // Create the quote request
         const quoteRequestData = {
@@ -172,7 +200,7 @@ module.exports = class AcuityWC extends Integration {
                 "uploadVendorCode": travelersTalageUploadVendorCode
             },
             "customer": {
-                // "externalCustomerId": "string", ?? Unsure what this is
+                // "externalCustomerId": "string",
                 "primaryNameInsured": this.app.business.name,
                 "tradeDBALine1": this.app.business.dba ? this.app.business.dba : "",
                 "tradeDBALine2": "",
@@ -192,7 +220,7 @@ module.exports = class AcuityWC extends Integration {
                     "middleInitial": ""
                 }
             },
-            "businessInfo": {"locations": this.getLocationList()},
+            "businessInfo": {"locations": await this.getLocationList()},
             "basisOfQuotation": {
                 // "pricing": {
                 //     "experienceMod": "string",
@@ -211,44 +239,52 @@ module.exports = class AcuityWC extends Integration {
                 //     "deliveryProvidedInd": true,
                 //     "aircraftInd": true,
                 //     "towingServicesInd": true,
-                //     "numberEmployeesPerShift": 0,
+                "numberEmployeesPerShift": numberEmployeesPerShift,
                 //     "vehicleWorkExLightMedTrucksInd": true,
                 //     "ownedBusinessAutos": 0
                 // },
-                "yearBusinessEstablished": this.app.business.founded.format("YYYY"),
-                "claimCountCurrentPolicy": 0,
-                "claimCountPriorThreePolicy": 0,
+                "yearBusinessEstablished": parseInt(this.app.business.founded.format("YYYY"),10),
+                "claimCountCurrentPolicy": claimCountCurrentPolicy,
+                "claimCountPriorThreePolicy": claimCountPriorThreePolicy,
                 "totalAnnualWCPayroll": this.get_total_payroll(),
                 "employersLiabilityLimit": "100000/500000/100000"
                 // "threeYearsManagementExperienceInd": true,
                 // "operateAsGeneralContractorInd": true
             }
         };
+        // Flag if this is a test transaction
         if (this.insurer.useSandbox) {
             quoteRequestData.testTransaction = true;
         }
 
-        console.log("quoteRequestData", JSON.stringify(quoteRequestData, null, 4));
-        return null;
+        // console.log("quoteRequestData", JSON.stringify(quoteRequestData, null, 4));
 
         // =========================================================================================================
         // Send the request
-
-        console.log("Authorization", (this.username + ":" + this.password).toString('base64'));
-
-        const host = this.useSandbox ? travelersStagingHost : travelersProductionHost;
+        const host = this.insurer.useSandbox ? travelersStagingHost : travelersProductionHost;
+        const basePath = this.insurer.useSandbox ? travelersStagingBasePath : travelersProductionBasePath;
         let response = null;
         try {
-            response = await this.send_json_request(host, travelersBasePath + "/quote",
+            response = await this.send_json_request(host, basePath + "/quote",
                 JSON.stringify(quoteRequestData),
-                {"Authorization": 'Basic ' + (this.username + ":" + this.password).toString('base64')},
+                {"Authorization": 'Basic ' + Buffer.from(this.username + ":" + this.password).toString('base64')},
                 "POST");
         }
         catch (error) {
-            return this.client_error(`The quote could not be submitted to the insurer: ${error}`, __location, {error: error});
+            try {
+                response = JSON.parse(error.response);
+            }
+            catch (error2) {
+                return this.client_error(`The insurer returned an error code of ${error.httpStatusCode}`, __location, {error: error});
+            }
         }
 
-        console.log("response", JSON.stringify(response, null, 4));
+        // console.log("response", JSON.stringify(response, null, 4));
+
+        // Check for internal errors where the request format is incorrect
+        if (response.hasOwnProperty("statusCode") && response.statusCode === 400) {
+            return this.client_error(`The insurer returned an internal error status code of ${response.statusCode}`, __location, {debugMessages: JSON.stringify(response.debugMessages)});
+        }
 
         // =========================================================================================================
         // Process the quote information response
@@ -258,7 +294,7 @@ module.exports = class AcuityWC extends Integration {
             return this.client_error(`Could not locate the quote status in the response.`, __location);
         }
         // Extract all optional and required information
-        const quoteStatusReasons = this.getChildProperty(response, "quoteStatusReasons") || [];
+        const quoteStatusReasons = this.getChildProperty(response, "quoteStatusReason") || [];
         const quoteId = this.getChildProperty(response, "eQuoteId");
         const premium = this.getChildProperty(response, "totalAnnualPremiumSurchargeTaxAmount");
         const validationDeepLink = this.getChildProperty(response, "validationDeeplink");
@@ -278,6 +314,7 @@ module.exports = class AcuityWC extends Integration {
                 limits[3] = individualLimitList[2];
             }
         }
+
         // Log debug messages
         const debugMessageList = this.getChildProperty(response, "debugMessages");
         for (const debugMessage of debugMessageList) {
@@ -290,7 +327,7 @@ module.exports = class AcuityWC extends Integration {
                 for (const quoteStatusReason of quoteStatusReasons) {
                     declineReason += `${declineReason.length ? ", " : ""}${quoteStatusReason.description} (${quoteStatusReason.code})`;
                 }
-                return this.client_declined('The insurer reported: ' + declineReason);
+                return this.client_declined(declineReason);
             case "UNQUOTED":
                 let errorReason = '';
                 for (const quoteStatusReason of quoteStatusReasons) {
@@ -298,11 +335,12 @@ module.exports = class AcuityWC extends Integration {
                 }
                 return this.client_declined('The insurer reported: ' + errorReason);
             case "AVAILABLE":
-                if (!validationDeepLink) {
-                    this.log_error("Could not locate validationDeepLink property in response.", __location);
+                if (validationDeepLink) {
+                    // Add the deeplink to the quote
+                    this.quoteLink = validationDeepLink;
                 }
                 else {
-                    console.log("validationDeepLink", validationDeepLink);
+                    this.log_error("Could not locate validationDeepLink property in response.", __location);
                 }
                 return this.client_quoted(quoteId, limits, premium);
             default:
