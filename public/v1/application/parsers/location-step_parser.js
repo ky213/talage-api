@@ -17,7 +17,6 @@ exports.process = async function(requestJSON) {
     if (requestJSON.locations) {
         const locationsJSON = JSON.parse(requestJSON.locations);
         let territories = [];
-        let total_payroll = {};
         let locationsList = [];
         let zip = null;
         let city = null;
@@ -59,18 +58,33 @@ exports.process = async function(requestJSON) {
                     const activityJSON = locationJSON.activity_codes[activity]
                     const id = activityJSON.id;
                     let payroll = activityJSON.payroll;
+                    let employeeList = activityJSON.employee_list;
+                    // 2020-12-29 New activity-based employee type handling -SF
+                    if (employeeList) {
+                        // Convert the employeeList from an object {"0":{id:XXXX, ...}} to an array
+                        employeeList = Object.values(employeeList);
+                        if (!payroll) {
+                            // If the payroll isn't present in the submitted data, sum it from
+                            // the employeeList
+                            payroll = 0;
+                            for (const employee of employeeList) {
+                                payroll += employee.employee_payroll;
+                            }
+                        }
+                    }
+                    else {
+                        employeeList = [];
+                    }
+                    // Check payroll for Nevada WC compliance
                     if (check_payroll === true) {
                         if ((payroll / totalEmployee) > 36000) {
                             payroll = 36000 * totalEmployee;
                         }
                     }
-                    if (!total_payroll[id]) {
-                        total_payroll[id] = 0;
-                    }
-                    total_payroll[id] += payroll;
                     const activity_code = {
                         "id": id,
-                        "payroll": payroll
+                        "payroll": payroll,
+                        "employeeList": employeeList
                     }
                     activity_codes.push(activity_code);
                 } //for activity
@@ -114,8 +128,6 @@ exports.process = async function(requestJSON) {
             //ApplicationBO will lookup primary location on save if necessary.
         }
         requestJSON.territories = territories;
-        requestJSON.total_payroll = total_payroll;
-        requestJSON.totalPayroll = total_payroll;
         requestJSON.city = city;
         requestJSON.state_abbr = state_abbr;
         requestJSON.zip = zip;
