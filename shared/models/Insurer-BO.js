@@ -260,6 +260,18 @@ module.exports = class InsurerBO{
         return this.getMongoDocbyMysqlId(id);
     }
 
+    async getBySlug(slug) {
+        const query = {"slug": slug};
+        const insurerList = await this.getList(query);
+        if(insurerList && insurerList.length > 0){
+            return insurerList[0];
+        }
+        else {
+            return null;
+        }
+
+    }
+
     async updateMongo(docId, newObjectJSON) {
         if (docId) {
             if (typeof newObjectJSON === "object") {

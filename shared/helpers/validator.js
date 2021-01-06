@@ -74,23 +74,6 @@ exports.isUuid = uuid =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-5][0-9a-f]{3}-[089ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uuid);
 
 
-exports.isValidInsurer = async function(id){
-    if(positive_integer.test(id)){
-        let had_error = false;
-        const sql = `SELECT COUNT(id) FROM #__insurers WHERE id = ${parseInt(id, 10)};`;
-        const rows = await db.query(sql).catch(function(error){
-            log.error(error + __location);
-            had_error = true;
-        });
-        if(had_error){
-            return false;
-        }
-        return !(!rows || rows.length !== 1 || !Object.prototype.hasOwnProperty.call(rows[0], 'COUNT(id)') || rows[0]['COUNT(id)'] !== 1);
-
-    }
-    return false;
-};
-
 // ============================================================
 // Quote-api
 
