@@ -239,10 +239,9 @@ module.exports = class InsurerOutageBO{
 				FROM clw_talage_outages AS io 
                 WHERE io.state > 0
 			`;
-            let hasWhere = false;
+
             if(queryJSON.insurerid){
                 sql += ` AND io.insurer = ${db.escape(parseInt(queryJSON.insurerid, 10))} `;
-                hasWhere = true;
 
             }
             if(queryJSON.searchdate){
