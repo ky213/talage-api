@@ -5,7 +5,6 @@ const DatabaseObject = require('./DatabaseObject.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-
 const tableName = 'clw_talage_industry_code_categories'
 const skipCheckRequired = false;
 module.exports = class IndustryCodeCategoryBO{
@@ -192,36 +191,6 @@ module.exports = class IndustryCodeCategoryBO{
         this.updateProperty();
         return true;
     }
-
-
-    // ***************************
-    //    For administration site
-    //
-    // *************************
-
-    async getSelectionList(){
-
-        let rejected = false;
-        const responseLandingPageJSON = {};
-        const reject = false;
-        const sql = `select id, name, logo  
-            from clw_talage_insurers
-            where state > 0
-            order by name`
-        const result = await db.query(sql).catch(function(error) {
-            // Check if this was
-            rejected = true;
-            log.error(`${tableName} error on select ` + error + __location);
-        });
-        if (!rejected && result && result.length > 0) {
-            return result;
-        }
-        else {
-            return [];
-        }
-
-    }
-
 }
 
 const properties = {
