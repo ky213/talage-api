@@ -279,18 +279,23 @@ mongoose.model('Application', ApplicationSchema);
 function populateActivityCodePayroll(schema) {
     const application = schema.getUpdate();
     if (application.hasOwnProperty("locations")) {
-        const activityCodeMap = {};
+        const activityCodesPayrollSumList = [];
         for (const location of application.locations) {
             for (const activityCode of location.activityPayrollList) {
-                if (!activityCodeMap.hasOwnProperty(activityCode.id)) {
-                    activityCodeMap[activityCode.id] = {
-                        ncciCode: activityCode.id,
+                // Find the entry for this activity code
+                let activityCodePayrollSum = activityCodesPayrollSumList.find((acs) => acs.ncciCode === activityCode.ncciCode);
+                if (!activityCodePayrollSum) {
+                    // Add it if it doesn't exist
+                    activityCodePayrollSum = {
+                        ncciCode: activityCode.ncciCode,
                         payroll: 0
                     };
+                    activityCodesPayrollSumList.push(activityCodePayrollSum);
                 }
-                activityCodeMap[activityCode.id].payroll += activityCode.payroll;
+                // Sum the payroll
+                activityCodePayrollSum.payroll += activityCode.payroll;
             }
         }
-        schema.set({ activityCodes: Object.values(activityCodeMap) });
+        schema.set({ activityCodes: activityCodesPayrollSumList });
     }
 }
