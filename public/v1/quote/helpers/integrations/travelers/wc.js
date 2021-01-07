@@ -69,15 +69,15 @@ module.exports = class AcuityWC extends Integration {
                 locationClassificationList.push(locationClassification);
             }
             // Sum the employee types
-            for (const employee of locationActivityCode.employeeList) {
-                locationClassification.totalAnnualPayroll += employee.employeePayroll;
-                switch (employee.employeeType) {
+            for (const employeeType of locationActivityCode.employeeTypeList) {
+                locationClassification.totalAnnualPayroll += employeeType.employeeTypePayroll;
+                switch (employeeType.employeeType) {
                     case "Full Time":
                     case "Owner":
-                        locationClassification.numberFullTimeEmployees += employee.employeeCount;
+                        locationClassification.numberFullTimeEmployees += employeeType.employeeTypeCount;
                         break;
                     case "Part Time":
-                        locationClassification.numberPartTimeEmployees += employee.employeeCount;
+                        locationClassification.numberPartTimeEmployees += employeeType.employeeTypeCount;
                         break;
                     default:
                         break;
