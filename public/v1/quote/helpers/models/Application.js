@@ -23,7 +23,11 @@ const {
     validateAgencyLocation,
     validateBusiness,
     validatePolicy,
-    validateQuestion
+    validateQuestion,
+    validateContacts,
+    validateLocations,
+    validateClaims,
+    validateActivityCode
 } = global.requireShared('./helpers/applicationValidator.js');
 const helper = global.requireShared('./helpers/helper.js');
 
@@ -67,9 +71,6 @@ module.exports = class Application {
             throw err;
         }
 
-        //TODO: move this to an init or translate style function that massages the data into a form the integrations will expect
-        this.applicationDocData.founded = moment(this.applicationDocData.founded);
-
         //age check - add override Age parameter to allow requoting.
         if (forceQuoting === false){
             const bypassAgeCheck = global.settings.ENV === 'development' && global.settings.APPLICATION_AGE_CHECK_BYPASS === 'YES';
@@ -98,7 +99,7 @@ module.exports = class Application {
         // eslint-disable-next-line prefer-const
         let appPolicyTypeList = [];
         // Load the policy information
-        try{
+        try {
             for (let i = 0; i < this.applicationDocData.policies.length; i++) {
                 const policyJSON = this.applicationDocData.policies[i];
                 const p = new Policy();
@@ -106,12 +107,10 @@ module.exports = class Application {
                 this.policies.push(p);
                 appPolicyTypeList.push(policyJSON.type);
             }
-        }
-        catch(err){
+        } catch(err){
             log.error("Quote Application Model loading policy err " + err + __location);
             throw err;
         }
-
 
         //update business with policy type list.
         this.business.setPolicyTypeList(appPolicyTypeList);
@@ -144,10 +143,310 @@ module.exports = class Application {
             }
             this.questions = questionJSON
         }
-        //log.debug("Quote Application Model: " + JSON.stringify(this))
-        //throw new Error("stop");
+        
+        // TODO: Eventually, this will need to take place on the applicationDocData, not the model data
+        await this.translate();
     }
 
+    /** 
+     * This method is used to translate the existing model data into what the integrations expect
+     * 
+     * Previously, this was done in the validation methods (which was incorrect). However, although we now validate off
+     *      the applicationDocData (mongo record) instead of the model data, we still feed the model data (which is hydrated
+     *      by the mongo data) to the integrations. Therefor, this method translates the model data structures. Eventually,
+     *      we will need to modify this to translate this.applicationDocData once integrations start consuming that instead.
+     * 
+     * NOTE: We may want to put this logic into a new load() method on Application.model.js, or we can keep it being called 
+     *      from Application.js load() function.
+    */
+    async translate() {
+        /************** BUSINESS DATA TRANSLATION ***************/
+
+        // DBA length check
+        // NOTE: Do not stop the quote over dba name. Different insurers have different rules.
+        if (this.business.dba.length > 100) {
+            log.warn(`Translate Warning: DBA exceeds maximum length of 100 characters applicationId ${this.id}` + __location);
+            applicationDocData.dba = applicationDocData.dba.substring(0, 100);
+        }
+
+        // Mailing Address check, check for maximum length
+        if (this.business.mailing_address.length > 100) {
+            log.error('Translate Warning: Mailing address exceeds maximum of 100 characters');
+            applicationDocData.mailingAddress = applicationDocData.mailingAddress.substring(0,100);
+        }
+
+        // Adjust phone to integer value
+        this.business.phone = this.business.phone.replace(/[^0-9]/ig, '');
+        this.business.phone = parseInt(this.business.phone, 10);
+
+        // If website is invalid, clear it
+        if (this.business.website) {
+            // Check formatting
+            if (!validator.isWebsite(this.business.website)) {
+                log.info(`Translate warning: Invalid formatting for property: website. Expected a valid URL for ${this.id}`)
+                this.business.website = '';
+            }
+
+            // Check length if too long eliminate from qoute app
+            if (this.business.website.length > 100) {
+                log.info(`Translate Warning: Invalid value for property: website. over 100 characters for ${this.id}`)
+                this.business.website = '';
+            }
+        }
+
+        // Unincorporated Association (Required only for WC, in NH, and for LLCs and Corporations)
+        if (
+            this.has_policy_type('WC') && 
+            (this.business.entity_type === 'Corporation' || this.business.entity_type === 'Limited Liability Company') && 
+            this.business.mailing_state === 'NH'
+        ) {
+
+            // This is required
+            if (this.business.unincorporated_association === null) {
+                return reject(new Error('Missing required field: unincorporated_association'));
+            }
+
+            // Validate
+            if (!validator.boolean(this.business.unincorporated_association)) {
+                return reject(new Error('Invalid value for unincorporated_association, please use a boolean value'));
+            }
+
+            // If value is valid, convert to boolean
+            this.business.unincorporated_association = helper.convert_to_boolean(this.applicationDocData.unincorporated_association);
+        }
+
+
+        /************** LOCATION DATA TRANSLATION ***************/
+
+        const unemployment_number_states = [
+            'CO',
+            'HI',
+            'ME',
+            'MN',
+            'NJ',
+            'RI',
+            'UT'
+        ];
+
+        this.business.locations.forEach(location => {
+            // identification number modification
+            if (location.identification_number) {
+                if (validator.ein(location.identification_number)) {
+                    location.identification_number_type = 'EIN';
+                } else if (location.business_entityType === 'Sole Proprietorship' && validator.ssn(location.identification_number)) {
+                    location.identification_number_type = 'SSN';
+                } else {
+                    throw new Error(`Translate Error: Invalid formatting for property: EIN. Value: ${location.identification_number}.`);
+                }
+    
+                // Strip out the slashes, insurers don't like slashes
+                location.identification_number = location.identification_number.replace(/-/g, '');
+            } else {
+                throw new Error('Translate Error: Identification Number is required');
+            }
+
+            // default unemployment_num to 0
+            if (!location.unemployment_num || !unemployment_number_states.includes(location.state_abbr)) {
+                location.unemployment_num = 0;
+            }
+        });
+
+        /************** ACTIVITY CODES DATA TRANSLATION ***************/
+
+        for (const location of this.business.locations) {
+            for (const activityCode of location.activity_codes) {
+                // Check that the ID is valid
+                let result = null;
+                try {
+                    result = await db.query(`SELECT \`description\`FROM \`#__activity_codes\` WHERE \`id\` = ${activityCode.id} LIMIT 1;`);
+                    if (!result || result.length !== 1) {
+                        throw new Error(`Translation Error: The activity code you selected (ID: ${activityCode.id}) is not valid.`);
+                    }
+                } catch (e) {
+                    log.error(`Translation Error: DB SELECT activity codes error: ${e}. ` + __location);
+                    //TODO Consistent error types
+                    throw e;
+                }
+
+                // assign the description to the activity code
+                if (result[0].description) {
+                    activityCode.description = result[0].description;
+                } else {
+                    // this should never hit, but putting a log just in case...
+                    log.warn("Translate Warning: activity code result does not contain a description, skipping...")
+                }
+            }
+        }
+
+        /************** POLICY DATA TRANSLATION ***************/
+
+        this.policies.forEach(policy => {
+            // store a temporary limit '/' deliniated, because for some reason, we don't store it that way in mongo...
+            let indexes = [];
+            for (let i = 1; i < policy.limits.length; i++) {
+                if (policy.limits[i] !== "0") {
+                    indexes.push(i);
+                }
+            }
+            let limits = policy.limits.split("");
+            limits.splice(indexes[1], 0, "/");
+            limits.splice(indexes[0], 0, "/");
+            limits = limits.join("");
+
+            // Limits: If this is a WC policy, check if further limit controls are needed (IFF we have territory information)
+            if (policy.type === 'WC' && policy.territories) {
+                if (policy.territories.includes('CA')) {
+                    // In CA, force limits to be at least 1,000,000/1,000,000/1,000,000
+                    if (limits !== '2000000/2000000/2000000') {
+                        limits = '1000000/1000000/1000000';
+                    }
+                } else if (policy.territories.includes('OR')) {
+                    // In OR force limits to be at least 500,000/500,000/500,000
+                    if (limits === '100000/500000/100000') {
+                        limits = '500000/500000/500000';
+                    }
+                }
+            }
+
+            // explicitly set the policy's limits
+            policy.limits = limits;
+
+            // Determine the deductible
+            if (typeof policy.deductible === "string") {
+                // Parse the deductible string
+                try {
+                    policy.deductible = parseInt(policy.deductible, 10);
+                } catch (e) {
+                    // Default to 500 if the parse fails
+                    log.warn(`Translation Warning: applicationId: ${policy.applicationId} policyType: ${policy.type} Could not parse deductible string '${policy.deductible}': ${e}. Defaulting to 500.`);
+                    policy.deductible = 500;
+                }
+            }
+        });
+
+        /************** CLAIM DATA TRANSLATION ***************/
+
+        this.policies.forEach(policy => {
+            policy.claims.forEach(claim => {
+                /**
+                 * Amount Paid (dollar amount)
+                 * - >= 0
+                 * - < 15,000,000
+                 */
+                if (claim.amountPaid) {
+                    if (!validator.claim_amount(claim.amountPaid)) {
+                        throw new Error('Translation Error: The amount must be a dollar value greater than 0 and below 15,000,000');
+                    }
+
+                    // Cleanup this input
+                    if (typeof claim.amountPaid === 'number') {
+                        claim.amountPaid = Math.round(claim.amountPaid);
+                    } else {
+                        claim.amountPaid = Math.round(parseFloat(claim.amountPaid.toString().replace('$', '').replace(/,/g, '')));
+                    }
+                } else {
+                    claim.amountPaid = 0;
+                }
+
+                /**
+                 * Amount Reserved (dollar amount)
+                 * - >= 0
+                 * - < 15,000,000
+                 */
+                if (claim.amountReserved) {
+                    if (!validator.claim_amount(claim.amountReserved)) {
+                        throw new Error('Translation Error: The amountReserved must be a dollar value greater than 0 and below 15,000,000');
+                    }
+
+                    // Cleanup this input
+                    if (typeof claim.amountReserved === 'number') {
+                        claim.amountReserved = Math.round(claim.amountReserved);
+                    } else {
+                        claim.amountReserved = Math.round(parseFloat(claim.amountReserved.toString().replace('$', '').replace(/,/g, '')));
+                    }
+                } else {
+                    claim.amountReserved = 0;
+                }
+            });
+        });
+
+        /************** QUESTION DATA TRANSLATION ***************/
+        // NOTE: Some of this logic now uses applicationDocData simply because the logic is greatly simplified doing so
+
+        const policy_types = [];
+        this.policies.forEach(policy => {
+            policy_types.push(policy.type);
+        });
+
+        // Get a list of all questions the user may need to answer
+        const insurer_ids = this.get_insurer_ids();
+        const wc_codes = this.get_wc_codes();
+
+        // TODO: Move this to a translate method
+        let questions = null;
+        try {
+            questions = await questionsSvc.GetQuestionsForBackend(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids, true);
+        } catch (e) {
+            log.error(`Translation Error: GetQuestionsForBackend: ${e}. ` + __location);
+            throw e;
+        }
+
+        // Grab the answers the user provided to our questions and reset the question object
+        const user_questions = this.questions;
+        this.questions = {};
+
+        // Convert each question from the database into a question object and load in the user's answer to each
+        if (questions) {
+            //await questions.forEach((question) => {
+            for (const question of questions) {
+                // Prepare a Question object based on this data and store it
+                const q = new Question();
+                q.load(question);
+
+                // Load the user's answer
+                if (user_questions) {
+                    if (Object.prototype.hasOwnProperty.call(user_questions, q.id)) {
+                        const user_answer = user_questions[q.id];
+
+                        try {
+                            q.set_answer(user_answer);
+                        } catch (e) {
+                            return reject(e);
+                        }
+                    }
+                }
+
+                // Store the question object in the Application for later use
+                this.questions[q.id] = q;
+            }
+        }
+
+        // Enforce required questions (this must be done AFTER all questions are loaded with their answers)
+        if (this.applicationDocData.questions) {
+            for (const questionId in this.applicationDocData.questions) {
+                if (Object.prototype.hasOwnProperty.call(this.applicationDocData.questions, questionId)) {
+                    const question = this.applicationDocData.questions[questionId];
+
+                    // Hidden questions are not required
+                    if (question.hidden) {
+                        continue;
+                    }
+
+                    if (question.parent) {
+                        // Get the parent question
+                        const parent_question = this.questions[question.parent];
+
+                        // If no parent was found, throw an error
+                        if (!parent_question) {
+                            // No one question issue should stop quoting with all insureres - BP 2020-10-04
+                            log.error(`Question ${question.id} has invalid parent setting. (${htmlentities.decode(question.text).replace('%', '%%')})` + __location);
+                        }
+                    }
+
+                }
+            }
+        }
+    }
 
     /**
 	 * Returns an array of IDs that represent the active insurance carriers (limited by the selections in the API request)
@@ -650,7 +949,6 @@ module.exports = class Application {
 	 */
     async validate() {
         return new Promise(async(fulfill, reject) => {
-
             // Agent
             try {
                 await validateAgencyLocation(this.agencyLocation);
@@ -703,18 +1001,61 @@ module.exports = class Application {
                     return reject(e);
                 }
             }
-            
+
             if (!insurers || !Array.isArray(insurers) || insurers.length === 0) {
                 log.error('Invalid insurer(s) specified in policy. ' + __location);
                 return reject(new Error('Invalid insurer(s) specified in policy.'));
             }
 
-            // Validate the business
+            // Business (required)
             try {
-                await validateBusiness(this.applicationDocData);
+                validateBusiness(this.applicationDocData);
             } catch (e) {
-                log.error(`Error in validateBusiness: ${e}. ` + __location);
-                return reject(error);
+                return reject(`Failed validating business: ${e}`);
+            }
+
+            /**
+             * Contacts (required)
+             */
+            if (this.applicationDocData.contacts.length === 0) { 
+                return reject(new Error('At least 1 contact must be provided'));
+            }
+
+            try {
+                validateContacts(this.applicationDocData);
+            } catch (e) {
+                return reject(`Failed validating contacts: ${e}`);
+            }
+
+            /**
+             * Locations (required)
+             */
+            if (this.applicationDocData.locations.length === 0) { 
+                return reject(new Error('At least 1 location must be provided'));
+            }
+
+            try {
+                validateLocations(this.applicationDocData);
+            } catch (e) {
+                return reject(`Failed validating locations: ${e}`);
+            }
+
+            // Claims (optional)
+            try {
+                validateClaims(this.applicationDocData);
+            } catch (e) {
+                return reject(e);
+            }
+
+            // Activity Codes (required)
+            if (this.applicationDocData.activityCodes.length > 0) {
+                try {
+                    validateActivityCode(activityCode);
+                } catch (e) {
+                    return reject(e);
+                }
+            } else {
+                return reject(new Error('At least 1 class code must be provided'));
             }
 
             /**
@@ -773,130 +1114,24 @@ module.exports = class Application {
                 }
             }
 
-            /**
-			 * Unincorporated Association (Required only for WC, in NH, and for LLCs and Corporations)
-			 */
-            if (
-                this.has_policy_type('WC') && 
-                (this.applicationDocData.entityType === 'Corporation' || this.applicationDocData.entityType === 'Limited Liability Company') && 
-                this.applicationDocData.mailingState === 'NH'
-            ) {
-
-                // This is required
-                if (this.applicationDocData.unincorporated_association === null) {
-                    return reject(new Error('Missing required field: unincorporated_association'));
-                }
-
-                // Validate
-                if (!validator.boolean(this.applicationDocData.unincorporated_association)) {
-                    return reject(new Error('Invalid value for unincorporated_association, please use a boolean value'));
-                }
-
-                //TODO: validation functions should NOT update the value being validated, that is not their responsability.
-                //      This should be updated to happen before validation is called, or after.
-                this.applicationDocData.unincorporated_association = helper.convert_to_boolean(this.applicationDocData.unincorporated_association);
-            }
-
-
             // Validate all policies
-            const policy_types = [];
-            for (const [i, policy] of this.applicationDocData.policies.entries()) {
-                policy_types.push(policy.type);
+            for (const policy of this.applicationDocData.policies) {
                 try {
-                    // validatePolicy updates the policy
-                    // TODO: validation functions should NOT update the value being validated, that is not their responsability.
-                    //       This should be updated to happen before validation is called, or after. 
-                    const newPolicy = validatePolicy(applicationDocData, policy);
-                    this.policies[i] = newPolicy;
+                    validatePolicy(policy);
                 } catch (e) {
                     log.error('Policy Validation error. ' + e + __location);
-                    return reject(e);
-                }
-            }
-
-            // Get a list of all questions the user may need to answer
-            const insurer_ids = this.get_insurer_ids();
-            const wc_codes = this.get_wc_codes();
-
-            // TODO: Move this to a translate method
-            let questions = null;
-            try {
-                questions = await questionsSvc.GetQuestionsForBackend(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids, true);
-            } catch (e) {
-                log.error(`Error in get_questions: ${e}. ` + __location);
-                return reject(e);
-            }
-
-            // Grab the answers the user provided to our questions and reset the question object
-            const user_questions = this.questions;
-            this.questions = {};
-
-            // TODO: Move this to a translate method
-            // Convert each question from the database into a question object and load in the user's answer to each
-            if (questions) {
-                //await questions.forEach((question) => {
-                for (const question of questions) {
-                    // Prepare a Question object based on this data and store it
-                    const q = new Question();
-                    q.load(question);
-
-                    // Load the user's answer
-                    if (user_questions) {
-                        if (Object.prototype.hasOwnProperty.call(user_questions, q.id)) {
-                            const user_answer = user_questions[q.id];
-
-                            try {
-                                q.set_answer(user_answer);
-                            } catch (e) {
-                                return reject(e);
-                            }
-                        }
-                    }
-
-                    // Store the question object in the Application for later use
-                    this.questions[q.id] = q;
-                }
-            }
-
-            // TODO: Move this to a translate method
-            // Enforce required questions (this must be done AFTER all questions are loaded with their answers)
-            if (this.applicationDocData.questions) {
-                for (const questionId in this.applicationDocData.questions) {
-                    if (Object.prototype.hasOwnProperty.call(this.applicationDocData.questions, questionId)) {
-                        const question = this.applicationDocData.questions[questionId];
-
-                        // Hidden questions are not required
-                        if (question.hidden) {
-                            continue;
-                        }
-
-                        if (question.parent) {
-                            // Get the parent question
-                            const parent_question = this.questions[question.parent];
-
-                            // If no parent was found, throw an error
-                            if (!parent_question) {
-                                // No one question issue should stop quoting with all insureres - BP 2020-10-04
-                                log.error(`Question ${question.id} has invalid parent setting. (${htmlentities.decode(question.text).replace('%', '%%')})` + __location);
-                            }
-                        }
-
-                    }
+                    return reject(`Failed validating policy: ${e}`);
                 }
             }
 
             // Validate all of the questions
             if (this.applicationDocData.questions) {
-                for (const questionId in this.applicationDocData.questions) {
-                    if (Object.prototype.hasOwnProperty.call(this.applicationDocData.questions, questionId)) {
-                        const question = this.applicationDocData.questions.find(q => q.questionId === questionId);
-
-                        if (!question.hidden) {
-                            try {
-                                validateQuestion(question);
-                            } catch (e) {
-                                log.error(`Error validating question ${question.questionId}: ${e}. ` + __location);
-                            }
+                for (const question of this.applicationDocData.questions) {
+                    if (question.questionId && !question.hidden) {
+                        try {
+                            validateQuestion(question);
+                        } catch (e) {
+                            log.error(`Failed validating question ${question.questionId}: ${e}. ` + __location);
                         }
                     }
                 }

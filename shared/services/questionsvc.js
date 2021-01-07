@@ -74,7 +74,6 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     /*
      * Validate Zip Codes
      */
-
     const zipCodeArray = zipCodeStringArray.map(zip => zip.replace(/[^0-9]/gi, ''))
 
     // Check that the zip code is valid
@@ -106,7 +105,6 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     /*
      * Validate Policy Types
      */
-
     policyTypeArray.forEach(function(policy_type) {
         policy_types.push(policy_type.replace(/[^a-z]/gi, '').toUpperCase());
     });

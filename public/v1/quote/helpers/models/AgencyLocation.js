@@ -251,7 +251,6 @@ module.exports = class AgencyLocation {
                 if (!this.territories.includes(location.state)) {
                     log.error(`Agent ${this.agencyId} does not have ${location.state} enabled` + __location);
                     reject(new Error(`The specified agent is not setup to support this application in territory ${location.state}.`));
-
                 }
             });
 

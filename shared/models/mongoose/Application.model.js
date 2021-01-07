@@ -25,13 +25,13 @@ const contactSchema = new Schema({
     lastName: {type: String, required: false},
     phone: {type: String, required: false},
     primary: {type: Boolean, required: true, default: false}
-})
+});
 
 const ActivtyCodePayrollSchema = new Schema({
     ncciCode: {type: Number, required: true},
     payroll: {type: Number, required: true},
     ownerPayRoll: {type: Number, required: false}
-})
+});
 
 const locationSchema = new Schema({
     address: {type: String, required: false},
@@ -48,7 +48,7 @@ const locationSchema = new Schema({
     unemployment_num:  {type: Number, required: false},
     billing: {type: Boolean, required: false, default: false},
     activityPayrollList: [ActivtyCodePayrollSchema]
-})
+});
 
 const ownerSchema = new Schema({
     birthdate: {type: Date, required: false},
@@ -57,13 +57,12 @@ const ownerSchema = new Schema({
     ownership: {type: Number, required: false},
     officerTitle: {type: String},
     include: {type: Boolean, required: false}
-})
-
+});
 
 const legalAcceptanceSchema = new Schema({
     ip: {type: String, required: true},
     version: {type: Number, required: true}
-})
+});
 
 const claimSchema = new Schema({
     policyType: {type: String, required: true},
@@ -72,10 +71,7 @@ const claimSchema = new Schema({
     eventDate: {type: Date, required: true},
     open: {type: Boolean, default: false},
     missedWork: {type: Boolean, default: false}
-
-})
-
-//limit structure.
+});
 
 const PolicySchema = new Schema({
     policyType: {type: String, required: true},
@@ -89,8 +85,7 @@ const PolicySchema = new Schema({
     coverageLapseNonPayment: {type: Boolean, default: false},
     waiverSubrogation: {type: Boolean, default: false},
     claims:  [claimSchema]
-
-})
+});
 
 const QuestionSchema = new Schema({
     questionId: {type: Number, required: [true, 'questionId required']},
@@ -101,7 +96,8 @@ const QuestionSchema = new Schema({
     answerId: {type: Number, required: false},
     answerValue: {type: String, required: false},
     answerList: [String]
-})
+});
+
 // note: ein - not saved to db
 const ApplicationSchema = new Schema({
     applicationId: {type: String, required: [true, 'applicationId required'], unique: true},
