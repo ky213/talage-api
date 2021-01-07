@@ -38,7 +38,11 @@ async function updateApplicationStatus(application, timeout) {
     const QuoteBO = global.requireShared('./models/Quote-BO.js');
     const applicationBO = new ApplicationBO();
     let ApplicationDoc = null;
-    if(typeof application === "number"){
+    if(typeof application === "object"){
+        // if the doc is passed just use it as is
+        ApplicationDoc = application;
+    }
+    else{
         // Get the application
         try{
             ApplicationDoc = await applicationBO.loadfromMongoBymysqlId(application)
@@ -48,21 +52,20 @@ async function updateApplicationStatus(application, timeout) {
             return;
         }
     }
-    else{
-        // if the doc is passed just use it as is
-        ApplicationDoc = application;
-    }
 
     // Get the quotes
-
-
     const quoteBO = new QuoteBO();
     let quoteDocJsonList = null;
     try {
         quoteDocJsonList = await quoteBO.getByApplicationId(ApplicationDoc.applicationId);
+
+        // if we get undefined back, set it to empty
+        if(!quoteDocJsonList){
+            quoteDocJsonList = [];
+        }
     }
     catch (error) {
-        log.error(`Could not get quotes for application  ${ApplicationDoc.applicationId} ${__location}`);
+        log.error(`Could not get quotes for application ${ApplicationDoc.applicationId} ${__location}`);
         return;
     }
 
@@ -79,7 +82,6 @@ async function updateApplicationStatus(application, timeout) {
     }
 
     // Set the new application status
-
     try {
         await applicationBO.updateStatus(ApplicationDoc.mysqlId, applicationStatus.appStatusDesc, applicationStatus.appStatusId);
     }
