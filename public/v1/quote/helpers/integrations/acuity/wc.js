@@ -16,7 +16,7 @@ const moment = require('moment');
 const moment_timezone = require('moment-timezone');
 const Integration = require('../Integration.js');
 const acuityWCTemplate = require('jsrender').templates('./public/v1/quote/helpers/integrations/acuity/wc.xmlt');
-const utility = require('../../../../../../shared/helpers/utility');
+const InsurerBO = global.requireShared('./models/Insurer-BO.js');
 const acuityWCCodes = require('./acuity-wc-codes.js');
 global.requireShared('./helpers/tracker.js');
 
@@ -38,8 +38,13 @@ module.exports = class AcuityWC extends Integration {
 	 */
     async _insurer_quote() {
 
+        const insurerBO = new InsurerBO();
         const insurerSlug = 'acuity';
-        const insurer = await utility.getInsurer(insurerSlug);
+        const insurer = await insurerBO.getBySlug(insurerSlug);
+        if (!insurer) {
+            log.error(`Acuity not found by slug ${__location}`);
+            return this.return_result('error');
+        }
 
         // Don't report certain activities in the payroll exposure
         const unreportedPayrollActivityCodes = [

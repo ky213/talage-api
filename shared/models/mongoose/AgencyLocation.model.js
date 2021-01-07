@@ -59,6 +59,7 @@ const AgencyLocationSchema = new Schema({
     openTime: {type: String, required: false, default: "9"},
     closeTime: {type: String, required: false, default: "5"},
     territories: [String],
+    useAgencyPrime: {type: Boolean, default: false},
     insurers: [AgencyLocationInsurersSchema],
     additionalInfo: {type: Schema.Types.Mixed},
     agencyPortalCreatedUser: {type: String},

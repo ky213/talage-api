@@ -5,7 +5,7 @@ const validator = global.requireShared('./helpers/validator.js');
 const tracker = global.requireShared('./helpers/tracker.js');
 
 module.exports = async function(val, agency, agencyNetwork){
-    if(!validator.id(val) || agency && !validator.id(agency)){
+    if(!validator.integer(val) || agency && !validator.integer(agency)){
         return false;
     }
 

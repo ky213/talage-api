@@ -187,7 +187,7 @@ module.exports = class ACORD{
     async createAcord126(){
 
         if(this.applicationDoc === null){
-            return PdfHelper.createPDF('acord-126.pdf', pdfDataFieldsObj);
+            return PdfHelper.createPDF('acord-126.pdf', {});
         }
 
         const pdfDataFieldsObj = {
@@ -225,6 +225,18 @@ module.exports = class ACORD{
         })
 
         const pdf = await PdfHelper.createPDF('acord-126.pdf', pdfDataFieldsObj);
+        return pdf;
+    }
+
+    async createAcord140(){
+
+        if(this.applicationDoc === null){
+            return PdfHelper.createPDF('acord-140.pdf', {});
+        }
+
+        const pdfDataFieldsObj = {};
+
+        const pdf = await PdfHelper.createPDF('acord-140.pdf', {});
         return pdf;
     }
 

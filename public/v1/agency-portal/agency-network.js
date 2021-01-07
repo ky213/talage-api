@@ -6,7 +6,10 @@ const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const serverHelper = global.requireRootPath('server.js');
 //const auth = require('./helpers/auth.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
-const InsurerPolicyTypeBO = global.requireShared('./models/InsurerPolicyType-BO.js');
+const AgencyNetworkInsurerBO = global.requireShared('./models/AgencyNetworkInsurer-BO.js');
+const InsurerBO = global.requireShared('models/Insurer-BO.js');
+const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
+
 
 /**
  * Returns the record for a single Agency Network
@@ -97,71 +100,65 @@ async function getAgencyNetworkInsurersList(req, res, next) {
             return next(serverHelper.forbiddenError('Do Not have Permissions'));
         }
     }
-    const networkInsurersSQL = `
-		SELECT
-			i.id,
-			i.logo,
-			i.name,
-			i.agency_id_label,
-			i.agent_id_label,
-			i.enable_agent_id,
-			GROUP_CONCAT(it.territory) AS territories
-		FROM clw_talage_agency_network_insurers AS agi
-		LEFT JOIN clw_talage_insurers AS i ON agi.insurer = i.id
-		LEFT JOIN clw_talage_insurer_territories AS it ON i.id = it.insurer
-		LEFT JOIN clw_talage_insurer_policy_types AS pti ON i.id = pti.insurer
-		WHERE
-			i.id IN (select insurer from clw_talage_agency_network_insurers where agency_network = ${agencyNetworkId}) AND
-			i.state = 1 AND
-			pti.wheelhouse_support = 1
 
-		GROUP BY i.id
-		ORDER BY i.name ASC;
-	`;
-    const networkInsurers = await db.query(networkInsurersSQL).catch(function(err){
-        log.error('DB query failed: ' + err.message + __location);
-        return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
-    });
-
-    // Convert the network insurer territory data into an array
-    networkInsurers.map(function(networkInsurer) {
-        if(networkInsurer.territories){
-            networkInsurer.territories = networkInsurer.territories.split(',');
-        }
-        return networkInsurer;
-    });
-    // For each network insurer grab the policy_types
-    for (let i = 0; i < networkInsurers.length; i++) {
-        const insurer = networkInsurers[i];
-        // Grab all of the policy type and accord support for a given insurer
-        const policyTypeBO = new InsurerPolicyTypeBO();
-        const insurerId = insurer.id;
-        const queryJSON = {insurer: insurerId, wheelhouse_support: 1};
-        let policyTypesList = null;
-        policyTypesList = await policyTypeBO.getList(queryJSON).catch(function(err) {
-            log.error("insurerPolicyTypeBO load error " + err + __location);
-            error = err;
+    let networkInsurers = [];
+    try{
+        const agencyNetworkInsurerBO = new AgencyNetworkInsurerBO();
+        const queryAgencyNetwork = {"agencyNetworkId": agencyNetworkId}
+        const agencyNetworkInsurers = await agencyNetworkInsurerBO.getList(queryAgencyNetwork)
+        // eslint-disable-next-line prefer-const
+        let insurerIdArray = [];
+        agencyNetworkInsurers.forEach(function(agencyNetworkInsurer){
+            if(agencyNetworkInsurer.insurer){
+                insurerIdArray.push(agencyNetworkInsurer.insurer);
+            }
         });
-        if (error) {
-            return next(error);
+        if(insurerIdArray.length > 0){
+            const insurerBO = new InsurerBO();
+            const insurerPolicyTypeBO = new InsurerPolicyTypeBO();
+            const query = {"insurerId": insurerIdArray}
+            let insurerDBJSONList = await insurerBO.getList(query);
+            if(insurerDBJSONList && insurerDBJSONList.length > 0){
+                for(let insureDB of insurerDBJSONList){
+                    insureDB.territories = await insurerBO.getTerritories(insureDB.insurerId);
+                    //check if any insurerPolicyType is wheelhouse enabled.
+                    // eslint-disable-next-line object-property-newline
+                    const queryPT = {
+                        "wheelhouse_support": true,
+                        insurerId: insureDB.insurerId
+                    };
+                    insureDB.policyTypes = [];
+                    const insurerPtDBList = await insurerPolicyTypeBO.getList(queryPT)
+                    if(insurerPtDBList && insurerPtDBList.length > 0){
+                        insurerPtDBList.forEach((policyTypeObj) => {
+                            //TODO refactor AP to use full JSON from here.  (Territories not handled correctly)
+                            let reducedPolicyTypeObj = {};
+                            if(typeof policyTypeObj.policy_type !== 'undefined'){
+                                reducedPolicyTypeObj.policy_type = policyTypeObj.policy_type;
+                            }
+                            if(typeof policyTypeObj.acord_support !== 'undefined'){
+                                reducedPolicyTypeObj.acord_support = policyTypeObj.acord_support;
+                            }
+                            if(insureDB.insurerId === 1){
+                                reducedPolicyTypeObj.api_bind_support = 1;
+                            }
+                            insureDB.policyTypes.push(reducedPolicyTypeObj);
+                        });
+                    }
+                    else {
+                        log.info(`No wheelhouse enabled products for insurer ${insureDB.insurerId}` + __location)
+                    }
+                    //outside wheelhouse support logic. in case we are toggling an insurer on/off at system level.
+                    networkInsurers.push(insureDB)
+                }
+            }
         }
 
-        // Push policy types and accord support for said policy type into an array
-        insurer.policyTypes = [];
-        policyTypesList.forEach((policyTypeObj) => {
-            let reducedPolicyTypeObj = {};
-            if(typeof policyTypeObj.policy_type !== 'undefined'){
-                reducedPolicyTypeObj.policy_type = policyTypeObj.policy_type;
-            }
-            if(typeof policyTypeObj.acord_support !== 'undefined'){
-                reducedPolicyTypeObj.acord_support = policyTypeObj.acord_support;
-            }
-            if(insurerId === 1){
-                reducedPolicyTypeObj.api_bind_support = 1;
-            }
-            insurer.policyTypes.push(reducedPolicyTypeObj);
-        });
     }
+    catch(err){
+        log.error(`Error get Agency Network Insurer List ` + err + __location);
+    }
+
     const response = {"networkInsurers": networkInsurers};
 
     // Return the response

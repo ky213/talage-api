@@ -66,10 +66,13 @@ module.exports = function() {
     require('./shared/models/mongoose/Mapping.model');
     require('./shared/models/mongoose/AgencyEmail.model');
     require('./shared/models/mongoose/Quote.model');
+    require('./shared/models/mongoose/AgencyNetwork.model');
     require('./shared/models/mongoose/Agency.model');
     require('./shared/models/mongoose/AgencyLocation.model');
     require('./shared/models/mongoose/AgencyLandingPage.model');
 
+    require('./shared/models/mongoose/Insurer.model');
+    require('./shared/models/mongoose/InsurerPolicyType.model');
 
     return mongodb;
 

@@ -28,7 +28,6 @@ module.exports = class AgencyLocation {
         this.emailBrand = '';
         this.first_name = '';
         this.id = 0;
-        this.key = '';
         this.insurers = {};
         this.last_name = '';
         this.territories = [];
@@ -74,7 +73,9 @@ module.exports = class AgencyLocation {
             let agencyLocation = null;
             try{
                 const agencyLocationBO = new AgencyLocationBO();
-                agencyLocation = await agencyLocationBO.getById(this.id);
+                const getChildren = true;
+                const addAgencyPrimaryLocation = true;
+                agencyLocation = await agencyLocationBO.getById(this.id, getChildren, addAgencyPrimaryLocation );
                 if(agencyLocation.insurers){
                     alInsurerList = agencyLocation.insurers;
                 }
@@ -286,18 +287,6 @@ module.exports = class AgencyLocation {
 	 */
     validate() {
         return new Promise(async(fulfill, reject) => {
-
-            /**
-			 * Key (required) - This is how we uniquelly identify agents
-			 */
-            if (this.key) {
-                // Check formatting
-                if (!await validator.agent(this.key)) {
-                    reject(new Error('Invalid agent provided.'));
-                    return;
-                }
-            }
-
             fulfill(true);
         });
     }

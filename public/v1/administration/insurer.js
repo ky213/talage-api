@@ -20,6 +20,9 @@ const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 async function findAll(req, res, next) {
     let error = null;
     const insurerBO = new InsurerBO();
+    if(req.query && req.query.agencysearch){
+        delete req.query.agencysearch
+    }
 
     const rows = await insurerBO.getList(req.query).catch(function(err) {
         log.error("admin agencynetwork error: " + err + __location);
@@ -49,7 +52,7 @@ async function findOne(req, res, next) {
     const insurerBO = new InsurerBO();
     // Load the request data into it
     const insurerJSON = await insurerBO.getById(id).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("Insurer load error " + err + __location);
         error = err;
     });
     if (error && error.message !== "not found") {
@@ -73,7 +76,7 @@ async function add(req, res, next) {
     const insurerBO = new InsurerBO();
     let error = null;
     await insurerBO.saveModel(req.body).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("Insurer load error " + err + __location);
         error = err;
     });
     if (error) {
@@ -96,7 +99,7 @@ async function update(req, res, next) {
     const insurerBO = new InsurerBO();
     let error = null;
     await insurerBO.saveModel(req.body).catch(function(err) {
-        log.error("Location load error " + err + __location);
+        log.error("Insurer load error " + err + __location);
         error = err;
     });
     if (error) {
@@ -125,8 +128,8 @@ async function getSelectionList(req, res, next) {
     const insurerBO = new InsurerBO();
 
     // Load the request data into it
-    const insurerList = await insurerBO.getSelectionList().catch(function(err) {
-        log.error("Location load error " + err + __location);
+    const insurerList = await insurerBO.getList({active: true}).catch(function(err) {
+        log.error("Insurer load error " + err + __location);
         error = err;
     });
     if (error) {

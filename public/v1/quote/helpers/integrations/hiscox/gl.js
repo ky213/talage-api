@@ -317,11 +317,15 @@ module.exports = class HiscoxGL extends Integration {
         this.totalPayroll = this.get_total_payroll();
         const totalPayrollQuestionId = Object.keys(questionDetails).find(questionId => (questionDetails[questionId].identifier.startsWith("CustomTotalPayroll") ? questionId : null));
         if (totalPayrollQuestionId) {
-            try {
-                this.totalPayroll = parseInt(this.questions[totalPayrollQuestionId].answer, 10);
-            }
-            catch (error) {
-                this.log_warn(`Could not convert custom total payroll '${this.questions[totalPayrollQuestionId].answer}' to a number.`, __location);
+            //parseInt does not throw error with parse a non-number.
+            //Still want to remove the questions
+            if(parseInt(this.questions[totalPayrollQuestionId].answer, 10) !== "NaN"){
+                try {
+                    this.totalPayroll = parseInt(this.questions[totalPayrollQuestionId].answer, 10);
+                }
+                catch (error) {
+                    this.log_warn(`Could not convert custom total payroll '${this.questions[totalPayrollQuestionId].answer}' to a number.`, __location);
+                }
             }
             delete this.questions[totalPayrollQuestionId];
         }
@@ -369,7 +373,11 @@ module.exports = class HiscoxGL extends Integration {
                     }
                     else {
                         try {
+                            //parseInt does not throw error with parse a non-number.
                             questionAnswer = parseInt(questionAnswer, 10);
+                            if(questionAnswer === "NaN"){
+                                throw new Error("Not an integer");
+                            }
                         }
                         catch (error) {
                             this.log_warn(`Could not convert contractor payroll '${questionAnswer}' to a number.`, __location);

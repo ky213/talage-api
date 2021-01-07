@@ -382,18 +382,8 @@ module.exports = class Business {
 
             /**
 			 * Industry Code (required)
-			 * - > 0
-			 * - <= 99999999999
-			 * - Must existin our database
 			 */
-            if (this.industry_code) {
-                this.industry_code_description = await validator.industry_code(this.industry_code);
-                if (!this.industry_code_description) {
-                    reject(new Error('The industry code ID you provided is not valid'));
-                    return;
-                }
-            }
-            else {
+            if (!this.industry_code) {
                 reject(new Error('Missing property: industry_code'));
                 return;
             }

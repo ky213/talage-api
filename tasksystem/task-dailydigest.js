@@ -65,7 +65,8 @@ exports.taskProcessorExternal = async function(){
 
 var dailyDigestTask = async function(){
 
-    const yesterdayBegin = moment.tz("America/Los_Angeles").subtract(1,'d').startOf('day');
+    //const yesterdayBegin = moment.tz("America/Los_Angeles").subtract(1,'d').startOf('day');
+    const yesterdayBegin = moment.tz("America/Los_Angeles").subtract(7,'d').startOf('day');
     const yesterdayEnd = moment.tz("America/Los_Angeles").subtract(1,'d').endOf('day');
 
     let agencyLocationList = null;
