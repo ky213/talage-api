@@ -669,11 +669,11 @@ module.exports = class ApplicationModel {
             if (location.activity_codes && location.activity_codes.length > 0) {
                 for (const activity_code of location.activity_codes) {
                     // Convert props in the employee list to camel case
-                    if (activity_code.employeeList) {
-                        for (const employee of activity_code.employeeList) {
-                            for (const employeeProp in employee) {
+                    if (activity_code.employeeTypeList) {
+                        for (const employeeType of activity_code.employeeTypeList) {
+                            for (const employeeProp in employeeType) {
                                 if (employeeProp.isSnakeCase()) {
-                                    employee[employeeProp.toCamelCase()] = employee[employeeProp];
+                                    employeeType[employeeProp.toCamelCase()] = employeeType[employeeProp];
                                 }
                             }
                         }
@@ -681,7 +681,7 @@ module.exports = class ApplicationModel {
                     const activityPayrollJSON = {};
                     activityPayrollJSON.ncciCode = activity_code.id;
                     activityPayrollJSON.payroll = activity_code.payroll;
-                    activityPayrollJSON.employeeList = activity_code.employeeList;
+                    activityPayrollJSON.employeeTypeList = activity_code.employeeTypeList;
                     location.activityPayrollList.push(activityPayrollJSON)
                 }
             }
