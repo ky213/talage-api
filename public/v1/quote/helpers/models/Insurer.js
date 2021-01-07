@@ -6,7 +6,8 @@
 
 const crypt = global.requireShared('./services/crypt.js');
 //const moment_timezone = require('moment-timezone');
-const validator = global.requireShared('./helpers/validator.js');
+const InsurerBO = global.requireShared('./models/Insurer-BO.js');
+const InsurerPolicyTypeBO = global.requireShared('./models/InsurerPolicyType-BO.js');
 const InsurerOutageBO = global.requireShared('./models/InsurerOutage-BO.js');
 
 
@@ -38,9 +39,9 @@ module.exports = class Insurer {
 	 */
     get_password() {
         if (this.useSandbox) {
-            return crypt.decrypt(this.test_password);
+            return this.test_password;
         }
-        return crypt.decrypt(this.password);
+        return this.password;
     }
 
     /**
@@ -51,9 +52,9 @@ module.exports = class Insurer {
 	 */
     get_username() {
         if (this.useSandbox) {
-            return crypt.decrypt(this.test_username);
+            return this.test_username;
         }
-        return crypt.decrypt(this.username);
+        return this.username;
     }
 
     /**
@@ -63,80 +64,63 @@ module.exports = class Insurer {
 	 * @returns {Promise.<object, Error>} True on success, Error on failure.
 	 */
     async init(id) {
-        // Validate the provided ID
-        if (!await validator.insurer(id)) {
-            log.error(`Could not validate insurer ${id} ${__location}`);
-            return new Error('Invalid insurer');
-        }
 
-        // Build a query to get some basic information about this insurer from the database
-        const sql = `
-				SELECT i.id, i.state, i.logo, i.name, i.slug, i.rating, i.test_username, i.test_password, i.username
-					,i.password, GROUP_CONCAT(DISTINCT ipt.policy_type) AS 'policy_types'
-					,ipt.slug as policyslug
-				FROM clw_talage_insurers AS i
-					 LEFT JOIN clw_talage_insurer_policy_types AS ipt ON ipt.insurer = i.id
-				WHERE i.id = ${db.escape(parseInt(id, 10))}
-				GROUP BY i.id;
-			`;
-
-        // Run that query
-        let rows = null;
-        try {
-            rows = await db.query(sql);
+        //Switch to BO.
+        let insurerJson = null;
+        const insurerBO = new InsurerBO();
+        try{
+            insurerJson = await insurerBO.getById(id);
         }
-        catch (error) {
-            log.error(`Could not query the database for insurer ${id} information: ${error} ${__location}`);
+        catch(err){
+            log.error(`Error getting insurer ${id} error: ${err} ${__location}`);
             return new Error('Database error');
         }
-        // Make sure we found the insurer, if not, the ID is bad
-        if (!rows || rows.length !== 1) {
+
+        if(insurerJson){
+            //fill in model.
+            for (const property in insurerJson) {
+                // Make sure this property is part of the rows[0] object and that it is alsoa. property of this object
+                if (Object.prototype.hasOwnProperty.call(insurerJson, property) && Object.prototype.hasOwnProperty.call(this, property)) {
+                    this[property] = insurerJson[property];
+                }
+            }
+
+
+            //Get insure policy Types
+            try{
+                const insurerPolicyTypeBO = new InsurerPolicyTypeBO();
+                const insurerPolicyTypeList = await insurerPolicyTypeBO.getList({"insurerId": id});
+                if(insurerPolicyTypeList && insurerPolicyTypeList.length > 0){
+                    //override slug with policyslug if policyslug exists.
+                    if(insurerPolicyTypeList[0].policyslug && insurerPolicyTypeList[0].policyslug.length > 0){
+                        insurerJson.slug = insurerPolicyTypeList[0].policyslug
+                    }
+                    //list of policyttypes.
+                    this.policy_types = [];
+                    for(const insurerPolicyTypeJSON of insurerPolicyTypeList){
+                        this.policy_types.push(insurerPolicyTypeJSON.policy_type);
+                        this.policy_type_details[insurerPolicyTypeJSON.policy_type] = {
+                            'api_support': insurerPolicyTypeJSON.api_support,
+                            'acord_support': insurerPolicyTypeJSON.acord_support
+                        }
+                    }
+                }
+                else {
+                    log.error(`Quoting No insurerPolicyTypeList for insurer ${id} ` + __location)
+                }
+            }
+            catch(err){
+                log.error(`Error getting InsurerPolicyType list insurer ${id} error: ${err} ${__location}`);
+                return new Error('Database error');
+            }
+        }
+        else {
             log.error(`Empty results when querying the database for insurer ${id} information ${__location}`);
             return new Error('Invalid insurer');
         }
-        //override slug with policyslug if policyslug exists.
-        if (rows[0] && rows[0].policyslug && rows[0].policyslug.length > 0) {
-            rows[0].slug = rows[0].policyslug;
-        }
-        // Load the results of the query into this object
-        for (const property in rows[0]) {
-            // Make sure this property is part of the rows[0] object and that it is alsoa. property of this object
-            if (Object.prototype.hasOwnProperty.call(rows[0], property) && Object.prototype.hasOwnProperty.call(this, property)) {
-                switch (property) {
-                    case 'policy_types':
-                        this[property] = rows[0][property].split(',');
-                        continue;
-                    default:
-                        this[property] = rows[0][property];
-                }
-            }
-        }
+
         const insurerOutageBO = new InsurerOutageBO();
         this.outage = await insurerOutageBO.isInOutage(parseInt(id, 10));
-
-
-        // Construct a query to get all the acord and api support data for all supported policy types
-        const policy_type_details_sql = `SELECT ipt.insurer, ipt.policy_type, ipt.api_support, ipt.acord_support
-							FROM clw_talage_insurer_policy_types ipt
-							WHERE ipt.insurer = ${this.id}`;
-
-        let policy_type_details = null;
-        try {
-            policy_type_details = await db.query(policy_type_details_sql)
-        }
-        catch (error) {
-            log.error(`Database error retrieving policy type details for insurer: ${id}` + error + __location);
-            return new Error('Database error');
-        }
-
-        if (policy_type_details) {
-            policy_type_details.forEach(policy_type_detail => {
-                this.policy_type_details[policy_type_detail.policy_type] = {
-                    'api_support': policy_type_detail.api_support,
-                    'acord_support': policy_type_detail.acord_support
-                }
-            })
-        }
 
         return this;
     }

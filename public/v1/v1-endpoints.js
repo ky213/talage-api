@@ -118,7 +118,6 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'administration', 'insurer-outage');
     registerEndpoint(server, 'administration', 'insurer-payment-plan-rt');
     registerEndpoint(server, 'administration', 'insurer-policy-type-rt');
-    registerEndpoint(server, 'administration', 'insurer-territory-rt');
     registerEndpoint(server, 'administration', 'insurer-writer-rt');
     registerEndpoint(server, 'administration', 'agency-network-rt');
     registerEndpoint(server, 'administration', 'agency-network-user-rt');

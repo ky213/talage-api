@@ -81,7 +81,7 @@ async function getQuestions(req, res, next) {
             applicationDBDoc = await applicationBO.loadfromMongoBymysqlId(id);
         }
         else {
-            log.debug("Getting id from mongo")
+            log.debug(`Getting app id  ${id} from mongo` + __location)
             applicationDBDoc = await applicationBO.getfromMongoByAppId(id);
         }
 

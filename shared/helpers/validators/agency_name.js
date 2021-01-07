@@ -8,7 +8,7 @@ module.exports = function(val){
     }
 
     // Enforce the maximum length
-    if(val.length > 50){
+    if(val.length > 100){
         return false;
     }
 

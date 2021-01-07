@@ -186,7 +186,7 @@ module.exports = class AgencyBO {
                 let docDB = null;
                 try {
                     docDB = await AgencyModel.findOne(query, '-__v');
-                    if(getAgencyNetwork === true){
+                    if(docDB && getAgencyNetwork === true){
                         const agencyNetworkBO = new AgencyNetworkBO();
                         try {
                             const agencyNetworkJSON = await agencyNetworkBO.getById(docDB.agencyNetworkId);
@@ -539,7 +539,7 @@ module.exports = class AgencyBO {
         const agency = new AgencyModel(newObjectJSON);
         //Insert a doc
         await agency.save().catch(function(err) {
-            log.error('Mongo Application Save err ' + err + __location);
+            log.error('Mongo Agency Save err ' + err + __location);
             throw err;
         });
         newObjectJSON.id = newSystemId;
@@ -586,11 +586,13 @@ module.exports = class AgencyBO {
                 try {
                     const returnDoc = true;
                     agencyDoc = await this.getMongoDocbyMysqlId(id, returnDoc);
-                    agencyDoc.active = false;
-                    await agencyDoc.save();
+                    if(agencyDoc && agencyDoc.systemId){
+                        agencyDoc.active = false;
+                        await agencyDoc.save();
+                    }
                 }
                 catch (err) {
-                    log.error("Error get marking agencyDoc from mysqlId " + err + __location);
+                    log.error(`Error marking deleted agencyDoc from mysqlId ${id}` + err + __location);
                     reject(err);
                 }
 

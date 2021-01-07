@@ -165,11 +165,6 @@ async function setupListeners() {
         logLocalErrorMessage('Error starting uptime server. Stopping.');
         return;
     }
-    // Create the private server
-    if(!await server.create('0.0.0.0', global.settings.PRIVATE_API_PORT, 'private/private-endpoints', false, isDevelopment, logInfoMessage, logErrorMessage)){
-        logLocalErrorMessage('Error starting private server. Stopping.');
-
-    }
 }
 
 main();

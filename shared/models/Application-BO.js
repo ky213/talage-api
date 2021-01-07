@@ -306,19 +306,7 @@ module.exports = class ApplicationModel {
                     break;
                 case 'locations':
                     if (applicationJSON.locations) {
-
                         this.processLocationsMongo(applicationJSON.locations);
-
-                    }
-                    // update business data
-                    if (applicationJSON.total_payroll) {
-                        await this.processActivityCodes(applicationJSON.total_payroll).catch(function(err) {
-                            log.error('Adding activity codes error:' + err + __location);
-                            reject(err);
-                        });
-                    }
-                    else {
-                        log.warn("Application missing total_payroll appID " + this.id + __location)
                     }
                     updateBusiness = true;
                     break;
@@ -444,7 +432,6 @@ module.exports = class ApplicationModel {
                     delete applicationJSON.businessInfo
                 }
             }
-
 
             if (!this.#dbTableORM.last_step) {
                 this.#dbTableORM.last_step = stepNumber;
@@ -610,28 +597,6 @@ module.exports = class ApplicationModel {
         });
     }
 
-    processActivityCodes(activtyListJSON) {
-
-        return new Promise(async(resolve) => {
-
-            // this.#applicationMongooseJSON.activityCodes = clonedeep(activtyListJSON);
-            this.#applicationMongooseJSON.activityCodes = [];
-            for (const activity in activtyListJSON) {
-                const activityCodeModelJSON = {
-                    "ncciCode": activity,
-                    "payroll": activtyListJSON[activity]
-                }
-
-                this.#applicationMongooseJSON.activityCodes.push(activityCodeModelJSON)
-            }
-
-            resolve(true);
-
-        });
-
-    }
-
-
     processPolicyTypes(policyTypeArray, applicationJSON) {
 
         return new Promise(async(resolve) => {
@@ -702,11 +667,21 @@ module.exports = class ApplicationModel {
             location.activityPayrollList = [];
 
             if (location.activity_codes && location.activity_codes.length > 0) {
-                for (let j = 0; j < location.activity_codes.length; j++) {
-                    const activity_code = location.activity_codes[j];
+                for (const activity_code of location.activity_codes) {
+                    // Convert props in the employee list to camel case
+                    if (activity_code.employeeList) {
+                        for (const employee of activity_code.employeeList) {
+                            for (const employeeProp in employee) {
+                                if (employeeProp.isSnakeCase()) {
+                                    employee[employeeProp.toCamelCase()] = employee[employeeProp];
+                                }
+                            }
+                        }
+                    }
                     const activityPayrollJSON = {};
                     activityPayrollJSON.ncciCode = activity_code.id;
                     activityPayrollJSON.payroll = activity_code.payroll;
+                    activityPayrollJSON.employeeList = activity_code.employeeList;
                     location.activityPayrollList.push(activityPayrollJSON)
                 }
             }
@@ -1489,7 +1464,7 @@ module.exports = class ApplicationModel {
             let hasBillingLocation = false;
             for(let location of applicationJSON.locations){
                 if(hasBillingLocation === true && location.billing === true){
-                    log.warn(`Application will mutliple billing received AppId ${applicationJSON.applicationId} fixing location ${JSON.stringify(location)} to billing = false` + __location)
+                    log.warn(`Application will multiple billing received AppId ${applicationJSON.applicationId} fixing location ${JSON.stringify(location)} to billing = false` + __location)
                     location.billing = false;
                 }
                 else if(location.billing === true){
@@ -1525,7 +1500,6 @@ module.exports = class ApplicationModel {
                             delete newObjectJSON[changeNotUpdateList[i]];
                         }
                     }
-
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
                     const newApplicationdoc = await ApplicationMongooseModel.findOne(query);
                     this.#applicationMongooseDB = newApplicationdoc
@@ -2598,10 +2572,14 @@ module.exports = class ApplicationModel {
         //Agency Location insurer list.
         let insurerArray = [];
         if(applicationDocDB.agencyLocationId && applicationDocDB.agencyLocationId > 0){
+            //TODO Agency Prime
             const agencyLocationBO = new AgencyLocationBO();
-            const agencylocationJSON = await agencyLocationBO.getById(applicationDocDB.agencyLocationId).catch(function(err) {
+            const getChildren = true;
+            const addAgencyPrimaryLocation = true;
+            const agencylocationJSON = await agencyLocationBO.getById(applicationDocDB.agencyLocationId, getChildren, addAgencyPrimaryLocation).catch(function(err) {
                 log.error(`Error getting Agency Primary Location ${applicationDocDB.uuid} ` + err + __location);
             });
+
             if (agencylocationJSON && agencylocationJSON.insurers && agencylocationJSON.insurers.length > 0) {
                 for(let i = 0; i < agencylocationJSON.insurers.length; i++){
                     insurerArray.push(agencylocationJSON.insurers[i].insurerId)

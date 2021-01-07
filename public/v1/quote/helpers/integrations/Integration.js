@@ -1248,14 +1248,20 @@ module.exports = class Integration {
      * Returns a quote object for an auto-declined quote
      *
      * @param {string} publicMessage - Message to display to the customer
+     * @param {Array} extraReasonList - Array of strings listing additional decline reasons
      * @returns {object} - An object containing the quote information
      */
-    async client_declined(publicMessage = null) {
+    async client_declined(publicMessage = null, extraReasonList = null) {
         if (!publicMessage) {
             publicMessage = "The insurer has declined to offer you coverage at this time.";
         }
         this.reasons.push(publicMessage);
-        this.log_info(`Declined with message '${publicMessage}'`, __location);
+        if (extraReasonList) {
+            for (const extraReason of extraReasonList) {
+                this.reasons.push(extraReason);
+            }
+        }
+        this.log_info(`Declined with message '${publicMessage}'`, __location, {extraReasonList: extraReasonList});
         return this.return_result('declined');
     }
 
@@ -1992,7 +1998,7 @@ module.exports = class Integration {
     _insurer_supports_industry_codes() {
         return new Promise(async(fulfill) => {
             // Query the database to see if this insurer supports this industry code
-            const sql = `SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso, iic.attributes 
+            let sql = `SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso, iic.attributes 
                         FROM clw_talage_industry_codes AS ic 
                         INNER JOIN  clw_talage_insurer_industry_codes AS iic ON
                             (
@@ -2006,7 +2012,7 @@ module.exports = class Integration {
                             AND iic.territory = '${this.app.business.primary_territory}'
                         WHERE  ic.id = ${this.app.business.industry_code}  LIMIT 1;`;
             let hadError = false;
-            const result = await db.query(sql).catch((error) => {
+            let result = await db.query(sql).catch((error) => {
                 log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not retrieve industry codes: ${error} ${__location}`);
                 hadError = true;
             });
@@ -2016,19 +2022,42 @@ module.exports = class Integration {
                 return;
             }
             if (!result || !result.length) {
+                // If insurer industry codes are required and none are returned, it is an error and we should reject.
                 if (this.requiresInsurerIndustryCodes) {
                     this.reasons.push("An insurer industry class code was not found for the given industry.");
                     log.warn(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} _insurer_supports_industry_codes failed on application. query=${sql} ` + __location);
+                    fulfill(false);
+                    return;
                 }
-                fulfill(false);
-                return;
+                // If insurer industry codes are not required, then still retrieve the industry code for the integration to use.
+                sql = `
+                    SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso 
+                    FROM clw_talage_industry_codes AS ic 
+                    WHERE ic.id = ${this.app.business.industry_code};
+                `;
+                hadError = false;
+                result = await db.query(sql).catch((error) => {
+                    log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not retrieve industry codes: ${error} ${__location}`);
+                    hadError = true;
+                });
+                if (hadError) {
+                    // Query error
+                    fulfill(false);
+                    return;
+                }
             }
 
             this.industry_code = result[0];
 
             // If there are attributes, parse them for later use
             if (this.industry_code.attributes && Object.keys(this.industry_code.attributes).length > 0) {
-                this.industry_code.attributes = JSON.parse(this.industry_code.attributes);
+                try {
+                    this.industry_code.attributes = JSON.parse(this.industry_code.attributes);
+                }
+                catch (error) {
+                    log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} IndustryCode: ${this.app.business.industry_code} Insurer industry code attributes could not be parsed: ${this.industry_code.attributes} ${__location}`);
+                    this.industry_code.attributes = {};
+                }
             }
             else {
                 log.warn(`Appid: ${this.app.id} No Industry_code attributes for ${this.insurer.name}:${this.insurer.id} and ${this.app.business.primary_territory}` + __location);
