@@ -176,4 +176,3 @@ AgencySchema.pre('save', function(next) {
 
 mongoose.set('useCreateIndex', true);
 mongoose.model('Agency', AgencySchema);
-mongoose.model('SocialMedia', SocialMediaSchema);
