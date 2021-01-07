@@ -2,9 +2,6 @@
 /* eslint-disable object-curly-spacing */
 /* eslint-disable object-curly-newline */
 'use strict';
-const ApplicationBO = global.requireShared('./models/Application-BO.js');
-const QuoteBO = global.requireShared('./models/Quote-BO.js');
-
 
 /**
  * Ensures that a quote has a value for aggregated_status
@@ -13,6 +10,7 @@ const QuoteBO = global.requireShared('./models/Quote-BO.js');
  * @return {void}
  */
 async function updateQuoteAggregatedStatus(quoteDocJson) {
+    const QuoteBO = global.requireShared('./models/Quote-BO.js');
     const aggregatedStatus = getQuoteAggregatedStatus(quoteDocJson.bound, quoteDocJson.status, quoteDocJson.apiResult);
     if (aggregatedStatus !== quoteDocJson.aggregatedStatus) {
         quoteDocJson.aggregatedStatus = aggregatedStatus;
@@ -31,19 +29,28 @@ async function updateQuoteAggregatedStatus(quoteDocJson) {
 /**
  * Ensures that a quote has a value for aggregated_status
  *
- * @param {Number} applicationID - ID of the application to update
+ * @param {Number|Object} application - ID of the application to update, or application object
+ * @param {Boolean} timeout - optional parameter to specify the status should timeout if no other status is satisfactory
  * @return {void}
  */
-async function updateApplicationStatus(applicationID) {
-    // Get the application
+async function updateApplicationStatus(application, timeout) {
+    const ApplicationBO = global.requireShared('./models/Application-BO.js');
+    const QuoteBO = global.requireShared('./models/Quote-BO.js');
     const applicationBO = new ApplicationBO();
     let ApplicationDoc = null;
-    try{
-        ApplicationDoc = await applicationBO.loadfromMongoBymysqlId(applicationID)
+    if(typeof application === "number"){
+        // Get the application
+        try{
+            ApplicationDoc = await applicationBO.loadfromMongoBymysqlId(application)
+        }
+        catch(err){
+            log.error(`Could not retrieve application ${application} ${__location}`);
+            return;
+        }
     }
-    catch(err){
-        log.error(`Could not retrieve application ${applicationID} ${__location}`);
-        return;
+    else{
+        // if the doc is passed just use it as is
+        ApplicationDoc = application;
     }
 
     // Get the quotes
@@ -63,21 +70,21 @@ async function updateApplicationStatus(applicationID) {
     let applicationStatus = '';
     switch (ApplicationDoc.agencyNetworkId) {
         default:
-            applicationStatus = getGenericApplicationStatus(ApplicationDoc, quoteDocJsonList);
+            applicationStatus = getGenericApplicationStatus(ApplicationDoc, quoteDocJsonList, timeout);
             break;
         // Accident Fund
         case 2:
-            applicationStatus = getAccidentFundApplicationStatus(ApplicationDoc, quoteDocJsonList);
+            applicationStatus = getAccidentFundApplicationStatus(ApplicationDoc, quoteDocJsonList, timeout);
             break;
     }
 
     // Set the new application status
 
     try {
-        await applicationBO.updateStatus(applicationID, applicationStatus.appStatusDesc, applicationStatus.appStatusId);
+        await applicationBO.updateStatus(ApplicationDoc.mysqlId, applicationStatus.appStatusDesc, applicationStatus.appStatusId);
     }
     catch (err) {
-        log.error(`Error update appication status appId = ${applicationID}  ${db.escape(applicationStatus.appStatusDesc)} ` + err + __location);
+        log.error(`Error update appication status appId = ${ApplicationDoc.mysqlId}  ${db.escape(applicationStatus.appStatusDesc)} ` + err + __location);
     }
 }
 
@@ -123,12 +130,12 @@ function getQuoteAggregatedStatus(bound, status, apiResult) {
  *
  * @param {Object} applicationDoc - An application record
  * @param {array} quoteDocJsonList - An array of quote objects
+ * @param {Boolean} timeout - optional parameter to specify the status should timeout if no other status is satisfactory
  * @return {string} - The status object {appStatusId, appStatusDesc} of the application
  */
-function getGenericApplicationStatus(applicationDoc, quoteDocJsonList) {
+function getGenericApplicationStatus(applicationDoc, quoteDocJsonList, timeout) {
     // Ensure that each quote has an aggregated status (backwards compatibility)
     quoteDocJsonList.forEach((quoteDocJson) => updateQuoteAggregatedStatus(quoteDocJson));
-
     if (applicationDoc.appStatusId < 10) {
         //appStatusId = 0
         return { appStatusId: 0, appStatusDesc: 'incomplete' };
@@ -189,7 +196,14 @@ function getGenericApplicationStatus(applicationDoc, quoteDocJsonList) {
         // return 'questions_done';
         return { appStatusId: 10, appStatusDesc: 'questions_done' };
     }
-    return { appStatusId: 0, appStatusDesc: 'incomplete' };
+
+    if(timeout) {
+        // if timeout is specified then return error if nothing above is chosen
+        return { appStatusId: 20, appStatusDesc: 'error' };
+    }
+    else{
+        return { appStatusId: 0, appStatusDesc: 'incomplete' };
+    }
 }
 
 /**
@@ -197,10 +211,11 @@ function getGenericApplicationStatus(applicationDoc, quoteDocJsonList) {
  *
  * @param {Object} applicationDoc - An application record
  * @param {array} quoteDocJsonList - An array of quote objects
+ * @param {Boolean} timeout - optional parameter to specify the status should timeout if no other status is satisfactory
  * @return {string} - The status of the application
  */
-function getAccidentFundApplicationStatus(applicationDoc, quoteDocJsonList) {
-    const status = getGenericApplicationStatus(applicationDoc, quoteDocJsonList);
+function getAccidentFundApplicationStatus(applicationDoc, quoteDocJsonList, timeout) {
+    const status = getGenericApplicationStatus(applicationDoc, quoteDocJsonList, timeout);
     // For accident fund, we only need to 'downgrade' the status if it is declined and there exists a quote with an 'error' status.
     if (status === 'declined') {
         if (quoteDocJsonList.filter((quote) => quote.aggregatedStatus === 'error').length > 0) {
