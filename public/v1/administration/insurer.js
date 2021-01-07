@@ -128,7 +128,7 @@ async function getSelectionList(req, res, next) {
     const insurerBO = new InsurerBO();
 
     // Load the request data into it
-    const insurerList = await insurerBO.getSelectionList().catch(function(err) {
+    const insurerList = await insurerBO.getList({active: true}).catch(function(err) {
         log.error("Insurer load error " + err + __location);
         error = err;
     });
