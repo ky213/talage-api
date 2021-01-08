@@ -1,5 +1,3 @@
-
-
 /**
  * Provides functions for validating data
  */
@@ -17,6 +15,25 @@ const moment = require('moment');
  * @returns {void}
 */
 const validateBusiness = async (applicationDocData) => {
+    
+    // Unincorporated Association (Required only for WC, in NH, and for LLCs and Corporations)
+    if (
+        applicationDocData.policies.find(policy => policy.policyType === "WC") &&
+        (applicationDocData.entityType === 'Corporation' || applicationDocData.entityType === 'Limited Liability Company') && 
+        applicationDocData.mailingState === 'NH'
+    ) {
+
+        // This is required
+        if (applicationDocData.unincorporated_association === null) {
+            return reject(new Error('Missing required field: unincorporated_association'));
+        }
+
+        // Validate
+        if (!validator.boolean(applicationDocData.unincorporated_association)) {
+            return reject(new Error('Invalid value for unincorporated_association, please use a boolean value'));
+        }
+    }
+
     /**
      * Bureau Number (optional)
      * - <= 999999999
@@ -248,8 +265,14 @@ const validateBusiness = async (applicationDocData) => {
 
 /**
  * Checks that the data supplied is valid
+ * 
+ * @returns {void}
  */
 const validateContacts = async (applicationDocData) => {
+    if (applicationDocData.contacts.length === 0) { 
+        throw new Error('At least 1 contact must be provided');
+    }
+    
     for (const contact of applicationDocData.contacts) {
         // Validate email
         if (contact.email) {
@@ -321,6 +344,10 @@ const validateContacts = async (applicationDocData) => {
  * @returns {void} 
  */
 const validateLocations = async (applicationDocData) => {
+    if (applicationDocData.locations.length === 0) { 
+        throw new Error('At least 1 location must be provided');
+    }
+
     for (const location of applicationDocData.locations) {
         // Validate address
         if (location.address) {
@@ -418,7 +445,11 @@ const validateLocations = async (applicationDocData) => {
  *
  * @returns {void}
  */
-const validateActivityCode = (applicationDocData) => {
+const validateActivityCodes = (applicationDocData) => {
+    if (applicationDocData.activityCodes.length === 0) {
+        throw new Error('At least 1 class code must be provided');    
+    }
+
     for (const activityCode of applicationDocData.activityCodes) {
         // Check that ID is a number
         if (isNaN(activityCode.ncciCode)) {
@@ -439,83 +470,85 @@ const validateActivityCode = (applicationDocData) => {
 /**
  * Checks that the data supplied is valid
  *
- * @returns {Policy object} TODO: REMOVE THIS
+ * @returns {void}
  */
-const validatePolicy = async (policy) => {
-    // store a temporary limit '/' deliniated, because for some reason, we don't store it that way in mongo...
-    let indexes = [];
-    for (let i = 1; i < policy.limits.length; i++) {
-        if (policy.limits[i] !== "0") {
-            indexes.push(i);
+const validatePolicies = (applicationDocData) => {
+    for (const policy of applicationDocData.policies) {
+        // store a temporary limit '/' deliniated, because for some reason, we don't store it that way in mongo...
+        let indexes = [];
+        for (let i = 1; i < policy.limits.length; i++) {
+            if (policy.limits[i] !== "0") {
+                indexes.push(i);
+            }
         }
-    }
-    let limits = policy.limits.split("");
-    limits.splice(indexes[1], 0, "/");
-    limits.splice(indexes[0], 0, "/");
-    limits = limits.join("");
+        let limits = policy.limits.split("");
+        limits.splice(indexes[1], 0, "/");
+        limits.splice(indexes[0], 0, "/");
+        limits = limits.join("");
 
-    // Validate effective_date
-    if (policy.effectiveDate) {
-        const effectiveMoment = moment(policy.effectiveDate);
-        // Check for mm-dd-yyyy formatting
-        if (!effectiveMoment.isValid()) {
-            throw new Error('Invalid formatting for property: effectiveDate. Expected mm-dd-yyyy');
+        // Validate effective_date
+        if (policy.effectiveDate) {
+            const effectiveMoment = moment(policy.effectiveDate);
+            // Check for mm-dd-yyyy formatting
+            if (!effectiveMoment.isValid()) {
+                throw new Error('Invalid formatting for property: effectiveDate. Expected mm-dd-yyyy');
+            }
+
+            // Check if this date is in the past
+            if (effectiveMoment.isBefore(moment().startOf('day'))) {
+                throw new Error('Invalid property: effectiveDate. The effective date cannot be in the past');
+            }
+
+            // Check if this date is too far in the future
+            if (effectiveMoment.isAfter(moment().startOf('day').add(90, 'days'))) {
+                throw new Error('Invalid property: effectiveDate. The effective date cannot be more than 90 days in the future');
+            }
+        } else {
+            throw new Error('Missing property: effectiveDate');
         }
 
-        // Check if this date is in the past
-        if (effectiveMoment.isBefore(moment().startOf('day'))) {
-            throw new Error('Invalid property: effectiveDate. The effective date cannot be in the past');
+        // Validate type
+        if (policy.policyType) {
+            const validTypes = [
+                'BOP',
+                'GL',
+                'WC'
+            ];
+            if (!validTypes.includes(policy.policyType)) {
+                throw new Error('Invalid policy type');
+            }
+        }
+        else {
+            throw new Error('You must provide a policy type');
         }
 
-        // Check if this date is too far in the future
-        if (effectiveMoment.isAfter(moment().startOf('day').add(90, 'days'))) {
-            throw new Error('Invalid property: effectiveDate. The effective date cannot be more than 90 days in the future');
+        // BOP specific validation
+        if (policy.policyType === 'BOP') {
+            // Coverage Lapse Due To Non-Payment - Note: Quote does not collect this for BOP only WC.
+            if (policy.coverageLapseNonPayment === null) {
+                throw new Error('coverage_lapse_non_payment is required, and must be a true or false value');
+            }
         }
-    } else {
-        throw new Error('Missing property: effectiveDate');
-    }
-
-    // Validate type
-    if (policy.policyType) {
-        const validTypes = [
-            'BOP',
-            'GL',
-            'WC'
-        ];
-        if (!validTypes.includes(policy.policyType)) {
-            throw new Error('Invalid policy type');
+        else if (policy.policyType === 'GL') {
+            // GL specific validation
+            // currently nothing specific to do here...
         }
-    }
-    else {
-        throw new Error('You must provide a policy type');
-    }
+        else if (policy.policyType === 'WC') {
+            // WC Specific Properties
 
-    // BOP specific validation
-    if (policy.policyType === 'BOP') {
-        // Coverage Lapse Due To Non-Payment - Note: Quote does not collect this for BOP only WC.
-        if (policy.coverageLapseNonPayment === null) {
-            throw new Error('coverage_lapse_non_payment is required, and must be a true or false value');
+            /**
+             * Coverage Lapse
+             * - Boolean
+             */
+            if (policy.coverageLapse === null) {
+                throw new Error('coverage_lapse is required, and must be a true or false value');
+            }
         }
-    }
-    else if (policy.policyType === 'GL') {
-        // GL specific validation
-        // currently nothing specific to do here...
-    }
-    else if (policy.policyType === 'WC') {
-        // WC Specific Properties
 
-        /**
-         * Coverage Lapse
-         * - Boolean
-         */
-        if (policy.coverageLapse === null) {
-            throw new Error('coverage_lapse is required, and must be a true or false value');
+        // Limits
+        if (!validator.limits(limits, policy.policyType)) {
+            throw new Error('The policy limits you supplied are invalid.');
         }
-    }
-
-    // Limits
-    if (!validator.limits(limits, policy.policyType)) {
-        throw new Error('The policy limits you supplied are invalid.');
     }
 }
 
@@ -562,7 +595,7 @@ const validateQuestion = async (question) => {
         return;
     }
 
-    // If the question is a checkbox, make sure we have an answer (this.answer must have an array value with one or more integer )
+    // If the question is a checkbox, make sure we have an answer (answer must have an array value with one or more integer )
     if (question.type === 'Checkboxes' && question.answer && typeof question.answer === 'object' && question.answer.length > 0) {
         // Check each answer within the array to make sure they are all valid possible answers
         for(const answer of question.answer){
@@ -590,7 +623,8 @@ const validateQuestion = async (question) => {
 }
 
 /**
- * Checks that the data supplied is valid, throws an execption (error) if not
+ * Checks that the data supplied is valid, throws an execption (error) if not.
+ * It is valid for the claims array to be empty, as claims are an optional field
  *
  * @returns {void}
  */
@@ -667,12 +701,12 @@ const validateAgencyLocation = async (agencyLocation) => {
 }
 
 module.exports = {
-    validateActivityCode,
+    validateActivityCodes,
     validateAgencyLocation,
     validateBusiness,
     validateClaims,
     validateContacts,
     validateLocations,
-    validatePolicy,
+    validatePolicies,
     validateQuestion
 }

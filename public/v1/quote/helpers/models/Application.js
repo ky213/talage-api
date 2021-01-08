@@ -22,12 +22,12 @@ const validator = global.requireShared('./helpers/validator.js');
 const { 
     validateAgencyLocation,
     validateBusiness,
-    validatePolicy,
+    validatePolicies,
     validateQuestion,
     validateContacts,
     validateLocations,
     validateClaims,
-    validateActivityCode
+    validateActivityCodes
 } = global.requireShared('./helpers/applicationValidator.js');
 const helper = global.requireShared('./helpers/helper.js');
 
@@ -172,7 +172,7 @@ module.exports = class Application {
         // Mailing Address check, check for maximum length
         if (this.business.mailing_address.length > 100) {
             log.error('Translate Warning: Mailing address exceeds maximum of 100 characters');
-            applicationDocData.mailingAddress = applicationDocData.mailingAddress.substring(0,100);
+            applicationDocData.mailingAddress = applicationDocData.mailingAddress.substring(0, 100);
         }
 
         // Adjust phone to integer value
@@ -382,7 +382,6 @@ module.exports = class Application {
         const insurer_ids = this.get_insurer_ids();
         const wc_codes = this.get_wc_codes();
 
-        // TODO: Move this to a translate method
         let questions = null;
         try {
             questions = await questionsSvc.GetQuestionsForBackend(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids, true);
@@ -1014,26 +1013,14 @@ module.exports = class Application {
                 return reject(`Failed validating business: ${e}`);
             }
 
-            /**
-             * Contacts (required)
-             */
-            if (this.applicationDocData.contacts.length === 0) { 
-                return reject(new Error('At least 1 contact must be provided'));
-            }
-
+            // Contacts (required)
             try {
                 validateContacts(this.applicationDocData);
             } catch (e) {
                 return reject(`Failed validating contacts: ${e}`);
             }
 
-            /**
-             * Locations (required)
-             */
-            if (this.applicationDocData.locations.length === 0) { 
-                return reject(new Error('At least 1 location must be provided'));
-            }
-
+            // Locations (required)
             try {
                 validateLocations(this.applicationDocData);
             } catch (e) {
@@ -1044,18 +1031,14 @@ module.exports = class Application {
             try {
                 validateClaims(this.applicationDocData);
             } catch (e) {
-                return reject(e);
+                return reject(`Failed validating claims: ${e}`);
             }
 
             // Activity Codes (required)
-            if (this.applicationDocData.activityCodes.length > 0) {
-                try {
-                    validateActivityCode(activityCode);
-                } catch (e) {
-                    return reject(e);
-                }
-            } else {
-                return reject(new Error('At least 1 class code must be provided'));
+            try {
+                validateActivityCodes(this.applicationDocData);
+            } catch (e) {
+                return reject(`Failed validating activity codes: ${e}`);
             }
 
             /**
@@ -1115,13 +1098,10 @@ module.exports = class Application {
             }
 
             // Validate all policies
-            for (const policy of this.applicationDocData.policies) {
-                try {
-                    validatePolicy(policy);
-                } catch (e) {
-                    log.error('Policy Validation error. ' + e + __location);
-                    return reject(`Failed validating policy: ${e}`);
-                }
+            try {
+                validatePolicies(this.applicationDocData);
+            } catch (e) {
+                return reject(`Failed validating policy: ${e}`);
             }
 
             // Validate all of the questions
@@ -1131,6 +1111,7 @@ module.exports = class Application {
                         try {
                             validateQuestion(question);
                         } catch (e) {
+                            // This issue should not result in a stoppage of quoting with all insurers
                             log.error(`Failed validating question ${question.questionId}: ${e}. ` + __location);
                         }
                     }
