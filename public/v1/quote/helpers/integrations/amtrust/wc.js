@@ -72,55 +72,58 @@ module.exports = class AcuityWC extends Integration {
      */
     async getClassCodeList() {
         // First we need to group the AmTrust class codes by state and class code.
-        // The resulting map:
-        // { "NV" : { "816000" : {payroll: 10000, fullTimeEmployees: 3, partTimeEmployees: 1}}}
-        const amtrustClassCodeMap = {}
-        for (const location of this.app.business.locations) {
-            let firstAmTrustClassCode = null;
-            for (const activityCode of location.activity_codes) {
-                // HACK: commented out because we are testing with the national NCCI codes instead of the mapped insurer class codes
-                const amtrustClassCode = this.insurer_wc_codes[location.state_abbr + activityCode.id];
-                // const amtrustClassCode = await this.get_national_ncci_code_from_activity_code(location.state_abbr, activityCode.id) + "00";
-                if (firstAmTrustClassCode === null) {
-                    firstAmTrustClassCode = amtrustClassCode;
-                }
-                if (!amtrustClassCode) {
+        const amtrustClassCodeList = [];
+        for (const location of this.app.applicationDocData.locations) {
+            for (const activityPayroll of location.activityPayrollList) {
+                // console.log(activityPayroll);
+                // Commented out because we are testing with the national NCCI codes instead of the mapped insurer class codes
+                // const amtrustClassCode = this.insurer_wc_codes[location.state_abbr + activityCode.id];
+                const ncciCode = await this.get_national_ncci_code_from_activity_code(location.state, activityPayroll.ncciCode) + "00";
+                if (!ncciCode) {
                     return this.client_error("Could not locate AmTrust class code for a required activity code", __location, {
                         state: location.state_abbr,
-                        activityCode: activityCode.id
+                        activityCode: activityPayroll.id
                     });
                 }
-                if (!amtrustClassCodeMap.hasOwnProperty(location.state_abbr)) {
-                    amtrustClassCodeMap[location.state_abbr] = {};
-                }
-                if (!amtrustClassCodeMap[location.state_abbr].hasOwnProperty(amtrustClassCode)) {
-                    amtrustClassCodeMap[location.state_abbr][amtrustClassCode] = {
+                let amtrustClassCode = amtrustClassCodeList.find((acc) => acc.ncciCode === ncciCode && acc.state === location.state);
+                if (!amtrustClassCode) {
+                    amtrustClassCode = {
+                        ncciCode: ncciCode,
+                        state: location.state,
                         payroll: 0,
                         fullTimeEmployees: 0,
                         partTimeEmployees: 0
                     };
+                    amtrustClassCodeList.push(amtrustClassCode);
                 }
-                amtrustClassCodeMap[location.state_abbr][amtrustClassCode].payroll += activityCode.payroll;
-            }
-            if (firstAmTrustClassCode) {
-                amtrustClassCodeMap[location.state_abbr][firstAmTrustClassCode].fullTimeEmployees += location.full_time_employees;
-                amtrustClassCodeMap[location.state_abbr][firstAmTrustClassCode].partTimeEmployees += location.part_time_employees;
+                for (const employeeType of activityPayroll.employeeTypeList) {
+                    amtrustClassCode.payroll += employeeType.employeeTypePayroll;
+                    switch (employeeType.employeeType) {
+                        case "Full Time":
+                            amtrustClassCode.fullTimeEmployees += employeeType.employeeTypeCount;
+                            break;
+                        case "Part Time":
+                            amtrustClassCode.partTimeEmployees += employeeType.employeeTypeCount;
+                            break;
+                        default:
+                            break;
+                    }
+                }
             }
         }
         // Build the class code list to return
         const classCodeList = [];
-        for (const state of Object.keys(amtrustClassCodeMap)) {
-            for (const classCode of Object.keys(amtrustClassCodeMap[state])) {
-                classCodeList.push({
-                    "ClassCode": classCode.substring(0, classCode.length - 2),
-                    "ClassCodeDescription": classCode.substring(classCode.length - 2, classCode.length),
-                    "State": state,
-                    "Payroll": amtrustClassCodeMap[state][classCode].payroll,
-                    "FullTimeEmployees": amtrustClassCodeMap[state][classCode].fullTimeEmployees,
-                    "PartTimeEmployees": amtrustClassCodeMap[state][classCode].partTimeEmployees
-                });
-            }
+        for (const amtrustClassCode of amtrustClassCodeList) {
+            classCodeList.push({
+                "ClassCode": amtrustClassCode.ncciCode.substring(0, amtrustClassCode.ncciCode.length - 2),
+                "ClassCodeDescription": amtrustClassCode.ncciCode.substring(amtrustClassCode.ncciCode.length - 2, amtrustClassCode.ncciCode.length),
+                "State": amtrustClassCode.state,
+                "Payroll": amtrustClassCode.payroll,
+                "FullTimeEmployees": amtrustClassCode.fullTimeEmployees,
+                "PartTimeEmployees": amtrustClassCode.partTimeEmployees
+            });
         }
+
         return classCodeList;
     }
 
@@ -223,15 +226,15 @@ module.exports = class AcuityWC extends Integration {
         }
 
         // Ensure we can parse the agency ID since they expect it as a number
-        let agentId = null;
+        let agencyId = null;
         try {
-            agentId = parseInt(this.app.agencyLocation.insurers[this.insurer.id].agent_id, 10);
+            agencyId = parseInt(this.app.agencyLocation.insurers[this.insurer.id].agency_id, 10);
         }
         catch (error) {
-            return this.client_error(`Invalid agent ID of '${this.app.agencyLocation.insurers[this.insurer.id].agent_id}'`, __location, {error: error});
+            return this.client_error(`Invalid agent ID of '${this.app.agencyLocation.insurers[this.insurer.id].agency_id}'`, __location, {error: error});
         }
-        if (agentId === 0) {
-            return this.client_error(`Invalid agent ID of '${this.app.agencyLocation.insurers[this.insurer.id].agent_id}'`, __location);
+        if (agencyId === 0) {
+            return this.client_error(`Invalid agent ID of '${this.app.agencyLocation.insurers[this.insurer.id].agency_id}'`, __location);
         }
 
         // =========================================================================================================
@@ -257,9 +260,9 @@ module.exports = class AcuityWC extends Integration {
                 "LastName": this.app.business.contacts[0].last_name,
                 "Email": this.app.business.contacts[0].email,
                 "Phone": this.formatPhoneNumber(this.app.business.contacts[0].phone),
-                "AgentContactId": agentId
+                "AgentContactId": agencyId
             },
-            "NatureOfBusiness": this.app.business.industry_code_description,
+            "NatureOfBusiness": this.industry_code.description,
             "LegalEntity": amtrustLegalEntityMap[this.app.business.locations[0].business_entity_type],
             "YearsInBusiness": this.get_years_in_business(),
             // "ExpiredPremium": 10000,
@@ -274,7 +277,7 @@ module.exports = class AcuityWC extends Integration {
             "ME"];
         if (requiredUnemploymentNumberStates.includes(this.app.business.locations[0].state_abbr)) {
             if (this.app.business.locations[0].unemployment_number === 0) {
-                return this.client_error("AmTrusts requires an unemployment number if located in MN, HI, RI, or ME.", __location);
+                return this.client_error("AmTrust requires an unemployment number if located in MN, HI, RI, or ME.", __location);
             }
             quoteRequestData.Quote.UnemploymentId = this.app.business.locations[0].unemployment_number.toString();
         }
@@ -362,6 +365,7 @@ module.exports = class AcuityWC extends Integration {
 
         // =========================================================================================================
         // Send the requests
+        const successfulStatusCodes = [200, 201];
 
         // Send the quote request
         const quoteResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, '/api/v2/quotes', quoteRequestData);
@@ -369,7 +373,7 @@ module.exports = class AcuityWC extends Integration {
             return this.client_error(`The quote could not be submitted to the insurer.`);
         }
         let statusCode = this.getChildProperty(quoteResponse, "StatusCode");
-        if (!statusCode || statusCode !== 201) {
+        if (!statusCode || !successfulStatusCodes.includes(statusCode)) {
             return this.client_error(`The quote could not be submitted to the insurer.`, __location, {statusCode: statusCode});
         }
         console.log("quoteResponse", JSON.stringify(quoteResponse, null, 4));
@@ -388,15 +392,17 @@ module.exports = class AcuityWC extends Integration {
         }
 
         // Send the question request
-        const questionResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/questions-answers`, questionRequestData);
-        if (!questionResponse) {
-            return this.client_error(`The quote questions for quote ${quoteId} could not be submitted to the insurer.`, __location);
+        if (questionRequestData.length > 0) {
+            const questionResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/questions-answers`, questionRequestData);
+            if (!questionResponse) {
+                return this.client_error(`The quote questions for quote ${quoteId} could not be submitted to the insurer.`, __location);
+            }
+            statusCode = this.getChildProperty(questionResponse, "StatusCode");
+            if (!statusCode || !successfulStatusCodes.includes(statusCode)) {
+                return this.client_error(`The quote questions for quote ${quoteId} could not be submitted to the insurer.`, __location, {statusCode: statusCode});
+            }
+            console.log("questionResponse", JSON.stringify(questionResponse, null, 4));
         }
-        statusCode = this.getChildProperty(questionResponse, "StatusCode");
-        if (!statusCode || statusCode !== 200) {
-            return this.client_error(`The quote questions for quote ${quoteId} could not be submitted to the insurer.`, __location, {statusCode: statusCode});
-        }
-        console.log("questionResponse", JSON.stringify(questionResponse, null, 4));
 
         // Send the additional information request
         const additionalInformationResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, `/api/v2/quotes/${quoteId}/additional-information`, additionalInformationRequestData);
@@ -404,7 +410,7 @@ module.exports = class AcuityWC extends Integration {
             return this.client_error(`The additional information for quote ${quoteId} could not be submitted to the insurer.`, __location);
         }
         statusCode = this.getChildProperty(additionalInformationResponse, "StatusCode");
-        if (!statusCode || statusCode !== 200) {
+        if (!statusCode || !successfulStatusCodes.includes(statusCode)) {
             return this.client_error(`The quote questions for quote ${quoteId} could not be submitted to the insurer.`, __location, {statusCode: statusCode});
         }
         console.log("additionalInformationResponse", JSON.stringify(additionalInformationResponse, null, 4));
@@ -434,8 +440,9 @@ module.exports = class AcuityWC extends Integration {
             quoteLimits[3] = quoteLimitDiseasePolicyLimit;
         }
 
-        // Extract the premium
+        // Extract other information
         const quotePremium = this.getChildProperty(quoteInformationResponse, "PremiumDetails.PriceIndication");
+        const quoteLink = this.getChildProperty(quoteInformationResponse, "AccountInformation.AccountUrl");
 
         // Return the quote
         quoteEligibility = this.getChildProperty(quoteInformationResponse, "Eligibility.Eligibility");
@@ -444,8 +451,14 @@ module.exports = class AcuityWC extends Integration {
         }
         switch (quoteEligibility) {
             case "BindEligible":
+                if (quoteLink) {
+                    this.quoteLink = quoteLink;
+                }
                 return this.client_quoted(quoteId, quoteLimits, quotePremium);
             case "Refer":
+                if (quoteLink) {
+                    this.quoteLink = quoteLink;
+                }
                 return this.client_referred(quoteId, quoteLimits, quotePremium);
             case "Decline":
                 // There is no decline reason in their schema that I can see. The only declines I get are after the initial
