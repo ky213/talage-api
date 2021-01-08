@@ -3,12 +3,6 @@
 const Integration = require('../Integration.js');
 global.requireShared('./helpers/tracker.js');
 
-// const amtrustTestHost = "utgateway.amtrustgroup.com";
-// const amtrustTestBasePath = "/DigitalAPI_Usertest";
-
-// const amtrustProductionHost = "gateway.amtrustgroup.com";
-// const amtrustProductionBasePath = "/DigitalAPI";
-
 const travelersStagingHost = "swi-qa.travelers.com";
 const travelersStagingBasePath = "/biswi/api/qa/qi/wc/1-0-0";
 const travelersProductionHost = "swi.travelers.com";
@@ -118,6 +112,46 @@ module.exports = class AcuityWC extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
     async _insurer_quote() {
+        const defaultLimits = [
+            "100000/500000/100000",
+            "500000/500000/500000",
+            "1000000/1000000/1000000",
+            "2000000/2000000/2000000"
+        ];
+        const stateLimits = {
+            "CA": [
+                "1000000/1000000/1000000", "2000000/2000000/2000000"
+            ],
+            "NY": [
+                "100000/500000/100000",
+                "500000/500000/500000",
+                "1000000/1000000/1000000",
+                "2000000/2000000/2000000"
+            ],
+            "MI": [
+                "100000/100000/100000",
+                "100000/500000/100000",
+                "500000/500000/500000",
+                "1000000/1000000/1000000",
+                "2000000/2000000/2000000"
+            ],
+            "OR": [
+                "500000/500000/500000",
+                "1000000/1000000/1000000",
+                "2000000/2000000/2000000"
+            ]
+        }
+        // Default limits (supported by all states)
+        let applicationLimits = "1000000/1000000/1000000";
+        // Find best limits
+        let carrierLimitOptions = defaultLimits;
+        if (stateLimits.hasOwnProperty(this.app.business.locations[0].state_abbr)) {
+            carrierLimitOptions = stateLimits[this.app.business.locations[0].state_abbr];
+        }
+        const carrierLimits = this.getBestLimits(carrierLimitOptions);
+        if (carrierLimits) {
+            applicationLimits = carrierLimits.join("/");
+        }
 
         // =========================================================================================================
         // Validation
@@ -237,7 +271,7 @@ module.exports = class AcuityWC extends Integration {
                 "claimCountCurrentPolicy": claimCountCurrentPolicy,
                 "claimCountPriorThreePolicy": claimCountPriorThreePolicy,
                 "totalAnnualWCPayroll": this.get_total_payroll(),
-                "employersLiabilityLimit": "100000/500000/100000"
+                "employersLiabilityLimit": applicationLimits
                 // "threeYearsManagementExperienceInd": true,
                 // "operateAsGeneralContractorInd": true
             }
