@@ -138,6 +138,8 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
             systemId: "landingPageID",
             agencyLocationId: "agency_location_id",
             industryCodeId: "industryCode",
+            industryCodeCategoryId: "industryCodeCategory",
+            colorSchemeId: "colorScheme",
             introHeading: "introHeading",
             introText: "introText",
             showIndustrySection: "showIndustrySection",
@@ -146,15 +148,15 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
             meta: "meta",
             banner: "banner",
             heading: "heading",
-            about: "about",
-            industryCodeCategoryId: "industryCodeCategoryId",
-            colorSchemeId: "colorSchemeId"
+            about: "about"
         }
 
         if(landingPageJSON){
             for (const property in lpPropToAdd) {
-                if(landingPageJSON[property]){
-                    agencyWebInfo[lpPropToAdd[property]] = landingPageJSON[property];
+                if(landingPageJSON[property] || landingPageJSON[property] === false || landingPageJSON[property] === 0){
+                    if(lpPropToAdd[property] !== property){
+                        agencyWebInfo[lpPropToAdd[property]] = landingPageJSON[property];
+                    }
                     //new style
                     agencyWebInfo[property] = landingPageJSON[property];
                 }
@@ -205,9 +207,8 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
     try{
         if(agencyWebInfo.industryCodeCategoryId){
             const industryCodeCategoryBO = new IndustryCodeCategoryBO();
-            const IndustryCodeCategoryJSON = industryCodeCategoryBO.getById(agencyWebInfo.industryCodeCategoryId);
-
-            agencyWebInfo.industryCodeCategory = IndustryCodeCategoryJSON.name;
+            const industryCodeCategoryJSON = await industryCodeCategoryBO.getById(agencyWebInfo.industryCodeCategoryId);
+            agencyWebInfo.industryCodeCategory = industryCodeCategoryJSON.name;
         }
     }
     catch(err){

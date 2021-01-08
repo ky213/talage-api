@@ -1,5 +1,6 @@
 /* eslint-disable multiline-comment-style */
 'use strict'
+const InsurerBO = global.requireShared('./models/Insurer-BO.js');
 
 //const util = require('util');
 //const serverHelper = global.requireRootPath('server.js');
@@ -160,19 +161,26 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     }
 
     // Check that insurers were valid
-    if (insurerArray.length) {
-        sql = `SELECT id FROM clw_talage_insurers WHERE id IN (${insurerArray.join(',')}) AND state = 1;`;
-        const insurers_result = await db.queryReadonly(sql).catch(function(err) {
-            error = err.message;
-        });
-        if (insurers_result && insurers_result.length !== insurerArray.length) {
-            log.warn('Bad Request: Invalid Insurer(s)');
-            error = 'One or more of the insurers supplied is invalid';
-        }
-        if (error) {
-            return false;
-        }
-    }
+    // TODO Do we need to do this.  it will stop the show/quoting
+    // verse some extra questions
+    // if (insurerArray.length) {
+    //     const insurerBO = new InsurerBO();
+    //     const queryInsurer = {
+    //         "insurerId":insurerArray,
+    //         active: true
+    //     };
+
+    //     const insurers_result = await insurerBO.getList(queryInsurer).catch(function(err) {
+    //         error = err.message;
+    //     });
+    //     if (insurers_result && insurers_result.length !== insurerArray.length) {
+    //         log.warn('Bad Request: Invalid Insurer(s)');
+    //         error = 'One or more of the insurers supplied is invalid';
+    //     }
+    //     if (error) {
+    //         return false;
+    //     }
+    // }
 
     // Build the select and where statements
     const select = `q.id, q.parent, q.parent_answer, q.sub_level, q.question AS \`text\`, q.hint, q.type AS type_id, qt.name AS type, q.hidden${return_hidden ? ', GROUP_CONCAT(DISTINCT CONCAT(iq.insurer, "-", iq.policy_type)) AS insurers' : ''}`;

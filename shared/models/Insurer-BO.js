@@ -260,6 +260,18 @@ module.exports = class InsurerBO{
         return this.getMongoDocbyMysqlId(id);
     }
 
+    async getBySlug(slug) {
+        const query = {"slug": slug};
+        const insurerList = await this.getList(query);
+        if(insurerList && insurerList.length > 0){
+            return insurerList[0];
+        }
+        else {
+            return null;
+        }
+
+    }
+
     async updateMongo(docId, newObjectJSON) {
         if (docId) {
             if (typeof newObjectJSON === "object") {
@@ -423,24 +435,6 @@ module.exports = class InsurerBO{
     // *************************
 
     async getSelectionList(){
-
-        // let rejected = false;
-        // const sql = `select id, name, logo
-        //     from clw_talage_insurers
-        //     where state > 0
-        //     order by name`
-        // const result = await db.query(sql).catch(function(error) {
-        //     // Check if this was
-        //     rejected = true;
-        //     log.error(`${tableName} error on select ` + error + __location);
-        // });
-        // if (!rejected && result && result.length > 0) {
-        //     return result;
-        // }
-        // else {
-        //     return [];
-        // }
-        //Only used be Outage page.
         //TODO refactor to only return id, name and logo.
         let insurerList = [];
         try{
