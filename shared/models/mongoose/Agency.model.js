@@ -15,6 +15,12 @@ const tracker = global.requireShared('./helpers/tracker.js');
 
 const opts = {toJSON: {virtuals: true}};
 
+const SocialMediaSchema = new Schema({
+    socialMediaTag: {type: String, required: true},
+    tagLabel:{type: String, required:false},
+    tagType: {type: String, required:true}
+},opts)
+
 const AgencySchema = new Schema({
     agencyId: {type: String, required: [true, 'agencyId required'], unique: true},
     systemId: {type: Number, unique: true},
@@ -41,6 +47,7 @@ const AgencySchema = new Schema({
     agencyPortalDeletedUser: {type: String},
     primaryAgency: {type: Boolean, default: false},
     favicon: {type: String, required: false},
+    socialMediaTags : [SocialMediaSchema],
     active: {type: Boolean, default: true}
 },opts)
 

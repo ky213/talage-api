@@ -10,7 +10,6 @@ const clonedeep = require('lodash.clonedeep');
 const DatabaseObject = require('./DatabaseObject.js');
 
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
-//const status = global.requireShared('./models/application-businesslogic/status.js');
 const afBusinessdataSvc = global.requireShared('services/af-businessdata-svc.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const QuestionBO = global.requireShared('./models/Question-BO.js');
@@ -19,12 +18,9 @@ const QuestionTypeBO = global.requireShared('./models/QuestionType-BO.js');
 const MappingBO = global.requireShared('./models/Mapping-BO.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
 const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
-
 const taskWholesaleAppEmail = global.requireRootPath('tasksystem/task-wholesaleapplicationemail.js');
 const taskSoleProAppEmail = global.requireRootPath('tasksystem/task-soleproapplicationemail.js');
 const taskEmailBindAgency = global.requireRootPath('tasksystem/task-emailbindagency.js');
-
-
 const crypt = global.requireShared('./services/crypt.js');
 
 // Mongo Models
@@ -42,16 +38,15 @@ const {'v4': uuidv4} = require('uuid');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-
 //const convertToIntFields = [];
 
 const tableName = 'clw_talage_applications';
 const skipCheckRequired = false;
 //businessDataJSON
 const QUOTE_STEP_NUMBER = 9;
-const QUOTE_MIN_TIMEOUT = 5;
 const QUOTING_STATUS = 15;
-const ERROR_STATUS = 20;
+const QUOTE_MIN_TIMEOUT = 5;
+
 module.exports = class ApplicationModel {
 
     #dbTableORM = null;
@@ -86,11 +81,9 @@ module.exports = class ApplicationModel {
         this.#applicationMongooseDB = null;
         this.#applicationMongooseJSON = {};
 
-
         this.#dbTableORM = new ApplicationOrm();
         this.#dbTableORM.doNotSnakeCase = this.doNotSnakeCase;
     }
-
 
     /**
 	 * Save Model
@@ -669,11 +662,11 @@ module.exports = class ApplicationModel {
             if (location.activity_codes && location.activity_codes.length > 0) {
                 for (const activity_code of location.activity_codes) {
                     // Convert props in the employee list to camel case
-                    if (activity_code.employeeList) {
-                        for (const employee of activity_code.employeeList) {
-                            for (const employeeProp in employee) {
+                    if (activity_code.employeeTypeList) {
+                        for (const employeeType of activity_code.employeeTypeList) {
+                            for (const employeeProp in employeeType) {
                                 if (employeeProp.isSnakeCase()) {
-                                    employee[employeeProp.toCamelCase()] = employee[employeeProp];
+                                    employeeType[employeeProp.toCamelCase()] = employeeType[employeeProp];
                                 }
                             }
                         }
@@ -681,7 +674,7 @@ module.exports = class ApplicationModel {
                     const activityPayrollJSON = {};
                     activityPayrollJSON.ncciCode = activity_code.id;
                     activityPayrollJSON.payroll = activity_code.payroll;
-                    activityPayrollJSON.employeeList = activity_code.employeeList;
+                    activityPayrollJSON.employeeTypeList = activity_code.employeeTypeList;
                     location.activityPayrollList.push(activityPayrollJSON)
                 }
             }
@@ -1650,7 +1643,6 @@ module.exports = class ApplicationModel {
 
     }
 
-
     async mongoDoc2MySqlUpdate(applicationDoc, applicationJSONInbound, postInsert = false) {
 
         let applicationJSON = {};
@@ -1704,16 +1696,11 @@ module.exports = class ApplicationModel {
                 return;
             }
 
+            const status = global.requireShared('./models/application-businesslogic/status.js');
             const duration = moment.duration(now.diff(moment(applicationDoc.quotingStartedDate)));
             if(duration.minutes() >= QUOTE_MIN_TIMEOUT){
                 log.error(`Application: ${applicationDoc.uuid} timed out ${QUOTE_MIN_TIMEOUT} minutes after quoting started`);
-                applicationDoc.appStatusId = ERROR_STATUS;
-                applicationDoc.status = 'error';
-                await this.updateMongo(applicationDoc.uuid,
-                    {
-                        appStatusId: ERROR_STATUS,
-                        status: 'error'
-                    });
+                await status.updateApplicationStatus(applicationDoc, true);
             }
         }
     }
