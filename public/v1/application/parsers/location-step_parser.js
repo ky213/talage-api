@@ -58,22 +58,22 @@ exports.process = async function(requestJSON) {
                     const activityJSON = locationJSON.activity_codes[activity]
                     const id = activityJSON.id;
                     let payroll = activityJSON.payroll;
-                    let employeeList = activityJSON.employee_list;
+                    let employeeTypeList = activityJSON.employee_type_list;
                     // 2020-12-29 New activity-based employee type handling -SF
-                    if (employeeList) {
-                        // Convert the employeeList from an object {"0":{id:XXXX, ...}} to an array
-                        employeeList = Object.values(employeeList);
+                    if (employeeTypeList) {
+                        // Convert the employeeTypeList from an object {"0":{id:XXXX, ...}} to an array
+                        employeeTypeList = Object.values(employeeTypeList);
                         if (!payroll) {
                             // If the payroll isn't present in the submitted data, sum it from
-                            // the employeeList
+                            // the employeeTypeList
                             payroll = 0;
-                            for (const employee of employeeList) {
-                                payroll += employee.employee_payroll;
+                            for (const employeeType of employeeTypeList) {
+                                payroll += employeeType.employee_type_payroll;
                             }
                         }
                     }
                     else {
-                        employeeList = [];
+                        employeeTypeList = [];
                     }
                     // Check payroll for Nevada WC compliance
                     if (check_payroll === true) {
@@ -84,7 +84,7 @@ exports.process = async function(requestJSON) {
                     const activity_code = {
                         "id": id,
                         "payroll": payroll,
-                        "employeeList": employeeList
+                        "employeeTypeList": employeeTypeList
                     }
                     activity_codes.push(activity_code);
                 } //for activity
