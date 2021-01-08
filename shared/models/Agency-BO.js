@@ -16,6 +16,7 @@ const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 
 const s3AgencyLogoPath = "public/agency-logos/";
+const s3AgencyFaviconPath = "public/agency-logos/favicon/";
 const tableName = 'clw_talage_agencies'
 
 module.exports = class AgencyBO {
@@ -89,6 +90,26 @@ module.exports = class AgencyBO {
                             delete newObjectJSON.logo
                         }
                     }
+                    if(newObjectJSON.favicon && newObjectJSON.favicon.startsWith('data:')){
+                        if(dbDocJSON.favicon){
+                            try {
+                                log.debug("Removing favicon " + s3AgencyFaviconPath + dbDocJSON.favicon);
+                                await fileSvc.deleteFile(s3AgencyFaviconPath+dbDocJSON.logo);
+                            }catch(e){
+                                log.error("Agency favicon delete error: " + e + __location);
+                            }
+                        }
+                        try {
+                            const favIconFileName = await this.processFavicon(newObjectJSON);
+                            log.info(`fileName: ${favIconFileName}`);
+                            newObjectJSON.favicon = favIconFileName;
+                            log.debug("new favicon file name " + newObjectJSON.favicon);
+                        }
+                        catch(e) {
+                            log.error("Agency SaveModel error processing favicon "+ e + __location);
+                            delete newObjectJSON.favicon;
+                        }
+                    }
                     newDoc = false;
                     await this.updateMongo(dbDocJSON.agencyId,newObjectJSON)
                 }
@@ -123,6 +144,57 @@ module.exports = class AgencyBO {
         }
     }
 
+    processFavicon(newObjectJSON) {
+        return new Promise(async(fulfill, reject) => {
+            // Handle the favicon file
+            if (newObjectJSON.favicon) {
+                let rejected = false;
+                // If the favicon is base64, we need to save it; otherwise, assume no changes were made
+                if (newObjectJSON.favicon.startsWith('data:')) {
+
+                    // If this is an existing record, attempt to remove the old favicon first
+
+                    // Isolate the extension
+                    const extension = newObjectJSON.favicon.substring(11, newObjectJSON.favicon.indexOf(';'));
+                    if (![
+                        'png',
+                        'vnd.microsoft.icon'].includes(extension)) {
+                        reject(serverHelper.requestError('Please upload your favicon in png or ico preferably ico format.'));
+                        return;
+                    }
+
+                    // Isolate the file data from the type prefix
+                    const faviconData = newObjectJSON.favicon.substring(newObjectJSON.favicon.indexOf(',') + 1);
+
+                    // Check the file size (max 100KB)
+                    if (faviconData.length * 0.75 > 100000) {
+                        reject(serverHelper.requestError('Favicon too large. The maximum file size is 100KB.'));
+                        return;
+                    }
+
+                    // Generate a random file name (defeats caching issues issues)
+                    const fileName = `${newObjectJSON.id}-${uuidv4().substring(24)}.${extension}`;
+
+                    // Store on S3
+                    log.debug("Agency saving favicion " + fileName)
+                    await fileSvc.PutFile(s3AgencyFaviconPath + fileName, faviconData).catch(function(err) {
+                        log.error("Agency add favicon error " + err + __location);
+                        reject(err)
+                        rejected = true;
+                    });
+                    if (rejected) {
+                        return;
+                    }
+
+                    // Save the file name locally
+                    console.log(`returing file name: ${fileName}`);
+                    fulfill(fileName);
+                }
+            }
+
+
+        });
+    }
 
     processLogo(newObjectJSON) {
         return new Promise(async(fulfill, reject) => {
