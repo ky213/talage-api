@@ -27,17 +27,17 @@ const contactSchema = new Schema({
     primary: {type: Boolean, required: true, default: false}
 })
 
-const ActivityCodeEmployeeSchema = new Schema({
-    employeePayroll: { type: Number, required: true },
+const ActivityCodeEmployeeTypeEntrySchema = new Schema({
+    employeeTypePayroll: { type: Number, required: true },
     employeeType: { type: String, required: true },
-    employeeCount: { type: Number, required: true }
+    employeeTypeCount: { type: Number, required: true }
 })
 
-const ActivtyCodeSchema = new Schema({
+const ActivtyCodeEmployeeTypeSchema = new Schema({
     ncciCode: {type: Number, required: true},
     payroll: {type: Number, required: true},
     ownerPayRoll: {type: Number, required: false},
-    employeeList: [ActivityCodeEmployeeSchema]
+    employeeTypeList: [ActivityCodeEmployeeTypeEntrySchema]
 })
 
 const ActivtyCodePayrollSchema = new Schema({
@@ -60,7 +60,7 @@ const locationSchema = new Schema({
     square_footage:  {type: Number, required: false},
     unemployment_num:  {type: Number, required: false},
     billing: {type: Boolean, required: false, default: false},
-    activityPayrollList: [ActivtyCodeSchema]
+    activityPayrollList: [ActivtyCodeEmployeeTypeSchema]
 })
 
 const ownerSchema = new Schema({
