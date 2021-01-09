@@ -479,6 +479,7 @@ async function getAgencySocialMetadata(req, res, next) {
         metaTitle: agencyJson.name,
         metaDescription: agencyJson.landingPageContent.bannerHeadingDefault ? agencyJson.landingPageContent.bannerHeadingDefault : agencyJson.defaultLandingPageContent.bannerHeadingDefault,
         metaImage: `${global.settings.IMAGE_URL}/public/agency-logos/${agencyJson.logo}`,
+        metaFaviconImage: `${global.settings.IMAGE_URL}/public/agency-logos/favicon/${agency.favicon}`,
         metaURL: agencyJson.website,
         metaPixel: agencyJson.facebookPixel
     });
