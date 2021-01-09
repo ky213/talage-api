@@ -367,9 +367,9 @@ async function setupReturnedApplicationJSON(applicationJSON){
                         }
                         //Check for new employeeType lists - If not present fill 
                         // with zero employee count - User will have to fix.
-                        if(!activityPayroll.employeeTypeList || activityPayroll.employeeTypeList.length === 0){
+                        if(activityPayroll.employeeTypeList.length === 0){
                             activityPayroll.employeeTypeList = []
-                            let payRollJSON = {
+                            const payRollJSON = {
                                 "employeeType": "Full Time",
                                 "employeeTypePayroll": activityPayroll.payroll,
                                 "employeeTypeCount": 0
