@@ -139,7 +139,7 @@ async function getAgencyNetworkInsurersList(req, res, next) {
                             if(typeof policyTypeObj.acord_support !== 'undefined'){
                                 reducedPolicyTypeObj.acord_support = policyTypeObj.acord_support;
                             }
-                            if(insureDB.insurerId === 1){
+                            if(insureDB.insurerId === 1 && global.settings.DISABLE_BINDING !== "YES"){
                                 reducedPolicyTypeObj.api_bind_support = 1;
                             }
                             insureDB.policyTypes.push(reducedPolicyTypeObj);
