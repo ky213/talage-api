@@ -361,8 +361,21 @@ async function setupReturnedApplicationJSON(applicationJSON){
                         let activityPayroll = location.activityPayrollList[j];
                         const activtyCodeJSON = await activityCodeBO.getById(activityPayroll.ncciCode);
                         activityPayroll.description = activtyCodeJSON.description;
+                        //If this is for an edit add ownerPayRoll may be a problem.
                         if(activityPayroll.ownerPayRoll){
                             activityPayroll.payroll += activityPayroll.ownerPayRoll
+                        }
+                        //Check for new employeeType lists - If not present fill 
+                        // with zero employee count - User will have to fix.
+                        if(!activityPayroll.employeeTypeList || activityPayroll.employeeTypeList.length === 0){
+                            activityPayroll.employeeTypeList = []
+                            let payRollJSON = {
+                                "employeeType": "Full Time",
+                                "employeeTypePayroll": activityPayroll.payroll,
+                                "employeeTypeCount": 0
+
+                            }
+                            activityPayroll.employeeTypeList.push(payRollJSON);
                         }
                     }
                     catch(err){
