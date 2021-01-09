@@ -273,6 +273,7 @@ async function getApplicationDoc(req, res ,next){
         if(applicationDB && agencies.includes(applicationDB.agencyId)){
             passedAgencyCheck = true;
         }
+        await setupReturnedApplicationJSON(applicationDB);
     }
     catch(err){
         log.error("Error checking application doc " + err + __location)
