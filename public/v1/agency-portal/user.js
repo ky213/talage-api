@@ -426,7 +426,7 @@ async function createUser(req, res, next) {
         const token = jwt.sign({userID: userID}, global.settings.AUTH_SECRET_KEY, {expiresIn: '7d'});
 
         // Format the brands
-        let brand = emailContentJSON.emailBrand.toLowerCase();
+        let brand = emailContentJSON.emailBrand;
         brand = `${brand.charAt(0).toUpperCase() + brand.slice(1)}`;
         const portalurl = emailContentJSON.PORTAL_URL;
 
