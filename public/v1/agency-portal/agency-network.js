@@ -197,7 +197,7 @@ async function updateAgencyNetwork(req, res, next) {
 
     let agencyNetworkBO = new AgencyNetworkBO();
 
-    const getResp = await agencyNetworkBO.getById(id).catch(function(err) {
+    const agencyNetworkJSON = await agencyNetworkBO.getById(id).catch(function(err) {
         log.error("agencyNetworkBO load error " + err + __location);
         error = err;
     });
@@ -205,7 +205,7 @@ async function updateAgencyNetwork(req, res, next) {
         return next(error);
     }
     // Send back a success response
-    if (!getResp) {
+    if (!agencyNetworkJSON) {
         log.debug(`No object returned from getByID ${id} ` + __location)
         res.send(404);
         return next(serverHelper.notFoundError('Agency Network not found'));
@@ -213,27 +213,47 @@ async function updateAgencyNetwork(req, res, next) {
 
     //agencyNetworkBO as current database.
     //update agencyNetworkBO and load for saveModel
+    let agencyNetworkUpdate = {
+        "agencyNetworkUuidId": agencyNetworkJSON.agencyNetworkUuidId,
+        agencyNetworkId: agencyNetworkJSON.agencyNetworkId,
+        id: agencyNetworkJSON.agencyNetworkId
+    }
     const allowedPropertyUpdateList = ["feature_json", "phone"]
+    let hasUpdate = false;
     for(var i = 0; i < allowedPropertyUpdateList.length; i++){
         if(req.body[allowedPropertyUpdateList[i]]){
             if(allowedPropertyUpdateList[i] === "feature_json" && typeof req.body[allowedPropertyUpdateList[i]] === "object"){
-                agencyNetworkBO.feature_json = req.body.feature_json
+                agencyNetworkUpdate.featureJson = req.body.feature_json
+                hasUpdate = true;
             }
             else if(allowedPropertyUpdateList[i] !== "feature_json") {
-                agencyNetworkBO[allowedPropertyUpdateList[i]] = req.body[allowedPropertyUpdateList[i]];
+                agencyNetworkUpdate[allowedPropertyUpdateList[i]] = req.body[allowedPropertyUpdateList[i]];
+                hasUpdate = true
             }
         }
+
     }
-    const saveResp = await agencyNetworkBO.save().catch(function(err) {
-        log.error("agencyNetworkBO save error " + err + __location);
-        error = err;
-    });
-    if(saveResp){
-        res.send(200, agencyNetworkBO);
-        return next();
+    if(hasUpdate){
+        const saveResp = await agencyNetworkBO.saveModel(agencyNetworkUpdate).catch(function(err) {
+            log.error("agencyNetworkBO save error " + err + __location);
+            error = err;
+        });
+
+        if(saveResp){
+            const newAgencyNetworkJSON = await agencyNetworkBO.getById(id).catch(function(err) {
+                log.error("agencyNetworkBO load error " + err + __location);
+                error = err;
+            });
+            res.send(200, newAgencyNetworkJSON);
+            return next();
+        }
+        else {
+            return next(serverHelper.internalError('Save error'));
+        }
     }
     else {
-        return next(serverHelper.internalError('Save error'));
+        res.send(200, agencyNetworkJSON);
+        return next();
     }
 }
 
