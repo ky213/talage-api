@@ -27,6 +27,19 @@ const contactSchema = new Schema({
     primary: {type: Boolean, required: true, default: false}
 })
 
+const ActivityCodeEmployeeTypeEntrySchema = new Schema({
+    employeeTypePayroll: { type: Number, required: true },
+    employeeType: { type: String, required: true },
+    employeeTypeCount: { type: Number, required: true }
+})
+
+const ActivtyCodeEmployeeTypeSchema = new Schema({
+    ncciCode: {type: Number, required: true},
+    payroll: {type: Number, required: true},
+    ownerPayRoll: {type: Number, required: false},
+    employeeTypeList: [ActivityCodeEmployeeTypeEntrySchema]
+})
+
 const ActivtyCodePayrollSchema = new Schema({
     ncciCode: {type: Number, required: true},
     payroll: {type: Number, required: true},
@@ -47,7 +60,7 @@ const locationSchema = new Schema({
     square_footage:  {type: Number, required: false},
     unemployment_num:  {type: Number, required: false},
     billing: {type: Boolean, required: false, default: false},
-    activityPayrollList: [ActivtyCodePayrollSchema]
+    activityPayrollList: [ActivtyCodeEmployeeTypeSchema]
 })
 
 const ownerSchema = new Schema({
@@ -170,6 +183,7 @@ const ApplicationSchema = new Schema({
     businessDataJSON: {type: Schema.Types.Mixed},
     agencyPortalCreatedUser: {type: String},
     agencyPortalModifiedUser: {type: String},
+    quotingStartedDate: {type: Date},
     active: {type: Boolean, default: true}
 })
 // NOTE:  EIN is not everysaved to database.
@@ -190,7 +204,6 @@ ApplicationSchema.pre('validate', function(next) {
         delete this.ein;
     }
 
-
     next();
 });
 
@@ -199,7 +212,14 @@ ApplicationSchema.pre('save', async function() {
     if(this.ein){
         delete this.ein;
     }
+});
 
+ApplicationSchema.pre('updateOne', async function(next) {
+
+    // Populate top-level this.activityCodes array
+    populateActivityCodePayroll(this);
+
+    next();
 });
 
 // // eslint-disable-next-line object-curly-spacing
@@ -247,3 +267,35 @@ ApplicationSchema.set('toJSON', {
 
 mongoose.set('useCreateIndex', true);
 mongoose.model('Application', ApplicationSchema);
+
+// Utility Functions
+
+/**
+ * Populates the top-level activityCodes array property with the total payroll for all activity codes across all locations
+ *
+ * @param  {Object} schema - Mongoose Application schema object
+ * @returns {void}
+ */
+function populateActivityCodePayroll(schema) {
+    const application = schema.getUpdate();
+    if (application.hasOwnProperty("locations")) {
+        const activityCodesPayrollSumList = [];
+        for (const location of application.locations) {
+            for (const activityCode of location.activityPayrollList) {
+                // Find the entry for this activity code
+                let activityCodePayrollSum = activityCodesPayrollSumList.find((acs) => acs.ncciCode === activityCode.ncciCode);
+                if (!activityCodePayrollSum) {
+                    // Add it if it doesn't exist
+                    activityCodePayrollSum = {
+                        ncciCode: activityCode.ncciCode,
+                        payroll: 0
+                    };
+                    activityCodesPayrollSumList.push(activityCodePayrollSum);
+                }
+                // Sum the payroll
+                activityCodePayrollSum.payroll += activityCode.payroll;
+            }
+        }
+        schema.set({ activityCodes: activityCodesPayrollSumList });
+    }
+}

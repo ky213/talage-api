@@ -161,7 +161,7 @@ var emailbindagency = async function(applicationId, quoteId) {
                     insurerJson = await insurerBO.getById(quoteDoc.insurerId);
                 }
                 catch(err){
-                    log.error("Error get InsurerList " + err + __location)
+                    log.error("Error get Insurer " + err + __location)
                 }
 
                 let industryCodeDesc = '';

@@ -94,7 +94,7 @@ async function getApplication(req, res, next) {
             applicationDBDoc = await applicationBO.loadfromMongoBymysqlId(id);
         }
         else {
-            log.debug("Getting id from mongo")
+            log.debug(`Getting app id  ${id} from mongo` + __location)
             applicationDBDoc = await applicationBO.getfromMongoByAppId(id);
         }
 
@@ -273,6 +273,7 @@ async function getApplicationDoc(req, res ,next){
         if(applicationDB && agencies.includes(applicationDB.agencyId)){
             passedAgencyCheck = true;
         }
+        await setupReturnedApplicationJSON(applicationDB);
     }
     catch(err){
         log.error("Error checking application doc " + err + __location)
@@ -361,8 +362,21 @@ async function setupReturnedApplicationJSON(applicationJSON){
                         let activityPayroll = location.activityPayrollList[j];
                         const activtyCodeJSON = await activityCodeBO.getById(activityPayroll.ncciCode);
                         activityPayroll.description = activtyCodeJSON.description;
+                        //If this is for an edit add ownerPayRoll may be a problem.
                         if(activityPayroll.ownerPayRoll){
                             activityPayroll.payroll += activityPayroll.ownerPayRoll
+                        }
+                        //Check for new employeeType lists - If not present fill 
+                        // with zero employee count - User will have to fix.
+                        if(activityPayroll.employeeTypeList.length === 0){
+                            activityPayroll.employeeTypeList = []
+                            const payRollJSON = {
+                                "employeeType": "Full Time",
+                                "employeeTypePayroll": activityPayroll.payroll,
+                                "employeeTypeCount": 0
+
+                            }
+                            activityPayroll.employeeTypeList.push(payRollJSON);
                         }
                     }
                     catch(err){
@@ -770,7 +784,7 @@ async function validate(req, res, next) {
     }
     else {
         //assume uuid input
-        log.debug("Getting id from mongo")
+        log.debug(`Getting app id  ${id} from mongo` + __location)
         const appDoc = await applicationBO.getfromMongoByAppId(id).catch(function(err) {
             log.error(`Error getting application Doc for validate ${id} ` + err + __location);
             log.error('Bad Request: Invalid id ' + __location);
@@ -780,7 +794,7 @@ async function validate(req, res, next) {
             return next(error);
         }
         if(appDoc){
-            log.debug("Have doc for " + appDoc.mysqlId)
+            log.debug("Have app doc for " + appDoc.mysqlId + __location)
             id = appDoc.mysqlId;
         }
         else {
@@ -797,7 +811,7 @@ async function validate(req, res, next) {
     // }
 
     //Get app and check status
-    log.debug("Loading Application by mysqlId")
+    log.debug("Loading Application by mysqlId for Validation " + __location)
     const applicationDB = await applicationBO.getById(id).catch(function(err) {
         log.error("Location load error " + err + __location);
         error = err;
@@ -897,7 +911,7 @@ async function requote(req, res, next) {
     }
     else {
         //assume uuid input
-        log.debug("Getting id from mongo")
+        log.debug(`Getting app id  ${id} from mongo` + __location)
         const appDoc = await applicationBO.getfromMongoByAppId(id).catch(function(err) {
             log.error(`Error getting application Doc for requote ${id} ` + err + __location);
             log.error('Bad Request: Invalid id ' + __location);
@@ -907,7 +921,6 @@ async function requote(req, res, next) {
             return next(error);
         }
         if(appDoc){
-            log.debug("Have doc for " + appDoc.mysqlId)
             id = appDoc.mysqlId;
         }
         else {
@@ -1007,7 +1020,7 @@ async function requote(req, res, next) {
  * @returns {void}
  */
 async function runQuotes(application) {
-    log.debug('running quotes')
+    log.debug('running quotes' + __location)
     try {
         await application.run_quotes();
     }
@@ -1091,7 +1104,7 @@ async function bindQuote(req, res, next) {
     const quoteId = req.body.quoteId;
 
     //assume uuid input
-    log.debug("Getting id from mongo")
+    log.debug(`Getting app id  ${applicationId} from mongo` + __location)
     const applicationDB = await applicationBO.getfromMongoByAppId(applicationId).catch(function(err) {
         log.error(`Error getting application Doc for bound ${applicationId} ` + err + __location);
         log.error('Bad Request: Invalid id ' + __location);
@@ -1101,7 +1114,6 @@ async function bindQuote(req, res, next) {
         return next(Error);
     }
     if(applicationDB){
-        log.debug("Have doc for " + applicationDB.applicationId)
         applicationId = applicationDB.applicationId;
     }
     else {

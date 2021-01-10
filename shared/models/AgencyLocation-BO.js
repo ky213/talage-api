@@ -1,8 +1,6 @@
 'use strict';
 
 const DatabaseObject = require('./DatabaseObject.js');
-const AgencyLocationInsurerBO = require('./AgencyLocationInsurer-BO.js');
-const AgencyLocationTerritory = require('./AgencyLocationTerritory-BO.js');
 
 const InsurerBO = require('./Insurer-BO.js');
 // eslint-disable-next-line no-unused-vars
@@ -14,18 +12,14 @@ var AgencyLocationMongooseModel = require('mongoose').model('AgencyLocation');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 
-const tableName = 'clw_talage_agency_locations'
-const skipCheckRequired = false;
+const tableName = 'agencyLocations'
+
 module.exports = class AgencyLocationBO{
 
-    #dbTableORM = null;
 
-    doNotSnakeCase = ['additionalInfo'];
 
     constructor(){
         this.id = 0;
-        this.#dbTableORM = new DbTableOrm(tableName);
-        this.#dbTableORM.doNotSnakeCase = this.doNotSnakeCase;
     }
 
 
@@ -185,21 +179,6 @@ module.exports = class AgencyLocationBO{
     }
 
 
-    //only top level
-    jsonToSnakeCase(sourceJSON,propMappings) {
-        for (const sourceProp in sourceJSON) {
-            if (typeof sourceJSON[sourceProp] !== "object") {
-                if (propMappings[sourceProp]) {
-                    const appProp = propMappings[sourceProp]
-                    sourceJSON[appProp] = sourceJSON[sourceProp];
-                }
-                else {
-                    sourceJSON[sourceProp.toSnakeCase()] = sourceJSON[sourceProp];
-                }
-            }
-        }
-
-    }
 
 
     async resetPrimary(agencyId, primaryAgencyLocationId){
@@ -231,34 +210,8 @@ module.exports = class AgencyLocationBO{
         return true;
     }
 
-    loadFromId(id) {
-        return new Promise(async(resolve, reject) => {
-            //validate
-            if(id && id > 0){
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
 
-                if(this.additionalInfo && this.additionalInfo.territories){
-                    this.territories = this.additionalInfo.territories;
-                }
-
-                await this.loadChildren(id, this)
-
-
-                resolve(true);
-            }
-            else {
-                reject(new Error('no id supplied'))
-            }
-        });
-    }
-
-
-    async getMongoDocbyMysqlId(mysqlId, children = true, returnMongooseModel = false) {
+    async getMongoDocbyMysqlId(mysqlId, children = true, addAgencyPrimaryLocation = false, returnMongooseModel = false) {
         return new Promise(async(resolve, reject) => {
             if (mysqlId) {
                 const query = {
@@ -269,6 +222,12 @@ module.exports = class AgencyLocationBO{
                 let docDB = null;
                 try {
                     docDB = await AgencyLocationMongooseModel.findOne(query, '-__v');
+                    if(docDB.useAgencyPrime && addAgencyPrimaryLocation){
+                        const insurerList = await this.getAgencyPrimeInsurers(docDB.agencyId)
+                        if(insurerList){
+                            docDB.insurers = insurerList
+                        }
+                    }
                     if(children === true){
                         await this.loadChildrenMongo(mysqlId, docDB)
                     }
@@ -294,7 +253,7 @@ module.exports = class AgencyLocationBO{
         });
     }
 
-    getList(queryJSON, getAgencyName = false, loadChildren = false) {
+    getList(queryJSON, getAgencyName = false, loadChildren = false, addAgencyPrimaryLocation = false) {
         return new Promise(async(resolve, reject) => {
 
 
@@ -385,7 +344,7 @@ module.exports = class AgencyLocationBO{
                 try {
                     //log.debug("AgencyLocation GetList query " + JSON.stringify(query) + __location)
                     docList = await AgencyLocationMongooseModel.find(query,queryProjection, queryOptions);
-                    if((getAgencyName || loadChildren) && docList.length > 0){
+                    if((getAgencyName || loadChildren || addAgencyPrimaryLocation) && docList.length > 0){
                         //Get Agency Name -- potential change to one request to mongo and match lists.
                         // eslint-disable-next-line prefer-const
                         for(let doc of docList){
@@ -396,6 +355,12 @@ module.exports = class AgencyLocationBO{
                                     doc.agencyNetworkId = agencyJSON.agencyNetworkId;
                                     doc.agencyEmail = agencyJSON.email;
                                     doc.doNotReport = agencyJSON.doNotReport;
+                                }
+                            }
+                            if(doc.useAgencyPrime && addAgencyPrimaryLocation){
+                                const insurerList = await this.getAgencyPrimeInsurers(doc.agencyId, doc.agencyNetworkId)
+                                if(insurerList){
+                                    doc.insurers = insurerList
                                 }
                             }
                             if(loadChildren === true){
@@ -448,6 +413,50 @@ module.exports = class AgencyLocationBO{
         else {
             return null
         }
+    }
+
+    async getAgencyPrimeInsurers(agencyId, agencyNetworkId){
+        log.debug("in getAgencyPrimeInsurers")
+        const AgencyBO = global.requireShared('./models/Agency-BO.js');
+        const agencyBO = new AgencyBO();
+
+        let agencyPrimeInsurers = [];
+        try{
+            if(!agencyNetworkId){
+                const agencyJSON = await this.getAgencyJSON(agencyId);
+                if(agencyJSON){
+                    agencyNetworkId = agencyJSON.agencyNetworkId;
+                }
+
+            }
+            //Get newtorks prime agency.
+            const queryAgency = {
+                "agencyNetworkId": agencyNetworkId,
+                "primaryAgency": true
+            }
+            const agencyList = await agencyBO.getList(queryAgency);
+            if(agencyList && agencyList.length > 0){
+                const agencyPrime = agencyList[0];
+                //get agency's prime location
+                // return prime location's insurers.
+                const returnChildren = true;
+                const agencyLocationPrime = await this.getByAgencyPrimary(agencyPrime.systemId, returnChildren);
+                if(agencyLocationPrime && agencyLocationPrime.insurers){
+                    agencyPrimeInsurers = agencyLocationPrime.insurers
+                }
+                else {
+                    log.error(`Agency Prime id ${agencyId} as no insurers ` + __location)
+                }
+            }
+            else {
+                log.error(`No Agency Prime for agencyNetworkId ${agencyNetworkId}` + __location)
+            }
+        }
+        catch(err){
+            log.error(`Error getting AgencyPrime's insurers agencyNetworkId ${agencyNetworkId} ` + err + __location);
+        }
+
+        return agencyPrimeInsurers;
     }
 
     async loadChildrenMongo(agencyLocationId, agencyLocationJSON){
@@ -508,31 +517,13 @@ module.exports = class AgencyLocationBO{
             //Map to current Insurers
             await this.addInsureInfoTolocationInsurers(agencyLocationJSON.insurers);
         }
-        else {
 
-            const agencyLocationInsurer = new AgencyLocationInsurerBO()
-            const insurerList = await agencyLocationInsurer.getListByAgencyLocationForAgencyPortal(agencyLocationId).catch(function(error) {
-                // Check if this was
-                log.error(`agencyLocationInsurer.getListByAgencyLocationForAgencyPortal error on select ` + error + __location);
-            });
-            agencyLocationJSON.insurers = insurerList;
-            await this.addInsureInfoTolocationInsurers(agencyLocationJSON.insurers);
-
-        }
         // Territories
         if(agencyLocationJSON.additionalInfo && agencyLocationJSON.additionalInfo.territories){
             // log.debug("Using agencyLocationJSON.additionalInfo.territories ")
             agencyLocationJSON.territories = agencyLocationJSON.additionalInfo.territories;
         }
-        else {
-            log.debug("Using agencyLocationTerritory  ")
-            const agencyLocationTerritory = new AgencyLocationTerritory()
-            const territoryList = await agencyLocationTerritory.getListByAgencyLocationForAgencyPortal(agencyLocationId).catch(function(error) {
-                // Check if this was
-                log.error(`agencyLocationTerritory.getListByAgencyLocationForAgencyPortal error on select ` + error + __location);
-            });
-            agencyLocationJSON.territories = territoryList;
-        }
+
         if(!agencyLocationJSON.territories){
             agencyLocationJSON.territories = [];
         }
@@ -579,8 +570,8 @@ module.exports = class AgencyLocationBO{
     }
 
 
-    getById(id, children = true) {
-        return this.getMongoDocbyMysqlId(id, children)
+    getById(id, children = true, addAgencyPrimaryLocation = false) {
+        return this.getMongoDocbyMysqlId(id, children, addAgencyPrimaryLocation)
     }
 
     deleteSoftById(id) {
@@ -592,7 +583,7 @@ module.exports = class AgencyLocationBO{
                 try {
                     const returnChildren = false;
                     const returnDoc = true;
-                    agencyLocationDoc = await this.getMongoDocbyMysqlId(id, returnChildren, returnDoc);
+                    agencyLocationDoc = await this.getMongoDocbyMysqlId(id, returnChildren, returnChildren, returnDoc);
                     agencyLocationDoc.active = false;
                     await agencyLocationDoc.save();
                 }
@@ -610,13 +601,13 @@ module.exports = class AgencyLocationBO{
         });
     }
 
-    updateProperty(){
-        const dbJSON = this.#dbTableORM.cleanJSON()
-        // eslint-disable-next-line guard-for-in
-        for (const property in properties) {
-            this[property] = dbJSON[property];
-        }
-    }
+    // updateProperty(){
+    //     const dbJSON = this.#dbTableORM.cleanJSON()
+    //     // eslint-disable-next-line guard-for-in
+    //     for (const property in properties) {
+    //         this[property] = dbJSON[property];
+    //     }
+    // }
 
 
     getByAgencyPrimary(agencyId, children = false, returnMongooseModel = false){
@@ -678,7 +669,7 @@ module.exports = class AgencyLocationBO{
         let notifyTalage = false;
         try{
             const agencyLocationJSON = await this.getById(agencyLocationId);
-            const insurerJSON = agencyLocationJSON.insurers.find(insurer => insurerId === insurer.insurer);
+            const insurerJSON = agencyLocationJSON.insurers.find(insurer => insurerId === insurer.insurerId);
             if(insurerJSON){
                 const policyInfoJSON = insurerJSON.policyTypeInfo;
                 if(policyInfoJSON.notifyTalage){
@@ -702,39 +693,14 @@ module.exports = class AgencyLocationBO{
 	 * @param {object} inputJSON - business JSON
 	 * @returns {void}
 	 */
-    async loadORM(inputJSON){
-        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
-        this.updateProperty();
-        return true;
-    }
+    // async loadORM(inputJSON){
+    //     await this.#dbTableORM.load(inputJSON, skipCheckRequired);
+    //     this.updateProperty();
+    //     return true;
+    // }
 
-    cleanJSON(noNulls = true){
-        return this.#dbTableORM.cleanJSON(noNulls);
-    }
-
-    // getCurrentLocationsLimited(){
-
-    //     return new Promise(async(resolve, reject) => {
-    //         const sql = `
-    //              SELECT
-    //                 al.id alid,
-    //                 al.agency,
-    //                 al.email AS agencyLocationEmail,
-    //                 ag.email AS agencyEmail,
-    //                 ag.agency_network as agency_network
-    //             FROM clw_talage_agency_locations AS al
-    //                 INNER JOIN clw_talage_agencies AS ag ON al.agency = ag.id
-    //             WHERE
-    //                 al.state = 1
-    //         `;
-
-    //         const rows = await db.query(sql).catch(function(err) {
-    //             log.error(`Error getting  ${tableName} from Database ` + err + __location);
-    //             reject(err);
-    //             return;
-    //         });
-    //         resolve(rows);
-    //     });
+    // cleanJSON(noNulls = true){
+    //     return this.#dbTableORM.cleanJSON(noNulls);
     // }
 
 
@@ -769,299 +735,7 @@ module.exports = class AgencyLocationBO{
         const getAgencyName = true;
         return this.getList(queryJSON, getAgencyName);
 
-        // return new Promise(async(resolve, reject) => {
-        //     let sql = `
-        //         select al.id as agencyLocationid, al.address, al.zipcode, al.city, al.state_abbr, a.name
-        //              from clw_talage_agencies a
-        //             inner join clw_talage_agency_locations al on a.id = al.agency
-        //             where al.state > 0 AND a.state > 0
-        //     `;
-        //     // let hasWhere = false;
-        //     if(queryJSON.agencyname){
-        //         sql += ` AND  a.name like ${db.escape(queryJSON.agencyname)} `;
-        //         //   hasWhere = true;
-
-        //     }
-        //     sql += " Order by a.name limit 100"
-
-        //     //log.debug('AgencyLocation Search list sql: ' + sql);
-        //     const rows = await db.query(sql).catch(function(err) {
-        //         log.error(`Error getting  ${tableName} from Database ` + err + __location);
-        //         reject(err);
-        //         return;
-        //     });
-        //     //decrypt
-        //     if(rows.length > 0){
-        //         for(let i = 0; i < rows.length; i++){
-        //             const row = rows[i];
-        //             for (var key in row) {
-        //                 if (row.hasOwnProperty(key) && row[key] === null) {
-        //                     row[key] = "";
-        //                 }
-        //             }
-        //             if(rows[i].address){
-        //                 rows[i].address = await crypt.decrypt(rows[i].address);
-        //                 rows[i].displayString = `${rows[i].name}: ${rows[i].address}, ${rows[i].city}, ${rows[i].state_abbr} ${rows[i].zipcode}`;
-        //             }
-        //             else if(rows[i].zip){
-        //                 rows[i].displayString = `${rows[i].name}: ${rows[i].city}, ${rows[i].state_abbr} ${rows[i].zipcode}`
-        //             }
-        //             else {
-        //                 rows[i].displayString = `${rows[i].name}: no address`
-        //             }
-
-
-        //         }
-        //     }
-        //     resolve(rows);
-        // });
     }
 
-
-}
-
-const properties = {
-    "id": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "state": {
-        "default": "1",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "address": {
-        "default": null,
-        "encrypted": true,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "blob"
-    },
-    "address2": {
-        "default": null,
-        "encrypted": true,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "blob"
-    },
-    "agency": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "close_time": {
-        "default": "5",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(2)"
-    },
-    "email": {
-        "default": null,
-        "encrypted": true,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "blob"
-    },
-    "fname": {
-        "default": null,
-        "encrypted": true,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "blob"
-    },
-    "lname": {
-        "default": null,
-        "encrypted": true,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "blob"
-    },
-    "open_time": {
-        "default": "9",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(2)"
-    },
-    "phone": {
-        "default": null,
-        "encrypted": true,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "blob"
-    },
-    "primary": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "zip": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "mediumint(5) unsigned"
-    },
-    "city": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(60)"
-    },
-    "state_abbr": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(2)"
-    },
-    "zipcode": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(10)"
-    },
-    "additionalInfo": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "json",
-        "dbType": "json"
-    },
-    "insurers": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "json",
-        "dbType": "json"
-    },
-    "created": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "created_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "modified": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "modified_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "deleted": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "deleted_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "checked_out": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11)"
-    },
-    "checked_out_time": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "datetime",
-        "dbType": "datetime"
-    }
-}
-
-class DbTableOrm extends DatabaseObject {
-
-    // eslint-disable-next-line no-shadow
-    constructor(tableName){
-        super(tableName, properties);
-    }
 
 }

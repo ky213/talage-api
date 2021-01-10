@@ -2,6 +2,7 @@
 
 const auth = require('./helpers/auth.js');
 const serverHelper = require('../../../server.js');
+const AgencyBO = global.requireShared('models/Agency-BO.js');
 
 /**
  * Define some helper functions -- better documentation coming soon (Josh)
@@ -57,7 +58,7 @@ async function getReports(req, res, next) {
     if (error) {
         return next(error);
     }
-    
+
     // Get the filter parameters
     let startDate = req.query.startDate;
     let endDate = req.query.endDate;
@@ -91,10 +92,27 @@ async function getReports(req, res, next) {
     // Begin by only allowing applications that are not deleted from agencies that are also not deleted
     let where = `${db.quoteName('a.state')} > 0 `;
 
-	// Filter out any agencies with do_not_report value set to true
-	if(req.authentication.agencyNetwork){
-		where += ` AND a.agency not in (42,44) `;
-	}
+    // Filter out any agencies with do_not_report value set to true
+    if(req.authentication.agencyNetwork){
+        try{
+            const agencyBO = new AgencyBO();
+            const donotReportQuery = {doNotReport: true};
+            const noReportAgencyList = await agencyBO.getList(donotReportQuery);
+            if(noReportAgencyList && noReportAgencyList.length > 0){
+                // eslint-disable-next-line prefer-const
+                let donotReportAgencyIdArray = []
+                for(const agencyJSON of noReportAgencyList){
+                    donotReportAgencyIdArray.push(agencyJSON.systemId);
+                }
+                if(donotReportAgencyIdArray.length > 0){
+                    where += ` AND a.agency not IN (${donotReportAgencyIdArray.join(',')}) `;
+                }
+            }
+        }
+        catch(err){
+            log.error(`Report Dashboard error getting donotReport list ` + err + __location)
+        }
+    }
 
     // This is a very special case. If this is the agent 'Solepro' (ID 12) asking for applications, query differently
     if(!agencyNetwork && agents[0] === 12){
@@ -282,7 +300,7 @@ async function getReports(req, res, next) {
         res.send(200, response);
         return next();
     }
-    
+
 }
 
 exports.registerEndpoint = (server, basePath) => {

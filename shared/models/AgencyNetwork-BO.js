@@ -3,6 +3,10 @@
 const DatabaseObject = require('./DatabaseObject.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+var AgencyNetworkModel = require('mongoose').model('AgencyNetwork');
+const mongoUtils = global.requireShared('./helpers/mongoutils.js');
+
+
 const fileSvc = global.requireShared('services/filesvc.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
@@ -38,20 +42,7 @@ module.exports = class AgencyNetworkBO{
             if(!newObjectJSON){
                 reject(new Error(`empty ${tableName} object given`));
             }
-            await this.cleanupInput(newObjectJSON);
-            if(newObjectJSON.id){
-                await this.#dbTableORM.getById(newObjectJSON.id).catch(function(err) {
-                    log.error(`Error getting ${tableName} from Database ` + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
-            }
-            else{
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
-            }
-            this.#dbTableORM.state = 1;
+           
 
             //logo processing
             if(newObjectJSON.headerLogoContent){
@@ -59,7 +50,7 @@ module.exports = class AgencyNetworkBO{
                     reject(err)
                 })
                 if(newFileName){
-                    this.#dbTableORM.logo = newFileName;
+                    newObjectJSON.logo = newFileName;
                 }
                 else {
                     log.error("No files name for S3 logo " + __location)
@@ -71,22 +62,34 @@ module.exports = class AgencyNetworkBO{
                     reject(err)
                 })
                 if(newFileName){
-                    this.#dbTableORM.footer_logo = newFileName;
+                    newObjectJSON.footer_logo = newFileName;
                 }
                 else {
                     log.error("No files name for S3 logo " + __location)
                 }
             }
-
-
             //save
-            await this.#dbTableORM.save().catch(function(err){
-                reject(err);
-            });
-            this.updateProperty();
-            this.id = this.#dbTableORM.id;
-
-
+            let newDoc = true;
+            if(newObjectJSON.id){
+                const dbDocJSON = await this.getById(newObjectJSON.id).catch(function(err) {
+                    log.error(`Error getting ${tableName} from Database ` + err + __location);
+                    reject(err);
+                    return;
+                });
+                if(dbDocJSON){
+                    newObjectJSON.systemId = dbDocJSON.systemId;
+                    newObjectJSON.agencyNetworkId = dbDocJSON.systemId;
+                    newDoc = false;
+                    await this.updateMongo(dbDocJSON.agencyNetworkUuidId,newObjectJSON)
+                }
+                else {
+                    log.error("AgencyNetwork PUT object not found " + newObjectJSON.id + __location)
+                }
+            }
+            if(newDoc === true) {
+                const newAgencyNetworkDoc = await this.insertMongo(newObjectJSON);
+                this.id = newAgencyNetworkDoc.systemId;
+            }
             resolve(true);
 
         });
@@ -113,23 +116,8 @@ module.exports = class AgencyNetworkBO{
         return fileName;
     }
 
-    /**
-	 * saves this object.
-     *
-	 * @returns {Promise.<JSON, Error>} save return true , or an Error if rejected
-	 */
-    save(asNew = false){
-        return new Promise(async(resolve, reject) => {
-            //validate
-            this.#dbTableORM.load(this, skipCheckRequired);
-            await this.#dbTableORM.save().catch(function(err){
-                reject(err);
-            });
-            resolve(true);
-        });
-    }
 
-    loadFromId(id) {
+    loadFromIdMySql(id) {
         return new Promise(async(resolve, reject) => {
             //validate
             if(id && id > 0){
@@ -149,19 +137,164 @@ module.exports = class AgencyNetworkBO{
         });
     }
 
-    getById(id) {
+
+    getList(queryJSON) {
         return new Promise(async(resolve, reject) => {
-            //validate
-            if(id && id > 0){
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
-                    reject(err);
+            if(!queryJSON){
+                queryJSON = {};
+            }
+            const queryProjection = {"__v": 0}
+
+            let findCount = false;
+
+            let rejected = false;
+            // eslint-disable-next-line prefer-const
+            let query = {active: true};
+            let error = null;
+
+
+            var queryOptions = {};
+            queryOptions.sort = {systemId: 1};
+            if (queryJSON.sort) {
+                var acs = 1;
+                if (queryJSON.desc) {
+                    acs = -1;
+                    delete queryJSON.desc
+                }
+                queryOptions.sort[queryJSON.sort] = acs;
+                delete queryJSON.sort
+            }
+            else {
+                // default to DESC on sent
+                queryOptions.sort.createdAt = -1;
+
+            }
+            const queryLimit = 500;
+            if (queryJSON.limit) {
+                var limitNum = parseInt(queryJSON.limit, 10);
+                delete queryJSON.limit
+                if (limitNum < queryLimit) {
+                    queryOptions.limit = limitNum;
+                }
+                else {
+                    queryOptions.limit = queryLimit;
+                }
+            }
+            else {
+                queryOptions.limit = queryLimit;
+            }
+            if (queryJSON.count) {
+                if (queryJSON.count === "1") {
+                    findCount = true;
+                }
+                delete queryJSON.count;
+            }
+
+            if(queryJSON.systemId && Array.isArray(queryJSON.systemId)){
+                query.systemId = {$in: queryJSON.systemId};
+                delete queryJSON.systemId
+            }
+            else if(queryJSON.systemId){
+                query.systemId = queryJSON.systemId;
+                delete queryJSON.systemId
+            }
+
+            if(queryJSON.agencyNetworkId && Array.isArray(queryJSON.agencyNetworkId)){
+                query.agencyNetworkId = {$in: queryJSON.agencyNetworkId};
+                delete queryJSON.agencyNetworkId
+            }
+            else if(queryJSON.agencyNetworkId){
+                query.agencyNetworkId = queryJSON.agencyNetworkId;
+                delete queryJSON.agencyNetworkId
+            }
+
+
+            if (queryJSON) {
+                for (var key in queryJSON) {
+                    if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
+                        let clearString = queryJSON[key].replace("%", "");
+                        clearString = clearString.replace("%", "");
+                        query[key] = {
+                            "$regex": clearString,
+                            "$options": "i"
+                        };
+                    }
+                    else {
+                        query[key] = queryJSON[key];
+                    }
+                }
+            }
+
+
+            if (findCount === false) {
+                let docList = null;
+                // eslint-disable-next-line prefer-const
+                try {
+                    // log.debug("InsurerModel GetList query " + JSON.stringify(query) + __location)
+                    docList = await AgencyNetworkModel.find(query,queryProjection, queryOptions);
+                }
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    rejected = true;
+                }
+                if(rejected){
+                    reject(error);
                     return;
-                });
-                this.updateProperty();
-                //process featureList
-                this.fillInFeatureList(this.#dbTableORM.feature_json)
-                resolve(this.#dbTableORM.cleanJSON());
+                }
+                if(docList && docList.length > 0){
+                    resolve(mongoUtils.objListCleanup(docList));
+                }
+                else {
+                    resolve([]);
+                }
+                return;
+            }
+            else {
+                const docCount = await AgencyNetworkModel.countDocuments(query).catch(err => {
+                    log.error("InsurerModel.countDocuments error " + err + __location);
+                    error = null;
+                    rejected = true;
+                })
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                resolve({count: docCount});
+                return;
+            }
+
+
+        });
+    }
+
+
+    async getMongoDocbyMysqlId(mysqlId, returnMongooseModel = false) {
+        return new Promise(async(resolve, reject) => {
+            if (mysqlId) {
+                const query = {
+                    "systemId": mysqlId,
+                    active: true
+                };
+                let docDB = null;
+                try {
+                    docDB = await AgencyNetworkModel.findOne(query, '-__v');
+                }
+                catch (err) {
+                    log.error("Getting Agency error " + err + __location);
+                    reject(err);
+                }
+                if(returnMongooseModel){
+                    resolve(docDB);
+                }
+                else if(docDB){
+                    const agencyNetworkDoc = mongoUtils.objCleanup(docDB);
+                    resolve(agencyNetworkDoc);
+                }
+                else {
+                    resolve(null);
+                }
+
             }
             else {
                 reject(new Error('no id supplied'))
@@ -169,60 +302,109 @@ module.exports = class AgencyNetworkBO{
         });
     }
 
-    getList(queryJSON) {
-        return new Promise(async(resolve, reject) => {
+    getById(id) {
+        return this.getMongoDocbyMysqlId(id);
+    }
 
-            let rejected = false;
-            // Create the update query
-            let sql = `
-                    select *  from ${tableName}  
-                `;
-            if(queryJSON){
-                let hasWhere = false;
-                if(queryJSON.name){
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` name like ${db.escape(queryJSON.name)} `
-                    hasWhere = true;
-                }
-            }
-            // Run the query
-            //log.debug("AgencyNetworkBO getlist sql: " + sql);
-            const result = await db.query(sql).catch(function(error) {
-                // Check if this was
+    async updateMongo(docId, newObjectJSON) {
+        if (docId) {
+            if (typeof newObjectJSON === "object") {
 
-                rejected = true;
-                log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
-                reject(error);
-            });
-            if (rejected) {
-                return;
-            }
-            const boList = [];
-            if(result && result.length > 0){
-                for(let i = 0; i < result.length; i++){
-                    const agencyNetworkBO = new AgencyNetworkBO();
-                    await agencyNetworkBO.#dbTableORM.decryptFields(result[i]);
-                    await agencyNetworkBO.#dbTableORM.convertJSONColumns(result[i]);
-                    const resp = await agencyNetworkBO.loadORM(result[i], skipCheckRequired).catch(function(err){
-                        log.error(`getList error loading object: ` + err + __location);
-                    })
-                    if(!resp){
-                        log.debug("Bad BO load" + __location)
+                const query = {"agencyNetworkUuidId": docId};
+                let newAgencyNetworkJSON = null;
+                try {
+                    const changeNotUpdateList = ["active",
+                        "id",
+                        "mysqlId",
+                        "systemId",
+                        "agencyNetworkUuidId",
+                        "agencyNetworkId"]
+                    for (let i = 0; i < changeNotUpdateList.length; i++) {
+                        if (newObjectJSON[changeNotUpdateList[i]]) {
+                            delete newObjectJSON[changeNotUpdateList[i]];
+                        }
                     }
-                    //process featureList
-                    this.fillInFeatureList(agencyNetworkBO.feature_json)
-                    boList.push(agencyNetworkBO);
+
+                    await AgencyNetworkModel.updateOne(query, newObjectJSON);
+                    const newAgencyNetworkDoc = await AgencyNetworkModel.findOne(query);
+                    
+
+                    newAgencyNetworkJSON = mongoUtils.objCleanup(newAgencyNetworkDoc);
                 }
-                resolve(boList);
+                catch (err) {
+                    log.error(`Updating Application error appId: ${docId}` + err + __location);
+                    throw err;
+                }
+                //
+
+                return newAgencyNetworkJSON;
             }
             else {
-                //Search so no hits ok.
-                resolve([]);
+                throw new Error(`no newObjectJSON supplied appId: ${docId}`)
             }
 
+        }
+        else {
+            throw new Error('no id supplied')
+        }
+        // return true;
 
-        });
     }
+
+    async insertMongo(newObjectJSON) {
+        if (!newObjectJSON) {
+            throw new Error("no data supplied");
+        }
+        //force mongo/mongoose insert
+        if(newObjectJSON._id) {
+            delete newObjectJSON._id
+        }
+        if(newObjectJSON.id) {
+            delete newObjectJSON.id
+        }
+        const newSystemId = await this.newMaxSystemId()
+        newObjectJSON.systemId = newSystemId;
+        newObjectJSON.agencyNetworkId = newSystemId;
+        const agencyNetwork = new AgencyNetworkModel(newObjectJSON);
+        //Insert a doc
+        await agencyNetwork.save().catch(function(err) {
+            log.error('Mongo agencyNetwork Save err ' + err + __location);
+            throw err;
+        });
+        newObjectJSON.id = newSystemId;
+        return mongoUtils.objCleanup(agencyNetwork);
+    }
+
+    async newMaxSystemId(){
+        let maxId = 0;
+        try{
+
+            //small collection - get the collection and loop through it.
+            // TODO refactor to use mongo aggretation.
+            const query = {}
+            const queryProjection = {"systemId": 1}
+            var queryOptions = {lean:true};
+            queryOptions.sort = {};
+            queryOptions.sort.systemId = -1;
+            queryOptions.limit = 1;
+            const docList = await AgencyNetworkModel.find(query, queryProjection, queryOptions)
+            if(docList && docList.length > 0){
+                for(let i = 0; i < docList.length; i++){
+                    if(docList[i].systemId > maxId){
+                        maxId = docList[i].systemId + 1;
+                    }
+                }
+            }
+
+        }
+        catch(err){
+            log.error("Get max system id " + err + __location)
+            throw err;
+        }
+        log.debug("maxId: " + maxId + __location)
+        return maxId;
+    }
+
 
     fillInFeatureList(featureJson){
         if(featureJson){
@@ -296,62 +478,56 @@ module.exports = class AgencyNetworkBO{
 	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with BrandName. message template and subject template, or an Error if rejected
 	 */
     async getEmailContentAgencyAndCustomer(agencyNetworkId, agencyContentProperty, customerContentProperty) {
-
-        const emailContentSQL = `
-        SELECT
-            name as brandName,
-            email_brand AS emailBrand,
-            additionalInfo,
-            JSON_EXTRACT(custom_emails, '$.${agencyContentProperty}') AS agencyEmailData,
-            JSON_EXTRACT(custom_emails, '$.${customerContentProperty}') AS customerEmailData,
-            (SELECT JSON_EXTRACT(custom_emails, '$.${agencyContentProperty}')  FROM  clw_talage_agency_networks WHERE id = 1 ) AS defaultAgencyEmailData,
-            (SELECT JSON_EXTRACT(custom_emails, '$.${customerContentProperty}')  FROM  clw_talage_agency_networks WHERE id = 1 ) AS defaultCustomerEmailData
-        FROM clw_talage_agency_networks
-        WHERE id = ${db.escape(agencyNetworkId)}
-        `;
-        // log.debug("emailContent SQL: " + emailContentSQL);
-        let error = null;
-        const emailContentResultArray = await db.query(emailContentSQL).catch(function(err){
-            log.error(`DB Error Unable to get email content for abandon quote. appid: ${applicationId}.  error: ${err}` + __location);
-            error = true;
-        });
-        if(error){
-            log.error("getEmailContentAgencyAndCustomer error: " + err + __location);
-            throw error;
+        let wheelHouseAgencyNetworkJSON = null;
+        let agencyNetworkJSON = null;
+        try{
+            const wheelHouseId = 1;
+            wheelHouseAgencyNetworkJSON = await this.getById(wheelHouseId);
+            if(agencyNetworkId === wheelHouseId){
+                agencyNetworkJSON = wheelHouseAgencyNetworkJSON;
+            }
+            else {
+                agencyNetworkJSON = await this.getById(agencyNetworkId);
+            }
         }
+        catch(err){
+            log.error(`DB Error Unable to get email content for ${agencyContentProperty} for agencyNetwork ${agencyNetworkId}. error: ${err}` + __location);
+        }
+        let error = null;
+        if(wheelHouseAgencyNetworkJSON && agencyNetworkJSON){
 
-        if(emailContentResultArray && emailContentResultArray.length > 0){
-
-            const emailContentResult = emailContentResultArray[0];
+            //const emailContentResult = emailContentResultArray[0];
             let emailTemplateJSON = {};
             try{
-                const customerEmailData = emailContentResult.customerEmailData ? JSON.parse(emailContentResult.customerEmailData) : null;
-                const defaultCustomerEmailData = emailContentResult.defaultCustomerEmailData ? JSON.parse(emailContentResult.defaultCustomerEmailData) : null;
+                const customerEmailData = agencyNetworkJSON.custom_emails[customerContentProperty];
+                const defaultCustomerEmailData = wheelHouseAgencyNetworkJSON.custom_emails[customerContentProperty];
 
                 const customermessage = customerEmailData && customerEmailData.message ? customerEmailData.message : defaultCustomerEmailData.message;
                 const customersubject = customerEmailData && customerEmailData.subject ? customerEmailData.subject : defaultCustomerEmailData.subject;
 
 
-                const agencyEmailData = emailContentResult.agencyEmailData ? JSON.parse(emailContentResult.agencyEmailData) : null;
-                const defaultAgencyEmailData = emailContentResult.defaultAgencyEmailData ? JSON.parse(emailContentResult.defaultAgencyEmailData) : null;
+                const agencyEmailData = agencyNetworkJSON.custom_emails[agencyContentProperty];
+                const defaultAgencyEmailData = wheelHouseAgencyNetworkJSON.custom_emails[agencyContentProperty];
                 const agencyMessage = agencyEmailData && agencyEmailData.message ? agencyEmailData.message : defaultAgencyEmailData.message;
                 const agencySubject = agencyEmailData && agencyEmailData.subject ? agencyEmailData.subject : defaultAgencyEmailData.subject;
 
                 emailTemplateJSON = {
-                    "brandName": emailContentResult.brandName,
-                    "emailBrand": emailContentResult.emailBrand,
+                    "brandName": agencyNetworkJSON.name,
+                    "emailBrand": agencyNetworkJSON.email_brand,
                     "customerMessage": customermessage,
                     "customerSubject": customersubject,
                     "agencyMessage": agencyMessage,
                     "agencySubject": agencySubject
                 }
-
-                const environmentSettings = this.getEnvSettingFromJSON(emailContentResult.additionalInfo, agencyNetworkId)
+                log.debug("pre env emailTemplateJSON " + JSON.stringify(emailTemplateJSON))
+                const environmentSettings = this.getEnvSettingFromJSON(agencyNetworkJSON.additionalInfo, agencyNetworkId)
                 if(typeof environmentSettings === "object"){
+                    // eslint-disable-next-line guard-for-in
                     for (var property in environmentSettings) {
                         emailTemplateJSON[property] = environmentSettings[property];
                     }
                 }
+                log.debug("post env emailTemplateJSON " + JSON.stringify(emailTemplateJSON))
 
             }
             catch(err) {
@@ -381,49 +557,47 @@ module.exports = class AgencyNetworkBO{
 	 */
     async getEmailContent(agencyNetworkId, contentProperty) {
 
-        const emailContentSQL = `
-        SELECT
-            name as brandName,
-            email_brand AS emailBrand,
-            additionalInfo,
-            JSON_EXTRACT(custom_emails, '$.${contentProperty}') AS emailData,
-            (SELECT JSON_EXTRACT(custom_emails, '$.${contentProperty}')  FROM  clw_talage_agency_networks WHERE id = 1 ) AS defaultEmailData
-        FROM clw_talage_agency_networks
-        WHERE id = ${db.escape(agencyNetworkId)}
-        `;
-        // log.debug("emailContent SQL: " + emailContentSQL);
-        let error = null;
-        const emailContentResultArray = await db.query(emailContentSQL).catch(function(err){
-            log.error(`DB Error Unable to get email content for abandon quote. appid: ${applicationId}.  error: ${err}` + __location);
-            error = true;
-        });
-        if(error){
-            log.error("getEmailContentAgencyAndCustomer error: " + err + __location);
-            throw error;
+        let wheelHouseAgencyNetworkJSON = null;
+        let agencyNetworkJSON = null;
+        try{
+            const wheelHouseId = 1;
+            wheelHouseAgencyNetworkJSON = await this.getById(wheelHouseId);
+            if(agencyNetworkId === wheelHouseId){
+                agencyNetworkJSON = wheelHouseAgencyNetworkJSON;
+            }
+            else {
+                agencyNetworkJSON = await this.getById(agencyNetworkId);
+            }
+        }
+        catch(err){
+            log.error(`DB Error Unable to get email content for ${contentProperty} for agencyNetwork ${agencyNetworkId}. error: ${err}` + __location);
         }
 
-        if(emailContentResultArray && emailContentResultArray.length > 0){
+        let error = null;
 
-            const emailContentResult = emailContentResultArray[0];
+        if(wheelHouseAgencyNetworkJSON && agencyNetworkJSON){
+            // eslint-disable-next-line prefer-const
+            let emailContentResult = {};
             let emailTemplateJSON = {};
             try{
-                emailContentResult.defaultEmailData = JSON.parse(emailContentResult.defaultEmailData);
-                if(emailContentResult.emailData){
-                    emailContentResult.emailData = JSON.parse(emailContentResult.emailData);
+                emailContentResult.defaultEmailData = wheelHouseAgencyNetworkJSON.custom_emails[contentProperty];
+                if(agencyNetworkJSON.custom_emails[contentProperty]){
+                    emailContentResult.emailData = agencyNetworkJSON.custom_emails[contentProperty];
                 }
                 const message = emailContentResult.emailData && emailContentResult.emailData.message && emailContentResult.emailData.message !== "" ? emailContentResult.emailData.message : emailContentResult.defaultEmailData.message;
                 const subject = emailContentResult.emailData && emailContentResult.emailData.subject && emailContentResult.emailData.subject !== "" ? emailContentResult.emailData.subject : emailContentResult.defaultEmailData.subject;
 
 
                 emailTemplateJSON = {
-
-                    "emailBrand": emailContentResult.emailBrand,
+                    "brandName": agencyNetworkJSON.name,
+                    "emailBrand": agencyNetworkJSON.email_brand,
                     "message": message,
                     "subject": subject
                 }
 
-                const environmentSettings = this.getEnvSettingFromJSON(emailContentResult.additionalInfo, agencyNetworkId)
+                const environmentSettings = this.getEnvSettingFromJSON(agencyNetworkJSON.additionalInfo, agencyNetworkId)
                 if(typeof environmentSettings === "object"){
+                    // eslint-disable-next-line guard-for-in
                     for (var property in environmentSettings) {
                         emailTemplateJSON[property] = environmentSettings[property];
                     }

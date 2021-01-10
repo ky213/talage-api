@@ -259,10 +259,12 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
     let locations = null;
     try{
         const query = {"agencyId": agencyWebInfo.agencyId}
-        const getAgencyName = false;
+        const getAgencyName = true;
         const getChildren = true;
+        const addAgencyPrimaryLocation = true;
         const agencyLocationBO = new AgencyLocationBO();
-        locations = await agencyLocationBO.getList(query, getAgencyName,getChildren);
+
+        locations = await agencyLocationBO.getList(query, getAgencyName,getChildren, addAgencyPrimaryLocation);
         let insurerList = [];
         // eslint-disable-next-line array-element-newline
         let removeList = ["additionalInfo", "territories", "createdAt", "updatedAt", "agencyPortalModifiedUser","active"]
@@ -275,7 +277,7 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
                 location.territory = location.state;
                 location.zip = location.zipcode;
                 location.appointments = location.territories;
-                if(location.insurers){
+                if(location.insurers && location.insurers.length > 0){
                     for(let i = 0; i < location.insurers.length; i++) {
                         let insurer = location.insurers[i];
                         insurer.agencylocation = location.id;
@@ -294,10 +296,10 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
                         }
                         insurerList.push(insurer);
                     }
-                    delete location.insurers;
+                    //delete location.insurers;
                 }
                 else {
-                    log.error("No insurers for location " + __location)
+                    log.error(`No insurers for location ${location.systemId}` + __location)
                 }
                 for(let i = 0; i < removeList.length; i++) {
                     if(location[removeList[i]]){

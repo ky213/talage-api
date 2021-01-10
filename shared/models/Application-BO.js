@@ -10,7 +10,6 @@ const clonedeep = require('lodash.clonedeep');
 const DatabaseObject = require('./DatabaseObject.js');
 
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
-//const status = global.requireShared('./models/application-businesslogic/status.js');
 const afBusinessdataSvc = global.requireShared('services/af-businessdata-svc.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const QuestionBO = global.requireShared('./models/Question-BO.js');
@@ -19,12 +18,9 @@ const QuestionTypeBO = global.requireShared('./models/QuestionType-BO.js');
 const MappingBO = global.requireShared('./models/Mapping-BO.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
 const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
-
 const taskWholesaleAppEmail = global.requireRootPath('tasksystem/task-wholesaleapplicationemail.js');
 const taskSoleProAppEmail = global.requireRootPath('tasksystem/task-soleproapplicationemail.js');
 const taskEmailBindAgency = global.requireRootPath('tasksystem/task-emailbindagency.js');
-
-
 const crypt = global.requireShared('./services/crypt.js');
 
 // Mongo Models
@@ -42,13 +38,15 @@ const {'v4': uuidv4} = require('uuid');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-
 //const convertToIntFields = [];
 
 const tableName = 'clw_talage_applications';
 const skipCheckRequired = false;
 //businessDataJSON
 const QUOTE_STEP_NUMBER = 9;
+const QUOTING_STATUS = 15;
+const QUOTE_MIN_TIMEOUT = 5;
+
 module.exports = class ApplicationModel {
 
     #dbTableORM = null;
@@ -83,11 +81,9 @@ module.exports = class ApplicationModel {
         this.#applicationMongooseDB = null;
         this.#applicationMongooseJSON = {};
 
-
         this.#dbTableORM = new ApplicationOrm();
         this.#dbTableORM.doNotSnakeCase = this.doNotSnakeCase;
     }
-
 
     /**
 	 * Save Model
@@ -303,19 +299,7 @@ module.exports = class ApplicationModel {
                     break;
                 case 'locations':
                     if (applicationJSON.locations) {
-
                         this.processLocationsMongo(applicationJSON.locations);
-
-                    }
-                    // update business data
-                    if (applicationJSON.total_payroll) {
-                        await this.processActivityCodes(applicationJSON.total_payroll).catch(function(err) {
-                            log.error('Adding activity codes error:' + err + __location);
-                            reject(err);
-                        });
-                    }
-                    else {
-                        log.warn("Application missing total_payroll appID " + this.id + __location)
                     }
                     updateBusiness = true;
                     break;
@@ -441,7 +425,6 @@ module.exports = class ApplicationModel {
                     delete applicationJSON.businessInfo
                 }
             }
-
 
             if (!this.#dbTableORM.last_step) {
                 this.#dbTableORM.last_step = stepNumber;
@@ -607,28 +590,6 @@ module.exports = class ApplicationModel {
         });
     }
 
-    processActivityCodes(activtyListJSON) {
-
-        return new Promise(async(resolve) => {
-
-            // this.#applicationMongooseJSON.activityCodes = clonedeep(activtyListJSON);
-            this.#applicationMongooseJSON.activityCodes = [];
-            for (const activity in activtyListJSON) {
-                const activityCodeModelJSON = {
-                    "ncciCode": activity,
-                    "payroll": activtyListJSON[activity]
-                }
-
-                this.#applicationMongooseJSON.activityCodes.push(activityCodeModelJSON)
-            }
-
-            resolve(true);
-
-        });
-
-    }
-
-
     processPolicyTypes(policyTypeArray, applicationJSON) {
 
         return new Promise(async(resolve) => {
@@ -699,11 +660,21 @@ module.exports = class ApplicationModel {
             location.activityPayrollList = [];
 
             if (location.activity_codes && location.activity_codes.length > 0) {
-                for (let j = 0; j < location.activity_codes.length; j++) {
-                    const activity_code = location.activity_codes[j];
+                for (const activity_code of location.activity_codes) {
+                    // Convert props in the employee list to camel case
+                    if (activity_code.employeeTypeList) {
+                        for (const employeeType of activity_code.employeeTypeList) {
+                            for (const employeeProp in employeeType) {
+                                if (employeeProp.isSnakeCase()) {
+                                    employeeType[employeeProp.toCamelCase()] = employeeType[employeeProp];
+                                }
+                            }
+                        }
+                    }
                     const activityPayrollJSON = {};
                     activityPayrollJSON.ncciCode = activity_code.id;
                     activityPayrollJSON.payroll = activity_code.payroll;
+                    activityPayrollJSON.employeeTypeList = activity_code.employeeTypeList;
                     location.activityPayrollList.push(activityPayrollJSON)
                 }
             }
@@ -1486,7 +1457,7 @@ module.exports = class ApplicationModel {
             let hasBillingLocation = false;
             for(let location of applicationJSON.locations){
                 if(hasBillingLocation === true && location.billing === true){
-                    log.warn(`Application will mutliple billing received AppId ${applicationJSON.applicationId} fixing location ${JSON.stringify(location)} to billing = false` + __location)
+                    log.warn(`Application will multiple billing received AppId ${applicationJSON.applicationId} fixing location ${JSON.stringify(location)} to billing = false` + __location)
                     location.billing = false;
                 }
                 else if(location.billing === true){
@@ -1522,7 +1493,6 @@ module.exports = class ApplicationModel {
                             delete newObjectJSON[changeNotUpdateList[i]];
                         }
                     }
-
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
                     const newApplicationdoc = await ApplicationMongooseModel.findOne(query);
                     this.#applicationMongooseDB = newApplicationdoc
@@ -1594,6 +1564,7 @@ module.exports = class ApplicationModel {
         });
         //add calculated fields EIN
         await this.setDocEinClear(application);
+        await this.checkAndFixAppStatus(application);
         this.#applicationMongooseDB = application;
         if(updateMysql === true){
             // save mysql applicaition
@@ -1672,7 +1643,6 @@ module.exports = class ApplicationModel {
 
     }
 
-
     async mongoDoc2MySqlUpdate(applicationDoc, applicationJSONInbound, postInsert = false) {
 
         let applicationJSON = {};
@@ -1711,6 +1681,27 @@ module.exports = class ApplicationModel {
         else if(!applicationJSON || !applicationJSON.id){
             log.error("NO Appid in mongoDoc2MySqlUpdate " + __location);
             return false;
+        }
+    }
+
+    // checks the status of the app and fixes it if its timed out
+    async checkAndFixAppStatus(applicationDoc){
+        // only check and fix quoting apps
+        if(applicationDoc.appStatusId === QUOTING_STATUS){
+            const now = moment.utc();
+            // if the quotingStartedDate doesnt exist, just set it and return
+            if(!applicationDoc.quotingStartedDate){
+                applicationDoc.quotingStartedDate = now;
+                await this.updateMongo(applicationDoc.uuid, {quotingStartedDate: now});
+                return;
+            }
+
+            const status = global.requireShared('./models/application-businesslogic/status.js');
+            const duration = moment.duration(now.diff(moment(applicationDoc.quotingStartedDate)));
+            if(duration.minutes() >= QUOTE_MIN_TIMEOUT){
+                log.error(`Application: ${applicationDoc.uuid} timed out ${QUOTE_MIN_TIMEOUT} minutes after quoting started`);
+                await status.updateApplicationStatus(applicationDoc, true);
+            }
         }
     }
 
@@ -1755,6 +1746,7 @@ module.exports = class ApplicationModel {
                 try {
                     applicationDoc = await ApplicationMongooseModel.findOne(query, '-__v');
                     await this.setDocEinClear(applicationDoc);
+                    await this.checkAndFixAppStatus(applicationDoc);
                 }
                 catch (err) {
                     log.error("Getting Application error " + err + __location);
@@ -1780,6 +1772,7 @@ module.exports = class ApplicationModel {
                 try {
                     applicationDoc = await ApplicationMongooseModel.findOne(query, '-__v');
                     await this.setDocEinClear(applicationDoc);
+                    await this.checkAndFixAppStatus(applicationDoc);
                 }
                 catch (err) {
                     log.error("Getting Application error " + err + __location);
@@ -1807,6 +1800,7 @@ module.exports = class ApplicationModel {
                     const docDB = await ApplicationMongooseModel.findOne(query, '-__v');
                     if (docDB) {
                         await this.setDocEinClear(docDB);
+                        await this.checkAndFixAppStatus(docDB);
                         applicationDoc = mongoUtils.objCleanup(docDB);
                     }
                 }
@@ -1837,6 +1831,7 @@ module.exports = class ApplicationModel {
                     const docDB = await ApplicationMongooseModel.findOne(query, '-__v');
                     if (docDB) {
                         await this.setDocEinClear(docDB);
+                        await this.checkAndFixAppStatus(docDB);
                         applicationDoc = mongoUtils.objCleanup(docDB);
                     }
                 }
@@ -2019,6 +2014,7 @@ module.exports = class ApplicationModel {
                     // log.debug("docList: " + JSON.stringify(docList));
                     for (const application of docList) {
                         await this.setDocEinClear(application);
+                        await this.checkAndFixAppStatus(application);
                     }
                     if(getListOptions.getAgencyName === true && docList.length > 0){
                         //loop doclist adding agencyName
@@ -2237,6 +2233,7 @@ module.exports = class ApplicationModel {
                         for (const application of docList) {
                             application.id = application.mysqlId;
                             await this.setDocEinClear(application);
+                            await this.checkAndFixAppStatus(application);
                             delete application._id;
 
                             // Load the request data into it
@@ -2402,6 +2399,7 @@ module.exports = class ApplicationModel {
                     docDB = await ApplicationMongooseModel.findOne(query, '-__v');
                     if (docDB) {
                         await this.setDocEinClear(docDB);
+                        await this.checkAndFixAppStatus(docDB);
                         this.#applicationMongooseDB = docDB
                         appllicationDoc = mongoUtils.objCleanup(docDB);
                     }
@@ -2561,10 +2559,14 @@ module.exports = class ApplicationModel {
         //Agency Location insurer list.
         let insurerArray = [];
         if(applicationDocDB.agencyLocationId && applicationDocDB.agencyLocationId > 0){
+            //TODO Agency Prime
             const agencyLocationBO = new AgencyLocationBO();
-            const agencylocationJSON = await agencyLocationBO.getById(applicationDocDB.agencyLocationId).catch(function(err) {
+            const getChildren = true;
+            const addAgencyPrimaryLocation = true;
+            const agencylocationJSON = await agencyLocationBO.getById(applicationDocDB.agencyLocationId, getChildren, addAgencyPrimaryLocation).catch(function(err) {
                 log.error(`Error getting Agency Primary Location ${applicationDocDB.uuid} ` + err + __location);
             });
+
             if (agencylocationJSON && agencylocationJSON.insurers && agencylocationJSON.insurers.length > 0) {
                 for(let i = 0; i < agencylocationJSON.insurers.length; i++){
                     insurerArray.push(agencylocationJSON.insurers[i].insurerId)

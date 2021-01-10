@@ -6,7 +6,7 @@
 'use strict';
 
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
-
+const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 
 // const util = require('util');
 const auth = require('./helpers/auth.js');
@@ -62,7 +62,7 @@ async function getbyId(req, res, next) {
     // eslint-disable-next-line object-curly-newline
     const query = {"systemId": id, agencyId: agencyList};
     log.debug("AL GET query: " + JSON.stringify(query));
-    const getAgencyName = false;
+    const getAgencyName = true;
     const loadChildren = true;
     const locationJSONList = await agencyLocationBO.getList(query, getAgencyName, loadChildren).catch(function(err) {
         log.error("Location load error " + err + __location);
@@ -71,10 +71,26 @@ async function getbyId(req, res, next) {
     if (error) {
         return next(error);
     }
+
     // Send back a success response
     if (locationJSONList && locationJSONList.length > 0) {
         let location = locationJSONList[0];
         location.id = location.systemId;
+        if(location.agencyNetworkId){
+            try{
+                const agencyNetworkBO = new AgencyNetworkBO();
+                const agencyNetwork = await agencyNetworkBO.getById(location.agencyNetworkId);
+                if(agencyNetwork.feature_json && agencyNetwork.feature_json.enablePrimeAgency) {
+                    location.showUseAgencyPrime = agencyNetwork.feature_json.enablePrimeAgency
+                }
+            }
+            catch(err){
+                log.error(`Get Agency Location error retrieving AgencyNetwork AgencyLocationId ${location.systemId}` + err + __location)
+            }
+        }
+
+
+
         if(location.insurers){
             for(let i = 0; i < location.insurers.length; i++) {
                 let insurer = location.insurers[i];
@@ -476,17 +492,32 @@ async function getSelectionList(req, res, next) {
     const query = {"agencyId": agencyId}
     const getAgencyName = true;
     const getChildren = true;
+    const useAgencyPrimeInsurers = true;
 
-    locationList = await agencyLocationBO.getList(query, getAgencyName, getChildren).catch(function(err){
+    locationList = await agencyLocationBO.getList(query, getAgencyName, getChildren, useAgencyPrimeInsurers).catch(function(err){
         log.error(err.message + __location);
         error = err;
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     });
     //Backward compatible for mysql columns
-    locationList.forEach((location) => {
+    //locationList.forEach((location) => {
+    for(let j = 0; j < locationList.length; j++) {
+        let location = locationList[j];
         location.fname = location.firstName;
         location.lname = location.lastName;
         location.id = location.systemId;
+        if(location.agencyNetworkId){
+            try{
+                const agencyNetworkBO = new AgencyNetworkBO();
+                const agencyNetwork = await agencyNetworkBO.getById(location.agencyNetworkId);
+                if(agencyNetwork.feature_json && agencyNetwork.feature_json.enablePrimeAgency) {
+                    location.showUseAgencyPrime = agencyNetwork.feature_json.enablePrimeAgency
+                }
+            }
+            catch(err){
+                log.error(`Get Agency Location error retrieving AgencyNetwork AgencyLocationId ${location.systemId}` + err + __location)
+            }
+        }
         if(location.insurers){
             for(let i = 0; i < location.insurers.length; i++) {
                 let insurer = location.insurers[i];
@@ -506,7 +537,7 @@ async function getSelectionList(req, res, next) {
                 }
             }
         }
-    });
+    }
     // Send back a success response
     res.send(200, locationList);
     return next();

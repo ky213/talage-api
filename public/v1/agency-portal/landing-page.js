@@ -152,7 +152,7 @@ async function retrieveAuthenticatedAgency(req, data, next){
         if (!Object.prototype.hasOwnProperty.call(data, 'agency')) {
             return next(serverHelper.requestError('Agency missing'));
         }
-        if (!await validator.agent(data.agency)) {
+        if (!await validator.integer(data.agency)) {
             return next(serverHelper.requestError('Agency is invalid'));
         }
         if (!agencies.includes(parseInt(data.agency, 10))) {
