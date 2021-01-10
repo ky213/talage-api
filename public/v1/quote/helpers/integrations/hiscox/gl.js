@@ -180,8 +180,7 @@ module.exports = class HiscoxGL extends Integration {
             host = "sdbx.hiscox.com";
         }
         else {
-            this.log_error("Production API URL not set. We need to obtain this from Hiscox.", __location);
-            return;
+            host = "api.hiscox.com";
         }
 
         // console.log(JSON.stringify(this.app, null, 4));
