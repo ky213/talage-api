@@ -200,14 +200,20 @@ module.exports = class AcuityWC extends Integration {
             }
         }
 
+        // There are currently 4 industry codes which do not have SIC codes. Don't stop quoting. Instead, we default
+        // to "0000" to continue trying to quote since Travelers allows the agent to correct the application in the DeepLink.
+        let sicCode = null;
+        if (this.industry_code.sic) {
+            sicCode = this.industry_code.sic.toString().padStart(4, '0');
+        }
+        else {
+            this.log_warn(`Industry Code ${this.industry_code.id} ("${this.industry_code.description}") does not have an associated SIC code`);
+            sicCode = "0000";
+        }
 
         const claims = this.claims_to_policy_years();
         const claimCountCurrentPolicy = claims[1].count;
         const claimCountPriorThreePolicy = claims[2].count + claims[3].count + claims[4].count;
-
-        //     for (const question of Object.values(this.questions)) {
-        // let questionAnswer = this.determine_question_answer(question, question.required);
-
 
         // =========================================================================================================
         // Create the quote request
@@ -217,7 +223,7 @@ module.exports = class AcuityWC extends Integration {
             "policyEffectiveDate": this.policy.effective_date.format("YYYY-MM-DD"),
             "policyExpirationDate": this.policy.expiration_date.format("YYYY-MM-DD"),
             "lineOfBusinessCode": "WC",
-            "SICCode": this.industry_code.sic.toString(),
+            "SICCode": sicCode,
             "crossSellInd": false,
             "producer": {
                 "producerCode": this.app.agencyLocation.insurers[this.insurer.id].agency_id,
