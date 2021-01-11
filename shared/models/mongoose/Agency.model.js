@@ -46,6 +46,7 @@ const AgencySchema = new Schema({
     agencyPortalModifiedUser: {type: String},
     agencyPortalDeletedUser: {type: String},
     primaryAgency: {type: Boolean, default: false},
+    favicon: {type: String, required: false},
     socialMediaTags : [SocialMediaSchema],
     active: {type: Boolean, default: true}
 },opts)

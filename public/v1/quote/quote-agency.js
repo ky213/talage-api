@@ -473,12 +473,16 @@ async function getAgencySocialMetadata(req, res, next) {
     if(!agencyJson.landingPageContent){
         agencyJson.landingPageContent = {bannerHeadingDefault: ""};
     }
-  
-
+    let faviconPath = null;
+    if(agencyJson.favicon){
+        faviconPath = `${global.settings.IMAGE_URL}/public/agency-logos/favicon/${agencyJson.favicon}`;
+    }
+    log.warn(`Favicon path: ${faviconPath}`);
     res.send(200, {
         metaTitle: agencyJson.name,
         metaDescription: agencyJson.landingPageContent.bannerHeadingDefault ? agencyJson.landingPageContent.bannerHeadingDefault : agencyJson.defaultLandingPageContent.bannerHeadingDefault,
         metaImage: `${global.settings.IMAGE_URL}/public/agency-logos/${agencyJson.logo}`,
+        metaFaviconImage: faviconPath,
         metaURL: agencyJson.website,
         metaPixel: agencyJson.facebookPixel
     });
