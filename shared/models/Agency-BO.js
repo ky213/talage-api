@@ -87,7 +87,8 @@ module.exports = class AgencyBO {
                         catch (e) {
                             log.error("Agency SaveModel error processing logo " + e + __location);
                             //newObjectJSON.logo = null;
-                            delete newObjectJSON.logo
+                            delete newObjectJSON.logo;
+                            reject(e);
                         }
                     }
                     if(newObjectJSON.favicon && newObjectJSON.favicon.startsWith('data:')){
@@ -101,13 +102,13 @@ module.exports = class AgencyBO {
                         }
                         try {
                             const favIconFileName = await this.processFavicon(newObjectJSON);
-                            log.info(`fileName: ${favIconFileName}`);
                             newObjectJSON.favicon = favIconFileName;
                             log.debug("new favicon file name " + newObjectJSON.favicon);
                         }
                         catch(e) {
                             log.error("Agency SaveModel error processing favicon "+ e + __location);
                             delete newObjectJSON.favicon;
+                            reject(e);
                         }
                     }
                     newDoc = false;
@@ -159,7 +160,7 @@ module.exports = class AgencyBO {
                     if (![
                         'png',
                         'vnd.microsoft.icon'].includes(extension)) {
-                        reject(serverHelper.requestError('Please upload your favicon in png or ico preferably ico format.'));
+                        reject('Please upload your favicon in png or ico preferably ico format.');
                         return;
                     }
 
@@ -168,7 +169,7 @@ module.exports = class AgencyBO {
 
                     // Check the file size (max 100KB)
                     if (faviconData.length * 0.75 > 100000) {
-                        reject(serverHelper.requestError('Favicon too large. The maximum file size is 100KB.'));
+                        reject('Favicon too large. The maximum file size is 100KB.');
                         return;
                     }
 
@@ -187,7 +188,6 @@ module.exports = class AgencyBO {
                     }
 
                     // Save the file name locally
-                    console.log(`returing file name: ${fileName}`);
                     fulfill(fileName);
                 }
             }
@@ -211,7 +211,7 @@ module.exports = class AgencyBO {
                     if (!['gif',
                         'jpeg',
                         'png'].includes(extension)) {
-                        reject(serverHelper.requestError('Please upload your logo in gif, jpeg, or preferably png format.'));
+                        reject('Please upload your logo in gif, jpeg, or preferably png format.');
                         return;
                     }
 
@@ -220,7 +220,7 @@ module.exports = class AgencyBO {
 
                     // Check the file size (max 150KB)
                     if (logoData.length * 0.75 > 150000) {
-                        reject(serverHelper.requestError('Logo too large. The maximum file size is 150KB.'));
+                        reject('Logo too large. The maximum file size is 150KB.');
                         return;
                     }
 

@@ -685,7 +685,9 @@ async function updateAgency(req, res, next) {
         log.error("agencyBO.save error " + err + __location);
         error = err;
     });
-
+    if(error){
+        return next (serverHelper.requestError(error));
+    }
     //deal with logo
 
     // Send back a success response
