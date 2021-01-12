@@ -629,7 +629,6 @@ async function postAgency(req, res, next) {
  * @returns {void}
  */
 async function updateAgency(req, res, next) {
-
     let error = false;
 
     // Determine which permissions group to use (start with the default permission needed by an agency network)
@@ -686,7 +685,9 @@ async function updateAgency(req, res, next) {
         log.error("agencyBO.save error " + err + __location);
         error = err;
     });
-
+    if(error){
+        return next (serverHelper.requestError(error));
+    }
     //deal with logo
 
     // Send back a success response
