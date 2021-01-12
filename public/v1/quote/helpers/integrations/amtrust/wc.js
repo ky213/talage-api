@@ -12,6 +12,8 @@
 
 'use strict';
 
+const moment = require('moment');
+
 const Integration = require('../Integration.js');
 const amtrustClient = require('./amtrust-client.js');
 global.requireShared('./helpers/tracker.js');
@@ -32,9 +34,7 @@ module.exports = class AcuityWC extends Integration {
      * @returns {void}
      */
     _insurer_init() {
-        // HACK: for testing we are using the national NCCI codess until we get the class code map back
         this.requiresInsurerActivityCodes = true;
-        // this.requiresInsurerActivityCodes = false;
     }
 
     /**
@@ -75,20 +75,19 @@ module.exports = class AcuityWC extends Integration {
         const amtrustClassCodeList = [];
         for (const location of this.app.applicationDocData.locations) {
             for (const activityPayroll of location.activityPayrollList) {
-                // console.log(activityPayroll);
                 // Commented out because we are testing with the national NCCI codes instead of the mapped insurer class codes
-                // const amtrustClassCode = this.insurer_wc_codes[location.state_abbr + activityCode.id];
-                const ncciCode = await this.get_national_ncci_code_from_activity_code(location.state, activityPayroll.ncciCode) + "00";
-                if (!ncciCode) {
-                    return this.client_error("Could not locate AmTrust class code for a required activity code", __location, {
-                        state: location.state_abbr,
-                        activityCode: activityPayroll.id
-                    });
-                }
-                let amtrustClassCode = amtrustClassCodeList.find((acc) => acc.ncciCode === ncciCode && acc.state === location.state);
+                const insurerClassCode = this.insurer_wc_codes[location.state + activityPayroll.ncciCode];
+                // const ncciCode = await this.get_national_ncci_code_from_activity_code(location.state, activityPayroll.ncciCode) + "00";
+                // if (!ncciCode) {
+                //     return this.client_error("Could not locate AmTrust class code for a required activity code", __location, {
+                //         state: location.state_abbr,
+                //         activityCode: activityPayroll.id
+                //     });
+                // }
+                let amtrustClassCode = amtrustClassCodeList.find((acc) => acc.ncciCode === insurerClassCode && acc.state === location.state);
                 if (!amtrustClassCode) {
                     amtrustClassCode = {
-                        ncciCode: ncciCode,
+                        ncciCode: insurerClassCode,
                         state: location.state,
                         payroll: 0,
                         fullTimeEmployees: 0,
@@ -111,6 +110,7 @@ module.exports = class AcuityWC extends Integration {
                 }
             }
         }
+
         // Build the class code list to return
         const classCodeList = [];
         for (const amtrustClassCode of amtrustClassCodeList) {
@@ -145,6 +145,22 @@ module.exports = class AcuityWC extends Integration {
             });
         }
         return additionalLocationList;
+    }
+
+    getOfficers() {
+        const officersList = [];
+        for (const owner of this.app.applicationDocData.owners) {
+            officersList.push({
+                "Name": `${owner.fname} ${owner.lname}`,
+                "EndorsementId": "N/A",
+                "Type": "Officers",
+                "State": this.app.applicationDocData.mailingState,
+                "OwnershipPercent": owner.ownership,
+                "FormType": owner.include ? "I" : "E",
+                "OfficerDateOfBirth": moment(owner.birthdate).format("MM/DD/YYYY")
+            });
+        }
+        return officersList;
     }
 
     /**
@@ -265,6 +281,8 @@ module.exports = class AcuityWC extends Integration {
             "NatureOfBusiness": this.industry_code.description,
             "LegalEntity": amtrustLegalEntityMap[this.app.business.locations[0].business_entity_type],
             "YearsInBusiness": this.get_years_in_business(),
+            "IsNonProfit": false,
+            "IsIncumbantAgent": false,
             // "ExpiredPremium": 10000,
             "CompanyWebsiteAddress": this.app.business.website,
             "ClassCodes": await this.getClassCodeList()
@@ -306,14 +324,17 @@ module.exports = class AcuityWC extends Integration {
         // =========================================================================================================
         // Create the additional information request
 
-        const additionalInformationRequestData = {"AdditionalInsureds": [{
-            "Name": this.app.business.owners[0].fname + " " + this.app.business.owners[0].lname ,
-            "TaxId": this.app.business.locations[0].identification_number,
-            "State": this.app.business.locations[0].state_abbr,
-            "LegalEntity": amtrustLegalEntityMap[this.app.business.locations[0].business_entity_type],
-            "DbaName": this.app.business.dba,
-            "AdditionalLocations": this.getAdditionalLocationList()
-        }]};
+        const additionalInformationRequestData = {
+            "Officers": this.getOfficers(),
+            "AdditionalInsureds": [{
+                "Name": this.app.business.owners[0].fname + " " + this.app.business.owners[0].lname ,
+                "TaxId": this.app.business.locations[0].identification_number,
+                "State": this.app.business.locations[0].state_abbr,
+                "LegalEntity": amtrustLegalEntityMap[this.app.business.locations[0].business_entity_type],
+                "DbaName": this.app.business.dba,
+                "AdditionalLocations": this.getAdditionalLocationList()
+            }]
+        };
 
         console.log("additionalInformationRequestData", JSON.stringify(additionalInformationRequestData, null, 4));
 
@@ -350,7 +371,8 @@ module.exports = class AcuityWC extends Integration {
                     if (amtrustWCQuestionIds.hasOwnProperty(insurerQuestionId)) {
                         const amtrustQuestionIdCodeList = amtrustWCQuestionIds[insurerQuestionId];
                         for (const amtrustQuestionId of amtrustQuestionIdCodeList) {
-                            if (amtrustQuestionId.code === requestClassCode.State + requestClassCode.ClassCode) {
+                            const existingQuestionRequestData = questionRequestData.find((qrd) => qrd.QuestionId === amtrustQuestionId.questionId);
+                            if (amtrustQuestionId.code === requestClassCode.State + requestClassCode.ClassCode && !existingQuestionRequestData) {
                                 questionRequestData.push({
                                     QuestionId: amtrustQuestionId.questionId,
                                     AnswerValue: answer
@@ -391,18 +413,10 @@ module.exports = class AcuityWC extends Integration {
             return this.client_error(`Could not find the quote ID in the response.`, __location);
         }
 
-        // Send the question request
-        if (questionRequestData.length > 0) {
-            const questionResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/questions-answers`, questionRequestData);
-            if (!questionResponse) {
-                return this.client_error(`The quote questions for quote ${quoteId} could not be submitted to the insurer.`, __location);
-            }
-            statusCode = this.getChildProperty(questionResponse, "StatusCode");
-            if (!statusCode || !successfulStatusCodes.includes(statusCode)) {
-                return this.client_error(`The quote questions for quote ${quoteId} could not be submitted to the insurer.`, __location, {statusCode: statusCode});
-            }
-            console.log("questionResponse", JSON.stringify(questionResponse, null, 4));
-        }
+        // Get the ***
+        // const endorsementsAvailable = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/endorsements/available`, questionRequestData);
+        // console.log("endorsementsAvailable", endorsementsAvailable);
+        // return null;
 
         // Send the additional information request
         const additionalInformationResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, `/api/v2/quotes/${quoteId}/additional-information`, additionalInformationRequestData);
@@ -414,6 +428,24 @@ module.exports = class AcuityWC extends Integration {
             return this.client_error(`The quote questions for quote ${quoteId} could not be submitted to the insurer.`, __location, {statusCode: statusCode});
         }
         console.log("additionalInformationResponse", JSON.stringify(additionalInformationResponse, null, 4));
+
+        // Get the required questions list to ensure we are submitting the correct questions
+        // const requiredQuestionsResponse = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/questions`, questionRequestData);
+        // console.log("requiredQuestionsResponse", requiredQuestionsResponse);
+
+        // Send the question request
+        if (questionRequestData.length > 0) {
+            const questionResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/questions-answers`, questionRequestData);
+            if (!questionResponse) {
+                return this.client_error(`The quote questions for quote ${quoteId} could not be submitted to the insurer.`, __location);
+            }
+            statusCode = this.getChildProperty(questionResponse, "StatusCode");
+            if (!statusCode || !successfulStatusCodes.includes(statusCode)) {
+                // return this.client_error(`The quote questions for quote ${quoteId} could not be submitted to the insurer.`, __location, {statusCode: statusCode});
+                this.log_warn(`The quote questions for quote ${quoteId} could not be submitted to the insurer.`, __location);
+            }
+            console.log("questionResponse", JSON.stringify(questionResponse, null, 4));
+        }
 
         // Get the quote information
         const quoteInformationResponse = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v2/quotes/${quoteId}`);
@@ -461,10 +493,7 @@ module.exports = class AcuityWC extends Integration {
                 }
                 return this.client_referred(quoteId, quoteLimits, quotePremium);
             case "Decline":
-                // There is no decline reason in their schema that I can see. The only declines I get are after the initial
-                // quote submission, not after additionalInformation or questions are sent. If we get here and get a decline,
-                // then I need to look at the response to see if they actually provide a decline reason. -SF
-                this.log_error("Notify Scott to look at this application to possibly extract a decline reason.", __location);
+                // There is no decline reason in their response
                 return this.client_declined("The insurer has declined to offer you coverage at this time");
             default:
                 break;
