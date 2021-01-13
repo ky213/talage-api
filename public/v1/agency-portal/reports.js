@@ -127,9 +127,9 @@ async function getReports(req, res, next) {
         funnel: `
         SELECT
         COUNT(DISTINCT a.id)  AS started,
-                SUM(IF(a.last_step >= 8  AND a.state > 12, 1, 0)) AS completed,
-                SUM((SELECT 1 FROM clw_talage_quotes AS q WHERE q.application = a.id AND a.last_step >= 8 AND a.state > 12 AND (q.bound = 1 OR q.status = 'bind_requested' OR q.api_result = 'quoted' OR q.api_result = 'referred_with_price') LIMIT 1)) AS quoted,
-                SUM((SELECT 1 FROM clw_talage_quotes AS q WHERE q.application = a.id AND a.last_step >= 8 AND a.state > 12 AND (q.bound = 1 OR q.status = 'bind_requested') LIMIT 1)) AS bound
+                SUM(IF(a.appStatusId > 10, 1, 0)) AS completed,
+                SUM(IF(a.appStatusId >= 40, 1, 0)) AS quoted,
+                SUM(IF(a.appStatusId >= 70, 1, 0)) AS bound
             FROM clw_talage_applications AS a
             
 				WHERE
@@ -202,7 +202,7 @@ async function getReports(req, res, next) {
 				INNER JOIN ${db.quoteName('#__applications', 'a')} ON ${db.quoteName('a.id')} = ${db.quoteName('q.application')}
 				WHERE
                     ${where} AND
-                    a.last_step > 8 AND   a.state > 12 
+                    a.appStatusId >= 40
 					AND ${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate} AND
                     (q.bound = 1 OR q.status = 'bind_requested' OR q.api_result = 'quoted' OR q.api_result = 'referred_with_price')
 				LIMIT 1;
