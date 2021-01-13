@@ -152,6 +152,7 @@ const ApplicationSchema = new Schema({
     mailingCity: {type: String, required: false},
     mailingState: {type: String, required: false},
     mailingZipcode: {type: String, required: false},
+    mailingSameAsPrimary: {type: Boolean, required: false, default: null},
     phone: {type: String, required: false},
     //primaryTerritory: {type: String, required: false},
     primaryState: {type: String, required: false},
