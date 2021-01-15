@@ -12,6 +12,7 @@ const moment = require('moment');
 //const {reject} = require('async');
 const validator = global.requireShared('./helpers/validator.js');
 const crypt = global.requireShared('./services/crypt.js');
+const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
 
 //const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
 
@@ -142,10 +143,6 @@ module.exports = class Business {
                     data2[property] = data2[property].trim();
                 }
                 switch (property) {
-                    case "industry_code":
-                        //database has it as int, downstream expects string.
-                        this.industry_code = data2.industry_code.toString();
-                        break;
                     case 'website':
                         this[property] = data2[property] ? data2[property].toLowerCase() : '';
                         break;
@@ -169,7 +166,17 @@ module.exports = class Business {
         this.name = applicationDocJSON.businessName;
         this.founded = moment(applicationDocJSON.founded);
         this.owners = applicationDocJSON.owners;
-        this.industry_code = data2.industry_code.toString();
+        this.industry_code = applicationDocJSON.industryCode.toString();
+        try{
+            const industryCodeBO = new IndustryCodeBO();
+            const industryCodeJson = await industryCodeBO.getById(applicationDocJSON.industryCode);
+            if(industryCodeJson){
+                this.industry_code_description = industryCodeJson.description;
+            }
+        }
+        catch(err){
+            log.error("Error getting industryCodeBO " + err + __location);
+        }
 
         this.owners_included = applicationDocJSON.ownersCovered;
         this.years_of_exp = applicationDocJSON.yearsOfExp;
