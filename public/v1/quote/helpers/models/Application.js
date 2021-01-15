@@ -946,7 +946,7 @@ module.exports = class Application {
 	 *
 	 * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
 	 */
-    async validate() {
+    validate() {
         return new Promise(async(fulfill, reject) => {
             // Agent
             try {
@@ -982,7 +982,7 @@ module.exports = class Application {
                             await this.agencyLocation.init();
                         } catch (e) {
                             log.error(`Error in this.agencyLocation.init(): ${e}. ` + __location);
-                            return reject(init_error);
+                            return reject(e);
                         }
 
                         // Try to get the insurers again
@@ -1010,35 +1010,35 @@ module.exports = class Application {
             try {
                 validateBusiness(this.applicationDocData);
             } catch (e) {
-                return reject(`Failed validating business: ${e}`);
+                return reject(new Error(`Failed validating business: ${e}`));
             }
 
             // Contacts (required)
             try {
                 validateContacts(this.applicationDocData);
             } catch (e) {
-                return reject(`Failed validating contacts: ${e}`);
+                return reject(new Error(`Failed validating contacts: ${e}`));
             }
 
             // Locations (required)
             try {
                 validateLocations(this.applicationDocData);
             } catch (e) {
-                return reject(`Failed validating locations: ${e}`);
+                return reject(new Error(`Failed validating locations: ${e}`));
             }
 
             // Claims (optional)
             try {
                 validateClaims(this.applicationDocData);
             } catch (e) {
-                return reject(`Failed validating claims: ${e}`);
+                return reject(new Error(`Failed validating claims: ${e}`));
             }
 
             // Activity Codes (required)
             try {
                 validateActivityCodes(this.applicationDocData);
             } catch (e) {
-                return reject(`Failed validating activity codes: ${e}`);
+                return reject(new Error(`Failed validating activity codes: ${e}`));
             }
 
             /**
@@ -1101,7 +1101,7 @@ module.exports = class Application {
             try {
                 validatePolicies(this.applicationDocData);
             } catch (e) {
-                return reject(`Failed validating policy: ${e}`);
+                return reject(new Error(`Failed validating policy: ${e}`));
             }
 
             // Validate all of the questions
