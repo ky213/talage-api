@@ -704,6 +704,7 @@ async function updateAgency(req, res, next) {
  *
  * @returns {void}
  */
+// TODO: DELETE ENDPOINT NEXT SPRINT
 async function postSocialMediaTags(req, res, next) {
 
 
@@ -760,6 +761,62 @@ async function postSocialMediaTags(req, res, next) {
 
 }
 
+/**
+ *
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function postSocialMediaInfo (req, res, next) {
+
+    // Check for data
+    if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0 && !req.body.id) {
+        log.warn('No data was received');
+        return next(serverHelper.requestError('No data was received'));
+    }
+
+    const agencies = await auth.getAgents(req).catch(function(e) {
+        log.error("unable to getAgents for user " + e + __location);
+    });
+
+    const id = parseInt(req.body.id, 10);
+
+    // Make sure this Agency Network has access to this Agency
+    if (!agencies.includes(id)) {
+        log.info('Forbidden: User is not authorized to update this agency');
+        return next(serverHelper.forbiddenError('You are not authorized to update this agency'));
+    }
+
+    const agency = new AgencyBO();
+    let agencyJSON = null;
+    try {
+        agencyJSON = await agency.getById(req.body.id);
+
+    }
+    catch (err) {
+        log.error(err + __location);
+    }
+
+    if(agencyJSON){
+
+        if (!agencyJSON.socialMediaTags) {
+            agencyJSON.socialMediaTags = [];
+        }
+        agencyJSON.socialMediaTags = req.body.socialMediaTags;
+        await agency.saveModel(agencyJSON).catch(function(err) {
+            log.error('Save Agency:',err, __location);
+        });
+        res.send(200, 'Social Media Tags Saved');
+    }
+    else{
+        res.send(404,'Not Found');
+    }
+    return next();
+
+}
 exports.registerEndpoint = (server, basePath) => {
     server.addDeleteAuth('Delete Agency', `${basePath}/agency`, deleteAgency, 'agencies', 'manage');
     server.addGetAuth('Get Agency', `${basePath}/agency`, getAgency, 'agencies', 'view');
@@ -767,5 +824,5 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPostAuth('Post Agency', `${basePath}/agency`, postAgency, 'agencies', 'manage');
     server.addPutAuth('Put Agency', `${basePath}/agency`, updateAgency, 'agencies', 'manage');
     server.addPostAuth('Post Agency', `${basePath}/agency/socialMediaTags`, postSocialMediaTags, 'agencies', 'manage');
-
+    server.addPostAuth('Post Social Media Tags', `${basePath}/agency/socialMediaInfo`, postSocialMediaInfo, 'agencies', 'manage');
 };
