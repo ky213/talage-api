@@ -777,19 +777,25 @@ async function postSocialMediaInfo (req, res, next) {
         log.warn('No data was received');
         return next(serverHelper.requestError('No data was received'));
     }
-    const agencies = await auth.getAgents(req).catch(function(e) {
-        log.error("unable to getAgents for user " + e + __location);
-    });
-    const id = parseInt(req.body.id, 10);
-    // Make sure this Agency Network has access to this Agency
-    if (!agencies.includes(id)) {
-        log.info('Forbidden: User is not authorized to update this agency');
-        return next(serverHelper.forbiddenError('You are not authorized to update this agency'));
+    let id = -1;
+    if(req.authentication.agencyNetwork){
+        const agencies = await auth.getAgents(req).catch(function(e) {
+            log.error("unable to getAgents for user " + e + __location);
+        });
+
+        id = parseInt(req.body.id, 10);
+        // Make sure this Agency Network has access to this Agency
+        if (!agencies.includes(id)) {
+            log.info('Forbidden: User is not authorized to update this agency');
+            return next(serverHelper.forbiddenError('You are not authorized to update this agency'));
+        }
+    }else {
+        id = req.authentication.agents[0];
     }
     const agency = new AgencyBO();
     let agencyJSON = null;
     try {
-        agencyJSON = await agency.getById(req.body.id);
+        agencyJSON = await agency.getById(id);
 
     }catch (err) {
         log.error(err + __location);
