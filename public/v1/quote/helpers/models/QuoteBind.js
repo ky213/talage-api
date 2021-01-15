@@ -72,7 +72,7 @@ module.exports = class QuoteBind{
         if(!statusWithinBindingRange){
             // If this was a price indication, let's send a Slack message
             if(this.quoteDoc.apiResult === 'referred_with_price'){
-                this.send_slack_notification('indication');
+                await this.send_slack_notification('indication');
             }
 
             // Return an error
@@ -80,7 +80,7 @@ module.exports = class QuoteBind{
             throw new Error(`Quote ${this.quoteDoc.quoteId} is not eligible for binding with status ${this.quoteDoc.aggregatedStatus}`);
         }
 
-        this.send_slack_notification('requested');
+        await this.send_slack_notification('requested');
         return "NotBound";
     }
 
@@ -190,12 +190,12 @@ module.exports = class QuoteBind{
 	 * @param {string} type - The type of message to send (indication, referred, requested, or bound)
 	 * @return {void}
 	 */
-    send_slack_notification(type){
+    async send_slack_notification(type){
 
         // Only send a Slack notification if the agent is Talage or if Agency is marked to notify Talage (channel partners)
         //Determine if notifyTalage is enabled for this AgencyLocation Insurer.
         const agencyLocationBO = new AgencyLocationBO()
-        const notifiyTalage = agencyLocationBO.shouldNotifyTalage(this.applicationDoc.agencyLocationId, this.insurer.id);
+        const notifiyTalage = await agencyLocationBO.shouldNotifyTalage(this.applicationDoc.agencyLocationId, this.insurer.id);
         // notifyTalage force a hard match on true. in case something beside a boolan got in there
         if(this.applicationDoc.agencyId <= 2 || notifiyTalage === true){
             // Build out the 'attachment' for the Slack message
