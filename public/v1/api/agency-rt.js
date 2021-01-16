@@ -385,8 +385,8 @@ async function getAgencyLandingPage(req, res, next) {
         }
     }
 
-    // console.log("----agencyJson----");
-    // console.log(agencyJson);
+    console.log("----agencyJson----");
+    console.log(agencyJson);
 
     let landingPageJson = null;
     const agencyLandingPageBO = new AgencyLandingPageBO();
@@ -403,8 +403,8 @@ async function getAgencyLandingPage(req, res, next) {
         return null;
     }
 
-    // console.log("----landingPageJson----");
-    // console.log(landingPageJson);
+    console.log("----landingPageJson----");
+    console.log(landingPageJson);
 
     let agencyNetworkJson = null;
     const agencyNetworkBO = new AgencyNetworkBO();
@@ -418,28 +418,34 @@ async function getAgencyLandingPage(req, res, next) {
         return null;
     }
 
-    // console.log("----agencyNetworkJson----");
-    // console.log(agencyNetworkJson);
+    console.log("----agencyNetworkJson----");
+    console.log(agencyNetworkJson);
 
-    const landingPageCont = agencyNetworkJson.landing_page_content;
+    const landingPageContent = agencyNetworkJson.landing_page_content;
 
     // TODO: POPULATE DEFAULT WH VALUES IF NONE ARE PRESENT
     // TODO: We need a pattern here for replacing outgoing text.
-    if(landingPageCont && landingPageCont.faq && landingPageCont.faq.length > 0){
-        landingPageCont.faq = landingPageCont.faq.map(faq => ({
+    if(landingPageContent && landingPageContent.faq && landingPageContent.faq.length > 0){
+        landingPageContent.faq = landingPageContent.faq.map(faq => ({
             question: replaceAgencyValues(faq.question, agencyJson),
             answer: replaceAgencyValues(faq.answer, agencyJson)
         }));
     }
-    landingPageCont.workflow.section1Content = replaceAgencyValues(landingPageCont.workflow.section1Content, agencyJson);
-    landingPageCont.workflow.section2Content = replaceAgencyValues(landingPageCont.workflow.section2Content, agencyJson);
-    landingPageCont.workflow.section3Content = replaceAgencyValues(landingPageCont.workflow.section3Content, agencyJson);
+    landingPageContent.workflow.section1Content = replaceAgencyValues(landingPageContent.workflow.section1Content, agencyJson);
+    landingPageContent.workflow.section2Content = replaceAgencyValues(landingPageContent.workflow.section2Content, agencyJson);
+    landingPageContent.workflow.section3Content = replaceAgencyValues(landingPageContent.workflow.section3Content, agencyJson);
 
     // grab what we need (some optional) from what we've retrieved
+    // TODO: get correct email, it should be from somewhere else
+    // TODO: get locations and addresses (primary address for landing page)
     const landingPage = {
         banner: landingPageJson.banner,
         showIntroText: landingPageJson.showIntroText,
-        ...landingPageCont
+        wholesale: agencyJson.wholesale,
+        doNotShowEmailAddress: agencyJson.donotShowEmailAddress,
+        email: agencyJson.donotShowEmailAddress ? null : agencyJson.email,
+        phone: agencyJson.phone,
+        ...landingPageContent
     };
 
     res.send(200, landingPage);
@@ -456,6 +462,7 @@ async function getAgencyLandingPage(req, res, next) {
  * @returns {void}
  */
 function replaceAgencyValues(strValue, agency) {
+    // TODO: fill in other required replacements
     return strValue.replace(/{{Agency}}/g, agency.name).replace(/{{Agency Phone}}/g, formatPhone(agency.phone));
 }
 
@@ -528,6 +535,7 @@ async function getAgencyMetadata(req, res, next) {
     }
 
     res.send(200, {
+        wholesale: agencyJson.wholesale,
         metaName: agencyJson.name,
         metaPhone: agencyJson.phone,
         metaCALicence: agencyJson.caLicenseNumber,
