@@ -458,11 +458,6 @@ async function getAgencySocialMetadata(req, res, next) {
         res.send(400, {error: 'Could not process agency data'});
         return next();
     }
-
-    let socialMediaList = [];
-    if(agencyJson.socialMediaTags && agencyJson.socialMediaTags.length > 0){
-        socialMediaList = agencyJson.socialMediaTags;
-    }
         
     try {
 
@@ -473,6 +468,11 @@ async function getAgencySocialMetadata(req, res, next) {
     }
     catch(err){
         log.error(`Getting Facebook Pixel ${err} ${__location}`);
+    }
+    let socialMediaList = [];
+    
+    if(agencyJson.socialMediaTags && agencyJson.socialMediaTags.length > 0){
+        socialMediaList = agencyJson.socialMediaTags;
     }
 
     if(!agencyJson.landingPageContent){
