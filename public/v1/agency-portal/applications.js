@@ -312,10 +312,10 @@ async function getApplications(req, res, next){
             // eslint-disable-next-line prefer-const
             let agencyQuery = {
                 doNotReport: false,
-                agency_network: agencyNetwork
+                agencyNetworkId: agencyNetwork
             }
             if(req.params.searchText){
-                agencyQuery.name = req.params.searchText
+                agencyQuery.name = req.params.searchText + "%"
             }
             const agencyList = await agencyBO.getList(agencyQuery).catch(function(err) {
                 log.error("Agency List load error " + err + __location);
