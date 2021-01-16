@@ -151,6 +151,10 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'administration', 'user-group-rt');
     registerEndpoint(server, 'administration', 'mapping-rt');
 
+    if(global.settings.ENABLE_GENERIC_API === "YES"){
+        registerEndpoint(server, 'api', 'agency-rt');
+    }
+
     // Server.AddGet('Uptime Check', '/', GetUptime);
     // AWS load balancers and pingdom send /uptime
     server.addGet('Uptime Check', '/uptime', getUptime);
