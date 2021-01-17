@@ -277,7 +277,7 @@ async function getApplications(req, res, next){
 
     //Fix bad dates coming in.
     if(!req.params.startDate || (req.params.startDate && req.params.startDate.startsWith('T00:00:00.000'))){
-        req.params.startDate = moment('2020-01-01').toISOString();
+        req.params.startDate = moment('2017-01-01').toISOString();
     }
 
     if(!req.params.endDate || (req.params.endDate && req.params.endDate.startsWith('T23:59:59.999'))){
