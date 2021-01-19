@@ -6,7 +6,7 @@
 
 'use strict';
 
-const crypt = global.requireShared('./services/crypt.js');
+// const crypt = global.requireShared('./services/crypt.js');
 //const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
@@ -175,35 +175,6 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
         return null;
     }
 
-    //color scheme.
-    try{
-        if(agencyWebInfo.colorSchemeId){
-            const colorSchemeBO = new ColorSchemeBO();
-            const colorSchemeJSON = await colorSchemeBO.getById(agencyWebInfo.colorSchemeId);
-            const cssPropToAdd = {
-                primary: "primary",
-                primary_accent: "primaryAccent",
-                secondary: "secondary",
-                secondary_accent: "secondaryAccent",
-                tertiary: "tertiary",
-                tertiary_accent: "tertiaryAccent"
-            }
-
-            for (const property in cssPropToAdd) {
-                if(colorSchemeJSON[property]){
-                    agencyWebInfo[cssPropToAdd[property]] = colorSchemeJSON[property];
-                    //new style
-                    agencyWebInfo[property] = colorSchemeJSON[property];
-                }
-            }
-
-        }
-    }
-    catch(err){
-        log.error(`Error retrieving ColorScheme in quote engine agency ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}): ${err} ${__location}`);
-        return null;
-    }
-
     try{
         if(agencyWebInfo.industryCodeCategoryId){
             const industryCodeCategoryBO = new IndustryCodeCategoryBO();
@@ -360,94 +331,112 @@ async function getAgencyLandingPage(req, res, next) {
         agencySlug, pageSlug
     } = parseQuoteURL(req.query.url);
 
+    const agency = await getAgencyFromSlugs(agencySlug, pageSlug);
     // first try to get the agencyJson with the given slug
-    const agencyBO = new AgencyBO();
-    let agencyJson = null;
-    if (agencySlug) {
-        try {
-            agencyJson = await agencyBO.getbySlug(agencySlug);
-        }
-        catch (err) {
-            log.error(`Error retrieving Agency in quote engine agency ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}) url ${req.query.url}: ${err} ${__location}`);
-        }
+    // const agencyBO = new AgencyBO();
+    // let agencyJson = null;
+    // if (agencySlug) {
+    //     try {
+    //         agencyJson = await agencyBO.getbySlug(agencySlug);
+    //     }
+    //     catch (err) {
+    //         log.error(`Error retrieving Agency in quote engine agency ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}) url ${req.query.url}: ${err} ${__location}`);
+    //     }
 
-        if (agencyJson === null && global.settings.DEFAULT_QUOTE_AGENCY_SLUG) {
-            agencyJson = await agencyBO.getbySlug(agencySlug);
-        }
+    //     if (agencyJson === null && global.settings.DEFAULT_QUOTE_AGENCY_SLUG) {
+    //         agencyJson = await agencyBO.getbySlug(agencySlug);
+    //     }
 
-        if (agencyJson === null) {
-            agencyJson = await agencyBO.getbySlug('talage');
-        }
+    //     if (agencyJson === null) {
+    //         agencyJson = await agencyBO.getbySlug('talage');
+    //     }
 
-        if(!agencyJson){
-            log.error(`No agency for url ${req.query.url}` + __location);
-            return null;
-        }
+    //     if(!agencyJson){
+    //         log.error(`No agency for url ${req.query.url}` + __location);
+    //         return null;
+    //     }
+    // }
+
+    // console.log("----agencyJson----");
+    // console.log(agencyJson);
+
+    // let landingPageJson = null;
+    // const agencyLandingPageBO = new AgencyLandingPageBO();
+    // try{
+    //     let getPrimary = false;
+    //     if(!pageSlug){
+    //         getPrimary = true;
+    //     }
+
+    //     landingPageJson = await agencyLandingPageBO.getbySlug(agencyJson.id, pageSlug, getPrimary);
+    // }
+    // catch (err) {
+    //     log.error(`Error retrieving Agency Landing page in api agency ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}) url ${req.query.url}: ${err} ${__location}`);
+    //     return null;
+    // }
+
+    // console.log("----landingPageJson----");
+    // console.log(landingPageJson);
+
+    // let agencyNetworkJson = null;
+    // const agencyNetworkBO = new AgencyNetworkBO();
+    // try{
+    //     agencyNetworkJson = await agencyNetworkBO.getById(agencyJson.agencyNetworkId).catch(function(err){
+    //         log.error("Get AgencyNetwork Error " + err + __location);
+    //     });
+    // }
+    // catch (err) {
+    //     log.error(`Error retrieving AgencyNetwork in api agency ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}) url ${req.query.url}: ${err} ${__location}`);
+    //     return null;
+    // }
+
+    // console.log("----agencyNetworkJson----");
+    // console.log(agencyNetworkJson);
+
+    // const landingPageContent = agencyNetworkJson.landing_page_content;
+
+    // // TODO: POPULATE DEFAULT WH VALUES IF NONE ARE PRESENT
+    // // TODO: We need a pattern here for replacing outgoing text.
+    // if(landingPageContent && landingPageContent.faq && landingPageContent.faq.length > 0){
+    //     landingPageContent.faq = landingPageContent.faq.map(faq => ({
+    //         question: replaceAgencyValues(faq.question, agencyJson),
+    //         answer: replaceAgencyValues(faq.answer, agencyJson)
+    //     }));
+    // }
+    // landingPageContent.workflow.section1Content = replaceAgencyValues(landingPageContent.workflow.section1Content, agencyJson);
+    // landingPageContent.workflow.section2Content = replaceAgencyValues(landingPageContent.workflow.section2Content, agencyJson);
+    // landingPageContent.workflow.section3Content = replaceAgencyValues(landingPageContent.workflow.section3Content, agencyJson);
+
+    // // grab what we need (some optional) from what we've retrieved
+    // // TODO: get correct email, it should be from somewhere else
+    // // TODO: get locations and addresses (primary address for landing page)
+
+    // agency.landingPageContent.fo
+    console.log("----agency----");
+    console.log(agency);
+
+    // for (const [key, value] of Object.entries(agency.landingPageContent)){
+    replaceAgencyValues(agency.landingPageContent, agency);
+    let primaryLocation = agency.locations.find(loc => loc.primary);
+    if(!primaryLocation && agency.locations.length > 0){
+        primaryLocation = agency.locations[0];
     }
 
-    console.log("----agencyJson----");
-    console.log(agencyJson);
 
-    let landingPageJson = null;
-    const agencyLandingPageBO = new AgencyLandingPageBO();
-    try{
-        let getPrimary = false;
-        if(!pageSlug){
-            getPrimary = true;
-        }
-
-        landingPageJson = await agencyLandingPageBO.getbySlug(agencyJson.id, pageSlug, getPrimary);
-    }
-    catch (err) {
-        log.error(`Error retrieving Agency Landing page in api agency ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}) url ${req.query.url}: ${err} ${__location}`);
-        return null;
-    }
-
-    console.log("----landingPageJson----");
-    console.log(landingPageJson);
-
-    let agencyNetworkJson = null;
-    const agencyNetworkBO = new AgencyNetworkBO();
-    try{
-        agencyNetworkJson = await agencyNetworkBO.getById(agencyJson.agencyNetworkId).catch(function(err){
-            log.error("Get AgencyNetwork Error " + err + __location);
-        });
-    }
-    catch (err) {
-        log.error(`Error retrieving AgencyNetwork in api agency ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}) url ${req.query.url}: ${err} ${__location}`);
-        return null;
-    }
-
-    console.log("----agencyNetworkJson----");
-    console.log(agencyNetworkJson);
-
-    const landingPageContent = agencyNetworkJson.landing_page_content;
-
-    // TODO: POPULATE DEFAULT WH VALUES IF NONE ARE PRESENT
-    // TODO: We need a pattern here for replacing outgoing text.
-    if(landingPageContent && landingPageContent.faq && landingPageContent.faq.length > 0){
-        landingPageContent.faq = landingPageContent.faq.map(faq => ({
-            question: replaceAgencyValues(faq.question, agencyJson),
-            answer: replaceAgencyValues(faq.answer, agencyJson)
-        }));
-    }
-    landingPageContent.workflow.section1Content = replaceAgencyValues(landingPageContent.workflow.section1Content, agencyJson);
-    landingPageContent.workflow.section2Content = replaceAgencyValues(landingPageContent.workflow.section2Content, agencyJson);
-    landingPageContent.workflow.section3Content = replaceAgencyValues(landingPageContent.workflow.section3Content, agencyJson);
-
-    // grab what we need (some optional) from what we've retrieved
-    // TODO: get correct email, it should be from somewhere else
-    // TODO: get locations and addresses (primary address for landing page)
     const landingPage = {
-        banner: landingPageJson.banner,
-        showIntroText: landingPageJson.showIntroText,
-        wholesale: agencyJson.wholesale,
-        doNotShowEmailAddress: agencyJson.donotShowEmailAddress,
-        email: agencyJson.donotShowEmailAddress ? null : agencyJson.email,
-        phone: agencyJson.phone,
-        ...landingPageContent
+        banner: agency.banner,
+        name: agency.name,
+        showIntroText: agency.showIntroText,
+        about: agency.about,
+        wholesale: agency.wholesale,
+        email: primaryLocation ? primaryLocation.email : null,
+        phone: primaryLocation ? primaryLocation.phone : null,
+        address: primaryLocation ? primaryLocation.address : null,
+        addressCityState: primaryLocation ? `${primaryLocation.city}, ${primaryLocation.territory} ${primaryLocation.zip}` : null,
+        ...agency.landingPageContent
     };
-
+    console.log("----agency AGAIN----");
+    console.log(agency);
     res.send(200, landingPage);
     return next();
 }
@@ -455,15 +444,27 @@ async function getAgencyLandingPage(req, res, next) {
 /**
  * Replaces values in a string with agency values
  *
- * @param {string} strValue - String to replace values on
+ * @param {object|string} toReplace - String to replace values on or an object containing those strings
  * @param {object} agency - The agency object
  * @param {string} - The string with replaced values
  *
  * @returns {void}
  */
-function replaceAgencyValues(strValue, agency) {
+function replaceAgencyValues(toReplace, agency) {
     // TODO: fill in other required replacements
-    return strValue.replace(/{{Agency}}/g, agency.name).replace(/{{Agency Phone}}/g, formatPhone(agency.phone));
+    if(typeof toReplace === "string"){
+        return toReplace.replace(/{{Agency}}/g, agency.name).replace(/{{Agency Phone}}/g, formatPhone(agency.phone));
+    }
+    else{
+        for (const [key, value] of Object.entries(toReplace)){
+            if(typeof toReplace[key] === "string"){
+                toReplace[key] = replaceAgencyValues(value, agency);
+            }
+            else{
+                replaceAgencyValues(value, agency);
+            }
+        }
+    }
 }
 
 /**
