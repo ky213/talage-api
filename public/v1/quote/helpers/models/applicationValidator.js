@@ -4,8 +4,7 @@
 
 'use strict';
 
-const validator = require('./validator.js');
-const serverHelper = require('../../server.js');
+const validator = global.requireShared('./helpers/validator');
 const moment = require('moment');
 
 /**
