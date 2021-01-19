@@ -2524,7 +2524,10 @@ module.exports = class ApplicationModel {
         let policyTypeArray = [];
         if(applicationDocDB.policies && applicationDocDB.policies.length > 0){
             for(let i = 0; i < applicationDocDB.policies.length; i++){
-                policyTypeArray.push(applicationDocDB.policies[i].policyType);
+                policyTypeArray.push({
+                    type: applicationDocDB.policies[i].policyType,
+                    effectiveDate: applicationDocDB.policies[i].effectiveDate
+                });
             }
         }
         else {
@@ -2639,12 +2642,27 @@ module.exports = class ApplicationModel {
             throw new Error('An error occured while retrieving application questions' + __location);
         }
 
+        // Set the policy type array from the application doc
+        policyTypeArray = [];
+        if(applicationDoc && applicationDoc.policies && applicationDoc.policies.length > 0){
+            for(let i = 0; i < applicationDoc.policies.length; i++){
+                policyTypeArray.push({
+                    type: applicationDoc.policies[i].policyType,
+                    effectiveDate: applicationDoc.policies[i].effectiveDate
+                });
+            }
+        }
+        else {
+            log.error(`Missing policies list for ${applicationDoc.uuid} Location '${applicationDoc.agencyLocationId}'` + __location);
+            throw new Error('An error occured while retrieving application questions' + __location);
+        }
+
         log.debug("in AppBO.GetQuestionsForFrontend")
         //Call questions.......
         const questionSvc = global.requireShared('./services/questionsvc.js');
         let getQuestionsResult = null;
         try {
-            getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden);
+            getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, null, return_hidden);
         }
         catch (err) {
             log.error("Error call in question service " + err + __location);

@@ -288,7 +288,7 @@ async function GetResources(req, res, next){
 async function CheckZip(req, res, next){
     const responseObj = {};
     if(req.body && req.body.zip){
-        let rejected = false;
+        const rejected = false;
         //make sure we have a valid zip code
         const zipCodeBO = new ZipCodeBO();
         let error = null;
@@ -329,7 +329,7 @@ async function CheckZip(req, res, next){
             responseObj['message'] = 'The zip code you entered is invalid.';
             res.send(404, responseObj);
             return next(serverHelper.requestError('The zip code you entered is invalid.'));
-            }
+        }
 
         // log.debug("zipCodeBO: " + JSON.stringify(zipCodeBO.cleanJSON()))
     }

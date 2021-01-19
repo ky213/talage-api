@@ -338,6 +338,24 @@ const properties = {
         "rules": null,
         "type": "string",
         "dbType": "varchar(150)"
+    },
+    "effectiveDate": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "date",
+        "dbType": "date"
+    },
+    "expirationDate": {
+        "default": null,
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "date",
+        "dbType": "date"
     }
 }
 

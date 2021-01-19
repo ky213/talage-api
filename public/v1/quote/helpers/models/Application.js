@@ -804,7 +804,10 @@ module.exports = class Application {
             const policy_promises = [];
             this.policies.forEach(function(policy) {
                 policy_promises.push(policy.validate());
-                policy_types.push(policy.type);
+                policy_types.push({
+                    type: policy.type,
+                    effectiveDate: policy.effective_date
+                });
             });
             await Promise.all(policy_promises).catch(function(error) {
                 log.error('Policy Validation error. ' + error + __location);
