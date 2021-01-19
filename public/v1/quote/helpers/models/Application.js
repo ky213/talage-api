@@ -1035,7 +1035,7 @@ module.exports = class Application {
             }
 
             // Activity Codes (required)
-            if (this.hap_policy_type("WC")) {
+            if (this.has_policy_type("WC")) {
                 try {
                     validateActivityCodes(this.applicationDocData);
                 } catch (e) {
