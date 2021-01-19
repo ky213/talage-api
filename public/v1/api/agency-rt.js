@@ -476,7 +476,6 @@ function replaceAgencyValues(strValue, agency) {
  * @returns {void}
  */
 async function getAgencyMetadata(req, res, next) {
-
     if (!req.query.url) {
         res.send(400, {error: 'Missing URL'});
         return next();
@@ -499,21 +498,10 @@ async function getAgencyMetadata(req, res, next) {
         log.error(`Error retrieving Agency in quote engine agency ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}) url ${req.query.url}: ${err} ${__location}`);
         return null;
     }
-    // TODO: CONFIRM CORRECT BRANCHING ASSUMPTION!!!!!
-    // If we cant find info on the agency we will default to Talage 
     if(!agencyJson){
         log.warn(`Could not retrieve Agency quote engine agencySlug ${agencySlug} (${pageSlug ? 'page ' + pageSlug : 'no page'}) url ${req.query.url}: ${__location}`);
-        try {
-            agencyJson = await agencyBO.getbySlug('talage');
-        } catch (error) {
-            log.error(`Error retrieving Agency in quote engine agency Talage (${pageSlug ? 'page ' + pageSlug : 'no page'}) url ${req.query.url}: ${err} ${__location}`);
-            return null;
-        }
-        if(!agencyJson){
-            log.error(`Could not retrieve Agency information for Talage.` + __location);
-            res.send(404, {error: 'Could not retrieve agency'});
-            return next();
-        }
+        res.send(404, {error: 'Could not retrieve agency'});
+        return next();
     }
 
     // load css
