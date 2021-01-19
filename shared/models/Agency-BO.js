@@ -397,6 +397,10 @@ module.exports = class AgencyBO {
                 }
                 delete queryJSON.count;
             }
+            if(queryJSON.agency_network){
+                query.agencyNetworkId = queryJSON.agency_network;
+                delete queryJSON.systemId
+            }
 
             if(queryJSON.systemId && Array.isArray(queryJSON.systemId)){
                 query.systemId = {$in: queryJSON.systemId};
