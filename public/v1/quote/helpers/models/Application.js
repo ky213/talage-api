@@ -1035,10 +1035,14 @@ module.exports = class Application {
             }
 
             // Activity Codes (required)
-            try {
-                validateActivityCodes(this.applicationDocData);
-            } catch (e) {
-                return reject(new Error(`Failed validating activity codes: ${e}`));
+            if (this.has_policy_type("WC")) {
+                try {
+                    validateActivityCodes(this.applicationDocData);
+                } catch (e) {
+                    return reject(new Error(`Failed validating activity codes: ${e}`));
+                }
+            } else {
+                log.debug('No WC policy type found, skipping Activity Code validation...');
             }
 
             /**
