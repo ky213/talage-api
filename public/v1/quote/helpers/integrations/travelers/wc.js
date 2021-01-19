@@ -180,7 +180,8 @@ module.exports = class AcuityWC extends Integration {
             for (const activityCode of location.activity_codes) {
                 const ncciCode = await this.get_national_ncci_code_from_activity_code(location.territory, activityCode.id);
                 if (!ncciCode) {
-                    return this.client_error(`Could not determine the NCCI code for activity code ${activityCode.id} in ${location.territory}.`, __location);
+                    this.log_warn(`Missing NCCI class code mapping: activityCode=${activityCode.id} territory=${location.territory}`, __location);
+                    return this.client_error(`Insurer activity class codes were not found for all activities in the application.`, __location);
                 }
                 activityCode.ncciCode = ncciCode;
             }
@@ -324,7 +325,8 @@ module.exports = class AcuityWC extends Integration {
             return this.client_error(`Could not locate the quote status in the response.`, __location);
         }
         // Extract all optional and required information
-        const quoteStatusReasons = this.getChildProperty(response, "quoteStatusReason") || [];
+        const quoteStatusReasonList = this.getChildProperty(response, "quoteStatusReason") || [];
+        const debugMessageList = this.getChildProperty(response, "debugMessages") || [];
         const quoteId = this.getChildProperty(response, "eQuoteId");
         const premium = this.getChildProperty(response, "totalAnnualPremiumSurchargeTaxAmount");
         const validationDeepLink = this.getChildProperty(response, "validationDeeplink");
@@ -345,25 +347,21 @@ module.exports = class AcuityWC extends Integration {
             }
         }
 
-        // Log debug messages
-        const debugMessageList = this.getChildProperty(response, "debugMessages");
-        for (const debugMessage of debugMessageList) {
-            this.log_debug(`${debugMessage.code}: ${debugMessage.description}`);
+        // Generate a quote status reason message from quoteStatusReason and debugMessages
+        let quoteStatusReasonMessage = '';
+        for (const quoteStatusReason of quoteStatusReasonList) {
+            quoteStatusReasonMessage += `${quoteStatusReasonMessage.length ? ", " : ""}${quoteStatusReason.description} (${quoteStatusReason.code})`;
         }
+        for (const debugMessage of debugMessageList) {
+            quoteStatusReasonMessage += `${quoteStatusReasonMessage.length ? ", " : ""}${debugMessage.description} (${debugMessage.code})`;
+        }
+
         // Handle the status
         switch (quoteStatus) {
             case "DECLINE":
-                let declineReason = '';
-                for (const quoteStatusReason of quoteStatusReasons) {
-                    declineReason += `${declineReason.length ? ", " : ""}${quoteStatusReason.description} (${quoteStatusReason.code})`;
-                }
-                return this.client_declined(declineReason);
+                return this.client_declined(quoteStatusReasonMessage);
             case "UNQUOTED":
-                let errorReason = '';
-                for (const quoteStatusReason of quoteStatusReasons) {
-                    errorReason += `${errorReason.length ? ", " : ""}${quoteStatusReason.description} (${quoteStatusReason.code})`;
-                }
-                return this.client_declined('The insurer reported: ' + errorReason);
+                return this.client_declined("The insurer reported: " + quoteStatusReasonMessage);
             case "AVAILABLE":
                 if (validationDeepLink) {
                     // Add the deeplink to the quote
