@@ -28,7 +28,7 @@ const {
     validateLocations,
     validateClaims,
     validateActivityCodes
-} = global.requireShared('./helpers/applicationValidator.js');
+} = require('./applicationValidator.js');
 const helper = global.requireShared('./helpers/helper.js');
 
 const AgencyBO = global.requireShared('models/Agency-BO.js');
@@ -145,7 +145,12 @@ module.exports = class Application {
         }
         
         // TODO: Eventually, this will need to take place on the applicationDocData, not the model data
-        await this.translate();
+        try {
+            await this.translate();
+        } catch (e) {
+            log.error(`Error translating application: ${e}`);
+            throw e;
+        }
     }
 
     /** 
@@ -203,12 +208,12 @@ module.exports = class Application {
 
             // This is required
             if (this.business.unincorporated_association === null) {
-                return reject(new Error('Missing required field: unincorporated_association'));
+                throw new Error('Missing required field: unincorporated_association');
             }
 
             // Validate
             if (!validator.boolean(this.business.unincorporated_association)) {
-                return reject(new Error('Invalid value for unincorporated_association, please use a boolean value'));
+                throw new Error('Invalid value for unincorporated_association, please use a boolean value');
             }
 
             // If value is valid, convert to boolean
@@ -410,7 +415,7 @@ module.exports = class Application {
                         try {
                             q.set_answer(user_answer);
                         } catch (e) {
-                            return reject(e);
+                            throw e;
                         }
                     }
                 }
