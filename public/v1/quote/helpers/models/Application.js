@@ -683,7 +683,7 @@ module.exports = class Application {
                                 let slug = '';
                                 try{
                                     // If agency wants to send acord, send acord
-                                    if (agency_location_insurer_data.useAcord === true && insurer.policy_type_details[policy.type].acord_support === 1) {
+                                    if (agency_location_insurer_data.useAcord === true && insurer.policy_type_details[policy.type].acord_support === true) {
                                         slug = 'acord';
                                     }
                                     else if (insurer.policy_type_details[policy.type.toUpperCase()].api_support) {
