@@ -1,7 +1,11 @@
+/* eslint-disable space-before-function-paren */
+/* eslint-disable brace-style */
+/* eslint-disable object-curly-spacing */
+/* eslint-disable multiline-ternary */
 /* eslint-disable array-element-newline */
 /* eslint-disable prefer-const */
 /**
- * Handles all tasks related to managing quotes
+ * Handles all tasks related to agency data
  */
 
 "use strict";
