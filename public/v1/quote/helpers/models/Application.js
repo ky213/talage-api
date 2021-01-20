@@ -196,7 +196,6 @@ module.exports = class Application {
 
         // Adjust phone to remove formatting.  (not should be a integration issue, not app wide.)
         this.business.phone = this.business.phone.replace(/[^0-9]/ig, '');
-        log.debug("this.business.phone: " + this.business.phone);
         //this.business.phone = parseInt(this.business.phone, 10);
         //business contact cleanup
         if(this.business.contacts && this.business.contacts.length > 0){
