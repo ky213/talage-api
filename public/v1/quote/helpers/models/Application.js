@@ -44,6 +44,7 @@ module.exports = class Application {
         this.policies = [];
         this.questions = {};
         this.applicationDocData = {};
+        this.quoteInsurerId = null;
     }
 
     /**
@@ -55,9 +56,14 @@ module.exports = class Application {
 	 */
     async load(data, forceQuoting = false) {
         log.debug('Loading data into Application' + __location);
+
         // ID
         //TODO detect ID type integer or uuid
         this.id = parseInt(data.id, 10);
+
+        if(data.insurerId){
+            this.quoteInsurerId = parseInt(data.insurerId,10);
+        }
 
         // load application from database.
         //let error = null
@@ -164,6 +170,7 @@ module.exports = class Application {
      * NOTE: We may want to put this logic into a new load() method on Application.model.js, or we can keep it being called 
      *      from Application.js load() function.
     */
+
     async translate() {
         /************** BUSINESS DATA TRANSLATION ***************/
 
@@ -482,12 +489,16 @@ module.exports = class Application {
                         if (desired_insurers.indexOf(insurer) === -1) {
                             // Check that the agent supports this insurer for this policy type
                             let match_found = false;
+                            //log.debug("this.agencyLocation.insurers " + JSON.stringify(this.agencyLocation.insurers))
                             for (const agent_insurer in this.agencyLocation.insurers) {
                                 if (Object.prototype.hasOwnProperty.call(this.agencyLocation.insurers, agent_insurer)) {
                                     // Find the matching insurer
-                                    if (this.agencyLocation.insurers[agent_insurer].id === parseInt(agent_insurer, 10)) {
+                                    //if (this.agencyLocation.insurers[agent_insurer].id === parseInt(agent_insurer, 10)) {
+                                    //log.debug("this.agencyLocation.insurers[agent_insurer] " + JSON.stringify(this.agencyLocation.insurers[agent_insurer]))
+                                    //log.debug("insurer " + JSON.stringify(insurer) + __location)
+                                    if (this.agencyLocation.insurers[agent_insurer].id === insurer.id) {
                                         // Check the policy type
-                                        if (this.agencyLocation.insurers[agent_insurer][policy.type.toLowerCase()] === 1) {
+                                        if (this.agencyLocation.insurers[agent_insurer][policy.type.toLowerCase()]) {
                                             match_found = true;
                                         }
                                     }
@@ -495,12 +506,17 @@ module.exports = class Application {
                             }
 
                             if (match_found) {
-                                desired_insurers.push(insurer);
+                                if(this.quoteInsurerId && this.quoteInsurerId > 0 && this.quoteInsurerId === insurer.id){
+                                    desired_insurers.push(insurer);
+                                }
+                                else if(!this.quoteInsurerId){
+                                    desired_insurers.push(insurer);
+                                }
                             }
                             else {
-                                log.info(`Agent does not support ${policy.type} policies through insurer ${insurer}`);
-                                reject(new Error('Agent does not support this request'));
-                                stop = true;
+                                log.warn(`Agent does not support ${policy.type} policies through insurer ${insurer}`);
+                                //reject(new Error('Agent does not support this request'));
+                                //stop = true;
                             }
                         }
                     });
@@ -522,13 +538,14 @@ module.exports = class Application {
                     }
                 });
                 if (some_unsupported) {
-                    log.info('Agent does not support one or more of the insurers requested.');
-                    reject(new Error('Agent does not support this request'));
-                    return;
+                    log.warn('Agent does not support one or more of the insurers requested.');
+                    //reject(new Error('Agent does not support this request'));
+                    //return;
                 }
             }
             else {
                 // Only use the insurers supported by this agent
+                log.debug("loading all AL insurers " + __location)
                 desired_insurers = Object.keys(this.agencyLocation.insurers);
             }
 
@@ -618,9 +635,13 @@ module.exports = class Application {
         this.policies.forEach((policy) => {
             // Generate quotes for each insurer for the given policy type
             this.insurers.forEach((insurer) => {
+                let quoteInsurer = true;
+                if(this.quoteInsurerId && this.quoteInsurerId > 0 && this.quoteInsurerId !== insurer.id){
+                    quoteInsurer = false;
+                }
                 // Only run quotes against requested insurers (if present)
                 // Check that the given policy type is enabled for this insurer
-                if (insurer.policy_types.indexOf(policy.type) >= 0) {
+                if (insurer.policy_types.indexOf(policy.type) >= 0 && quoteInsurer) {
 
                     // Get the agency_location_insurer data for this insurer from the agency location
                     //log.debug(JSON.stringify(this.agencyLocation.insurers[insurer.id]))
