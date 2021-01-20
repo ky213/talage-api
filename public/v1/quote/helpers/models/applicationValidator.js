@@ -224,25 +224,30 @@ const validateBusiness = async (applicationDocData) => {
      * Phone (required)
      * - Must be a valid 9 digit phone number
      */
-    if (applicationDocData.phone) {
+
+    //Contact[0].phone is the primary phone number.
+    if (applicationDocData.contacts && applicationDocData.contacts[0] && applicationDocData.contacts[0].phone) {
         // Check that it is valid
-        // if (!validator.phone(applicationDocData.phone)) {
-        //     throw new Error('The phone number you provided is not valid. Please try again.');
-        // }
+
+        if (!validator.phone(applicationDocData.contacts[0].phone)) {
+            //throw new Error('The phone number you provided is not valid. Please try again.');
+            log.warn(`Application ${applicationDocData.applicationId} invalid phone number.`)
+        }
 
         // Clean up the phone number for storage
-        if (typeof applicationDocData.phone === 'number') {
-            applicationDocData.phone = applicationDocData.phone.toString();
+        if (typeof applicationDocData.contacts[0].phone === 'number') {
+            applicationDocData.contacts[0].phone = applicationDocData.contacts[0].phone.toString();
         }
 
-        if (applicationDocData.phone.startsWith('+')) {
-            applicationDocData.phone = applicationDocData.phone.slice(1);
+        if (applicationDocData.contacts[0].phone.startsWith('+')) {
+            applicationDocData.contacts[0].phone = applicationDocData.contacts[0].phone.slice(1);
         }
 
-        if (applicationDocData.phone.startsWith('1')) {
-            applicationDocData.phone = applicationDocData.phone.slice(1);
+        if (applicationDocData.contacts[0].phone.startsWith('1')) {
+            applicationDocData.contacts[0].phone = applicationDocData.contacts[0].phone.slice(1);
         }
-    } else {
+    }
+    else {
         //throw new Error('Missing required field: phone');
         log.warn(`Application ${applicationDocData.applicationId} missing phone number.`)
     }
