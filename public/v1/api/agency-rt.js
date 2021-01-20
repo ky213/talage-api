@@ -543,10 +543,7 @@ async function getAgencyMetadata(req, res, next) {
     }
     try {
         const agencyNetworkBO = new AgencyNetworkBO();
-        // eslint-disable-next-line no-unused-vars
-        let error = null;
         const agencyNetworkJSON = await agencyNetworkBO.getById(agencyJson.agencyNetworkId).catch(function (err) {
-            error = err;
             log.error("Get AgencyNetwork Error " + err + __location);
         });
         if (agencyNetworkJSON && agencyNetworkJSON.landing_page_content) {
@@ -555,7 +552,6 @@ async function getAgencyMetadata(req, res, next) {
             //get from default AgencyNetwork
             log.debug(`AgencyNetwork ${agencyJson.agencyNetworkId} using default landingpage`);
             const agencyNetworkJSONDefault = await agencyNetworkBO.getById(1).catch(function (err) {
-                error = err;
                 log.error("Get AgencyNetwork 1 Error " + err + __location);
             });
 
