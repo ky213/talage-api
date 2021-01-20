@@ -10,16 +10,16 @@ const moment = require('moment');
 /**
  * Checks that the data supplied is valid - Rejection should be done inside the Insurer Integration files.
  *  since rules vary by insurer and policy type.
- *
+ * @param {string} applicationDocData - The applicationDocData
  * @returns {void}
 */
 
-const validateBusiness = async (applicationDocData) => {
-    
+const validateBusiness = async(applicationDocData) => {
+
     // Unincorporated Association (Required only for WC, in NH, and for LLCs and Corporations)
     if (
         applicationDocData.policies.find(policy => policy.policyType === "WC") &&
-        (applicationDocData.entityType === 'Corporation' || applicationDocData.entityType === 'Limited Liability Company') && 
+        (applicationDocData.entityType === 'Corporation' || applicationDocData.entityType === 'Limited Liability Company') &&
         applicationDocData.mailingState === 'NH'
     ) {
 
@@ -56,7 +56,8 @@ const validateBusiness = async (applicationDocData) => {
                 log.error(`Bureau Number must be numeric applicationId: ${applicationDocData.applicationId}` + __location);
             }
         }
-    } catch (e) {
+    }
+    catch (e) {
         log.error(`Business Validation bureauNumber error: ${e} ${__location}`)
     }
 
@@ -91,7 +92,8 @@ const validateBusiness = async (applicationDocData) => {
         if (valid_types.indexOf(applicationDocData.entityType) === -1) {
             log.error(`Invalid data in property: entityType applicationId ${applicationDocData.applicationId}` + __location);
         }
-    } else {
+    }
+    else {
         throw new Error('Missing property: entityType');
     }
 
@@ -133,7 +135,8 @@ const validateBusiness = async (applicationDocData) => {
         if (foundedMoment.isBefore(moment('07-04-1776', 'MM-DD-YYYY'))) {
             throw new Error('Invalid value for property: founded. Founded date is too far in the past.');
         }
-    } else {
+    }
+    else {
         throw new Error('Missing property: founded');
     }
 
@@ -148,7 +151,8 @@ const validateBusiness = async (applicationDocData) => {
         if (!applicationDocData.industryCode_description) {
             throw new Error('The industry code ID you provided is not valid');
         }
-    } else {
+    }
+    else {
         throw new Error('Missing property: industryCode');
     }
 
@@ -168,7 +172,8 @@ const validateBusiness = async (applicationDocData) => {
         if (!validator.isZip(applicationDocData.mailingZipcode)) {
             log.error(`Invalid formatting for business: mailingZipcode. Expected 5 digit format. applicationId: ${applicationDocData.applicationId} actual zip: ` + applicationDocData.mailingZipcode + __location)
         }
-    } else {
+    }
+    else {
         log.error('Missing required field: business mailingZipcode' + __location);
         throw new Error('Missing required field:  business mailingZipcode');
     }
@@ -190,7 +195,8 @@ const validateBusiness = async (applicationDocData) => {
         if (applicationDocData.businessName.length > 100) {
             throw new Error('businessName exceeds maximum length of 100 characters');
         }
-    } else {
+    }
+    else {
         throw new Error('Missing required field: businessName');
     }
 
@@ -224,25 +230,30 @@ const validateBusiness = async (applicationDocData) => {
      * Phone (required)
      * - Must be a valid 9 digit phone number
      */
-    if (applicationDocData.phone) {
+
+    //Contact[0].phone is the primary phone number.
+    if (applicationDocData.contacts && applicationDocData.contacts[0] && applicationDocData.contacts[0].phone) {
         // Check that it is valid
-        // if (!validator.phone(applicationDocData.phone)) {
-        //     throw new Error('The phone number you provided is not valid. Please try again.');
-        // }
+
+        if (!validator.phone(applicationDocData.contacts[0].phone)) {
+            //throw new Error('The phone number you provided is not valid. Please try again.');
+            log.warn(`Application ${applicationDocData.applicationId} invalid phone number.`)
+        }
 
         // Clean up the phone number for storage
-        if (typeof applicationDocData.phone === 'number') {
-            applicationDocData.phone = applicationDocData.phone.toString();
+        if (typeof applicationDocData.contacts[0].phone === 'number') {
+            applicationDocData.contacts[0].phone = applicationDocData.contacts[0].phone.toString();
         }
 
-        if (applicationDocData.phone.startsWith('+')) {
-            applicationDocData.phone = applicationDocData.phone.slice(1);
+        if (applicationDocData.contacts[0].phone.startsWith('+')) {
+            applicationDocData.contacts[0].phone = applicationDocData.contacts[0].phone.slice(1);
         }
 
-        if (applicationDocData.phone.startsWith('1')) {
-            applicationDocData.phone = applicationDocData.phone.slice(1);
+        if (applicationDocData.contacts[0].phone.startsWith('1')) {
+            applicationDocData.contacts[0].phone = applicationDocData.contacts[0].phone.slice(1);
         }
-    } else {
+    }
+    else {
         //throw new Error('Missing required field: phone');
         log.warn(`Application ${applicationDocData.applicationId} missing phone number.`)
     }
@@ -269,14 +280,15 @@ const validateBusiness = async (applicationDocData) => {
 
 /**
  * Checks that the data supplied is valid
- * 
+ * @param {string} applicationDocData - The applicationDocData
  * @returns {void}
  */
-const validateContacts = async (applicationDocData) => {
-    if (applicationDocData.contacts.length === 0) { 
+
+const validateContacts = async(applicationDocData) => {
+    if (applicationDocData.contacts.length === 0) {
         throw new Error('At least 1 contact must be provided');
     }
-    
+
     for (const contact of applicationDocData.contacts) {
         // Validate email
         if (contact.email) {
@@ -284,7 +296,8 @@ const validateContacts = async (applicationDocData) => {
             if (email_result !== true) {
                 throw new Error('Invalid email');
             }
-        } else {
+        }
+        else {
             throw new Error('Missing required field in contact: email');
         }
 
@@ -297,7 +310,8 @@ const validateContacts = async (applicationDocData) => {
             if (contact.firstName.length > 30) {
                 throw new Error('First name exceeds maximum length of 30 characters');
             }
-        } else {
+        }
+        else {
             throw new Error('Missing required field in contact: firstName');
         }
 
@@ -310,7 +324,8 @@ const validateContacts = async (applicationDocData) => {
             if (contact.lastName.length > 30) {
                 throw new Error('Last name exceeds maximum length of 30 characters');
             }
-        } else {
+        }
+        else {
             throw new Error('Missing required field in contact: lastName');
         }
 
@@ -336,7 +351,8 @@ const validateContacts = async (applicationDocData) => {
 
             contact.phone = contact.phone.replace(/[^0-9]/ig, '');
             contact.phone = parseInt(contact.phone, 10);
-        } else {
+        }
+        else {
             throw new Error('Phone number is required');
         }
     }
@@ -344,11 +360,11 @@ const validateContacts = async (applicationDocData) => {
 
 /**
  * Checks that the data supplied is valid
- *
- * @returns {void} 
+ * @param {string} applicationDocData - The applicationDocData
+ * @returns {void}
  */
-const validateLocations = async (applicationDocData) => {
-    if (applicationDocData.locations.length === 0) { 
+const validateLocations = async(applicationDocData) => {
+    if (applicationDocData.locations.length === 0) {
         throw new Error('At least 1 location must be provided');
     }
 
@@ -359,17 +375,19 @@ const validateLocations = async (applicationDocData) => {
             if (location.address.length > 100) {
                 throw new Error('Address exceeds maximum of 100 characters');
             }
-        } else {
+        }
+        else {
             throw new Error('Missing required field: address');
         }
 
-        // Validate address2
-        if (location.address2) {
-            // Check for maximum length
-            if (location.address2.length > 20) {
-                throw new Error('Address exceeds maximum of 20 characters');
-            }
-        }
+        // Validate address2 - Not set standard.  it could be the street address
+        // if Insurer has a field limit is should be truncated in the integartion code.
+        // if (location.address2) {
+        //     // Check for maximum length
+        //     if (location.address2.length > 20) {
+        //         throw new Error('Address exceeds maximum of 20 characters');
+        //     }
+        // }
 
         /**
          * Full-Time Employees
@@ -396,7 +414,9 @@ const validateLocations = async (applicationDocData) => {
         // - Integer (enforced with parseInt() on load())
         // - >= 100
         // - <= 99,999
-        if (location.square_footage) {
+        // NEED policy check.
+        const requireSquareFoot = Boolean(applicationDocData.policies.filter(policy => policy === "BOP").length);
+        if (requireSquareFoot && location.square_footage) {
             if (!validator.isSqFtg(location.square_footage) || location.square_footage < 100 || location.square_footage > 99999) {
                 throw new Error('square_footage must be an integer between 100 and 99,999 inclusive');
             }
@@ -408,7 +428,8 @@ const validateLocations = async (applicationDocData) => {
                 log.error('Invalid formatting for location: mailing_zip. Expected 5 digit format. actual zip: ' + location.zipcode + __location)
                 throw new Error('Invalid formatting for location: zip. Expected 5 digit format');
             }
-        } else {
+        }
+        else {
             log.error('Missing required field: zip' + __location)
             throw new Error('Missing required field: zip');
         }
@@ -435,10 +456,9 @@ const validateLocations = async (applicationDocData) => {
                 if (!Number.isInteger(location.unemployment_num)) {
                     throw new Error('Unemployment Number must be an integer');
                 }
-            } else {
-                if (location.territory === 'MI' && location.unemployment_num && !Number.isInteger(location.unemployment_num)) {
-                    throw new Error('Unemployment Number must be an integer in MI');
-                }
+            }
+            else if (location.territory === 'MI' && location.unemployment_num && !Number.isInteger(location.unemployment_num)) {
+                throw new Error('Unemployment Number must be an integer in MI');
             }
         }
     }
@@ -446,40 +466,44 @@ const validateLocations = async (applicationDocData) => {
 
 /**
  * Checks that the supplied Activity Code is valid
- *
+ * @param {string} applicationDocData - The applicationDocData
  * @returns {void}
  */
 const validateActivityCodes = (applicationDocData) => {
-    if (applicationDocData.activityCodes.length === 0) {
-        throw new Error('At least 1 class code must be provided');    
-    }
+    const requireActivityCodes = Boolean(applicationDocData.policies.filter(policy => policy === "WC").length);
 
-    for (const activityCode of applicationDocData.activityCodes) {
+    if (requireActivityCodes) {
+        if (applicationDocData.activityCodes.length === 0) {
+            throw new Error('At least 1 class code must be provided');
+        }
+
+        for (const activityCode of applicationDocData.activityCodes) {
         // Check that ID is a number
-        if (isNaN(activityCode.ncciCode)) {
-            throw new Error('You must supply a valid ID with each class code.');
-        }
+            if (isNaN(activityCode.ncciCode)) {
+                throw new Error('You must supply a valid ID with each class code.');
+            }
 
-        // Check that Payroll is a number
-        if (isNaN(activityCode.payroll)) {
-            throw new Error(`Invalid payroll amount (Activity Code ${activityCode.ncciCode})`);
-        }
+            // Check that Payroll is a number
+            if (isNaN(activityCode.payroll)) {
+                throw new Error(`Invalid payroll amount (Activity Code ${activityCode.ncciCode})`);
+            }
 
-        if (typeof activityCode.payroll === "undefined" || activityCode.payroll < 1) {
-            throw new Error(`You must provide a payroll for each activity code (Activity Code ${activityCode.ncciCode})`);
+            if (typeof activityCode.payroll === "undefined" || activityCode.payroll < 1) {
+                throw new Error(`You must provide a payroll for each activity code (Activity Code ${activityCode.ncciCode})`);
+            }
         }
     }
 }
 
 /**
  * Checks that the data supplied is valid
- *
+ * @param {string} applicationDocData - The applicationDocData
  * @returns {void}
  */
 const validatePolicies = (applicationDocData) => {
     for (const policy of applicationDocData.policies) {
         // store a temporary limit '/' deliniated, because for some reason, we don't store it that way in mongo...
-        let indexes = [];
+        const indexes = [];
         for (let i = 1; i < policy.limits.length; i++) {
             if (policy.limits[i] !== "0") {
                 indexes.push(i);
@@ -507,7 +531,8 @@ const validatePolicies = (applicationDocData) => {
             if (effectiveMoment.isAfter(moment().startOf('day').add(90, 'days'))) {
                 throw new Error('Invalid property: effectiveDate. The effective date cannot be more than 90 days in the future');
             }
-        } else {
+        }
+        else {
             throw new Error('Missing property: effectiveDate');
         }
 
@@ -558,10 +583,10 @@ const validatePolicies = (applicationDocData) => {
 
 /**
  * Checks that the data supplied is valid
- *
+ * @param {string} question - The question
  * @returns {void}
  */
-const validateQuestion = async (question) => {
+const validateQuestion = async(question) => {
     // If this question is not required, just return true
     if (!question.required) {
         return;
@@ -629,11 +654,12 @@ const validateQuestion = async (question) => {
 /**
  * Checks that the data supplied is valid, throws an execption (error) if not.
  * It is valid for the claims array to be empty, as claims are an optional field
- *
+ * @param {string} applicationDocData - The applicationDocData
  * @returns {void}
  */
-const validateClaims = async (applicationDocData) => {
+const validateClaims = async(applicationDocData) => {
     for (const claim of applicationDocData.claims) {
+
         /**
          * Date
          * - Date (enforced with moment() on load())
@@ -684,33 +710,34 @@ const validateClaims = async (applicationDocData) => {
 
 /**
  * Checks that the supplied Agency Location is valid
- *
+ * @param {string} agencyLocation - The agencyLocation
  * @returns {Promise.<array, Error>} A promise that returns a boolean indicating whether or not this record is valid, or an Error if rejected
  */
-const validateAgencyLocation = async (agencyLocation) => {
-    return new Promise(async(fulfill, reject) => {
+const validateAgencyLocation = async(agencyLocation) => new Promise(async(fulfill, reject) => {
 
-        /**
+    // this is not used. see agencylocation model.
+    /**
          * Key (required) - This is how we uniquelly identify agents
          */
-        if (agencyLocation.key) {
-            // Check formatting
-            if (!await validator.agent(agencyLocation.key)) {
-                throw new Error('Invalid agent provided.');
-            }
-        }
+    // if (agencyLocation.key) {
+    //     // Check formatting
+    //     if (!await validator.agent(agencyLocation.key)) {
+    //         throw new Error('Invalid agent provided.');
+    //     }
+    // }
 
-        fulfill(true);
-    });
-}
+    fulfill(true);
+
+
+})
 
 module.exports = {
-    validateActivityCodes,
-    validateAgencyLocation,
-    validateBusiness,
-    validateClaims,
-    validateContacts,
-    validateLocations,
-    validatePolicies,
-    validateQuestion
+    validateActivityCodes: validateActivityCodes,
+    validateAgencyLocation: validateAgencyLocation,
+    validateBusiness: validateBusiness,
+    validateClaims: validateClaims,
+    validateContacts: validateContacts,
+    validateLocations: validateLocations,
+    validatePolicies: validatePolicies,
+    validateQuestion: validateQuestion
 }

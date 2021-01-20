@@ -194,9 +194,15 @@ module.exports = class Application {
             this.applicationDocData.numOwners = this.applicationDocData.owners.length
         }
 
-        // Adjust phone to integer value
+        // Adjust phone to remove formatting.  (not should be a integration issue, not app wide.)
         this.business.phone = this.business.phone.replace(/[^0-9]/ig, '');
-        this.business.phone = parseInt(this.business.phone, 10);
+        //this.business.phone = parseInt(this.business.phone, 10);
+        //business contact cleanup
+        if(this.business.contacts && this.business.contacts.length > 0){
+            for(let contact of this.business.contacts){
+                contact.phone = contact.phone.replace(/[^0-9]/ig, '');
+            }
+        }
 
         // If website is invalid, clear it
         if (this.business.website) {
