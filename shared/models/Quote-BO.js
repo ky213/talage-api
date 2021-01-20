@@ -205,7 +205,7 @@ module.exports = class QuoteBO {
 
             let rejected = false;
             // eslint-disable-next-line prefer-const
-            let query = {};
+            let query = {active: true};
             let error = null;
 
             var queryOptions = {lean:true};
