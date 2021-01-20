@@ -13,6 +13,7 @@ const moment = require('moment');
  *
  * @returns {void}
 */
+
 const validateBusiness = async (applicationDocData) => {
     
     // Unincorporated Association (Required only for WC, in NH, and for LLCs and Corporations)
@@ -24,12 +25,12 @@ const validateBusiness = async (applicationDocData) => {
 
         // This is required
         if (applicationDocData.unincorporated_association === null) {
-            return reject(new Error('Missing required field: unincorporated_association'));
+            throw new Error('Missing required field: unincorporated_association');
         }
 
         // Validate
         if (!validator.boolean(applicationDocData.unincorporated_association)) {
-            return reject(new Error('Invalid value for unincorporated_association, please use a boolean value'));
+            throw new Error('Invalid value for unincorporated_association, please use a boolean value');
         }
     }
 
@@ -225,9 +226,9 @@ const validateBusiness = async (applicationDocData) => {
      */
     if (applicationDocData.phone) {
         // Check that it is valid
-        if (!validator.phone(applicationDocData.phone)) {
-            throw new Error('The phone number you provided is not valid. Please try again.');
-        }
+        // if (!validator.phone(applicationDocData.phone)) {
+        //     throw new Error('The phone number you provided is not valid. Please try again.');
+        // }
 
         // Clean up the phone number for storage
         if (typeof applicationDocData.phone === 'number') {
@@ -242,7 +243,8 @@ const validateBusiness = async (applicationDocData) => {
             applicationDocData.phone = applicationDocData.phone.slice(1);
         }
     } else {
-        throw new Error('Missing required field: phone');
+        //throw new Error('Missing required field: phone');
+        log.warn(`Application ${applicationDocData.applicationId} missing phone number.`)
     }
 
     // Years of Experience (conditionally required)
@@ -257,11 +259,11 @@ const validateBusiness = async (applicationDocData) => {
     }
 
     if (!applicationDocData.ein) {
-        return reject(new Error('Identification Number is required'));
+        throw new Error('Identification Number is required');
     }
 
     if (!(validator.ein(applicationDocData.ein) || validator.ssn(applicationDocData.ein))) {
-        return reject(new Error(`Invalid formatting for property: EIN. Value: ${applicationDocData.ein}`));
+        throw new Error(`Invalid formatting for property: EIN. Value: ${applicationDocData.ein}`);
     }
 }
 
@@ -455,16 +457,16 @@ const validateActivityCodes = (applicationDocData) => {
     for (const activityCode of applicationDocData.activityCodes) {
         // Check that ID is a number
         if (isNaN(activityCode.ncciCode)) {
-            return reject(new Error('You must supply a valid ID with each class code.'));
+            throw new Error('You must supply a valid ID with each class code.');
         }
 
         // Check that Payroll is a number
         if (isNaN(activityCode.payroll)) {
-            return reject(new Error(`Invalid payroll amount (Activity Code ${activityCode.ncciCode})`));
+            throw new Error(`Invalid payroll amount (Activity Code ${activityCode.ncciCode})`);
         }
 
         if (typeof activityCode.payroll === "undefined" || activityCode.payroll < 1) {
-            return reject(new Error(`You must provide a payroll for each activity code (Activity Code ${activityCode.ncciCode})`));
+            throw new Error(`You must provide a payroll for each activity code (Activity Code ${activityCode.ncciCode})`);
         }
     }
 }
@@ -694,7 +696,7 @@ const validateAgencyLocation = async (agencyLocation) => {
         if (agencyLocation.key) {
             // Check formatting
             if (!await validator.agent(agencyLocation.key)) {
-                return reject(new Error('Invalid agent provided.'));
+                throw new Error('Invalid agent provided.');
             }
         }
 
