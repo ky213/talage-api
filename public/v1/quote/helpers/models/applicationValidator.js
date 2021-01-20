@@ -197,24 +197,27 @@ const validateBusiness = async (applicationDocData) => {
      * Number of Owners (conditionally required)
      * 0 < numOwners <= 99
      */
-    if(!applicationDocData.numOwners){
+    if(!applicationDocData.numOwners && applicationDocData.owners.length === 0){
+
         // Depend on insurer and policyType.
         // reject decision should be in insurer integration file.  as of 11/14/2020 only Acuity and BTIS are using numOwners
         log.warn(`You must specify the number of owners in the business applicationId: ${applicationDocData.applicationId}` + __location);
     }
+    if(applicationDocData.numOwners){
+        if (isNaN(applicationDocData.numOwners)) {
+            log.error('Number of owners in the business must be a number' + __location);
+            throw new Error('Number of owners in the business must be a number.');
+        }
 
-    if (applicationDocData.numOwners && isNaN(applicationDocData.numOwners)) {
-        log.error('Number of owners in the business must be a number' + __location);
-        throw new Error('Number of owners in the business must be a number.');
+        if (applicationDocData.numOwners < 1) {
+            throw new Error('Number of owners cannot be less than 1.');
+        }
+        if (applicationDocData.numOwners > 99) {
+            throw new Error('Number of owners cannot exceed 99.');
+        }
+
     }
 
-    if (applicationDocData.numOwners && applicationDocData.numOwners < 1) {
-        throw new Error('Number of owners cannot be less than 1.');
-    }
-
-    if (applicationDocData.numOwners && applicationDocData.numOwners > 99) {
-        throw new Error('Number of owners cannot exceed 99.');
-    }
 
     /**
      * Phone (required)
