@@ -178,13 +178,13 @@ module.exports = class Application {
         // NOTE: Do not stop the quote over dba name. Different insurers have different rules.
         if (this.business.dba.length > 100) {
             log.warn(`Translate Warning: DBA exceeds maximum length of 100 characters applicationId ${this.id}` + __location);
-            applicationDocData.dba = applicationDocData.dba.substring(0, 100);
+            this.applicationDocData.dba = applicationDocData.dba.substring(0, 100);
         }
 
         // Mailing Address check, check for maximum length
         if (this.business.mailing_address.length > 100) {
             log.error('Translate Warning: Mailing address exceeds maximum of 100 characters');
-            applicationDocData.mailingAddress = applicationDocData.mailingAddress.substring(0, 100);
+            this.applicationDocData.mailingAddress = applicationDocData.mailingAddress.substring(0, 100);
         }
 
         // Adjust phone to integer value
