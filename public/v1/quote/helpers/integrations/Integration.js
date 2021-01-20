@@ -232,6 +232,8 @@ module.exports = class Integration {
      * @returns {number} The 4 digit NCCI code
      */
     async get_insurer_code_for_activity_code(insurerId, territory, activityCode) {
+        const policyEffectiveDate = moment(this.policy.effective_date).format("YYYY-MM-DD");
+
         const sql = `
             SELECT inc.code, inc.sub, inc.attributes
             FROM clw_talage_insurer_ncci_codes AS inc 
@@ -240,6 +242,7 @@ module.exports = class Integration {
                 inc.state = 1
                 AND inc.insurer = ${insurerId}
                 AND inc.territory = '${territory}'
+                AND ('${policyEffectiveDate}' >= iic.effectiveDate AND '${policyEffectiveDate}' <= iic.expirationDate)
                 AND aca.code = ${activityCode};
         `;
         let result = null;
@@ -605,6 +608,8 @@ module.exports = class Integration {
             });
 
             // Build the SQL query
+            // Note: these are using insurer NCCI code ID's that were already filtered based on policy effective date so no
+            // need to check policy effective date here. -SF
             const sql = `
 				SELECT inc.territory, CONCAT(inc.\`code\`, inc.sub) AS class_code, GROUP_CONCAT(incq.question) AS questions
 				FROM clw_talage_insurer_ncci_code_questions AS incq
@@ -1932,6 +1937,8 @@ module.exports = class Integration {
                 return `(\`ac\`.\`id\` = ${db.escape(codeObj.id)} AND \`inc\`.\`territory\` = ${db.escape(codeObj.territory)})`;
             });
 
+            const policyEffectiveDate = moment(this.policy.effective_date).format("YYYY-MM-DD");
+
             // Query the database to get the corresponding codes
             let hadError = false;
             const sql = `
@@ -1947,7 +1954,8 @@ module.exports = class Integration {
             LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON aca.insurer_code = inc.id
             WHERE
                 inc.insurer = ${this.insurer.id} 
-                AND (${whereCombinations.join(' OR ')});
+                AND (${whereCombinations.join(' OR ')})
+                AND ('${policyEffectiveDate}' >= inc.effectiveDate AND '${policyEffectiveDate}' <= inc.expirationDate);
             `;
             const appId = this.app.id;
             const insurerId = this.insurer.id;
@@ -1997,20 +2005,20 @@ module.exports = class Integration {
 	 */
     _insurer_supports_industry_codes() {
         return new Promise(async(fulfill) => {
+            const policyEffectiveDate = moment(this.policy.effective_date).format("YYYY-MM-DD");
+
             // Query the database to see if this insurer supports this industry code
-            let sql = `SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso, iic.attributes 
-                        FROM clw_talage_industry_codes AS ic 
-                        INNER JOIN  clw_talage_insurer_industry_codes AS iic ON
-                            (
-                                (iic.type = 'i' AND iic.code = ic.iso) 
-                                OR (iic.type = 'c' AND iic.code = ic.cgl)
-                                OR (iic.type = 'h' AND iic.code = ic.hiscox) 
-                                OR (iic.type = 'n' AND iic.code = ic.naics) 
-                                OR (iic.type = 's' AND iic.code = ic.sic)
-                            ) 
-                            AND  iic.insurer = ${this.insurer.id} 
+            let sql = `SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso, iic.attributes, iic.id AS iicID
+                        FROM clw_talage_industry_codes AS ic
+                        INNER JOIN industry_code_to_insurer_industry_code AS industryCodeMap ON industryCodeMap.talageIndustryCodeId = ic.id
+                        INNER JOIN clw_talage_insurer_industry_codes AS iic ON iic.id = industryCodeMap.insurerIndustryCodeId
+                        WHERE
+                            ic.id = ${this.app.business.industry_code}
+                            AND iic.insurer = ${this.insurer.id}
                             AND iic.territory = '${this.app.business.primary_territory}'
-                        WHERE  ic.id = ${this.app.business.industry_code}  LIMIT 1;`;
+                            AND ('${policyEffectiveDate}' >= iic.effectiveDate AND '${policyEffectiveDate}' <= iic.expirationDate)
+                            LIMIT 1;`;
+
             let hadError = false;
             let result = await db.query(sql).catch((error) => {
                 log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not retrieve industry codes: ${error} ${__location}`);

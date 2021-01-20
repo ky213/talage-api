@@ -131,13 +131,15 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     });
 
     // Build the where clause to restrict to effective (non-expired) questions
+    // NOTE: If there are multiple policies with multiple effective dates, we are looking to get all questions inside each policy's effective date.
     let questionEffectiveDateWhereClause = "";
     let industryCodeEffectiveDateWhereClause = "";
     let activityCodeEffectiveDateWhereClause = "";
     for (let i = 0; i < policyEffectiveDateList.length; i++) {
-        questionEffectiveDateWhereClause += `${i > 0 ? " OR " : ""}('${policyEffectiveDateList[i]}' >= iq.effectiveDate AND '${policyEffectiveDateList[i]}' <= iq.expirationDate)`;
-        industryCodeEffectiveDateWhereClause += `${i > 0 ? " OR " : ""}('${policyEffectiveDateList[i]}' >= iic.effectiveDate AND '${policyEffectiveDateList[i]}' <= iic.expirationDate)`;
-        activityCodeEffectiveDateWhereClause += `${i > 0 ? " OR " : ""}('${policyEffectiveDateList[i]}' >= inc.effectiveDate AND '${policyEffectiveDateList[i]}' <= inc.expirationDate)`;
+        // Append each effective date for each type of policy in this application. Separate clauses with an 'OR'.
+        questionEffectiveDateWhereClause += (i > 0 ? " OR " : "") + `('${policyEffectiveDateList[i]}' >= iq.effectiveDate AND '${policyEffectiveDateList[i]}' <= iq.expirationDate)`;
+        industryCodeEffectiveDateWhereClause += (i > 0 ? " OR " : "") + `('${policyEffectiveDateList[i]}' >= iic.effectiveDate AND '${policyEffectiveDateList[i]}' <= iic.expirationDate)`;
+        activityCodeEffectiveDateWhereClause += (i > 0 ? " OR " : "") + `('${policyEffectiveDateList[i]}' >= inc.effectiveDate AND '${policyEffectiveDateList[i]}' <= inc.expirationDate)`;
     }
     if (policyEffectiveDateList.length > 1) {
         // If there is more than one policy effective date, wrap the entire where clause in parens.
@@ -145,9 +147,6 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         industryCodeEffectiveDateWhereClause = "(" + industryCodeEffectiveDateWhereClause + ")";
         activityCodeEffectiveDateWhereClause = "(" + activityCodeEffectiveDateWhereClause + ")";
     }
-    console.log("questionEffectiveDateWhereClause", questionEffectiveDateWhereClause);
-    console.log("industryCodeEffectiveDateWhereClause", industryCodeEffectiveDateWhereClause);
-    console.log("activityCodeEffectiveDateWhereClause", activityCodeEffectiveDateWhereClause);
 
     // Do not permit requests that include both BOP and GL
     if (policyTypeArray.includes('BOP') && policyTypeArray.includes('GL')) {
