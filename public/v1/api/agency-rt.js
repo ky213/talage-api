@@ -554,8 +554,8 @@ async function getAgencyMetadata(req, res, next) {
 		metaLogo: agencyJson.logo ? `${global.settings.IMAGE_URL}/public/agency-logos/${agencyJson.logo}` : null,
 		metaFooterLogo: agencyJson.footer_logo ? `${global.settings.IMAGE_URL}/public/agency-network-logos/${agencyJson.footer_logo}` : null,
 		metaFavicon: agencyJson.favicon ? `${global.settings.IMAGE_URL}/public/agency-logos/favicon/${agencyJson.favicon}` : null,
-		metaWebsite: agencyJson.website,
-		metaFacebookPixel: agencyJson.facebookPixel,
+		metaWebsite: agencyJson.website ? agencyJson.website : null,
+		metaFacebookPixel: agencyJson.facebookPixel ? agencyJson.facebookPixel : null,
 		metaCss: metaCss,
 		metaDescription: agencyJson.landingPageContent.bannerHeadingDefault
 			? agencyJson.landingPageContent.bannerHeadingDefault
