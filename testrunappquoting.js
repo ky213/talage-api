@@ -122,6 +122,11 @@ async function main() {
 
 }
 
+function onErr(err) {
+    console.log(err);
+    return 1;
+}
+
 
 /**
  * runFunction
@@ -130,13 +135,18 @@ async function main() {
  */
 async function runFunction() {
 
-    if(process.argv.length < 4){
-        log.error("missing User info");
-        process.exit(1);
+    // if(process.argv.length < 4){
+    //     log.error("missing User info");
+    //     process.exit(1);
 
-    }
-    const userEmail = process.argv[2];
-    const userPwd = process.argv[3];
+    // }
+    // const userEmail = process.argv[2];
+    // const userPwd = process.argv[3];
+
+    const promptly = require('promptly');
+    const userEmail = await promptly.prompt('userEmail: ');
+    const userPwd = await promptly.password('userPwd: ');
+   
 
     //get app auth token
     // eslint-disable-next-line object-curly-newline
@@ -159,11 +169,8 @@ async function runFunction() {
 
     const quote_promises = [];
     // eslint-disable-next-line array-element-newline
-    //const appIdList = [11672,11667,11663,11613,11545,11685,11426,11428,11421];
-    // const appIdList = [11426,11428,11423,11414,11401,11365. 11482];  //older should be on DEV.
     //Wheelhouse
-    const appIdList = [11426,11428,11414,11401,11365,11333,11482];
-    
+    const appIdList = [11426,11428,1414,11401,11365,11333,11617,11613,11601,11600,11585,11561,11541,11540,11535,11525,11497,11482,11490,11700,11711,11720,11721,11723,11732,11726, 11919];
     //const appIdList = [11482];
     //Digalent apps
     //const appIdList = [11477,11472, 11329];
