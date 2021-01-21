@@ -232,7 +232,7 @@ module.exports = class Integration {
      * @returns {number} The 4 digit NCCI code
      */
     async get_insurer_code_for_activity_code(insurerId, territory, activityCode) {
-        const policyEffectiveDate = moment(this.policy.effective_date).format("YYYY-MM-DD");
+        const policyEffectiveDate = moment(this.policy.effective_date).format("YYYY-MM-DD HH:MM:SS");
 
         const sql = `
             SELECT inc.code, inc.sub, inc.attributes
@@ -242,7 +242,7 @@ module.exports = class Integration {
                 inc.state = 1
                 AND inc.insurer = ${insurerId}
                 AND inc.territory = '${territory}'
-                AND ('${policyEffectiveDate}' >= iic.effectiveDate AND '${policyEffectiveDate}' <= iic.expirationDate)
+                AND ('${policyEffectiveDate}' >= iic.effectiveDate AND '${policyEffectiveDate}' < iic.expirationDate)
                 AND aca.code = ${activityCode};
         `;
         let result = null;
@@ -1937,7 +1937,7 @@ module.exports = class Integration {
                 return `(\`ac\`.\`id\` = ${db.escape(codeObj.id)} AND \`inc\`.\`territory\` = ${db.escape(codeObj.territory)})`;
             });
 
-            const policyEffectiveDate = moment(this.policy.effective_date).format("YYYY-MM-DD");
+            const policyEffectiveDate = moment(this.policy.effective_date).format("YYYY-MM-DD HH:MM:SS");
 
             // Query the database to get the corresponding codes
             let hadError = false;
@@ -1955,7 +1955,7 @@ module.exports = class Integration {
             WHERE
                 inc.insurer = ${this.insurer.id} 
                 AND (${whereCombinations.join(' OR ')})
-                AND ('${policyEffectiveDate}' >= inc.effectiveDate AND '${policyEffectiveDate}' <= inc.expirationDate);
+                AND ('${policyEffectiveDate}' >= inc.effectiveDate AND '${policyEffectiveDate}' < inc.expirationDate);
             `;
             const appId = this.app.id;
             const insurerId = this.insurer.id;
@@ -2005,7 +2005,7 @@ module.exports = class Integration {
 	 */
     _insurer_supports_industry_codes() {
         return new Promise(async(fulfill) => {
-            const policyEffectiveDate = moment(this.policy.effective_date).format("YYYY-MM-DD");
+            const policyEffectiveDate = moment(this.policy.effective_date).format("YYYY-MM-DD HH:MM:SS");
 
             // Query the database to see if this insurer supports this industry code
             let sql = `SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso, iic.attributes, iic.id AS iicID
@@ -2016,7 +2016,7 @@ module.exports = class Integration {
                             ic.id = ${this.app.business.industry_code}
                             AND iic.insurer = ${this.insurer.id}
                             AND iic.territory = '${this.app.business.primary_territory}'
-                            AND ('${policyEffectiveDate}' >= iic.effectiveDate AND '${policyEffectiveDate}' <= iic.expirationDate)
+                            AND ('${policyEffectiveDate}' >= iic.effectiveDate AND '${policyEffectiveDate}' < iic.expirationDate)
                             LIMIT 1;`;
 
             let hadError = false;
