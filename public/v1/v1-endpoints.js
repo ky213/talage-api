@@ -153,6 +153,7 @@ exports.registerEndpoints = (server) => {
 
     if(global.settings.ENABLE_GENERIC_API === "YES"){
         registerEndpoint(server, 'api', 'agency-rt');
+        registerEndpoint(server, 'api', 'application-rt');
     }
 
     // Server.AddGet('Uptime Check', '/', GetUptime);

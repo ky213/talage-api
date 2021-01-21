@@ -466,7 +466,7 @@ function replaceAgencyValues(toReplace, agency) {
 }
 
 /**
- * Responds to POST requests and returns social media meta data
+ * Responds to GET requests and returns social media meta data
  *
  * @param {object} req - HTTP request object
  * @param {object} res - HTTP response object
