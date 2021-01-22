@@ -1965,7 +1965,7 @@ module.exports = class Integration {
             if (this.requiresInsurerActivityClassCodes && (!codes.length || Object.keys(wcCodes).length !== codes.length)) {
                 this.reasons.push("Insurer activity class codes were not found for all activities in the application.");
                 log.warn(`AppId: ${appId} InsurerId: ${insurerId} _insurer_supports_activity_codes failed on application. query=${sql}` + __location);
-                if(codes.length > Object.keys(wcCodes).length){
+                if(codes.length && codes.length > Object.keys(wcCodes).length){
                     log.error(`BAD MAPPING multiple insures ncci codes for an activty Code - AppId: ${appId} InsurerId: ${insurerId} _insurer_supports_activity_codes failed on application. query=${sql}` + __location);
                 }
 
