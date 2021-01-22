@@ -59,6 +59,9 @@ module.exports = class LibertySBOP extends Integration {
      */
     _insurer_init() {
         this.requiresInsurerIndustryCodes = true;
+
+        this.requiresProductPolicyTypeFilter = true;
+        this.policyTypeFilter = 'BOP';
     }
 
 	/**
@@ -256,7 +259,7 @@ module.exports = class LibertySBOP extends Integration {
 
         // -------------- PARSE XML RESPONSE ----------------
 
-        console.log(JSON.stringify(this, null, 4));
+        console.log(JSON.stringify(this.industry_code, null, 4));
         process.exit(-1);
     }
 
