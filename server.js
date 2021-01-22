@@ -182,6 +182,21 @@ class AbstractedHTTPServer {
         }));
     }
 
+    addPutAuthAppWF(name, path, handler, permission = null, permissionType = null) {
+        name += ' (authAppWF)';
+        this.server.put({
+            name: name,
+            path: path
+        },
+        processJWT(),
+        validateJWT({
+            handler: handlerWrapper(path, handler),
+            permission: permission,
+            permissionType: permissionType,
+            agencyPortal: false
+        }));
+    }
+
     addGetAuthAppWF(name, path, handler, permission = null, permissionType = null) {
         name += ' (authAppWF)';
         this.server.get({

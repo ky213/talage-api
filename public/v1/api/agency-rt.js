@@ -586,7 +586,8 @@ async function getAgencyMetadata(req, res, next) {
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
+    // temporary use AuthAppWF (same as quote app V1)
     // server.addGetAuthAppWF('Get Quote Agency', `${basePath}/agency`, getAgency);
-    server.addGet("Get Agency Metadata", `${basePath}/agency/metadata`, getAgencyMetadata);
-    server.addGet("Get Agency Landing Page", `${basePath}/agency/landing-page`, getAgencyLandingPage);
+    server.addGetAuthAppWF("Get Agency Metadata", `${basePath}/agency/metadata`, getAgencyMetadata);
+    server.addGetAuthAppWF("Get Agency Landing Page", `${basePath}/agency/landing-page`, getAgencyLandingPage);
 };
