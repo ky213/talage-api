@@ -66,7 +66,7 @@ module.exports = class Policy {
         this.coverage_lapse_non_payment = policyJSON.coverage_lapse_non_payment;
         this.add_terrorism_coverage = policyJSON.addTerrorismCoverage;
         this.deductible = policyJSON.deductible;
-        this.effective_date = policyJSON.effective_date;
+        this.effective_date = policyJSON.effectiveDate;
         this.expiration_date = policyJSON.expirationDate;
         this.limits = this.formatLimits(policyJSON.limits);
 

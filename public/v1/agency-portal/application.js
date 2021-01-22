@@ -969,10 +969,14 @@ async function requote(req, res, next) {
 
     const applicationQuoting = new ApplicationQuoting();
     // Populate the Application object
+   
     // Load
     try {
         const forceQuoting = true;
         const loadJson = {"id": id};
+        if(req.body.insurerId && validator.is_valid_id(req.body.insurerId)){
+            loadJson.insurerId = parseInt(req.body.insurerId, 10);
+        }
         await applicationQuoting.load(loadJson, forceQuoting);
     }
     catch (err) {

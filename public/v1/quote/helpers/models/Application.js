@@ -19,7 +19,7 @@ const Insurer = require('./Insurer.js');
 const Policy = require('./Policy.js');
 const Question = require('./Question.js');
 const validator = global.requireShared('./helpers/validator.js');
-const { 
+const {
     validateAgencyLocation,
     validateBusiness,
     validatePolicies,
@@ -28,7 +28,7 @@ const {
     validateLocations,
     validateClaims,
     validateActivityCodes
-} = global.requireShared('./helpers/applicationValidator.js');
+} = require('./applicationValidator.js');
 const helper = global.requireShared('./helpers/helper.js');
 
 const AgencyBO = global.requireShared('models/Agency-BO.js');
@@ -44,6 +44,7 @@ module.exports = class Application {
         this.policies = [];
         this.questions = {};
         this.applicationDocData = {};
+        this.quoteInsurerId = null;
     }
 
     /**
@@ -55,9 +56,14 @@ module.exports = class Application {
 	 */
     async load(data, forceQuoting = false) {
         log.debug('Loading data into Application' + __location);
+
         // ID
         //TODO detect ID type integer or uuid
         this.id = parseInt(data.id, 10);
+
+        if(data.insurerId){
+            this.quoteInsurerId = parseInt(data.insurerId,10);
+        }
 
         // load application from database.
         //let error = null
@@ -66,7 +72,8 @@ module.exports = class Application {
         try {
             this.applicationDocData = await applicationBO.loadfromMongoBymysqlId(this.id);
             log.debug("Quote Application added applicationData")
-        } catch(err){
+        }
+        catch(err){
             log.error("Unable to get applicationData for quoting appId: " + data.id + __location);
             throw err;
         }
@@ -107,7 +114,8 @@ module.exports = class Application {
                 this.policies.push(p);
                 appPolicyTypeList.push(policyJSON.type);
             }
-        } catch(err){
+        }
+        catch(err){
             log.error("Quote Application Model loading policy err " + err + __location);
             throw err;
         }
@@ -143,41 +151,58 @@ module.exports = class Application {
             }
             this.questions = questionJSON
         }
-        
+
         // TODO: Eventually, this will need to take place on the applicationDocData, not the model data
-        await this.translate();
+        try {
+            await this.translate();
+        }
+        catch (e) {
+            log.error(`Error translating application: ${e}`);
+            throw e;
+        }
     }
 
-    /** 
+    /**
      * This method is used to translate the existing model data into what the integrations expect
-     * 
+     *
      * Previously, this was done in the validation methods (which was incorrect). However, although we now validate off
      *      the applicationDocData (mongo record) instead of the model data, we still feed the model data (which is hydrated
      *      by the mongo data) to the integrations. Therefor, this method translates the model data structures. Eventually,
      *      we will need to modify this to translate this.applicationDocData once integrations start consuming that instead.
-     * 
-     * NOTE: We may want to put this logic into a new load() method on Application.model.js, or we can keep it being called 
+     *
+     * NOTE: We may want to put this logic into a new load() method on Application.model.js, or we can keep it being called
      *      from Application.js load() function.
     */
+
     async translate() {
+
         /************** BUSINESS DATA TRANSLATION ***************/
 
         // DBA length check
         // NOTE: Do not stop the quote over dba name. Different insurers have different rules.
         if (this.business.dba.length > 100) {
             log.warn(`Translate Warning: DBA exceeds maximum length of 100 characters applicationId ${this.id}` + __location);
-            applicationDocData.dba = applicationDocData.dba.substring(0, 100);
+            this.applicationDocData.dba = this.applicationDocData.dba.substring(0, 100);
         }
 
         // Mailing Address check, check for maximum length
         if (this.business.mailing_address.length > 100) {
             log.error('Translate Warning: Mailing address exceeds maximum of 100 characters');
-            applicationDocData.mailingAddress = applicationDocData.mailingAddress.substring(0, 100);
+            this.applicationDocData.mailingAddress = this.applicationDocData.mailingAddress.substring(0, 100);
+        }
+        if(!this.applicationDocData.numOwners && this.applicationDocData.owners.length > 0){
+            this.applicationDocData.numOwners = this.applicationDocData.owners.length
         }
 
-        // Adjust phone to integer value
+        // Adjust phone to remove formatting.  (not should be a integration issue, not app wide.)
         this.business.phone = this.business.phone.replace(/[^0-9]/ig, '');
-        this.business.phone = parseInt(this.business.phone, 10);
+        //this.business.phone = parseInt(this.business.phone, 10);
+        //business contact cleanup
+        if(this.business.contacts && this.business.contacts.length > 0){
+            for(let contact of this.business.contacts){
+                contact.phone = contact.phone.replace(/[^0-9]/ig, '');
+            }
+        }
 
         // If website is invalid, clear it
         if (this.business.website) {
@@ -196,19 +221,19 @@ module.exports = class Application {
 
         // Unincorporated Association (Required only for WC, in NH, and for LLCs and Corporations)
         if (
-            this.has_policy_type('WC') && 
-            (this.business.entity_type === 'Corporation' || this.business.entity_type === 'Limited Liability Company') && 
+            this.has_policy_type('WC') &&
+            (this.business.entity_type === 'Corporation' || this.business.entity_type === 'Limited Liability Company') &&
             this.business.mailing_state === 'NH'
         ) {
 
             // This is required
             if (this.business.unincorporated_association === null) {
-                return reject(new Error('Missing required field: unincorporated_association'));
+                throw new Error('Missing required field: unincorporated_association');
             }
 
             // Validate
             if (!validator.boolean(this.business.unincorporated_association)) {
-                return reject(new Error('Invalid value for unincorporated_association, please use a boolean value'));
+                throw new Error('Invalid value for unincorporated_association, please use a boolean value');
             }
 
             // If value is valid, convert to boolean
@@ -233,15 +258,18 @@ module.exports = class Application {
             if (location.identification_number) {
                 if (validator.ein(location.identification_number)) {
                     location.identification_number_type = 'EIN';
-                } else if (location.business_entityType === 'Sole Proprietorship' && validator.ssn(location.identification_number)) {
+                }
+                else if (location.business_entityType === 'Sole Proprietorship' && validator.ssn(location.identification_number)) {
                     location.identification_number_type = 'SSN';
-                } else {
+                }
+                else {
                     throw new Error(`Translate Error: Invalid formatting for property: EIN. Value: ${location.identification_number}.`);
                 }
-    
+
                 // Strip out the slashes, insurers don't like slashes
                 location.identification_number = location.identification_number.replace(/-/g, '');
-            } else {
+            }
+            else {
                 throw new Error('Translate Error: Identification Number is required');
             }
 
@@ -262,7 +290,8 @@ module.exports = class Application {
                     if (!result || result.length !== 1) {
                         throw new Error(`Translation Error: The activity code you selected (ID: ${activityCode.id}) is not valid.`);
                     }
-                } catch (e) {
+                }
+                catch (e) {
                     log.error(`Translation Error: DB SELECT activity codes error: ${e}. ` + __location);
                     //TODO Consistent error types
                     throw e;
@@ -271,7 +300,8 @@ module.exports = class Application {
                 // assign the description to the activity code
                 if (result[0].description) {
                     activityCode.description = result[0].description;
-                } else {
+                }
+                else {
                     // this should never hit, but putting a log just in case...
                     log.warn("Translate Warning: activity code result does not contain a description, skipping...")
                 }
@@ -300,7 +330,8 @@ module.exports = class Application {
                     if (limits !== '2000000/2000000/2000000') {
                         limits = '1000000/1000000/1000000';
                     }
-                } else if (policy.territories.includes('OR')) {
+                }
+                else if (policy.territories.includes('OR')) {
                     // In OR force limits to be at least 500,000/500,000/500,000
                     if (limits === '100000/500000/100000') {
                         limits = '500000/500000/500000';
@@ -316,7 +347,8 @@ module.exports = class Application {
                 // Parse the deductible string
                 try {
                     policy.deductible = parseInt(policy.deductible, 10);
-                } catch (e) {
+                }
+                catch (e) {
                     // Default to 500 if the parse fails
                     log.warn(`Translation Warning: applicationId: ${policy.applicationId} policyType: ${policy.type} Could not parse deductible string '${policy.deductible}': ${e}. Defaulting to 500.`);
                     policy.deductible = 500;
@@ -328,6 +360,7 @@ module.exports = class Application {
 
         this.policies.forEach(policy => {
             policy.claims.forEach(claim => {
+
                 /**
                  * Amount Paid (dollar amount)
                  * - >= 0
@@ -341,10 +374,12 @@ module.exports = class Application {
                     // Cleanup this input
                     if (typeof claim.amountPaid === 'number') {
                         claim.amountPaid = Math.round(claim.amountPaid);
-                    } else {
+                    }
+                    else {
                         claim.amountPaid = Math.round(parseFloat(claim.amountPaid.toString().replace('$', '').replace(/,/g, '')));
                     }
-                } else {
+                }
+                else {
                     claim.amountPaid = 0;
                 }
 
@@ -361,10 +396,12 @@ module.exports = class Application {
                     // Cleanup this input
                     if (typeof claim.amountReserved === 'number') {
                         claim.amountReserved = Math.round(claim.amountReserved);
-                    } else {
+                    }
+                    else {
                         claim.amountReserved = Math.round(parseFloat(claim.amountReserved.toString().replace('$', '').replace(/,/g, '')));
                     }
-                } else {
+                }
+                else {
                     claim.amountReserved = 0;
                 }
             });
@@ -385,7 +422,8 @@ module.exports = class Application {
         let questions = null;
         try {
             questions = await questionsSvc.GetQuestionsForBackend(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids, true);
-        } catch (e) {
+        }
+        catch (e) {
             log.error(`Translation Error: GetQuestionsForBackend: ${e}. ` + __location);
             throw e;
         }
@@ -409,8 +447,9 @@ module.exports = class Application {
 
                         try {
                             q.set_answer(user_answer);
-                        } catch (e) {
-                            return reject(e);
+                        }
+                        catch (e) {
+                            throw e;
                         }
                     }
                 }
@@ -431,7 +470,7 @@ module.exports = class Application {
                         continue;
                     }
 
-                    if (question.parent) {
+                    if (question.parent && question.parent > 0 ) {
                         // Get the parent question
                         const parent_question = this.questions[question.parent];
 
@@ -477,12 +516,16 @@ module.exports = class Application {
                         if (desired_insurers.indexOf(insurer) === -1) {
                             // Check that the agent supports this insurer for this policy type
                             let match_found = false;
+                            //log.debug("this.agencyLocation.insurers " + JSON.stringify(this.agencyLocation.insurers))
                             for (const agent_insurer in this.agencyLocation.insurers) {
                                 if (Object.prototype.hasOwnProperty.call(this.agencyLocation.insurers, agent_insurer)) {
                                     // Find the matching insurer
-                                    if (this.agencyLocation.insurers[agent_insurer].id === parseInt(agent_insurer, 10)) {
+                                    //if (this.agencyLocation.insurers[agent_insurer].id === parseInt(agent_insurer, 10)) {
+                                    //log.debug("this.agencyLocation.insurers[agent_insurer] " + JSON.stringify(this.agencyLocation.insurers[agent_insurer]))
+                                    //log.debug("insurer " + JSON.stringify(insurer) + __location)
+                                    if (this.agencyLocation.insurers[agent_insurer].id === insurer.id) {
                                         // Check the policy type
-                                        if (this.agencyLocation.insurers[agent_insurer][policy.type.toLowerCase()] === 1) {
+                                        if (this.agencyLocation.insurers[agent_insurer][policy.type.toLowerCase()]) {
                                             match_found = true;
                                         }
                                     }
@@ -490,12 +533,17 @@ module.exports = class Application {
                             }
 
                             if (match_found) {
-                                desired_insurers.push(insurer);
+                                if(this.quoteInsurerId && this.quoteInsurerId > 0 && this.quoteInsurerId === insurer.id){
+                                    desired_insurers.push(insurer);
+                                }
+                                else if(!this.quoteInsurerId){
+                                    desired_insurers.push(insurer);
+                                }
                             }
                             else {
-                                log.info(`Agent does not support ${policy.type} policies through insurer ${insurer}`);
-                                reject(new Error('Agent does not support this request'));
-                                stop = true;
+                                log.warn(`Agent does not support ${policy.type} policies through insurer ${insurer}`);
+                                //reject(new Error('Agent does not support this request'));
+                                //stop = true;
                             }
                         }
                     });
@@ -517,13 +565,14 @@ module.exports = class Application {
                     }
                 });
                 if (some_unsupported) {
-                    log.info('Agent does not support one or more of the insurers requested.');
-                    reject(new Error('Agent does not support this request'));
-                    return;
+                    log.warn('Agent does not support one or more of the insurers requested.');
+                    //reject(new Error('Agent does not support this request'));
+                    //return;
                 }
             }
             else {
                 // Only use the insurers supported by this agent
+                log.debug("loading all AL insurers " + __location)
                 desired_insurers = Object.keys(this.agencyLocation.insurers);
             }
 
@@ -613,9 +662,13 @@ module.exports = class Application {
         this.policies.forEach((policy) => {
             // Generate quotes for each insurer for the given policy type
             this.insurers.forEach((insurer) => {
+                let quoteInsurer = true;
+                if(this.quoteInsurerId && this.quoteInsurerId > 0 && this.quoteInsurerId !== insurer.id){
+                    quoteInsurer = false;
+                }
                 // Only run quotes against requested insurers (if present)
                 // Check that the given policy type is enabled for this insurer
-                if (insurer.policy_types.indexOf(policy.type) >= 0) {
+                if (insurer.policy_types.indexOf(policy.type) >= 0 && quoteInsurer) {
 
                     // Get the agency_location_insurer data for this insurer from the agency location
                     //log.debug(JSON.stringify(this.agencyLocation.insurers[insurer.id]))
@@ -630,7 +683,7 @@ module.exports = class Application {
                                 let slug = '';
                                 try{
                                     // If agency wants to send acord, send acord
-                                    if (agency_location_insurer_data.useAcord === true && insurer.policy_type_details[policy.type].acord_support === 1) {
+                                    if (agency_location_insurer_data.useAcord === true && insurer.policy_type_details[policy.type].acord_support === true) {
                                         slug = 'acord';
                                     }
                                     else if (insurer.policy_type_details[policy.type.toUpperCase()].api_support) {
@@ -951,7 +1004,8 @@ module.exports = class Application {
             // Agent
             try {
                 await validateAgencyLocation(this.agencyLocation);
-            } catch (e) {
+            }
+            catch (e) {
                 log.error(`validateAgencyLocation() error: ${e}. ` + __location);
                 return reject(e);
             }
@@ -967,9 +1021,10 @@ module.exports = class Application {
             // Get a list of insurers and wait for it to return
             // Determine if WholeSale shoud be used.  (this might have already been determined in the app workflow.)
             let insurers = null;
-            try { 
+            try {
                 insurers = await this.get_insurers();
-            } catch (e) {
+            }
+            catch (e) {
                 if (e.toLowerCase() === 'agent does not support this request') {
                     if (this.agencyLocation.wholesale) {
                         // Switching to the Talage agent
@@ -980,7 +1035,8 @@ module.exports = class Application {
                         // Initialize the agent so we can use it
                         try {
                             await this.agencyLocation.init();
-                        } catch (e) {
+                        }
+                        catch (e) {
                             log.error(`Error in this.agencyLocation.init(): ${e}. ` + __location);
                             return reject(e);
                         }
@@ -988,14 +1044,16 @@ module.exports = class Application {
                         // Try to get the insurers again
                         try {
                             insurers = await this.get_insurers();
-                        } catch (e) {
+                        }
+                        catch (e) {
                             log.error(`Error in get_insurers: ${e}. ` + __location);
                             return reject(e);
                         }
                     }
 
                     return reject(new Error('The Agent specified cannot support this policy.'));
-                } else {
+                }
+                else {
                     log.error(`Error in get_insurers: ${e}. ` + __location);
                     return reject(e);
                 }
@@ -1009,36 +1067,46 @@ module.exports = class Application {
             // Business (required)
             try {
                 validateBusiness(this.applicationDocData);
-            } catch (e) {
+            }
+            catch (e) {
                 return reject(new Error(`Failed validating business: ${e}`));
             }
 
             // Contacts (required)
             try {
                 validateContacts(this.applicationDocData);
-            } catch (e) {
+            }
+            catch (e) {
                 return reject(new Error(`Failed validating contacts: ${e}`));
             }
 
             // Locations (required)
             try {
                 validateLocations(this.applicationDocData);
-            } catch (e) {
+            }
+            catch (e) {
                 return reject(new Error(`Failed validating locations: ${e}`));
             }
 
             // Claims (optional)
             try {
                 validateClaims(this.applicationDocData);
-            } catch (e) {
+            }
+            catch (e) {
                 return reject(new Error(`Failed validating claims: ${e}`));
             }
 
             // Activity Codes (required)
-            try {
-                validateActivityCodes(this.applicationDocData);
-            } catch (e) {
-                return reject(new Error(`Failed validating activity codes: ${e}`));
+            if (this.has_policy_type("WC")) {
+                try {
+                    validateActivityCodes(this.applicationDocData);
+                }
+                catch (e) {
+                    return reject(new Error(`Failed validating activity codes: ${e}`));
+                }
+            }
+            else {
+                log.debug('No WC policy type found, skipping Activity Code validation...');
             }
 
             /**
@@ -1047,8 +1115,8 @@ module.exports = class Application {
 			 * - Must be either 'member' or 'manager'
 			 */
             if (
-                this.has_policy_type('WC') && 
-                this.applicationDocData.entityType === 'Limited Liability Company' && 
+                this.has_policy_type('WC') &&
+                this.applicationDocData.entityType === 'Limited Liability Company' &&
                 this.applicationDocData.mailingState === 'MT'
             ) {
                 if (this.applicationDocData.management_structure) {
@@ -1056,7 +1124,8 @@ module.exports = class Application {
                         log.warn(`Invalid management structure. Must be either "member" or "manager."` + this.applicationDocData.mysqlId + __location)
                         return reject(new Error('Invalid management structure. Must be either "member" or "manager."'));
                     }
-                } else {
+                }
+                else {
                     return reject(new Error('Missing required field: management_structure'));
                 }
             }
@@ -1066,9 +1135,9 @@ module.exports = class Application {
 			 * - Must be one of 'c', 'n', or 's'
 			 */
             if (
-                this.has_policy_type('WC') && 
-                this.applicationDocData.entityType === 'Corporation' && 
-                this.applicationDocData.mailingState === 'PA' && 
+                this.has_policy_type('WC') &&
+                this.applicationDocData.entityType === 'Corporation' &&
+                this.applicationDocData.mailingState === 'PA' &&
                 !this.applicationDocData.ownersCovered
             ) {
                 // TODO: this will always fail because current mongoose schema doesn't have corporationType
@@ -1079,7 +1148,8 @@ module.exports = class Application {
                         log.warn(`Invalid corporation type. Must be "c" (c-corp), "n" (non-profit), or "s" (s-corp). ${this.applicationDocData.mysqlId}. ` + __location)
                         return reject(new Error('Invalid corporation type. Must be "c" (c-corp), "n" (non-profit), or "s" (s-corp).'));
                     }
-                } else {
+                }
+                else {
                     return reject(new Error('Missing required field: corporationType'));
                 }
             }
@@ -1092,7 +1162,8 @@ module.exports = class Application {
             if (this.has_policy_type('WC') && !this.applicationDocData.ownersCovered) {
                 if (this.applicationDocData.owners.length) {
                     // TODO: Owner validation is needed here
-                } else {
+                }
+                else {
                     return reject(new Error('The names of owners must be supplied if they are not included in this policy.'));
                 }
             }
@@ -1100,7 +1171,8 @@ module.exports = class Application {
             // Validate all policies
             try {
                 validatePolicies(this.applicationDocData);
-            } catch (e) {
+            }
+            catch (e) {
                 return reject(new Error(`Failed validating policy: ${e}`));
             }
 
@@ -1110,7 +1182,8 @@ module.exports = class Application {
                     if (question.questionId && !question.hidden) {
                         try {
                             validateQuestion(question);
-                        } catch (e) {
+                        }
+                        catch (e) {
                             // This issue should not result in a stoppage of quoting with all insurers
                             log.error(`Failed validating question ${question.questionId}: ${e}. ` + __location);
                         }

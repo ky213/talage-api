@@ -119,8 +119,8 @@ module.exports = class PieWC extends Integration {
 
         // Build the JSON Request
         const data = {};
-        data.effective_date = this.policy.effective_date.format('YYYY-MM-DD');
-        data.expiration_date = this.policy.expiration_date.format('YYYY-MM-DD');
+        data.effectiveDate = this.policy.effective_date.format('YYYY-MM-DD');
+        data.expirationDate = this.policy.expiration_date.format('YYYY-MM-DD');
 
         // Begin the 'workersCompensation' data object
         data.workersCompensation = {};
