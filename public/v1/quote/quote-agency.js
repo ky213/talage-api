@@ -482,7 +482,7 @@ async function getAgencySocialMetadata(req, res, next) {
     if(agencyJson.favicon){
         faviconPath = `${global.settings.IMAGE_URL}/public/agency-logos/favicon/${agencyJson.favicon}`;
     }
-    log.warn(`Favicon path: ${faviconPath}`);
+    //log.info(`Favicon path: ${faviconPath}`);
     res.send(200, {
         socialMetaData: socialMediaList,
         metaTitle: agencyJson.name,
