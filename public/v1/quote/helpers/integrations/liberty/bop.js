@@ -256,7 +256,7 @@ module.exports = class LibertySBOP extends Integration {
 
         // -------------- PARSE XML RESPONSE ----------------
 
-        console.log(this.request_id);
+        console.log(JSON.stringify(this, null, 4));
         process.exit(-1);
     }
 

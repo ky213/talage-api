@@ -1992,6 +1992,8 @@ module.exports = class Integration {
 
     /**
 	 * Determines whether or not this insurer supports all industry codes in this application
+     * 
+     * TODO: This SQL needs to be updated to follow the new table patterns
 	 *
 	 * @returns {Promise.<boolean>} A promise that returns an true if the insurer supports the industry code and it has been populated, false otherwise
 	 */
@@ -2022,6 +2024,9 @@ module.exports = class Integration {
                 return;
             }
             if (!result || !result.length) {
+                // Oh shit, this shouldn't have happened... just grab the Talage industry code
+                log.error(`Error: Insurer mapping for this industry code was not found, this shouldn't happen! Falling back to Talage industry code.`);
+                
                 // If insurer industry codes are required and none are returned, it is an error and we should reject.
                 if (this.requiresInsurerIndustryCodes) {
                     this.reasons.push("An insurer industry class code was not found for the given industry.");
