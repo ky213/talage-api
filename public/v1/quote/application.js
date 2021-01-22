@@ -67,7 +67,7 @@ async function postApplication(req, res, next) {
         await application.validate();
     }
     catch (error) {
-        log.error(`Error validating application ${req.params.id ? req.params.id : ''}: ${error.message}` + __location);
+        log.error(`Error validating application ${req.params.id ? req.params.id : ''}: ${error.message ? error.message : error}` + __location);
         //res.send(error);
         return next(serverHelper.requestError(error));
     }

@@ -361,7 +361,7 @@ module.exports = class AcuityWC extends Integration {
             case "DECLINE":
                 return this.client_declined(quoteStatusReasonMessage);
             case "UNQUOTED":
-                return this.client_declined("The insurer reported: " + quoteStatusReasonMessage);
+                return this.client_error(quoteStatusReasonMessage, __location);
             case "AVAILABLE":
                 if (validationDeepLink) {
                     // Add the deeplink to the quote

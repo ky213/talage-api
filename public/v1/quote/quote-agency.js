@@ -458,7 +458,7 @@ async function getAgencySocialMetadata(req, res, next) {
         res.send(400, {error: 'Could not process agency data'});
         return next();
     }
-
+        
     try {
 
         if (agencyJson.additionalInfo && agencyJson.additionalInfo.socialMediaTags && agencyJson.additionalInfo.socialMediaTags.facebookPixel) {
@@ -468,6 +468,11 @@ async function getAgencySocialMetadata(req, res, next) {
     }
     catch(err){
         log.error(`Getting Facebook Pixel ${err} ${__location}`);
+    }
+    let socialMediaList = [];
+    
+    if(agencyJson.socialMediaTags && agencyJson.socialMediaTags.length > 0){
+        socialMediaList = agencyJson.socialMediaTags;
     }
 
     if(!agencyJson.landingPageContent){
@@ -479,6 +484,7 @@ async function getAgencySocialMetadata(req, res, next) {
     }
     log.warn(`Favicon path: ${faviconPath}`);
     res.send(200, {
+        socialMetaData: socialMediaList,
         metaTitle: agencyJson.name,
         metaDescription: agencyJson.landingPageContent.bannerHeadingDefault ? agencyJson.landingPageContent.bannerHeadingDefault : agencyJson.defaultLandingPageContent.bannerHeadingDefault,
         metaImage: `${global.settings.IMAGE_URL}/public/agency-logos/${agencyJson.logo}`,
