@@ -313,14 +313,20 @@ module.exports = class LibertySBOP extends Integration {
             Coverage.ele('CoverageCd', 'BPP');
             const Limit = Coverage.ele('Limit');
             const FormatCurrencyAmt = Limit.ele('FormatCurrencyAmt');
-            FormatCurrencyAmt.ele('Amt', limit);
+            FormatCurrencyAmt.ele('Amt', "10000"); // defaulted to LM's max limit of $10,000
             Limit.ele('LimitAppliesToCd', 'PerOcc');
         }
 
         // <LiabilityInfo>
         //     <GeneralLiabilityClassification LocationRef="Wc3a968def7d94ae0acdabc4d95c34a86W">
         //         <Coverage>
-        //             <CoverageCd>CGL</CoverageCd>
+        //             <CoverageCd>LBMED</CoverageCd>
+        //             <Limit>
+        //                 <FormatCurrencyAmt>
+        //                     <Amt>1000000</Amt>
+        //                 </FormatCurrencyAmt>
+        //                 <LimitAppliesToCd>"PerOcc"</LimitAppliesToCd>
+        //             </Limit>
         //             <Option>
         //                 <OptionCd>PartTime</OptionCd>
         //                 <OptionValue>0.0</OptionValue>
@@ -342,7 +348,11 @@ module.exports = class LibertySBOP extends Integration {
         applicationDocData.locations.forEach((location, index) => {
             const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification').att('LocationRef', `L${index}`);
             const Coverage = GeneralLiabilityClassification.ele('Coverage');
-            Coverage.ele('CoverageCd', 'CGL');
+            Coverage.ele('CoverageCd', 'LBMED');
+            const Limit = Coverage.ele('Limit');
+            const innerFormatCurrencyAmt = Limit.ele('FormatCurrencyAmt');
+            innerFormatCurrencyAmt.ele('Amt', limit);
+            Limit.ele('LimitAppliesToCd', 'PerOcc');
             const Option1 = Coverage.ele('Option');
             Option1.ele('OptionCd', 'PartTime');
             Option1.ele('OptionValue', `${location.part_time_employees}.0`);
@@ -360,10 +370,23 @@ module.exports = class LibertySBOP extends Integration {
         // Get the XML structure as a string
         const xml = ACORD.end({'pretty': true});
 
+        // Determine which URL to use
+        const host = 'ci-policyquoteapi.libertymutual.com';
+        const path = `/v1/quotes?partnerID=${this.username}`;
+
+        let result = null;
+        try {
+            result = await this.send_xml_request(host, path, xml, {'Authorization': `Basic ${Buffer.from(`${this.username}:${this.password}`).toString('base64')}`});
+        } catch (e) {
+            log.error(`An error occurred! ${e}.`);
+            return this.client_declined(e);
+        }        
+
         // -------------- PARSE XML RESPONSE ----------------
 
         // console.log(JSON.stringify(xml, null, 4));
         console.log(xml);
+        console.log(JSON.stringify(result, null, 4));
         process.exit(-1);
     }
 
