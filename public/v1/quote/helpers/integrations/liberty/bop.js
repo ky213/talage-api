@@ -13,12 +13,6 @@ const Integration = require('../Integration.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-// these are questions that can be automatically answered through the application process
-const defaultedQuestions = [
-    "NBOP11", // any losses or claims in the past 3 years?
-    "BOP1" // Year business started
-];
-
 // The PerOcc field only is used, these are the Simple BOP supported limits for LM 
 const supportedLimits = [
     300000,
@@ -80,16 +74,26 @@ module.exports = class LibertySBOP extends Integration {
 
         // Assign the closest supported limit for Per Occ
         const limit = this.getSupportedLimit(sbopPolicy.limits);
+
+        // NOTE: Liberty Mutual does not accept these values at this time. Automatically defaulted on their end...
         const deductible = this.getSupportedDeductible(sbopPolicy.deductible);
+        const fireDamage = "1000000"; // we do not store this data currently
+        const prodCompOperations = "2000000"; // we do not store this data currently
+        const medicalExpenseLimit = "15000"; // we do not store this data currently
+        const ECAggregateLimit = "1000000/2000000"; // we do not store this data currently
 
         const phone = applicationDocData.phone.toString();
-        const formattedPhone = `+1-${phone.substring(0, 3)}-${phone.substring(phone.length - 7)}`
+        const formattedPhone = `+1-${phone.substring(0, 3)}-${phone.substring(phone.length - 7)}`;
 
-        // Liberty Mutual SBOP defaults
-        const fireDamage = "1000000";
-        const prodCompOperations = "2000000";
-        const medicalExpenseLimit = "15000";
-        const ECAggregateLimit = "1000000/2000000";
+        // used for implicit question NBOP11: any losses or claims in the past 3 years?
+        const claimsPast3Years = 
+            applicationDocData.claims.length === 0 || 
+            applicationDocData.claims.find(c => moment().diff(moment(c.eventDate), 'years', true) >= 3) ?
+                "NO" :
+                "YES";
+
+        // used for implicit question NBOP1: Year business started
+        const yearBusinessStarted = moment(applicationDocData.founded).format('YYYY');
 
         // Liberty has us define our own Request ID
 		const UUID = this.generate_uuid();
@@ -209,6 +213,57 @@ module.exports = class LibertySBOP extends Integration {
         const BusinessInfo = InsuredOrPrincipalInfo.ele('BusinessInfo');
         BusinessInfo.ele('BusinessStartDt', moment(applicationDocData.founded).format('YYYY'));
 
+        // <Policy>
+        //     <LOBCd>BOP</LOBCd>
+        //     <ControllingStateProvCd>IN</ControllingStateProvCd>
+        //     <ContractTerm>
+        //         <EffectiveDt>2021-01-07</EffectiveDt>
+        //     </ContractTerm>
+        //     <QuestionAnswer>
+        //         <QuestionCd>LMGENRL404</QuestionCd>
+        //         <YesNoCd>NO</YesNoCd>
+        //     </QuestionAnswer>
+        //     <QuestionAnswer>
+        //         <QuestionCd>LMGENRL586</QuestionCd>
+        //         <YesNoCd>NO</YesNoCd>
+        //     </QuestionAnswer>
+        //     <PolicyExt>
+        //         <com.libertymutual.ci_BusinessClassDesc>Business Class Description</com.libertymutual.ci_BusinessClassDesc>
+        //         <com.libertymutual.ci_BusinessClassId>01234</com.libertymutual.ci_BusinessClassId>
+        //     </PolicyExt>
+        // </Policy>
+
+        const Policy = PolicyRq.ele('Policy');
+        Policy.ele('LOBCd', 'BOP');
+        Policy.ele('ControllingStateProvCd', applicationDocData.mailingState);
+        const ContractTerm = Policy.ele('ContractTerm');
+        ContractTerm.ele('EffectiveDt', moment(sbopPolicy.effectiveDate).format('YYYY-MM-DD'));
+        // ContractTerm.ele('ExpirationDt', ...) is defaulted to 12 months from EffectiveDt by Liberty Mutual, not including
+
+        // add the questions that were answered (not hidden)
+        applicationDocData.questions.filter(q => !q.hidden).forEach(q => {
+            const questionId = this.question_identifiers[q.questionId];
+            if (questionId) {
+                const QuestionAnswer = Policy.ele('QuestionAnswer');
+                QuestionAnswer.ele('QuestionCd', questionId);
+                QuestionAnswer.ele('YesNoCd', q.answerValue.toUpperCase());
+            } else {
+                log.error(`Liberty Mutual Error: Could not find insurer question identifier for question: ${q.questionId}. Not sending question to insurer...`);
+            }
+        });
+
+        // add implicit questions
+        const implicitQuestion1 = Policy.ele('QuestionAnswer');
+        implicitQuestion1.ele('QuestionCd', 'NBOP11');
+        implicitQuestion1.ele('YesNoCd', claimsPast3Years);
+        const implicitQuestion2 = Policy.ele('QuestionAnswer');
+        implicitQuestion2.ele('QuestionCd', 'NBOP1');
+        implicitQuestion2.ele('YesNoCd', yearBusinessStarted);
+
+        const PolicyExt = Policy.ele('PolicyExt');
+        PolicyExt.ele('com.libertymutual.ci_BusinessClassDesc', this.industry_code.insurerDescription);
+        PolicyExt.ele('com.libertymutual.ci_BusinessClassId', this.industry_code.code);
+
         // <Location id="Wc3a968def7d94ae0acdabc4d95c34a86W">
         //     <Addr>
         //         <Addr1>1137 N State Street</Addr1>
@@ -250,16 +305,65 @@ module.exports = class LibertySBOP extends Integration {
         // </PropertyInfo>
 
         const PropertyInfo = BOPLineBusiness.ele('PropertyInfo');
-        applicationDocData.locations.forEach((location, index) => {
-            const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo').att('LocationRef', `L${index}`);
+        for (let i = 0; i < applicationDocData.locations.length; i++) {
+            const CommlPropertyInfo = PropertyInfo.ele('CommlPropertyInfo').att('LocationRef', `L${i}`);
             CommlPropertyInfo.ele('SubjectInsuranceCd', 'BPP');
+            CommlPropertyInfo.ele('ClassCd', this.industry_code.code);
+            const Coverage = CommlPropertyInfo.ele('Coverage');
+            Coverage.ele('CoverageCd', 'BPP');
+            const Limit = Coverage.ele('Limit');
+            const FormatCurrencyAmt = Limit.ele('FormatCurrencyAmt');
+            FormatCurrencyAmt.ele('Amt', limit);
+            Limit.ele('LimitAppliesToCd', 'PerOcc');
+        }
+
+        // <LiabilityInfo>
+        //     <GeneralLiabilityClassification LocationRef="Wc3a968def7d94ae0acdabc4d95c34a86W">
+        //         <Coverage>
+        //             <CoverageCd>CGL</CoverageCd>
+        //             <Option>
+        //                 <OptionCd>PartTime</OptionCd>
+        //                 <OptionValue>0.0</OptionValue>
+        //             </Option>
+        //             <Option>
+        //                 <OptionCd>FullTime</OptionCd>
+        //                 <OptionValue>1.0</OptionValue>
+        //             </Option>
+        //             <Option>
+        //                 <OptionCd>EMPL</OptionCd>
+        //                 <OptionValue>1.0</OptionValue>
+        //             </Option>
+        //         </Coverage>
+        //         <ClassCd>89391</ClassCd>
+        //     </GeneralLiabilityClassification>
+        // </LiabilityInfo>
+
+        const LiabilityInfo = BOPLineBusiness.ele('LiabilityInfo');
+        applicationDocData.locations.forEach((location, index) => {
+            const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification').att('LocationRef', `L${index}`);
+            const Coverage = GeneralLiabilityClassification.ele('Coverage');
+            Coverage.ele('CoverageCd', 'CGL');
+            const Option1 = Coverage.ele('Option');
+            Option1.ele('OptionCd', 'PartTime');
+            Option1.ele('OptionValue', `${location.part_time_employees}.0`);
+            const Option2 = Coverage.ele('Option');
+            Option2.ele('OptionCd', 'FullTime');
+            Option2.ele('OptionValue', `${location.full_time_employees}.0`);
+            const Option3 = Coverage.ele('Option');
+            Option3.ele('OptionCd', 'EMPL');
+            Option3.ele('OptionValue', `${location.part_time_employees + location.full_time_employees}.0`);
+            Coverage.ele('ClassCd', this.industry_code.code);
         });
 
         // -------------- SEND XML REQUEST ----------------
 
+        // Get the XML structure as a string
+        const xml = ACORD.end({'pretty': true});
+
         // -------------- PARSE XML RESPONSE ----------------
 
-        console.log(JSON.stringify(this.industry_code, null, 4));
+        // console.log(JSON.stringify(xml, null, 4));
+        console.log(xml);
         process.exit(-1);
     }
 
