@@ -19,7 +19,7 @@ const AgencyBO = global.requireShared('models/Agency-BO.js');
 async function GetUserInfo(req, res, next){
 
     // Localize data variables that the user is permitted to access
-    const agencyNetwork = parseInt(req.authentication.agencyNetwork, 10);
+    const agencyNetwork = parseInt(req.authentication.agencyNetworkId, 10);
 
     // Prepare to get the information for this user, building a query based on their user type
     let userInfoSQL = '';

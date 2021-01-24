@@ -135,11 +135,11 @@ async function retrieveCustomColorScheme(data, next) {
 async function retrieveAuthenticatedAgency(req, data, next){
     let error = false;
     let agency = null;
-    const jwtErrorMessage = await auth.validateJWT(req, req.authentication.agencyNetwork ? 'agencies' : 'pages', 'manage');
+    const jwtErrorMessage = await auth.validateJWT(req, req.authentication.isAgencyNetworkUser ? 'agencies' : 'pages', 'manage');
     if (jwtErrorMessage) {
         return next(serverHelper.forbiddenError(jwtErrorMessage));
     }
-    if (req.authentication.agencyNetwork) {
+    if (req.authentication.isAgencyNetworkUser) {
         // This is an agency network user, they can only modify agencies in their network
         // Get the agencies that we are permitted to manage
         const agencies = await auth.getAgents(req).catch(function(e) {

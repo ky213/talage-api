@@ -19,7 +19,7 @@ const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js
  */
 async function createAgency(req, res, next){
     // Make sure this is an agency network
-    if (req.authentication.agencyNetwork === false){
+    if (req.authentication.isAgencyNetworkUser === false){
         log.info('Forbidden: User is not authorized to create agecies');
         return next(serverHelper.forbiddenError('You are not authorized to access this resource'));
     }
