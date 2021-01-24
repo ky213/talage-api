@@ -52,7 +52,13 @@ async function getbyId(req, res, next) {
 
 
     // Determine the agency ID
-    const agencyList = req.authentication.agents;
+    //const agencyList = req.authentication.agents;
+    const agencyList = await auth.getAgents(req).catch(function(e){
+        error = e;
+    });
+    if (error){
+        return next(error);
+    }
 
     // Initialize an agency object
     const agencyLocationBO = new AgencyLocationBO();
