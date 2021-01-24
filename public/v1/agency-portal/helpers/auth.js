@@ -32,6 +32,7 @@ exports.getAgents = async function(req) {
         const AgencyBO = global.requireShared('./models/Agency-BO.js');
         const agencyBO = new AgencyBO();
         // Load the request data into it
+        // TODO refactor to only return systemId from BO and mongo
         agencyResult = await agencyBO.getByAgencyNetwork(agencyNetwork);
     }
     catch(err){
@@ -115,13 +116,13 @@ exports.validateJWT = async function(req, permission, permissionType) {
             }
         }
         // Make sure the agencyNetwork is what we are expecting
-        if (typeof req.authentication.agencyNetwork !== 'number' && typeof req.authentication.agencyNetwork !== 'boolean') {
+        if (req.authentication.isAgencyNetworkUser === true && typeof req.authentication.agencyNetwork !== 'number') {
             log.info('Forbidden: JWT payload is invalid (agencyNetwork)');
             return 'User is not properly authenticated';
         }
 
         // Additional validation for group administrators
-        if (req.authentication.agencyNetwork) {
+        if (req.authentication.isAgencyNetworkUser === true && req.authentication.agencyNetwork) {
             // Validate the agency network ID
             if (!await validator.is_valid_id(req.authentication.agencyNetwork)) {
                 log.info('Forbidden: User is not authenticated (agencyNetwork)');
