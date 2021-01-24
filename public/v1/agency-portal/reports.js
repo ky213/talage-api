@@ -87,13 +87,13 @@ async function getReports(req, res, next) {
     }
 
     // Localize data variables that the user is permitted to access
-    const agencyNetwork = parseInt(req.authentication.agencyNetwork, 10);
+    const agencyNetwork = parseInt(req.authentication.agencyNetworkId, 10);
 
     // Begin by only allowing applications that are not deleted from agencies that are also not deleted
     let where = `${db.quoteName('a.state')} > 0 `;
 
     // Filter out any agencies with do_not_report value set to true
-    if(req.authentication.agencyNetwork){
+    if(req.authentication.isAgencyNetworkUser){
         try{
             const agencyBO = new AgencyBO();
             const donotReportQuery = {doNotReport: true};

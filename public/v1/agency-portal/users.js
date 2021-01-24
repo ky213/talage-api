@@ -25,12 +25,12 @@ async function getUsers(req, res, next){
 
     // Authentication required since endpoint serves users now for network agency for an agency
     // if network agency and wanting agency info confirm the agency is part of the network
-    const jwtErrorMessage = await auth.validateJWT(req, req.authentication.agencyNetwork ? 'agencies' : 'users', 'view');
+    const jwtErrorMessage = await auth.validateJWT(req, req.authentication.isAgencyNetworkUser ? 'agencies' : 'users', 'view');
     if(jwtErrorMessage){
         return next(serverHelper.forbiddenError(jwtErrorMessage));
     }
 
-    if(req.authentication.agencyNetwork && req.query.agency){
+    if(req.authentication.isAgencyNetworkUser && req.query.agency){
         const agencies = await auth.getAgents(req).catch(function(e){error = e;})
         if(error){
             return next(error);
@@ -45,8 +45,8 @@ async function getUsers(req, res, next){
         }
         retrievingAgencyUsersForAgencyNetwork = true;
     }
-    else if (req.authentication.agencyNetwork){
-        query.agencynetworkid = parseInt(req.authentication.agencyNetwork, 10);
+    else if (req.authentication.isAgencyNetworkUser){
+        query.agencynetworkid = parseInt(req.authentication.agencyNetworkId, 10);
     }
     else {
         // Get the agents that we are permitted to view
