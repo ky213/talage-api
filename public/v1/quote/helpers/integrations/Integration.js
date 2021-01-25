@@ -47,6 +47,7 @@ module.exports = class Integration {
 
         // requiresProductPolicyTypeFilter:
         //      - set to true if the policy type must be used to filter industry codes.
+        //      - if set to true, set the policyTYpeFilter to the string policy type (f.e. 'GL')
         this.requiresProductPolicyTypeFilter = false;
         this.policyTypeFilter = null;
 

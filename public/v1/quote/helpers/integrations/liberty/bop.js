@@ -13,7 +13,7 @@ const Integration = require('../Integration.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-// The PerOcc field only is used, these are the Simple BOP supported limits for LM 
+// The PerOcc field is the only one used, these are the Simple BOP supported PerOcc limits for LM 
 const supportedLimits = [
     300000,
     500000,
@@ -91,9 +91,6 @@ module.exports = class LibertySBOP extends Integration {
             applicationDocData.claims.find(c => moment().diff(moment(c.eventDate), 'years', true) >= 3) ?
                 "NO" :
                 "YES";
-
-        // used for implicit question NBOP1: Year business started
-        const yearBusinessStarted = moment(applicationDocData.founded).format('YYYY');
 
         // Liberty has us define our own Request ID
 		const UUID = this.generate_uuid();
@@ -211,6 +208,7 @@ module.exports = class LibertySBOP extends Integration {
         const InsuredOrPrincipalInfo = InsuredOrPrincipal.ele('InsuredOrPrincipalInfo');
         InsuredOrPrincipalInfo.ele('InsuredOrPrincipalRoleCd', 'FNI'); // Per Liberty, "first name insured" is the only valid value
         const BusinessInfo = InsuredOrPrincipalInfo.ele('BusinessInfo');
+        // NOTE: This satisifies the BOP1 question - we do not need to send BOP1 question to Liberty Mutual 
         BusinessInfo.ele('BusinessStartDt', moment(applicationDocData.founded).format('YYYY'));
 
         // <Policy>
@@ -242,8 +240,12 @@ module.exports = class LibertySBOP extends Integration {
 
         // add the questions that were answered (not hidden)
         applicationDocData.questions.filter(q => !q.hidden).forEach(q => {
-            const questionId = this.question_identifiers[q.questionId];
+            let questionId = this.question_identifiers[q.questionId];
             if (questionId) {
+                let details = Object.values(this.question_details).find(d => d.identifier === questionId);
+                if (details) {
+                    questionId = details.attributes.ACORDCd;
+                }
                 const QuestionAnswer = Policy.ele('QuestionAnswer');
                 QuestionAnswer.ele('QuestionCd', questionId);
                 QuestionAnswer.ele('YesNoCd', q.answerValue.toUpperCase());
@@ -254,11 +256,8 @@ module.exports = class LibertySBOP extends Integration {
 
         // add implicit questions
         const implicitQuestion1 = Policy.ele('QuestionAnswer');
-        implicitQuestion1.ele('QuestionCd', 'NBOP11');
+        implicitQuestion1.ele('QuestionCd', 'LMGENRL404_1');
         implicitQuestion1.ele('YesNoCd', claimsPast3Years);
-        const implicitQuestion2 = Policy.ele('QuestionAnswer');
-        implicitQuestion2.ele('QuestionCd', 'NBOP1');
-        implicitQuestion2.ele('YesNoCd', yearBusinessStarted);
 
         const PolicyExt = Policy.ele('PolicyExt');
         PolicyExt.ele('com.libertymutual.ci_BusinessClassDesc', this.industry_code.insurerDescription);
@@ -318,57 +317,66 @@ module.exports = class LibertySBOP extends Integration {
         }
 
         // <LiabilityInfo>
-        //     <GeneralLiabilityClassification LocationRef="Wc3a968def7d94ae0acdabc4d95c34a86W">
+        //     <Coverage>
+        //         <CoverageCd>LBMED</CoverageCd>
+        //         <Limit>
+        //             <LimitAppliesToCd>PerOcc</LimitAppliesToCd>
+        //             <FormatCurrencyAmt>
+        //                 <Amt>1000000</Amt>
+        //             </FormatCurrencyAmt>
+        //         </Limit>
+        //     </Coverage>
+        //     <GeneralLiabilityClassification LocationRef="L0">
         //         <Coverage>
-        //             <CoverageCd>LBMED</CoverageCd>
-        //             <Limit>
-        //                 <FormatCurrencyAmt>
-        //                     <Amt>1000000</Amt>
-        //                 </FormatCurrencyAmt>
-        //                 <LimitAppliesToCd>"PerOcc"</LimitAppliesToCd>
-        //             </Limit>
+        //             <CoverageCd>CGL</CoverageCd>
         //             <Option>
         //                 <OptionCd>PartTime</OptionCd>
         //                 <OptionValue>0.0</OptionValue>
         //             </Option>
         //             <Option>
         //                 <OptionCd>FullTime</OptionCd>
-        //                 <OptionValue>1.0</OptionValue>
+        //                 <OptionValue>2.0</OptionValue>
         //             </Option>
         //             <Option>
         //                 <OptionCd>EMPL</OptionCd>
-        //                 <OptionValue>1.0</OptionValue>
+        //                 <OptionValue>2.0</OptionValue>
         //             </Option>
         //         </Coverage>
-        //         <ClassCd>89391</ClassCd>
+        //         <ClassCd>89324</ClassCd>
         //     </GeneralLiabilityClassification>
         // </LiabilityInfo>
 
         const LiabilityInfo = BOPLineBusiness.ele('LiabilityInfo');
         applicationDocData.locations.forEach((location, index) => {
-            const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification').att('LocationRef', `L${index}`);
-            const Coverage = GeneralLiabilityClassification.ele('Coverage');
+            const Coverage = LiabilityInfo.ele('Coverage');
             Coverage.ele('CoverageCd', 'LBMED');
             const Limit = Coverage.ele('Limit');
             const innerFormatCurrencyAmt = Limit.ele('FormatCurrencyAmt');
             innerFormatCurrencyAmt.ele('Amt', limit);
             Limit.ele('LimitAppliesToCd', 'PerOcc');
-            const Option1 = Coverage.ele('Option');
+            const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification').att('LocationRef', `L${index}`);
+            const innerCoverage = GeneralLiabilityClassification.ele('Coverage');
+            innerCoverage.ele('CoverageCd', 'CGL');
+            const Option1 = innerCoverage.ele('Option');
             Option1.ele('OptionCd', 'PartTime');
             Option1.ele('OptionValue', `${location.part_time_employees}.0`);
-            const Option2 = Coverage.ele('Option');
+            const Option2 = innerCoverage.ele('Option');
             Option2.ele('OptionCd', 'FullTime');
             Option2.ele('OptionValue', `${location.full_time_employees}.0`);
-            const Option3 = Coverage.ele('Option');
+            const Option3 = innerCoverage.ele('Option');
             Option3.ele('OptionCd', 'EMPL');
             Option3.ele('OptionValue', `${location.part_time_employees + location.full_time_employees}.0`);
-            Coverage.ele('ClassCd', this.industry_code.code);
+            GeneralLiabilityClassification.ele('ClassCd', this.industry_code.code);
         });
 
         // -------------- SEND XML REQUEST ----------------
 
         // Get the XML structure as a string
         const xml = ACORD.end({'pretty': true});
+
+        log.debug("=================== QUOTE REQUEST ===================");
+        log.debug(`Liberty Mutual request: \n${xml}`);
+        log.debug("=================== QUOTE REQUEST ===================");
 
         // Determine which URL to use
         const host = 'ci-policyquoteapi.libertymutual.com';
@@ -384,6 +392,7 @@ module.exports = class LibertySBOP extends Integration {
 
         // -------------- PARSE XML RESPONSE ----------------
 
+        // check we have valid status object structure
         if (!result.ACORD || !result.ACORD.Status || typeof result.ACORD.Status[0].StatusCd === 'undefined') {
             console.log(JSON.stringify(result, null, 4));
             const errorMessage = `Liberty Mutual: Unknown result structure: cannot parse result.`;
@@ -391,12 +400,14 @@ module.exports = class LibertySBOP extends Integration {
             return this.client_declined(errorMessage);
         }
 
+        // check we have a valid status code
         if (result.ACORD.Status[0].StatusCd[0] !== '0') {
             const errorMessage = `Liberty Mutual: Unknown status code returned in quote response: ${result.ACORD.Status[0].StatusCd}.`;
             log.error(errorMessage);
             return this.client_declined(errorMessage);
         }
 
+        // check we have a valid object structure
         if (
             !result.ACORD.InsuranceSvcRs || 
             !result.ACORD.InsuranceSvcRs[0].PolicyRs ||
@@ -409,6 +420,7 @@ module.exports = class LibertySBOP extends Integration {
 
         let objPath = result.ACORD.InsuranceSvcRs[0].PolicyRs[0].MsgStatus[0];
 
+        // normal error structure, build an error message
         if (objPath.MsgStatusCd[0].toLowerCase() === "error") {
             let additionalReasons = null;
             let errorMessage = 'Liberty Mutual: ';
@@ -432,23 +444,30 @@ module.exports = class LibertySBOP extends Integration {
 
                     if (objPath.length > 1) {
                         additionalReasons = [];
-                        objPath.forEach(reason => {
-                            additionalReasons.push(`[${reason['com.libertymutual.ci_ExtendedDataErrorCd']}] ${reason['com.libertymutual.ci_ExtendedDataErrorDesc']}`);
+                        objPath.forEach((reason, index) => {
+                            // skip the first one, we've already added it as the primary reason
+                            if (index !== 0) {
+                                additionalReasons.push(`[${reason['com.libertymutual.ci_ExtendedDataErrorCd']}] ${reason['com.libertymutual.ci_ExtendedDataErrorDesc']}`);
+                            }
                         });
                     }
                 } else {
                     errorMessage += 'Please review the logs for more details.';
                 }
             }
-
+            log.debug("=================== QUOTE ERROR ===================");
+            log.error(`Liberty Mutual Simple BOP send_json_request error \n${JSON.stringify(result.ACORD.InsuranceSvcRs[0].PolicyRs[0].MsgStatus[0], null, 4)}`);
+            log.debug("=================== QUOTE ERROR ===================");
             return this.client_declined(errorMessage, additionalReasons);
         }
 
         // PARSE SUCCESSFUL PAYLOAD
 
-        // console.log(JSON.stringify(xml, null, 4));
+        log.debug("=================== QUOTE RESULT ===================");
+        log.debug(`Liberty Mutual Simple BOP \n ${JSON.stringify(result, null, 4)}`);
+        log.debug("=================== QUOTE RESULT ===================");
+
         console.log(xml);
-        console.log(JSON.stringify(result, null, 4));
         process.exit(-1);
     }
 
