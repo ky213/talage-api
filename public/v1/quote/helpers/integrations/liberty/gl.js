@@ -22,6 +22,9 @@ module.exports = class LibertyGL extends Integration{
      */
     _insurer_init() {
         this.requiresInsurerIndustryCodes = true;
+
+        this.requiresProductPolicyTypeFilter = true;
+        this.policyTypeFilter = 'GL';
     }
 
 	/**
