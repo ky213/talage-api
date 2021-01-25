@@ -384,6 +384,68 @@ module.exports = class LibertySBOP extends Integration {
 
         // -------------- PARSE XML RESPONSE ----------------
 
+        if (!result.ACORD || !result.ACORD.Status || typeof result.ACORD.Status[0].StatusCd === 'undefined') {
+            console.log(JSON.stringify(result, null, 4));
+            const errorMessage = `Liberty Mutual: Unknown result structure: cannot parse result.`;
+            log.error(errorMessage);
+            return this.client_declined(errorMessage);
+        }
+
+        if (result.ACORD.Status[0].StatusCd[0] !== '0') {
+            const errorMessage = `Liberty Mutual: Unknown status code returned in quote response: ${result.ACORD.Status[0].StatusCd}.`;
+            log.error(errorMessage);
+            return this.client_declined(errorMessage);
+        }
+
+        if (
+            !result.ACORD.InsuranceSvcRs || 
+            !result.ACORD.InsuranceSvcRs[0].PolicyRs ||
+            !result.ACORD.InsuranceSvcRs[0].PolicyRs[0].MsgStatus
+        ) {
+            const errorMessage = `Liberty Mutual: Unknown result structure, no message status: cannot parse result.`;
+            log.error(errorMessage);
+            return this.client_declined(errorMessage);
+        }
+
+        let objPath = result.ACORD.InsuranceSvcRs[0].PolicyRs[0].MsgStatus[0];
+
+        if (objPath.MsgStatusCd[0].toLowerCase() === "error") {
+            let additionalReasons = null;
+            let errorMessage = 'Liberty Mutual: ';
+            if (objPath.MsgErrorCd) {
+                errorMessage += objPath.MsgErrorCd[0];
+            }
+
+            if (objPath.ExtendedStatus) {
+                objPath = objPath.ExtendedStatus[0];
+                if (objPath.ExtendedStatusCd && objPath.ExtendedStatusExt) {
+                    errorMessage += ` (${objPath.ExtendedStatusCd}): `;
+                }
+
+                if (
+                    objPath.ExtendedStatusExt &&
+                    objPath.ExtendedStatusExt[0]['com.libertymutual.ci_ExtendedDataErrorCd'] &&
+                    objPath.ExtendedStatusExt[0]['com.libertymutual.ci_ExtendedDataErrorDesc']
+                ) {
+                    objPath = objPath.ExtendedStatusExt;
+                    errorMessage += `[${objPath[0]['com.libertymutual.ci_ExtendedDataErrorCd']}] ${objPath[0]['com.libertymutual.ci_ExtendedDataErrorDesc']}`;
+
+                    if (objPath.length > 1) {
+                        additionalReasons = [];
+                        objPath.forEach(reason => {
+                            additionalReasons.push(`[${reason['com.libertymutual.ci_ExtendedDataErrorCd']}] ${reason['com.libertymutual.ci_ExtendedDataErrorDesc']}`);
+                        });
+                    }
+                } else {
+                    errorMessage += 'Please review the logs for more details.';
+                }
+            }
+
+            return this.client_declined(errorMessage, additionalReasons);
+        }
+
+        // PARSE SUCCESSFUL PAYLOAD
+
         // console.log(JSON.stringify(xml, null, 4));
         console.log(xml);
         console.log(JSON.stringify(result, null, 4));
