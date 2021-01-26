@@ -112,14 +112,13 @@ module.exports = class Application {
                 const p = new Policy();
                 await p.load(policyJSON, this.business, this.applicationDocData);
                 this.policies.push(p);
-                appPolicyTypeList.push(policyJSON.type);
+                appPolicyTypeList.push(policyJSON.policyType);
             }
         }
         catch(err){
             log.error("Quote Application Model loading policy err " + err + __location);
             throw err;
         }
-
         //update business with policy type list.
         this.business.setPolicyTypeList(appPolicyTypeList);
         // Agent
@@ -470,7 +469,7 @@ module.exports = class Application {
                         continue;
                     }
 
-                    if (question.parent && question.parent > 0 ) {
+                    if (question.parent && question.parent > 0) {
                         // Get the parent question
                         const parent_question = this.questions[question.parent];
 
