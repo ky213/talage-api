@@ -17,7 +17,6 @@ const moment_timezone = require('moment-timezone');
 const Integration = require('../Integration.js');
 const acuityWCTemplate = require('jsrender').templates('./public/v1/quote/helpers/integrations/acuity/wc.xmlt');
 const InsurerBO = global.requireShared('./models/Insurer-BO.js');
-const acuityWCCodes = require('./acuity-wc-codes.js');
 global.requireShared('./helpers/tracker.js');
 
 module.exports = class AcuityWC extends Integration {
@@ -29,6 +28,7 @@ module.exports = class AcuityWC extends Integration {
      */
     _insurer_init() {
         this.requiresInsurerIndustryCodes = true;
+        this.requiresInsurerActivityCodes = true;
     }
 
     /**
@@ -88,19 +88,16 @@ module.exports = class AcuityWC extends Integration {
                 if (unreportedPayrollActivityCodes.includes(activityCode.id)) {
                     continue;
                 }
-
-                let ncciCode = null;
-                if (insurer) {
-                    ncciCode = await this.get_national_ncci_code_from_activity_code(location.territory, activityCode.id);
+                if (this.insurer_wc_codes.hasOwnProperty(`${location.territory}${activityCode.id}`)) {
+                    activityCode.ncciCode = this.insurer_wc_codes[location.territory + activityCode.id];
                 }
                 else {
-                    return this.client_error(`We can't locate NCCI codes without a valid insurer. Slug used: ${insurerSlug}.`, __location);
+                    activityCode.ncciCode = await this.get_national_ncci_code_from_activity_code(location.territory, activityCode.id);
                 }
-                if (!ncciCode) {
-                    return this.client_error('We could not locate an NCCI code for one or more of the provided activities.', __location, {activityCode: activityCode.id});
+                if (!activityCode.ncciCode) {
+                    this.log_warn(`Missing NCCI class code mapping: activityCode=${activityCode.id} territory=${location.territory}`, __location);
+                    return this.client_error(`Insurer activity class codes were not found for all activities in the application.`, __location);
                 }
-
-                activityCode.ncciCode = acuityWCCodes.getAcuityNCCICode(ncciCode, location.territory);
             }
         }
 
@@ -330,8 +327,22 @@ module.exports = class AcuityWC extends Integration {
                 });
 
                 // Retrieve and the quote letter if it exists
-                const quoteLetter = this.get_xml_child(result.ACORD, 'InsuranceSvcRs.WorkCompPolicyQuoteInqRs.FileAttachmentInfo.cData');
-                const quoteLetterMimeType = this.get_xml_child(result.ACORD, 'InsuranceSvcRs.WorkCompPolicyQuoteInqRs.FileAttachmentInfo.MIMEContentTypeCd');
+                let quoteLetter = null;
+                let quoteLetterMimeType = null;
+                const fileAttachmentInfoList = this.get_xml_child(result.ACORD, 'InsuranceSvcRs.WorkCompPolicyQuoteInqRs.FileAttachmentInfo', true);
+                for (const fileAttachmentInfo of fileAttachmentInfoList) {
+                    switch (fileAttachmentInfo.AttachmentDesc[0]) {
+                        case "Policy Quote Print":
+                            quoteLetter = fileAttachmentInfo.cData[0];
+                            quoteLetterMimeType = fileAttachmentInfo.MIMEContentTypeCd[0];
+                            break;
+                        case "URL":
+                            this.quoteLink = fileAttachmentInfo.WebsiteURL[0];
+                            break;
+                        default:
+                            break;
+                    }
+                }
 
                 // Check if it is a bindable quote
                 if (policyStatusCd === 'acuity_BindableQuote') {
