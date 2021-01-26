@@ -117,34 +117,31 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
 
     const policy_types = [];
 
-    // Create a unique list of policy effective dates.
-    const policyEffectiveDateList = [];
+
+    // Question list effective date is done per policy type.
+    // For a given policy type, check the question's effective/expiration dates.
+    const uniquePolicyEffectiveDateList = [];
+    const questionEffectiveDateWhereClauseList = [];
     policyTypeArray.forEach(function(policy_type) {
         // Build a list of policy types
         policy_types.push(policy_type.type.replace(/[^a-z]/gi, '').toUpperCase());
         const policyEffectiveDate = moment(policy_type.effectiveDate).format("YYYY-MM-DD HH:MM:SS");
-        // Build a list of unique policy effective dates
-        if (!policyEffectiveDateList.includes(policyEffectiveDate)) {
-            policyEffectiveDateList.push(policyEffectiveDate);
+        // Build the question query where clause for each policy type
+        questionEffectiveDateWhereClauseList.push(`(iq.policy_type = '${policy_type.type}' AND '${policyEffectiveDate}' >= iq.effectiveDate AND '${policyEffectiveDate}' < iq.expirationDate)`);
+        // Build a list of unique policy effective dates for the industry and activity code queries
+        if (!uniquePolicyEffectiveDateList.includes(policyEffectiveDate)) {
+            uniquePolicyEffectiveDateList.push(policyEffectiveDate);
         }
     });
+    const questionEffectiveDateWhereClause = "(" + questionEffectiveDateWhereClauseList.join(" OR ") + ")";
 
-    // Build the where clause list to restrict to effective (non-expired) questions.
-    // NOTE: The clauses are "OR" to ensure we bring in questions and codes active at each policy's effective date.
-    // For example, if WC is effective 01-01-2021 and GL is effective 02-01-2021, then we want questions and codes which are effective
-    // for each date. When the WC integration quotes, it is passed only the questions and codes which are effective for its policy date,
-    // and likewise for GL.
-    const questionEffectiveDateWhereClauseList = [];
+    // Industry and activity code effective date is done using the unique policy effective date list.
     const industryCodeEffectiveDateWhereClauseList = [];
     const activityCodeEffectiveDateWhereClauseList = [];
-    for (const policyEffectiveDate of policyEffectiveDateList) {
-        questionEffectiveDateWhereClauseList.push(`('${policyEffectiveDate}' >= iq.effectiveDate AND '${policyEffectiveDate}' < iq.expirationDate)`);
+    for (const policyEffectiveDate of uniquePolicyEffectiveDateList) {
         industryCodeEffectiveDateWhereClauseList.push(`('${policyEffectiveDate}' >= iic.effectiveDate AND '${policyEffectiveDate}' < iic.expirationDate)`);
         activityCodeEffectiveDateWhereClauseList.push(`('${policyEffectiveDate}' >= inc.effectiveDate AND '${policyEffectiveDate}' < inc.expirationDate)`);
     }
-    // Now join the where clause lists with 'OR' to create the where clause string. The parens are only needed if there is more than 1 policy effective date
-    // but don't hurt anything if they are present for only 1 (easier to read/follow code)
-    const questionEffectiveDateWhereClause = "(" + questionEffectiveDateWhereClauseList.join(" OR ") + ")";
     const industryCodeEffectiveDateWhereClause = "(" + industryCodeEffectiveDateWhereClauseList.join(" OR ") + ")";
     const activityCodeEffectiveDateWhereClause = "(" + activityCodeEffectiveDateWhereClauseList.join(" OR") + ")";
 
