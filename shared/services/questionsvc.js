@@ -117,7 +117,6 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
 
     const policy_types = [];
 
-
     // Question list effective date is done per policy type.
     // For a given policy type, check the question's effective/expiration dates.
     const uniquePolicyEffectiveDateList = [];
@@ -126,12 +125,11 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         // Build a list of policy types
         policy_types.push(policy_type.type.replace(/[^a-z]/gi, '').toUpperCase());
         const policyEffectiveDate = moment(policy_type.effectiveDate).format("YYYY-MM-DD HH:MM:SS");
-        // Build the question query where clause for each policy type
-        questionEffectiveDateWhereClauseList.push(`(iq.policy_type = '${policy_type.type}' AND '${policyEffectiveDate}' >= iq.effectiveDate AND '${policyEffectiveDate}' < iq.expirationDate)`);
         // Build a list of unique policy effective dates for the industry and activity code queries
         if (!uniquePolicyEffectiveDateList.includes(policyEffectiveDate)) {
             uniquePolicyEffectiveDateList.push(policyEffectiveDate);
         }
+        questionEffectiveDateWhereClauseList.push(`(iq.policy_type = '${policy_type.type.toUpperCase()}' AND '${policyEffectiveDate}' >= iq.effectiveDate AND '${policyEffectiveDate}' < iq.expirationDate)`);
     });
     const questionEffectiveDateWhereClause = "(" + questionEffectiveDateWhereClauseList.join(" OR ") + ")";
 
@@ -234,8 +232,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
 		LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
 		LEFT JOIN clw_talage_insurer_question_territories as iqt ON iqt.insurer_question = iq.id
         WHERE
-            iq.policy_type IN ('${policy_types.join("','")}') 
-            AND iq.universal = 1
+            iq.universal = 1
             AND (iqt.territory IN (${territories.map(db.escape).join(',')}) OR iqt.territory IS NULL) 
             AND ${where} 
             AND ${questionEffectiveDateWhereClause}
@@ -268,7 +265,6 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         INNER JOIN clw_talage_question_types AS qt ON qt.id = q.type
         WHERE
             ic.id = ${db.escape(industry_code)}
-            AND iq.policy_type IN ("${policy_types.join("\",\"")}")
             AND iic.territory IN (${territories.map(db.escape).join(',')})
             AND ${where}
             AND ${questionEffectiveDateWhereClause}
@@ -285,7 +281,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
 
     // ============================================================
     // Get activity-based questions
-    if(activityCodeArray && activityCodeArray.length > 0){
+    if (activityCodeArray && activityCodeArray.length > 0) {
         sql = `
             SELECT ${select}
             FROM clw_talage_questions AS q
@@ -299,8 +295,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             )
             LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
             WHERE
-                iq.policy_type IN ('WC')
-                AND ${where} 
+                ${where} 
                 AND ${questionEffectiveDateWhereClause}                                               
                 GROUP BY q.id;
         `;
@@ -317,27 +312,24 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     if (questions) {
         questions = questions.filter((question, index, self) => index === self.findIndex((t) => t.id === question.id));
     }
-
     if (!questions || questions.length === 0) {
         log.info('No questions to return');
         return [];
     }
 
     // Check for missing questions
-    // NOTE: This iterative approach is expensive. Candidate for refactoring. -SF
     let missing_questions = find_missing_questions(questions);
     while (missing_questions) {
-        // Query to get all missing questions
+        // Query to get all missing questions. This ensures that all parent questions are present regardless of effective date.
         sql = `
 			SELECT ${select}
 			FROM clw_talage_questions AS q
-			LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
-			LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
+			INNER JOIN clw_talage_question_types AS qt ON q.type = qt.id
+			INNER JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
             WHERE
                 q.id IN (${missing_questions.join(',')})
-                AND ${questionEffectiveDateWhereClause}
 			    GROUP BY q.id;
-		`;
+        `;
         let error2 = null;
         const added_questions = await db.queryReadonly(sql).catch(function(err) {
             // eslint-disable-line no-await-in-loop, no-loop-func
@@ -347,11 +339,9 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             return false;
         }
         questions = questions.concat(added_questions);
-
         // Check for additional missing questions
         missing_questions = find_missing_questions(questions);
     }
-
     // Let's do some cleanup and get a list of question IDs
     for (let index = 0; index < questions.length; index++) {
         const question = questions[index];

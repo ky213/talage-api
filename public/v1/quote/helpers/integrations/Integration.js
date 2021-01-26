@@ -242,7 +242,7 @@ module.exports = class Integration {
                 inc.state = 1
                 AND inc.insurer = ${insurerId}
                 AND inc.territory = '${territory}'
-                AND ('${policyEffectiveDate}' >= iic.effectiveDate AND '${policyEffectiveDate}' < iic.expirationDate)
+                AND ('${policyEffectiveDate}' >= inc.effectiveDate AND '${policyEffectiveDate}' < inc.expirationDate)
                 AND aca.code = ${activityCode};
         `;
         let result = null;
@@ -615,7 +615,10 @@ module.exports = class Integration {
 				FROM clw_talage_insurer_ncci_code_questions AS incq
 				LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON inc.id = incq.ncci_code AND inc.insurer = ${this.insurer.id}
 				LEFT JOIN clw_talage_questions AS q ON incq.question = q.id
-				WHERE q.state = 1 AND (${where_chunks.join(' OR ')}) GROUP BY inc.territory, class_code;
+                WHERE
+                    q.state = 1
+                    AND (${where_chunks.join(' OR ')}) 
+                    GROUP BY inc.territory, class_code;
 			`;
             const results = await db.query(sql).catch(function(error) {
                 reject(error);
@@ -746,7 +749,12 @@ module.exports = class Integration {
             const question_ids = Object.keys(this.questions);
 
             if (question_ids.length > 0) {
-                const sql = `SELECT question, universal, identifier, attributes FROM #__insurer_questions WHERE insurer = ${this.insurer.id} AND question IN (${question_ids.join(',')});`;
+                const sql = `
+                    SELECT question, universal, identifier, attributes FROM #__insurer_questions
+                    WHERE
+                        insurer = ${this.insurer.id} 
+                        AND question IN (${question_ids.join(',')});
+                `;
                 const results = await db.query(sql).catch(function(error) {
                     reject(error);
                 });
@@ -808,7 +816,12 @@ module.exports = class Integration {
             const question_ids = Object.keys(this.questions);
 
             if (question_ids.length > 0) {
-                const sql = `SELECT question, universal, identifier FROM #__insurer_questions WHERE insurer = ${this.insurer.id} AND question IN (${question_ids.join(',')});`;
+                const sql = `
+                    SELECT question, universal, identifier FROM #__insurer_questions
+                    WHERE
+                        insurer = ${this.insurer.id} 
+                        AND question IN (${question_ids.join(',')});
+                `;
                 const results = await db.query(sql).catch(function(error) {
                     reject(error);
                 });
