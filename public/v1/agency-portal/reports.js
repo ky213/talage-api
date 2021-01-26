@@ -87,13 +87,13 @@ async function getReports(req, res, next) {
     }
 
     // Localize data variables that the user is permitted to access
-    const agencyNetwork = parseInt(req.authentication.agencyNetwork, 10);
+    const agencyNetwork = parseInt(req.authentication.agencyNetworkId, 10);
 
     // Begin by only allowing applications that are not deleted from agencies that are also not deleted
     let where = `${db.quoteName('a.state')} > 0 `;
 
     // Filter out any agencies with do_not_report value set to true
-    if(req.authentication.agencyNetwork){
+    if(req.authentication.isAgencyNetworkUser){
         try{
             const agencyBO = new AgencyBO();
             const donotReportQuery = {doNotReport: true};
@@ -127,9 +127,9 @@ async function getReports(req, res, next) {
         funnel: `
         SELECT
         COUNT(DISTINCT a.id)  AS started,
-                SUM(IF(a.last_step >= 8  AND a.state > 12, 1, 0)) AS completed,
-                SUM((SELECT 1 FROM clw_talage_quotes AS q WHERE q.application = a.id AND a.last_step >= 8 AND a.state > 12 AND (q.bound = 1 OR q.status = 'bind_requested' OR q.api_result = 'quoted' OR q.api_result = 'referred_with_price') LIMIT 1)) AS quoted,
-                SUM((SELECT 1 FROM clw_talage_quotes AS q WHERE q.application = a.id AND a.last_step >= 8 AND a.state > 12 AND (q.bound = 1 OR q.status = 'bind_requested') LIMIT 1)) AS bound
+                SUM(IF(a.appStatusId > 10, 1, 0)) AS completed,
+                SUM(IF(a.appStatusId >= 40, 1, 0)) AS quoted,
+                SUM(IF(a.appStatusId >= 70, 1, 0)) AS bound
             FROM clw_talage_applications AS a
             
 				WHERE
@@ -202,7 +202,7 @@ async function getReports(req, res, next) {
 				INNER JOIN ${db.quoteName('#__applications', 'a')} ON ${db.quoteName('a.id')} = ${db.quoteName('q.application')}
 				WHERE
                     ${where} AND
-                    a.last_step > 8 AND   a.state > 12 
+                    a.appStatusId >= 40
 					AND ${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate} AND
                     (q.bound = 1 OR q.status = 'bind_requested' OR q.api_result = 'quoted' OR q.api_result = 'referred_with_price')
 				LIMIT 1;

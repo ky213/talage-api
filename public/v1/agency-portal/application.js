@@ -720,8 +720,8 @@ async function deleteObject(req, res, next) {
     }
     //Deletes only by AgencyNetwork Users.
 
-    const agencyNetwork = req.authentication.agencyNetwork;
-    if (!agencyNetwork) {
+    const agencyNetwork = req.authentication.agencyNetworkId;
+    if (req.authentication.isAgencyNetworkUser === false) {
         log.warn('App Delete not agency network user ' + __location)
         res.send(403);
         return next(serverHelper.forbiddenError('Do Not have Permissions'));
@@ -803,12 +803,6 @@ async function validate(req, res, next) {
         }
     }
 
-    // const agencyNetwork = req.authentication.agencyNetwork;
-    // if (!agencyNetwork) {
-    //     log.warn('App requote not agency network user ' + __location)
-    //     res.send(403);
-    //     return next(serverHelper.forbiddenError('Do Not have Permissions'));
-    // }
 
     //Get app and check status
     log.debug("Loading Application by mysqlId for Validation " + __location)
@@ -969,10 +963,14 @@ async function requote(req, res, next) {
 
     const applicationQuoting = new ApplicationQuoting();
     // Populate the Application object
+   
     // Load
     try {
         const forceQuoting = true;
         const loadJson = {"id": id};
+        if(req.body.insurerId && validator.is_valid_id(req.body.insurerId)){
+            loadJson.insurerId = parseInt(req.body.insurerId, 10);
+        }
         await applicationQuoting.load(loadJson, forceQuoting);
     }
     catch (err) {

@@ -397,6 +397,10 @@ module.exports = class AgencyBO {
                 }
                 delete queryJSON.count;
             }
+            if(queryJSON.agency_network){
+                query.agencyNetworkId = queryJSON.agency_network;
+                delete queryJSON.systemId
+            }
 
             if(queryJSON.systemId && Array.isArray(queryJSON.systemId)){
                 query.systemId = {$in: queryJSON.systemId};
@@ -567,6 +571,8 @@ module.exports = class AgencyBO {
                             delete newObjectJSON[changeNotUpdateList[i]];
                         }
                     }
+                    // Add updatedAt
+                    newObjectJSON.updatedAt = new Date();
 
                     await AgencyModel.updateOne(query, newObjectJSON);
                     const newAgencyDoc = await AgencyModel.findOne(query);

@@ -155,7 +155,7 @@ var send2SlackInternal = async function(slackReqJSON) {
         throw new Error('No data was received');
     }
 
-    log.verbose(util.inspect(slackReqJSON) + __location);
+    log.debug(JSON.stringify(slackReqJSON) + __location);
 
     // Validate Channel
     if (slackReqJSON.channel) {
@@ -247,13 +247,13 @@ var send2SlackInternal = async function(slackReqJSON) {
     if (slackReqJSON.attachment) {
         if (slackReqJSON.attachment.title && typeof slackReqJSON.attachment.title !== 'string') {
             log.error('send2SlackInternal: Attachment title must be given as a string' + __location);
-            throw new Error('Attachment title must be given as a string');
+            //throw new Error('Attachment title must be given as a string');
         }
 
         if (slackReqJSON.attachment.text && typeof slackReqJSON.attachment.text !== 'string') {
             log.error('send2SlackInternal: Attachment text must be given as a string' + __location);
 
-            throw new Error('Attachment text must be given as a string');
+           // throw new Error('Attachment text must be given as a string');
         }
 
         // Attachment_fields sanitization
@@ -261,7 +261,7 @@ var send2SlackInternal = async function(slackReqJSON) {
             if (typeof slackReqJSON.attachment.fields instanceof Array) {
                 log.error('send2SlackInternal: Attachment Fields must be given as an array of JSON objects' + __location);
 
-                throw new Error('Attachment Fields must be given as an array of JSON objects');
+                //throw new Error('Attachment Fields must be given as an array of JSON objects');
             }
 
             if (!slackReqJSON.attachment.fields.length) {
@@ -273,12 +273,12 @@ var send2SlackInternal = async function(slackReqJSON) {
             for (let i = 0; i < slackReqJSON.attachment.fields.length; ++i) {
                 if (!slackReqJSON.attachment.fields[i].title) {
                     log.error(`send2SlackInternal: The field at index ${i} is missing title` + __location);
-                    throw new Error(`The field at index ${i} is missing title`);
+                    //throw new Error(`The field at index ${i} is missing title`);
                 }
 
                 if (!slackReqJSON.attachment.fields[i].value) {
                     log.error(`send2SlackInternal: The attachment field at index ${i} is missing value` + __location);
-                    throw new Error(`The attachment field at index ${i} is missing value`);
+                    //throw new Error(`The attachment field at index ${i} is missing value`);
                 }
 
                 if (slackReqJSON.attachment.fields[i].short) {
@@ -291,12 +291,12 @@ var send2SlackInternal = async function(slackReqJSON) {
                         }
                         else {
                             log.error(`send2SlackInternal: he attachment field at index ${i} has short that is not true or false` + __location);
-                            throw new Error(`The attachment field at index ${i} has short that is not true or false`);
+                            //throw new Error(`The attachment field at index ${i} has short that is not true or false`);
                         }
                     }
                     else if (typeof slackReqJSON.attachment.fields[i].short !== 'boolean') {
                         log.error(`send2SlackInternal: The attachment field at index ${i} has short that is not a boolean` + __location);
-                        throw new Error(`The attachment field at index ${i} has short that is not a boolean`);
+                        //throw new Error(`The attachment field at index ${i} has short that is not a boolean`);
                     }
                 }
             }
@@ -335,16 +335,16 @@ var send2SlackInternal = async function(slackReqJSON) {
         username: username
     };
 
-    if (slackReqJSON.attachment && slackReqJSON.attachment.application_id) {
-        const url = `https://${global.settings.SITE_URL}/administrator/index.php?option=com_talage&view=application&layout=edit&id=${slackReqJSON.attachment.application_id}`;
+    // if (slackReqJSON.attachment && slackReqJSON.attachment.application_id) {
+    //     const url = `https://${global.settings.SITE_URL}/administrator/index.php?option=com_talage&view=application&layout=edit&id=${slackReqJSON.attachment.application_id}`;
 
-        post_data.attachments[0].actions.push({
-            style: button_style,
-            text: 'View Application',
-            type: 'button',
-            url: url
-        });
-    }
+    //     post_data.attachments[0].actions.push({
+    //         style: button_style,
+    //         text: 'View Application',
+    //         type: 'button',
+    //         url: url
+    //     });
+    // }
 
     // For alerts and debug channels all instance info
     log.info(`slackReqJSON.channel: ${slackReqJSON.channel}`);

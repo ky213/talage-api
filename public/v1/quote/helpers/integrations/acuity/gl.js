@@ -440,27 +440,6 @@ module.exports = class AcuityGL extends Integration {
         const GeneralLiabilityLineBusiness = GeneralLiabilityPolicyQuoteInqRq.ele('GeneralLiabilityLineBusiness');
         GeneralLiabilityLineBusiness.ele('LOBCd', 'CGL');
 
-        // Get the claims organized by year
-        const claims_by_year = this.claims_to_policy_years();
-
-        // Loop through all four years and send claims data
-        for (let i = 1; i <= 3; i++) {
-            if (claims_by_year[i].count) {
-                // <WorkCompLossOrPriorPolicy>
-                const WorkCompLossOrPriorPolicy = GeneralLiabilityLineBusiness.ele('WorkCompLossOrPriorPolicy');
-                WorkCompLossOrPriorPolicy.ele('EffectiveDt', claims_by_year[i].effective_date.format('YYYY-MM-DD'));
-                WorkCompLossOrPriorPolicy.ele('ExpirationDt', claims_by_year[i].expiration_date.format('YYYY-MM-DD'));
-
-                // <PaidTotalAmt>
-                const PaidTotalAmt = WorkCompLossOrPriorPolicy.ele('TotalIncurredAmt');
-                PaidTotalAmt.ele('Amt', claims_by_year[i].amountPaid + claims_by_year[i].amountReserved);
-                // </PaidTotalAmt>
-
-                WorkCompLossOrPriorPolicy.ele('NumClaims', claims_by_year[i].count);
-                // </WorkCompLossOrPriorPolicy>
-            }
-        }
-
         // <LiabilityInfo>
         const LiabilityInfo = GeneralLiabilityLineBusiness.ele('LiabilityInfo');
         // <CommlCoverage>
@@ -493,14 +472,11 @@ module.exports = class AcuityGL extends Integration {
         // </Limit>
         // </CommlCoverage>
         // Exposures
+
         for (let i = 0; i < this.app.business.locations.length; i++) {
             const location = this.app.business.locations[i];
-            // Ensure we have a GL policy and activity codes exist
-            if (!location.appPolicyTypeList.includes("GL") && location.activity_codes) {
-                continue;
-            }
-            // let totalPayroll = 0;
-            const cobPayrollMap = {};
+
+            const cobPayrollList = [];
             for (const activityCode of location.activity_codes) {
                 // Skip activity codes we shouldn't include in payroll
                 if (unreportedPayrollActivityCodes.includes(activityCode.id)) {
@@ -508,26 +484,37 @@ module.exports = class AcuityGL extends Integration {
                 }
 
                 let cglCode = null;
-                if (insurer) {
-                    cglCode = await this.get_cgl_code_from_activity_code(location.territory, activityCode.id);
+                const acuityActivityCode = await this.get_insurer_code_for_activity_code(insurer.id, location.territory, activityCode.id);
+                if (acuityActivityCode && acuityActivityCode.attributes && acuityActivityCode.attributes.hasOwnProperty("assocGLClass")) {
+                    cglCode = acuityActivityCode.attributes.assocGLClass;
                 }
-
-                if (cglCode) {
-                    if (!cobPayrollMap.hasOwnProperty(cglCode)) {
-                        cobPayrollMap[cglCode] = 0;
+                else {
+                    cglCode = await this.get_cgl_code_from_activity_code(location.territory, activityCode.id);
+                    if (!cglCode) {
+                        cglCode = this.industry_code.cgl;
                     }
-                    cobPayrollMap[cglCode] += activityCode.payroll;
+                }
+                if (cglCode) {
+                    let cobPayroll = cobPayrollList.find((cp) => cp.cglCode === cglCode);
+                    if (!cobPayroll) {
+                        cobPayroll = {
+                            cglCode: cglCode,
+                            payroll: 0
+                        };
+                        cobPayrollList.push(cobPayroll);
+                    }
+                    cobPayroll.payroll += activityCode.payroll;
                 }
             }
             // Fill in the exposure. The Acuity CGL spreadsheet does not specify exposures per class code so we send PAYROLL for now until we get clarity.
-            Object.keys(cobPayrollMap).forEach((cglCode) => {
+            for (const cobPayroll of cobPayrollList) {
                 const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification');
                 GeneralLiabilityClassification.att('LocationRef', `L${i + 1}`);
-                GeneralLiabilityClassification.ele('ClassCd', cglCode);
+                GeneralLiabilityClassification.ele('ClassCd', cobPayroll.cglCode);
                 // GeneralLiabilityClassification.ele('ClassCdDesc', this.industry_code.description);
                 GeneralLiabilityClassification.ele('PremiumBasisCd', 'PAYRL');
-                GeneralLiabilityClassification.ele('Exposure', cobPayrollMap[cglCode]);
-            });
+                GeneralLiabilityClassification.ele('Exposure', cobPayroll.payroll);
+            }
         }
 
         // </GeneralLiabilityLineBusiness>
@@ -557,6 +544,7 @@ module.exports = class AcuityGL extends Integration {
             path = '/ws/irate/rating/RatingService/Talage';
             credentials = {'x-acuity-api-key': this.password};
         }
+        // console.log("request", xml);
 
         // Send the XML to the insurer
         let res = null;
@@ -666,22 +654,26 @@ module.exports = class AcuityGL extends Integration {
                     log.error(`Acuity (application ${this.app.id}): Could not find policy amount for bindable quote. ${__location}`);
                     return this.return_error('error', 'Acuity returned an unexpected result for a bindable quote.');
                 }
-                // Look for a quote letter
-                const fileAttachmentInfo = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.FileAttachmentInfo');
-                if (fileAttachmentInfo) {
-                    log.info(`Acuity: Found a quote letter and saving it.`);
-                    // Try to save the letter. This is a non-fatal event if we can't save it, but we log it as an error.
-                    try {
-                        this.quote_letter = {
-                            content_type: fileAttachmentInfo.MIMEContentTypeCd[0],
-                            data: fileAttachmentInfo.cData[0],
-                            file_name: `${this.insurer.name}_ ${this.policy.type}_quote_letter.pdf`
-                        };
-                    }
-                    catch (error) {
-                        log.error(`Acuity (application ${this.app.id}): Quote letter node exists, but could not extract it. Continuing.`);
+
+                // Retrieve and the quote letter if it exists
+                const fileAttachmentInfoList = this.get_xml_child(res.ACORD, 'InsuranceSvcRs.GeneralLiabilityPolicyQuoteInqRs.FileAttachmentInfo', true);
+                for (const fileAttachmentInfo of fileAttachmentInfoList) {
+                    switch (fileAttachmentInfo.AttachmentDesc[0]) {
+                        case "Policy Quote Print":
+                            this.quote_letter = {
+                                content_type: fileAttachmentInfo.MIMEContentTypeCd[0],
+                                data: fileAttachmentInfo.cData[0],
+                                file_name: `${this.insurer.name}_ ${this.policy.type}_quote_letter.pdf`
+                            };
+                            break;
+                        case "URL":
+                            this.quoteLink = fileAttachmentInfo.WebsiteURL[0];
+                            break;
+                        default:
+                            break;
                     }
                 }
+
                 const status = policyStatusCode === "com.acuity_BindableQuote" ? "quoted" : "referred";
                 log.info(`Acuity: Returning ${status} ${policyAmount ? "with price" : ""}`);
                 return this.return_result(status);

@@ -43,7 +43,7 @@ async function deleteAgency(req, res, next) {
     let error = false;
 
     // Make sure this is an agency network
-    if (req.authentication.agencyNetwork === false) {
+    if (req.authentication.isAgencyNetworkUser === false) {
         log.info('Forbidden: User is not authorized to delete agencies');
         return next(serverHelper.forbiddenError('You are not authorized to delete agencies'));
     }
@@ -141,7 +141,7 @@ async function getAgency(req, res, next) {
     let permissionGroup = 'agencies';
 
     // If this is not an agency network, use the agency specific permissions
-    if (req.authentication.agencyNetwork === false) {
+    if (req.authentication.isAgencyNetworkUser === false) {
         permissionGroup = 'settings';
     }
 
@@ -177,7 +177,7 @@ async function getAgency(req, res, next) {
     let agent = agents[0];
 
     // If this is an agency network, use the one from the request
-    if (req.authentication.agencyNetwork !== false) {
+    if (req.authentication.isAgencyNetworkUser !== false) {
         agent = parseInt(req.query.agent, 10);
     }
 
@@ -211,7 +211,7 @@ async function getAgency(req, res, next) {
 
     // Make sure we got back the expected data
     if (!agency) {
-        log.error('Agency not found after having passed validation' + __location);
+        log.error(`Agency not found after having passed request validation agencyId ${agent} ` + __location);
         return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
     }
     agency.state = agency.active ? "Active" : "Inactive";
@@ -245,7 +245,7 @@ async function postAgency(req, res, next) {
     let error = false;
 
     // Make sure this is an agency network
-    if (req.authentication.agencyNetwork === false) {
+    if (req.authentication.isAgencyNetworkUser === false) {
         log.info('Forbidden: Only Agency Networks are authorized to create agencies');
         return next(serverHelper.forbiddenError('You are not authorized to create agencies'));
     }
@@ -470,7 +470,7 @@ async function postAgency(req, res, next) {
 
 
     let wholesale = 0;
-    if (req.authentication.agencyNetwork === 2) {
+    if (req.authentication.agencyNetworkId === 2) {
         wholesale = 1;
     }
 
@@ -478,7 +478,7 @@ async function postAgency(req, res, next) {
     const newAgencyJSON = {
         name: name,
         email: email,
-        agencyNetworkId: req.authentication.agencyNetwork,
+        agencyNetworkId: req.authentication.agencyNetworkId,
         firstName: firstName,
         lastName: lastName,
         slug: slug,
@@ -547,7 +547,7 @@ async function postAgency(req, res, next) {
     const newAgencyLocationJSON = {
         agencyId: agencyId,
         email: email,
-        agencyNetworkId: req.authentication.agencyNetwork,
+        agencyNetworkId: req.authentication.agencyNetworkId,
         firstName: firstName,
         lastName: lastName,
         useAgencyPrime: useAgencyPrime,
@@ -604,7 +604,7 @@ async function postAgency(req, res, next) {
     // Get the ID of the new agency user
     const userID = createUserResult.insertId;
 
-    const onboardingEmailResponse = await sendOnboardingEmail(req.authentication.agencyNetwork, userID, firstName, lastName, name, slug, email);
+    const onboardingEmailResponse = await sendOnboardingEmail(req.authentication.agencyNetworkId, userID, firstName, lastName, name, slug, email);
 
     if (onboardingEmailResponse) {
         return next(serverHelper.internalError(onboardingEmailResponse));
@@ -635,7 +635,7 @@ async function updateAgency(req, res, next) {
     let permissionGroup = 'agencies';
 
     // If this is not an agency network, use the agency specific permissions
-    if (req.authentication.agencyNetwork === false) {
+    if (req.authentication.isAgencyNetworkUser === false) {
         permissionGroup = 'settings';
     }
 
@@ -686,7 +686,7 @@ async function updateAgency(req, res, next) {
         error = err;
     });
     if(error){
-        return next (serverHelper.requestError(error));
+        return next(serverHelper.requestError(error));
     }
     //deal with logo
 
@@ -705,6 +705,7 @@ async function updateAgency(req, res, next) {
  * @returns {void}
  */
 async function postSocialMediaTags(req, res, next) {
+// TODO: DELETE ENDPOINT NEXT SPRINT
 
 
     // Check for data
@@ -760,6 +761,63 @@ async function postSocialMediaTags(req, res, next) {
 
 }
 
+/**
+ *
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function postSocialMediaInfo(req, res, next) {
+
+    // Check for data
+    if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0 && !req.body.id) {
+        log.warn('No data was received');
+        return next(serverHelper.requestError('No data was received'));
+    }
+    let id = -1;
+    if(req.authentication.isAgencyNetworkUser){
+        const agencies = await auth.getAgents(req).catch(function(e) {
+            log.error("unable to getAgents for user " + e + __location);
+        });
+
+        id = parseInt(req.body.id, 10);
+        // Make sure this Agency Network has access to this Agency
+        if (!agencies.includes(id)) {
+            log.info('Forbidden: User is not authorized to update this agency');
+            return next(serverHelper.forbiddenError('You are not authorized to update this agency'));
+        }
+    }
+    else {
+        id = req.authentication.agents[0];
+    }
+    const agency = new AgencyBO();
+    let agencyJSON = null;
+    try {
+        agencyJSON = await agency.getById(id);
+
+    }
+    catch (err) {
+        log.error(err + __location);
+    }
+    if(agencyJSON){
+
+        if (!agencyJSON.socialMediaTags) {
+            agencyJSON.socialMediaTags = [];
+        }
+        agencyJSON.socialMediaTags = req.body.socialMediaTags;
+        await agency.saveModel(agencyJSON).catch(function(err) {
+            log.error('Save Agency:',err, __location);
+        });
+        res.send(200, 'Social Media Tags Saved');
+    }
+    else{
+        res.send(404,'Not Found');
+    }
+    return next();
+}
 exports.registerEndpoint = (server, basePath) => {
     server.addDeleteAuth('Delete Agency', `${basePath}/agency`, deleteAgency, 'agencies', 'manage');
     server.addGetAuth('Get Agency', `${basePath}/agency`, getAgency, 'agencies', 'view');
@@ -767,5 +825,5 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPostAuth('Post Agency', `${basePath}/agency`, postAgency, 'agencies', 'manage');
     server.addPutAuth('Put Agency', `${basePath}/agency`, updateAgency, 'agencies', 'manage');
     server.addPostAuth('Post Agency', `${basePath}/agency/socialMediaTags`, postSocialMediaTags, 'agencies', 'manage');
-
+    server.addPostAuth('Post Social Media Tags', `${basePath}/agency/socialMediaInfo`, postSocialMediaInfo, 'agencies', 'manage');
 };

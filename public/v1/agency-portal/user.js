@@ -198,11 +198,11 @@ async function createUser(req, res, next) {
 
     // Determine if this is an agency or agency network
     let where = ``;
-    if (req.authentication.agencyNetwork && req.body.agency) {
+    if (req.authentication.isAgencyNetworkUser && req.body.agency) {
         where = `\`agency\`= ${parseInt(req.body.agency, 10)}`;
     }
-    else if (req.authentication.agencyNetwork){
-        where = `\`agency_network\`= ${parseInt(req.authentication.agencyNetwork, 10)}`;
+    else if (req.authentication.isAgencyNetworkUser){
+        where = `\`agency_network\`= ${parseInt(req.authentication.agencyNetworkId, 10)}`;
     }
     else {
         // Get the agents that we are permitted to view
@@ -279,13 +279,13 @@ async function createUser(req, res, next) {
     // Add this user to the database
     let controlColumn = '';
     let controlValue = '';
-    if (req.authentication.agencyNetwork && req.body.agency) {
+    if (req.authentication.isAgencyNetworkUser && req.body.agency) {
         controlColumn = 'agency';
         controlValue = req.body.agency;
     }
-    else if (req.authentication.agencyNetwork) {
+    else if (req.authentication.isAgencyNetworkUser) {
         controlColumn = 'agency_network';
-        controlValue = req.authentication.agencyNetwork;
+        controlValue = req.authentication.agencyNetworkId;
     }
     else {
         // Get the agents that we are permitted to view
@@ -370,36 +370,15 @@ async function createUser(req, res, next) {
     });
 
     // Check if this is an agency network
-    let agencyNetwork = req.authentication.agencyNetwork;
-    if (!agencyNetwork) {
-        const agents = await auth.getAgents(req).catch(function(e) {
-            error = e;
-        });
-        if (error) {
-            return next(error);
-        }
-        const agencyId = parseInt(agents[0], 10)
-        const agencyBO = new AgencyBO();
-        // Load the request data into it
-        const agency = await agencyBO.getById(agencyId).catch(function(err) {
-            log.error("Location load error " + err + __location);
-            error = err;
-        });
-        if (error) {
-            log.error(`Error getting Agency: ${agencyId} ` + error + __location);
-            return next(error);
-        }
-        agencyNetwork = agency.agencyNetworkId;
-    }
+    const agencyNetworkId = req.authentication.agencyNetworkId;
+  
 
     // Get the content of the new user email
-    //Refactor to use AgencyNetworkBO
-    log.debug("req.authentication.agencyNetwork: " + req.authentication.agencyNetwork);
     let jsonEmailProp = '';
-    if(req.authentication.agencyNetwork && req.body.agency){
+    if(req.authentication.isAgencyNetworkUser && req.body.agency){
         jsonEmailProp = 'new_agency_user';
     }
-    else if (req.authentication.agencyNetwork){
+    else if (req.authentication.isAgencyNetworkUser){
         jsonEmailProp = 'new_agency_network_user';
     }
     else {
@@ -408,8 +387,8 @@ async function createUser(req, res, next) {
     //log.debug("jsonEmailProp: " + jsonEmailProp);
     error = null;
     const agencyNetworkBO = new AgencyNetworkBO();
-    const emailContentJSON = await agencyNetworkBO.getEmailContent(agencyNetwork, jsonEmailProp).catch(function(err){
-        log.error(`Unable to get email content for New Agency Portal User. agency_network: ${agencyNetwork}.  error: ${err}` + __location);
+    const emailContentJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId, jsonEmailProp).catch(function(err){
+        log.error(`Unable to get email content for New Agency Portal User. agency_network: ${agencyNetworkId}.  error: ${err}` + __location);
         error = true;
     });
     if(error){
@@ -439,14 +418,14 @@ async function createUser(req, res, next) {
             subject: emailSubject.replace('{{Brand}}', brand),
             to: data.email
         };
-        const emailResp = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, agencyNetwork, brand);
+        const emailResp = await emailsvc.send(emailData.to, emailData.subject, emailData.html, {}, agencyNetworkId, brand);
         if (emailResp === false) {
             log.error(`Unable to send new user email to ${data.email}. Please send manually.`);
             slack.send('#alerts', 'warning', `Unable to send new user email to ${data.email}. Please send manually.`);
         }
     }
     else {
-        log.error(`Unable to get email content for New Agency Portal User. agency_network: ${agencyNetwork}.` + __location);
+        log.error(`Unable to get email content for New Agency Portal User. agency_network: ${agencyNetworkId}.` + __location);
         slack.send('#alerts', 'warning', `Unable to send new user email to ${data.email}. Please send manually.`);
     }
 }
@@ -467,12 +446,12 @@ async function deleteUser(req, res, next) {
 
     let where = ``;
 
-    if (req.authentication.agencyNetwork && req.query.agency) {
+    if (req.authentication.isAgencyNetworkUser && req.query.agency) {
         agencyOrNetworkID = parseInt(req.query.agency,10);
         where = ` \`agency\` = ${agencyOrNetworkID}`;
     }
-    else if (req.authentication.agencyNetwork) {
-        agencyOrNetworkID = parseInt(req.authentication.agencyNetwork, 10);
+    else if (req.authentication.isAgencyNetworkUser) {
+        agencyOrNetworkID = parseInt(req.authentication.agencyNetworkId, 10);
         where = `\`agency_network\`= ${agencyOrNetworkID}`;
     }
     else {
@@ -494,8 +473,10 @@ async function deleteUser(req, res, next) {
     }
 
     // Validate the ID
-    // Since agency network can update an agency user determine, if this is an agency network but also has sent an agency (agencyId) then set this to false else let the authentication determine the agencyNetwork truthiness
-    const isThisAgencyNetwork = req.authentication.agencyNetwork && req.query.agency ? false : req.authentication.agencyNetwork;
+    // Since agency network user can update an agency user determine,
+    // if this is an agency network user but also has sent an agency (agencyId)
+    // then set this to false else let the authentication determine the agencyNetwork truthiness
+    const isThisAgencyNetwork = req.authentication.isAgencyNetworkUser && req.query.agency ? false : req.authentication.isAgencyNetworkUser;
     if (!Object.prototype.hasOwnProperty.call(req.query, 'id')) {
         return next(serverHelper.requestError('ID missing'));
     }
@@ -512,7 +493,7 @@ async function deleteUser(req, res, next) {
     }
 
     // Make sure there is another signing authority (we are not removing the last one) (this setting does not apply to agency networks)
-    if (!req.authentication.agencyNetwork) {
+    if (!req.authentication.isAgencyNetworkUser) {
         if (!await hasOtherSigningAuthority(agencyOrNetworkID, id)) {
             // Log a warning and return an error
             log.warn('This user is the account signing authority. You must assign signing authority to another user before deleting this account.');
@@ -574,8 +555,8 @@ async function getUser(req, res, next) {
 
     // Determine if this is an agency or agency network
     let where = ``;
-    if (req.authentication.agencyNetwork) {
-        where = `\`agency_network\`= ${parseInt(req.authentication.agencyNetwork, 10)}`;
+    if (req.authentication.isAgencyNetworkUser) {
+        where = `\`agency_network\`= ${parseInt(req.authentication.agencyNetworkId, 10)}`;
     }
     else {
         // Get the agents that we are permitted to view
@@ -645,12 +626,12 @@ async function updateUser(req, res, next) {
     // Determine if this is an agency or agency network
     let agencyOrNetworkID = 0;
     let where = ``;
-    if(req.authentication.agencyNetwork && req.body.agency){
+    if(req.authentication.isAgencyNetworkUser && req.body.agency){
         agencyOrNetworkID = parseInt(req.body.agency, 10);
         where = ` \`agency\` = ${agencyOrNetworkID}`;
     }
-    else if (req.authentication.agencyNetwork) {
-        agencyOrNetworkID = parseInt(req.authentication.agencyNetwork, 10);
+    else if (req.authentication.isAgencyNetworkUser) {
+        agencyOrNetworkID = parseInt(req.authentication.agencyNetworkId, 10);
         where = `\`agency_network\`= ${agencyOrNetworkID}`;
     }
     else {
@@ -667,7 +648,7 @@ async function updateUser(req, res, next) {
 
     // Validate the ID
     // Since agency network can update an agency user determine, if this is an agency network but also has sent an agency (agencyId) then set this to false else let the authentication determine the agencyNetwork truthiness
-    const isThisAgencyNetwork = req.authentication.agencyNetwork && req.body.agency ? false : req.authentication.agencyNetwork;
+    const isThisAgencyNetwork = req.authentication.isAgencyNetworkUser && req.body.agency ? false : req.authentication.isAgencyNetworkUser;
 
     if (!Object.prototype.hasOwnProperty.call(userObj, 'id')) {
         return next(serverHelper.requestError('ID missing'));
@@ -722,7 +703,7 @@ async function updateUser(req, res, next) {
 
     // If the user is being set as the signing authority, remove the current signing authority (this setting does not apply to agency networks)
     // However adding functionality to update user from agency network so also need to make sure no agency id was sent in the req.body
-    if (!req.authentication.agencyNetwork && !req.body.agency) {
+    if (!req.authentication.isAgencyNetworkUser && !req.body.agency) {
         if (data.canSign) {
             const removeCanSignSQL = `
 					UPDATE

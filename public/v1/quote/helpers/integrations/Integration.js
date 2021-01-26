@@ -1019,7 +1019,7 @@ module.exports = class Integration {
      */
     quote() {
         log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Quote Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
-        return new Promise(async(fulfill, reject) => {
+        return new Promise(async(fulfill) => {
             // Get the credentials ready for use
             this.password = await this.insurer.get_password();
             this.username = await this.insurer.get_username();
@@ -1077,14 +1077,20 @@ module.exports = class Integration {
                 const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get question details. ${error}`;
                 log.error(error_message + __location);
                 this.reasons.push(error_message);
-                reject(this.return_error('error', "We have no idea what went wrong, but we're on it"));
+                //Do not want to stop the rest of the quoting for application.
+                // and end of quoting processing.
+                //reject(this.return_error('error', "We have no idea what went wrong, but we're on it"));
+                fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));
                 stop = true;
             });
             this.question_identifiers = await this.get_question_identifiers().catch((error) => {
                 const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get question identifiers. ${error}`;
                 log.error(error_message + __location);
                 this.reasons.push(error_message);
-                reject(this.return_error('error', "We have no idea what went wrong, but we're on it"));
+                //Do not want to stop the rest of the quoting for application.
+                // and end of quoting processing.
+                //reject(this.return_error('error', "We have no idea what went wrong, but we're on it"));
+                fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));
                 stop = true;
             });
             if (stop) {
@@ -1092,12 +1098,19 @@ module.exports = class Integration {
             }
 
             // Run the quote
+            const appId = this.app.id;
+            const insurerName = this.insurer.name;
+            const policyType = this.policy.type
             await this._insurer_quote().
                 then(function(result) {
                     fulfill(result);
-                }).
-                catch(function(error) {
-                    reject(error);
+                }).catch(function(error) {
+                    const error_message = `Appid: ${appId} ${insurerName} ${policyType} is unable to quote ${error}`;
+                    log.error(error_message + __location);
+                    //Do not want to stop the rest of the quoting for application.
+                    // and end of quoting processing.
+                    //reject(error);
+                    fulfill(null);
                 });
         });
     }
@@ -1961,10 +1974,14 @@ module.exports = class Integration {
                 return;
             }
 
-            // Make sure the number of codes matched (otherwise there were codes unsupported by this insurer)
+            // Make sure the number of codes matched (otherwise there were codes unsupported by this insurer or a bad mapping.)
             if (this.requiresInsurerActivityClassCodes && (!codes.length || Object.keys(wcCodes).length !== codes.length)) {
                 this.reasons.push("Insurer activity class codes were not found for all activities in the application.");
                 log.warn(`AppId: ${appId} InsurerId: ${insurerId} _insurer_supports_activity_codes failed on application. query=${sql}` + __location);
+                if(codes.length && codes.length > Object.keys(wcCodes).length){
+                    log.error(`BAD MAPPING multiple insures ncci codes for an activty Code - AppId: ${appId} InsurerId: ${insurerId} _insurer_supports_activity_codes failed on application. query=${sql}` + __location);
+                }
+
                 fulfill(false);
                 return;
             }
@@ -2000,17 +2017,13 @@ module.exports = class Integration {
             // Query the database to see if this insurer supports this industry code
             let sql = `SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso, iic.attributes 
                         FROM clw_talage_industry_codes AS ic 
-                        INNER JOIN  clw_talage_insurer_industry_codes AS iic ON
-                            (
-                                (iic.type = 'i' AND iic.code = ic.iso) 
-                                OR (iic.type = 'c' AND iic.code = ic.cgl)
-                                OR (iic.type = 'h' AND iic.code = ic.hiscox) 
-                                OR (iic.type = 'n' AND iic.code = ic.naics) 
-                                OR (iic.type = 's' AND iic.code = ic.sic)
-                            ) 
-                            AND  iic.insurer = ${this.insurer.id} 
+                        INNER JOIN industry_code_to_insurer_industry_code AS industryCodeMap ON industryCodeMap.talageIndustryCodeId = ic.id
+                        INNER JOIN clw_talage_insurer_industry_codes AS iic ON iic.id = industryCodeMap.insurerIndustryCodeId
+                        WHERE
+                            ic.id = ${this.app.business.industry_code}
+                            AND iic.insurer = ${this.insurer.id} 
                             AND iic.territory = '${this.app.business.primary_territory}'
-                        WHERE  ic.id = ${this.app.business.industry_code}  LIMIT 1;`;
+                            LIMIT 1;`
             let hadError = false;
             let result = await db.query(sql).catch((error) => {
                 log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not retrieve industry codes: ${error} ${__location}`);
