@@ -41,7 +41,7 @@ async function SetWholesaleAgreementAsSigned(agencyID) {
  */
 async function getWholesaleAgreementLink(req, res, next) {
     // Make sure this is not an agency network
-    if (req.authentication.agencyNetwork !== false) {
+    if (req.authentication.isAgencyNetworkUser !== false) {
         log.warn('Agency Networks cannot sign Wholesale Agreements');
         return next(serverHelper.forbiddenError('Agency Networks cannot sign Wholesale Agreements'));
     }
@@ -146,7 +146,7 @@ async function getWholesaleAgreementLink(req, res, next) {
  */
 async function updateWholesaleAgreementSigned(req, res, next) {
     // Make sure this is not an agency network
-    if (req.authentication.agencyNetwork !== false) {
+    if (req.authentication.isAgencyNetworkUser !== false) {
         log.warn('Agency Networks cannot sign Wholesale Agreements');
         return next(serverHelper.forbiddenError('Agency Networks cannot sign Wholesale Agreements'));
     }

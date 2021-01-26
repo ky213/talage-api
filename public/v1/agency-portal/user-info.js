@@ -19,11 +19,12 @@ const AgencyBO = global.requireShared('models/Agency-BO.js');
 async function GetUserInfo(req, res, next){
 
     // Localize data variables that the user is permitted to access
-    const agencyNetwork = parseInt(req.authentication.agencyNetwork, 10);
+    const isAgencyNetworkUser = req.authentication.isAgencyNetworkUser
+    const agencyNetwork = parseInt(req.authentication.agencyNetworkId, 10);
 
     // Prepare to get the information for this user, building a query based on their user type
     let userInfoSQL = '';
-    if(agencyNetwork){
+    if(isAgencyNetworkUser){
         userInfoSQL = `
             SELECT
                 au.agency_network AS agencyNetwork,
@@ -54,7 +55,7 @@ async function GetUserInfo(req, res, next){
         return next(serverHelper.internalError('Well, that wasn\’t supposed to happen, but hang on, we\’ll get it figured out quickly and be in touch.'));
     }
     let agencyNetworkId = null;
-    if(agencyNetwork){
+    if(isAgencyNetworkUser){
         agencyNetworkId = userInfo[0].agencyNetwork;
     }
     else {
@@ -63,11 +64,13 @@ async function GetUserInfo(req, res, next){
             // Load the request data into it
             const agencyBO = new AgencyBO();
             const agency = await agencyBO.getById(userInfo[0].agency);
-            agencyNetworkId = agency.agency_network;
-            userInfo[0].logo = agency.logo;
-            userInfo[0].name = agency.name;
-            userInfo[0].slug = agency.slug;
-            userInfo[0].wholesale = agency.wholesale;
+            if(agency){
+                agencyNetworkId = agency.agencyNetworkId;
+                userInfo[0].logo = agency.logo;
+                userInfo[0].name = agency.name;
+                userInfo[0].slug = agency.slug;
+                userInfo[0].wholesale = agency.wholesale;
+            }
         }
         catch(err){
             log.error("agencyBO.getById load error " + err + __location);

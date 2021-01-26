@@ -94,6 +94,8 @@ module.exports = class AgencyLocationBO{
                             delete newObjectJSON[changeNotUpdateList[i]];
                         }
                     }
+                    // Add updatedAt
+                    newObjectJSON.updatedAt = new Date();
 
                     await AgencyLocationMongooseModel.updateOne(query, newObjectJSON);
                     const newAgencyLocationDoc = await AgencyLocationMongooseModel.findOne(query);

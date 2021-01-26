@@ -228,6 +228,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         WHERE
             ic.id = ${db.escape(industry_code)}
             AND iq.policy_type IN ("${policy_types.join("\",\"")}")
+            AND iic.territory IN (${territories.map(db.escape).join(',')})
             AND ${where}
             GROUP BY iq.question;
     `;

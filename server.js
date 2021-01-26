@@ -7,7 +7,7 @@ const RestifyError = require('restify-errors');
 const restifyCORS = require('restify-cors-middleware');
 const jwtRestify = require('restify-jwt-community');
 const jwt = require('jsonwebtoken');
-const auth = require('./public/v1/agency-portal/helpers/auth.js');
+const agencyportalAuth = require('./public/v1/agency-portal/helpers/auth.js');
 const moment = require('moment');
 const util = require('util');
 const socketIO = require('socket.io');
@@ -43,9 +43,9 @@ function validateJWT(options) {
             return next(new RestifyError.ForbiddenError('User is not authenticated'));
         }
 
-        // Validate the JWT
+        // Validate the JWT and user permissions - for Agency Portal
         if (options.agencyPortal === true) {
-            const errorMessage = await auth.validateJWT(req, options.permission, options.permissionType);
+            const errorMessage = await agencyportalAuth.validateJWT(req, options.permission, options.permissionType);
             if (errorMessage) {
                 // There was an error. Return a Forbidden error (403)
                 return next(new RestifyError.ForbiddenError(errorMessage));

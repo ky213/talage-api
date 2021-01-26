@@ -38,7 +38,7 @@ async function getbyId(req, res, next) {
     let permissionGroup = 'agencies';
 
     // If this is not an agency network, use the agency specific permissions
-    if (req.authentication.agencyNetwork === false) {
+    if (req.authentication.isAgencyNetworkUser === false) {
         permissionGroup = 'settings';
     }
 
@@ -52,7 +52,13 @@ async function getbyId(req, res, next) {
 
 
     // Determine the agency ID
-    const agencyList = req.authentication.agents;
+    //const agencyList = req.authentication.agents;
+    const agencyList = await auth.getAgents(req).catch(function(e){
+        error = e;
+    });
+    if (error){
+        return next(error);
+    }
 
     // Initialize an agency object
     const agencyLocationBO = new AgencyLocationBO();
@@ -141,7 +147,7 @@ async function createAgencyLocation(req, res, next) {
     }
 
     // Make sure this is an agency network
-    if (req.authentication.agencyNetwork === false) {
+    if (req.authentication.isAgencyNetworkUser === false) {
         log.info('Forbidden: Only Agency Networks are authorized to create agency locations');
         return next(serverHelper.forbiddenError('You are not authorized to create agency locations'));
     }
@@ -235,7 +241,7 @@ async function deleteAgencyLocation(req, res, next) {
     }
 
     // Make sure this is an agency network
-    if (req.authentication.agencyNetwork === false) {
+    if (req.authentication.isAgencyNetworkUser === false) {
         log.info('Forbidden: Only Agency Networks are authorized to delete agency locations');
         return next(serverHelper.forbiddenError('You are not authorized to delete agency locations'));
     }
@@ -337,7 +343,7 @@ async function updateAgencyLocation(req, res, next) {
     let permissionGroup = 'agencies';
 
     // If this is not an agency network, use the agency specific permissions
-    if (req.authentication.agencyNetwork === false) {
+    if (req.authentication.isAgencyNetworkUser === false) {
         permissionGroup = 'settings';
     }
 
@@ -374,7 +380,7 @@ async function updateAgencyLocation(req, res, next) {
     // If no agency is supplied, get one
     if (!req.body.agency) {
         // Determine how to get the agency ID
-        if (req.authentication.agencyNetwork === false) {
+        if (req.authentication.isAgencyNetworkUser === false) {
             // If this is an Agency Network User, get the agency from the location
             try {
                 req.body.agency = await getAgencyByLocationId(id);
@@ -450,7 +456,7 @@ async function getSelectionList(req, res, next) {
     let permissionGroup = 'agencies';
 
     // If this is not an agency network, use the agency specific permissions
-    if (req.authentication.agencyNetwork === false) {
+    if (req.authentication.isAgencyNetworkUser === false) {
         permissionGroup = 'settings';
     }
 
@@ -466,7 +472,7 @@ async function getSelectionList(req, res, next) {
     // Determine the agency ID, if network id then we will have an agencyId in the query else not
     let agencyId = parseInt(req.authentication.agents[0], 10);
 
-    if(req.authentication.agencyNetwork){
+    if(req.authentication.isAgencyNetworkUser){
         // Get the agencies that the user is permitted to manage
         const agencies = await auth.getAgents(req).catch(function(e) {
             log.error("auth.getAgents error " + e + __location);

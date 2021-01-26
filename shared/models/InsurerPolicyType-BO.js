@@ -268,6 +268,9 @@ module.exports = class InsurerPolicyTypeBO{
                             delete newObjectJSON[changeNotUpdateList[i]];
                         }
                     }
+                    // Add updatedAt
+                    newObjectJSON.updatedAt = new Date();
+
                     await InsurerPolicyTypeModel.updateOne(query, newObjectJSON);
                     const newDoc = await InsurerPolicyTypeModel.findOne(query);
 

@@ -1019,7 +1019,7 @@ module.exports = class Integration {
      */
     quote() {
         log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Quote Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
-        return new Promise(async(fulfill, reject) => {
+        return new Promise(async(fulfill) => {
             // Get the credentials ready for use
             this.password = await this.insurer.get_password();
             this.username = await this.insurer.get_username();
@@ -1077,14 +1077,20 @@ module.exports = class Integration {
                 const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get question details. ${error}`;
                 log.error(error_message + __location);
                 this.reasons.push(error_message);
-                reject(this.return_error('error', "We have no idea what went wrong, but we're on it"));
+                //Do not want to stop the rest of the quoting for application.
+                // and end of quoting processing.
+                //reject(this.return_error('error', "We have no idea what went wrong, but we're on it"));
+                fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));
                 stop = true;
             });
             this.question_identifiers = await this.get_question_identifiers().catch((error) => {
                 const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get question identifiers. ${error}`;
                 log.error(error_message + __location);
                 this.reasons.push(error_message);
-                reject(this.return_error('error', "We have no idea what went wrong, but we're on it"));
+                //Do not want to stop the rest of the quoting for application.
+                // and end of quoting processing.
+                //reject(this.return_error('error', "We have no idea what went wrong, but we're on it"));
+                fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));
                 stop = true;
             });
             if (stop) {
@@ -1092,12 +1098,19 @@ module.exports = class Integration {
             }
 
             // Run the quote
+            const appId = this.app.id;
+            const insurerName = this.insurer.name;
+            const policyType = this.policy.type
             await this._insurer_quote().
                 then(function(result) {
                     fulfill(result);
-                }).
-                catch(function(error) {
-                    reject(error);
+                }).catch(function(error) {
+                    const error_message = `Appid: ${appId} ${insurerName} ${policyType} is unable to quote ${error}`;
+                    log.error(error_message + __location);
+                    //Do not want to stop the rest of the quoting for application.
+                    // and end of quoting processing.
+                    //reject(error);
+                    fulfill(null);
                 });
         });
     }
