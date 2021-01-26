@@ -481,7 +481,35 @@ async function setupReturnedApplicationJSON(applicationJSON){
         }
     }
 }
+// dummy endpoint to stimulate routing
+async function getNextRoute(req, res, next){
+    // Check that at least some post parameters were received
+    if ( !req.query.id || !req.query.currentRoute) {
+        log.info('Bad Request: Parameters missing' + __location);
+        return next(serverHelper.requestError('Parameters missing'));
+    }
+    // will probably grab info about application and determine the next route but for now use the current route to just go to the next one we have hardcoded
+    let nextRouteName = null;
+    switch(req.query.currentRoute){
+        case 'basic':
+            nextRouteName ='policies';
+            break;
+        case 'policies':
+            nextRouteName = "additionalQuestions"
+            break;
+        case 'additionalQuestions':
+            nextRouteName = "mailingAddress";
+            break;   
+        case 'locations':
+                // don't have page set up after locations
+            break;
+        case 'mailingAddress':
+                nextRouteName = 'locations';
+            break;
 
+    }
+    res.send(200, nextRouteName);
+}
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
     // temporary use AuthAppWF (same as quote app V1)
@@ -492,4 +520,5 @@ exports.registerEndpoint = (server, basePath) => {
 
     server.addGetAuthAppWF('GetQuestions for AP Application', `${basePath}/application/:id/questions`, GetQuestions)
     server.addPutAuth('PUT Validate Application', `${basePath}/application/:id/validate`, validate);
+    server.addGetAuthAppWF("Get Next Route", `${basePath}/application/nextRoute`, getNextRoute);
 }
