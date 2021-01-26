@@ -411,7 +411,10 @@ module.exports = class Application {
 
         const policy_types = [];
         this.policies.forEach(policy => {
-            policy_types.push(policy.type);
+            policy_types.push({
+                type: policy.type,
+                effectiveDate: policy.effective_date
+            });
         });
 
         // Get a list of all questions the user may need to answer

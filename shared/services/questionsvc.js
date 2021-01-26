@@ -10,7 +10,7 @@ const moment = require('moment');
  * @param {array} activityCodeStringArray - An array of all the activity codes in the applicaiton
  * @param {string} industryCodeString - The industry code of the application
  * @param {array} zipCodeStringArray - An array of all the zipcodes (stored as strings) in which the business operates
- * @param {array.<Object>} policyTypeArray - An array containing of all the policy types applied for. Ex: [{type:"WC",effectiveDate:"03-02-2021"}]
+ * @param {array.<Object>} policyTypeArray - An array containing of all the policy types/effectiveDates. Ex: [{type:"WC",effectiveDate:"03-02-2021"}]
  * @param {array} insurerStringArray - An array containing the IDs of the relevant insurers for the application
  * @param {boolean} return_hidden - true to return hidden questions, false to only return visible questions
  *
