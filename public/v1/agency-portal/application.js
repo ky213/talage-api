@@ -846,20 +846,27 @@ async function validate(req, res, next) {
 
 
     const applicationQuoting = new ApplicationQuoting();
+    let passValidation = false
     // Populate the Application object
-    // Load
+    // Load - Does some validation do to transformation of data.
     try {
         const forceQuoting = true;
         const loadJson = {"id": id};
         await applicationQuoting.load(loadJson, forceQuoting);
     }
     catch (err) {
-        log.error(`Error loading application ${id ? id : ''}: ${err.message}` + __location);
-        res.send(err);
+        const errMessage = `Error loading application data ${id ? id : ''}: ${err.message}`
+        log.error(errMessage + __location);
+
+        //res.send(err);
+        const responseJSON = {
+            "passedValidation": passValidation,
+            "validationError":errMessage
+        }
+        res.send(200,responseJSON);
         return next();
     }
     // Validate
-    let passValidation = false
     try {
         passValidation = await applicationQuoting.validate();
     }
