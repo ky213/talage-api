@@ -1969,10 +1969,14 @@ module.exports = class Integration {
                 return;
             }
 
-            // Make sure the number of codes matched (otherwise there were codes unsupported by this insurer)
+            // Make sure the number of codes matched (otherwise there were codes unsupported by this insurer or a bad mapping.)
             if (this.requiresInsurerActivityClassCodes && (!codes.length || Object.keys(wcCodes).length !== codes.length)) {
                 this.reasons.push("Insurer activity class codes were not found for all activities in the application.");
                 log.warn(`AppId: ${appId} InsurerId: ${insurerId} _insurer_supports_activity_codes failed on application. query=${sql}` + __location);
+                if(codes.length && codes.length > Object.keys(wcCodes).length){
+                    log.error(`BAD MAPPING multiple insures ncci codes for an activty Code - AppId: ${appId} InsurerId: ${insurerId} _insurer_supports_activity_codes failed on application. query=${sql}` + __location);
+                }
+
                 fulfill(false);
                 return;
             }
@@ -2008,16 +2012,16 @@ module.exports = class Integration {
             const policyEffectiveDate = moment(this.policy.effective_date).format("YYYY-MM-DD HH:MM:SS");
 
             // Query the database to see if this insurer supports this industry code
-            let sql = `SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso, iic.attributes, iic.id AS iicID
-                        FROM clw_talage_industry_codes AS ic
+            let sql = `SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso, iic.attributes 
+                        FROM clw_talage_industry_codes AS ic 
                         INNER JOIN industry_code_to_insurer_industry_code AS industryCodeMap ON industryCodeMap.talageIndustryCodeId = ic.id
                         INNER JOIN clw_talage_insurer_industry_codes AS iic ON iic.id = industryCodeMap.insurerIndustryCodeId
                         WHERE
                             ic.id = ${this.app.business.industry_code}
-                            AND iic.insurer = ${this.insurer.id}
+                            AND iic.insurer = ${this.insurer.id} 
                             AND iic.territory = '${this.app.business.primary_territory}'
                             AND ('${policyEffectiveDate}' >= iic.effectiveDate AND '${policyEffectiveDate}' < iic.expirationDate)
-                            LIMIT 1;`;
+                            LIMIT 1;`
 
             let hadError = false;
             let result = await db.query(sql).catch((error) => {

@@ -1,7 +1,5 @@
 'use strict';
 
-const DatabaseObject = require('./DatabaseObject.js');
-
 const InsurerBO = require('./Insurer-BO.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
@@ -15,7 +13,6 @@ const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 const tableName = 'agencyLocations'
 
 module.exports = class AgencyLocationBO{
-
 
 
     constructor(){
@@ -97,6 +94,8 @@ module.exports = class AgencyLocationBO{
                             delete newObjectJSON[changeNotUpdateList[i]];
                         }
                     }
+                    // Add updatedAt
+                    newObjectJSON.updatedAt = new Date();
 
                     await AgencyLocationMongooseModel.updateOne(query, newObjectJSON);
                     const newAgencyLocationDoc = await AgencyLocationMongooseModel.findOne(query);
@@ -177,8 +176,6 @@ module.exports = class AgencyLocationBO{
         log.debug("maxId: " + maxId + __location)
         return maxId;
     }
-
-
 
 
     async resetPrimary(agencyId, primaryAgencyLocationId){

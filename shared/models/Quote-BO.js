@@ -205,7 +205,7 @@ module.exports = class QuoteBO {
 
             let rejected = false;
             // eslint-disable-next-line prefer-const
-            let query = {};
+            let query = {active: true};
             let error = null;
 
             var queryOptions = {lean:true};
@@ -495,6 +495,9 @@ module.exports = class QuoteBO {
                         delete newObjectJSON[changeNotUpdateList[i]];
                     }
                 }
+                // Add updatedAt
+                newObjectJSON.updatedAt = new Date();
+
                 const query = {"quoteId": quoteId};
                 let newQuoteJSON = null;
                 try {

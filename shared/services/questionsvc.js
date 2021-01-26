@@ -83,7 +83,6 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     /*
      * Validate Zip Codes
      */
-
     const zipCodeArray = zipCodeStringArray.map(zip => zip.replace(/[^0-9]/gi, ''))
 
     // Check that the zip code is valid
@@ -273,6 +272,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         WHERE
             ic.id = ${db.escape(industry_code)}
             AND iq.policy_type IN ("${policy_types.join("\",\"")}")
+            AND iic.territory IN (${territories.map(db.escape).join(',')})
             AND ${where}
             AND ${questionEffectiveDateWhereClause}
             AND ${industryCodeEffectiveDateWhereClause}

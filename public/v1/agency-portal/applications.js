@@ -208,7 +208,7 @@ async function getApplications(req, res, next){
     }
 
     // Localize data variables that the user is permitted to access
-    const agencyNetwork = parseInt(req.authentication.agencyNetwork, 10);
+    const agencyNetwork = parseInt(req.authentication.agencyNetworkId, 10);
     let returnCSV = false;
     // Use same query builder.
     // Check if we are exporting a CSV instead of the JSON list
@@ -277,7 +277,7 @@ async function getApplications(req, res, next){
 
     //Fix bad dates coming in.
     if(!req.params.startDate || (req.params.startDate && req.params.startDate.startsWith('T00:00:00.000'))){
-        req.params.startDate = moment('2020-01-01').toISOString();
+        req.params.startDate = moment('2017-01-01').toISOString();
     }
 
     if(!req.params.endDate || (req.params.endDate && req.params.endDate.startsWith('T23:59:59.999'))){
@@ -306,16 +306,16 @@ async function getApplications(req, res, next){
     // Filter out any agencies with do_not_report value set to true
     try{
 
-        if(req.authentication.agencyNetwork){
+        if(req.authentication.isAgencyNetworkUser){
             query.agencyNetworkId = agencyNetwork;
             const agencyBO = new AgencyBO();
             // eslint-disable-next-line prefer-const
             let agencyQuery = {
                 doNotReport: false,
-                agency_network: agencyNetwork
+                agencyNetworkId: agencyNetwork
             }
             if(req.params.searchText){
-                agencyQuery.name = req.params.searchText
+                agencyQuery.name = req.params.searchText + "%"
             }
             const agencyList = await agencyBO.getList(agencyQuery).catch(function(err) {
                 log.error("Agency List load error " + err + __location);

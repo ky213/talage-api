@@ -1493,6 +1493,9 @@ module.exports = class ApplicationModel {
                             delete newObjectJSON[changeNotUpdateList[i]];
                         }
                     }
+                    // Add updatedAt
+                    newObjectJSON.updatedAt = new Date();
+
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
                     const newApplicationdoc = await ApplicationMongooseModel.findOne(query);
                     this.#applicationMongooseDB = newApplicationdoc
@@ -2535,8 +2538,9 @@ module.exports = class ApplicationModel {
         }
 
         //get activitycodes.
-        // activity codes are not required for GL
-        const requireActivityCodes = Boolean(policyTypeArray.filter(policy => policy !== "GL").length);
+        // activity codes are not required for GL or BOP. only WC.
+        // This check may need to become insurer aware.
+        const requireActivityCodes = Boolean(policyTypeArray.filter(policy => policy === "WC").length);
         let activityCodeArray = [];
         if(applicationDocDB.activityCodes && applicationDocDB.activityCodes.length > 0){
             for(let i = 0; i < applicationDocDB.activityCodes.length; i++){

@@ -103,7 +103,9 @@ async function createToken(req, res, next){
     const payload = {
         agencyNetwork: false,
         agents: [],
-        signatureRequired: false
+        signatureRequired: false,
+        //undo double use of agency_network.
+        isAgencyNetworkUser: false
     };
 
     // Record the time this user logged in
@@ -118,23 +120,26 @@ async function createToken(req, res, next){
         log.error(e.message);
     });
 
+    payload.isAgencyNetworkUser = false;
     // Check if this was an agency network
     if (agencyPortalUserResult[0].agency_network) {
         payload.agencyNetwork = agencyPortalUserResult[0].agency_network;
         //agency network ID now in payload for consistency between network and agency.
         payload.agencyNetworkId = agencyPortalUserResult[0].agency_network;
+
+        payload.isAgencyNetworkUser = true;
     }
 
     // Store a local copy of the agency network ID .
-    let agencyNetworkId = payload.agencyNetwork;
+    //let agencyNetworkId = payload.agencyNetwork;
     const agencyBO = new AgencyBO();
     // For agency networks get the agencies they are allowed to access
-    if (payload.agencyNetwork) {
+    if (payload.isAgencyNetworkUser) {
         let agencyJSONList = null;
         try{
 
             // Load the request data into it
-            agencyJSONList = await agencyBO.getByAgencyNetwork(payload.agencyNetwork);
+            agencyJSONList = await agencyBO.getByAgencyNetwork(payload.agencyNetworkId);
         }
         catch(err){
             log.error("agencyBO.getByAgencyNetwork load error " + err + __location);
@@ -181,7 +186,7 @@ async function createToken(req, res, next){
             }
 
             // Store the agency network ID locally for later use
-            agencyNetworkId = agency.agencyNetworkId;
+            payload.agencyNetworkId = agency.agencyNetworkId;
         }
 
     }
@@ -189,7 +194,6 @@ async function createToken(req, res, next){
 
     // Add the user ID to the payload
     payload.userID = agencyPortalUserResult[0].id;
-    payload.agencyNetworkId = agencyNetworkId;
 
     // Add the permissions to the payload
     payload.permissions = agencyPortalUserResult[0].permissions;
