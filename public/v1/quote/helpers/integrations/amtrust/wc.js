@@ -319,7 +319,7 @@ module.exports = class AcuityWC extends Integration {
             quoteRequestData.Quote.RatingZip = ratingZip;
         }
 
-        console.log("quoteRequestData", JSON.stringify(quoteRequestData, null, 4));
+        // console.log("quoteRequestData", JSON.stringify(quoteRequestData, null, 4));
 
         // =========================================================================================================
         // Create the additional information request
@@ -336,7 +336,7 @@ module.exports = class AcuityWC extends Integration {
             }]
         };
 
-        console.log("additionalInformationRequestData", JSON.stringify(additionalInformationRequestData, null, 4));
+        // console.log("additionalInformationRequestData", JSON.stringify(additionalInformationRequestData, null, 4));
 
         // =========================================================================================================
         // Create the questions request
@@ -383,7 +383,7 @@ module.exports = class AcuityWC extends Integration {
                 }
             }
         }
-        console.log("questionRequestData", JSON.stringify(questionRequestData, null, 4));
+        // console.log("questionRequestData", JSON.stringify(questionRequestData, null, 4));
 
         // =========================================================================================================
         // Send the requests
@@ -398,7 +398,7 @@ module.exports = class AcuityWC extends Integration {
         if (!statusCode || !successfulStatusCodes.includes(statusCode)) {
             return this.client_error(`The quote could not be submitted to the insurer.`, __location, {statusCode: statusCode});
         }
-        console.log("quoteResponse", JSON.stringify(quoteResponse, null, 4));
+        // console.log("quoteResponse", JSON.stringify(quoteResponse, null, 4));
 
         // Check if the quote has been declined. If declined, subsequent requests will fail.
         let quoteEligibility = this.getChildProperty(quoteResponse, "Data.Eligibility.Eligibility");
@@ -427,7 +427,7 @@ module.exports = class AcuityWC extends Integration {
         if (!statusCode || !successfulStatusCodes.includes(statusCode)) {
             return this.client_error(`The quote questions for quote ${quoteId} could not be submitted to the insurer.`, __location, {statusCode: statusCode});
         }
-        console.log("additionalInformationResponse", JSON.stringify(additionalInformationResponse, null, 4));
+        // console.log("additionalInformationResponse", JSON.stringify(additionalInformationResponse, null, 4));
 
         // Get the required questions list to ensure we are submitting the correct questions
         // const requiredQuestionsResponse = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/questions`, questionRequestData);
@@ -444,7 +444,7 @@ module.exports = class AcuityWC extends Integration {
                 // return this.client_error(`The quote questions for quote ${quoteId} could not be submitted to the insurer.`, __location, {statusCode: statusCode});
                 this.log_warn(`The quote questions for quote ${quoteId} could not be submitted to the insurer.`, __location);
             }
-            console.log("questionResponse", JSON.stringify(questionResponse, null, 4));
+            // console.log("questionResponse", JSON.stringify(questionResponse, null, 4));
         }
 
         // Get the quote information
@@ -452,7 +452,7 @@ module.exports = class AcuityWC extends Integration {
         if (!quoteInformationResponse) {
             return this.client_error(`The quote information for quote ${quoteId} could not be retrieved from the insurer.`, __location);
         }
-        console.log("quoteInformationResponse", JSON.stringify(quoteInformationResponse, null, 4));
+        // console.log("quoteInformationResponse", JSON.stringify(quoteInformationResponse, null, 4));
 
         // =========================================================================================================
         // Process the quote information response
@@ -500,6 +500,6 @@ module.exports = class AcuityWC extends Integration {
         }
 
         // Unregnized quote statue
-        return this.client_error(`Received an unknown eligibility type of '${quoteStatus}`);
+        return this.client_error(`AmTrust returned an unknown eligibility type of '${quoteEligibility}`);
     }
 };
