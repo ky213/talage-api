@@ -804,7 +804,7 @@ module.exports = class Application {
             //Notify Talage logic Agencylocation ->insures
             try{
                 const notifiyTalageTest = this.agencyLocation.shouldNotifyTalage(quoteDoc.insurerId);
-                //We only need one AL insure to be set to notifyTalage to send it to Slack.
+                //We only need one AL insurer to be set to notifyTalage to send it to Slack.
                 if(notifiyTalageTest === true){
                     notifiyTalage = notifiyTalageTest;
                     log.info(`Quote Application ${this.id} sending notification to Talage ` + __location)
@@ -814,7 +814,7 @@ module.exports = class Application {
                 log.error(`Quote Application ${this.id} Error get notifyTalage ` + err + __location);
             }
         });
-        log.info(`Quote Application ${this.id} Sending Notification to Talage is ${notifiyTalage}` + __location)
+        log.info(`Quote Application ${this.id}, some_quotes;: ${some_quotes}, all_had_quotes: ${all_had_quotes}:  Sending Notification to Talage is ${notifiyTalage}` + __location)
 
         // Send an emails if there were no quotes generated
         if (some_quotes === false) {
@@ -853,13 +853,14 @@ module.exports = class Application {
                 subject = subject.replace(/{{Agency}}/g, this.agencyLocation.agency);
 
                 // Send the email message
-                log.debug('sending customer email');
+                log.info(`AppId ${this.id} sending customer NO QUOTE email`);
                 await emailSvc.send(this.business.contacts[0].email,
                     subject,
                     message,
                     {
                         agencyLocationId: this.agencyLocation.id,
-                        applicationId: this.id
+                        applicationId: this.applicationDocData.applicationId,
+                        applicationDoc: this.applicationDocData
                     },
                     this.agencyLocation.agencyNetwork,
                     brand,
@@ -890,14 +891,16 @@ module.exports = class Application {
                     if (quoteList[0].status) {
                         message = message.replace(/{{Quote Result}}/g, quoteList[0].status.charAt(0).toUpperCase() + quoteList[0].status.substring(1));
                     }
-                    log.debug('sending agency email');
+                    log.info(`AppId ${this.id} sending agency NO QUOTE email`);
                     // Send the email message - development should email. change local config to get the email.
                     await emailSvc.send(this.agencyLocation.agencyEmail,
                         subject,
                         message,
                         {
                             agencyLocationId: this.agencyLocation.id,
-                            applicationId: this.id
+                            applicationId: this.applicationDocData.applicationId,
+                            applicationDoc: this.applicationDocData
+
                         },
                         this.agencyLocation.agencyNetwork,
                         emailContentJSON.emailBrand,
@@ -941,7 +944,9 @@ module.exports = class Application {
 
             // sending controlled in slacksvc by env SLACK_DO_NOT_SEND
             // Send a message to Slack
-            if (all_had_quotes) {
+            // some_quotes === true tells us there is at least one quote.
+            // if quoteList is empty, all_had_quotes will equal true.
+            if (all_had_quotes && some_quotes) {
                 slack.send('customer_success', 'ok', 'Application completed and the user received ALL quotes', attachment);
             }
             else if (some_quotes) {
