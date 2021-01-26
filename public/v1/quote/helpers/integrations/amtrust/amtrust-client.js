@@ -1,12 +1,8 @@
 const axios = require('axios');
 const queryString = require("querystring");
 
-const baseAPIURLTest = "https://utgateway.amtrustgroup.com/DigitalAPI_Usertest";
-const baseAPIURLProduction = "https://gateway.amtrustgroup.com/DigitalAPI";
-
-let accessToken = "";
-let mulesoftSubscriberId = "";
-let baseAPIURL = null;
+const tokenURLTest = "https://uatauth.amtrustgroup.com/AuthServer_UserTest/OpenIdConnect/Token";
+const tokenURLProduction = "https://auth.amtrustgroup.com/AuthServer/OpenIdConnect/Token";
 
 /**
  * Simple axios wrapper
@@ -59,9 +55,6 @@ async function httpRequest(method, url, params = null, data = null, options = nu
  */
 async function authorize(clientId, clientSecret, username, password, mulesoftSubscriberIdIn, useTestServers) {
 
-    baseAPIURL = useTestServers ? baseAPIURLTest : baseAPIURLProduction;
-    mulesoftSubscriberId = mulesoftSubscriberIdIn;
-
     const requestData = {
         grant_type: "password",
         client_id: clientId,
@@ -76,7 +69,7 @@ async function authorize(clientId, clientSecret, username, password, mulesoftSub
 
     const requestOptions = {headers: {"Content-type": "application/x-www-form-urlencoded"}}
 
-    const response = await httpRequest("POST", "https://uatauth.amtrustgroup.com/AuthServer_UserTest/OpenIdConnect/Token", null, requestDataString, requestOptions);
+    const response = await httpRequest("POST", useTestServers ? tokenURLTest : tokenURLProduction, null, requestDataString, requestOptions);
     if (response.error) {
         return null;
     }
@@ -86,41 +79,7 @@ async function authorize(clientId, clientSecret, username, password, mulesoftSub
     if (!response.data.access_token) {
         return null;
     }
-    accessToken = response.data.access_token;
-    return accessToken;
+    return response.data.access_token;
 }
 
-/**
- * Call an AmTrust API endpoint
- * @param  {string} method - HTTP verbs GET, POST, PUT, ...
- * @param  {string} endpoint - Endpoint path to call
- * @param  {string} queryParameters - Query parameters to append to the URL
- * @param  {string} data - Body data
- * @returns {object} response data
- */
-async function callAPI(method, endpoint, queryParameters = null, data = null) {
-    const requestOptions = {headers: {
-        "Content-type": "application/json",
-        "Authorization": `Bearer ${accessToken}`,
-        "subscriber_id": mulesoftSubscriberId
-    }}
-    const response = await httpRequest(method, baseAPIURL + endpoint, queryParameters, data ? JSON.stringify(data) : null, requestOptions);
-    return response.data;
-}
-
-/**
- * Gets the legal entities for a state on the given effective date
- * @param  {string} state - Two character state abbreviation
- * @param  {string} effectiveDate - Date formatted as YYYY-MM-DD
- * @returns {void}
- */
-async function getLegalEntities(state, effectiveDate) {
-    await callAPI("GET", `/api/v2/states/${state}/effectiveDate/${effectiveDate}/legalEntities/available`);
-    // console.log("getLegalEntities", response);
-    // This is unused but remains "just in case"
-}
-
-module.exports = {
-    authorize: authorize,
-    getLegalEntities: getLegalEntities
-};
+module.exports = {authorize: authorize};
