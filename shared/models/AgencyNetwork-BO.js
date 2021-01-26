@@ -324,6 +324,8 @@ module.exports = class AgencyNetworkBO{
                             delete newObjectJSON[changeNotUpdateList[i]];
                         }
                     }
+                    // Add updatedAt
+                    newObjectJSON.updatedAt = new Date();
 
                     await AgencyNetworkModel.updateOne(query, newObjectJSON);
                     const newAgencyNetworkDoc = await AgencyNetworkModel.findOne(query);
