@@ -526,59 +526,20 @@ async function GetQuestions(req, res, next){
         return next(serverHelper.requestError('Required data missing. Please see documentation.'));
     }
 
-    //log.verbose(util.inspect(req.query));
-
-    // Make sure basic elements are present
-    if (!req.query.policy_types) {
-        log.warn('Bad Request: Missing Policy Types');
-        return next(serverHelper.requestError('You must supply one or more policy types'));
-    }
-
-    // Make sure the proper codes were supplied
-    if (req.query.policy_types.includes('BOP') || req.query.policy_types.includes('GL')) {
-        if (!req.query.industry_code) {
-            log.warn('Bad Request: Missing Industry Code');
-            return next(serverHelper.requestError('You must supply an industry code'));
-        }
-    }
-    if (req.query.policy_types.includes('WC')) {
-        if (!req.query.activity_codes) {
-            log.warn('Bad Request: Missing Activity Codes');
-            return next(serverHelper.requestError('You must supply one or more activity codes'));
-        }
-    }
-
-    // Make sure a zip code was provided
-    if (!Object.prototype.hasOwnProperty.call(req.query, 'zips') || !req.query.zips) {
-        log.warn('Bad Request: Missing Zip Codes');
-        return next(serverHelper.requestError('You must supply at least one zip code'));
-    }
-
-    // Check if we should return hidden questions also
-    let return_hidden = false;
-    if (req.query.hidden && req.query.hidden === 'true') {
-        // log.info('Returning hidden questions as well');
-        return_hidden = true;
-    }
-
     let getQuestionsResult = null;
     try{
-        // insurers is optional
         const applicationBO = new ApplicationBO();
-        getQuestionsResult = await applicationBO.GetQuestionsForFrontend(req.query.appId, req.query.activity_codes.split(','), req.query.industry_code, req.query.zips.split(','), req.query.policy_types.split(','), return_hidden);
+        getQuestionsResult = await applicationBO.GetQuestionsForFrontend(req.query.appId);
     }
-    catch(error){
+    catch (error) {
         log.error("Error getting questions " + error + __location);
         return next(serverHelper.internalError('An error occured while retrieving application questions.'));
     }
-
     if(!getQuestionsResult){
         return next(serverHelper.requestError('An error occured while retrieving application questions.'));
     }
 
     res.send(200, getQuestionsResult);
-
-
 }
 
 

@@ -297,14 +297,14 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                 SELECT nca.insurer_code FROM clw_talage_activity_code_associations AS nca
                 LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON nca.insurer_code = inc.id
                 WHERE nca.code IN (${activityCodeArray.join(',')})
+                AND ${activityCodeEffectiveDateWhereClause}
                 AND inc.state = 1${territories && territories.length ? ` AND inc.territory IN (${territories.map(db.escape).join(',')})` : ``}
             )
             LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
             WHERE
                 iq.policy_type IN ('WC')
                 AND ${where} 
-                AND ${questionEffectiveDateWhereClause}                
-                AND ${activityCodeEffectiveDateWhereClause}                
+                AND ${questionEffectiveDateWhereClause}                                               
                 GROUP BY q.id;
         `;
         const activityCodeQuestions = await db.queryReadonly(sql).catch(function(err) {
