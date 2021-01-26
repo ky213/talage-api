@@ -1015,12 +1015,9 @@ module.exports = class Application {
             }
 
             // Validate the ID
-            let applicationBO = new ApplicationBO();
-            if (!await applicationBO.isValidApplicationId(this.applicationDocData.mysqlId)) {
-                // if applicationId suppled in the starting quoting requeset was bad
-                // the quoting process would have been stopped before validate was called.
-                log.error(`Error validating application ID: ${this.applicationDocData.mysqlId}. ` + __location);
-            }
+            // this.applicationDocData loaded we know 
+            // we have a good application ID.  (happend in Load)
+
 
             // Get a list of insurers and wait for it to return
             // Determine if WholeSale shoud be used.  (this might have already been determined in the app workflow.)
@@ -1049,9 +1046,9 @@ module.exports = class Application {
                         try {
                             insurers = await this.get_insurers();
                         }
-                        catch (e) {
-                            log.error(`Error in get_insurers: ${e}. ` + __location);
-                            return reject(e);
+                        catch (err) {
+                            log.error(`Error in get_insurers: ${err}. ` + __location);
+                            return reject(err);
                         }
                     }
 
