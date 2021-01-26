@@ -262,14 +262,14 @@ module.exports = class Application {
                     location.identification_number_type = 'SSN';
                 }
                 else {
-                    throw new Error(`Translate Error: Invalid formatting for property: EIN. Value: ${location.identification_number}.`);
+                    throw new Error(`Data Error: Invalid formatting for property: EIN. Value: ${location.identification_number}.`);
                 }
 
                 // Strip out the slashes, insurers don't like slashes
                 location.identification_number = location.identification_number.replace(/-/g, '');
             }
             else {
-                throw new Error('Translate Error: Identification Number is required');
+                throw new Error('Data Error: Identification Number is required');
             }
 
             // default unemployment_num to 0
@@ -285,9 +285,9 @@ module.exports = class Application {
                 // Check that the ID is valid
                 let result = null;
                 try {
-                    result = await db.query(`SELECT \`description\`FROM \`#__activity_codes\` WHERE \`id\` = ${activityCode.id} LIMIT 1;`);
+                    result = await db.query(`SELECT description FROM clw_talage_activity_codes WHERE id = ${activityCode.id} LIMIT 1;`);
                     if (!result || result.length !== 1) {
-                        throw new Error(`Translation Error: The activity code you selected (ID: ${activityCode.id}) is not valid.`);
+                        throw new Error(`Data Error: The activity code you selected (ID: ${activityCode.id}) is not valid.`);
                     }
                 }
                 catch (e) {
@@ -367,7 +367,7 @@ module.exports = class Application {
                  */
                 if (claim.amountPaid) {
                     if (!validator.claim_amount(claim.amountPaid)) {
-                        throw new Error('Translation Error: The amount must be a dollar value greater than 0 and below 15,000,000');
+                        throw new Error('Data Error: The amount must be a dollar value greater than 0 and below 15,000,000');
                     }
 
                     // Cleanup this input
@@ -389,7 +389,7 @@ module.exports = class Application {
                  */
                 if (claim.amountReserved) {
                     if (!validator.claim_amount(claim.amountReserved)) {
-                        throw new Error('Translation Error: The amountReserved must be a dollar value greater than 0 and below 15,000,000');
+                        throw new Error('Data Error: The amountReserved must be a dollar value greater than 0 and below 15,000,000');
                     }
 
                     // Cleanup this input
