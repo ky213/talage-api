@@ -262,14 +262,14 @@ module.exports = class Application {
                     location.identification_number_type = 'SSN';
                 }
                 else {
-                    throw new Error(`Translate Error: Invalid formatting for property: EIN. Value: ${location.identification_number}.`);
+                    throw new Error(`Data Error: Invalid formatting for property: EIN. Value: ${location.identification_number}.`);
                 }
 
                 // Strip out the slashes, insurers don't like slashes
                 location.identification_number = location.identification_number.replace(/-/g, '');
             }
             else {
-                throw new Error('Translate Error: Identification Number is required');
+                throw new Error('Data Error: Identification Number is required');
             }
 
             // default unemployment_num to 0
@@ -285,9 +285,9 @@ module.exports = class Application {
                 // Check that the ID is valid
                 let result = null;
                 try {
-                    result = await db.query(`SELECT \`description\`FROM \`#__activity_codes\` WHERE \`id\` = ${activityCode.id} LIMIT 1;`);
+                    result = await db.query(`SELECT description FROM clw_talage_activity_codes WHERE id = ${activityCode.id} LIMIT 1;`);
                     if (!result || result.length !== 1) {
-                        throw new Error(`Translation Error: The activity code you selected (ID: ${activityCode.id}) is not valid.`);
+                        throw new Error(`Data Error: The activity code you selected (ID: ${activityCode.id}) is not valid.`);
                     }
                 }
                 catch (e) {
@@ -367,7 +367,7 @@ module.exports = class Application {
                  */
                 if (claim.amountPaid) {
                     if (!validator.claim_amount(claim.amountPaid)) {
-                        throw new Error('Translation Error: The amount must be a dollar value greater than 0 and below 15,000,000');
+                        throw new Error('Data Error: The amount must be a dollar value greater than 0 and below 15,000,000');
                     }
 
                     // Cleanup this input
@@ -389,7 +389,7 @@ module.exports = class Application {
                  */
                 if (claim.amountReserved) {
                     if (!validator.claim_amount(claim.amountReserved)) {
-                        throw new Error('Translation Error: The amountReserved must be a dollar value greater than 0 and below 15,000,000');
+                        throw new Error('Data Error: The amountReserved must be a dollar value greater than 0 and below 15,000,000');
                     }
 
                     // Cleanup this input
@@ -1015,12 +1015,9 @@ module.exports = class Application {
             }
 
             // Validate the ID
-            let applicationBO = new ApplicationBO();
-            if (!await applicationBO.isValidApplicationId(this.applicationDocData.mysqlId)) {
-                // if applicationId suppled in the starting quoting requeset was bad
-                // the quoting process would have been stopped before validate was called.
-                log.error(`Error validating application ID: ${this.applicationDocData.mysqlId}. ` + __location);
-            }
+            // this.applicationDocData loaded we know 
+            // we have a good application ID.  (happend in Load)
+
 
             // Get a list of insurers and wait for it to return
             // Determine if WholeSale shoud be used.  (this might have already been determined in the app workflow.)
@@ -1049,9 +1046,9 @@ module.exports = class Application {
                         try {
                             insurers = await this.get_insurers();
                         }
-                        catch (e) {
-                            log.error(`Error in get_insurers: ${e}. ` + __location);
-                            return reject(e);
+                        catch (err) {
+                            log.error(`Error in get_insurers: ${err}. ` + __location);
+                            return reject(err);
                         }
                     }
 
