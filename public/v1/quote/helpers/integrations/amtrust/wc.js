@@ -77,35 +77,30 @@ module.exports = class AcuityWC extends Integration {
             for (const activityPayroll of location.activityPayrollList) {
                 // Commented out because we are testing with the national NCCI codes instead of the mapped insurer class codes
                 const insurerClassCode = this.insurer_wc_codes[location.state + activityPayroll.ncciCode];
-                // const ncciCode = await this.get_national_ncci_code_from_activity_code(location.state, activityPayroll.ncciCode) + "00";
-                // if (!ncciCode) {
-                //     return this.client_error("Could not locate AmTrust class code for a required activity code", __location, {
-                //         state: location.state_abbr,
-                //         activityCode: activityPayroll.id
-                //     });
-                // }
-                let amtrustClassCode = amtrustClassCodeList.find((acc) => acc.ncciCode === insurerClassCode && acc.state === location.state);
-                if (!amtrustClassCode) {
-                    amtrustClassCode = {
-                        ncciCode: insurerClassCode,
-                        state: location.state,
-                        payroll: 0,
-                        fullTimeEmployees: 0,
-                        partTimeEmployees: 0
-                    };
-                    amtrustClassCodeList.push(amtrustClassCode);
-                }
-                for (const employeeType of activityPayroll.employeeTypeList) {
-                    amtrustClassCode.payroll += employeeType.employeeTypePayroll;
-                    switch (employeeType.employeeType) {
-                        case "Full Time":
-                            amtrustClassCode.fullTimeEmployees += employeeType.employeeTypeCount;
-                            break;
-                        case "Part Time":
-                            amtrustClassCode.partTimeEmployees += employeeType.employeeTypeCount;
-                            break;
-                        default:
-                            break;
+                if (insurerClassCode) {
+                    let amtrustClassCode = amtrustClassCodeList.find((acc) => acc.ncciCode === insurerClassCode && acc.state === location.state);
+                    if (!amtrustClassCode) {
+                        amtrustClassCode = {
+                            ncciCode: insurerClassCode,
+                            state: location.state,
+                            payroll: 0,
+                            fullTimeEmployees: 0,
+                            partTimeEmployees: 0
+                        };
+                        amtrustClassCodeList.push(amtrustClassCode);
+                    }
+                    for (const employeeType of activityPayroll.employeeTypeList) {
+                        amtrustClassCode.payroll += employeeType.employeeTypePayroll;
+                        switch (employeeType.employeeType) {
+                            case "Full Time":
+                                amtrustClassCode.fullTimeEmployees += employeeType.employeeTypeCount;
+                                break;
+                            case "Part Time":
+                                amtrustClassCode.partTimeEmployees += employeeType.employeeTypeCount;
+                                break;
+                            default:
+                                break;
+                        }
                     }
                 }
             }
@@ -325,7 +320,7 @@ module.exports = class AcuityWC extends Integration {
         // Create the additional information request
 
         const additionalInformationRequestData = {
-            "Officers": this.getOfficers(),
+            // "Officers": this.getOfficers(), They said that officers are not required to quote.
             "AdditionalInsureds": [{
                 "Name": this.app.business.owners[0].fname + " " + this.app.business.owners[0].lname ,
                 "TaxId": this.app.business.locations[0].identification_number,
@@ -333,8 +328,7 @@ module.exports = class AcuityWC extends Integration {
                 "LegalEntity": amtrustLegalEntityMap[this.app.business.locations[0].business_entity_type],
                 "DbaName": this.app.business.dba,
                 "AdditionalLocations": this.getAdditionalLocationList()
-            }]
-        };
+            }]};
 
         // console.log("additionalInformationRequestData", JSON.stringify(additionalInformationRequestData, null, 4));
 
