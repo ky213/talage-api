@@ -1,63 +1,234 @@
-'use strict';
-
 const auth = require('./helpers/auth.js');
 const serverHelper = require('../../../server.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
+const mongoose = require('mongoose');
+const _ = require('lodash');
+const moment = require('moment');
+
+const Application = mongoose.model('Application');
+const Quote = mongoose.model('Quote');
 
 /**
- * Define some helper functions -- better documentation coming soon (Josh)
- * @param {Array} result - The result
- * @return {*} The row
+ * Keeps only the first 'len' keys in an object. All of the others are
+ * consolidated into a new 'Other' key. The new object is returned.
  */
-function singleRowResult(result) {
-    // Single row result -- extract the value
-    const row = result[0];
-
-    // Get the names of all returned columns
-    const columns = Object.keys(row);
-
-    // If only one column was returned return the value of that column. Otherwise, return the entire row
-    if (columns.length === 1) {
-        return row[columns[0]];
+function trimObjectLength(object, len) {
+    let newObj = {};
+    let keys = Object.keys(object);
+    let objLen = Object.keys(object).length;
+    for (let i = 0; i < Math.min(objLen, len); i++) {
+        newObj[keys[i]] = object[keys[i]];
     }
-    return row;
+
+    if (objLen >= len) {
+        newObj['Other'] = 0;
+        for (let i = len; i < objLen; i++) {
+            newObj['Other'] += object[keys[i]];
+        }
+    }
+    return newObj;
 }
 
 /**
- * Define some helper functions -- better documentation coming soon (Josh)
- * @param {Object} results - The results
- * @return {*} The name and count
+ * @return True if applications exist.
  */
-function multiRowResult(results) {
-    // Multirow result - Currently this is just converting results into arrays for Google charts and only works because all the multirow queries are selecting `name` and `count`
-    return Object.keys(results).map((key) => {
-        const name = results[key].name;
-        const count = results[key].count ? results[key].count : 0;
+const hasApplications = async (where) =>
+    await Application.countDocuments(where) > 0;
 
-        return [name, count];
-    });
+/**
+ * For each application, we will extract the lowest quote amount from the quote
+ * list and then return the sum of those quotes.
+ */
+const sumOfQuotes = (quotes) => {
+    const amounts = {};
+
+    for (const q of quotes) {
+        if (amounts[q.applicationId] && q.amount > amounts[q.applicationId]) {
+            continue;
+        }
+        amounts[q.applicationId] = q.amount;
+    }
+    return _.sum(Object.values(amounts));
+}
+
+const getGeography = async (where) => {
+    let territories = _.chain(await db.queryReadonly(`SELECT abbr, name FROM clw_talage_territories`))
+        .keyBy('abbr')
+        .mapValues('name')
+        .value();
+    let geography = await Application.aggregate([
+        { $match: where },
+        { $group: {
+            _id: '$mailingState',
+            count: { $sum: 1 }
+        }}
+    ]);
+    return geography.map(t => ([
+        territories[t._id],
+        t.count
+    ])).filter(t => t[0]); // This filter removes undefined entries.
+}
+
+const getMonthlyTrends = async (where) => {
+    let monthlyTrends = await Application.aggregate([
+        { $match: where },
+        { $group: {
+            _id: {
+               month: { $month: '$createdAt' },
+            },
+            count: { $sum: 1 }
+        }},
+        { $sort: { _id: 1 }}
+    ]);
+    return monthlyTrends.map(t => ([
+        moment(t._id.month, 'M').format('MMMM'),
+        t.count
+    ]));
+}
+
+/** Get the earliest application created date */
+const getMinDate = async (where) => {
+    const app = await Application
+        .find(where, {createdAt: 1})
+        .sort({createdAt: 1})
+        .limit(1);
+    return app[0].createdAt;
+}
+
+const getIndustries = async (where) => {
+    const industryCodeCategories = _.chain(await db.queryReadonly(`SELECT
+            ${db.quoteName('ic.id')},
+            ${db.quoteName('icc.name')}
+        FROM ${db.quoteName('#__industry_code_categories', 'icc')}
+        INNER JOIN ${db.quoteName('#__industry_codes', 'ic')} ON ${db.quoteName('ic.category')} = ${db.quoteName('icc.id')}
+        `))
+        .keyBy('id')
+        .mapValues('name')
+        .value();
+    let industriesQuery = await Application.aggregate([
+        { "$match": where },
+        { "$group": {
+            "_id": {
+                "industryCode": "$industryCode"
+            },
+            "count": { "$sum": 1 }
+        }}
+    ])
+    let industries = {};
+    for (const i of industriesQuery) {
+        const id = industryCodeCategories[i._id.industryCode];
+        if (industries[id]) {
+            industries[id] += i.count;
+        } else {
+            industries[id] = i.count;
+        }
+    }
+    // Sort industries by the ones with the most applications.
+    industries = _.fromPairs(_.sortBy(_.toPairs(industries), 1).reverse())
+    // Trim to only 6 entries
+    industries = trimObjectLength(industries, 8);
+    // Convert to an array.
+    return Object.keys(industries).map(k => ([
+        k,
+        industries[k]
+    ]));
+}
+
+const getPremium = async (where) => {
+    let applications = await Application.find({}, {uuid: 1});
+    applications = applications.map(t => t.uuid);
+
+    let agencyApplications = await Application.find(
+        Object.assign({}, where, {
+            appStatusId: {$gte: 40},
+            applicationId: {$in: applications}
+        }), {uuid: 1});
+    agencyApplications = agencyApplications.map(a => a.uuid);
+
+    // other option: sum up all the quotes
+    const bound = await Quote.find({
+        $or: [
+            {bound: 1},
+            {status: 'bind_requested'},
+            {api_result: 'quoted'},
+            {api_result: 'referred_with_price'},
+        ],
+        applicationId: {$in: agencyApplications}
+    }, {_id: 1, applicationId: 1, amount: 1, policyType: 1});
+
+    const quoted = await Quote.find({
+        applicationId: {$in: agencyApplications}
+    }, {_id: 1, applicationId: 1, amount: 1, policyType: 1});
+
+    // const quoted = await Quote.aggregate([
+    //     {
+    //         $match: {
+    //             $or: [
+    //                 {bound: 1},
+    //                 {status: 'bind_requested'},
+    //                 {api_result: 'quoted'},
+    //                 {api_result: 'referred_with_price'},
+    //             ],
+    //             applicationId: {$in: agencyApplications}
+    //         }
+    //     },
+    //     {
+    //         $group: {
+    //             _id: '$applicationId',
+    //             amount: { $amount: 1 },
+    //         }
+    //     }
+    // ]);
+
+    // const bound = await Quote.aggregate([
+    //     {
+    //         $match: {
+    //             applicationId: {$in: agencyApplications},
+    //             $or: [
+    //                 { bound: 1 },
+    //                 { status: 'bind_requested' },
+    //             ]
+    //         }
+    //     },
+    //     {
+    //         $group: {
+    //             _id: '$applicationId',
+    //             amount: {$sum: '$amount'}
+    //         }
+    //     }
+    // ]);
+
+    return {
+        quoted: sumOfQuotes(quoted),
+        bound: sumOfQuotes(bound),
+    }
+}
+
+async function wrapAroundExpress(callbackFunc, req, res, next) {
+    try {
+        const out = await callbackFunc();
+        res.send(200, out);
+        return next();
+    } catch (err) {
+        return next(error);
+    }
+}
+
+const mysqlDateToJsDate = (date, utcOffset) => {
+    return moment(date.substr(1, date.length - 2))
+        .toDate()
 }
 
 /**
  * Responds to get requests for the reports endpoint
  *
  * @param {object} req - HTTP request object
- * @param {object} res - HTTP response object
- * @param {function} next - The next function to execute
  *
  * @returns {void}
  */
-async function getReports(req, res, next) {
-    let error = false;
-
-    let returnedError = false;
+async function getReports(req) {
     // Get the agents that we are permitted to view
-    const agents = await auth.getAgents(req).catch(function(e) {
-        error = e;
-    });
-    if (error) {
-        return next(error);
-    }
+    const agents = await auth.getAgents(req);
 
     // Get the filter parameters
     let startDate = req.query.startDate;
@@ -73,24 +244,34 @@ async function getReports(req, res, next) {
         initialRequest = true;
     }
 
+    // Begin by only allowing applications that are not deleted from agencies that are also not deleted
+    let where = { active: true };
+
     // If static data isn't being requested both dates are required
     if (!initialRequest) {
         // Process the dates if they were included in the request or return an error if they werent
         if (startDate && endDate) {
-            startDate = db.escape(`${startDate.substring(0, 10)} ${startDate.substring(11, 19)}`);
-            endDate = db.escape(`${endDate.substring(0, 10)} ${endDate.substring(11, 19)}`);
+            startDate = mysqlDateToJsDate(
+                db.escape(`${startDate.substring(0, 10)} ${startDate.substring(11, 19)}`),
+                utcOffset
+            );
+            endDate = mysqlDateToJsDate(
+                db.escape(`${endDate.substring(0, 10)} ${endDate.substring(11, 19)}`),
+                utcOffset
+            );
+            where.createdAt = {
+                $gte: startDate,
+                $lte: endDate,
+            }
         }
         else {
             log.info('Bad Request: Query parameters missing');
-            return next(serverHelper.requestError('Query parameters missing'));
+            throw serverHelper.requestError('Query parameters missing');
         }
     }
 
     // Localize data variables that the user is permitted to access
     const agencyNetwork = parseInt(req.authentication.agencyNetworkId, 10);
-
-    // Begin by only allowing applications that are not deleted from agencies that are also not deleted
-    let where = `${db.quoteName('a.state')} > 0 `;
 
     // Filter out any agencies with do_not_report value set to true
     if(req.authentication.isAgencyNetworkUser){
@@ -104,8 +285,8 @@ async function getReports(req, res, next) {
                 for(const agencyJSON of noReportAgencyList){
                     donotReportAgencyIdArray.push(agencyJSON.systemId);
                 }
-                if(donotReportAgencyIdArray.length > 0){
-                    where += ` AND a.agency not IN (${donotReportAgencyIdArray.join(',')}) `;
+                if (donotReportAgencyIdArray.length > 0) {
+                    where.agency = { $nin: donotReportAgencyIdArray };
                 }
             }
         }
@@ -116,193 +297,54 @@ async function getReports(req, res, next) {
 
     // This is a very special case. If this is the agent 'Solepro' (ID 12) asking for applications, query differently
     if(!agencyNetwork && agents[0] === 12){
-        where += ` AND ${db.quoteName('a.solepro')} = 1`;
+        where.solepro = 1;
     }
-    else{
-        where += ` AND ${db.quoteName('a.agency')} IN(${agents.join(',')})`;
+    else {
+        where.agencyId = { $in: agents };
     }
 
-    // List of accepted parameters to query from the database
-    const queries = {
-        funnel: `
-        SELECT
-        COUNT(DISTINCT a.id)  AS started,
-                SUM(IF(a.appStatusId > 10, 1, 0)) AS completed,
-                SUM(IF(a.appStatusId >= 40, 1, 0)) AS quoted,
-                SUM(IF(a.appStatusId >= 70, 1, 0)) AS bound
-            FROM clw_talage_applications AS a
-            
-				WHERE
-					${where} AND
-                    ${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate}
-				LIMIT 1;`,
-
-        geography: `
-				SELECT
-					t.name,
-					COUNT(a.id) AS count
-				FROM clw_talage_applications as a 
-               
-                INNER JOIN clw_talage_territories as t ON t.abbr = a.state_abbr
-				WHERE
-					${where} AND
-					a.created BETWEEN ${startDate} AND ${endDate}
-				GROUP BY t.name;
-			`,
-        // Get total number of applications
-        hasApplications: `
-				SELECT IF(COUNT(${db.quoteName('a.id')}), 1, 0) AS ${db.quoteName('hasApplications')}
-				FROM ${db.quoteName('#__applications', 'a')}
-                WHERE ${where}
-				LIMIT 1;
-			`,
-        industries: `
-				SELECT
-					${db.quoteName('icc.name')},
-					COUNT(${db.quoteName('icc.name')}) AS ${db.quoteName('count')}
-                FROM ${db.quoteName('#__industry_code_categories', 'icc')}
-                INNER JOIN ${db.quoteName('#__industry_codes', 'ic')} ON ${db.quoteName('ic.category')} = ${db.quoteName('icc.id')}
-                INNER JOIN ${db.quoteName('#__applications', 'a')} ON ${db.quoteName('a.industry_code')} = ${db.quoteName('ic.id')}
-
-				WHERE
-					${where} AND
-                    ${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate}
-				GROUP BY ${db.quoteName('icc.name')} ORDER BY ${db.quoteName('count')} DESC;
-			`,
-
-        // Get the earliest application created date
-        minDate: `
-				SELECT ${db.quoteName('a.created')} AS ${db.quoteName('minDate')}
-				FROM ${db.quoteName('#__applications', 'a')}
-                WHERE ${where}
-				ORDER BY ${db.quoteName('a.created')} ASC
-				LIMIT 1;
-			`,
-        monthlyTrends: `
-			SELECT
-				MONTHNAME(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')) AS ${db.quoteName('name')},
-				COUNT(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')) AS ${db.quoteName('count')}
-			FROM ${db.quoteName('#__applications', 'a')}
-			WHERE
-                ${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate} AND
-                ${where}
-			GROUP BY YEAR(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')), MONTH(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')), MONTHNAME(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}'))
-			ORDER BY YEAR(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')), MONTH(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}')), MONTHNAME(CONVERT_TZ(${db.quoteName('a.created')}, '+00:00', '${utcOffset}'));
-			`,
-
-        premium: `
-				SELECT
-					SUM(${db.quoteName('q.amount')}) AS ${db.quoteName('quoted')},
-					SUM(IF(
-						${db.quoteName('q.bound')} = 1 OR ${db.quoteName('q.status')} = 'bind_requested',
-						${db.quoteName('q.amount')},
-						0
-					)) AS ${db.quoteName('bound')}
-				FROM ${db.quoteName('#__quotes', 'q')}
-				INNER JOIN ${db.quoteName('#__applications', 'a')} ON ${db.quoteName('a.id')} = ${db.quoteName('q.application')}
-				WHERE
-                    ${where} AND
-                    a.appStatusId >= 40
-					AND ${db.quoteName('a.created')} BETWEEN ${startDate} AND ${endDate} AND
-                    (q.bound = 1 OR q.status = 'bind_requested' OR q.api_result = 'quoted' OR q.api_result = 'referred_with_price')
-				LIMIT 1;
-			`
-    };
-    //${db.quoteName('q.amount')} IS NOT NULL
-    //log.debug(queries['monthlyTrends']);
     // Define a list of queries to be executed based on the request type
-    const selectedQueries = initialRequest ? ['minDate', 'hasApplications'] : ['funnel',
-        'geography',
-        'industries',
-        'monthlyTrends',
-        'premium'];
-
-    // Query the database and build a response for the client
-    const response = {};
-    await Promise.all(selectedQueries.map(async(queryName) => {
-        // Query the database and wait for a result
-        error = null;
-        const result = await db.queryReadonly(queries[queryName]).catch((err) => {
-            log.error("Report query error " + err.message + __location);
-            error = err;
-        });
-        if(error && returnedError === false){
-            returnedError = true;
-            return next(serverHelper.internalError('Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.'));
+    if (initialRequest) {
+        return {
+            minDate: await getMinDate(where),
+            hasApplications: await hasApplications(where) ? 1 : 0,
+        };
+    } else {
+        return {
+            funnel: {
+                started: await Application.countDocuments(where),
+                completed: await Application.countDocuments(Object.assign({}, where, { appStatusId: {$gt: 10} })),
+                quoted: await Application.countDocuments(Object.assign({}, where, { appStatusId: {$gte: 40} })),
+                bound: await Application.countDocuments(Object.assign({}, where, { appStatusId: {$gte: 70} })),
+            },
+            geography: await getGeography(where),
+            industries: await getIndustries(where),
+            monthlyTrends: await getMonthlyTrends(where),
+            premium: await getPremium(where),
         }
-
-        // Names of reports that should be handled by the singleRowResult helper method
-        const singleRowQueries = ['funnel',
-            'hasApplications',
-            'minDate',
-            'premium'];
-
-        // Process the result
-        let processedResult = null;
-        if (result && result.length > 0) {
-            if (singleRowQueries.includes(queryName)) {
-                // Extract single row result
-                processedResult = singleRowResult(result, queryName);
-            }
-            else {
-                // Parse multirow results - provide start and end dates as options
-                processedResult = multiRowResult(result);
-            }
-
-            // Perform some special adaptations to the industries data to limit it to 8 results and group the excess
-            if (queryName === 'industries') {
-                // If there are more than 8 items, combine them
-                if (processedResult && processedResult.length > 8) {
-                    // Loop over all records after the 8th and add them together
-                    let other = 0;
-                    for (let index = 8; index < processedResult.length; index++) {
-                        other += processedResult[index][1];
-                    }
-
-                    // Remove all but the first 8 records
-                    processedResult = processedResult.slice(0, 8);
-
-                    // Alphabetize what's left of the array
-                    processedResult.sort(function(a, b) {
-                        if (a[1] < b[1]) {
-                            return -1;
-                        }
-                        if (a[1] > b[1]) {
-                            return 1;
-                        }
-                        return 0;
-                    });
-
-                    // Append in an 'other' field
-                    processedResult.push(['Other', other]);
-                }
-                else {
-                    // Alphabetize the array
-                    processedResult.sort(function(a, b) {
-                        if (a[1] < b[1]) {
-                            return -1;
-                        }
-                        if (a[1] > b[1]) {
-                            return 1;
-                        }
-                        return 0;
-                    });
-                }
-            }
-        }
-
-        // Add it to the response
-        response[queryName] = processedResult ? processedResult : null;
-    }));
-
-    // Send the response
-    if(returnedError === false){
-        res.send(200, response);
-        return next();
     }
-
 }
 
+/**
+ * Responds to get requests for the reports endpoint
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
+async function wrapAroundExpress(req, res, next) {
+    try {
+        const out = await getReports(req);
+        res.send(200, out);
+        return next();
+    } catch (err) {
+        return next(error);
+    }
+}
+
+
 exports.registerEndpoint = (server, basePath) => {
-    server.addGetAuth('Get reports', `${basePath}/reports`, getReports, 'dashboard', 'view');
+    server.addGetAuth('Get reports', `${basePath}/reports`, wrapAroundExpress, 'dashboard', 'view');
 };
