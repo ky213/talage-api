@@ -639,13 +639,15 @@ module.exports = class LibertyGL extends Integration{
 					log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.` + __location);
 				}
 
-				// Attempt to get the amount of the quote
-				try{
-					this.amount = parseInt(res.Policy[0].QuoteInfo[0].InsuredFullToBePaidAmt[0].Amt[0], 10);
-				}
-                catch(e){
-					// This is handled in return_result()
-				}
+                // Attempt to get the amount of the quote
+                if (status !== 'Reject') {
+                    try{
+                        this.amount = parseInt(res.Policy[0].QuoteInfo[0].InsuredFullToBePaidAmt[0].Amt[0], 10);
+                    }
+                    catch(e){
+                        // This is handled in return_result()
+                    }
+                }
 
 				// Attempt to grab the limits info
 				try{

@@ -493,12 +493,14 @@ module.exports = class LibertyWC extends Integration {
                 }
 
                 // Attempt to get the amount of the quote
-                try {
-                    this.amount = parseInt(res.Policy[0].QuoteInfo[0].InsuredFullToBePaidAmt[0].Amt[0], 10);
-                }
-                catch (e) {
-                    log.error(`Appid: ${this.app.id} Liberty Mutual WC: Unable to get an amount . Error: ${e} ` + __location);
-                    // This is handled in return_result()
+                if (status !== 'Reject') {
+                    try {
+                        this.amount = parseInt(res.Policy[0].QuoteInfo[0].InsuredFullToBePaidAmt[0].Amt[0], 10);
+                    }
+                    catch (e) {
+                        log.error(`Appid: ${this.app.id} Liberty Mutual WC: Unable to get an amount . Error: ${e} ` + __location);
+                        // This is handled in return_result()
+                    }
                 }
 
                 // Attempt to get the reasons
