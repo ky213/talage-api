@@ -411,13 +411,15 @@ module.exports = class Application {
 
         const policy_types = [];
         this.policies.forEach(policy => {
-            policy_types.push(policy.type);
+            policy_types.push({
+                type: policy.type,
+                effectiveDate: policy.effective_date
+            });
         });
 
         // Get a list of all questions the user may need to answer
         const insurer_ids = this.get_insurer_ids();
         const wc_codes = this.get_wc_codes();
-
         let questions = null;
         try {
             questions = await questionsSvc.GetQuestionsForBackend(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids, true);
@@ -426,7 +428,6 @@ module.exports = class Application {
             log.error(`Translation Error: GetQuestionsForBackend: ${e}. ` + __location);
             throw e;
         }
-
         // Grab the answers the user provided to our questions and reset the question object
         const user_questions = this.questions;
         this.questions = {};
