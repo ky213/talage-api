@@ -504,11 +504,13 @@ async function getNextRoute(req, res, next){
             nextRouteName = "owners";
             break;
         case "owners":
-            // nothing yet
-            // nextRouteName = "claims";
+             nextRouteName = "claims";
             break;
         case "mailingAddress":
             nextRouteName = "locations";
+            break;
+        case "claims":
+            // Nothing yet
             break;
         default:
             break;
