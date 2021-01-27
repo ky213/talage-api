@@ -595,7 +595,7 @@ module.exports = class LibertySBOP extends Integration {
             const start = quoteResult.indexOf("<BinData>") + 9;
             const end = quoteResult.indexOf("</BinData>");
 
-            if (start === -1 || end === -1) {
+            if (start === 8 || end === -1) {
                 log.warn(`Liberty Mutual (Appid: ${this.app.id}): Quote Proposal Letter not provided, or quote result structure has changed.`);
             } else {
                 quoteLetter = quoteResult.substring(start, end);
