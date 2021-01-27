@@ -720,8 +720,8 @@ async function deleteObject(req, res, next) {
     }
     //Deletes only by AgencyNetwork Users.
 
-    const agencyNetwork = req.authentication.agencyNetwork;
-    if (!agencyNetwork) {
+    const agencyNetwork = req.authentication.agencyNetworkId;
+    if (req.authentication.isAgencyNetworkUser === false) {
         log.warn('App Delete not agency network user ' + __location)
         res.send(403);
         return next(serverHelper.forbiddenError('Do Not have Permissions'));
@@ -803,12 +803,6 @@ async function validate(req, res, next) {
         }
     }
 
-    // const agencyNetwork = req.authentication.agencyNetwork;
-    // if (!agencyNetwork) {
-    //     log.warn('App requote not agency network user ' + __location)
-    //     res.send(403);
-    //     return next(serverHelper.forbiddenError('Do Not have Permissions'));
-    // }
 
     //Get app and check status
     log.debug("Loading Application by mysqlId for Validation " + __location)
@@ -846,20 +840,27 @@ async function validate(req, res, next) {
 
 
     const applicationQuoting = new ApplicationQuoting();
+    let passValidation = false
     // Populate the Application object
-    // Load
+    // Load - Does some validation do to transformation of data.
     try {
         const forceQuoting = true;
         const loadJson = {"id": id};
         await applicationQuoting.load(loadJson, forceQuoting);
     }
     catch (err) {
-        log.error(`Error loading application ${id ? id : ''}: ${err.message}` + __location);
-        res.send(err);
+        const errMessage = `Error loading application data ${id ? id : ''}: ${err.message}`
+        log.error(errMessage + __location);
+
+        //res.send(err);
+        const responseJSON = {
+            "passedValidation": passValidation,
+            "validationError":errMessage
+        }
+        res.send(200,responseJSON);
         return next();
     }
     // Validate
-    let passValidation = false
     try {
         passValidation = await applicationQuoting.validate();
     }

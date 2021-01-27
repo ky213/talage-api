@@ -26,11 +26,11 @@ async function getAgencyNetwork(req, res, next) {
     if (!id) {
         return next(new Error("bad parameter"));
     }
-    const agencyNetwork = req.authentication.agencyNetwork;
-    if (agencyNetwork) {
+    const agencyNetworkId = req.authentication.agencyNetworkId;
+    if (agencyNetworkId) {
         // agency network user.
         // check request matches rights.
-        if (agencyNetwork !== id) {
+        if (agencyNetworkId !== id) {
             res.send(403);
             return next(serverHelper.forbiddenError('Do Not have Permissions'));
         }
@@ -82,7 +82,7 @@ async function getAgencyNetworkInsurersList(req, res, next) {
         return next(new Error("bad parameter"));
     }
 
-    const authAgencyNetwork = req.authentication.agencyNetwork;
+    const authAgencyNetwork = req.authentication.agencyNetworkId;
     if (authAgencyNetwork) {
         // agency network user.
         // check request matches rights.
@@ -181,7 +181,7 @@ async function updateAgencyNetwork(req, res, next) {
     if (!id) {
         return next(new Error("bad parameter"));
     }
-    const agencyNetwork = req.authentication.agencyNetwork;
+    const agencyNetwork = req.authentication.agencyNetworkId;
     if (agencyNetwork) {
         // agency network user.
         // check request matches rights.
