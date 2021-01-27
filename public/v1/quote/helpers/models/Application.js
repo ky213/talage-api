@@ -262,14 +262,14 @@ module.exports = class Application {
                     location.identification_number_type = 'SSN';
                 }
                 else {
-                    throw new Error(`Translate Error: Invalid formatting for property: EIN. Value: ${location.identification_number}.`);
+                    throw new Error(`Data Error: Invalid formatting for property: EIN. Value: ${location.identification_number}.`);
                 }
 
                 // Strip out the slashes, insurers don't like slashes
                 location.identification_number = location.identification_number.replace(/-/g, '');
             }
             else {
-                throw new Error('Translate Error: Identification Number is required');
+                throw new Error('Data Error: Identification Number is required');
             }
 
             // default unemployment_num to 0
@@ -285,9 +285,9 @@ module.exports = class Application {
                 // Check that the ID is valid
                 let result = null;
                 try {
-                    result = await db.query(`SELECT \`description\`FROM \`#__activity_codes\` WHERE \`id\` = ${activityCode.id} LIMIT 1;`);
+                    result = await db.query(`SELECT description FROM clw_talage_activity_codes WHERE id = ${activityCode.id} LIMIT 1;`);
                     if (!result || result.length !== 1) {
-                        throw new Error(`Translation Error: The activity code you selected (ID: ${activityCode.id}) is not valid.`);
+                        throw new Error(`Data Error: The activity code you selected (ID: ${activityCode.id}) is not valid.`);
                     }
                 }
                 catch (e) {
@@ -367,7 +367,7 @@ module.exports = class Application {
                  */
                 if (claim.amountPaid) {
                     if (!validator.claim_amount(claim.amountPaid)) {
-                        throw new Error('Translation Error: The amount must be a dollar value greater than 0 and below 15,000,000');
+                        throw new Error('Data Error: The amount must be a dollar value greater than 0 and below 15,000,000');
                     }
 
                     // Cleanup this input
@@ -389,7 +389,7 @@ module.exports = class Application {
                  */
                 if (claim.amountReserved) {
                     if (!validator.claim_amount(claim.amountReserved)) {
-                        throw new Error('Translation Error: The amountReserved must be a dollar value greater than 0 and below 15,000,000');
+                        throw new Error('Data Error: The amountReserved must be a dollar value greater than 0 and below 15,000,000');
                     }
 
                     // Cleanup this input
@@ -771,7 +771,7 @@ module.exports = class Application {
                 policyTypeReferred[quote.policyType] = true;
             }
         });
-        // Update the application state  - TODO Us BO.
+        // Update the application state
         await this.updateApplicationState(this.policies.length, Object.keys(policyTypeQuoted).length, Object.keys(policyTypeReferred).length);
 
         // Send a notification to Slack about this application
@@ -805,7 +805,7 @@ module.exports = class Application {
             //Notify Talage logic Agencylocation ->insures
             try{
                 const notifiyTalageTest = this.agencyLocation.shouldNotifyTalage(quoteDoc.insurerId);
-                //We only need one AL insure to be set to notifyTalage to send it to Slack.
+                //We only need one AL insurer to be set to notifyTalage to send it to Slack.
                 if(notifiyTalageTest === true){
                     notifiyTalage = notifiyTalageTest;
                     log.info(`Quote Application ${this.id} sending notification to Talage ` + __location)
@@ -815,7 +815,7 @@ module.exports = class Application {
                 log.error(`Quote Application ${this.id} Error get notifyTalage ` + err + __location);
             }
         });
-        log.info(`Quote Application ${this.id} Sending Notification to Talage is ${notifiyTalage}` + __location)
+        log.info(`Quote Application ${this.id}, some_quotes;: ${some_quotes}, all_had_quotes: ${all_had_quotes}:  Sending Notification to Talage is ${notifiyTalage}` + __location)
 
         // Send an emails if there were no quotes generated
         if (some_quotes === false) {
@@ -854,13 +854,14 @@ module.exports = class Application {
                 subject = subject.replace(/{{Agency}}/g, this.agencyLocation.agency);
 
                 // Send the email message
-                log.debug('sending customer email');
+                log.info(`AppId ${this.id} sending customer NO QUOTE email`);
                 await emailSvc.send(this.business.contacts[0].email,
                     subject,
                     message,
                     {
                         agencyLocationId: this.agencyLocation.id,
-                        applicationId: this.id
+                        applicationId: this.applicationDocData.applicationId,
+                        applicationDoc: this.applicationDocData
                     },
                     this.agencyLocation.agencyNetwork,
                     brand,
@@ -891,14 +892,16 @@ module.exports = class Application {
                     if (quoteList[0].status) {
                         message = message.replace(/{{Quote Result}}/g, quoteList[0].status.charAt(0).toUpperCase() + quoteList[0].status.substring(1));
                     }
-                    log.debug('sending agency email');
+                    log.info(`AppId ${this.id} sending agency NO QUOTE email`);
                     // Send the email message - development should email. change local config to get the email.
                     await emailSvc.send(this.agencyLocation.agencyEmail,
                         subject,
                         message,
                         {
                             agencyLocationId: this.agencyLocation.id,
-                            applicationId: this.id
+                            applicationId: this.applicationDocData.applicationId,
+                            applicationDoc: this.applicationDocData
+
                         },
                         this.agencyLocation.agencyNetwork,
                         emailContentJSON.emailBrand,
@@ -942,7 +945,9 @@ module.exports = class Application {
 
             // sending controlled in slacksvc by env SLACK_DO_NOT_SEND
             // Send a message to Slack
-            if (all_had_quotes) {
+            // some_quotes === true tells us there is at least one quote.
+            // if quoteList is empty, all_had_quotes will equal true.
+            if (all_had_quotes && some_quotes) {
                 slack.send('customer_success', 'ok', 'Application completed and the user received ALL quotes', attachment);
             }
             else if (some_quotes) {
@@ -1011,12 +1016,9 @@ module.exports = class Application {
             }
 
             // Validate the ID
-            let applicationBO = new ApplicationBO();
-            if (!await applicationBO.isValidApplicationId(this.applicationDocData.mysqlId)) {
-                // if applicationId suppled in the starting quoting requeset was bad
-                // the quoting process would have been stopped before validate was called.
-                log.error(`Error validating application ID: ${this.applicationDocData.mysqlId}. ` + __location);
-            }
+            // this.applicationDocData loaded we know 
+            // we have a good application ID.  (happend in Load)
+
 
             // Get a list of insurers and wait for it to return
             // Determine if WholeSale shoud be used.  (this might have already been determined in the app workflow.)
@@ -1045,9 +1047,9 @@ module.exports = class Application {
                         try {
                             insurers = await this.get_insurers();
                         }
-                        catch (e) {
-                            log.error(`Error in get_insurers: ${e}. ` + __location);
-                            return reject(e);
+                        catch (err) {
+                            log.error(`Error in get_insurers: ${err}. ` + __location);
+                            return reject(err);
                         }
                     }
 
