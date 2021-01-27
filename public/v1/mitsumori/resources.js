@@ -34,6 +34,7 @@ async function getResources(req, res, next){
         case "locations":
             territories(resources);
             employeeTypes(resources);
+            unemploymentNumberStates(resources);
             break;
         case "mailingAddress":
             territories(resources);
@@ -48,7 +49,20 @@ async function getResources(req, res, next){
     res.send(200, resources);
 }
 
-const officerTitles = (resources) => {
+const unemploymentNumberStates = resources => {
+    resources.unemploymentNumberStates = [
+        "CO",
+        "HI",
+        "ME",
+        "MI",
+        "MN",
+        "NJ",
+        "RI",
+        "UT"
+    ];
+}
+
+const officerTitles = resources => {
     // TODO: pull from officer_titles table (sql db)
     resources.officerTitles =
     [
@@ -76,7 +90,7 @@ const officerTitles = (resources) => {
     ];
 }
 
-const employeeTypes = (resources) => {
+const employeeTypes = resources => {
     resources.employeeTypes =
     [
         "Full Time",
@@ -86,7 +100,7 @@ const employeeTypes = (resources) => {
     ];
 }
 
-const entityTypes = (resources) => {
+const entityTypes = resources => {
     resources.entityTypes =
     [
         "Association",
@@ -99,7 +113,7 @@ const entityTypes = (resources) => {
     ];
 }
 
-const territories = (resources) => {
+const territories = resources => {
     resources.territories =
     [
         "AK",

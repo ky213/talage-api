@@ -160,6 +160,7 @@ exports.registerEndpoints = (server) => {
         // new quote app endpoints
         registerEndpoint(server, 'mitsumori', 'route-planner');
         registerEndpoint(server, 'mitsumori', 'resources');
+        registerEndpoint(server, 'mitsumori', 'agency');
     }
 
     // Server.AddGet('Uptime Check', '/', GetUptime);
