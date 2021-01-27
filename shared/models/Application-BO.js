@@ -2527,7 +2527,10 @@ module.exports = class ApplicationModel {
         let policyTypeArray = [];
         if(applicationDocDB.policies && applicationDocDB.policies.length > 0){
             for(let i = 0; i < applicationDocDB.policies.length; i++){
-                policyTypeArray.push(applicationDocDB.policies[i].policyType);
+                policyTypeArray.push({
+                    type: applicationDocDB.policies[i].policyType,
+                    effectiveDate: applicationDocDB.policies[i].effectiveDate
+                });
             }
         }
         else {
@@ -2618,6 +2621,17 @@ module.exports = class ApplicationModel {
         }
         catch (err) {
             log.error("error calling loadfromMongoByAppId " + err + __location);
+        }
+
+        // Override the policyTypeArray from the application doc to get the policy type and effective dates (not passed in by the old quote app)
+        policyTypeArray = [];
+        if(applicationDoc.policies && applicationDoc.policies.length > 0){
+            for(let i = 0; i < applicationDoc.policies.length; i++){
+                policyTypeArray.push({
+                    type: applicationDoc.policies[i].policyType,
+                    effectiveDate: applicationDoc.policies[i].effectiveDate
+                });
+            }
         }
 
         const insurerArray = [];
