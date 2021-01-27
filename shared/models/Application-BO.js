@@ -2763,38 +2763,6 @@ module.exports = class ApplicationModel {
         return getQuestionsResult;
 
     }
-
-    async isValidApplicationId(id) {
-        const positive_integer = /^[1-9]\d*$/;
-        let had_error = false;
-        //TODO switch to mongo
-        if(positive_integer.test(id)){
-            const sql = `SELECT COUNT(id) FROM clw_talage_applications WHERE id = ${parseInt(id, 10)};`;
-            const rows = await db.query(sql).catch(function(error){
-                log.error(error + __location);
-                had_error = true;
-            });
-            if(had_error){
-                return false;
-            }
-            return !(!rows || rows.length !== 1 || !Object.prototype.hasOwnProperty.call(rows[0], 'COUNT(id)') || rows[0]['COUNT(id)'] !== 1);
-        }
-        else {
-            // assume uuid
-            const sql = `SELECT COUNT(id) FROM clw_talage_applications WHERE uuid = '${id}';`;
-            const rows = await db.query(sql).catch(function(error){
-                log.error(error + __location);
-                had_error = true;
-            });
-            if(had_error){
-                return false;
-            }
-            return !(!rows || rows.length !== 1 || !Object.prototype.hasOwnProperty.call(rows[0], 'COUNT(id)') || rows[0]['COUNT(id)'] !== 1);
-
-        }
-    }
-
-
 }
 
 const properties = {
@@ -2894,30 +2862,6 @@ const properties = {
         "type": "number",
         "dbType": "int(11) unsigned"
     },
-    "bop_effective_date": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "date",
-        "dbType": "date"
-    },
-    "bop_expiration_date": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "date",
-        "dbType": "date"
-    },
-    "business": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
     "completion_time": {
         "default": 0,
         "encrypted": false,
@@ -2972,22 +2916,6 @@ const properties = {
         "rules": null,
         "type": "number",
         "dbType": "tinyint(1) unsigned"
-    },
-    "eo_effective_date": {
-        "default": "0000-00-00",
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "date"
-    },
-    "eo_expiration_date": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "date",
-        "dbType": "date"
     },
     "experience_modifier": {
         "default": 1.0,
@@ -3114,20 +3042,6 @@ const properties = {
         "required": false,
         "rules": null,
         "type": "date"
-    },
-    "umb_expiration_date": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "date"
-    },
-    "unincorporated_association": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number"
     },
     "uuid": {
         "default": null,
@@ -3273,20 +3187,6 @@ const properties = {
         "required": false,
         "rules": null,
         "type": "number"
-    },
-    "checked_out": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number"
-    },
-    "checked_out_time": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "datetime"
     }
 }
 
