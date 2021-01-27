@@ -189,6 +189,7 @@ const getPremium = async (where) => {
 
 const mysqlDateToJsDate = (date, utcOffset) => {
     return moment(date.substr(1, date.length - 2))
+        .utcOffset(utcOffset)
         .toDate()
 }
 
@@ -251,8 +252,8 @@ async function getReports(req) {
     const agencyNetwork = parseInt(req.authentication.agencyNetworkId, 10);
 
     // Filter out any agencies with do_not_report value set to true
-    if(req.authentication.isAgencyNetworkUser){
-        try{
+    if (req.authentication.isAgencyNetworkUser) {
+        try {
             const agencyBO = new AgencyBO();
             const donotReportQuery = {doNotReport: true};
             const noReportAgencyList = await agencyBO.getList(donotReportQuery);
@@ -267,13 +268,13 @@ async function getReports(req) {
                 }
             }
         }
-        catch(err){
+        catch(err) {
             log.error(`Report Dashboard error getting donotReport list ` + err + __location)
         }
     }
 
     // This is a very special case. If this is the agent 'Solepro' (ID 12) asking for applications, query differently
-    if(!agencyNetwork && agents[0] === 12){
+    if (!agencyNetwork && agents[0] === 12) {
         where.solepro = 1;
     }
     else {
