@@ -602,15 +602,6 @@ module.exports = class LibertySBOP extends Integration {
             }
         }
 
-        log.info(`quoteNumber: ${quoteNumber}`);
-        log.info(`quoteProposalId: ${quoteProposalId}`);
-        log.info(`premium: ${premium}`);
-        log.info(`quoteLimits: ${JSON.stringify(quoteLimits, null, 4)}`);
-        log.info(`quoteLetter (start): ${quoteLetter.substring(0, 30)}`);
-        log.info(`quoteLetter (end): ${quoteLetter.substring(quoteLetter.length - 31)}`);
-        log.info(`quoteMIMEType: ${quoteMIMEType}`);
-        log.info(`policyStatus: ${policyStatus}`);
-
         // return result based on policy status
         if (policyStatus) {
             switch (policyStatus.toLowerCase()) {
