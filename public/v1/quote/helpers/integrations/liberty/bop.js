@@ -11,7 +11,7 @@ const builder = require('xmlbuilder');
 const moment = require('moment');
 const Integration = require('../Integration.js');
 // eslint-disable-next-line no-unused-vars
-const tracker = global.requireShared('./helpers/tracker.js');
+global.requireShared('./helpers/tracker.js');
 
 // The PerOcc field is the only one used, these are the Simple BOP supported PerOcc limits for LM 
 const supportedLimits = [
@@ -485,7 +485,7 @@ module.exports = class LibertySBOP extends Integration {
                 }
                 log.error(`Liberty Mutual (Appid: ${this.app.id}): Quote was bridged to eCLIQ successfully but no premium was provided.`);
                 if (reason) {
-                    log.error(`Liberty Mutual (Appid: ${this.app.id}): Reason for now premium: ${reason}`);
+                    log.error(`Liberty Mutual (Appid: ${this.app.id}): Reason for no premium: ${reason}`);
                 }
                 break;
             default:
