@@ -156,6 +156,10 @@ exports.registerEndpoints = (server) => {
         registerEndpoint(server, 'api', 'industry-codes-rt');
         registerEndpoint(server, 'api', 'agency-rt');
         registerEndpoint(server, 'api', 'application-rt');
+
+        // new quote app endpoints
+        registerEndpoint(server, 'mitsumori', 'route-planner');
+        registerEndpoint(server, 'mitsumori', 'resources');
     }
 
     // Server.AddGet('Uptime Check', '/', GetUptime);
