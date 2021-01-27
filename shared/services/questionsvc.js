@@ -115,21 +115,21 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
      * Validate Policy Types
      */
 
-    const policy_types = [];
+    const policyTypes = [];
 
     // Question list effective date is done per policy type.
     // For a given policy type, check the question's effective/expiration dates.
     const uniquePolicyEffectiveDateList = [];
     const questionEffectiveDateWhereClauseList = [];
-    policyTypeArray.forEach(function(policy_type) {
+    policyTypeArray.forEach(function(policyTypeJSON) {
         // Build a list of policy types
-        policy_types.push(policy_type.type.replace(/[^a-z]/gi, '').toUpperCase());
-        const policyEffectiveDate = moment(policy_type.effectiveDate).format("YYYY-MM-DD HH:MM:SS");
+        policyTypes.push(policyTypeJSON.type.replace(/[^a-z]/gi, '').toUpperCase());
+        const policyEffectiveDate = moment(policyTypeJSON.effectiveDate).format("YYYY-MM-DD HH:MM:SS");
         // Build a list of unique policy effective dates for the industry and activity code queries
         if (!uniquePolicyEffectiveDateList.includes(policyEffectiveDate)) {
             uniquePolicyEffectiveDateList.push(policyEffectiveDate);
         }
-        questionEffectiveDateWhereClauseList.push(`(iq.policy_type = '${policy_type.type.toUpperCase()}' AND '${policyEffectiveDate}' >= iq.effectiveDate AND '${policyEffectiveDate}' < iq.expirationDate)`);
+        questionEffectiveDateWhereClauseList.push(`(iq.policy_type = '${policyTypeJSON.type.toUpperCase()}' AND '${policyEffectiveDate}' >= iq.effectiveDate AND '${policyEffectiveDate}' < iq.expirationDate)`);
     });
     const questionEffectiveDateWhereClause = "(" + questionEffectiveDateWhereClauseList.join(" OR ") + ")";
 
@@ -165,7 +165,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     });
 
     // Check that all policy types match
-    policy_types.forEach(function(policy_type) {
+    policyTypes.forEach(function(policy_type) {
         if (!supported_policy_types.includes(policy_type)) {
             log.warn('Bad Request: Invalid Policy Type');
             error = `Policy type '${policy_type}' is not supported.`;

@@ -62,7 +62,6 @@ module.exports = class QuestionBO{
     }
 
 
-
     loadFromId(id) {
         return new Promise(async(resolve, reject) => {
             //validate

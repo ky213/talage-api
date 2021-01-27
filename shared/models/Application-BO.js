@@ -2488,11 +2488,28 @@ module.exports = class ApplicationModel {
     // *********************************
     //For AgencyPortal
 
-    async GetQuestionsForApplicationDoc(applicationDocDB){
+    async GetQuestions(appId, userAgencyList){
 
+        let passedAgencyCheck = false;
+        let applicationDocDB = null;
         let questionsObject = {};
-
-        if (applicationDocDB.questions && applicationDocDB.questions.length > 0) {
+        try{
+            applicationDocDB = await this.loadfromMongoByAppId(appId);
+            if(applicationDocDB && userAgencyList.includes(applicationDocDB.agencyId)){
+                passedAgencyCheck = true;
+            }
+        }
+        catch(err){
+            log.error("Error checking application doc " + err + __location)
+            throw new Error("Error checking application doc ");
+        }
+        if(passedAgencyCheck === false){
+            throw new Error("permission denied");
+        }
+        if(!applicationDocDB){
+            throw new Error("not found");
+        }
+        if(applicationDocDB.questions && applicationDocDB.questions.length > 0){
             questionsObject.answeredList = applicationDocDB.questions;
         }
 
@@ -2580,7 +2597,7 @@ module.exports = class ApplicationModel {
             getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, returnHidden);
             if(getQuestionsResult && getQuestionsResult.length === 0){
                 //no questions returned.
-                log.warn(`No questions returned for ${applicationDocDB.uuid} parameter activityCodeArray: ${activityCodeArray}  industryCodeString: ${industryCodeString}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${policyTypeArray} insurerArray: ${insurerArray} `)
+                log.warn(`No questions returned for AppId ${appId} parameter activityCodeArray: ${activityCodeArray}  industryCodeString: ${industryCodeString}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${policyTypeArray} insurerArray: ${insurerArray} `)
             }
         }
         catch (err) {
@@ -2591,34 +2608,12 @@ module.exports = class ApplicationModel {
         questionsObject.questionList = getQuestionsResult
 
         return questionsObject;
-    }
 
-    async GetQuestions(appId, userAgencyList) {
 
-        let passedAgencyCheck = false;
-        let applicationDocDB = null;
-        try {
-            applicationDocDB = await this.loadfromMongoByAppId(appId);
-            if (applicationDocDB && userAgencyList.includes(applicationDocDB.agencyId)) {
-                passedAgencyCheck = true;
-            }
-        }
-        catch (err) {
-            log.error("Error checking application doc " + err + __location)
-            throw new Error("Error checking application doc ");
-        }
-        if (passedAgencyCheck === false) {
-            throw new Error("permission denied");
-        }
-        if (!applicationDocDB) {
-            throw new Error("not found");
-        }
-
-        return this.GetQuestionsForApplicationDoc(applicationDocDB);
     }
 
     // for Quote App
-    async GetQuestionsForFrontend(appId) {
+    async GetQuestionsForFrontend(appId, activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, return_hidden = false) {
 
         let applicationDoc = null;
         try {
@@ -2628,8 +2623,55 @@ module.exports = class ApplicationModel {
             log.error("error calling loadfromMongoByAppId " + err + __location);
         }
 
-        const questionsObject = await this.GetQuestionsForApplicationDoc(applicationDoc);
-        const getQuestionsResult = questionsObject.questionList;
+        // Override the policyTypeArray from the application doc to get the policy type and effective dates (not passed in by the old quote app)
+        policyTypeArray = [];
+        if(applicationDoc.policies && applicationDoc.policies.length > 0){
+            for(let i = 0; i < applicationDoc.policies.length; i++){
+                policyTypeArray.push({
+                    type: applicationDoc.policies[i].policyType,
+                    effectiveDate: applicationDoc.policies[i].effectiveDate
+                });
+            }
+        }
+
+        const insurerArray = [];
+        if (applicationDoc && applicationDoc.agencyLocationId > 0) {
+            const agencyLocationBO = new AgencyLocationBO();
+            const agencyLocation = await agencyLocationBO.getById(applicationDoc.agencyLocationId);
+            if (agencyLocation && agencyLocation.insurers && agencyLocation.insurers.length > 0) {
+                for (const insurer of agencyLocation.insurers) {
+                    if (insurer && insurer.insurerId) {
+                        insurerArray.push(insurer.insurerId);
+                    }
+                    else {
+                        log.error(`Data problem prevented getting insurer ID for ${applicationDoc.uuid} agency ${applicationDoc.agencyId} Location ${applicationDoc.agencyLocationId}` + __location)
+                    }
+                }
+            }
+            else {
+                log.error(`Data problem prevented getting agency location for ${applicationDoc.uuid} agency ${applicationDoc.agencyId} Location ${applicationDoc.agencyLocationId}` + __location)
+            }
+        }
+        else {
+            log.error(`Received an invalid agency location ID for ${applicationDoc.uuid} Location '${applicationDoc.agencyLocationId}'` + __location);
+            throw new Error('An error occured while retrieving application questions' + __location);
+        }
+
+        log.debug("in AppBO.GetQuestionsForFrontend")
+        //Call questions.......
+        const questionSvc = global.requireShared('./services/questionsvc.js');
+        let getQuestionsResult = null;
+        try {
+            getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden);
+        }
+        catch (err) {
+            log.error("Error call in question service " + err + __location);
+            throw new Error('An error occured while retrieving application questions. ' + err);
+        }
+        if (!getQuestionsResult) {
+            log.error("No questions returned from question service " + __location);
+            throw new Error('An error occured while retrieving application questions.');
+        }
 
         //question answers from AF business data.
         if (applicationDoc && applicationDoc.businessDataJSON && applicationDoc.businessDataJSON.afBusinessData
@@ -2733,6 +2775,7 @@ module.exports = class ApplicationModel {
         }
 
         return getQuestionsResult;
+
     }
 
     async isValidApplicationId(id) {

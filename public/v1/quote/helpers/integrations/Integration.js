@@ -2030,9 +2030,9 @@ module.exports = class Integration {
                         INNER JOIN industry_code_to_insurer_industry_code AS industryCodeMap ON industryCodeMap.talageIndustryCodeId = ic.id
                         INNER JOIN clw_talage_insurer_industry_codes AS iic ON iic.id = industryCodeMap.insurerIndustryCodeId
                         WHERE
-                            ic.id = ${this.app.business.industry_code}
+                            ic.id = ${this.app.applicationDocData.industryCode}
                             AND iic.insurer = ${this.insurer.id} 
-                            AND iic.territory = '${this.app.business.primary_territory}'
+                            AND iic.territory = '${this.app.applicationDocData.mailingState}'
                             AND ('${policyEffectiveDate}' >= iic.effectiveDate AND '${policyEffectiveDate}' < iic.expirationDate)
                             LIMIT 1;`
 
@@ -2085,7 +2085,7 @@ module.exports = class Integration {
                 }
             }
             else {
-                log.warn(`Appid: ${this.app.id} No Industry_code attributes for ${this.insurer.name}:${this.insurer.id} and ${this.app.business.primary_territory}` + __location);
+                log.warn(`Appid: ${this.app.id} No Industry_code attributes for ${this.insurer.name}:${this.insurer.id} and ${this.app.applicationDocData.mailingState}` + __location);
                 this.industry_code.attributes = {};
             }
 
