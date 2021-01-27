@@ -21,15 +21,6 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
 
     log.debug(`GetQuestions: activityCodeStringArray:  ${activityCodeStringArray}, industryCodeString:  ${industryCodeString}, zipCodeStringArray:  ${zipCodeStringArray}, policyTypeArray:  ${JSON.stringify(policyTypeArray)}, insurerStringArray:  ${insurerStringArray}, return_hidden: ${return_hidden}` + __location)
 
-    if (policyTypeArray.length && typeof policyTypeArray[0] === "string") {
-        console.log("=============================================================================");
-        console.log("=============================================================================");
-        console.log("Being called with a string policy type!!");
-        console.log("=============================================================================");
-        console.log("=============================================================================");
-        throw "Being called with a string policy type!!";
-    }
-
     let error = false;
     let sql = '';
 
@@ -226,11 +217,11 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     // ============================================================
     // Get universal questions
     sql = `
-		SELECT ${select}
-		FROM clw_talage_questions AS q
-		LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
-		LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
-		LEFT JOIN clw_talage_insurer_question_territories as iqt ON iqt.insurer_question = iq.id
+        SELECT ${select}
+        FROM clw_talage_questions AS q
+        LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
+        LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
+        LEFT JOIN clw_talage_insurer_question_territories as iqt ON iqt.insurer_question = iq.id
         WHERE
             iq.universal = 1
             AND (iqt.territory IN (${territories.map(db.escape).join(',')}) OR iqt.territory IS NULL) 
@@ -322,13 +313,13 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     while (missing_questions) {
         // Query to get all missing questions. This ensures that all parent questions are present regardless of effective date.
         sql = `
-			SELECT ${select}
-			FROM clw_talage_questions AS q
-			INNER JOIN clw_talage_question_types AS qt ON q.type = qt.id
-			INNER JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
+            SELECT ${select}
+            FROM clw_talage_questions AS q
+            INNER JOIN clw_talage_question_types AS qt ON q.type = qt.id
+            INNER JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
             WHERE
                 q.id IN (${missing_questions.join(',')})
-			    GROUP BY q.id;
+                GROUP BY q.id;
         `;
         let error2 = null;
         const added_questions = await db.queryReadonly(sql).catch(function(err) {
