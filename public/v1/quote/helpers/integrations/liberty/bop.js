@@ -147,6 +147,14 @@ module.exports = class LibertySBOP extends Integration {
         //     </ProducerInfo>
         // </Producer>
 
+        // OPTIONAL AGENT INFORMATION LATER - required for API bind once LM implements for Simple BOP
+        // <Producer>
+        //     <Surname>ELY</Surname>
+        //     <GivenName>ELIZABETH</GivenName>
+        //     <NIPRId>123456</NIPRId>
+        //     <ProducerRoleCd>Agent</ProducerRoleCd>
+        // </Producer>
+
         const PolicyRq = InsuranceSvcRq.ele('PolicyRq');
         PolicyRq.ele('RqUID', UUID);
         PolicyRq.ele('TransactionRequestDt', moment().local().format());
@@ -188,9 +196,6 @@ module.exports = class LibertySBOP extends Integration {
         const GeneralPartyInfo = InsuredOrPrincipal.ele('GeneralPartyInfo');
         const NameInfo = GeneralPartyInfo.ele('NameInfo');
         const CommlName = NameInfo.ele('CommlName');
-        // REMOVE THIS - TESTING PURPOSE ONLY
-        applicationDocData.businessName = applicationDocData.businessName.substring(0, 20);
-        // REMOVE THIS - TESTING PURPOSE ONLY
         CommlName.ele('CommercialName', applicationDocData.businessName);
         NameInfo.ele('LegalEntityCd', entityMatrix[applicationDocData.entityType]);
         const Addr = GeneralPartyInfo.ele('Addr');
