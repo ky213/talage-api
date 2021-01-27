@@ -13,27 +13,22 @@ const Quote = mongoose.model('Quote');
  * consolidated into a new 'Other' key. The new object is returned.
  */
 function trimObjectLength(object, len) {
-    let newObj = {};
-    let keys = Object.keys(object);
-    let objLen = Object.keys(object).length;
+    const newObj = {};
+    const keys = Object.keys(object);
+    const objLen = Object.keys(object).length;
+
     for (let i = 0; i < Math.min(objLen, len); i++) {
         newObj[keys[i]] = object[keys[i]];
     }
 
     if (objLen >= len) {
-        newObj['Other'] = 0;
+        newObj.Other = 0;
         for (let i = len; i < objLen; i++) {
-            newObj['Other'] += object[keys[i]];
+            newObj.Other += object[keys[i]];
         }
     }
     return newObj;
 }
-
-/**
- * @return True if applications exist.
- */
-const hasApplications = async (where) =>
-    await Application.countDocuments(where) > 0;
 
 /**
  * For each application, we will extract the lowest quote amount from the quote
@@ -51,26 +46,38 @@ const sumOfQuotes = (quotes) => {
     return _.sum(Object.values(amounts));
 }
 
+//---------------------------------------------------------------------------//
+// Metric functions - These calculate the metrics that are later returned by
+// getReports later.
+//---------------------------------------------------------------------------//
+
+/**
+ * @return True if applications exist.
+ */
+const hasApplications = async (where) =>
+    await Application.countDocuments(where) > 0;
+
+
 const getGeography = async (where) => {
-    let territories = _.chain(await db.queryReadonly(`SELECT abbr, name FROM clw_talage_territories`))
+    const territories = _.chain(await db.queryReadonly(`SELECT abbr, name FROM clw_talage_territories`))
         .keyBy('abbr')
         .mapValues('name')
         .value();
-    let geography = await Application.aggregate([
+    const geography = await Application.aggregate([
         { $match: where },
         { $group: {
             _id: '$mailingState',
             count: { $sum: 1 }
         }}
     ]);
-    return geography.map(t => ([
+    return geography.map(t => [
         territories[t._id],
         t.count
-    ])).filter(t => t[0]); // This filter removes undefined entries.
+    ]).filter(t => t[0]); // This filter removes undefined entries.
 }
 
 const getMonthlyTrends = async (where) => {
-    let monthlyTrends = await Application.aggregate([
+    const monthlyTrends = await Application.aggregate([
         { $match: where },
         { $group: {
             _id: {
@@ -105,7 +112,7 @@ const getIndustries = async (where) => {
         .keyBy('id')
         .mapValues('name')
         .value();
-    let industriesQuery = await Application.aggregate([
+    const industriesQuery = await Application.aggregate([
         { "$match": where },
         { "$group": {
             "_id": {
@@ -150,53 +157,29 @@ const getPremium = async (where) => {
         $or: [
             {bound: 1},
             {status: 'bind_requested'},
+        ],
+        applicationId: {$in: agencyApplications}
+    }, {
+        _id: 1,
+        applicationId: 1,
+        amount: 1,
+        policyType: 1,
+    });
+
+    const quoted = await Quote.find({
+        $or: [
+            {bound: 1},
+            {status: 'bind_requested'},
             {api_result: 'quoted'},
             {api_result: 'referred_with_price'},
         ],
         applicationId: {$in: agencyApplications}
-    }, {_id: 1, applicationId: 1, amount: 1, policyType: 1});
-
-    const quoted = await Quote.find({
-        applicationId: {$in: agencyApplications}
-    }, {_id: 1, applicationId: 1, amount: 1, policyType: 1});
-
-    // const quoted = await Quote.aggregate([
-    //     {
-    //         $match: {
-    //             $or: [
-    //                 {bound: 1},
-    //                 {status: 'bind_requested'},
-    //                 {api_result: 'quoted'},
-    //                 {api_result: 'referred_with_price'},
-    //             ],
-    //             applicationId: {$in: agencyApplications}
-    //         }
-    //     },
-    //     {
-    //         $group: {
-    //             _id: '$applicationId',
-    //             amount: { $amount: 1 },
-    //         }
-    //     }
-    // ]);
-
-    // const bound = await Quote.aggregate([
-    //     {
-    //         $match: {
-    //             applicationId: {$in: agencyApplications},
-    //             $or: [
-    //                 { bound: 1 },
-    //                 { status: 'bind_requested' },
-    //             ]
-    //         }
-    //     },
-    //     {
-    //         $group: {
-    //             _id: '$applicationId',
-    //             amount: {$sum: '$amount'}
-    //         }
-    //     }
-    // ]);
+    }, {
+        _id: 1,
+        applicationId: 1,
+        amount: 1,
+        policyType: 1,
+    });
 
     return {
         quoted: sumOfQuotes(quoted),
@@ -204,20 +187,14 @@ const getPremium = async (where) => {
     }
 }
 
-async function wrapAroundExpress(callbackFunc, req, res, next) {
-    try {
-        const out = await callbackFunc();
-        res.send(200, out);
-        return next();
-    } catch (err) {
-        return next(error);
-    }
-}
-
 const mysqlDateToJsDate = (date, utcOffset) => {
     return moment(date.substr(1, date.length - 2))
         .toDate()
 }
+
+//---------------------------------------------------------------------------//
+// getReports - REST API endpoint for Agency Portal dashboard.
+//---------------------------------------------------------------------------//
 
 /**
  * Responds to get requests for the reports endpoint
@@ -340,10 +317,9 @@ async function wrapAroundExpress(req, res, next) {
         res.send(200, out);
         return next();
     } catch (err) {
-        return next(error);
+        return next(err);
     }
 }
-
 
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get reports', `${basePath}/reports`, wrapAroundExpress, 'dashboard', 'view');
