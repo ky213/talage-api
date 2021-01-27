@@ -366,7 +366,7 @@ async function setupReturnedApplicationJSON(applicationJSON){
                         if(activityPayroll.ownerPayRoll){
                             activityPayroll.payroll += activityPayroll.ownerPayRoll
                         }
-                        //Check for new employeeType lists - If not present fill 
+                        //Check for new employeeType lists - If not present fill
                         // with zero employee count - User will have to fix.
                         if(activityPayroll.employeeTypeList.length === 0){
                             activityPayroll.employeeTypeList = []
@@ -970,7 +970,7 @@ async function requote(req, res, next) {
 
     const applicationQuoting = new ApplicationQuoting();
     // Populate the Application object
-   
+
     // Load
     try {
         const forceQuoting = true;
@@ -1057,11 +1057,16 @@ async function GetQuestions(req, res, next){
         return next(error);
     }
 
+    // Set the question subject area. Default to "general" if not specified.
+    let questionSubjectArea = "general";
+    if (req.params.questionSubjectArea) {
+        questionSubjectArea = req.params.questionSubjectArea;
+    }
 
     let getQuestionsResult = null;
     try{
         const applicationBO = new ApplicationBO();
-        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies);
+        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies, questionSubjectArea);
     }
     catch(err){
         //Incomplete Applications throw errors. those error message need to got to client

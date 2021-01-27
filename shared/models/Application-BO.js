@@ -2488,7 +2488,7 @@ module.exports = class ApplicationModel {
     // *********************************
     //For AgencyPortal
 
-    async GetQuestions(appId, userAgencyList){
+    async GetQuestions(appId, userAgencyList, questionSubjectArea){
 
         let passedAgencyCheck = false;
         let applicationDocDB = null;
@@ -2594,7 +2594,7 @@ module.exports = class ApplicationModel {
 
         try {
             log.debug("insurerArray: " + insurerArray);
-            getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, returnHidden);
+            getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, returnHidden);
             if(getQuestionsResult && getQuestionsResult.length === 0){
                 //no questions returned.
                 log.warn(`No questions returned for AppId ${appId} parameter activityCodeArray: ${activityCodeArray}  industryCodeString: ${industryCodeString}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${policyTypeArray} insurerArray: ${insurerArray} `)
@@ -2613,7 +2613,7 @@ module.exports = class ApplicationModel {
     }
 
     // for Quote App
-    async GetQuestionsForFrontend(appId, activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, return_hidden = false) {
+    async GetQuestionsForFrontend(appId, activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, questionSubjectArea, return_hidden = false) {
 
         let applicationDoc = null;
         try {
@@ -2662,7 +2662,7 @@ module.exports = class ApplicationModel {
         const questionSvc = global.requireShared('./services/questionsvc.js');
         let getQuestionsResult = null;
         try {
-            getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden);
+            getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, return_hidden);
         }
         catch (err) {
             log.error("Error call in question service " + err + __location);

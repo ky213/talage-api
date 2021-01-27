@@ -417,12 +417,16 @@ module.exports = class Application {
             });
         });
 
+        const applicationQuestions = this.applicationDocData.questions;
+        const questionSubjectArea = "general";
+        const questionContext = this;
+
         // Get a list of all questions the user may need to answer
         const insurer_ids = this.get_insurer_ids();
         const wc_codes = this.get_wc_codes();
         let questions = null;
         try {
-            questions = await questionsSvc.GetQuestionsForBackend(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids, true);
+            questions = await questionsSvc.GetQuestionsForBackend(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids, questionSubjectArea, true);
         }
         catch (e) {
             log.error(`Translation Error: GetQuestionsForBackend: ${e}. ` + __location);
@@ -430,7 +434,7 @@ module.exports = class Application {
         }
         // Grab the answers the user provided to our questions and reset the question object
         const user_questions = this.questions;
-        this.questions = {};
+        questionContext.questions = {};
 
         // Convert each question from the database into a question object and load in the user's answer to each
         if (questions) {
@@ -455,15 +459,15 @@ module.exports = class Application {
                 }
 
                 // Store the question object in the Application for later use
-                this.questions[q.id] = q;
+                questionContext.questions[q.id] = q;
             }
         }
 
         // Enforce required questions (this must be done AFTER all questions are loaded with their answers)
-        if (this.applicationDocData.questions) {
-            for (const questionId in this.applicationDocData.questions) {
-                if (Object.prototype.hasOwnProperty.call(this.applicationDocData.questions, questionId)) {
-                    const question = this.applicationDocData.questions[questionId];
+        if (applicationQuestions) {
+            for (const questionId in applicationQuestions) {
+                if (Object.prototype.hasOwnProperty.call(applicationQuestions, questionId)) {
+                    const question = applicationQuestions[questionId];
 
                     // Hidden questions are not required
                     if (question.hidden) {
@@ -472,7 +476,7 @@ module.exports = class Application {
 
                     if (question.parent && question.parent > 0) {
                         // Get the parent question
-                        const parent_question = this.questions[question.parent];
+                        const parent_question = questionContext[question.parent];
 
                         // If no parent was found, throw an error
                         if (!parent_question) {
@@ -1016,7 +1020,7 @@ module.exports = class Application {
             }
 
             // Validate the ID
-            // this.applicationDocData loaded we know 
+            // this.applicationDocData loaded we know
             // we have a good application ID.  (happend in Load)
 
 
