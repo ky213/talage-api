@@ -82,9 +82,9 @@ module.exports = class LibertySBOP extends Integration {
         const medicalExpenseLimit = "15000"; // we do not store this data currently
         const ECAggregateLimit = "1000000/2000000"; // we do not store this data currently
 
-        const phone = applicationDocData.phone.toString();
-        // console.log(phone);
-        // process.exit(-1);
+        let phone = applicationDocData.contacts.find(c => c.primary).phone;
+        // fall back to outside phone IFF we cannot find primary contact phone
+        phone = phone ? phone : applicationDocData.phone;
         const formattedPhone = `+1-${phone.substring(0, 3)}-${phone.substring(phone.length - 7)}`;
 
         // used for implicit question NBOP11: any losses or claims in the past 3 years?
