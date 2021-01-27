@@ -19,39 +19,142 @@ async function getResources(req, res, next){
         return next(serverHelper.requestError('Parameters missing'));
     }
 
-    const resources = {
-        test: "test"
-    };
+    const resources = {};
 
     switch(req.query.page) {
         case "additionalQuestions":
             break;
         case "basic":
-            resources.entityTypes = [
-                'Association',
-                'Corporation',
-                'Limited Liability Company',
-                'Limited Partnership',
-                'Partnership',
-                'Sole Proprietorship',
-                'Other'
-            ];
+            entityTypes(resources);
             break;
         case "business":
             break;
         case "claims":
             break;
         case "locations":
+            territories(resources);
+            employeeTypes(resources);
             break;
         case "mailingAddress":
+            territories(resources);
             break;
         case "owners":
+            officerTitles(resources);
             break;
         case "policies":
             break;
     }
 
     res.send(200, resources);
+}
+
+const officerTitles = (resources) => {
+    // TODO: pull from officer_titles table (sql db)
+    resources.officerTitles =
+    [
+        "VP-Treas",
+        "VP-Secy-Treas",
+        "VP-Secy",
+        "Vice President",
+        "Treasurer",
+        "Secy-Treas",
+        "Secretary",
+        "President",
+        "Pres-VP-Secy-Treas",
+        "Pres-VP-Secy",
+        "Pres-VP",
+        "Pres-Treas",
+        "Pres-Secy-Treas",
+        "Pres-Secy",
+        "Executive Vice President",
+        "Executive Secy-VP",
+        "Executive Secretary",
+        "Director",
+        "Chief Operating Officer",
+        "Chief Financial Officer",
+        "Chief Executive Officer"
+    ];
+}
+
+const employeeTypes = (resources) => {
+    resources.employeeTypes =
+    [
+        "Full Time",
+        "Part Time",
+        "Owners",
+        "Contractors (1099)"
+    ];
+}
+
+const entityTypes = (resources) => {
+    resources.entityTypes =
+    [
+        "Association",
+        "Corporation",
+        "Limited Liability Company",
+        "Limited Partnership",
+        "Partnership",
+        "Sole Proprietorship",
+        "Other"
+    ];
+}
+
+const territories = (resources) => {
+    resources.territories =
+    [
+        "AK",
+        "AL",
+        "AR",
+        "AZ",
+        "CA",
+        "CO",
+        "CT",
+        "DC",
+        "DE",
+        "FL",
+        "GA",
+        "HI",
+        "IA",
+        "ID",
+        "IL",
+        "IN",
+        "KS",
+        "KY",
+        "LA",
+        "MA",
+        "MD",
+        "ME",
+        "MI",
+        "MN",
+        "MO",
+        "MS",
+        "MT",
+        "NC",
+        "ND",
+        "NE",
+        "NH",
+        "NJ",
+        "NM",
+        "NV",
+        "NY",
+        "OH",
+        "OK",
+        "OR",
+        "PA",
+        "PR",
+        "RI",
+        "SC",
+        "SD",
+        "TN",
+        "TX",
+        "UT",
+        "VA",
+        "VT",
+        "WA",
+        "WI",
+        "WV",
+        "WY"
+    ];
 }
 
 /* -----==== Endpoints ====-----*/
