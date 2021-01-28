@@ -159,20 +159,20 @@ const getIndustries = async (where) => {
 //      -> store current bound/quoted premium in the application. Update when quote is saved.
 // -> database population script
 const getPremium = async (where) => {
-    const bound = async (product) => await Application.aggregate([
+    const bound = async (product) => _.sum((await Application.aggregate([
         { $match: where },
         { $group: {
             _id: '$uuid',
             count: { $sum: '$metrics.lowestBoundQuoteAmount.' + product }
         }}
-    ]);
-    const quoted = async (product) => await Application.aggregate([
+    ])).map(t => t.count));
+    const quoted = async (product) => _.sum((await Application.aggregate([
         { $match: where },
         { $group: {
             _id: '$uuid',
             count: { $sum: '$metrics.lowestQuoteAmount.' + product }
         }}
-    ]);
+    ])).map(t => t.count));
 
     return {
         quoted: await quoted('WC') + await quoted('GL') + await quoted('BOP'),
@@ -305,6 +305,7 @@ async function wrapAroundExpress(req, res, next) {
         res.send(200, out);
         return next();
     } catch (err) {
+        console.log(err);
         return next(err);
     }
 }
