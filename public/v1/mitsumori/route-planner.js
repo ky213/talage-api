@@ -2,43 +2,51 @@
 
 "use strict";
 const serverHelper = require("../../../server.js");
+const ApplicationBO = global.requireShared("models/Application-BO.js");
 
 // dummy endpoint to stimulate routing
 async function getNextRoute(req, res, next){
     // Check that at least some post parameters were received
     // Let basic through with no app id
-    if (!req.query.currentRoute || !req.query.appid && req.query.currentRoute !== "basic") {
+    if (!req.query.currentRoute || !req.query.appId && req.query.currentRoute !== "basic") {
         log.info('Bad Request: Parameters missing' + __location);
         return next(serverHelper.requestError('Parameters missing'));
     }
-    // will probably grab info about application and determine the next route but for now use the current route to just go to the next one we have hardcoded
+
     let nextRouteName = null;
-    switch(req.query.currentRoute){
-        case "basic":
-            nextRouteName = "policies";
-            break;
+    if(req.query.currentRoute === "basic"){
+        nextRouteName = "policies";
+    }
+    else {
+        nextRouteName = await getRoute(req.query.currentRoute, req.query.appId);
+    }
+
+    res.send(200, nextRouteName);
+}
+
+const getRoute = async(currentRoute, appId) => {
+    // will probably grab info about application and determine the next route but for now use the current route to just go to the next one we have hardcoded
+    // const applicationBO = new ApplicationBO();
+    // const applicationDB = await applicationBO.loadfromMongoByAppId(appId);
+
+    switch(currentRoute){
         case "policies":
-            nextRouteName = "additionalQuestions"
-            break;
+            return "additionalQuestions"
         case "additionalQuestions":
-            nextRouteName = "mailingAddress";
-            break;
+            return "mailingAddress";
         case "locations":
-            nextRouteName = "owners";
-            break;
+            return "owners";
         case "owners":
-            nextRouteName = "claims";
-            break;
+            // if(applicationDB.)
+            return "claims";
         case "mailingAddress":
-            nextRouteName = "locations";
-            break;
+            return "locations";
         case "claims":
             // Nothing yet
             break;
         default:
             break;
     }
-    res.send(200, nextRouteName);
 }
 
 /* -----==== Endpoints ====-----*/

@@ -14,7 +14,7 @@ const serverHelper = require("../../../server.js");
 // dummy endpoint to stimulate resources
 async function getResources(req, res, next){
     // Let basic through with no app id
-    if (!req.query.page || !req.query.appid && req.query.page !== "basic") {
+    if (!req.query.page || !req.query.appId && req.query.page !== "basic") {
         log.info('Bad Request: Parameters missing' + __location);
         return next(serverHelper.requestError('Parameters missing'));
     }
