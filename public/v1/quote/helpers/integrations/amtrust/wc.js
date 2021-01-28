@@ -34,7 +34,7 @@ module.exports = class AcuityWC extends Integration {
      * @returns {void}
      */
     _insurer_init() {
-        this.requiresInsurerActivityCodes = true;
+        this.requiresInsurerActivityClassCodes = true;
     }
 
     /**
@@ -142,17 +142,40 @@ module.exports = class AcuityWC extends Integration {
         return additionalLocationList;
     }
 
-    getOfficers() {
+    getOfficers(officerInformationList) {
         const officersList = [];
         for (const owner of this.app.applicationDocData.owners) {
+            const state = this.app.applicationDocData.mailingState;
+            let officerType = null;
+            let endorsementId = null;
+            let formType = null;
+            for (const officerInformation of officerInformationList) {
+                if (officerInformation.State === state) {
+                    officerType = officerInformation.OfficerType;
+                    const endorsementList = this.getChildProperty(officerInformation, "EndorsementInformation.Endorsements");
+                    if (endorsementList) {
+                        for (const endorsement of endorsementList) {
+                            if (owner.ownership >= endorsement.MinOwnershipPercentage && owner.ownership <= endorsement.MaxOwnershipPercentage) {
+                                formType = endorsement.FormType;
+                                endorsementId = endorsement.Id;
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            if (!officerType || !endorsementId || !formType) {
+                return null;
+            }
             officersList.push({
                 "Name": `${owner.fname} ${owner.lname}`,
-                "EndorsementId": "N/A",
-                "Type": "Officers",
-                "State": this.app.applicationDocData.mailingState,
+                "EndorsementId": endorsementId,
+                "Type": officerType,
+                "State": state,
                 "OwnershipPercent": owner.ownership,
-                "FormType": owner.include ? "I" : "E",
-                "OfficerDateOfBirth": moment(owner.birthdate).format("MM/DD/YYYY")
+                "FormType": formType,
+                "OfficerDateOfBirth": moment(owner.birthdate).format("MM/DD/YYYY"),
+                "OfficeHeld": owner.officerTitle
             });
         }
         return officersList;
@@ -187,11 +210,23 @@ module.exports = class AcuityWC extends Integration {
                     "Authorization": `Bearer ${accessToken}`,
                     "subscriber_id": subscriberId
                 },
-                verb);
+                verb, true, true);
         }
         catch (error) {
             this.log_error(`Error sending quote: ${error}`, __location);
             return null;
+        }
+        if (typeof response === "string" && response.startsWith("BadRequest:")) {
+            const jsonStartIndex = response.indexOf('{"');
+            if (jsonStartIndex >= 0) {
+                try {
+                    response = JSON.parse(response.substring(jsonStartIndex, response.indexOf('"}') + 2));
+                    response.StatusCode = 400;
+                }
+                catch (e) {
+                    response = null;
+                }
+            }
         }
         return response;
     }
@@ -211,9 +246,30 @@ module.exports = class AcuityWC extends Integration {
         catch (error) {
             return this.client_error("Could not load AmTrust API credentials", __location);
         }
+        let agentId = this.app.agencyLocation.insurers[this.insurer.id].agencyId.trim();
+        const agentUserNamePassword = this.app.agencyLocation.insurers[this.insurer.id].agentId.trim();
+
+        // Ensure the agent ID is a number (required for the API request)
+        try {
+            agentId = parseInt(agentId, 10);
+        }
+        catch (error) {
+            return this.client_error(`Invalid AmTrust agent ID '${agentId}'`, __location, {error: error});
+        }
+        if (agentId === 0) {
+            return this.client_error(`Invalid AmTrust agent ID '${agentId}'`, __location);
+        }
+
+        // Split the comma-delimited username,password field.
+        const commaIndex = agentUserNamePassword.indexOf(',');
+        if (commaIndex <= 0) {
+            return this.client_error("AmTrust username and password are not comma-delimited.", __location);
+        }
+        const agentUsername = agentUserNamePassword.substring(0, commaIndex).trim();
+        const agentPassword = agentUserNamePassword.substring(commaIndex + 1).trim();
 
         // Authorize the client
-        const accessToken = await amtrustClient.authorize(credentials.clientId, credentials.clientSecret, credentials.username, credentials.password, credentials.mulesoftSubscriberId, this.insurer.useSandbox);
+        const accessToken = await amtrustClient.authorize(credentials.clientId, credentials.clientSecret, agentUsername, agentPassword, credentials.mulesoftSubscriberId, this.insurer.useSandbox);
         if (!accessToken) {
             return this.client_error("Authorization with AmTrust server failed", __location);
         }
@@ -234,18 +290,6 @@ module.exports = class AcuityWC extends Integration {
         };
         if (!amtrustLegalEntityMap.hasOwnProperty(this.app.business.locations[0].business_entity_type)) {
             return this.client_error(`The business entity type '${this.app.business.locations[0].business_entity_type}' is not supported by this insurer.`, __location);
-        }
-
-        // Ensure we can parse the agency ID since they expect it as a number
-        let agencyId = null;
-        try {
-            agencyId = parseInt(this.app.agencyLocation.insurers[this.insurer.id].agency_id, 10);
-        }
-        catch (error) {
-            return this.client_error(`Invalid agent ID of '${this.app.agencyLocation.insurers[this.insurer.id].agency_id}'`, __location, {error: error});
-        }
-        if (agencyId === 0) {
-            return this.client_error(`Invalid agent ID of '${this.app.agencyLocation.insurers[this.insurer.id].agency_id}'`, __location);
         }
 
         // =========================================================================================================
@@ -271,7 +315,7 @@ module.exports = class AcuityWC extends Integration {
                 "LastName": this.app.business.contacts[0].last_name,
                 "Email": this.app.business.contacts[0].email,
                 "Phone": this.formatPhoneNumber(this.app.business.contacts[0].phone),
-                "AgentContactId": agencyId
+                "AgentContactId": agentId
             },
             "NatureOfBusiness": this.industry_code.description,
             "LegalEntity": amtrustLegalEntityMap[this.app.business.locations[0].business_entity_type],
@@ -319,18 +363,14 @@ module.exports = class AcuityWC extends Integration {
         // =========================================================================================================
         // Create the additional information request
 
-        const additionalInformationRequestData = {
-            // "Officers": this.getOfficers(), They said that officers are not required to quote.
-            "AdditionalInsureds": [{
-                "Name": this.app.business.owners[0].fname + " " + this.app.business.owners[0].lname ,
-                "TaxId": this.app.business.locations[0].identification_number,
-                "State": this.app.business.locations[0].state_abbr,
-                "LegalEntity": amtrustLegalEntityMap[this.app.business.locations[0].business_entity_type],
-                "DbaName": this.app.business.dba,
-                "AdditionalLocations": this.getAdditionalLocationList()
-            }]};
-
-        // console.log("additionalInformationRequestData", JSON.stringify(additionalInformationRequestData, null, 4));
+        const additionalInformationRequestData = {"AdditionalInsureds": [{
+            "Name": this.app.business.owners[0].fname + " " + this.app.business.owners[0].lname ,
+            "TaxId": this.app.business.locations[0].identification_number,
+            "State": this.app.business.locations[0].state_abbr,
+            "LegalEntity": amtrustLegalEntityMap[this.app.business.locations[0].business_entity_type],
+            "DbaName": this.app.business.dba,
+            "AdditionalLocations": this.getAdditionalLocationList()
+        }]};
 
         // =========================================================================================================
         // Create the questions request
@@ -351,7 +391,6 @@ module.exports = class AcuityWC extends Integration {
                 catch (error) {
                     return this.client_error('Could not determine the answer for one of the questions', __location, {questionId: questionId});
                 }
-
                 // This question was not answered
                 if (!answer) {
                     continue;
@@ -388,11 +427,11 @@ module.exports = class AcuityWC extends Integration {
         if (!quoteResponse) {
             return this.client_error(`The quote could not be submitted to the insurer.`);
         }
+        // console.log("quoteResponse", JSON.stringify(quoteResponse, null, 4));
         let statusCode = this.getChildProperty(quoteResponse, "StatusCode");
         if (!statusCode || !successfulStatusCodes.includes(statusCode)) {
             return this.client_error(`The quote could not be submitted to the insurer.`, __location, {statusCode: statusCode});
         }
-        // console.log("quoteResponse", JSON.stringify(quoteResponse, null, 4));
 
         // Check if the quote has been declined. If declined, subsequent requests will fail.
         let quoteEligibility = this.getChildProperty(quoteResponse, "Data.Eligibility.Eligibility");
@@ -407,21 +446,38 @@ module.exports = class AcuityWC extends Integration {
             return this.client_error(`Could not find the quote ID in the response.`, __location);
         }
 
-        // Get the ***
-        // const endorsementsAvailable = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/endorsements/available`, questionRequestData);
-        // console.log("endorsementsAvailable", endorsementsAvailable);
+        // Get the required questions list to ensure we are submitting the correct questions
+        // const genericResponse = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/officer-information`);
+        // console.log("genericResponse", JSON.stringify(genericResponse, null, 4));
         // return null;
+
+        // Get the available officer information
+        const officerInformation = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/officer-information`);
+        // console.log("officerInformation", JSON.stringify(officerInformation, null, 4));
+        if (officerInformation && officerInformation.Data) {
+            // Populate the officers
+            const officers = this.getOfficers(officerInformation.Data)
+            if (officers) {
+                additionalInformationRequestData.Officers = officers;
+            }
+        }
+        // console.log("additionalInformationRequestData", JSON.stringify(additionalInformationRequestData, null, 4));
 
         // Send the additional information request
         const additionalInformationResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, `/api/v2/quotes/${quoteId}/additional-information`, additionalInformationRequestData);
         if (!additionalInformationResponse) {
             return this.client_error(`The additional information for quote ${quoteId} could not be submitted to the insurer.`, __location);
         }
+        // console.log("additionalInformationResponse", JSON.stringify(additionalInformationResponse, null, 4));
         statusCode = this.getChildProperty(additionalInformationResponse, "StatusCode");
         if (!statusCode || !successfulStatusCodes.includes(statusCode)) {
-            return this.client_error(`The quote questions for quote ${quoteId} could not be submitted to the insurer.`, __location, {statusCode: statusCode});
+            if (additionalInformationResponse.hasOwnProperty("Message")) {
+                return this.client_error(additionalInformationResponse.Message, __location, {statusCode: statusCode});
+            }
+            else {
+                return this.client_error(`The additional for quote ${quoteId} could not be submitted to the insurer.`, __location, {statusCode: statusCode});
+            }
         }
-        // console.log("additionalInformationResponse", JSON.stringify(additionalInformationResponse, null, 4));
 
         // Get the required questions list to ensure we are submitting the correct questions
         // const requiredQuestionsResponse = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/questions`, questionRequestData);
@@ -433,16 +489,11 @@ module.exports = class AcuityWC extends Integration {
             if (!questionResponse) {
                 return this.client_error(`The quote questions for quote ${quoteId} could not be submitted to the insurer.`, __location);
             }
-            statusCode = this.getChildProperty(questionResponse, "StatusCode");
-            if (!statusCode || !successfulStatusCodes.includes(statusCode)) {
-                // return this.client_error(`The quote questions for quote ${quoteId} could not be submitted to the insurer.`, __location, {statusCode: statusCode});
-                this.log_warn(`The quote questions for quote ${quoteId} could not be submitted to the insurer.`, __location);
-            }
             // console.log("questionResponse", JSON.stringify(questionResponse, null, 4));
         }
 
         // Get the quote information
-        const quoteInformationResponse = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v2/quotes/${quoteId}`);
+        const quoteInformationResponse = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v2/quotes/${quoteId}?loadQuestions=true`);
         if (!quoteInformationResponse) {
             return this.client_error(`The quote information for quote ${quoteId} could not be retrieved from the insurer.`, __location);
         }
