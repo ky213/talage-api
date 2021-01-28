@@ -189,7 +189,7 @@ async function getApplication(req, res, next) {
         appId = req.query.id
     }
     //Get agency List check after getting application doc
-    const error = null
+    // let error = null
     const agencies = [];
     //TODO check JWT for application access and agencyId.
     //hard code to Talage.
@@ -215,6 +215,8 @@ async function getApplication(req, res, next) {
         return next(serverHelper.requestError(`Bad Request: check error ${err}`));
     }
 
+    // TODO: get agencies correctly
+    passedAgencyCheck = true;
     if(applicationDB && applicationDB.applicationId && passedAgencyCheck === false){
         log.info('Forbidden: User is not authorized for this agency' + __location);
         return next(serverHelper.forbiddenError('You are not authorized for this agency'));
