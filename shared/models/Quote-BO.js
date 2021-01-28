@@ -625,6 +625,11 @@ module.exports = class QuoteBO {
             }
 
         }
+
+        // Update Application-level quote metrics when we do a bind.
+        const ApplicationBO = global.requireShared('models/Application-BO.js');
+        await applicationBO.recalculateQuoteMetrics(this.quoteDoc.applicationId);
+
         return true;
     }
 

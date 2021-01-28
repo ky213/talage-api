@@ -111,6 +111,17 @@ const QuestionSchema = new Schema({
     answerList: [String]
 });
 
+const ApplicationMetricsPremiumSchema = new Schema({
+    WC: {type: Number, required: false},
+    GL: {type: Number, required: false},
+    BOP: {type: Number, required: false},
+});
+
+const ApplicationMetricsSchema = new Schema({
+    lowestBoundQuoteAmount: {type: ApplicationMetricsPremiumSchema, required: false},
+    lowestQuoteAmount: {type: ApplicationMetricsPremiumSchema, required: false},
+});
+
 // note: ein - not saved to db
 const ApplicationSchema = new Schema({
     applicationId: {type: String, required: [true, 'applicationId required'], unique: true},
@@ -183,6 +194,7 @@ const ApplicationSchema = new Schema({
     active: {type: Boolean, default: true},
     corporationType: {type: String, required: false},
     quotingStartedDate: {type: Date},
+    metrics: {type: ApplicationMetricsSchema, required: false},
 });
 // NOTE:  EIN is not ever saved to database.
 

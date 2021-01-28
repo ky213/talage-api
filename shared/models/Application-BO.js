@@ -6,6 +6,7 @@
 'use strict';
 const moment = require('moment');
 const clonedeep = require('lodash.clonedeep');
+const _ = require('lodash');
 
 const DatabaseObject = require('./DatabaseObject.js');
 
@@ -24,7 +25,8 @@ const taskEmailBindAgency = global.requireRootPath('tasksystem/task-emailbindage
 const crypt = global.requireShared('./services/crypt.js');
 
 // Mongo Models
-var ApplicationMongooseModel = require('mongoose').model('Application');
+const ApplicationMongooseModel = require('mongoose').model('Application');
+const QuoteMongooseModel = require('mongoose').model('Quote');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 //const crypt = global.requireShared('./services/crypt.js');
@@ -2791,7 +2793,55 @@ module.exports = class ApplicationModel {
         }
     }
 
+    /**
+     * Recalculates all quote-related metrics stored in the Application collection.
+     * 
+     * @param {*} applicationId The application UUID. 
+     * @param {*} quoteList (optional) A list of application quotes.
+     */
+    async recalculateQuoteMetrics(applicationId, quoteList) {
+        if (!quoteList) {
+            quoteList = await QuoteMongooseModel.find({
+                applicationId
+            });
+        }
 
+        let lowestBoundQuote = (product) =>
+            _.sum(quoteList
+                .filter(t =>
+                    t.policyType === product && (
+                    t.bound ||
+                    t.status === 'bind_requested'))
+                .map(t => t.amount));
+
+        let lowestQuote = (product) =>
+            _.sum(quoteList
+                .filter(t =>
+                    t.policyType === product && (
+                    t.bound ||
+                    t.status === 'bind_requested' ||
+                    t.apiResult === 'quoted' ||
+                    t.apiResult === 'referred_with_price'))
+                .map(t => t.amount));
+
+        const metrics = {
+            lowestBoundQuoteAmount: {
+                GL: lowestBoundQuote('GL'),
+                WC: lowestBoundQuote('WC'),
+                BOP: lowestBoundQuote('BOP'),
+            },
+            lowestQuoteAmount: {
+                GL: lowestBoundQuote('GL'),
+                WC: lowestBoundQuote('WC'),
+                BOP: lowestBoundQuote('BOP'),
+            },
+        };
+
+        console.log(applicationId, metrics);
+        await this.updateMongo(applicationId, {
+            metrics
+        });
+    }
 }
 
 const properties = {

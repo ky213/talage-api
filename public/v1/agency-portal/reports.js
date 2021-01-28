@@ -46,6 +46,12 @@ const sumOfQuotes = (quotes) => {
     return _.sum(Object.values(amounts));
 }
 
+const mysqlDateToJsDate = (date, utcOffset) => {
+    return moment(date.substr(1, date.length - 2))
+        .utcOffset(utcOffset)
+        .toDate()
+}
+
 //---------------------------------------------------------------------------//
 // Metric functions - These calculate the metrics that are later returned by
 // getReports later.
@@ -76,6 +82,7 @@ const getGeography = async (where) => {
     ]).filter(t => t[0]); // This filter removes undefined entries.
 }
 
+// XXX
 const getMonthlyTrends = async (where) => {
     const monthlyTrends = await Application.aggregate([
         { $match: where },
@@ -141,56 +148,36 @@ const getIndustries = async (where) => {
     ]));
 }
 
+// XXX:
+// -> save when a quote is saved.
+//      -> come up with a schema that works well with the aggregator
+// {
+//     policyType: "wc",
+//     quoteAount: 500,
+//     boundAmount: 650
+//   }
+//      -> store current bound/quoted premium in the application. Update when quote is saved.
+// -> database population script
 const getPremium = async (where) => {
-    let applications = await Application.find({}, {uuid: 1});
-    applications = applications.map(t => t.uuid);
-
-    let agencyApplications = await Application.find(
-        Object.assign({}, where, {
-            appStatusId: {$gte: 40},
-            applicationId: {$in: applications}
-        }), {uuid: 1});
-    agencyApplications = agencyApplications.map(a => a.uuid);
-
-    // other option: sum up all the quotes
-    const bound = await Quote.find({
-        $or: [
-            {bound: 1},
-            {status: 'bind_requested'},
-        ],
-        applicationId: {$in: agencyApplications}
-    }, {
-        _id: 1,
-        applicationId: 1,
-        amount: 1,
-        policyType: 1,
-    });
-
-    const quoted = await Quote.find({
-        $or: [
-            {bound: 1},
-            {status: 'bind_requested'},
-            {api_result: 'quoted'},
-            {api_result: 'referred_with_price'},
-        ],
-        applicationId: {$in: agencyApplications}
-    }, {
-        _id: 1,
-        applicationId: 1,
-        amount: 1,
-        policyType: 1,
-    });
+    const bound = async (product) => await Application.aggregate([
+        { $match: where },
+        { $group: {
+            _id: '$uuid',
+            count: { $sum: '$metrics.lowestBoundQuoteAmount.' + product }
+        }}
+    ]);
+    const quoted = async (product) => await Application.aggregate([
+        { $match: where },
+        { $group: {
+            _id: '$uuid',
+            count: { $sum: '$metrics.lowestQuoteAmount.' + product }
+        }}
+    ]);
 
     return {
-        quoted: sumOfQuotes(quoted),
-        bound: sumOfQuotes(bound),
-    }
-}
-
-const mysqlDateToJsDate = (date, utcOffset) => {
-    return moment(date.substr(1, date.length - 2))
-        .utcOffset(utcOffset)
-        .toDate()
+        quoted: await quoted('WC') + await quoted('GL') + await quoted('BOP'),
+        bound: await bound('WC') + await bound('GL') + await bound('BOP'),
+    };
 }
 
 //---------------------------------------------------------------------------//
