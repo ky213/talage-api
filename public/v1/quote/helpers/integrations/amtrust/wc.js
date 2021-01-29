@@ -365,7 +365,7 @@ module.exports = class AcuityWC extends Integration {
 
         const additionalInformationRequestData = {"AdditionalInsureds": [{
             "Name": this.app.business.owners[0].fname + " " + this.app.business.owners[0].lname ,
-            "TaxId": this.app.business.locations[0].identification_number,
+            "TaxId": this.app.business.locations[0].identification_number.replace(/\D/g, ''),
             "State": this.app.business.locations[0].state_abbr,
             "LegalEntity": amtrustLegalEntityMap[this.app.business.locations[0].business_entity_type],
             "DbaName": this.app.business.dba,
