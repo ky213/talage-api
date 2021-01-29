@@ -78,8 +78,8 @@ const coverageAmounts = resources => {
 }
 const deductibleAmounts = resources => {
     resources.deductibleAmounts ={
-        bop: ["$1500, $1000,$500"],
-        gl: ["$1500, $1000,$500"],
+        bop: ["$1500", "$1000","$500"],
+        gl: ["$1500", "$1000","$500"],
     }
 };
 const carriersList = resources => {
