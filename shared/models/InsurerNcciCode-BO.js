@@ -358,6 +358,24 @@ const properties = {
         "type": "string",
         "dbType": "varchar(150)"
     },
+    "effectiveDate": {
+        "default": "1980-01-01 00:00:00",
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "datetime",
+        "dbType": "datetime"
+    },
+    "expirationDate": {
+        "default": "2100-01-01 00:00:00",
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "datetime",
+        "dbType": "datetime"
+    },
     "result": {
         "default": "2",
         "encrypted": false,
