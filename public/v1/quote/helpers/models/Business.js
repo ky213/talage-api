@@ -13,6 +13,7 @@ const moment = require('moment');
 const validator = global.requireShared('./helpers/validator.js');
 const crypt = global.requireShared('./services/crypt.js');
 const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 
 //const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
 
@@ -208,16 +209,7 @@ module.exports = class Business {
                     throw err;
                 }
                 location.business_entity_type = applicationDocJSON.entityType;
-                location.identification_number = applicationDocJSON.ein;
-                if(location.identification_number){
-                    if (applicationDocJSON.hasEin) {
-                        location.identification_number = `${location.identification_number.substr(0, 2)}-${location.identification_number.substr(2, 7)}`;
-                    }
-                    else {
-                        location.identification_number = `${location.identification_number.substr(0, 3)}-${location.identification_number.substr(3, 2)}-${location.identification_number.substr(5, 4)}`;
-                    }
-                }
-                // log.debug('business location adding ' + JSON.stringify(location));
+                location.identification_number = stringFunctions.santizeNumber(applicationDocJSON.ein);
                 this.locations.push(location);
             }
         }
