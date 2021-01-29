@@ -53,7 +53,7 @@ async function getResources(req, res, next){
     res.send(200, resources);
 }
 const policiesEnabled = resources => {
-    resources.policiesEnabled = ["bop","gl", "wc"]
+    resources.policiesEnabled = ["BOP","GL", "WC"]
 }
 const coverageAmounts = resources => {
    resources.coverageAmounts = {
