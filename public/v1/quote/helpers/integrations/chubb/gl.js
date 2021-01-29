@@ -650,7 +650,10 @@ module.exports = class ChubbGL extends Integration {
                 let MsgStatusCd = null;
                 try{
                     MsgStatusCd = BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].MsgStatusCd[0];
-                    this.reasons.push(BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0])
+                    // not always present.
+                    if(BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0]){
+                        this.reasons.push(BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0])
+                    }
                 }
                 catch(err){
                     log.error("Chubb GL error getting  MsgStatus " + err + __location);
