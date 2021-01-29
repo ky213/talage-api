@@ -1679,9 +1679,10 @@ module.exports = class Integration {
 	 * @param {object} additional_headers - Additional headers to be sent with the request, one header 'Content-Type' is required, all others are optional
 	 * @param {string} method (optional) - The HTTP method to be used (e.g. POST or GET)
      * @param {boolean} log_errors - True if error logging should be handled here, false if error logging is handled in the client
+     * @param {boolean} returnResponseOnAllStatusCodes - True if response should be returned (fulfilled) on all HTTP status codes, false if it should reject (default)
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
 	 */
-    send_request(host, path, data, additional_headers, method, log_errors = true) {
+    send_request(host, path, data, additional_headers, method, log_errors = true, returnResponseOnAllStatusCodes = false) {
         log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Sending To ${path}`);
         const start_time = process.hrtime();
 
@@ -1791,8 +1792,7 @@ module.exports = class Integration {
                             formattedData = formattedJSONData;
                         }
                     }
-
-                    if (res.statusCode >= 200 && res.statusCode <= 299) {
+                    if (res.statusCode >= 200 && res.statusCode <= 299 || returnResponseOnAllStatusCodes) {
                         // Strip AF Group's Quote Letter out of the log
                         formattedData = formattedData.replace(/<com\.afg_Base64PDF>(.*)<\/com\.afg_Base64PDF>/, '<com.afg_Base64PDF>...</com.afg_Base64PDF>');
 
@@ -1843,10 +1843,12 @@ module.exports = class Integration {
 	 * @param {string} json - The JSON to be sent
 	 * @param {object} additional_headers (optional) - Additional headers to be sent with the request
 	 * @param {string} method (optional) - The HTTP method to be used
+     * @param {boolean} log_errors - True if errors should be logged, false otherwise
+     * @param {boolean} returnResponseOnAllStatusCodes - True if response should be returned (fulfilled) on all HTTP status codes, false if it should reject (default)
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
 	 */
 
-    send_json_request(host, path, json, additional_headers, method, log_errors = true) {
+    send_json_request(host, path, json, additional_headers, method, log_errors = true, returnResponseOnAllStatusCodes = false) {
         return new Promise(async(fulfill, reject) => {
             // If we don't have additional headers, start an object to append
             if (!additional_headers) {
@@ -1860,7 +1862,7 @@ module.exports = class Integration {
             additional_headers.accept = 'application/json';
 
             // Send the request
-            await this.send_request(host, path, json, additional_headers, method, log_errors).
+            await this.send_request(host, path, json, additional_headers, method, log_errors, returnResponseOnAllStatusCodes).
                 then((result) => {
                     fulfill(JSON.parse(result));
                 }).
@@ -1878,9 +1880,10 @@ module.exports = class Integration {
 	 * @param {string} xml - The XML to be sent
 	 * @param {object} additional_headers (optional) - Additional headers to be sent with the request
 	 * @param {boolean} dumpRawXML (optional) - Dump the raw XML response to the console
+     * @param {boolean} returnResponseOnAllStatusCodes - True if response should be returned (fulfilled) on all HTTP status codes, false if it should reject (default)
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
 	 */
-    async send_xml_request(host, path, xml, additional_headers, dumpRawXML = false) {
+    async send_xml_request(host, path, xml, additional_headers, dumpRawXML = false, returnResponseOnAllStatusCodes = false) {
         // return new Promise(async(fulfill, reject) => {
         // If we don't have additional headers, start an object to append
         if (!additional_headers) {
@@ -1898,7 +1901,7 @@ module.exports = class Integration {
         // Send the request
         let raw_data = null;
         try {
-            raw_data = await this.send_request(host, path, xml, additional_headers, 'POST');
+            raw_data = await this.send_request(host, path, xml, additional_headers, 'POST', true, returnResponseOnAllStatusCodes);
         }
         catch (error) {
             log.error(`Appid: ${this.app.id} calling ${this.insurer.name} Integration send_request error: ${error}` + __location);
