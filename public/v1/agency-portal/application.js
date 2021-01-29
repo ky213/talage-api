@@ -1146,6 +1146,13 @@ async function bindQuote(req, res, next) {
 
         const quoteBO = new QuoteBO();
         await quoteBO.bindQuote(quoteId, applicationId, req.authentication.userID);
+
+        // Application status must be updated after binding a quote.
+        await status.updateApplicationStatus(req.body.applicationId);
+
+        // Update Application-level quote metrics when we do a bind.
+        const applicationBO = new ApplicationBO();
+        await applicationBO.recalculateQuoteMetrics(this.quoteDoc.applicationId);
     }
     catch (err) {
         log.error(`Error Binding  application ${applicationId ? applicationId : ''}: ${err}` + __location);
@@ -1153,16 +1160,11 @@ async function bindQuote(req, res, next) {
         return next();
     }
 
-
     // Send back the token
     res.send(200, {"bound": true});
 
-
     return next();
-
-
 }
-
 
 /**
  * GET returns resources Quote Engine needs
