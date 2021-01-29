@@ -52,6 +52,9 @@ const mysqlDateToJsDate = (date, utcOffset) => {
         .toDate()
 }
 
+/** Round to 2 decimal places. */
+const roundCurrency = n => Math.round(n * 100.0) / 100.0;
+
 //---------------------------------------------------------------------------//
 // Metric functions - These calculate the metrics that are later returned by
 // getReports later.
@@ -82,18 +85,23 @@ const getGeography = async (where) => {
     ]).filter(t => t[0]); // This filter removes undefined entries.
 }
 
-// XXX
 const getMonthlyTrends = async (where) => {
     const monthlyTrends = await Application.aggregate([
         { $match: where },
+        { $project: {
+            creationMonth: { $month: '$createdAt' },
+            creationYear: { $year: '$createdAt' }
+        }},
         { $group: {
             _id: {
-               month: { $month: '$createdAt' },
+               month: '$creationMonth',
+               year: '$creationYear',
             },
             count: { $sum: 1 }
         }},
-        { $sort: { _id: 1 }}
+        { $sort: { '_id.year': 1, '_id.month': 1} }
     ]);
+
     return monthlyTrends.map(t => ([
         moment(t._id.month, 'M').format('MMMM'),
         t.count
@@ -148,26 +156,17 @@ const getIndustries = async (where) => {
     ]));
 }
 
-// XXX:
-// -> save when a quote is saved.
-//      -> come up with a schema that works well with the aggregator
-// {
-//     policyType: "wc",
-//     quoteAount: 500,
-//     boundAmount: 650
-//   }
-//      -> store current bound/quoted premium in the application. Update when quote is saved.
-// -> database population script
 const getPremium = async (where) => {
     const bound = async (product) => _.sum((await Application.aggregate([
-        { $match: where },
+        { $match: Object.assign({}, where, { appStatusId: {$gte: 40} })},
         { $group: {
             _id: '$uuid',
             count: { $sum: '$metrics.lowestBoundQuoteAmount.' + product }
         }}
     ])).map(t => t.count));
+
     const quoted = async (product) => _.sum((await Application.aggregate([
-        { $match: where },
+        { $match: Object.assign({}, where, { appStatusId: {$gte: 40} })},
         { $group: {
             _id: '$uuid',
             count: { $sum: '$metrics.lowestQuoteAmount.' + product }
@@ -175,8 +174,8 @@ const getPremium = async (where) => {
     ])).map(t => t.count));
 
     return {
-        quoted: await quoted('WC') + await quoted('GL') + await quoted('BOP'),
-        bound: await bound('WC') + await bound('GL') + await bound('BOP'),
+        quoted: roundCurrency(await quoted('WC') + await quoted('GL') + await quoted('BOP')),
+        bound: roundCurrency(await bound('WC') + await bound('GL') + await bound('BOP')),
     };
 }
 
