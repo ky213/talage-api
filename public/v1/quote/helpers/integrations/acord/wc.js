@@ -51,7 +51,7 @@ module.exports = class ACORDWC extends Integration{
 
         // Prepare keys so that the record of the email being sent is written
         const email_keys = {
-            'applicationId': this.app.id,
+            'applicationId': this.app.applicationDocData.applicationId,
             'agencyLocationId': this.app.agencyLocation.id,
             'applicationDoc': this.app.applicationDocData
         }

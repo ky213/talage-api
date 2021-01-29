@@ -413,7 +413,6 @@ module.exports = class CnaWC extends Integration {
         let result = null;
 
         try {
-
             log.debug("=================== QUOTE REQUEST ===================");
             log.debug("CNA request: " + JSON.stringify(wcRequest, null, 4));
             log.debug("=================== QUOTE REQUEST ===================");

@@ -18,21 +18,22 @@ const serverHelper = require('../../../../server.js');
  */
 exports.getAgents = async function(req) {
     // Localize data variables that the user is permitted to access
-    const agencyNetwork = req.authentication.agencyNetwork;
     let error = false;
 
     // If this user does not have sufficient permissions to make decisions for themselves, just return what is allowed
-    if (!agencyNetwork) {
+    if (!req.authentication.isAgencyNetworkUser) {
         // Log.info(`allowed agents: `)
         return req.authentication.agents;
     }
 
+    const agencyNetworkId = req.authentication.agencyNetworkId;
     let agencyResult = null;
     try{
         const AgencyBO = global.requireShared('./models/Agency-BO.js');
         const agencyBO = new AgencyBO();
         // Load the request data into it
-        agencyResult = await agencyBO.getByAgencyNetwork(agencyNetwork);
+        // TODO refactor to only return systemId from BO and mongo
+        agencyResult = await agencyBO.getByAgencyNetwork(agencyNetworkId);
     }
     catch(err){
         log.error("getAgency load error " + err + __location);
@@ -114,16 +115,30 @@ exports.validateJWT = async function(req, permission, permissionType) {
                 return 'User is not properly authenticated';
             }
         }
+
+
+        // Check if older JWT with old properties
+        if (req.authentication.isAgencyNetworkUser && typeof req.authentication.agencyNetwork !== 'number') {
+            req.authentication.isAgencyNetworkUser = req.authentication.agencyNetwork
+        }
+        else if(req.authentication.isAgencyNetworkUser && typeof req.authentication.agencyNetwork === 'number'){
+            req.authentication.isAgencyNetworkUser = true;
+        }
+
+        if(req.authentication.agencyNetworkId && typeof req.authentication.agencyNetwork === 'number'){
+            req.authentication.agencyNetworkId = req.authentication.agencyNetwork;
+        }
+
         // Make sure the agencyNetwork is what we are expecting
-        if (typeof req.authentication.agencyNetwork !== 'number' && typeof req.authentication.agencyNetwork !== 'boolean') {
+        if (req.authentication.isAgencyNetworkUser === true && typeof req.authentication.agencyNetworkId !== 'number') {
             log.info('Forbidden: JWT payload is invalid (agencyNetwork)');
             return 'User is not properly authenticated';
         }
 
         // Additional validation for group administrators
-        if (req.authentication.agencyNetwork) {
+        if (req.authentication.isAgencyNetworkUser === true && req.authentication.agencyNetworkId) {
             // Validate the agency network ID
-            if (!await validator.is_valid_id(req.authentication.agencyNetwork)) {
+            if (!await validator.is_valid_id(req.authentication.agencyNetworkId)) {
                 log.info('Forbidden: User is not authenticated (agencyNetwork)');
                 return 'User is not properly authenticated';
             }

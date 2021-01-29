@@ -45,6 +45,12 @@ module.exports = class Integration {
         //      - set to false if the integration does not have insurer activity class codes.
         this.requiresInsurerActivityClassCodes = false;
 
+        // requiresProductPolicyTypeFilter:
+        //      - set to true if the policy type must be used to filter industry codes.
+        //      - if set to true, set the policyTYpeFilter to the string policy type (f.e. 'GL')
+        this.requiresProductPolicyTypeFilter = false;
+        this.policyTypeFilter = null;
+
         // Integration Data
         this.app = app;
         this.industry_code = {};
@@ -232,6 +238,8 @@ module.exports = class Integration {
      * @returns {number} The 4 digit NCCI code
      */
     async get_insurer_code_for_activity_code(insurerId, territory, activityCode) {
+        const policyEffectiveDate = moment(this.policy.effective_date).format("YYYY-MM-DD HH:MM:SS");
+
         const sql = `
             SELECT inc.code, inc.sub, inc.attributes
             FROM clw_talage_insurer_ncci_codes AS inc 
@@ -240,6 +248,7 @@ module.exports = class Integration {
                 inc.state = 1
                 AND inc.insurer = ${insurerId}
                 AND inc.territory = '${territory}'
+                AND ('${policyEffectiveDate}' >= inc.effectiveDate AND '${policyEffectiveDate}' < inc.expirationDate)
                 AND aca.code = ${activityCode};
         `;
         let result = null;
@@ -605,12 +614,17 @@ module.exports = class Integration {
             });
 
             // Build the SQL query
+            // Note: these are using insurer NCCI code ID's that were already filtered based on policy effective date so no
+            // need to check policy effective date here. -SF
             const sql = `
 				SELECT inc.territory, CONCAT(inc.\`code\`, inc.sub) AS class_code, GROUP_CONCAT(incq.question) AS questions
 				FROM clw_talage_insurer_ncci_code_questions AS incq
 				LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON inc.id = incq.ncci_code AND inc.insurer = ${this.insurer.id}
 				LEFT JOIN clw_talage_questions AS q ON incq.question = q.id
-				WHERE q.state = 1 AND (${where_chunks.join(' OR ')}) GROUP BY inc.territory, class_code;
+                WHERE
+                    q.state = 1
+                    AND (${where_chunks.join(' OR ')}) 
+                    GROUP BY inc.territory, class_code;
 			`;
             const results = await db.query(sql).catch(function(error) {
                 reject(error);
@@ -741,7 +755,12 @@ module.exports = class Integration {
             const question_ids = Object.keys(this.questions);
 
             if (question_ids.length > 0) {
-                const sql = `SELECT question, universal, identifier, attributes FROM #__insurer_questions WHERE insurer = ${this.insurer.id} AND question IN (${question_ids.join(',')});`;
+                const sql = `
+                    SELECT question, universal, identifier, attributes FROM #__insurer_questions
+                    WHERE
+                        insurer = ${this.insurer.id} 
+                        AND question IN (${question_ids.join(',')});
+                `;
                 const results = await db.query(sql).catch(function(error) {
                     reject(error);
                 });
@@ -803,7 +822,12 @@ module.exports = class Integration {
             const question_ids = Object.keys(this.questions);
 
             if (question_ids.length > 0) {
-                const sql = `SELECT question, universal, identifier FROM #__insurer_questions WHERE insurer = ${this.insurer.id} AND question IN (${question_ids.join(',')});`;
+                const sql = `
+                    SELECT question, universal, identifier FROM #__insurer_questions
+                    WHERE
+                        insurer = ${this.insurer.id} 
+                        AND question IN (${question_ids.join(',')});
+                `;
                 const results = await db.query(sql).catch(function(error) {
                     reject(error);
                 });
@@ -1019,7 +1043,7 @@ module.exports = class Integration {
      */
     quote() {
         log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Quote Started (mode: ${this.insurer.useSandbox ? 'sandbox' : 'production'})`);
-        return new Promise(async(fulfill, reject) => {
+        return new Promise(async(fulfill) => {
             // Get the credentials ready for use
             this.password = await this.insurer.get_password();
             this.username = await this.insurer.get_username();
@@ -1077,14 +1101,20 @@ module.exports = class Integration {
                 const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get question details. ${error}`;
                 log.error(error_message + __location);
                 this.reasons.push(error_message);
-                reject(this.return_error('error', "We have no idea what went wrong, but we're on it"));
+                //Do not want to stop the rest of the quoting for application.
+                // and end of quoting processing.
+                //reject(this.return_error('error', "We have no idea what went wrong, but we're on it"));
+                fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));
                 stop = true;
             });
             this.question_identifiers = await this.get_question_identifiers().catch((error) => {
                 const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get question identifiers. ${error}`;
                 log.error(error_message + __location);
                 this.reasons.push(error_message);
-                reject(this.return_error('error', "We have no idea what went wrong, but we're on it"));
+                //Do not want to stop the rest of the quoting for application.
+                // and end of quoting processing.
+                //reject(this.return_error('error', "We have no idea what went wrong, but we're on it"));
+                fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));
                 stop = true;
             });
             if (stop) {
@@ -1092,12 +1122,19 @@ module.exports = class Integration {
             }
 
             // Run the quote
+            const appId = this.app.id;
+            const insurerName = this.insurer.name;
+            const policyType = this.policy.type
             await this._insurer_quote().
                 then(function(result) {
                     fulfill(result);
-                }).
-                catch(function(error) {
-                    reject(error);
+                }).catch(function(error) {
+                    const error_message = `Appid: ${appId} ${insurerName} ${policyType} is unable to quote ${error}`;
+                    log.error(error_message + __location);
+                    //Do not want to stop the rest of the quoting for application.
+                    // and end of quoting processing.
+                    //reject(error);
+                    fulfill(null);
                 });
         });
     }
@@ -1935,6 +1972,8 @@ module.exports = class Integration {
                 return `(\`ac\`.\`id\` = ${db.escape(codeObj.id)} AND \`inc\`.\`territory\` = ${db.escape(codeObj.territory)})`;
             });
 
+            const policyEffectiveDate = moment(this.policy.effective_date).format("YYYY-MM-DD HH:MM:SS");
+
             // Query the database to get the corresponding codes
             let hadError = false;
             const sql = `
@@ -1950,7 +1989,8 @@ module.exports = class Integration {
             LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON aca.insurer_code = inc.id
             WHERE
                 inc.insurer = ${this.insurer.id} 
-                AND (${whereCombinations.join(' OR ')});
+                AND (${whereCombinations.join(' OR ')})
+                AND ('${policyEffectiveDate}' >= inc.effectiveDate AND '${policyEffectiveDate}' < inc.expirationDate);
             `;
             const appId = this.app.id;
             const insurerId = this.insurer.id;
@@ -1999,21 +2039,32 @@ module.exports = class Integration {
 
     /**
 	 * Determines whether or not this insurer supports all industry codes in this application
-	 *
+     * 
 	 * @returns {Promise.<boolean>} A promise that returns an true if the insurer supports the industry code and it has been populated, false otherwise
 	 */
     _insurer_supports_industry_codes() {
         return new Promise(async(fulfill) => {
+            // append policy type if integration intends to use it
+            let policyTypeWhere = '';
+            if (this.requiresProductPolicyTypeFilter && this.policyTypeFilter) {
+                policyTypeWhere = ` AND iic.policyType = '${this.policyTypeFilter}' `;
+            }
+
+            const policyEffectiveDate = moment(this.policy.effective_date).format("YYYY-MM-DD HH:MM:SS");
+
             // Query the database to see if this insurer supports this industry code
-            let sql = `SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso, iic.attributes 
+            let sql = `SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso, iic.attributes, iic.code, iic.description AS insurerDescription 
                         FROM clw_talage_industry_codes AS ic 
                         INNER JOIN industry_code_to_insurer_industry_code AS industryCodeMap ON industryCodeMap.talageIndustryCodeId = ic.id
                         INNER JOIN clw_talage_insurer_industry_codes AS iic ON iic.id = industryCodeMap.insurerIndustryCodeId
                         WHERE
-                            ic.id = ${this.app.business.industry_code}
+                            ic.id = ${this.app.applicationDocData.industryCode}
                             AND iic.insurer = ${this.insurer.id} 
-                            AND iic.territory = '${this.app.business.primary_territory}'
-                            LIMIT 1;`
+                            AND iic.territory = '${this.app.applicationDocData.mailingState}'
+                            AND ('${policyEffectiveDate}' >= iic.effectiveDate AND '${policyEffectiveDate}' < iic.expirationDate)
+                            ${policyTypeWhere}
+                            LIMIT 1;`;
+
             let hadError = false;
             let result = await db.query(sql).catch((error) => {
                 log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not retrieve industry codes: ${error} ${__location}`);
@@ -2025,6 +2076,9 @@ module.exports = class Integration {
                 return;
             }
             if (!result || !result.length) {
+                // Oh shit, this shouldn't have happened... just grab the Talage industry code
+                log.error(`Error: Insurer mapping for this industry code was not found, this shouldn't happen! Falling back to Talage industry code.`);
+
                 // If insurer industry codes are required and none are returned, it is an error and we should reject.
                 if (this.requiresInsurerIndustryCodes) {
                     this.reasons.push("An insurer industry class code was not found for the given industry.");
@@ -2063,7 +2117,7 @@ module.exports = class Integration {
                 }
             }
             else {
-                log.warn(`Appid: ${this.app.id} No Industry_code attributes for ${this.insurer.name}:${this.insurer.id} and ${this.app.business.primary_territory}` + __location);
+                log.warn(`Appid: ${this.app.id} No Industry_code attributes for ${this.insurer.name}:${this.insurer.id} and ${this.app.applicationDocData.mailingState}` + __location);
                 this.industry_code.attributes = {};
             }
 
