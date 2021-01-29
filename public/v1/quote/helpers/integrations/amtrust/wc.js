@@ -296,7 +296,7 @@ module.exports = class AcuityWC extends Integration {
         // Create the quote request
         const quoteRequestData = {"Quote": {
             "EffectiveDate": this.policy.effective_date.format("MM/DD/YYYY"),
-            "Fein": this.app.business.locations[0].identification_number,
+            "Fein": this.app.business.locations[0].identification_number.replace(/\D/g, ''),
             "PrimaryAddress": {
                 "Line1": this.app.business.locations[0].address + (this.app.business.locations[0].address2 ? ", " + this.app.business.locations[0].address2 : ""),
                 "City": this.app.business.locations[0].city,
@@ -425,12 +425,17 @@ module.exports = class AcuityWC extends Integration {
         // Send the quote request
         const quoteResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, '/api/v2/quotes', quoteRequestData);
         if (!quoteResponse) {
-            return this.client_error(`The quote could not be submitted to the insurer.`);
+            return this.client_error("The insurer's server returned an unspecified error when submitting the quote information.", __location);
         }
         // console.log("quoteResponse", JSON.stringify(quoteResponse, null, 4));
         let statusCode = this.getChildProperty(quoteResponse, "StatusCode");
         if (!statusCode || !successfulStatusCodes.includes(statusCode)) {
-            return this.client_error(`The quote could not be submitted to the insurer.`, __location, {statusCode: statusCode});
+            if (quoteResponse.error) {
+                return this.client_error(quoteResponse.error, __location, {statusCode: statusCode})
+            }
+            else {
+                return this.client_error("The insurer's server returned an unspecified error when submitting the quote information.", __location, {statusCode: statusCode});
+            }
         }
 
         // Check if the quote has been declined. If declined, subsequent requests will fail.
@@ -466,16 +471,19 @@ module.exports = class AcuityWC extends Integration {
         // Send the additional information request
         const additionalInformationResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, `/api/v2/quotes/${quoteId}/additional-information`, additionalInformationRequestData);
         if (!additionalInformationResponse) {
-            return this.client_error(`The additional information for quote ${quoteId} could not be submitted to the insurer.`, __location);
+            return this.client_error("The insurer's server returned an unspecified error when submitting the additional quote information.", __location);
         }
         // console.log("additionalInformationResponse", JSON.stringify(additionalInformationResponse, null, 4));
         statusCode = this.getChildProperty(additionalInformationResponse, "StatusCode");
         if (!statusCode || !successfulStatusCodes.includes(statusCode)) {
-            if (additionalInformationResponse.hasOwnProperty("Message")) {
+            if (additionalInformationResponse.Message) {
                 return this.client_error(additionalInformationResponse.Message, __location, {statusCode: statusCode});
             }
+            else if (quoteResponse.error) {
+                return this.client_error(quoteResponse.error, __location, {statusCode: statusCode})
+            }
             else {
-                return this.client_error(`The additional for quote ${quoteId} could not be submitted to the insurer.`, __location, {statusCode: statusCode});
+                return this.client_error("The insurer's server returned an unspecified error when submitting the additional quote information.", __location, {statusCode: statusCode});
             }
         }
 
@@ -487,7 +495,7 @@ module.exports = class AcuityWC extends Integration {
         if (questionRequestData.length > 0) {
             const questionResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/questions-answers`, questionRequestData);
             if (!questionResponse) {
-                return this.client_error(`The quote questions for quote ${quoteId} could not be submitted to the insurer.`, __location);
+                return this.client_error("The insurer's server returned an unspecified error when submitting the question information.", __location, {statusCode: statusCode});
             }
             // console.log("questionResponse", JSON.stringify(questionResponse, null, 4));
         }
@@ -495,7 +503,7 @@ module.exports = class AcuityWC extends Integration {
         // Get the quote information
         const quoteInformationResponse = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v2/quotes/${quoteId}?loadQuestions=true`);
         if (!quoteInformationResponse) {
-            return this.client_error(`The quote information for quote ${quoteId} could not be retrieved from the insurer.`, __location);
+            return this.client_error("The insurer's server returned an unspecified error when retrieving the final quote information.", __location, {statusCode: statusCode});
         }
         // console.log("quoteInformationResponse", JSON.stringify(quoteInformationResponse, null, 4));
 
