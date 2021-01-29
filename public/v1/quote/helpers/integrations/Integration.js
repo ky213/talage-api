@@ -45,6 +45,12 @@ module.exports = class Integration {
         //      - set to false if the integration does not have insurer activity class codes.
         this.requiresInsurerActivityClassCodes = false;
 
+        // requiresProductPolicyTypeFilter:
+        //      - set to true if the policy type must be used to filter industry codes.
+        //      - if set to true, set the policyTYpeFilter to the string policy type (f.e. 'GL')
+        this.requiresProductPolicyTypeFilter = false;
+        this.policyTypeFilter = null;
+
         // Integration Data
         this.app = app;
         this.industry_code = {};
@@ -2033,15 +2039,21 @@ module.exports = class Integration {
 
     /**
 	 * Determines whether or not this insurer supports all industry codes in this application
-	 *
+     * 
 	 * @returns {Promise.<boolean>} A promise that returns an true if the insurer supports the industry code and it has been populated, false otherwise
 	 */
     _insurer_supports_industry_codes() {
         return new Promise(async(fulfill) => {
+            // append policy type if integration intends to use it
+            let policyTypeWhere = '';
+            if (this.requiresProductPolicyTypeFilter && this.policyTypeFilter) {
+                policyTypeWhere = ` AND iic.policyType = '${this.policyTypeFilter}' `;
+            }
+
             const policyEffectiveDate = moment(this.policy.effective_date).format("YYYY-MM-DD HH:MM:SS");
 
             // Query the database to see if this insurer supports this industry code
-            let sql = `SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso, iic.attributes 
+            let sql = `SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso, iic.attributes, iic.code, iic.description AS insurerDescription 
                         FROM clw_talage_industry_codes AS ic 
                         INNER JOIN industry_code_to_insurer_industry_code AS industryCodeMap ON industryCodeMap.talageIndustryCodeId = ic.id
                         INNER JOIN clw_talage_insurer_industry_codes AS iic ON iic.id = industryCodeMap.insurerIndustryCodeId
@@ -2050,7 +2062,8 @@ module.exports = class Integration {
                             AND iic.insurer = ${this.insurer.id} 
                             AND iic.territory = '${this.app.applicationDocData.mailingState}'
                             AND ('${policyEffectiveDate}' >= iic.effectiveDate AND '${policyEffectiveDate}' < iic.expirationDate)
-                            LIMIT 1;`
+                            ${policyTypeWhere}
+                            LIMIT 1;`;
 
             let hadError = false;
             let result = await db.query(sql).catch((error) => {
@@ -2063,6 +2076,9 @@ module.exports = class Integration {
                 return;
             }
             if (!result || !result.length) {
+                // Oh shit, this shouldn't have happened... just grab the Talage industry code
+                log.error(`Error: Insurer mapping for this industry code was not found, this shouldn't happen! Falling back to Talage industry code.`);
+
                 // If insurer industry codes are required and none are returned, it is an error and we should reject.
                 if (this.requiresInsurerIndustryCodes) {
                     this.reasons.push("An insurer industry class code was not found for the given industry.");
