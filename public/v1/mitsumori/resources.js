@@ -43,12 +43,63 @@ async function getResources(req, res, next){
             officerTitles(resources);
             break;
         case "policies":
+            coverageAmounts(resources);
+            deductibleAmounts(resources);
+            carriersList(resources);
+            policiesEnabled(resources);
             break;
     }
 
     res.send(200, resources);
 }
-
+const policiesEnabled = resources => {
+    resources.policiesEnabled = ["bop","gl", "wc"]
+}
+const coverageAmounts = resources => {
+   resources.coverageAmounts = {
+       bop: 
+       [
+           "$1,000,000 / $1,000,000 / $1,000,000", 
+           "$1,000,000 / $2,000,000 / $1,000,000",  
+           "$1,000,000 / $2,000,000 / $2,000,000"
+        ],
+       gl: [
+           "$1,000,000 / $1,000,000 / $1,000,000",
+           "$1,000,000 / $2,000,000 / $1,000,000", 
+           "$1,000,000 / $2,000,000 / $2,000,000"
+        ],
+       wc: [
+           "$100,000 / $100,000 / $100,000",
+           "$500,000 / $500,000 / $500,000",
+           "$500,000 / $1,000,000 / $500,000",
+           "$1,000,000 / $1,000,000 / $1,000,000"
+        ]
+   }
+}
+const deductibleAmounts = resources => {
+    resources.deductibleAmounts ={
+        bop: ["$1500, $1000,$500"],
+        gl: ["$1500, $1000,$500"],
+    }
+};
+const carriersList = resources => {
+    resources.carriersList = {
+        bop: 
+        [
+            "The Hartford",
+            "American Family Insurance",
+            "Farmers",
+            "Progressive"
+        ],
+        gl: 
+        [
+            "The Hartford",
+            "American Family Insurance",
+            "Farmers",
+            "Progressive"
+        ]
+    }
+};
 const unemploymentNumberStates = resources => {
     resources.unemploymentNumberStates = [
         "CO",
