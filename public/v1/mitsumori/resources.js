@@ -30,6 +30,7 @@ async function getResources(req, res, next){
         case "business":
             break;
         case "claims":
+            policyTypesSelection(resources);
             break;
         case "locations":
             territories(resources);
@@ -52,6 +53,15 @@ async function getResources(req, res, next){
 
     res.send(200, resources);
 }
+
+const policyTypesSelection = resources => {
+    resources.policyTypeSelections = [
+        "Business Owner's Policy (BOP)",
+        "General Liability",
+        "Workers' Compensation"
+    ]
+}
+
 const policiesEnabled = resources => {
     resources.policiesEnabled = ["BOP","GL", "WC"]
 }
