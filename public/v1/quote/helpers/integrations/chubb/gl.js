@@ -54,34 +54,34 @@ module.exports = class ChubbGL extends Integration {
 
         // Check Industry Code Support
         if (!this.industry_code.cgl) {
-            log.error(`Appid: ${this.app.id} Chubb GL: CGL not set for Industry Code ${this.industry_code.id} ` + __location);
+            log.warn(`Appid: ${this.app.id} Chubb GL: CGL not set for Industry Code ${this.industry_code.id} ` + __location);
             this.reasons.push(`CGL not set for Industry Code ${this.industry_code.id}`);
-            return this.return_result('error');
+            return this.return_result('autodeclined');
         }
         if (!this.industry_code.iso) {
-            log.error(`Appid: ${this.app.id} Chubb GL:  ISO not set for Industry Code ${this.industry_code.id} ` + __location);
+            log.warn(`Appid: ${this.app.id} Chubb GL:  ISO not set for Industry Code ${this.industry_code.id} ` + __location);
             this.reasons.push(`ISO not set for Industry Code ${this.industry_code.id}`);
-            return this.return_result('error');
+            return this.return_result('autodeclined');
         }
         if (!this.industry_code.attributes) {
-            log.error(`Appid: ${this.app.id} Chubb GL: Missing Attributes for Industry Code ${this.industry_code.id} ` + __location);
+            log.warn(`Appid: ${this.app.id} Chubb GL: Missing Attributes for Industry Code ${this.industry_code.id} ` + __location);
             this.reasons.push(`Missing Attributes for Industry Code ${this.industry_code.id}`);
-            return this.return_result('error');
+            return this.return_result('autodeclined');
         }
         if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'class_code_id')) {
-            log.error(`Appid: ${this.app.id} Chubb GL: Missing required attribute 'class_code_id' for Industry Code ${this.industry_code.id} ` + __location);
+            log.warn(`Appid: ${this.app.id} Chubb GL: Missing required attribute 'class_code_id' for Industry Code ${this.industry_code.id} ` + __location);
             this.reasons.push(`Missing required attribute 'class_code_id' for Industry Code ${this.industry_code.id}`);
-            return this.return_result('error');
+            return this.return_result('autodeclined');
         }
         if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'segment')) {
-            log.error(`Appid: ${this.app.id} Chubb GL: Missing required attribute 'segment' for Industry Code ${this.industry_code.id} ` + __location);
+            log.warn(`Appid: ${this.app.id} Chubb GL: Missing required attribute 'segment' for Industry Code ${this.industry_code.id} ` + __location);
             this.reasons.push(`Missing required attribute 'segment' for Industry Code ${this.industry_code.id}`);
-            return this.return_result('error');
+            return this.return_result('autodeclined');
         }
         if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'exposure')) {
-            log.error(`Appid: ${this.app.id} Chubb GL: Missing required attribute 'exposure' for Industry Code ${this.industry_code.id} ` + __location);
+            log.warn(`Appid: ${this.app.id} Chubb GL: Missing required attribute 'exposure' for Industry Code ${this.industry_code.id} ` + __location);
             this.reasons.push(`Missing required attribute 'exposure' for Industry Code ${this.industry_code.id}`);
-            return this.return_result('error');
+            return this.return_result('autodeclined');
         }
 
         // Determine which API host to use
