@@ -51,5 +51,5 @@ const getRoute = async(currentRoute, appId) => {
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-    server.addGetAuthAppWF("Get Next Route", `${basePath}/get-route`, getNextRoute);
+    server.addGetAuthQuoteApp("Get Next Route", `${basePath}/get-route`, getNextRoute);
 }

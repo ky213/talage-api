@@ -51,6 +51,7 @@
         "pdfmake": "^0.1.65",
         "php-serialize": "^3.0.1",
         "promptly": "^3.2.0",
+        "redis": "^3.0.2",
         "request": "^2.88.2",
         "restify": "^8.5.1",
         "restify-cors-middleware": "^1.1.1",

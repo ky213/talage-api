@@ -58,17 +58,21 @@ const requiredVariables = [
     // Sendgrid
     'SENDGRID_API_KEY',
     // SQS
-    'SQS_TASK_QUEUE'
+    'SQS_TASK_QUEUE',
+    //MONGO
+    'MONGODB_CONNECTIONURL',
+    'MONGODB_DATABASENAME'
 ];
 
 // Optional variables with their defaults if they are not provided
 const optionalVariables = [
     'AWS_USE_KEYS',
-    'USE_MONGO',
-    'MONGODB_CONNECTIONURL',
-    'MONGODB_DATABASENAME',
     'MONGODB_CONNECTIONURLQUERY',
-    'USING_AURORA_CLUSTER'
+    'USING_AURORA_CLUSTER',
+    'USE_REDIS',
+    'REDIS_HOST',
+    'REDIS_PORT',
+    'REDIS_CLUSTER'
 ]
 
 exports.load = () => {

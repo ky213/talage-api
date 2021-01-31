@@ -1,7 +1,7 @@
 /* eslint-disable object-curly-newline */
 /* eslint-disable no-extra-parens */
 'use strict';
-const auth = require('./helpers/auth.js');
+const auth = require('./helpers/auth-agencyportal.js');
 const crypt = global.requireShared('./services/crypt.js');
 const csvStringify = require('csv-stringify');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
