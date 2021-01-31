@@ -20,6 +20,9 @@ const AgencyLandingPageBO = global.requireShared("./models/AgencyLandingPage-BO.
 const ColorSchemeBO = global.requireShared("./models/ColorScheme-BO.js");
 const IndustryCodeCategoryBO = global.requireShared("./models/IndustryCodeCategory-BO.js");
 
+
+// This should not be in API path - BP
+
 /**
  * Parses the quote app request URL and extracts the agency and page slugs
  *
@@ -75,6 +78,8 @@ function parseQuoteURL(url) {
         pageSlug: pageSlug
     };
 }
+
+// This shoud not be in API path - BP
 
 /**
  * Retrieves the agency information from a given agency/page slug.
@@ -316,6 +321,9 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
 
     return agencyWebInfo;
 }
+
+
+// This should not be in API path - BP
 
 /**
  * Responds to POST requests and returns policy quotes
@@ -584,10 +592,11 @@ async function getAgencyMetadata(req, res, next) {
     return next();
 }
 
+// This looks like it should be under the mitsumori path, not API - BP
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
     // temporary use AuthAppWF (same as quote app V1)
     // server.addGetAuthAppWF('Get Quote Agency', `${basePath}/agency`, getAgency);
-    server.addGetAuthAppWF("Get Agency Metadata", `${basePath}/agency/metadata`, getAgencyMetadata);
-    server.addGetAuthAppWF("Get Agency Landing Page", `${basePath}/agency/landing-page`, getAgencyLandingPage);
+    server.addGetAuthAppApi("Get Agency Metadata", `${basePath}/agency/metadata`, getAgencyMetadata);
+    server.addGetAuthAppApi("Get Agency Landing Page", `${basePath}/agency/landing-page`, getAgencyLandingPage);
 };

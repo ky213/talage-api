@@ -4,7 +4,7 @@
 'use strict';
 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const serverHelper = global.requireRootPath('server.js');
-//const auth = require('./helpers/auth.js');
+//const auth = require('./helpers/auth-agencyportal.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const AgencyNetworkInsurerBO = global.requireShared('./models/AgencyNetworkInsurer-BO.js');
 const InsurerBO = global.requireShared('models/Insurer-BO.js');

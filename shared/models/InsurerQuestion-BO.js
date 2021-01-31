@@ -280,6 +280,15 @@ const properties = {
         "type": "number",
         "dbType": "tinyint(1)"
     },
+    "questionSubjectArea": {
+        "default": "general",
+        "encrypted": false,
+        "hashed": false,
+        "required": true,
+        "rules": null,
+        "type": "string",
+        "dbType": "varchar(150)"
+    },
     "text": {
         "default": "",
         "encrypted": false,
@@ -306,6 +315,24 @@ const properties = {
         "rules": null,
         "type": "string",
         "dbType": "varchar(150)"
+    },
+    "effectiveDate": {
+        "default": "1980-01-01 00:00:00",
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "datetime",
+        "dbType": "datetime"
+    },
+    "expirationDate": {
+        "default": "2100-01-01 00:00:00",
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "datetime",
+        "dbType": "datetime"
     },
     "created": {
         "default": null,

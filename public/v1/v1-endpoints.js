@@ -156,11 +156,13 @@ exports.registerEndpoints = (server) => {
         registerEndpoint(server, 'api', 'industry-codes-rt');
         registerEndpoint(server, 'api', 'agency-rt');
         registerEndpoint(server, 'api', 'application-rt');
+        registerEndpoint(server, 'api', 'auth-api-rt');
 
         // new quote app endpoints
-        registerEndpoint(server, 'mitsumori', 'route-planner');
-        registerEndpoint(server, 'mitsumori', 'resources');
-        registerEndpoint(server, 'mitsumori', 'agency');
+        registerEndpoint(server, 'mitsumori', 'route-planner-rt');
+        registerEndpoint(server, 'mitsumori', 'resources-rt');
+        registerEndpoint(server, 'mitsumori', 'agency-quote-rt');
+        registerEndpoint(server, 'mitsumori', 'auth-quote-rt');
     }
 
     // Server.AddGet('Uptime Check', '/', GetUptime);

@@ -38,5 +38,5 @@ async function getAgency(req, res, next) {
 exports.registerEndpoint = (server, basePath) => {
     // temporary use AuthAppWF (same as quote app V1)
     // server.addGetAuthAppWF('Get Quote Agency', `${basePath}/agency`, getAgency);
-    server.addGetAuthAppWF("Get Agency Id", `${basePath}/agency`, getAgency);
+    server.addGetAuthQuoteApp("Get Quote App Agency Id", `${basePath}/agency`, getAgency);
 };

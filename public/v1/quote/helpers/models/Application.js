@@ -254,23 +254,7 @@ module.exports = class Application {
 
         this.business.locations.forEach(location => {
             // identification number modification
-            if (location.identification_number) {
-                if (validator.ein(location.identification_number)) {
-                    location.identification_number_type = 'EIN';
-                }
-                else if (location.business_entityType === 'Sole Proprietorship' && validator.ssn(location.identification_number)) {
-                    location.identification_number_type = 'SSN';
-                }
-                else {
-                    throw new Error(`Data Error: Invalid formatting for property: EIN. Value: ${location.identification_number}.`);
-                }
-
-                // Strip out the slashes, insurers don't like slashes
-                location.identification_number = location.identification_number.replace(/-/g, '');
-            }
-            else {
-                throw new Error('Data Error: Identification Number is required');
-            }
+            location.identification_number_type = this.applicationDocData.hasEin ? 'EIN' : 'SSN';
 
             // default unemployment_num to 0
             if (!location.unemployment_num || !unemployment_number_states.includes(location.state_abbr)) {
@@ -411,13 +395,15 @@ module.exports = class Application {
 
         const policy_types = [];
         this.policies.forEach(policy => {
-            policy_types.push(policy.type);
+            policy_types.push({
+                type: policy.type,
+                effectiveDate: policy.effective_date
+            });
         });
 
         // Get a list of all questions the user may need to answer
         const insurer_ids = this.get_insurer_ids();
         const wc_codes = this.get_wc_codes();
-
         let questions = null;
         try {
             questions = await questionsSvc.GetQuestionsForBackend(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids, true);
@@ -426,7 +412,6 @@ module.exports = class Application {
             log.error(`Translation Error: GetQuestionsForBackend: ${e}. ` + __location);
             throw e;
         }
-
         // Grab the answers the user provided to our questions and reset the question object
         const user_questions = this.questions;
         this.questions = {};

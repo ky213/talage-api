@@ -274,7 +274,7 @@ const validateBusiness = async(applicationDocData) => {
     }
 
     if (!(validator.ein(applicationDocData.ein) || validator.ssn(applicationDocData.ein))) {
-        throw new Error(`Invalid formatting for property: EIN. Value: ${applicationDocData.ein}`);
+        throw new Error(`Invalid formatting for property: EIN`);
     }
 }
 

@@ -1,5 +1,5 @@
 'use strict';
-const auth = require('./helpers/auth.js');
+const auth = require('./helpers/auth-agencyportal.js');
 const crypt = require('../../../shared/services/crypt.js');
 const jwt = require('jsonwebtoken');
 const serverHelper = require('../../../server.js');
