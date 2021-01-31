@@ -9,7 +9,7 @@ const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 
 // const util = require('util');
-const auth = require('./helpers/auth.js');
+const auth = require('./helpers/auth-agencyportal.js');
 const validator = global.requireShared('./helpers/validator.js');
 const serverHelper = require('../../../server.js');
 // eslint-disable-next-line no-unused-vars

@@ -173,5 +173,5 @@ const territories = resources => {
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-    server.addGetAuthAppWF("Get Next Route", `${basePath}/resources`, getResources);
+    server.addGetAuthQuoteApp("Get Resources for Quote App", `${basePath}/resources`, getResources);
 }
