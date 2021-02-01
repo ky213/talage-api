@@ -30,7 +30,6 @@ async function getResources(req, res, next){
         case "business":
             break;
         case "claims":
-            policyTypesSelection(resources);
             break;
         case "locations":
             territories(resources);
@@ -54,62 +53,62 @@ async function getResources(req, res, next){
     res.send(200, resources);
 }
 
-const policyTypesSelection = resources => {
-    resources.policyTypeSelections = [
-        "Business Owner's Policy (BOP)",
-        "General Liability",
-        "Workers' Compensation"
-    ]
+const policiesEnabled = resources => {
+    resources.policiesEnabled = ["BOP", "GL", "WC"];
 }
 
-const policiesEnabled = resources => {
-    resources.policiesEnabled = ["BOP","GL", "WC"]
-}
 const coverageAmounts = resources => {
-   resources.coverageAmounts = {
-       bop: 
-       [
-           "$1,000,000 / $1,000,000 / $1,000,000", 
-           "$1,000,000 / $2,000,000 / $1,000,000",  
-           "$1,000,000 / $2,000,000 / $2,000,000"
+    resources.coverageAmounts = {
+        bop:
+        [
+            "$1,000,000 / $1,000,000 / $1,000,000",
+            "$1,000,000 / $2,000,000 / $1,000,000",
+            "$1,000,000 / $2,000,000 / $2,000,000"
         ],
-       gl: [
-           "$1,000,000 / $1,000,000 / $1,000,000",
-           "$1,000,000 / $2,000,000 / $1,000,000", 
-           "$1,000,000 / $2,000,000 / $2,000,000"
+        gl: [
+            "$1,000,000 / $1,000,000 / $1,000,000",
+            "$1,000,000 / $2,000,000 / $1,000,000",
+            "$1,000,000 / $2,000,000 / $2,000,000"
         ],
-       wc: [
-           "$100,000 / $100,000 / $100,000",
-           "$500,000 / $500,000 / $500,000",
-           "$500,000 / $1,000,000 / $500,000",
-           "$1,000,000 / $1,000,000 / $1,000,000"
+        wc: [
+            "$100,000 / $100,000 / $100,000",
+            "$500,000 / $500,000 / $500,000",
+            "$500,000 / $1,000,000 / $500,000",
+            "$1,000,000 / $1,000,000 / $1,000,000"
         ]
-   }
-}
-const deductibleAmounts = resources => {
-    resources.deductibleAmounts ={
-        bop: ["$1500", "$1000","$500"],
-        gl: ["$1500", "$1000","$500"],
     }
-};
+}
+
+const deductibleAmounts = resources => {
+    resources.deductibleAmounts = {
+        bop: ["$1500",
+            "$1000",
+            "$500"],
+        gl: ["$1500",
+            "$1000",
+            "$500"]
+    };
+}
+
 const carriersList = resources => {
     resources.carriersList = {
-        bop: 
+        bop:
         [
             "The Hartford",
             "American Family Insurance",
             "Farmers",
             "Progressive"
         ],
-        gl: 
+        gl:
         [
             "The Hartford",
             "American Family Insurance",
             "Farmers",
             "Progressive"
         ]
-    }
-};
+    };
+}
+
 const unemploymentNumberStates = resources => {
     resources.unemploymentNumberStates = [
         "CO",
@@ -234,5 +233,5 @@ const territories = resources => {
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-    server.addGetAuthQuoteApp("Get Resources for Quote App", `${basePath}/resources`, getResources);
+    server.addGetAuthAppWF("Get Next Route", `${basePath}/resources`, getResources);
 }
