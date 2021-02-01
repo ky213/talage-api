@@ -51,34 +51,34 @@ module.exports = class ChubbBOP extends Integration {
 
         // Check Industry Code Support
         if (!this.industry_code.cgl) {
-            log.error(`Chubb BOP: CGL not set for Industry Code ${this.industry_code.id} ` + __location)
+            log.warn(`Chubb BOP: CGL not set for Industry Code ${this.industry_code.id} ` + __location)
             this.reasons.push(`CGL not set for Industry Code ${this.industry_code.id}`);
-            return this.return_result('error');
+            return this.return_result('autodeclined');
         }
         if (!this.industry_code.iso) {
-            log.error(`Chubb BOP: ISO not set for Industry Code ${this.industry_code.id} ` + __location)
+            log.warn(`Chubb BOP: ISO not set for Industry Code ${this.industry_code.id} ` + __location)
             this.reasons.push(`ISO not set for Industry Code ${this.industry_code.id}`);
-            return this.return_result('error');
+            return this.return_result('autodeclined');
         }
         if (!this.industry_code.attributes) {
-            log.error(`Chubb BOP: Missing Attributes for Industry Code ${this.industry_code.id} ` + __location)
+            log.warn(`Chubb BOP: Missing Attributes for Industry Code ${this.industry_code.id} ` + __location)
             this.reasons.push(`Missing Attributes for Industry Code ${this.industry_code.id}`);
-            return this.return_result('error');
+            return this.return_result('autodeclined');
         }
         if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'class_code_id')) {
-            log.error(`Chubb BOP: Missing required attribute 'class_code_id' for Industry Code ${this.industry_code.id} ` + __location)
+            log.warn(`Chubb BOP: Missing required attribute 'class_code_id' for Industry Code ${this.industry_code.id} ` + __location)
             this.reasons.push(`Missing required attribute 'class_code_id' for Industry Code ${this.industry_code.id}`);
-            return this.return_result('error');
+            return this.return_result('autodeclined');
         }
         if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'segment')) {
-            log.error(`Chubb BOP: Missing required attribute 'segment' for Industry Code ${this.industry_code.id}` + __location)
+            log.warn(`Chubb BOP: Missing required attribute 'segment' for Industry Code ${this.industry_code.id}` + __location)
             this.reasons.push(`Missing required attribute 'segment' for Industry Code ${this.industry_code.id}`);
-            return this.return_result('error');
+            return this.return_result('autodeclined');
         }
         if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'exposure')) {
-            log.error(`Chubb BOP: Missing required attribute 'exposure' for Industry Code ${this.industry_code.id} ` + __location)
+            log.warn(`Chubb BOP: Missing required attribute 'exposure' for Industry Code ${this.industry_code.id} ` + __location)
             this.reasons.push(`Missing required attribute 'exposure' for Industry Code ${this.industry_code.id}`);
-            return this.return_result('error');
+            return this.return_result('autodeclined');
         }
 
         // Determine which API host to use
@@ -677,7 +677,10 @@ module.exports = class ChubbBOP extends Integration {
                         let MsgStatusCd = null;
                         try{
                             MsgStatusCd = BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].MsgStatusCd[0];
-                            this.reasons.push(BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0])
+                            // not always present.
+                            if(BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0]){
+                                this.reasons.push(BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0])
+                            }
                         }
                         catch(err){
                             log.error("Chubb GL error getting  MsgStatus " + err + __location);

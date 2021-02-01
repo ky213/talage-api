@@ -6,8 +6,6 @@
 'use strict';
 
 const ActivityCode = require('./ActivityCode.js');
-const validator = global.requireShared('./helpers/validator.js');
-//const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
 
 module.exports = class Location {
 

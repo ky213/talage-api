@@ -495,6 +495,9 @@ module.exports = class QuoteBO {
                         delete newObjectJSON[changeNotUpdateList[i]];
                     }
                 }
+                // Add updatedAt
+                newObjectJSON.updatedAt = new Date();
+
                 const query = {"quoteId": quoteId};
                 let newQuoteJSON = null;
                 try {

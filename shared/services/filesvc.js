@@ -54,7 +54,7 @@ exports.PutFile = function(s3Key, fileContent) {
                 'Key': s3Path
             }, function(err) {
                 if (err) {
-                    log.error("File Service PUT: " + err.message + __location);
+                    log.error(`File Service PUT:  ${global.settings.S3_BUCKET}/${s3Path} error:` + err.message + __location);
                     reject(err.message);
                 }
 
