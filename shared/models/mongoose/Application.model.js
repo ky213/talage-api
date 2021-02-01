@@ -46,6 +46,17 @@ const ActivtyCodePayrollSchema = new Schema({
     ownerPayRoll: {type: Number, required: false}
 });
 
+const QuestionSchema = new Schema({
+    questionId: {type: Number, required: [true, 'questionId required']},
+    questionType: {type: String, required: false},
+    questionText: {type: String, required: false},
+    hint: {type: String, required: false},
+    hidden: {type: Boolean, default: false},
+    answerId: {type: Number, required: false},
+    answerValue: {type: String, required: false},
+    answerList: [String]
+});
+
 const locationSchema = new Schema({
     address: {type: String, required: false},
     address2: {type: String, required: false},
@@ -60,7 +71,8 @@ const locationSchema = new Schema({
     square_footage:  {type: Number, required: false},
     unemployment_num:  {type: Number, required: false},
     billing: {type: Boolean, required: false, default: false},
-    activityPayrollList: [ActivtyCodeEmployeeTypeSchema]
+    activityPayrollList: [ActivtyCodeEmployeeTypeSchema],
+    questions: [QuestionSchema]
 });
 
 const ownerSchema = new Schema({
@@ -96,19 +108,7 @@ const PolicySchema = new Schema({
     coverage: {type: Number, required: false}, // BOP field
     coverageLapse:  {type: Boolean, default: false},
     coverageLapseNonPayment: {type: Boolean, default: false},
-    waiverSubrogation: {type: Boolean, default: false},
-    claims:  [claimSchema]
-});
-
-const QuestionSchema = new Schema({
-    questionId: {type: Number, required: [true, 'questionId required']},
-    questionType: {type: String, required: false},
-    questionText: {type: String, required: false},
-    hint: {type: String, required: false},
-    hidden: {type: Boolean, default: false},
-    answerId: {type: Number, required: false},
-    answerValue: {type: String, required: false},
-    answerList: [String]
+    waiverSubrogation: {type: Boolean, default: false}
 });
 
 // note: ein - not saved to db
@@ -182,7 +182,7 @@ const ApplicationSchema = new Schema({
     agencyPortalModifiedUser: {type: String},
     active: {type: Boolean, default: true},
     corporationType: {type: String, required: false},
-    quotingStartedDate: {type: Date},
+    quotingStartedDate: {type: Date}
 });
 // NOTE:  EIN is not ever saved to database.
 
