@@ -1,3 +1,4 @@
+// AmTrust Client
 const axios = require('axios');
 const queryString = require("querystring");
 
