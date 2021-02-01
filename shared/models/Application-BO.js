@@ -471,6 +471,11 @@ module.exports = class ApplicationModel {
                 this.getBusinessInfo(applicationJSON);
             }
 
+            // Re-calculate our quote premium metrics whenever we bind.
+            if (workflowStep === 'bindRequest') {
+                await this.recalculateQuoteMetrics(applicationJSON.uuid);
+            }
+
             resolve(true);
 
 
@@ -2807,7 +2812,7 @@ module.exports = class ApplicationModel {
         }
 
         let lowestBoundQuote = (product) =>
-            _.sum(quoteList
+            _.min(quoteList
                 .filter(t =>
                     t.policyType === product && (
                     t.bound ||
@@ -2815,7 +2820,7 @@ module.exports = class ApplicationModel {
                 .map(t => t.amount));
 
         let lowestQuote = (product) =>
-            _.sum(quoteList
+            _.min(quoteList
                 .filter(t =>
                     t.policyType === product && (
                     t.bound ||
@@ -2831,13 +2836,12 @@ module.exports = class ApplicationModel {
                 BOP: lowestBoundQuote('BOP'),
             },
             lowestQuoteAmount: {
-                GL: lowestBoundQuote('GL'),
-                WC: lowestBoundQuote('WC'),
-                BOP: lowestBoundQuote('BOP'),
+                GL: lowestQuote('GL'),
+                WC: lowestQuote('WC'),
+                BOP: lowestQuote('BOP'),
             },
         };
 
-        console.log(applicationId, metrics);
         await this.updateMongo(applicationId, {
             metrics
         });
