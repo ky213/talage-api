@@ -1155,11 +1155,11 @@ async function bindQuote(req, res, next) {
         await quoteBO.bindQuote(quoteId, applicationId, req.authentication.userID);
 
         // Application status must be updated after binding a quote.
-        await status.updateApplicationStatus(req.body.applicationId);
+        await status.updateApplicationStatus(applicationDB);
 
         // Update Application-level quote metrics when we do a bind.
         const applicationBO = new ApplicationBO();
-        await applicationBO.recalculateQuoteMetrics(this.quoteDoc.applicationId);
+        await applicationBO.recalculateQuoteMetrics(applicationId);
     }
     catch (err) {
         log.error(`Error Binding  application ${applicationId ? applicationId : ''}: ${err}` + __location);
