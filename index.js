@@ -9,6 +9,7 @@ global.requireRootPath = (moduleName) => require(`${global.rootPath}/${moduleNam
 const colors = require('colors');
 const logger = require('./shared/services/logger.js');
 const db = require('./shared/services/db.js');
+const redisSvc = require('./shared/services/redissvc.js');
 const s3 = require('./shared/services/s3.js');
 const cognitoSvc = require('./shared/services/cognitosvc.js');
 const globalSettings = require('./settings.js');
@@ -113,38 +114,41 @@ async function main(){
     }
     global.cognitoSvc = cognitoSvc;
 
+    // Connect to the redis
+    if(!await redisSvc.connect()){
+        logLocalErrorMessage('Error connecting to redis.');
+        //Only used by QuoteApp V2 and public API.
+        // leave rest of API functional.
+        //return;
+    }
+    //set up global even if connect fails, errors will be contained to redisSvc vs undefined errors.
+    global.redisSvc = redisSvc;
+
+
     // Load the database module and make it globally available
     global.db = global.requireShared('./services/db.js');
 
 
     // MONGO
-    if(global.settings.USE_MONGO === "YES"){
-        var mongoose = require('./mongoose');
-        global.monogdb = mongoose();
-        //Mongo connect event here to setup listeners
-        talageEvent.on('mongo-connected', function() {
-            //log.info('Assetws Mongoose connected to mongodb');
-            if(hasMongoMadeInitialConnected === false){
-                hasMongoMadeInitialConnected = true;
-                setupListeners();
-            }
-        });
+    var mongoose = require('./mongoose');
+    global.monogdb = mongoose();
+    //Mongo connect event here to setup listeners
+    talageEvent.on('mongo-connected', function() {
+        //log.info('Assetws Mongoose connected to mongodb');
+        if(hasMongoMadeInitialConnected === false){
+            hasMongoMadeInitialConnected = true;
+            setupListeners();
+        }
+    });
 
-        talageEvent.on('mongo-disconnected', function() {
-            log.warn('Mongoose disconnected');
+    talageEvent.on('mongo-disconnected', function() {
+        log.warn('Mongoose disconnected');
 
-        });
+    });
 
-        talageEvent.on('mongo-error', function(err) {
-            log.error('Mongoose database error ' + err);
-        });
-
-    }
-    else {
-        await setupListeners();
-    }
-
-
+    talageEvent.on('mongo-error', function(err) {
+        log.error('Mongoose database error ' + err);
+    });
 }
 
 /**

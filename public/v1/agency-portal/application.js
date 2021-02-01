@@ -2,7 +2,7 @@
 /* eslint-disable require-jsdoc */
 'use strict';
 const validator = global.requireShared('./helpers/validator.js');
-const auth = require('./helpers/auth.js');
+const auth = require('./helpers/auth-agencyportal.js');
 const serverHelper = global.requireRootPath('server.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const ApplicationBO = global.requireShared('models/Application-BO.js');

@@ -1,6 +1,6 @@
 'use strict';
 
-const auth = require('./helpers/auth.js');
+const auth = require('./helpers/auth-agencyportal.js');
 const serverHelper = require('../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
 // eslint-disable-next-line no-unused-vars

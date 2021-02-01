@@ -254,23 +254,7 @@ module.exports = class Application {
 
         this.business.locations.forEach(location => {
             // identification number modification
-            if (location.identification_number) {
-                if (validator.ein(location.identification_number)) {
-                    location.identification_number_type = 'EIN';
-                }
-                else if (location.business_entityType === 'Sole Proprietorship' && validator.ssn(location.identification_number)) {
-                    location.identification_number_type = 'SSN';
-                }
-                else {
-                    throw new Error(`Data Error: Invalid formatting for property: EIN. Value: ${location.identification_number}.`);
-                }
-
-                // Strip out the slashes, insurers don't like slashes
-                location.identification_number = location.identification_number.replace(/-/g, '');
-            }
-            else {
-                throw new Error('Data Error: Identification Number is required');
-            }
+            location.identification_number_type = this.applicationDocData.hasEin ? 'EIN' : 'SSN';
 
             // default unemployment_num to 0
             if (!location.unemployment_num || !unemployment_number_states.includes(location.state_abbr)) {

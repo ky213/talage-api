@@ -151,6 +151,20 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'administration', 'user-group-rt');
     registerEndpoint(server, 'administration', 'mapping-rt');
 
+    if(global.settings.ENABLE_GENERIC_API === "YES"){
+        registerEndpoint(server, 'api', 'industry-categories-rt');
+        registerEndpoint(server, 'api', 'industry-codes-rt');
+        registerEndpoint(server, 'api', 'agency-rt');
+        registerEndpoint(server, 'api', 'application-rt');
+        registerEndpoint(server, 'api', 'auth-api-rt');
+
+        // new quote app endpoints
+        registerEndpoint(server, 'mitsumori', 'route-planner-rt');
+        registerEndpoint(server, 'mitsumori', 'resources-rt');
+        registerEndpoint(server, 'mitsumori', 'agency-quote-rt');
+        registerEndpoint(server, 'mitsumori', 'auth-quote-rt');
+    }
+
     // Server.AddGet('Uptime Check', '/', GetUptime);
     // AWS load balancers and pingdom send /uptime
     server.addGet('Uptime Check', '/uptime', getUptime);
