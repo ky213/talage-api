@@ -3,6 +3,7 @@
 const auth = require('./helpers/auth-agencyportal.js');
 const serverHelper = require('../../../server.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
+const moment = require("moment")
 
 /**
  * Define some helper functions -- better documentation coming soon (Josh)
@@ -66,6 +67,11 @@ async function getReports(req, res, next) {
     if (!utcOffset) {
         utcOffset = '+00:00';
     }
+    let offSetParts = utcOffset.split(":");
+    let offSetHours = 0;
+    if(offSetParts.length > 0){
+        offSetHours = parseInt(offSetParts[0],10);
+    }
 
     // When the static query parameter is set only the queries keyed under 'static' will be executed
     let initialRequest = false;
@@ -77,8 +83,10 @@ async function getReports(req, res, next) {
     if (!initialRequest) {
         // Process the dates if they were included in the request or return an error if they werent
         if (startDate && endDate) {
-            startDate = db.escape(`${startDate.substring(0, 10)} ${startDate.substring(11, 19)}`);
-            endDate = db.escape(`${endDate.substring(0, 10)} ${endDate.substring(11, 19)}`);
+            const startDateMoment = moment(startDate).add(-1 * offSetHours,'h');
+            startDate = db.escape(`${startDateMoment.format(db.dbTimeFormat())}`);
+            const endDateMoment = moment(endDate).add(-1 * offSetHours,'h');
+            endDate = db.escape(`${endDateMoment.format(db.dbTimeFormat())}`);
         }
         else {
             log.info('Bad Request: Query parameters missing');
