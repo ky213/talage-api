@@ -322,7 +322,9 @@ module.exports = class LibertySBOP extends Integration {
             Coverage.ele('CoverageCd', 'BPP');
             const Limit = Coverage.ele('Limit');
             const FormatCurrencyAmt = Limit.ele('FormatCurrencyAmt');
-            FormatCurrencyAmt.ele('Amt', "10000"); // defaulted to LM's max limit of $10,000
+            let bpp = applicationDocData.policies[0].coverage;
+            bpp = (!bpp || bpp > 10000) ? 10000 : bpp; // defaulted to LM's max limit of $10,000 if desired coverage is > 10,000
+            FormatCurrencyAmt.ele('Amt', bpp); 
             Limit.ele('LimitAppliesToCd', 'PerOcc');
         }
 
@@ -384,9 +386,9 @@ module.exports = class LibertySBOP extends Integration {
         // Get the XML structure as a string
         const xml = ACORD.end({'pretty': true});
 
-        log.debug("=================== QUOTE REQUEST ===================");
-        log.debug(`Liberty Mutual request (Appid: ${this.app.id}): \n${xml}`);
-        log.debug("=================== QUOTE REQUEST ===================");
+        log.info("=================== QUOTE REQUEST ===================");
+        log.info(`Liberty Mutual request (Appid: ${this.app.id}): \n${xml}`);
+        log.info("=================== QUOTE REQUEST ===================");
 
         // Determine which URL to use
         const host = 'ci-policyquoteapi.libertymutual.com';
@@ -467,9 +469,9 @@ module.exports = class LibertySBOP extends Integration {
                         errorMessage += 'Please review the logs for more details.';
                     }
                 }
-                log.debug("=================== QUOTE ERROR ===================");
+                log.error("=================== QUOTE ERROR ===================");
                 log.error(`Liberty Mutual Simple BOP send_json_request error (Appid: ${this.app.id}):\n${JSON.stringify(result.ACORD.InsuranceSvcRs[0].PolicyRs[0].MsgStatus[0], null, 4)}`);
-                log.debug("=================== QUOTE ERROR ===================");
+                log.error("=================== QUOTE ERROR ===================");
                 return this.client_error(errorMessage, additionalReasons);
             case "successwithinfo":
                 log.info(`Liberty Mutual (Appid: ${this.app.id}): Quote returned with status Sucess With Info.`);
@@ -493,9 +495,9 @@ module.exports = class LibertySBOP extends Integration {
         }
 
         // PARSE SUCCESSFUL PAYLOAD
-        log.debug("=================== QUOTE RESULT ===================");
-        log.debug(`Liberty Mutual Simple BOP (Appid: ${this.app.id}):\n ${JSON.stringify(result, null, 4)}`);
-        log.debug("=================== QUOTE RESULT ===================");
+        log.info("=================== QUOTE RESULT ===================");
+        log.info(`Liberty Mutual Simple BOP (Appid: ${this.app.id}):\n ${JSON.stringify(result, null, 4)}`);
+        log.info("=================== QUOTE RESULT ===================");
 
         let quoteNumber = null;
         let quoteProposalId = null;
