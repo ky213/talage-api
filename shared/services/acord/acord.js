@@ -1,6 +1,4 @@
 const moment = require('moment');
-const { Console } = require('console');
-const { runInThisContext } = require('vm');
 const PdfHelper = require('./pdf-helper');
 
 const applicationBO = global.requireShared('./models/Application-BO.js');
@@ -47,7 +45,13 @@ module.exports = class ACORD{
         // Get the application mongo doc
         const application = new applicationBO();
 
-        this.applicationDoc = await application.getMongoDocbyMysqlId(this.applicationId);
+        try {
+            this.applicationDoc = await application.getMongoDocbyMysqlId(this.applicationId);
+        }
+        catch (err) {
+            log.error(`Failed getting application with ID: ${this.applicationId}` + err + __location);
+            throw err;
+        }
 
         if(this.applicationDoc === null){
             log.error(`Application ID: ${this.applicationId} not found. Continuing Acord generation`);
@@ -64,32 +68,74 @@ module.exports = class ACORD{
             // Get the question parent IDs
             const question = new questionBO();
             for(const q of this.questionList){
-                const newQuestion = await question.getById(q.questionId);
-                q.parent = newQuestion.parent;
+                try {
+                    const newQuestion = await question.getById(q.questionId);
+                    q.parent = newQuestion.parent;
+                }
+                catch (err) {
+                    log.error(`Failed getting question with ID: ${q.questionId}` + err + __location);
+                }
             }
 
             // Get the activity code descriptions
             if(this.applicationDoc.activityCodes){
                 const activityCode = new activityCodeBO();
                 for(const code of this.applicationDoc.activityCodes){
-                    const newCode = await activityCode.getById(code.ncciCode);
-                    code.description = newCode.description;
+                    try {
+                        const newCode = await activityCode.getById(code.ncciCode);
+                        code.description = newCode.description;
+                    }
+                    catch (err) {
+                        log.error(`Failed getting activity code with ID: ${code.ncciCode}` + err + __location);
+                    }
                 }
                 this.activityCodeList = this.applicationDoc.activityCodes;
             }
 
             const agency = new agencyBO();
-            this.agencyDoc = await agency.getById(this.applicationDoc.agencyId);
+            try {
+                this.agencyDoc = await agency.getById(this.applicationDoc.agencyId);
+            }
+            catch (err) {
+                log.error(`Failed getting agency with ID: ${this.applicationDoc.agencyId}` + err + __location);
+            }
+
+            if(this.agencyDoc === null){
+                log.error(`Agency ID: ${this.applicationDoc.agencyId} not found. Continuing Acord generation`)
+            }
 
             const agencyLocation = new agencyLocationBO();
-            this.agencyLocationDoc = await agencyLocation.getById(this.applicationDoc.agencyLocationId);
+            try {
+                this.agencyLocationDoc = await agencyLocation.getById(this.applicationDoc.agencyLocationId);
+            }
+            catch (err) {
+                log.error(`Failed getting agency location with ID: ${this.applicationDoc.agencyLocationId}` + err + __location);
+            }
+
+            if(this.agencyLocationDoc === null){
+                log.error(`Agency location ID: ${this.applicationDoc.agencyLocationId} not found. Continuing Acord generation`)
+            }
 
             const industryCode = new industryCodeBO();
-            this.industryCodeDoc = await industryCode.getById(this.applicationDoc.industryCode);
+            try {
+                this.industryCodeDoc = await industryCode.getById(this.applicationDoc.industryCode);
+            }
+            catch (err) {
+                log.error(`Failed getting industry code with ID: ${this.applicationDoc.industryCode}` + err + __location);
+            }
+
+            if(this.industryCodeDoc === null){
+                log.error(`Industry code ID: ${this.applicationDoc.industryCode} not found. Continuing Acord generation`)
+            }
         }
 
         const insurer = new insurerBO();
-        this.insurerDoc = await insurer.getById(this.insurerId);
+        try {
+            this.insurerDoc = await insurer.getById(this.insurerId);
+        }
+        catch (err) {
+            log.error(`Failed getting insurer with ID: ${this.insurerId}` + err + __location);
+        }
 
         if(this.insurerDoc === null){
             log.warn(`Insurer ID: ${this.insurerId} not found. Continuing Acord generation`)
@@ -99,7 +145,13 @@ module.exports = class ACORD{
     async createAcord125(){
 
         if(this.applicationDoc === null){
-            return PdfHelper.createPDF('acord-125.pdf', {});
+            try {
+                return PdfHelper.createPDF('acord-125.pdf', {});
+            }
+            catch (err) {
+                log.error(`Failed creating accord 125` + err + __location);
+                throw err;
+            }
         }
 
         const pdfDataFieldsObj = {
@@ -155,7 +207,12 @@ module.exports = class ACORD{
         // If there are more than 4 locations, create Acord 823
         let acord823Pdf = null;
         if(this.applicationDoc.locations.length > 4){
-            acord823Pdf = await this.createAcord823()
+            try {
+                acord823Pdf = await this.createAcord823()
+            }
+            catch (err) {
+                log.error('Failed creating accord 823' + err + __location);
+            }
         }
 
         // Check the appropriate entity checkbox
@@ -174,9 +231,21 @@ module.exports = class ACORD{
 
 
         let pdf = null;
-        const acord125Pdf = await PdfHelper.createPDF('acord-125.pdf', pdfDataFieldsObj);
+        let acord125Pdf = null;
+        try {
+            acord125Pdf = await PdfHelper.createPDF('acord-125.pdf', pdfDataFieldsObj);
+        }
+        catch (err) {
+            log.error('Failed creating accord 125' + err + __location);
+        }
+
         if(acord823Pdf){
-            pdf = await PdfHelper.createMultiPagePDF([acord125Pdf, acord823Pdf]);
+            try {
+                pdf = await PdfHelper.createMultiPagePDF([acord125Pdf, acord823Pdf]);
+            }
+            catch (err) {
+                log.error('Failed creating pdf for accord 125 and 823' + err + __location);
+            }
         }
         else{
             pdf = acord125Pdf;
@@ -187,7 +256,13 @@ module.exports = class ACORD{
     async createAcord126(){
 
         if(this.applicationDoc === null){
-            return PdfHelper.createPDF('acord-126.pdf', {});
+            try {
+                return PdfHelper.createPDF('acord-126.pdf', {});
+            }
+            catch (err) {
+                log.error(`Failed creating accord 126` + err + __location);
+                throw err;
+            }
         }
 
         const pdfDataFieldsObj = {
@@ -224,20 +299,23 @@ module.exports = class ACORD{
             pdfKey += 1;
         })
 
-        const pdf = await PdfHelper.createPDF('acord-126.pdf', pdfDataFieldsObj);
-        return pdf;
+        try {
+            return PdfHelper.createPDF('acord-126.pdf', pdfDataFieldsObj);
+        }
+        catch (err) {
+            log.error('Failed creating accord 126' + err + __location);
+            throw err;
+        }
     }
 
     async createAcord140(){
-
-        if(this.applicationDoc === null){
+        try {
             return PdfHelper.createPDF('acord-140.pdf', {});
         }
-
-        const pdfDataFieldsObj = {};
-
-        const pdf = await PdfHelper.createPDF('acord-140.pdf', {});
-        return pdf;
+        catch (err) {
+            log.error('Failed creating accord 140' + err + __location);
+            throw err;
+        }
     }
 
     async createAcord823(){
@@ -270,13 +348,24 @@ module.exports = class ACORD{
             pdfKey += 1;
         })
 
-        return PdfHelper.createPDF('acord-823.pdf', pdfDataFieldsObj);
+        try {
+            return PdfHelper.createPDF('acord-823.pdf', pdfDataFieldsObj);
+        }
+        catch (err) {
+            log.error('Failed creating accord 823' + err + __location);
+            throw err;
+        }
     }
 
     async createQuestionsTable(){
 
         if(this.applicationDoc === null){
-            return PdfHelper.createPDF('question-table.pdf', {});
+            try {
+                return PdfHelper.createPDF('question-table.pdf', {});
+            }
+            catch (err) {
+                log.error(`Failed creating questions pdf` + err + __location);
+            }
         }
 
         const questionTree = [];
@@ -324,8 +413,13 @@ module.exports = class ACORD{
             pdfList.push(pdf);
         }
 
-        const allQuestionsPdf = await PdfHelper.createMultiPagePDF(pdfList);
-        return allQuestionsPdf;
+        try {
+            return PdfHelper.createMultiPagePDF(pdfList);
+        }
+        catch (err) {
+            log.error('Failed creating questions pdf' + err + __location);
+            throw err;
+        }
     }
 
     async createAcord130(){
@@ -333,12 +427,18 @@ module.exports = class ACORD{
         const pdfList = [];
 
         if(this.applicationDoc === null){
-            pdfList.push(await PdfHelper.createPDF('acord130/page-1.pdf', {}));
-            pdfList.push(await PdfHelper.createPDF('acord130/page-2.pdf', {}));
-            pdfList.push(await PdfHelper.createPDF('acord130/page-3.pdf', {}));
-            pdfList.push(await PdfHelper.createPDF('acord130/page-4.pdf', {}));
+            try {
+                pdfList.push(await PdfHelper.createPDF('acord130/page-1.pdf', {}));
+                pdfList.push(await PdfHelper.createPDF('acord130/page-2.pdf', {}));
+                pdfList.push(await PdfHelper.createPDF('acord130/page-3.pdf', {}));
+                pdfList.push(await PdfHelper.createPDF('acord130/page-4.pdf', {}));
 
-            return PdfHelper.createMultiPagePDF(pdfList);
+                return PdfHelper.createMultiPagePDF(pdfList);
+            }
+            catch (err) {
+                log.error('Failed creating accord 130' + err + __location);
+                throw err;
+            }
         }
 
         const page1Obj = {
@@ -470,12 +570,18 @@ module.exports = class ACORD{
 
         const page3Obj = {"CommercialPolicy_OperationsDescription_A": this.industryCodeDoc.description};
 
-        pdfList.push(await PdfHelper.createPDF('acord130/page-1.pdf', page1Obj));
-        pdfList.push(await PdfHelper.createMultiPagePDF(stateRatingPdfList));
-        pdfList.push(await PdfHelper.createPDF('acord130/page-3.pdf', page3Obj));
-        pdfList.push(await PdfHelper.createPDF('acord130/page-4.pdf', {}));
+        try {
+            pdfList.push(await PdfHelper.createPDF('acord130/page-1.pdf', page1Obj));
+            pdfList.push(await PdfHelper.createMultiPagePDF(stateRatingPdfList));
+            pdfList.push(await PdfHelper.createPDF('acord130/page-3.pdf', page3Obj));
+            pdfList.push(await PdfHelper.createPDF('acord130/page-4.pdf', {}));
 
-        return PdfHelper.createMultiPagePDF(pdfList);
+            return PdfHelper.createMultiPagePDF(pdfList);
+        }
+        catch (err) {
+            log.error('Failed creating accord 130' + err + __location);
+            throw err;
+        }
     }
 
     getPolicy(policytype){
