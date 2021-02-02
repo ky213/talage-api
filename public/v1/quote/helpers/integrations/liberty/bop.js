@@ -259,8 +259,6 @@ module.exports = class LibertySBOP extends Integration {
                 const QuestionAnswer = Policy.ele('QuestionAnswer');
                 QuestionAnswer.ele('QuestionCd', questionId);
                 QuestionAnswer.ele('YesNoCd', q.answerValue.toUpperCase());
-            } else {
-                log.error(`Liberty Mutual (Appid: ${this.app.id}): Could not find insurer question identifier for question: ${q.questionId}. Not sending question to insurer...`);
             }
         });
 
