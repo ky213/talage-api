@@ -16,9 +16,11 @@ const serverHelper = require('../../../../../server.js');
 const xmlFormatter = require('xml-formatter');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+const jsonFunctions = global.requireShared('./helpers/jsonFunctions.js');
 //const {getQuoteAggregatedStatus} = global.requireShared('./models/application-businesslogic/status.js');
 const status = global.requireShared('./models/application-businesslogic/status.js');
 
+const QuestionBO = global.requireShared('./models/Question-BO.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
 
 
@@ -813,9 +815,10 @@ module.exports = class Integration {
     /**
      * Gets the identifiers for each question for the current insurer
      *
+     * @param {string} questionSubjectArea - The subject area for the questions ("genera", "location", ...)
      * @returns {Promise.<object, Error>} A promise that returns an object containing question information if resolved, or an Error if rejected
      */
-    get_question_identifiers() {
+    get_question_identifiers(questionSubjectArea = "general") {
         // log.info('get_question_identifiers FUNCTION IS DEPRECATED AND WILL BE REMOVED. USE get_question_details() INSTEAD WHICH RETURNS MORE DATA IN ONE QUERY');
         return new Promise(async(fulfill, reject) => {
             // Build an array of question IDs to retrieve
@@ -823,9 +826,10 @@ module.exports = class Integration {
 
             if (question_ids.length > 0) {
                 const sql = `
-                    SELECT question, universal, identifier FROM #__insurer_questions
+                    SELECT question, universal, identifier FROM clw_talage_insurer_questions
                     WHERE
                         insurer = ${this.insurer.id} 
+                        AND questionSubjectArea = '${questionSubjectArea}'
                         AND question IN (${question_ids.join(',')});
                 `;
                 const results = await db.query(sql).catch(function(error) {
@@ -1121,6 +1125,36 @@ module.exports = class Integration {
                 return;
             }
 
+            // ========================================================================================================================
+            // Filter the application questions to remove hidden qustions, unanswered questions, and question for other carriers
+
+            // Create a working copy of the applicationDocData just for this integration
+            this.app.applicationDocData = jsonFunctions.jsonCopy(this.app.applicationDocData);
+
+            // NOTE: filterQuestionList will log its own errors
+
+            // General questions
+            const filteredGeneralQuestionList = await this.filterQuestionList("general", this.app.applicationDocData.questions);
+            if (!filteredGeneralQuestionList) {
+                fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));
+                return;
+            }
+            this.app.applicationDocData.questions = filteredGeneralQuestionList;
+
+            // Location questions
+            for (const location of this.app.applicationDocData.locations) {
+                if (location.questions) {
+                    const filteredLocationQuestionList = await this.filterQuestionList("location", location.questions);
+                    if (!filteredLocationQuestionList) {
+                        fulfill(this.return_error('error', "We have no idea what went wrong, but we're on it"));
+                        return;
+                    }
+                    location.questions = filteredLocationQuestionList;
+                    // Building questions?
+                    // Vehicle questions?
+                }
+            }
+
             // Run the quote
             const appId = this.app.id;
             const insurerName = this.insurer.name;
@@ -1137,6 +1171,101 @@ module.exports = class Integration {
                     fulfill(null);
                 });
         });
+    }
+
+    /**
+     * Filter the question list to remove hidden questions, unanswered questions, and question for other carriers
+     * This function logs its own errors.
+     *
+     * @param  {string} questionSubjectArea - The question subject area ("general", "location", ...)
+     * @param  {Array} applicationQuestionList - The question list
+     * @returns {Array} filtered question list or null if error (errors are logged)
+     */
+    async filterQuestionList(questionSubjectArea, applicationQuestionList) {
+        let questionIdentifiers = null;
+        try {
+            // Get the insurer question identifiers for the question subject area
+            questionIdentifiers = await this.get_question_identifiers(questionSubjectArea);
+        }
+        catch (error) {
+            const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get "${questionSubjectArea}" question identifiers. ${error}`;
+            log.error(error_message + __location);
+            this.reasons.push(error_message);
+            return null;
+        }
+
+        // First we remove non-insurer and hidden questions
+        const notHiddenInsurerApplicationQuestionList = [];
+        for (const applicationQuestion of applicationQuestionList) {
+            if (questionIdentifiers.hasOwnProperty(applicationQuestion.questionId) && !applicationQuestion.hidden) {
+                notHiddenInsurerApplicationQuestionList.push(applicationQuestion);
+            }
+        }
+
+        // Retrieve the Talage questions for the filtered questions so we can determine both the parent hierarchy and the parent_answer for a child question
+        const questionBO = new QuestionBO();
+        const talageQuestionList = [];
+        for (const applicationQuestion of notHiddenInsurerApplicationQuestionList) {
+            let talageQuestion = null;
+            try {
+                talageQuestion = await questionBO.getById(applicationQuestion.questionId);
+            }
+            catch (error) {
+                const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get Talage question ${applicationQuestion.questionId}. ${error}}`;
+                log.error(error_message + __location);
+                this.reasons.push(error_message);
+                return null;
+            }
+            if (talageQuestion) {
+                talageQuestionList.push(talageQuestion);
+            }
+            else {
+                // Could not find the talage question by ID
+                const error_message = `Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} is unable to get Talage question ${applicationQuestion.questionId}: could not find ID.`;
+                log.error(error_message + __location);
+                this.reasons.push(error_message);
+                return null;
+            }
+        }
+
+        // Now we remove non-answered questions.
+        const filteredApplicationQuestionList = [];
+
+        // This will walk all parents of a given application question up to the top-level question. If any of those parents
+        // were answered in a way where it would not show the child (parent's answer != child's parent_answer) , then the child
+        // was never asked and can be filtered out.
+        for (const applicationQuestion of notHiddenInsurerApplicationQuestionList) {
+            let questionWasAnswered = true;
+            let childApplicationQuestion = applicationQuestion;
+            let childTalageQuestion = talageQuestionList.find((tq) => tq.id === childApplicationQuestion.questionId);
+            // While the question has a parent (not top-level)
+            while (childTalageQuestion.parent) {
+                // Find the parent application question for this child
+                // eslint-disable-next-line no-loop-func
+                const parentApplicationQuestion = notHiddenInsurerApplicationQuestionList.find((aq) => aq.questionId === childTalageQuestion.parent);
+                if (!parentApplicationQuestion) {
+                    const error_message = `Unable to find the parent Application question ${childTalageQuestion.parent}`;
+                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} ${error_message}` + __location);
+                    this.reasons.push(error_message);
+                    return null;
+                }
+                // Determine if the parent was answered such that the child became visible. If not, flag it and stop.
+                if (childTalageQuestion.parent_answer && childTalageQuestion.parent_answer !== parentApplicationQuestion.answerId) {
+                    questionWasAnswered = false;
+                    break;
+                }
+                // Move up a question level (parent becomes child)
+                childApplicationQuestion = parentApplicationQuestion;
+                // eslint-disable-next-line no-loop-func
+                childTalageQuestion = talageQuestionList.find((tq) => tq.id === childApplicationQuestion.questionId);
+            }
+            // Add it to the filtered question list if the parent was answered
+            if (questionWasAnswered) {
+                filteredApplicationQuestionList.push(applicationQuestion);
+            }
+        }
+
+        return filteredApplicationQuestionList;
     }
 
     /**
@@ -2039,7 +2168,7 @@ module.exports = class Integration {
 
     /**
 	 * Determines whether or not this insurer supports all industry codes in this application
-     * 
+     *
 	 * @returns {Promise.<boolean>} A promise that returns an true if the insurer supports the industry code and it has been populated, false otherwise
 	 */
     _insurer_supports_industry_codes() {

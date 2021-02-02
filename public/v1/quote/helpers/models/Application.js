@@ -393,24 +393,23 @@ module.exports = class Application {
         /************** QUESTION DATA TRANSLATION ***************/
         // NOTE: Some of this logic now uses applicationDocData simply because the logic is greatly simplified doing so
 
-        const policy_types = [];
+        const policyList = [];
         this.policies.forEach(policy => {
-            policy_types.push({
+            policyList.push({
                 type: policy.type,
                 effectiveDate: policy.effective_date
             });
         });
 
-        const applicationQuestions = this.applicationDocData.questions;
-        const questionSubjectArea = "general";
-        const questionContext = this;
+        // Ensure we have the list of insurers for this application
+        this.insurers = await this.get_insurers();
 
         // Get a list of all questions the user may need to answer
         const insurer_ids = this.get_insurer_ids();
         const wc_codes = this.get_wc_codes();
         let questions = null;
         try {
-            questions = await questionsSvc.GetQuestionsForBackend(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids, questionSubjectArea, true);
+            questions = await questionsSvc.GetQuestionsForBackend(wc_codes, this.business.industry_code, this.business.getZips(), policyList, insurer_ids, "general", true);
         }
         catch (e) {
             log.error(`Translation Error: GetQuestionsForBackend: ${e}. ` + __location);
@@ -418,7 +417,7 @@ module.exports = class Application {
         }
         // Grab the answers the user provided to our questions and reset the question object
         const user_questions = this.questions;
-        questionContext.questions = {};
+        this.questions = {};
 
         // Convert each question from the database into a question object and load in the user's answer to each
         if (questions) {
@@ -443,32 +442,71 @@ module.exports = class Application {
                 }
 
                 // Store the question object in the Application for later use
-                questionContext.questions[q.id] = q;
+                this.questions[q.id] = q;
             }
         }
 
         // Enforce required questions (this must be done AFTER all questions are loaded with their answers)
-        if (applicationQuestions) {
-            for (const questionId in applicationQuestions) {
-                if (Object.prototype.hasOwnProperty.call(applicationQuestions, questionId)) {
-                    const question = applicationQuestions[questionId];
+        if (this.applicationDocData.questions) {
+            // "general" questions
+            await this.translateSubjectAreaQuestionList(policyList, "general", this.applicationDocData.questions);
 
-                    // Hidden questions are not required
-                    if (question.hidden) {
-                        continue;
-                    }
+            for (const location of this.applicationDocData.locations) {
+                // "location" questions
+                if (location.hasOwnProperty("questions")) {
+                    await this.translateSubjectAreaQuestionList(policyList, "location", location.questions);
+                }
+                // for (const building of location.buildings) {
+                //  if (building.hasOwnProperty("questions") {
+                //     await this.translateSubjectAreaQuestionList(policyList, "location.building", building.questions);
+                //  }
+                // }
+                // for (const vehicle of location.vehicles) {
+                //  if (vehicle.hasOwnProperty("questions") {
+                //     await this.translateSubjectAreaQuestionList(policyList, "location.vehicle", vehicle.questions);
+                //  }
+                // }
+            }
+        }
+    }
 
-                    if (question.parent && question.parent > 0) {
-                        // Get the parent question
-                        const parent_question = questionContext[question.parent];
-
-                        // If no parent was found, throw an error
-                        if (!parent_question) {
+    /**
+     * Translates the application questions for a given subject area
+     *
+     * @param  {Array} policyList - List of policies with properties "type", "effectiveDate"
+     * @param  {string} questionSubjectArea - Question subject area ("general", "location", "location.building", ...)
+     * @param  {Array} applicationQuestionList - List of questions from the application (app.questions, app.location[0].questions, ...)
+     * @returns {void}
+     */
+    async translateSubjectAreaQuestionList(policyList, questionSubjectArea, applicationQuestionList) {
+        // Retrieve the subject area for the given questions.
+        let talageQuestionList = null;
+        try {
+            talageQuestionList = await questionsSvc.GetQuestionsForBackend(this.get_wc_codes(), this.business.industry_code, this.business.getZips(), policyList, this.get_insurer_ids(), questionSubjectArea, true);
+        }
+        catch (e) {
+            log.error(`AppId ${this.applicationDocData.mysqlId} Translation Error: GetQuestionsForBackend (questionSubjectArea=${questionSubjectArea}): ${e}. ` + __location);
+            throw e;
+        }
+        if (talageQuestionList.length > 0) {
+            for (const applicationQuestion of applicationQuestionList) {
+                // Hidden questions are not required
+                if (applicationQuestion.hidden) {
+                    continue;
+                }
+                // Find the Talage question
+                const talageQuestion = talageQuestionList.find((q) => q.id === applicationQuestion.questionId);
+                if (talageQuestion) {
+                    if (talageQuestion.parent && talageQuestion.parent > 0) {
+                        const talageSubjectAreaParentQuestion = talageQuestionList.find((q) => q.id === talageQuestion.parent);
+                        if (!talageSubjectAreaParentQuestion) {
                             // No one question issue should stop quoting with all insureres - BP 2020-10-04
-                            log.error(`Question ${question.id} has invalid parent setting. (${htmlentities.decode(question.text).replace('%', '%%')})` + __location);
+                            log.error(`AppId ${this.applicationDocData.mysqlId} Translation Error: Question ${talageQuestion.id} (questionSubjectArea=${questionSubjectArea}) has invalid parent setting. (${htmlentities.decode(talageQuestion.text).replace('%', '%%')})` + __location);
                         }
                     }
-
+                }
+                else {
+                    log.error(`AppId ${this.applicationDocData.mysqlId} Translation Error: Can not find talage question ${applicationQuestion.questionId} (questionSubjectArea=${questionSubjectArea}).` + __location);
                 }
             }
         }
@@ -497,7 +535,6 @@ module.exports = class Application {
         return new Promise(async(fulfill, reject) => {
             // Get a list of desired insurers
             let desired_insurers = [];
-            let stop = false;
             this.policies.forEach((policy) => {
                 if (Array.isArray(policy.insurers)) {
                     policy.insurers.forEach((insurer) => {
@@ -537,9 +574,6 @@ module.exports = class Application {
                     });
                 }
             });
-            if (stop) {
-                return;
-            }
 
             // Limit insurers to those supported by the Agent
             if (desired_insurers.length) {

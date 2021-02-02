@@ -485,13 +485,14 @@ exports.GetQuestionsForFrontend = async function(activityCodeArray, industryCode
  * @param {array} zipCodeArray - An array of all the zipcodes (stored as strings) in which the business operates
  * @param {array.<Object>} policyTypeArray - An array containing of all the policy types applied for. Ex: [{type:"WC",effectiveDate:"03-02-2021"}]
  * @param {array} insurerArray - An array containing the IDs of the relevant insurers for the application
+ * @param {string} questionSubjectArea - A string specifying the question subject area ("general", "location", "location.building", ...)
  * @param {boolean} return_hidden - true to return hidden questions, false to only return visible questions
  *
  * @returns {array|false} An array of questions structured the way the back end is expecting them, false otherwise
  *
  */
-exports.GetQuestionsForBackend = async function(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden = false){
-    return GetQuestions(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden);
+exports.GetQuestionsForBackend = async function(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, return_hidden = false){
+    return GetQuestions(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, return_hidden);
 }
 
 /**
