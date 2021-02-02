@@ -58,7 +58,7 @@ async function GetIndustryCodes(req, res, next) {
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-    server.addGetAuthAppWF('Get All Industry Codes', `${basePath}/industry-codes`, GetIndustryCodes);
+    server.addGetAuthAppApi('Get All Industry Codes', `${basePath}/industry-codes`, GetIndustryCodes);
     // TODO: do we want to pair one call with an optional query instead?
     // server.addGet('Get Industry Codes for an agency', `${basePath}/industry-codes/:agencyid`, GetIndustryCodes);
 };
