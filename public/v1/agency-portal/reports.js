@@ -304,7 +304,6 @@ async function wrapAroundExpress(req, res, next) {
         res.send(200, out);
         return next();
     } catch (err) {
-        console.log(err);
         return next(err);
     }
 }
