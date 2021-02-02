@@ -12,6 +12,7 @@ const AgencyBO = global.requireShared('models/Agency-BO.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const ApplicationQuoting = global.requireRootPath('public/v1/quote/helpers/models/Application.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
+const ApiAuth = require("./auth-api-rt.js");
 
 const moment = require('moment');
 
@@ -43,8 +44,7 @@ async function applicationSave(req, res, next) {
         const requiredPropertyList = ["agencyId", "businessName"];
         for (let i = 0; i < requiredPropertyList.length; i++) {
             if (!req.body[requiredPropertyList[i]]) {
-                log.error(`Bad Request: Missing ${requiredPropertyList[i]}` +
-                        __location);
+                log.error(`Bad Request: Missing ${requiredPropertyList[i]}` + __location);
                 return next(serverHelper.requestError(`Bad Request: Missing ${requiredPropertyList[i]}`));
             }
         }
@@ -88,7 +88,16 @@ async function applicationSave(req, res, next) {
     }
     else {
         //get application and valid agency
-        // TODO check JWT has access to this application.
+        // check JWT has access to this application.
+        //Quote App Check
+        if(req.userTokenData && req.userTokenData.quoteApp){
+            if(req.userTokenData.applicationId !== req.body.applicationId){
+                log.warn("UnAuthorized Attempted to modify Applicattion " + __location)
+                // TODO enable once client Quote App V2 is updated.
+                //return next(serverHelper.forbiddenError(`Not Authorized`));
+            }
+        }
+        //TODO API user request check....
         try {
             const applicationDB = await applicationBO.loadfromMongoByAppId(req.body.applicationId);
             if (!applicationDB) {
@@ -141,6 +150,20 @@ async function applicationSave(req, res, next) {
             req.body.agencyPortalCreated = false;
             responseAppDoc = await applicationBO.insertMongo(req.body,
                 updateMysql);
+
+            // update JWT
+            if(responseAppDoc && req.userTokenData && req.userTokenData.quoteApp){
+                try{
+                    const newToken = await ApiAuth.createApplicationToken(req, responseAppDoc.applicationId)
+                    if(newToken){
+                        responseAppDoc.token = newToken;
+                    }
+                }
+                catch(err){
+                    log.error(`Error Create JWT with ApplicationId ${err}` + __location);
+                }
+
+            }
         }
     }
     catch (err) {
@@ -486,10 +509,10 @@ async function setupReturnedApplicationJSON(applicationJSON){
 exports.registerEndpoint = (server, basePath) => {
     // temporary use AuthAppWF (same as quote app V1)
     // server.addGetAuthAppWF('Get Quote Agency', `${basePath}/agency`, getAgency);
-    server.addPostAuthAppWF("POST Application",`${basePath}/application`,applicationSave);
-    server.addPutAuthAppWF("PUT Application",`${basePath}/application`,applicationSave);
-    server.addGetAuthAppWF("GET Application",`${basePath}/application/:id`,getApplication);
+    server.addPostAuthAppApi("POST Application",`${basePath}/application`,applicationSave);
+    server.addPutAuthAppApi("PUT Application",`${basePath}/application`,applicationSave);
+    server.addGetAuthAppApi("GET Application",`${basePath}/application/:id`,getApplication);
 
-    server.addGetAuthAppWF('GetQuestions for AP Application', `${basePath}/application/:id/questions`, GetQuestions)
-    server.addPutAuth('PUT Validate Application', `${basePath}/application/:id/validate`, validate);
+    server.addGetAuthAppApi('GetQuestions for AP Application', `${basePath}/application/:id/questions`, GetQuestions)
+    server.addPutAuthAppApi('PUT Validate Application', `${basePath}/application/:id/validate`, validate);
 }
