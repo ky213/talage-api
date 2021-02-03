@@ -327,10 +327,11 @@ async function getAgencyLandingPage(req, res, next) {
         return next();
     }
     const {
+        // eslint-disable-next-line no-unused-vars
         agencySlug, pageSlug
     } = parseQuoteURL(req.query.url);
 
-    const agency = await getAgencyFromSlugs(agencySlug, pageSlug);
+    const agency = await getAgencyFromSlugs(agencySlug, null);
     replaceAgencyValues(agency.landingPageContent, agency);
     let primaryLocation = agency.locations.find(loc => loc.primary);
     if(!primaryLocation && agency.locations.length > 0){
