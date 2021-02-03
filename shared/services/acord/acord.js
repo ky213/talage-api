@@ -299,23 +299,29 @@ module.exports = class ACORD{
             pdfKey += 1;
         })
 
+        let pdf = null;
         try {
-            return PdfHelper.createPDF('acord-126.pdf', pdfDataFieldsObj);
+            pdf = await PdfHelper.createPDF('acord-126.pdf', pdfDataFieldsObj);
         }
         catch (err) {
             log.error('Failed creating accord 126' + err + __location);
             throw err;
         }
+
+        return pdf;
     }
 
     async createAcord140(){
+        let pdf = null;
         try {
-            return PdfHelper.createPDF('acord-140.pdf', {});
+            pdf = await PdfHelper.createPDF('acord-140.pdf', {});
         }
         catch (err) {
             log.error('Failed creating accord 140' + err + __location);
             throw err;
         }
+
+        return pdf;
     }
 
     async createAcord823(){
@@ -348,24 +354,30 @@ module.exports = class ACORD{
             pdfKey += 1;
         })
 
+        let pdf = null;
         try {
-            return PdfHelper.createPDF('acord-823.pdf', pdfDataFieldsObj);
+            pdf = await PdfHelper.createPDF('acord-823.pdf', pdfDataFieldsObj);
         }
         catch (err) {
             log.error('Failed creating accord 823' + err + __location);
             throw err;
         }
+
+        return pdf;
     }
 
     async createQuestionsTable(){
 
         if(this.applicationDoc === null){
+            let pdf = null;
             try {
-                return PdfHelper.createPDF('question-table.pdf', {});
+                pdf = await PdfHelper.createPDF('question-table.pdf', {});
             }
             catch (err) {
                 log.error(`Failed creating questions pdf` + err + __location);
             }
+
+            return pdf;
         }
 
         const questionTree = [];
@@ -413,13 +425,16 @@ module.exports = class ACORD{
             pdfList.push(pdf);
         }
 
+        let pdf = null;
         try {
-            return PdfHelper.createMultiPagePDF(pdfList);
+            pdf = await PdfHelper.createMultiPagePDF(pdfList);
         }
         catch (err) {
             log.error('Failed creating questions pdf' + err + __location);
             throw err;
         }
+
+        return pdf;
     }
 
     async createAcord130(){
@@ -427,18 +442,21 @@ module.exports = class ACORD{
         const pdfList = [];
 
         if(this.applicationDoc === null){
+            let pdf = null;
             try {
                 pdfList.push(await PdfHelper.createPDF('acord130/page-1.pdf', {}));
                 pdfList.push(await PdfHelper.createPDF('acord130/page-2.pdf', {}));
                 pdfList.push(await PdfHelper.createPDF('acord130/page-3.pdf', {}));
                 pdfList.push(await PdfHelper.createPDF('acord130/page-4.pdf', {}));
 
-                return PdfHelper.createMultiPagePDF(pdfList);
+                pdf = await PdfHelper.createMultiPagePDF(pdfList);
             }
             catch (err) {
                 log.error('Failed creating accord 130' + err + __location);
                 throw err;
             }
+
+            return pdf;
         }
 
         const page1Obj = {
@@ -570,18 +588,21 @@ module.exports = class ACORD{
 
         const page3Obj = {"CommercialPolicy_OperationsDescription_A": this.industryCodeDoc.description};
 
+        let pdf = null;
         try {
             pdfList.push(await PdfHelper.createPDF('acord130/page-1.pdf', page1Obj));
             pdfList.push(await PdfHelper.createMultiPagePDF(stateRatingPdfList));
             pdfList.push(await PdfHelper.createPDF('acord130/page-3.pdf', page3Obj));
             pdfList.push(await PdfHelper.createPDF('acord130/page-4.pdf', {}));
 
-            return PdfHelper.createMultiPagePDF(pdfList);
+            pdf = await PdfHelper.createMultiPagePDF(pdfList);
         }
         catch (err) {
             log.error('Failed creating accord 130' + err + __location);
             throw err;
         }
+
+        return pdf;
     }
 
     getPolicy(policytype){

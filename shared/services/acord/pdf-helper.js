@@ -43,6 +43,7 @@ const createPDF = async(sourcePDFString, dataFieldsObj) => {
 }
 
 const createMultiPagePDF = async(pdfList) => {
+    let multiPagePDF = null;
     try {
         const mergedPdf = await PDFDocument.create();
 
@@ -56,12 +57,14 @@ const createMultiPagePDF = async(pdfList) => {
             copiedPages.forEach((page) => mergedPdf.addPage(page));
         }
 
-        return mergedPdf.save();
+        multiPagePDF = mergedPdf.save();
     }
     catch (err) {
         log.error('Failed generating multi page PDF ' + err + __location);
         throw err;
     }
+
+    return multiPagePDF;
 }
 
 module.exports = {
