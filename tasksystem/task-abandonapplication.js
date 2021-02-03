@@ -67,6 +67,7 @@ var abandonAppTask = async function(){
 
 
     const query = {
+        "agencyPortalCreated": false,
         "abandonedAppEmail": false,
         "solepro": false,
         "optedOutOnline": false,

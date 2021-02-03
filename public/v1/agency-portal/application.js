@@ -686,8 +686,8 @@ async function applicationCopy(req, res, next) {
         catch(err){
             log.error("Error gettign userID " + err + __location);
         }
-        req.body.agencyPortalCreatedUser = userId
-        req.body.agencyPortalCreated = true;
+        newApplicationDoc.agencyPortalCreatedUser = userId
+        newApplicationDoc.agencyPortalCreated = true;
         const updateMysql = true;
         responseAppDoc = await applicationBO.insertMongo(newApplicationDoc, updateMysql);
         await setupReturnedApplicationJSON(responseAppDoc)
@@ -845,7 +845,10 @@ async function validate(req, res, next) {
     // Load - Does some validation do to transformation of data.
     try {
         const forceQuoting = true;
-        const loadJson = {"id": id};
+        const loadJson = {
+            "id": id,
+            agencyPortalQuote: true
+        };
         await applicationQuoting.load(loadJson, forceQuoting);
     }
     catch (err) {
@@ -974,7 +977,10 @@ async function requote(req, res, next) {
     // Load
     try {
         const forceQuoting = true;
-        const loadJson = {"id": id};
+        const loadJson = {
+            "id": id,
+            agencyPortalQuote: true
+        };
         if(req.body.insurerId && validator.is_valid_id(req.body.insurerId)){
             loadJson.insurerId = parseInt(req.body.insurerId, 10);
         }

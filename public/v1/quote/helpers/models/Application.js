@@ -50,12 +50,18 @@ module.exports = class Application {
     /**
 	 * Populates this object based on applicationId in the request
 	 *
-	 * @param {object} data - The application data
+	 * @param {object} data - Object with appId, quoting options
      * @param {boolean} forceQuoting - if true age check is skipped.
 	 * @returns {Promise.<array, Error>} A promise that returns an array containing insurer information if resolved, or an Error if rejected
 	 */
     async load(data, forceQuoting = false) {
         log.debug('Loading data into Application' + __location);
+        // date example
+        // data = {
+        //     id:  12123, //mysqlId
+        //     insurerId: 1,
+        //     agencyPortalQuote: true
+        // }
 
         // ID
         //TODO detect ID type integer or uuid
@@ -64,12 +70,18 @@ module.exports = class Application {
         if(data.insurerId){
             this.quoteInsurerId = parseInt(data.insurerId,10);
         }
+        // data.agencyPortalQuote = true
+        // for quoting trigger by AgencyPortal.
+        // Emails are not send for AgencyPortal trigger quotes.
+        // Slack message are sent.
+        this.agencyPortalQuote = data.agencyPortalQuote ? data.agencyPortalQuote : false;
 
         // load application from database.
         //let error = null
         let applicationBO = new ApplicationBO();
 
         try {
+            //TODO uuid check...
             this.applicationDocData = await applicationBO.loadfromMongoBymysqlId(this.id);
             log.debug("Quote Application added applicationData")
         }
@@ -843,7 +855,7 @@ module.exports = class Application {
         log.info(`Quote Application ${this.id}, some_quotes;: ${some_quotes}, all_had_quotes: ${all_had_quotes}:  Sending Notification to Talage is ${notifiyTalage}` + __location)
 
         // Send an emails if there were no quotes generated
-        if (some_quotes === false) {
+        if (some_quotes === false && this.agencyPortalQuote === false) {
             let error = null;
             const agencyBO = new AgencyBO();
             const emailContentJSON = await agencyBO.getEmailContentAgencyAndCustomer(this.agencyLocation.agencyId, 'no_quotes_agency', 'no_quotes_customer').catch(function(err) {
@@ -1017,6 +1029,21 @@ module.exports = class Application {
                 await applicationBO.updateStatus(this.id, appStatusDesc, appStatusId);
                 await applicationBO.updateProgress(this.id, "complete");
                 await applicationBO.updateState(this.id, state)
+
+                //Prevent Abandon Quote email if Quote was triggered by Agency Portal
+                if(this.agencyPortalQuote){
+                    try{
+                        const docUpdate = {
+                            "abandonedEmail": true,
+                            "abandonedAppEmail": true
+                        };
+                        await applicationBO.updateMongo(this.applicationDocData.applicationId,docUpdate);
+                    }
+                    catch(err){
+                        log.error(`Error calling applicationBO.updateMongo for ${this.applicationDocData.applicationId} ` + err + __location)
+                        throw err;
+                    }
+                }
             }
             catch(err){
                 log.error(`Could not update the application state to ${state} for application ${this.id}: ${err} ${__location}`);
