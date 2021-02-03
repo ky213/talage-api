@@ -451,13 +451,23 @@ module.exports = class Application {
         // Translate question subject area questions in the application doc
         if (this.applicationDocData.questions) {
             // "general" questions
-            await this.translateSubjectAreaQuestionList(policyList, "general", this.applicationDocData.questions);
+            try {
+                await this.translateSubjectAreaQuestionList(policyList, "general", this.applicationDocData.questions);
+            }
+            catch (error) {
+                throw error;
+            }
         }
         if (this.applicationDocDate.locations) {
             // "location" questions
             for (const location of this.applicationDocData.locations) {
                 if (location.questions) {
-                    await this.translateSubjectAreaQuestionList(policyList, "location", location.questions);
+                    try {
+                        await this.translateSubjectAreaQuestionList(policyList, "location", location.questions);
+                    }
+                    catch (error) {
+                        throw error;
+                    }
                 }
             }
         }
