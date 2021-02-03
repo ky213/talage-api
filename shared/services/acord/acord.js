@@ -145,13 +145,16 @@ module.exports = class ACORD{
     async createAcord125(){
 
         if(this.applicationDoc === null){
+            let pdf = null;
             try {
-                return PdfHelper.createPDF('acord-125.pdf', {});
+                pdf = await PdfHelper.createPDF('acord-125.pdf', {});
             }
             catch (err) {
                 log.error(`Failed creating accord 125` + err + __location);
                 throw err;
             }
+
+            return pdf;
         }
 
         const pdfDataFieldsObj = {
@@ -256,13 +259,16 @@ module.exports = class ACORD{
     async createAcord126(){
 
         if(this.applicationDoc === null){
+            let pdf = null;
             try {
-                return PdfHelper.createPDF('acord-126.pdf', {});
+                pdf = await PdfHelper.createPDF('acord-126.pdf', {});
             }
             catch (err) {
                 log.error(`Failed creating accord 126` + err + __location);
                 throw err;
             }
+
+            return pdf;
         }
 
         const pdfDataFieldsObj = {
