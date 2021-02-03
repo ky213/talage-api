@@ -21,6 +21,7 @@ const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
 const taskWholesaleAppEmail = global.requireRootPath('tasksystem/task-wholesaleapplicationemail.js');
 const taskSoleProAppEmail = global.requireRootPath('tasksystem/task-soleproapplicationemail.js');
 const taskEmailBindAgency = global.requireRootPath('tasksystem/task-emailbindagency.js');
+const QuoteBind = global.requireRootPath('public/v1/quote/helpers/models/QuoteBind.js');
 const crypt = global.requireShared('./services/crypt.js');
 
 // Mongo Models
@@ -917,6 +918,16 @@ module.exports = class ApplicationModel {
 
                     });
 
+                    try{
+
+                        const quoteBind = new QuoteBind();
+                        await quoteBind.load(quote.quote, quote.payment);
+                        await quoteBind.send_slack_notification("requested");
+                    }
+                    catch(err){
+                        log.error(`appid ${this.id} had Slack Bind Request error ${err}` + __location);
+                    }
+
                     applicationJSON.state = quote.api_result === 'referred_with_price' ? 12 : 16;
                     if (applicationJSON.state === 12 && applicationJSON.appStatusId < 80) {
                         applicationJSON.status = 'request_to_bind_referred';
@@ -927,7 +938,6 @@ module.exports = class ApplicationModel {
                         applicationJSON.appStatusId = 70;
                     }
 
-                    //mongo update...
                 }
             }
             else {
