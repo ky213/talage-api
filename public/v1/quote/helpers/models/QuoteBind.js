@@ -3,7 +3,7 @@
  */
 
 'use strict';
-const ApplicationBO = global.requireShared('./models/Application-BO.js');
+
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
@@ -31,7 +31,7 @@ module.exports = class QuoteBind{
      * Marks this quote as bound.
      * @returns {Promise.<string, ServerError>} Returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a ServerError on failure
      */
-    async markAsBind(){
+    async markAsBind(){ 
         if(!this.quoteDoc){
             log.error('Missing QuoteDoc ' + __location);
             throw new Error('Quote not Found. No action taken.');
@@ -120,16 +120,16 @@ module.exports = class QuoteBind{
 	 * @returns {Promise.<null, ServerError>} A promise that fulfills on success or returns a ServerError on failure
 	 */
     async load(id, payment_plan){
-        // Validate the ID
-        if(!await validator.isUuid(id)){
-            throw new Error(`Invalid quote ID: ${id}`);
-        }
-
         // Attempt to get the details of this quote from the database
         //USE BO's
         const quoteModel = new QuoteBO();
         try {
-            this.quoteDoc = await quoteModel.getById(id)
+            if(await validator.isUuid(id)){
+                this.quoteDoc = await quoteModel.getById(id)
+            }
+            else {
+                this.quoteDoc = await quoteModel.getMongoDocbyMysqlId(id)
+            }
         }
         catch (err) {
             log.error(`Loading quote for bind request quote ${id} error:` + err + __location);
@@ -141,7 +141,8 @@ module.exports = class QuoteBind{
             log.error(`No quoteDoc quoteId ${id} ` + __location);
             throw new Error(`No quoteDoc quoteId ${id}`);
         }
-
+        //QuoteBind is reference by ApplicationBO. So the ApplicationBO cannot be at top.
+        const ApplicationBO = global.requireShared('./models/Application-BO.js');
         const applicationBO = new ApplicationBO();
         try{
             this.applicationDoc = await applicationBO.getfromMongoByAppId(this.quoteDoc.applicationId);
@@ -183,7 +184,7 @@ module.exports = class QuoteBind{
             this.payment_plan = payment_plan;
         }
     }
-
+ 
     /**
 	 * Posts a notification in Slack. The formatting changes based on the message type
 	 *
