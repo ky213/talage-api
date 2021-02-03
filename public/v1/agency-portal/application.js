@@ -686,8 +686,8 @@ async function applicationCopy(req, res, next) {
         catch(err){
             log.error("Error gettign userID " + err + __location);
         }
-        req.body.agencyPortalCreatedUser = userId
-        req.body.agencyPortalCreated = true;
+        newApplicationDoc.agencyPortalCreatedUser = userId
+        newApplicationDoc.agencyPortalCreated = true;
         const updateMysql = true;
         responseAppDoc = await applicationBO.insertMongo(newApplicationDoc, updateMysql);
         await setupReturnedApplicationJSON(responseAppDoc)
