@@ -249,7 +249,9 @@ module.exports = class AcuityWC extends Integration {
                     "firstName": this.app.business.contacts[0].first_name,
                     "lastName": this.app.business.contacts[0].last_name,
                     "middleInitial": ""
-                }
+                },
+                "insuredEmailAddress": this.app.business.contacts[0].email ? this.app.business.contacts[0].email : "",
+                "insuredWebsiteUrl": this.app.business.website ? this.app.business.website : ""
             },
             "businessInfo": {"locations": await this.getLocationList()},
             "basisOfQuotation": {
