@@ -42,8 +42,7 @@ const getRoute = async(currentRoute, appId) => {
         case "mailingAddress":
             return "locations";
         case "claims":
-            // Nothing yet
-            break;
+            return "questions";
         default:
             break;
     }
