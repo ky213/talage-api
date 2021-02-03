@@ -366,7 +366,7 @@ async function setupReturnedApplicationJSON(applicationJSON){
                         if(activityPayroll.ownerPayRoll){
                             activityPayroll.payroll += activityPayroll.ownerPayRoll
                         }
-                        //Check for new employeeType lists - If not present fill 
+                        //Check for new employeeType lists - If not present fill
                         // with zero employee count - User will have to fix.
                         if(activityPayroll.employeeTypeList.length === 0){
                             activityPayroll.employeeTypeList = []
@@ -851,7 +851,10 @@ async function validate(req, res, next) {
     // Load - Does some validation do to transformation of data.
     try {
         const forceQuoting = true;
-        const loadJson = {"id": id};
+        const loadJson = {
+            "id": id,
+            agencyPortalQuote: true
+        };
         await applicationQuoting.load(loadJson, forceQuoting);
     }
     catch (err) {
@@ -976,11 +979,14 @@ async function requote(req, res, next) {
 
     const applicationQuoting = new ApplicationQuoting();
     // Populate the Application object
-   
+
     // Load
     try {
         const forceQuoting = true;
-        const loadJson = {"id": id};
+        const loadJson = {
+            "id": id,
+            agencyPortalQuote: true
+        };
         if(req.body.insurerId && validator.is_valid_id(req.body.insurerId)){
             loadJson.insurerId = parseInt(req.body.insurerId, 10);
         }
