@@ -404,7 +404,7 @@ module.exports = class Application {
         // Ensure we have the list of insurers for this application
         this.insurers = await this.get_insurers();
 
-        // Get a list of all questions the user may need to answer
+        // Get a list of all questions the user may need to answer. These top-level questions are "general" questions.
         const insurer_ids = this.get_insurer_ids();
         const wc_codes = this.get_wc_codes();
         let questions = null;
@@ -447,25 +447,18 @@ module.exports = class Application {
         }
 
         // Enforce required questions (this must be done AFTER all questions are loaded with their answers)
+
+        // Translate question subject area questions in the application doc
         if (this.applicationDocData.questions) {
             // "general" questions
             await this.translateSubjectAreaQuestionList(policyList, "general", this.applicationDocData.questions);
-
+        }
+        if (this.applicationDocDate.locations) {
+            // "location" questions
             for (const location of this.applicationDocData.locations) {
-                // "location" questions
-                if (location.hasOwnProperty("questions")) {
+                if (location.questions) {
                     await this.translateSubjectAreaQuestionList(policyList, "location", location.questions);
                 }
-                // for (const building of location.buildings) {
-                //  if (building.hasOwnProperty("questions") {
-                //     await this.translateSubjectAreaQuestionList(policyList, "location.building", building.questions);
-                //  }
-                // }
-                // for (const vehicle of location.vehicles) {
-                //  if (vehicle.hasOwnProperty("questions") {
-                //     await this.translateSubjectAreaQuestionList(policyList, "location.vehicle", vehicle.questions);
-                //  }
-                // }
             }
         }
     }

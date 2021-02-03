@@ -260,6 +260,12 @@ async function GetQuestions(req, res, next){
     // insurers is optional
     const error = null
 
+    // Set questionSubjectArea (default to "general" if not specified
+    let questionSubjectArea = "general";
+    if (req.query.questionSubjectArea) {
+        questionSubjectArea = req.query.questionSubjectArea;
+    }
+
     // eslint-disable-next-line prefer-const
     let agencies = [];
     //TODO check JWT for application access and agencyId.
@@ -268,7 +274,7 @@ async function GetQuestions(req, res, next){
     let getQuestionsResult = null;
     try{
         const applicationBO = new ApplicationBO();
-        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies);
+        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies, questionSubjectArea);
     }
     catch(err){
         //Incomplete Applications throw errors. those error message need to got to client

@@ -1059,8 +1059,8 @@ async function GetQuestions(req, res, next){
 
     // Set the question subject area. Default to "general" if not specified.
     let questionSubjectArea = "general";
-    if (req.params.questionSubjectArea) {
-        questionSubjectArea = req.params.questionSubjectArea;
+    if (req.query.questionSubjectArea) {
+        questionSubjectArea = req.query.questionSubjectArea;
     }
 
     let getQuestionsResult = null;

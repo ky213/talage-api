@@ -22,15 +22,6 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
 
     log.debug(`GetQuestions: activityCodeStringArray:  ${activityCodeStringArray}, industryCodeString:  ${industryCodeString}, zipCodeStringArray:  ${zipCodeStringArray}, policyTypeArray:  ${JSON.stringify(policyTypeArray)}, insurerStringArray:  ${insurerStringArray}, return_hidden: ${return_hidden}` + __location)
 
-    if (!questionSubjectArea) {
-        console.log("==================================================");
-        console.log("==================================================");
-        console.log("no questionSubjectArea");
-        console.log("==================================================");
-        console.log("==================================================");
-        throw "qsa";
-    }
-
     let error = false;
     let sql = '';
 
