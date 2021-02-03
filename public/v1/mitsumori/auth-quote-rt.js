@@ -13,6 +13,19 @@ const {'v4': uuidv4} = require('uuid');
 async function getToken(req, res, next) {
     //let error = false;
 
+    // if the caller provided a token, check if it exists in redis
+    if(req.query.token) {
+        const redisResponse = await global.redisSvc.getKeyValue(req.query.token);
+        // if we found the token, echo it back, otherwise continue normal flow
+        if(redisResponse && redisResponse.found){
+            res.send(200, {
+                status: 'Ok',
+                token: req.query.token
+            });
+            return next();
+        }
+    }
+
     // Query parameters user, key, and joomla_user are all optional now since the quoting engine was broken out
     const payload = {};
 
@@ -30,7 +43,7 @@ async function getToken(req, res, next) {
 
     try{
         const ttlSeconds = 3600;
-        const redisResponse = await global.redisSvc.storeKeyValue(userJwt, JSON.stringify(payload),ttlSeconds)
+        const redisResponse = await global.redisSvc.storeKeyValue(userJwt, JSON.stringify(payload), ttlSeconds);
         if(redisResponse && redisResponse.saved){
             log.debug("Saved JWT to Redis " + __location);
         }
