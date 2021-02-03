@@ -79,6 +79,7 @@ var abandonquotetask = async function(){
     //appstatusId == 50 is quoted_referred 60 = quoted
 
     const query = {
+        "agencyPortalCreated": false,
         "abandonedEmail": false,
         "gtAppStatusId": 40,
         "ltAppStatusId": 70,
