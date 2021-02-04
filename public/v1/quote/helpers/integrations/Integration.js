@@ -946,7 +946,14 @@ module.exports = class Integration {
      * @returns {int} - The total number of years in business
      */
     get_years_in_business() {
-        return moment().diff(this.app.business.founded, 'years');
+        // not correct for Employers Feb 2021.
+        //return moment().diff(this.app.business.founded, 'years');
+        if(this.app.applicationDocData.founded){
+            return moment().diff(this.app.applicationDocData.founded, 'years');
+        }
+        else {
+            return 0;
+        }
     }
 
     /**
