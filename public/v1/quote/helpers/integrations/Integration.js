@@ -1237,10 +1237,8 @@ module.exports = class Integration {
                 // eslint-disable-next-line no-loop-func
                 const parentApplicationQuestion = applicationQuestionList.find((aq) => aq.questionId === childTalageQuestion.parent);
                 if (!parentApplicationQuestion) {
-                    const error_message = `Unable to find the parent Application question ${childTalageQuestion.parent}`;
-                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} ${error_message}` + __location);
-                    this.reasons.push(error_message);
-                    return null;
+                    questionWasAnswered = false;
+                    break;
                 }
                 // Determine if the parent was answered such that the child became visible. If not, flag it and stop.
                 if (childTalageQuestion.parent_answer && childTalageQuestion.parent_answer !== parentApplicationQuestion.answerId) {

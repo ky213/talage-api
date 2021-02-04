@@ -470,7 +470,7 @@ module.exports = class Application {
                 throw error;
             }
         }
-        if (this.applicationDocDate.locations) {
+        if (this.applicationDocData.locations) {
             // "location" questions
             for (const location of this.applicationDocData.locations) {
                 if (location.questions) {
@@ -519,9 +519,6 @@ module.exports = class Application {
                             log.error(`AppId ${this.applicationDocData.mysqlId} Translation Error: Question ${talageQuestion.id} (questionSubjectArea=${questionSubjectArea}) has invalid parent setting. (${htmlentities.decode(talageQuestion.text).replace('%', '%%')})` + __location);
                         }
                     }
-                }
-                else {
-                    log.error(`AppId ${this.applicationDocData.mysqlId} Translation Error: Can not find talage question ${applicationQuestion.questionId} (questionSubjectArea=${questionSubjectArea}).` + __location);
                 }
             }
         }

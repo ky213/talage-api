@@ -632,11 +632,11 @@ module.exports = class LibertyGL extends Integration{
 				const status = res.Policy[0].QuoteInfo[0].UnderwritingDecisionInfo[0].SystemUnderwritingDecisionCd[0];
 				if(status !== 'Accept'){
 					this.indication = true;
-				}
+                }
 
 				// Attempt to get the quote number
 				try{
-					this.request_id = res.Policy[0].QuoteInfo[0].CompanysQuoteNumber[0];
+					this.number = res.Policy[0].QuoteInfo[0].CompanysQuoteNumber[0];
 				}
                 catch(e){
 					log.warn(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.` + __location);
