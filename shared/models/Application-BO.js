@@ -1792,7 +1792,7 @@ module.exports = class ApplicationModel {
                     await this.checkAndFixAppStatus(applicationDoc);
                 }
                 catch (err) {
-                    log.error("Getting Application error " + err + __location);
+                    log.error(`Getting Application ${id} error ` + err + __location);
                     reject(err);
                 }
                 resolve(applicationDoc);
@@ -1853,7 +1853,7 @@ module.exports = class ApplicationModel {
                     }
                 }
                 catch (err) {
-                    log.error("Getting Application error " + err + __location);
+                    log.error(`Getting Application ${id} error ` + err + __location);
                     reject(err);
                 }
                 resolve(applicationDoc);
@@ -2039,7 +2039,7 @@ module.exports = class ApplicationModel {
                     }
                 }
                 catch (err) {
-                    log.error(err + __location);
+                    log.error(`AppBO GetList ${JSON.stringify(query)} ` + err + __location);
                     error = null;
                     rejected = true;
                 }
@@ -2057,7 +2057,7 @@ module.exports = class ApplicationModel {
             }
             else {
                 const docCount = await ApplicationMongooseModel.countDocuments(query).catch(err => {
-                    log.error("Application.countDocuments error " + err + __location);
+                    log.error(`Application.countDocuments ${JSON.stringify(query)} error ` + err + __location);
                     error = null;
                     rejected = true;
                 })
