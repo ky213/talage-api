@@ -2077,7 +2077,7 @@ module.exports = class Integration {
             }
             if (!result || !result.length) {
                 // Oh shit, this shouldn't have happened... just grab the Talage industry code
-                log.error(`Error: Insurer mapping for this industry code was not found, this shouldn't happen! Falling back to Talage industry code.`);
+                log.error(`AppId: ${this.app.id} Error: Insurer mapping for this industry code was not found, this shouldn't happen! Falling back to Talage industry code. SQL ${sql}` + __location);
 
                 // If insurer industry codes are required and none are returned, it is an error and we should reject.
                 if (this.requiresInsurerIndustryCodes) {
