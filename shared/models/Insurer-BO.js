@@ -14,11 +14,10 @@ const tableName = 'clw_talage_insurers'
 const skipCheckRequired = false;
 module.exports = class InsurerBO{
 
-    #dbTableORM = null;
 
     constructor(){
         this.id = 0;
-        this.#dbTableORM = new DbTableOrm(tableName);
+        this.mongoDoc = null;
     }
 
 
@@ -45,6 +44,7 @@ module.exports = class InsurerBO{
                 if(dbDocJSON){
                     newObjectJSON.systemId = dbDocJSON.systemId;
                     newObjectJSON.insurerId = dbDocJSON.systemId;
+                    this.id = dbDocJSON.systemId;
                     newDoc = false;
                     await this.updateMongo(dbDocJSON.insurerUuidId,newObjectJSON)
                 }
@@ -53,34 +53,19 @@ module.exports = class InsurerBO{
                 }
             }
             if(newDoc === true) {
-                const newAgencyDoc = await this.insertMongo(newObjectJSON);
-                this.id = newAgencyDoc.systemId;
+                const newDoc = await this.insertMongo(newObjectJSON);
+                this.id = newDoc.systemId;
+                this.mongoDoc = newDoc;
 
             }
-
-
+            else {
+                this.mongoDoc = this.getById(this.id);
+            }
             resolve(true);
 
         });
     }
 
-    loadFromIdMySql(id) {
-        return new Promise(async(resolve, reject) => {
-            //validate
-            if(id && id > 0){
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
-                resolve(true);
-            }
-            else {
-                reject(new Error('no id supplied'))
-            }
-        });
-    }
 
     getList(queryJSON) {
         return new Promise(async(resolve, reject) => {
@@ -96,7 +81,7 @@ module.exports = class InsurerBO{
             let query = {active: true};
             let error = null;
 
-            
+
             var queryOptions = {};
             queryOptions.sort = {systemId: 1};
             if (queryJSON.sort) {
@@ -373,31 +358,6 @@ module.exports = class InsurerBO{
         return maxId;
     }
 
-    cleanJSON(noNulls = true){
-        return this.#dbTableORM.cleanJSON(noNulls);
-    }
-
-
-    updateProperty(){
-        const dbJSON = this.#dbTableORM.cleanJSON()
-        // eslint-disable-next-line guard-for-in
-        for (const property in properties) {
-            this[property] = dbJSON[property];
-        }
-    }
-
-    /**
-	 * Load new object JSON into ORM. can be used to filter JSON to object properties
-     *
-	 * @param {object} inputJSON - input JSON
-	 * @returns {void}
-	 */
-    async loadORM(inputJSON){
-        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
-        this.updateProperty();
-        return true;
-    }
-
     async getTerritories(insurerId){
         let territoryArray = [];
         let insurerPolicyTypeListJSON = {};
@@ -422,12 +382,12 @@ module.exports = class InsurerBO{
             log.error("Getting mongo clw_talage_insurer_policy_types error " + err + __location)
         }
         if(territoryArray && territoryArray.length > 0){
-             return territoryArray.sort();
+            return territoryArray.sort();
         }
         else {
             return [];
         }
-       
+
 
     }
 
@@ -446,369 +406,6 @@ module.exports = class InsurerBO{
             log.error(`Insurer GetList error on select ` + err + __location);
         }
         return insurerList;
-    }
-
-}
-
-const properties = {
-    "id": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "state": {
-        "default": "1",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "ordering": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11)"
-    },
-    "logo": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(100)"
-    },
-    "name": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(50)"
-    },
-    "slug": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(30)"
-    },
-    "commission": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "float(4,2) unsigned"
-    },
-    "website": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(50)"
-    },
-    "agency_id_label": {
-        "default": "Agency ID",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(15)"
-    },
-    "agent_id_label": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(15)"
-    },
-    "agent_login": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(200)"
-    },
-    "claim_email": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(50)"
-    },
-    "claim_phone": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(14)"
-    },
-    "claim_website": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(60)"
-    },
-    "enable_agent_id": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "featured": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "payment_link": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(200)"
-    },
-    "payment_mailing_address": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(200)"
-    },
-    "payment_phone": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(15)"
-    },
-    "producer_code": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(15)"
-    },
-    "stock": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(15)"
-    },
-    "social_fb": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(75)"
-    },
-    "social_linkedin": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(75)"
-    },
-    "social_twitter": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(50)"
-    },
-    "rating": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(15)"
-    },
-    "description": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(500)"
-    },
-    "application_emails": {
-        "default": "",
-        "encrypted": true,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "blob"
-    },
-    "username": {
-        "default": "",
-        "encrypted": true,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "blob"
-    },
-    "password": {
-        "default": "",
-        "encrypted": true,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "blob"
-    },
-    "test_username": {
-        "default": "",
-        "encrypted": true,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "blob"
-    },
-    "test_password": {
-        "default": "",
-        "encrypted": true,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "blob"
-    },
-    "created": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "created_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "modified": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "modified_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "deleted": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "deleted_by": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "checked_out": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11)"
-    },
-    "checked_out_time": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "datetime",
-        "dbType": "datetime"
-    }
-}
-
-class DbTableOrm extends DatabaseObject {
-
-    // eslint-disable-next-line no-shadow
-    constructor(tableName){
-        super(tableName, properties);
     }
 
 }

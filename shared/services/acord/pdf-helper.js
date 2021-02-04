@@ -29,6 +29,7 @@ const createPDF = async(sourcePDFString, dataFieldsObj) => {
                     break;
 
                 default:
+                    log.error(`Unknown type: ${field.constructor.name}` + __location);
                     throw new Error(`Unknown type: ${field.constructor.name}`);
             }
         }
@@ -39,22 +40,31 @@ const createPDF = async(sourcePDFString, dataFieldsObj) => {
         log.error('Failed to generate PDF ' + err + __location);
         throw err;
     }
-
 }
 
 const createMultiPagePDF = async(pdfList) => {
-    const mergedPdf = await PDFDocument.create();
+    let multiPagePDF = null;
+    try {
+        const mergedPdf = await PDFDocument.create();
 
-    for (const pdf of pdfList) {
-        if (!pdf) {
-            throw new Error("Invalid PDF file passed in")
+        for (const pdf of pdfList) {
+            if (!pdf) {
+                log.error('Invalid PDF file passed in' + __location);
+                throw new Error("Invalid PDF file passed in");
+            }
+            const pdfDoc = await PDFDocument.load(pdf);
+            const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+            copiedPages.forEach((page) => mergedPdf.addPage(page));
         }
-        const pdfDoc = await PDFDocument.load(pdf);
-        const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
-        copiedPages.forEach((page) => mergedPdf.addPage(page));
+
+        multiPagePDF = mergedPdf.save();
+    }
+    catch (err) {
+        log.error('Failed generating multi page PDF ' + err + __location);
+        throw err;
     }
 
-    return mergedPdf.save();
+    return multiPagePDF;
 }
 
 module.exports = {
