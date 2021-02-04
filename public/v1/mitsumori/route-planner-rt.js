@@ -34,8 +34,6 @@ const getRoute = async(currentRoute, appId, redisKey) => {
             return "additionalQuestions"
         case "additionalQuestions":
             return "owners";
-        case "locations":
-            return "owners";
         case "owners":
             // TODO: should we just blindly always require prior claims to be entered?
             const redisValue = await global.redisSvc.getKeyValue(redisKey);
@@ -46,10 +44,14 @@ const getRoute = async(currentRoute, appId, redisKey) => {
                 }
             }
             return "mailingAddress";
-        case "mailingAddress":
-            return "locations";
         case "claims":
             return "mailingAddress";
+        case "mailingAddress":
+            return "locations";
+        case "locations":
+            return "questions";
+        case "questions":
+            return "quotes";
         default:
             break;
     }
