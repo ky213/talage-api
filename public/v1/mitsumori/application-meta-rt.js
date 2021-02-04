@@ -15,7 +15,7 @@ const serverHelper = global.requireRootPath('server.js');
 const ttlSeconds = 3600;
 
 /**
- * Responds to get requests for an Quote app V2 authorization token
+ * PUTs metadata in redis for an applicaion
  *
  * @param {object} req - Request object
  * @param {object} res - Response object
@@ -37,8 +37,12 @@ async function putApplicationMeta(req, res, next) {
     if(redisValue.found){
         const redisJSON = JSON.parse(redisValue.value);
 
+        // if clientSession has not been defined yet, define it
+        redisJSON.clientSession = {};
+
+        // Save all client redis metadata under clientSession
         Object.keys(req.params).forEach(async key => {
-            redisJSON[key] = req.params[key];
+            redisJSON.clientSession[key] = req.params[key];
         });
 
         const redisSetResponse = await global.redisSvc.storeKeyValue(redisKey, JSON.stringify(redisJSON), ttlSeconds);
@@ -58,8 +62,35 @@ async function putApplicationMeta(req, res, next) {
     return next();
 }
 
+/**
+ * GETs metadata from redis for an applicaion
+ *
+ * @param {object} req - Request object
+ * @param {object} res - Response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {object} res - Returns an authorization token
+ */
+async function getApplicationMeta(req, res, next) {
+    const redisKey = req.header('authorization').replace("Bearer ", "");
+    const redisValue = await global.redisSvc.getKeyValue(redisKey);
+    if(redisValue.found){
+        const redisJSON = JSON.parse(redisValue.value);
+
+        // Only return the client session
+        res.send(200, redisJSON.clientSession);
+        return next();
+    }
+    else {
+        log.error(`Could not find redis value for key: ${redisKey}`);
+        res.send(404, { error: "Not Found" });
+        return next();
+    }
+}
+
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
     // TODO: this should be secured behind auth token redis check
-    server.addPut('Get Token', `${basePath}/application/meta`, putApplicationMeta);
+    server.addPut('Put Application Metadata', `${basePath}/application/meta`, putApplicationMeta);
+    server.addGet('Get Application Metadata', `${basePath}/application/meta`, getApplicationMeta);
 };
