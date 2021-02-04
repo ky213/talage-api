@@ -18,13 +18,13 @@ async function getNextRoute(req, res, next){
         nextRouteName = "policies";
     }
     else {
-        nextRouteName = await getRoute(req.query.currentRoute, req.query.appId);
+        nextRouteName = await getRoute(req.query.currentRoute, req.query.appId, req.header('authorization').replace("Bearer ", ""));
     }
 
     res.send(200, nextRouteName);
 }
 
-const getRoute = async(currentRoute, appId) => {
+const getRoute = async(currentRoute, appId, redisKey) => {
     // will probably grab info about application and determine the next route but for now use the current route to just go to the next one we have hardcoded
     // const applicationBO = new ApplicationBO();
     // const applicationDB = await applicationBO.loadfromMongoByAppId(appId);
@@ -33,16 +33,22 @@ const getRoute = async(currentRoute, appId) => {
         case "policies":
             return "additionalQuestions"
         case "additionalQuestions":
-            return "mailingAddress";
+            return "owners";
         case "locations":
             return "owners";
         case "owners":
-            // if(applicationDB.)
-            return "claims";
+            const redisValue = await global.redisSvc.getKeyValue(redisKey);
+            if(redisValue.found){
+                const redisObj = JSON.parse(redisValue.value);
+                if(redisObj.priorClaims){
+                    return "claims";
+                }
+            }
+            return "mailingAddress";
         case "mailingAddress":
             return "locations";
         case "claims":
-            return "questions";
+            return "mailingAddress";
         default:
             break;
     }
