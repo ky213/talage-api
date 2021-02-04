@@ -45,6 +45,12 @@ module.exports = class Integration {
         //      - set to false if the integration does not have insurer activity class codes.
         this.requiresInsurerActivityClassCodes = false;
 
+        // requiresProductPolicyTypeFilter:
+        //      - set to true if the policy type must be used to filter industry codes.
+        //      - if set to true, set the policyTYpeFilter to the string policy type (f.e. 'GL')
+        this.requiresProductPolicyTypeFilter = false;
+        this.policyTypeFilter = null;
+
         // Integration Data
         this.app = app;
         this.industry_code = {};
@@ -232,6 +238,8 @@ module.exports = class Integration {
      * @returns {number} The 4 digit NCCI code
      */
     async get_insurer_code_for_activity_code(insurerId, territory, activityCode) {
+        const policyEffectiveDate = moment(this.policy.effective_date).format(db.dbTimeFormat());
+
         const sql = `
             SELECT inc.code, inc.sub, inc.attributes
             FROM clw_talage_insurer_ncci_codes AS inc 
@@ -240,6 +248,7 @@ module.exports = class Integration {
                 inc.state = 1
                 AND inc.insurer = ${insurerId}
                 AND inc.territory = '${territory}'
+                AND ('${policyEffectiveDate}' >= inc.effectiveDate AND '${policyEffectiveDate}' < inc.expirationDate)
                 AND aca.code = ${activityCode};
         `;
         let result = null;
@@ -1949,6 +1958,8 @@ module.exports = class Integration {
                 return `(\`ac\`.\`id\` = ${db.escape(codeObj.id)} AND \`inc\`.\`territory\` = ${db.escape(codeObj.territory)})`;
             });
 
+            const policyEffectiveDate = moment(this.policy.effective_date).format(db.dbTimeFormat());
+
             // Query the database to get the corresponding codes
             let hadError = false;
             const sql = `
@@ -1964,7 +1975,8 @@ module.exports = class Integration {
             LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON aca.insurer_code = inc.id
             WHERE
                 inc.insurer = ${this.insurer.id} 
-                AND (${whereCombinations.join(' OR ')});
+                AND (${whereCombinations.join(' OR ')})
+                AND ('${policyEffectiveDate}' >= inc.effectiveDate AND '${policyEffectiveDate}' < inc.expirationDate);
             `;
             const appId = this.app.id;
             const insurerId = this.insurer.id;
@@ -2018,15 +2030,25 @@ module.exports = class Integration {
 	 */
     _insurer_supports_industry_codes() {
         return new Promise(async(fulfill) => {
+             // append policy type if integration intends to use it
+            let policyTypeWhere = '';
+            if (this.requiresProductPolicyTypeFilter && this.policyTypeFilter) {
+                policyTypeWhere = ` AND iic.policyType = '${this.policyTypeFilter}' `;
+            }
+
+            const policyEffectiveDate = moment(this.policy.effective_date).format(db.dbTimeFormat());
+
             // Query the database to see if this insurer supports this industry code
             let sql = `SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso, iic.attributes 
                         FROM clw_talage_industry_codes AS ic 
                         INNER JOIN industry_code_to_insurer_industry_code AS industryCodeMap ON industryCodeMap.talageIndustryCodeId = ic.id
                         INNER JOIN clw_talage_insurer_industry_codes AS iic ON iic.id = industryCodeMap.insurerIndustryCodeId
                         WHERE
-                            ic.id = ${this.app.business.industry_code}
+                            ic.id = ${this.app.applicationDocData.industryCode}
                             AND iic.insurer = ${this.insurer.id} 
-                            AND iic.territory = '${this.app.business.primary_territory}'
+                            AND iic.territory = '${this.app.applicationDocData.mailingState}'
+                            AND ('${policyEffectiveDate}' >= iic.effectiveDate AND '${policyEffectiveDate}' < iic.expirationDate)
+                            ${policyTypeWhere}
                             LIMIT 1;`
             let hadError = false;
             let result = await db.query(sql).catch((error) => {
@@ -2039,7 +2061,8 @@ module.exports = class Integration {
                 return;
             }
             if (!result || !result.length) {
-                // If insurer industry codes are required and none are returned, it is an error and we should reject.
+                // Oh shit, this shouldn't have happened... just grab the Talage industry code
+                log.error(`AppId: ${this.app.id} Error: Insurer mapping for this industry code was not found, this shouldn't happen! Falling back to Talage industry code. SQL ${sql}` + __location);
                 if (this.requiresInsurerIndustryCodes) {
                     this.reasons.push("An insurer industry class code was not found for the given industry.");
                     log.warn(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} _insurer_supports_industry_codes failed on application. query=${sql} ` + __location);
@@ -2072,12 +2095,12 @@ module.exports = class Integration {
                     this.industry_code.attributes = JSON.parse(this.industry_code.attributes);
                 }
                 catch (error) {
-                    log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} IndustryCode: ${this.app.business.industry_code} Insurer industry code attributes could not be parsed: ${this.industry_code.attributes} ${__location}`);
+                    log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} IndustryCode: ${this.app.applicationDocData.industryCode} Insurer industry code attributes could not be parsed: ${this.industry_code.attributes} ${__location}`);
                     this.industry_code.attributes = {};
                 }
             }
             else {
-                log.warn(`Appid: ${this.app.id} No Industry_code attributes for ${this.insurer.name}:${this.insurer.id} and ${this.app.business.primary_territory}` + __location);
+                log.warn(`Appid: ${this.app.id} No Industry_code attributes for ${this.insurer.name}:${this.insurer.id} and ${this.app.applicationDocData.mailingState}` + __location);
                 this.industry_code.attributes = {};
             }
 
