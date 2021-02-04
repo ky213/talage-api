@@ -433,9 +433,12 @@ module.exports = class LibertySBOP extends Integration {
         // check the response status
         switch (objPath.MsgStatusCd[0].toLowerCase()) {
             case "error":
+                log.error("=================== QUOTE ERROR ===================");
+                log.error(`Liberty Mutual Simple BOP Request Error (Appid: ${this.app.id}):\n${JSON.stringify(objPath, null, 4)}`);
+                log.error("=================== QUOTE ERROR ===================");
                 // normal error structure, build an error message
                 let additionalReasons = null;
-                let errorMessage = 'Liberty Mutual: ';
+                let errorMessage = `Liberty Mutual (Appid: ${this.app.id}): `;
                 if (objPath.MsgErrorCd) {
                     errorMessage += objPath.MsgErrorCd[0];
                 }
@@ -464,12 +467,12 @@ module.exports = class LibertySBOP extends Integration {
                             });
                         }
                     } else {
-                        errorMessage += 'Please review the logs for more details.';
+                        errorMessage += 'Failed to parse error, please review the logs for more details.';
                     }
+                } else {
+                    errorMessage += 'Failed to parse error, please review the logs for more details.';
                 }
-                log.error("=================== QUOTE ERROR ===================");
-                log.error(`Liberty Mutual Simple BOP send_json_request error (Appid: ${this.app.id}):\n${JSON.stringify(result.ACORD.InsuranceSvcRs[0].PolicyRs[0].MsgStatus[0], null, 4)}`);
-                log.error("=================== QUOTE ERROR ===================");
+
                 return this.client_error(errorMessage, additionalReasons);
             case "successwithinfo":
                 log.info(`Liberty Mutual (Appid: ${this.app.id}): Quote returned with status Sucess With Info.`);

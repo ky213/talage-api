@@ -54,34 +54,34 @@ module.exports = class ChubbGL extends Integration {
 
         // Check Industry Code Support
         if (!this.industry_code.cgl) {
-            log.warn(`Appid: ${this.app.id} Chubb GL: CGL not set for Industry Code ${this.industry_code.id} ` + __location);
-            this.reasons.push(`CGL not set for Industry Code ${this.industry_code.id}`);
-            return this.return_result('autodeclined');
+            const errorMessage = `Chubb GL (Appid: ${this.app.id}): CGL not set for Industry Code ${this.industry_code.id}.`;
+            log.error(errorMessage);
+            return this.client_autodeclined(errorMessage);
         }
         if (!this.industry_code.iso) {
-            log.warn(`Appid: ${this.app.id} Chubb GL:  ISO not set for Industry Code ${this.industry_code.id} ` + __location);
-            this.reasons.push(`ISO not set for Industry Code ${this.industry_code.id}`);
-            return this.return_result('autodeclined');
+            const errorMessage = `Chubb GL (Appid: ${this.app.id}): ISO not set for Industry Code ${this.industry_code.id}`;
+            log.error(errorMessage);
+            return this.client_autodeclined(errorMessage);
         }
         if (!this.industry_code.attributes) {
-            log.warn(`Appid: ${this.app.id} Chubb GL: Missing Attributes for Industry Code ${this.industry_code.id} ` + __location);
-            this.reasons.push(`Missing Attributes for Industry Code ${this.industry_code.id}`);
-            return this.return_result('autodeclined');
+            const errorMessage = `Chubb GL (Appid: ${this.app.id}): Missing Attributes for Industry Code ${this.industry_code.id}`;
+            log.error(errorMessage);
+            return this.client_autodeclined(errorMessage);
         }
         if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'class_code_id')) {
-            log.warn(`Appid: ${this.app.id} Chubb GL: Missing required attribute 'class_code_id' for Industry Code ${this.industry_code.id} ` + __location);
-            this.reasons.push(`Missing required attribute 'class_code_id' for Industry Code ${this.industry_code.id}`);
-            return this.return_result('autodeclined');
+            const errorMessage = `Chubb GL (Appid: ${this.app.id}): Missing required attribute 'class_code_id' for Industry Code ${this.industry_code.id}`;
+            log.error(errorMessage);
+            return this.client_autodeclined(errorMessage);
         }
         if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'segment')) {
-            log.warn(`Appid: ${this.app.id} Chubb GL: Missing required attribute 'segment' for Industry Code ${this.industry_code.id} ` + __location);
-            this.reasons.push(`Missing required attribute 'segment' for Industry Code ${this.industry_code.id}`);
-            return this.return_result('autodeclined');
+            const errorMessage = `Chubb GL (Appid: ${this.app.id}): Missing required attribute 'segment' for Industry Code ${this.industry_code.id}`;
+            log.error(errorMessage);
+            return this.client_autodeclined(errorMessage);
         }
         if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'exposure')) {
-            log.warn(`Appid: ${this.app.id} Chubb GL: Missing required attribute 'exposure' for Industry Code ${this.industry_code.id} ` + __location);
-            this.reasons.push(`Missing required attribute 'exposure' for Industry Code ${this.industry_code.id}`);
-            return this.return_result('autodeclined');
+            const errorMessage = `Chubb GL (Appid: ${this.app.id}): Missing required attribute 'exposure' for Industry Code ${this.industry_code.id}`;
+            log.error(errorMessage);
+            return this.client_autodeclined(errorMessage);
         }
 
         // Determine which API host to use
@@ -95,21 +95,17 @@ module.exports = class ChubbGL extends Integration {
 
         // Get a token from their auth server
         let tokenResponse = null;
+        const creds = {
+            App_ID: this.username,
+            App_Key: this.password
+        };
         try {
-            tokenResponse = await this.send_json_request(
-                host,
-                '/api/v1/tokens',
-                null,
-                {
-                    App_ID: this.username,
-                    App_Key: this.password
-                },
-                'POST'
-            );
+            tokenResponse = await this.send_json_request(host,'/api/v1/tokens',null,creds,'POST');
         }
         catch (error) {
-            log.error(`Chubb GL: error sending the token request: ${error} ${__location}`);
-            return this.return_error('error');
+            const errorMessage = `Chubb GL (Appid: ${this.app.id}): Error sending token request: ${error}.`;
+            log.error(errorMessage);
+            return this.client_error(errorMessage);
         }
 
         // Build the XML Request
@@ -313,12 +309,11 @@ module.exports = class ChubbGL extends Integration {
         Location.ele('LocationDesc', '1');
 
         // Send all locations
-        let count = 0;
-        this.app.business.locations.forEach((loc) => {
+        this.app.business.locations.forEach((loc, index) => {
             // <SubLocation>
             const SubLocation = Location.ele('SubLocation');
             SubLocation.att('Action', 'Create');
-            SubLocation.att('id', `L1S${count + 1}`);
+            SubLocation.att('id', `L1S${index + 1}`);
 
             // <Addr>
             Addr = SubLocation.ele('Addr');
@@ -333,8 +328,6 @@ module.exports = class ChubbGL extends Integration {
             // </Addr>
 
             // </SubLocation>
-
-            count++;
         });
         // </Location>
 
@@ -469,19 +462,9 @@ module.exports = class ChubbGL extends Integration {
             case 'PAYRL':
                 Rating.ele('Exposure', this.get_total_payroll());
                 break;
-
-                /*
-			 * Retail
-			 * Unit
-			 * Office
-			 * Member
-			 * Show
-			 */
             default:
                 // Unsupported Exposure
-                log.error(`Chubb GL: Unsupported exposure of '${this.industry_code.attributes.exposure}'} ` + __location);
-                this.reasons.push(`Unsupported exposure of '${this.industry_code.attributes.exposure}'`);
-                return this.return_result('error');
+                log.warn(`Chubb GL (Appid: ${this.app.id}): Unsupported exposure of '${this.industry_code.attributes.exposure}'}`);
         }
 
         // </Rating>
@@ -538,9 +521,7 @@ module.exports = class ChubbGL extends Integration {
                 break;
             default:
                 // Unsupported Exposure
-                log.error(`Chubb GL: Unsupported exposure of '${this.industry_code.attributes.exposure}'} ` + __location);
-                this.reasons.push(`Unsupported exposure of '${this.industry_code.attributes.exposure}'`);
-                return this.return_result('error');
+                log.warn(`Chubb GL (Appid: ${this.app.id}): Unsupported exposure of '${this.industry_code.attributes.exposure}'}`);
         }
 
         // </Rating>
@@ -561,9 +542,9 @@ module.exports = class ChubbGL extends Integration {
             question_identifiers = await this.get_question_identifiers();
         }
         catch (err) {
-            log.error(`Chubb GL: get_question_identifiers error ${err}` + __location);
-            this.reasons.push('Unable to get question identifiers');
-            return this.return_result('error');
+            const errorMessage = `Chubb GL (Appid: ${this.app.id}): Error getting question identifies: ${err}`;
+            log.error(errorMessage);
+            return this.client_error(errorMessage);
         }
 
         // Loop through each question
@@ -616,6 +597,10 @@ module.exports = class ChubbGL extends Integration {
         // Get the XML structure as a string
         const xml = ACORD.end({ pretty: true });
 
+        log.info("=================== QUOTE REQUEST ===================");
+        log.info(`Chubb GL (Appid: ${this.app.id}): \n${xml}`);
+        log.info("=================== QUOTE REQUEST ===================");
+
         // Build the authorization header
         const headers = { Authorization: `${tokenResponse.token_type} ${tokenResponse.access_token}` };
 
@@ -625,41 +610,63 @@ module.exports = class ChubbGL extends Integration {
             result = await this.send_xml_request(host, '/api/v1/quotes', xml, headers);
         }
         catch (error) {
-            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: ${error} ${__location}`);
-            return this.return_result('error');
+            const errorMessage = `Chubb (Appid: ${this.app.id}): Error sending XML request: ${error} ${__location}`;
+            log.error(errorMessage);
+            return this.client_error(errorMessage);
         }
+
+        if (!result.ACORD || !result.ACORD.InsuranceSvcRs) {
+            const errorMessage = `Chubb (Appid: ${this.app.id}): Unknown result structure, no base ACORD path: cannot parse result.`;
+            log.error(errorMessage);
+            this.client_error(errorMessage);
+        }
+
         // Parse the various status codes and take the appropriate action
         const res = result.ACORD.InsuranceSvcRs[0];
 
+        if (!res.Status || !res.Status[0].StatusCd) {
+            const errorMessage = `Chubb (Appid: ${this.app.id}): Unknown result structure, no Status or StatusCd: cannot determine result.`;
+            log.error(errorMessage);
+            this.client_error(errorMessage);      
+        }
 
         // Determine what happened
         switch (res.Status[0].StatusCd[0]) {
             case 'DC-100':
+                log.error("=================== QUOTE ERROR ===================");
+                log.error(`Chubb GL Request Error (Appid: ${this.app.id}):\n${JSON.stringify(res, null, 4)}`);
+                log.error("=================== QUOTE ERROR ===================");
                 log.error(`Appid: ${this.app.id} Chubb GL: Error DC-100: The data we sent was invalid ` + __location);
                 this.reasons.push('Error DC-100: The data we sent was invalid');
                 return this.return_result('error');
             case '400':
+                log.error("=================== QUOTE ERROR ===================");
+                log.error(`Chubb GL Request Error (Appid: ${this.app.id}):\n${JSON.stringify(res, null, 4)}`);
+                log.error("=================== QUOTE ERROR ===================");
                 log.error(`Appid: ${this.app.id} Chubb GL: Error 400: ${BOPPolicyQuoteInqRs.Status[0].StatusDesc[0]} ` + __location);
                 this.reasons.push(`Error 400: ${BOPPolicyQuoteInqRs.Status[0].StatusDesc[0]}`);
                 return this.return_result('error');
             case '0':
-                // Furthher refine
+                // Further refine
                 const BOPPolicyQuoteInqRs = res.BOPPolicyQuoteInqRs[0];
 
-                // check for problem....
+                // check for problem...
                 let MsgStatusCd = null;
-                try{
+                try {
                     MsgStatusCd = BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].MsgStatusCd[0];
-                    // not always present.
+                    // not always present
                     if(BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0]){
                         this.reasons.push(BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0])
                     }
                 }
-                catch(err){
-                    log.error("Chubb GL error getting  MsgStatus " + err + __location);
+                catch(err) {
+                    log.error("Chubb GL error getting MsgStatus " + err + __location);
                 }
 
                 if(MsgStatusCd === 'Referral'){
+                    log.error("=================== QUOTE ERROR ===================");
+                    log.error(`Chubb GL Request Error (Appid: ${this.app.id}):\n${JSON.stringify(res, null, 4)}`);
+                    log.error("=================== QUOTE ERROR ===================");
                     return this.return_result('referred');
                 }
                 else if(MsgStatusCd !== 'Success'){
@@ -667,14 +674,21 @@ module.exports = class ChubbGL extends Integration {
                         const error_message = BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0];
                         log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Error Returned by Carrier: ${error_message} ${__location}`);
                     }
-                    catch (e) {
+                    catch(e) {
                         log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Error Returned by Carrier: Quote structure changed. Unable to find error message. ${__location}`);
                     }
+                    log.error("=================== QUOTE ERROR ===================");
+                    log.error(`Chubb GL Request Error (Appid: ${this.app.id}):\n${JSON.stringify(res, null, 4)}`);
+                    log.error("=================== QUOTE ERROR ===================");
                     return this.return_result('error');
                 }
-                else if(!MsgStatusCd){
+                else if(!MsgStatusCd) {
                     this.reasons.push(MsgStatusCd);
                 }
+
+                log.info("=================== QUOTE RESULT ===================");
+                log.info(`Chubb GL (Appid: ${this.app.id}):\n ${JSON.stringify(result, null, 4)}`);
+                log.info("=================== QUOTE RESULT ===================");
 
                 // Attempt to get the quote number
                 try {
