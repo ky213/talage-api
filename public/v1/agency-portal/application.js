@@ -1084,9 +1084,9 @@ async function GetQuestions(req, res, next){
 
 async function bindQuote(req, res, next) {
     //Double check it is TalageStaff user
-
+    log.debug("Bind request: " + JSON.stringify(req.body))
     // Check if binding is disabled
-    if (global.settings.DISABLE_BINDING === "YES") {
+    if (global.settings.DISABLE_BINDING === "YES" && req.body.markAsBound !== true) {
         return next(serverHelper.requestError('Binding is disabled'));
     }
 
@@ -1149,8 +1149,8 @@ async function bindQuote(req, res, next) {
     }
 
     try {
-        if (req.body.markAsBound !== 'true') {
-            const insurerBO = new InsurerBO();
+        if (req.body.markAsBound !== true) {
+            //const insurerBO = new InsurerBO();
 
             const quoteBind = new QuoteBind();
             await quoteBind.load(quoteId);
@@ -1158,7 +1158,10 @@ async function bindQuote(req, res, next) {
         }
 
         const quoteBO = new QuoteBO();
-        await quoteBO.bindQuote(quoteId, applicationId, req.authentication.userID);
+        const bindResp = await quoteBO.bindQuote(quoteId, applicationId, req.authentication.userID);
+        if(bindResp){
+            await applicationBO.updateStatus(applicationDB.mysqlId,"bound", 90);
+        }
     }
     catch (err) {
         log.error(`Error Binding  application ${applicationId ? applicationId : ''}: ${err}` + __location);
