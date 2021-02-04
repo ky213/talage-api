@@ -1699,21 +1699,23 @@ module.exports = class ApplicationModel {
 
     // checks the status of the app and fixes it if its timed out
     async checkAndFixAppStatus(applicationDoc){
-        // only check and fix quoting apps
-        if(applicationDoc.appStatusId === QUOTING_STATUS){
-            const now = moment.utc();
-            // if the quotingStartedDate doesnt exist, just set it and return
-            if(!applicationDoc.quotingStartedDate){
-                applicationDoc.quotingStartedDate = now;
-                await this.updateMongo(applicationDoc.uuid, {quotingStartedDate: now});
-                return;
-            }
+        if(applicationDoc){
+            // only check and fix quoting apps
+            if(applicationDoc.appStatusId === QUOTING_STATUS){
+                const now = moment.utc();
+                // if the quotingStartedDate doesnt exist, just set it and return
+                if(!applicationDoc.quotingStartedDate){
+                    applicationDoc.quotingStartedDate = now;
+                    await this.updateMongo(applicationDoc.uuid, {quotingStartedDate: now});
+                    return;
+                }
 
-            const status = global.requireShared('./models/application-businesslogic/status.js');
-            const duration = moment.duration(now.diff(moment(applicationDoc.quotingStartedDate)));
-            if(duration.minutes() >= QUOTE_MIN_TIMEOUT){
-                log.error(`Application: ${applicationDoc.uuid} timed out ${QUOTE_MIN_TIMEOUT} minutes after quoting started`);
-                await status.updateApplicationStatus(applicationDoc, true);
+                const status = global.requireShared('./models/application-businesslogic/status.js');
+                const duration = moment.duration(now.diff(moment(applicationDoc.quotingStartedDate)));
+                if(duration.minutes() >= QUOTE_MIN_TIMEOUT){
+                    log.error(`Application: ${applicationDoc.uuid} timed out ${QUOTE_MIN_TIMEOUT} minutes after quoting started`);
+                    await status.updateApplicationStatus(applicationDoc, true);
+                }
             }
         }
     }
@@ -1758,11 +1760,13 @@ module.exports = class ApplicationModel {
                 let applicationDoc = null;
                 try {
                     applicationDoc = await ApplicationMongooseModel.findOne(query, '-__v');
-                    await this.setDocEinClear(applicationDoc);
-                    await this.checkAndFixAppStatus(applicationDoc);
+                    if(applicationDoc){
+                        await this.setDocEinClear(applicationDoc);
+                        await this.checkAndFixAppStatus(applicationDoc);
+                    }
                 }
                 catch (err) {
-                    log.error("Getting Application error " + err + __location);
+                    log.error(`Getting Application ${id} error ` + err + __location);
                     reject(err);
                 }
                 resolve(applicationDoc);
