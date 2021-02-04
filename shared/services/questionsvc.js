@@ -116,7 +116,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     policyTypeArray.forEach(function(policyTypeJSON) {
         // Build a list of policy types
         policyTypes.push(policyTypeJSON.type.replace(/[^a-z]/gi, '').toUpperCase());
-        const policyEffectiveDate = moment(policyTypeJSON.effectiveDate).format("YYYY-MM-DD HH:MM:SS");
+        const policyEffectiveDate = moment(policyTypeJSON.effectiveDate).format(db.dbTimeFormat());
         // Build a list of unique policy effective dates for the industry and activity code queries
         if (!uniquePolicyEffectiveDateList.includes(policyEffectiveDate)) {
             uniquePolicyEffectiveDateList.push(policyEffectiveDate);

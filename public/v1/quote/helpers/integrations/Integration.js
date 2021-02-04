@@ -240,7 +240,7 @@ module.exports = class Integration {
      * @returns {number} The 4 digit NCCI code
      */
     async get_insurer_code_for_activity_code(insurerId, territory, activityCode) {
-        const policyEffectiveDate = moment(this.policy.effective_date).format("YYYY-MM-DD HH:MM:SS");
+        const policyEffectiveDate = moment(this.policy.effective_date).format(db.dbTimeFormat());
 
         const sql = `
             SELECT inc.code, inc.sub, inc.attributes
@@ -616,17 +616,12 @@ module.exports = class Integration {
             });
 
             // Build the SQL query
-            // Note: these are using insurer NCCI code ID's that were already filtered based on policy effective date so no
-            // need to check policy effective date here. -SF
             const sql = `
 				SELECT inc.territory, CONCAT(inc.\`code\`, inc.sub) AS class_code, GROUP_CONCAT(incq.question) AS questions
 				FROM clw_talage_insurer_ncci_code_questions AS incq
 				LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON inc.id = incq.ncci_code AND inc.insurer = ${this.insurer.id}
 				LEFT JOIN clw_talage_questions AS q ON incq.question = q.id
-                WHERE
-                    q.state = 1
-                    AND (${where_chunks.join(' OR ')}) 
-                    GROUP BY inc.territory, class_code;
+				WHERE q.state = 1 AND (${where_chunks.join(' OR ')}) GROUP BY inc.territory, class_code;
 			`;
             const results = await db.query(sql).catch(function(error) {
                 reject(error);
@@ -833,12 +828,7 @@ module.exports = class Integration {
             const question_ids = Object.keys(this.questions);
 
             if (question_ids.length > 0) {
-                const sql = `
-                    SELECT question, universal, identifier FROM #__insurer_questions
-                    WHERE
-                        insurer = ${this.insurer.id} 
-                        AND question IN (${question_ids.join(',')});
-                `;
+                const sql = `SELECT question, universal, identifier FROM #__insurer_questions WHERE insurer = ${this.insurer.id} AND question IN (${question_ids.join(',')});`;
                 const results = await db.query(sql).catch(function(error) {
                     reject(error);
                 });
@@ -1344,8 +1334,9 @@ module.exports = class Integration {
 
         // Deductible
         if (this.deductible !== null) {
-            columns.push('deductible');
-            values.push(this.deductible);
+            // do not put in mysql
+            // columns.push('deductible');
+            // values.push(this.deductible);
             quoteJSON.deductible = this.deductible;
         }
 
@@ -2128,7 +2119,7 @@ module.exports = class Integration {
                 return `(\`ac\`.\`id\` = ${db.escape(codeObj.id)} AND \`inc\`.\`territory\` = ${db.escape(codeObj.territory)})`;
             });
 
-            const policyEffectiveDate = moment(this.policy.effective_date).format("YYYY-MM-DD HH:MM:SS");
+            const policyEffectiveDate = moment(this.policy.effective_date).format(db.dbTimeFormat());
 
             // Query the database to get the corresponding codes
             let hadError = false;
@@ -2206,10 +2197,10 @@ module.exports = class Integration {
                 policyTypeWhere = ` AND iic.policyType = '${this.policyTypeFilter}' `;
             }
 
-            const policyEffectiveDate = moment(this.policy.effective_date).format("YYYY-MM-DD HH:MM:SS");
+            const policyEffectiveDate = moment(this.policy.effective_date).format(db.dbTimeFormat());
 
             // Query the database to see if this insurer supports this industry code
-            let sql = `SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso, iic.attributes, iic.code, iic.description AS insurerDescription 
+            let sql = `SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso, iic.attributes 
                         FROM clw_talage_industry_codes AS ic 
                         INNER JOIN industry_code_to_insurer_industry_code AS industryCodeMap ON industryCodeMap.talageIndustryCodeId = ic.id
                         INNER JOIN clw_talage_insurer_industry_codes AS iic ON iic.id = industryCodeMap.insurerIndustryCodeId
@@ -2219,8 +2210,7 @@ module.exports = class Integration {
                             AND iic.territory = '${this.app.applicationDocData.mailingState}'
                             AND ('${policyEffectiveDate}' >= iic.effectiveDate AND '${policyEffectiveDate}' < iic.expirationDate)
                             ${policyTypeWhere}
-                            LIMIT 1;`;
-
+                            LIMIT 1;`
             let hadError = false;
             let result = await db.query(sql).catch((error) => {
                 log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} Could not retrieve industry codes: ${error} ${__location}`);
@@ -2265,7 +2255,7 @@ module.exports = class Integration {
                     this.industry_code.attributes = JSON.parse(this.industry_code.attributes);
                 }
                 catch (error) {
-                    log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} IndustryCode: ${this.app.business.industry_code} Insurer industry code attributes could not be parsed: ${this.industry_code.attributes} ${__location}`);
+                    log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} IndustryCode: ${this.app.applicationDocData.industryCode} Insurer industry code attributes could not be parsed: ${this.industry_code.attributes} ${__location}`);
                     this.industry_code.attributes = {};
                 }
             }
