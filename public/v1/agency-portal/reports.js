@@ -192,7 +192,7 @@ const getPremium = async (where) => {
  */
 async function getReports(req) {
     // Get the agents that we are permitted to view
-    const agents = await auth.getAgents(req);
+    let agents = await auth.getAgents(req);
 
     // Get the filter parameters
     let startDate = req.query.startDate;
@@ -206,7 +206,7 @@ async function getReports(req) {
     if(offSetParts.length > 0){
         offSetHours = parseInt(offSetParts[0],10);
     }
-
+    
     // When the static query parameter is set only the queries keyed under 'static' will be executed
     let initialRequest = false;
     if (req.query.initial === 'true') {
@@ -247,7 +247,11 @@ async function getReports(req) {
                     donotReportAgencyIdArray.push(agencyJSON.systemId);
                 }
                 if (donotReportAgencyIdArray.length > 0) {
-                    where.agency = { $nin: donotReportAgencyIdArray };
+                    //where.agency = { $nin: donotReportAgencyIdArray };
+                    //need to remove values from Agents array.
+                    agents = agents.filter(function(value, index, arr){
+                        return donotReportAgencyIdArray.indexOf(value) === -1;
+                    });
                 }
             }
         }
@@ -263,12 +267,12 @@ async function getReports(req) {
     else {
         where.agencyId = { $in: agents };
     }
-
+    log.debug("Where " + JSON.stringify(where))
     // Define a list of queries to be executed based on the request type
     if (initialRequest) {
         return {
             minDate: await getMinDate(where),
-            hasApplications: await hasApplications(where) ? 1 : 0,
+            hasApplications: await hasApplications(where) ? 1 : 0
         };
     } else {
         return {
@@ -301,7 +305,7 @@ async function wrapAroundExpress(req, res, next) {
         res.send(200, out);
         return next();
     } catch (err) {
-        console.log(err);
+        log.error("wrapAroundExpress error: " + err + __location);
         return next(err);
     }
 }
