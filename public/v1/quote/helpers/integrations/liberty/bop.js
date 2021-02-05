@@ -320,7 +320,7 @@ module.exports = class LibertySBOP extends Integration {
             Coverage.ele('CoverageCd', 'BPP');
             const Limit = Coverage.ele('Limit');
             const FormatCurrencyAmt = Limit.ele('FormatCurrencyAmt');
-            FormatCurrencyAmt.ele('Amt', applicationDocData.policies[0].coverage); 
+            FormatCurrencyAmt.ele('Amt', sbopPolicy.coverage); 
             Limit.ele('LimitAppliesToCd', 'PerOcc');
         }
 
