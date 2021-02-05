@@ -114,7 +114,7 @@ const QuestionSchema = new Schema({
 const ApplicationMetricsPremiumSchema = new Schema({
     WC: {type: Number, required: false},
     GL: {type: Number, required: false},
-    BOP: {type: Number, required: false},
+    BOP: {type: Number, required: false}
 });
 
 const ApplicationMetricsSchema = new Schema({

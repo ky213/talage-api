@@ -2784,53 +2784,52 @@ module.exports = class ApplicationModel {
         return getQuestionsResult;
     }
 
+    // eslint-disable-next-line valid-jsdoc
     /**
      * Recalculates all quote-related metrics stored in the Application collection.
-     * 
-     * @param {*} applicationId The application UUID. 
-     * @param {*} quoteList (optional) A list of application quotes.
+     *
+     * @param {number} applicationId The application UUID.
+     * @param {array} quoteList (optional) A list of application quotes.
      */
     async recalculateQuoteMetrics(applicationId, quoteList) {
         if (!quoteList) {
-            quoteList = await QuoteMongooseModel.find({
-                applicationId
-            });
+            quoteList = await QuoteMongooseModel.find({applicationId: applicationId});
         }
-
-        let lowestBoundQuote = (product) =>
-            _.min(quoteList
-                .filter(t =>
-                    t.policyType === product && (
+        //not all applications have quotes.
+        if(quoteList && quoteList.length > 0){
+            let lowestBoundQuote = (product) => _.min(quoteList.
+                filter(t => t.policyType === product && (
                     t.bound ||
-                    t.status === 'bind_requested'))
-                .map(t => t.amount));
+                    t.status === 'bind_requested')).
+                map(t => t.amount));
 
-        let lowestQuote = (product) =>
-            _.min(quoteList
-                .filter(t =>
-                    t.policyType === product && (
+            let lowestQuote = (product) => _.min(quoteList.
+                filter(t => t.policyType === product && (
                     t.bound ||
                     t.status === 'bind_requested' ||
                     t.apiResult === 'quoted' ||
-                    t.apiResult === 'referred_with_price'))
-                .map(t => t.amount));
+                    t.apiResult === 'referred_with_price')).
+                map(t => t.amount));
 
-        const metrics = {
-            lowestBoundQuoteAmount: {
-                GL: lowestBoundQuote('GL'),
-                WC: lowestBoundQuote('WC'),
-                BOP: lowestBoundQuote('BOP'),
-            },
-            lowestQuoteAmount: {
-                GL: lowestQuote('GL'),
-                WC: lowestQuote('WC'),
-                BOP: lowestQuote('BOP'),
-            },
-        };
+            const metrics = {
+                lowestBoundQuoteAmount: {
+                    GL: lowestBoundQuote('GL'),
+                    WC: lowestBoundQuote('WC'),
+                    BOP: lowestBoundQuote('BOP')
+                },
+                lowestQuoteAmount: {
+                    GL: lowestQuote('GL'),
+                    WC: lowestQuote('WC'),
+                    BOP: lowestQuote('BOP')
+                }
+            };
 
-        await this.updateMongo(applicationId, {
-            metrics
-        });
+            // updateMongo does lots of checking and potential resettings.
+            // await this.updateMongo(applicationId, {metrics: metrics});
+            await ApplicationMongooseModel.updateOne({applicationId: applicationId}, {metrics: metrics});
+
+        }
+
     }
 }
 
