@@ -158,51 +158,6 @@ module.exports = class InsurerOutageBO{
         return true;
     }
 
-    async saveBoth(){
-
-        //************************** */
-        //   MYSQL Write
-        //************************** */
-
-        // // Convert sent to Pacific timezone for mysql;
-        // const sentPST = sentDtm.tz('America/Los_Angeles').format('YYYY-MM-DD HH:mm:ss');
-        // log.debug("sentPST: " + sentPST);
-        // columns.sent = sentPST;
-        // const insertQuery = `INSERT INTO ${tableName} (${Object.keys(columns).join(',')}) VALUES (${Object.values(columns).
-        //     map(function(val) {
-        //         return db.escape(val);
-        //     }).
-        //     join(',')})`;
-        // let messagesId = null;
-        // await db.
-        //     query(insertQuery).
-        //     then(function(results) {
-        //         messagesId = results.insertId;
-        //     }).
-        //     catch(function(err) {
-        //         log.error('Unable to record email message in the database' + err + ' sql: ' + insertQuery + __location);
-        //         throw err;
-        //     });
-
-        //************************** */
-        //   MongoDB Write
-        // //************************** */
-        // if(global.settings.USE_MONGO === "YES"){
-        //     var Message = require('mongoose').model('Message');
-        //     var message = new Message(mongoMessageDoc);
-
-        //     //Insert a doc
-        //     await message.save().catch(function(err){
-        //         log.error('Mongo Message Save err ' + err + __location);
-        //         //log.debug("message " + JSON.stringify(message.toJSON()));
-        //     });
-
-        // }
-
-        return true;
-    }
-
-
     async isInOutage(insurerId){
 
         const sql = `SELECT * 
