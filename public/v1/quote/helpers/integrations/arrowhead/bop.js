@@ -279,6 +279,11 @@ module.exports = class LibertySBOP extends Integration {
         };
 
         // send the JSON request
+
+        log.info("=================== QUOTE REQUEST ===================");
+        log.info(`Arrowhead BOP request (Appid: ${applicationDocData.mysqlId}):\n${JSON.stringify(requestJSON, null, 4)}`);
+        log.info("=================== QUOTE REQUEST ===================");
+
         let result = null;
         const headers = {
             "Ocp-Apim-Subscription-Key": "2536d916e6124279a693d11fabc07aa9" // this is Scott's Primary Key
@@ -290,7 +295,9 @@ module.exports = class LibertySBOP extends Integration {
         }
 
         // parse the error / response
-        console.log(JSON.stringify(result, null, 4));
+        log.info("=================== QUOTE RESULT ===================");
+        log.info(`Arrowhead BOP response (Appid: ${applicationDocData.mysqlId}):\n${JSON.stringify(result, null, 4)}`);
+        log.info("=================== QUOTE RESULT ===================");
 
     }
 
