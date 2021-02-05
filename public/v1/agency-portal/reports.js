@@ -6,8 +6,9 @@ const _ = require('lodash');
 const moment = require('moment');
 
 const Application = mongoose.model('Application');
-const Quote = mongoose.model('Quote');
+//const Quote = mongoose.model('Quote');
 
+// eslint-disable-next-line valid-jsdoc
 /**
  * Keeps only the first 'len' keys in an object. All of the others are
  * consolidated into a new 'Other' key. The new object is returned.
@@ -30,28 +31,28 @@ function trimObjectLength(object, len) {
     return newObj;
 }
 
+// eslint-disable-next-line valid-jsdoc
 /**
  * For each application, we will extract the lowest quote amount from the quote
  * list and then return the sum of those quotes.
  */
-const sumOfQuotes = (quotes) => {
-    const amounts = {};
+// const sumOfQuotes = (quotes) => {
+//     const amounts = {};
 
-    for (const q of quotes) {
-        if (amounts[q.applicationId] && q.amount > amounts[q.applicationId]) {
-            continue;
-        }
-        amounts[q.applicationId] = q.amount;
-    }
-    return _.sum(Object.values(amounts));
-}
+//     for (const q of quotes) {
+//         if (amounts[q.applicationId] && q.amount > amounts[q.applicationId]) {
+//             continue;
+//         }
+//         amounts[q.applicationId] = q.amount;
+//     }
+//     return _.sum(Object.values(amounts));
+// }
 
-const mysqlDateToJsDate = (date, offSetHours) => {
-    return moment(date)
-        .add(-1 * offSetHours, 'h')
-        .toDate()
-}
+const mysqlDateToJsDate = (date, offSetHours) => moment(date).
+    add(-1 * offSetHours, 'h').
+    toDate()
 
+// eslint-disable-next-line valid-jsdoc
 /** Round to 2 decimal places. */
 const roundCurrency = n => Math.round(n * 100.0) / 100.0;
 
@@ -60,80 +61,77 @@ const roundCurrency = n => Math.round(n * 100.0) / 100.0;
 // getReports later.
 //---------------------------------------------------------------------------//
 
+// eslint-disable-next-line valid-jsdoc
 /**
  * @return True if applications exist.
  */
-const hasApplications = async (where) =>
-    await Application.countDocuments(where) > 0;
+const hasApplications = async(where) => await Application.countDocuments(where) > 0;
 
 
-const getGeography = async (where) => {
-    const territories = _.chain(await db.queryReadonly(`SELECT abbr, name FROM clw_talage_territories`))
-        .keyBy('abbr')
-        .mapValues('name')
-        .value();
+const getGeography = async(where) => {
+    const territories = _.chain(await db.queryReadonly(`SELECT abbr, name FROM clw_talage_territories`)).
+        keyBy('abbr').
+        mapValues('name').
+        value();
     const geography = await Application.aggregate([
-        { $match: where },
-        { $group: {
+        {$match: where}, {$group: {
             _id: '$mailingState',
-            count: { $sum: 1 }
+            count: {$sum: 1}
         }}
     ]);
     return geography.map(t => [
-        territories[t._id],
-        t.count
+        territories[t._id], t.count
     ]).filter(t => t[0]); // This filter removes undefined entries.
 }
 
-const getMonthlyTrends = async (where) => {
+const getMonthlyTrends = async(where) => {
     const monthlyTrends = await Application.aggregate([
-        { $match: where },
-        { $project: {
-            creationMonth: { $month: '$createdAt' },
-            creationYear: { $year: '$createdAt' }
+        {$match: where},
+        {$project: {
+            creationMonth: {$month: '$createdAt'},
+            creationYear: {$year: '$createdAt'}
         }},
-        { $group: {
+        {$group: {
             _id: {
-               month: '$creationMonth',
-               year: '$creationYear',
+                month: '$creationMonth',
+                year: '$creationYear'
             },
-            count: { $sum: 1 }
+            count: {$sum: 1}
         }},
-        { $sort: { '_id.year': 1, '_id.month': 1} }
+        {$sort: {
+            '_id.year': 1,
+            '_id.month': 1
+        }}
     ]);
 
-    return monthlyTrends.map(t => ([
-        moment(t._id.month, 'M').format('MMMM'),
-        t.count
-    ]));
+    return monthlyTrends.map(t => [
+        moment(t._id.month, 'M').format('MMMM'), t.count
+    ]);
 }
-
+// eslint-disable-next-line valid-jsdoc
 /** Get the earliest application created date */
-const getMinDate = async (where) => {
-    const app = await Application
-        .find(where, {createdAt: 1})
-        .sort({createdAt: 1})
-        .limit(1);
+const getMinDate = async(where) => {
+    const app = await Application.
+        find(where, {createdAt: 1}).
+        sort({createdAt: 1}).
+        limit(1);
     return app[0].createdAt;
 }
 
-const getIndustries = async (where) => {
+const getIndustries = async(where) => {
     const industryCodeCategories = _.chain(await db.queryReadonly(`SELECT
             ${db.quoteName('ic.id')},
             ${db.quoteName('icc.name')}
         FROM ${db.quoteName('#__industry_code_categories', 'icc')}
         INNER JOIN ${db.quoteName('#__industry_codes', 'ic')} ON ${db.quoteName('ic.category')} = ${db.quoteName('icc.id')}
-        `))
-        .keyBy('id')
-        .mapValues('name')
-        .value();
+        `)).
+        keyBy('id').
+        mapValues('name').
+        value();
     const industriesQuery = await Application.aggregate([
-        { "$match": where },
-        { "$group": {
-            "_id": {
-                "industryCode": "$industryCode"
-            },
-            "count": { "$sum": 1 }
+        {"$match": where}, {"$group": {
+            "_id": {"industryCode": "$industryCode"},
+            "count": {"$sum": 1}
         }}
     ])
     let industries = {};
@@ -141,7 +139,8 @@ const getIndustries = async (where) => {
         const id = industryCodeCategories[i._id.industryCode];
         if (industries[id]) {
             industries[id] += i.count;
-        } else {
+        }
+        else {
             industries[id] = i.count;
         }
     }
@@ -150,32 +149,29 @@ const getIndustries = async (where) => {
     // Trim to only 6 entries
     industries = trimObjectLength(industries, 8);
     // Convert to an array.
-    return Object.keys(industries).map(k => ([
-        k,
-        industries[k]
-    ]));
+    return Object.keys(industries).map(k => [
+        k, industries[k]
+    ]);
 }
 
-const getPremium = async (where) => {
-    const bound = async (product) => _.sum((await Application.aggregate([
-        { $match: Object.assign({}, where, { appStatusId: {$gte: 40} })},
-        { $group: {
+const getPremium = async(where) => {
+    const bound = async(product) => _.sum((await Application.aggregate([
+        {$match: Object.assign({}, where, {appStatusId: {$gte: 40}})}, {$group: {
             _id: '$uuid',
-            count: { $sum: '$metrics.lowestBoundQuoteAmount.' + product }
+            count: {$sum: '$metrics.lowestBoundQuoteAmount.' + product}
         }}
     ])).map(t => t.count));
 
-    const quoted = async (product) => _.sum((await Application.aggregate([
-        { $match: Object.assign({}, where, { appStatusId: {$gte: 40} })},
-        { $group: {
+    const quoted = async(product) => _.sum((await Application.aggregate([
+        {$match: Object.assign({}, where, {appStatusId: {$gte: 40}})}, {$group: {
             _id: '$uuid',
-            count: { $sum: '$metrics.lowestQuoteAmount.' + product }
+            count: {$sum: '$metrics.lowestQuoteAmount.' + product}
         }}
     ])).map(t => t.count));
 
     return {
         quoted: roundCurrency(await quoted('WC') + await quoted('GL') + await quoted('BOP')),
-        bound: roundCurrency(await bound('WC') + await bound('GL') + await bound('BOP')),
+        bound: roundCurrency(await bound('WC') + await bound('GL') + await bound('BOP'))
     };
 }
 
@@ -195,18 +191,18 @@ async function getReports(req) {
     let agents = await auth.getAgents(req);
 
     // Get the filter parameters
-    let startDate = req.query.startDate;
-    let endDate = req.query.endDate;
+    const startDate = req.query.startDate;
+    const endDate = req.query.endDate;
     let utcOffset = req.query.utcOffset;
     if (!utcOffset) {
         utcOffset = '+00:00';
     }
-    let offSetParts = utcOffset.split(":");
+    const offSetParts = utcOffset.split(":");
     let offSetHours = 0;
     if(offSetParts.length > 0){
         offSetHours = parseInt(offSetParts[0],10);
     }
-    
+
     // When the static query parameter is set only the queries keyed under 'static' will be executed
     let initialRequest = false;
     if (req.query.initial === 'true') {
@@ -214,7 +210,7 @@ async function getReports(req) {
     }
 
     // Begin by only allowing applications that are not deleted from agencies that are also not deleted
-    let where = { active: true };
+    const where = {active: true};
 
     // If static data isn't being requested both dates are required
     if (!initialRequest) {
@@ -222,7 +218,7 @@ async function getReports(req) {
         if (startDate && endDate) {
             where.createdAt = {
                 $gte: mysqlDateToJsDate(startDate, offSetHours),
-                $lte: mysqlDateToJsDate(endDate, offSetHours),
+                $lte: mysqlDateToJsDate(endDate, offSetHours)
             };
         }
         else {
@@ -249,6 +245,7 @@ async function getReports(req) {
                 if (donotReportAgencyIdArray.length > 0) {
                     //where.agency = { $nin: donotReportAgencyIdArray };
                     //need to remove values from Agents array.
+                    // eslint-disable-next-line no-unused-vars
                     agents = agents.filter(function(value, index, arr){
                         return donotReportAgencyIdArray.indexOf(value) === -1;
                     });
@@ -265,27 +262,28 @@ async function getReports(req) {
         where.solepro = 1;
     }
     else {
-        where.agencyId = { $in: agents };
+        where.agencyId = {$in: agents};
     }
-    log.debug("Where " + JSON.stringify(where))
+    //log.debug("Where " + JSON.stringify(where))
     // Define a list of queries to be executed based on the request type
     if (initialRequest) {
         return {
             minDate: await getMinDate(where),
             hasApplications: await hasApplications(where) ? 1 : 0
         };
-    } else {
+    }
+    else {
         return {
             funnel: {
                 started: await Application.countDocuments(where),
-                completed: await Application.countDocuments(Object.assign({}, where, { appStatusId: {$gt: 10} })),
-                quoted: await Application.countDocuments(Object.assign({}, where, { appStatusId: {$gte: 40} })),
-                bound: await Application.countDocuments(Object.assign({}, where, { appStatusId: {$gte: 70} })),
+                completed: await Application.countDocuments(Object.assign({}, where, {appStatusId: {$gt: 10}})),
+                quoted: await Application.countDocuments(Object.assign({}, where, {appStatusId: {$gte: 40}})),
+                bound: await Application.countDocuments(Object.assign({}, where, {appStatusId: {$gte: 70}}))
             },
             geography: await getGeography(where),
             industries: await getIndustries(where),
             monthlyTrends: await getMonthlyTrends(where),
-            premium: await getPremium(where),
+            premium: await getPremium(where)
         }
     }
 }
@@ -304,7 +302,8 @@ async function wrapAroundExpress(req, res, next) {
         const out = await getReports(req);
         res.send(200, out);
         return next();
-    } catch (err) {
+    }
+    catch (err) {
         log.error("wrapAroundExpress error: " + err + __location);
         return next(err);
     }
