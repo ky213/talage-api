@@ -33,16 +33,8 @@ const getRoute = async(currentRoute, appId, redisKey) => {
         case "policies":
             return "additionalQuestions"
         case "additionalQuestions":
-            return "owners";
-        case "owners":
-            // TODO: should we just blindly always require prior claims to be entered?
-            const redisValue = await global.redisSvc.getKeyValue(redisKey);
-            if(redisValue.found){
-                const redisObj = JSON.parse(redisValue.value);
-                if(redisObj.clientSession && redisObj.clientSession.priorClaims){
-                    return "claims";
-                }
-            }
+            return "officers";
+        case "officers":
             return "mailingAddress";
         case "claims":
             return "mailingAddress";
