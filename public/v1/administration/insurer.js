@@ -75,6 +75,13 @@ async function add(req, res, next) {
 
     const insurerBO = new InsurerBO();
     let error = null;
+    if(!req.body.slug && req.body.name){
+        req.body.slug = req.body.name.replace(/\s+/g, '').toLowerCase();
+    }
+
+    if(!req.body.description && req.body.name){
+        req.body.description = req.body.name;
+    }
     await insurerBO.saveModel(req.body).catch(function(err) {
         log.error("Insurer load error " + err + __location);
         error = err;
@@ -82,8 +89,7 @@ async function add(req, res, next) {
     if (error) {
         return next(error);
     }
-
-    res.send(200, insurerBO.cleanJSON());
+    res.send(200, insurerBO.mongoDoc);
     return next();
 
 }
@@ -106,7 +112,7 @@ async function update(req, res, next) {
         return next(error);
     }
 
-    res.send(200, insurerBO.cleanJSON());
+    res.send(200, insurerBO.mongoDoc);
     return next();
 
 }

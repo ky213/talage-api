@@ -57,7 +57,7 @@ module.exports = class AcuityWC extends Integration {
         const childPathList = childPath.split('.');
         let child = object;
         for (const childName of childPathList) {
-            if (!child.hasOwnProperty(childName)) {
+            if (!child || !child.hasOwnProperty(childName)) {
                 return null;
             }
             child = child[childName];
@@ -292,11 +292,24 @@ module.exports = class AcuityWC extends Integration {
             return this.client_error(`The business entity type '${this.app.business.locations[0].business_entity_type}' is not supported by this insurer.`, __location);
         }
 
+        // Format the FEIN
+        const fein = this.app.business.locations[0].identification_number.replace(/\D/g, '');
+
+        // Check the status of the FEIN.
+        const einCheckResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, '/api/v2/fein/validation', {fein: fein});
+        if (einCheckResponse) {
+            // Don't stop quoting if the EIN check fails.
+            const feinErrors = this.getChildProperty(einCheckResponse, "Errors.Fein");
+            if (feinErrors && feinErrors.includes("This FEIN is not available for this product.")) {
+                return this.client_declined("The EIN is blocked");
+            }
+        }
+
         // =========================================================================================================
         // Create the quote request
         const quoteRequestData = {"Quote": {
             "EffectiveDate": this.policy.effective_date.format("MM/DD/YYYY"),
-            "Fein": this.app.business.locations[0].identification_number.replace(/\D/g, ''),
+            "Fein": fein,
             "PrimaryAddress": {
                 "Line1": this.app.business.locations[0].address + (this.app.business.locations[0].address2 ? ", " + this.app.business.locations[0].address2 : ""),
                 "City": this.app.business.locations[0].city,
@@ -365,7 +378,7 @@ module.exports = class AcuityWC extends Integration {
 
         const additionalInformationRequestData = {"AdditionalInsureds": [{
             "Name": this.app.business.owners[0].fname + " " + this.app.business.owners[0].lname ,
-            "TaxId": this.app.business.locations[0].identification_number.replace(/\D/g, ''),
+            "TaxId": fein,
             "State": this.app.business.locations[0].state_abbr,
             "LegalEntity": amtrustLegalEntityMap[this.app.business.locations[0].business_entity_type],
             "DbaName": this.app.business.dba,
