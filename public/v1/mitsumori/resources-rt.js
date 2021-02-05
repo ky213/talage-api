@@ -43,7 +43,7 @@ async function getResources(req, res, next){
             officerTitles(resources);
             break;
         case "policies":
-            coverageAmounts(resources);
+            limitsSelectionAmounts(resources);
             deductibleAmounts(resources);
             carriersList(resources);
             policiesEnabled(resources);
@@ -57,8 +57,8 @@ const policiesEnabled = resources => {
     resources.policiesEnabled = ["BOP", "GL", "WC"];
 }
 
-const coverageAmounts = resources => {
-    resources.coverageAmounts = {
+const limitsSelectionAmounts = resources => {
+    resources.limitsSelectionAmounts = {
         bop:
         [
             "$1,000,000 / $1,000,000 / $1,000,000",
