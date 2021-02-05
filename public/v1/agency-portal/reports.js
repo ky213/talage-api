@@ -46,9 +46,9 @@ const sumOfQuotes = (quotes) => {
     return _.sum(Object.values(amounts));
 }
 
-const mysqlDateToJsDate = (date, utcOffset) => {
-    return moment(date.substr(1, date.length - 2))
-        .utcOffset(utcOffset)
+const mysqlDateToJsDate = (date, offSetHours) => {
+    return moment(date)
+        .add(-1 * offSetHours, 'h')
         .toDate()
 }
 
@@ -201,6 +201,11 @@ async function getReports(req) {
     if (!utcOffset) {
         utcOffset = '+00:00';
     }
+    let offSetParts = utcOffset.split(":");
+    let offSetHours = 0;
+    if(offSetParts.length > 0){
+        offSetHours = parseInt(offSetParts[0],10);
+    }
 
     // When the static query parameter is set only the queries keyed under 'static' will be executed
     let initialRequest = false;
@@ -215,18 +220,10 @@ async function getReports(req) {
     if (!initialRequest) {
         // Process the dates if they were included in the request or return an error if they werent
         if (startDate && endDate) {
-            startDate = mysqlDateToJsDate(
-                db.escape(`${startDate.substring(0, 10)} ${startDate.substring(11, 19)}`),
-                utcOffset
-            );
-            endDate = mysqlDateToJsDate(
-                db.escape(`${endDate.substring(0, 10)} ${endDate.substring(11, 19)}`),
-                utcOffset
-            );
             where.createdAt = {
-                $gte: startDate,
-                $lte: endDate,
-            }
+                $gte: mysqlDateToJsDate(startDate, offSetHours),
+                $lte: mysqlDateToJsDate(endDate, offSetHours),
+            };
         }
         else {
             log.info('Bad Request: Query parameters missing');
@@ -304,6 +301,7 @@ async function wrapAroundExpress(req, res, next) {
         res.send(200, out);
         return next();
     } catch (err) {
+        console.log(err);
         return next(err);
     }
 }
