@@ -45,7 +45,6 @@ async function getResources(req, res, next){
         case "policies":
             limitsSelectionAmounts(resources);
             deductibleAmounts(resources);
-            carriersList(resources);
             policiesEnabled(resources);
             break;
     }
@@ -90,24 +89,6 @@ const deductibleAmounts = resources => {
     };
 }
 
-const carriersList = resources => {
-    resources.carriersList = {
-        bop:
-        [
-            "The Hartford",
-            "American Family Insurance",
-            "Farmers",
-            "Progressive"
-        ],
-        gl:
-        [
-            "The Hartford",
-            "American Family Insurance",
-            "Farmers",
-            "Progressive"
-        ]
-    };
-}
 
 const unemploymentNumberStates = resources => {
     resources.unemploymentNumberStates = [
