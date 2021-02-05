@@ -156,7 +156,8 @@ async function runFunction() {
         const ApplicationBO = global.requireShared('models/Application-BO.js');
         const appBo = new ApplicationBO();
         const Application = require('mongoose').model('Application');
-
+        //Should only need to applications referred or about. (appStatusId: )
+        const query = {appStatusId: {$gte: 40}}
         const allApplications = await Application.find();
         const promises = [];
         for (const app of allApplications) {
