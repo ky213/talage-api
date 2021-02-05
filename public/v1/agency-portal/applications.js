@@ -1,7 +1,7 @@
 /* eslint-disable object-curly-newline */
 /* eslint-disable no-extra-parens */
 'use strict';
-const auth = require('./helpers/auth.js');
+const auth = require('./helpers/auth-agencyportal.js');
 const crypt = global.requireShared('./services/crypt.js');
 const csvStringify = require('csv-stringify');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
@@ -208,7 +208,7 @@ async function getApplications(req, res, next){
     }
 
     // Localize data variables that the user is permitted to access
-    const agencyNetwork = parseInt(req.authentication.agencyNetwork, 10);
+    const agencyNetwork = parseInt(req.authentication.agencyNetworkId, 10);
     let returnCSV = false;
     // Use same query builder.
     // Check if we are exporting a CSV instead of the JSON list
@@ -306,7 +306,7 @@ async function getApplications(req, res, next){
     // Filter out any agencies with do_not_report value set to true
     try{
 
-        if(req.authentication.agencyNetwork){
+        if(req.authentication.isAgencyNetworkUser){
             query.agencyNetworkId = agencyNetwork;
             const agencyBO = new AgencyBO();
             // eslint-disable-next-line prefer-const

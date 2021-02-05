@@ -1,5 +1,5 @@
 'use strict';
-const auth = require('./helpers/auth.js');
+const auth = require('./helpers/auth-agencyportal.js');
 const serverHelper = require('../../../server.js');
 const AgencyLandingPageBO = global.requireShared('./models/AgencyLandingPage-BO.js');
 
@@ -27,7 +27,7 @@ async function getLandingPages(req, res, next){
     let agent = agents[0];
 
     // If this is an agency network, use the the agency id from the query
-    if (req.authentication.agencyNetwork) {
+    if (req.authentication.isAgencyNetworkUser) {
         agent = req.query.agency;
     }
 

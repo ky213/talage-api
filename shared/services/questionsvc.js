@@ -1,6 +1,7 @@
 /* eslint-disable multiline-comment-style */
 'use strict'
 const InsurerBO = global.requireShared('./models/Insurer-BO.js');
+const moment = require('moment');
 
 //const util = require('util');
 //const serverHelper = global.requireRootPath('server.js');
@@ -9,7 +10,7 @@ const InsurerBO = global.requireShared('./models/Insurer-BO.js');
  * @param {array} activityCodeStringArray - An array of all the activity codes in the applicaiton
  * @param {string} industryCodeString - The industry code of the application
  * @param {array} zipCodeStringArray - An array of all the zipcodes (stored as strings) in which the business operates
- * @param {array} policyTypeArray - An array containing of all the policy types applied for
+ * @param {array.<Object>} policyTypeArray - An array containing of all the policy types/effectiveDates. Ex: [{type:"WC",effectiveDate:"03-02-2021"}]
  * @param {array} insurerStringArray - An array containing the IDs of the relevant insurers for the application
  * @param {boolean} return_hidden - true to return hidden questions, false to only return visible questions
  *
@@ -18,9 +19,7 @@ const InsurerBO = global.requireShared('./models/Insurer-BO.js');
  */
 async function GetQuestions(activityCodeStringArray, industryCodeString, zipCodeStringArray, policyTypeArray, insurerStringArray, return_hidden = false) {
 
-    log.debug(`GetQuestions: activityCodeStringArray:  ${activityCodeStringArray}, industryCodeString:  ${industryCodeString}, zipCodeStringArray:  ${zipCodeStringArray}, policyTypeArray:  ${policyTypeArray}, insurerStringArray:  ${insurerStringArray}, return_hidden: ${return_hidden}` + __location)
-
-    const policy_types = [];
+    log.debug(`GetQuestions: activityCodeStringArray:  ${activityCodeStringArray}, industryCodeString:  ${industryCodeString}, zipCodeStringArray:  ${zipCodeStringArray}, policyTypeArray:  ${JSON.stringify(policyTypeArray)}, insurerStringArray:  ${insurerStringArray}, return_hidden: ${return_hidden}` + __location)
 
     let error = false;
     let sql = '';
@@ -106,9 +105,34 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     /*
      * Validate Policy Types
      */
-    policyTypeArray.forEach(function(policy_type) {
-        policy_types.push(policy_type.replace(/[^a-z]/gi, '').toUpperCase());
+
+    const policyTypes = [];
+
+    // Question list effective date is done per policy type.
+    // For a given policy type, check the question's effective/expiration dates.
+    const uniquePolicyEffectiveDateList = [];
+    const questionEffectiveDateWhereClauseList = [];
+    policyTypeArray.forEach(function(policyTypeJSON) {
+        // Build a list of policy types
+        policyTypes.push(policyTypeJSON.type.replace(/[^a-z]/gi, '').toUpperCase());
+        const policyEffectiveDate = moment(policyTypeJSON.effectiveDate).format(db.dbTimeFormat());
+        // Build a list of unique policy effective dates for the industry and activity code queries
+        if (!uniquePolicyEffectiveDateList.includes(policyEffectiveDate)) {
+            uniquePolicyEffectiveDateList.push(policyEffectiveDate);
+        }
+        questionEffectiveDateWhereClauseList.push(`(iq.policy_type = '${policyTypeJSON.type.toUpperCase()}' AND '${policyEffectiveDate}' >= iq.effectiveDate AND '${policyEffectiveDate}' < iq.expirationDate)`);
     });
+    const questionEffectiveDateWhereClause = "(" + questionEffectiveDateWhereClauseList.join(" OR ") + ")";
+
+    // Industry and activity code effective date is done using the unique policy effective date list.
+    const industryCodeEffectiveDateWhereClauseList = [];
+    const activityCodeEffectiveDateWhereClauseList = [];
+    for (const policyEffectiveDate of uniquePolicyEffectiveDateList) {
+        industryCodeEffectiveDateWhereClauseList.push(`('${policyEffectiveDate}' >= iic.effectiveDate AND '${policyEffectiveDate}' < iic.expirationDate)`);
+        activityCodeEffectiveDateWhereClauseList.push(`('${policyEffectiveDate}' >= inc.effectiveDate AND '${policyEffectiveDate}' < inc.expirationDate)`);
+    }
+    const industryCodeEffectiveDateWhereClause = "(" + industryCodeEffectiveDateWhereClauseList.join(" OR ") + ")";
+    const activityCodeEffectiveDateWhereClause = "(" + activityCodeEffectiveDateWhereClauseList.join(" OR") + ")";
 
     // Do not permit requests that include both BOP and GL
     if (policyTypeArray.includes('BOP') && policyTypeArray.includes('GL')) {
@@ -132,7 +156,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     });
 
     // Check that all policy types match
-    policy_types.forEach(function(policy_type) {
+    policyTypes.forEach(function(policy_type) {
         if (!supported_policy_types.includes(policy_type)) {
             log.warn('Bad Request: Invalid Policy Type');
             error = `Policy type '${policy_type}' is not supported.`;
@@ -193,13 +217,18 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     // ============================================================
     // Get universal questions
     sql = `
-		SELECT ${select}
-		FROM clw_talage_questions AS q
-		LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
-		LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
-		LEFT JOIN clw_talage_insurer_question_territories as iqt ON iqt.insurer_question = iq.id
-		WHERE iq.policy_type IN ('${policy_types.join("','")}') AND iq.universal = 1 AND (iqt.territory IN (${territories.map(db.escape).join(',')}) OR iqt.territory IS NULL) AND ${where} GROUP BY q.id;
-	`;
+        SELECT ${select}
+        FROM clw_talage_questions AS q
+        LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
+        LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
+        LEFT JOIN clw_talage_insurer_question_territories as iqt ON iqt.insurer_question = iq.id
+        WHERE
+            iq.universal = 1
+            AND (iqt.territory IN (${territories.map(db.escape).join(',')}) OR iqt.territory IS NULL) 
+            AND ${where} 
+            AND ${questionEffectiveDateWhereClause}
+            GROUP BY q.id;
+    `;
     const universal_questions = await db.queryReadonly(sql).catch(function(err) {
         error = err.message;
     });
@@ -227,9 +256,10 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         INNER JOIN clw_talage_question_types AS qt ON qt.id = q.type
         WHERE
             ic.id = ${db.escape(industry_code)}
-            AND iq.policy_type IN ("${policy_types.join("\",\"")}")
             AND iic.territory IN (${territories.map(db.escape).join(',')})
             AND ${where}
+            AND ${questionEffectiveDateWhereClause}
+            AND ${industryCodeEffectiveDateWhereClause}
             GROUP BY iq.question;
     `;
     const industryCodeQuestions = await db.queryReadonly(sql).catch(function(err) {
@@ -242,7 +272,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
 
     // ============================================================
     // Get activity-based questions
-    if(activityCodeArray && activityCodeArray.length > 0){
+    if (activityCodeArray && activityCodeArray.length > 0) {
         sql = `
             SELECT ${select}
             FROM clw_talage_questions AS q
@@ -251,10 +281,14 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                 SELECT nca.insurer_code FROM clw_talage_activity_code_associations AS nca
                 LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON nca.insurer_code = inc.id
                 WHERE nca.code IN (${activityCodeArray.join(',')})
+                AND ${activityCodeEffectiveDateWhereClause}
                 AND inc.state = 1${territories && territories.length ? ` AND inc.territory IN (${territories.map(db.escape).join(',')})` : ``}
             )
             LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
-            WHERE iq.policy_type IN ('WC') AND ${where} GROUP BY q.id;
+            WHERE
+                ${where} 
+                AND ${questionEffectiveDateWhereClause}                                               
+                GROUP BY q.id;
         `;
         const activityCodeQuestions = await db.queryReadonly(sql).catch(function(err) {
             error = err.message;
@@ -269,25 +303,24 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     if (questions) {
         questions = questions.filter((question, index, self) => index === self.findIndex((t) => t.id === question.id));
     }
-
     if (!questions || questions.length === 0) {
         log.info('No questions to return');
         return [];
     }
 
     // Check for missing questions
-    // NOTE: This iterative approach is expensive. Candidate for refactoring. -SF
     let missing_questions = find_missing_questions(questions);
     while (missing_questions) {
-        // Query to get all missing questions
+        // Query to get all missing questions. This ensures that all parent questions are present regardless of effective date.
         sql = `
-			SELECT ${select}
-			FROM clw_talage_questions AS q
-			LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
-			LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
-			WHERE q.id IN (${missing_questions.join(',')})
-			GROUP BY q.id;
-		`;
+            SELECT ${select}
+            FROM clw_talage_questions AS q
+            INNER JOIN clw_talage_question_types AS qt ON q.type = qt.id
+            INNER JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
+            WHERE
+                q.id IN (${missing_questions.join(',')})
+                GROUP BY q.id;
+        `;
         let error2 = null;
         const added_questions = await db.queryReadonly(sql).catch(function(err) {
             // eslint-disable-line no-await-in-loop, no-loop-func
@@ -297,11 +330,9 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             return false;
         }
         questions = questions.concat(added_questions);
-
         // Check for additional missing questions
         missing_questions = find_missing_questions(questions);
     }
-
     // Let's do some cleanup and get a list of question IDs
     for (let index = 0; index < questions.length; index++) {
         const question = questions[index];
@@ -408,7 +439,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
  * @param {array} activityCodeArray - An array of all the activity codes in the applicaiton
  * @param {string} industryCodeString - The industry code of the application
  * @param {array} zipCodeArray - An array of all the zipcodes (stored as strings) in which the business operates
- * @param {array} policyTypeArray - An array containing of all the policy types applied for
+ * @param {array.<Object>} policyTypeArray - An array containing of all the policy types applied for. Ex: [{type:"WC",effectiveDate:"03-02-2021"}]
  * @param {array} insurerStringArray - An array containing the IDs of the relevant insurers for the application
  * @param {boolean} return_hidden - true to return hidden questions, false to only return visible questions
  *
@@ -438,7 +469,7 @@ exports.GetQuestionsForFrontend = async function(activityCodeArray, industryCode
  * @param {array} activityCodeArray - An array of all the activity codes in the applicaiton
  * @param {string} industryCodeString - The industry code of the application
  * @param {array} zipCodeArray - An array of all the zipcodes (stored as strings) in which the business operates
- * @param {array} policyTypeArray - An array containing of all the policy types applied for
+ * @param {array.<Object>} policyTypeArray - An array containing of all the policy types applied for. Ex: [{type:"WC",effectiveDate:"03-02-2021"}]
  * @param {array} insurerArray - An array containing the IDs of the relevant insurers for the application
  * @param {boolean} return_hidden - true to return hidden questions, false to only return visible questions
  *

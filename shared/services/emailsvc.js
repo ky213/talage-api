@@ -189,7 +189,7 @@ exports.send = async function(recipients, subject, content, keys = {}, agencyNet
     if (keys && typeof keys === 'object' && Object.keys(keys).length) {
         // Handle the Application key
         if(keys.applicationId){
-            columns.applicationId = keys.application;
+            columns.applicationId = keys.applicationId;
             if(keys.applicationDoc && keys.applicationDoc.businessName){
                 columns.businessName = keys.applicationDoc.businessName;
             }

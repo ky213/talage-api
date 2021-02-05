@@ -2,7 +2,7 @@
 /* eslint-disable require-jsdoc */
 'use strict';
 const validator = global.requireShared('./helpers/validator.js');
-const auth = require('./helpers/auth.js');
+const auth = require('./helpers/auth-agencyportal.js');
 const serverHelper = global.requireRootPath('server.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const ApplicationBO = global.requireShared('models/Application-BO.js');
@@ -720,8 +720,8 @@ async function deleteObject(req, res, next) {
     }
     //Deletes only by AgencyNetwork Users.
 
-    const agencyNetwork = req.authentication.agencyNetwork;
-    if (!agencyNetwork) {
+    const agencyNetwork = req.authentication.agencyNetworkId;
+    if (req.authentication.isAgencyNetworkUser === false) {
         log.warn('App Delete not agency network user ' + __location)
         res.send(403);
         return next(serverHelper.forbiddenError('Do Not have Permissions'));
@@ -803,12 +803,6 @@ async function validate(req, res, next) {
         }
     }
 
-    // const agencyNetwork = req.authentication.agencyNetwork;
-    // if (!agencyNetwork) {
-    //     log.warn('App requote not agency network user ' + __location)
-    //     res.send(403);
-    //     return next(serverHelper.forbiddenError('Do Not have Permissions'));
-    // }
 
     //Get app and check status
     log.debug("Loading Application by mysqlId for Validation " + __location)
