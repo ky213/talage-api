@@ -887,7 +887,7 @@ module.exports = class ApplicationModel {
                         //return;
 
                     });
-
+                    // note: recalculating metric is call in saveApplicationStep
                     try{
 
                         const quoteBind = new QuoteBind();
@@ -1408,7 +1408,7 @@ module.exports = class ApplicationModel {
 
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
                     log.debug("Mongo Application updated " + JSON.stringify(query) + __location)
-                    log.debug("updated to " + JSON.stringify(newObjectJSON));
+                    //log.debug("updated to " + JSON.stringify(newObjectJSON));
                     const newApplicationdoc = await ApplicationMongooseModel.findOne(query);
                     this.#applicationMongooseDB = newApplicationdoc
 
