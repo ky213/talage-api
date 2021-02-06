@@ -1158,27 +1158,28 @@ async function bindQuote(req, res, next) {
         }
 
         const quoteBO = new QuoteBO();
+
         const bindResp = await quoteBO.bindQuote(quoteId, applicationId, req.authentication.userID);
         if(bindResp){
             await applicationBO.updateStatus(applicationDB.mysqlId,"bound", 90);
+            // Update Application-level quote metrics when we do a bind.
+        	await applicationBO.recalculateQuoteMetrics(applicationId);
         }
+        
+        
     }
+
     catch (err) {
         log.error(`Error Binding  application ${applicationId ? applicationId : ''}: ${err}` + __location);
         res.send(err);
         return next();
     }
 
-
     // Send back the token
     res.send(200, {"bound": true});
 
-
     return next();
-
-
 }
-
 
 /**
  * GET returns resources Quote Engine needs

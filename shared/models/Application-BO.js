@@ -6,6 +6,7 @@
 'use strict';
 const moment = require('moment');
 const clonedeep = require('lodash.clonedeep');
+const _ = require('lodash');
 
 const DatabaseObject = require('./DatabaseObject.js');
 
@@ -25,7 +26,8 @@ const QuoteBind = global.requireRootPath('public/v1/quote/helpers/models/QuoteBi
 const crypt = global.requireShared('./services/crypt.js');
 
 // Mongo Models
-var ApplicationMongooseModel = require('mongoose').model('Application');
+const ApplicationMongooseModel = require('mongoose').model('Application');
+const QuoteMongooseModel = require('mongoose').model('Quote');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 //const crypt = global.requireShared('./services/crypt.js');
@@ -468,6 +470,11 @@ module.exports = class ApplicationModel {
             if (workflowStep === "contact") {
                 //async call do not await processing.
                 this.getBusinessInfo(applicationJSON);
+            }
+
+            // Re-calculate our quote premium metrics whenever we bind.
+            if (workflowStep === 'bindRequest') {
+                await this.recalculateQuoteMetrics(applicationJSON.uuid);
             }
 
             resolve(true);
@@ -2789,6 +2796,53 @@ module.exports = class ApplicationModel {
         }
 
         return getQuestionsResult;
+    }
+
+    // eslint-disable-next-line valid-jsdoc
+    /**
+     * Recalculates all quote-related metrics stored in the Application collection.
+     *
+     * @param {number} applicationId The application UUID.
+     * @param {array} quoteList (optional) A list of application quotes.
+     */
+    async recalculateQuoteMetrics(applicationId, quoteList) {
+        if (!quoteList) {
+            quoteList = await QuoteMongooseModel.find({applicationId: applicationId});
+        }
+        //not all applications have quotes.
+        if(quoteList && quoteList.length > 0){
+            let lowestBoundQuote = (product) => _.min(quoteList.
+                filter(t => t.policyType === product && (
+                    t.bound ||
+                    t.status === 'bind_requested')).
+                map(t => t.amount));
+
+            let lowestQuote = (product) => _.min(quoteList.
+                filter(t => t.policyType === product && (
+                    t.bound ||
+                    t.status === 'bind_requested' ||
+                    t.apiResult === 'quoted' ||
+                    t.apiResult === 'referred_with_price')).
+                map(t => t.amount));
+
+            const metrics = {
+                lowestBoundQuoteAmount: {
+                    GL: lowestBoundQuote('GL'),
+                    WC: lowestBoundQuote('WC'),
+                    BOP: lowestBoundQuote('BOP')
+                },
+                lowestQuoteAmount: {
+                    GL: lowestQuote('GL'),
+                    WC: lowestQuote('WC'),
+                    BOP: lowestQuote('BOP')
+                }
+            };
+
+            // updateMongo does lots of checking and potential resettings.
+            // await this.updateMongo(applicationId, {metrics: metrics});
+            await ApplicationMongooseModel.updateOne({applicationId: applicationId}, {metrics: metrics});
+
+        }
 
     }
 }
