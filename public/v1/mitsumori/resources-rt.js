@@ -25,6 +25,7 @@ async function getResources(req, res, next){
         case "additionalQuestions":
             break;
         case "basic":
+        case "basic-created":
             entityTypes(resources);
             break;
         case "business":

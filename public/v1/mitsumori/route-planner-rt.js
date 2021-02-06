@@ -14,7 +14,7 @@ async function getNextRoute(req, res, next){
     }
 
     let nextRouteName = null;
-    if(req.query.currentRoute === "basic"){
+    if(req.query.currentRoute === "basic" || req.query.currentRoute === "basic-created"){
         nextRouteName = "policies";
     }
     else {
