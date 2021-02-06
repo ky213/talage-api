@@ -154,6 +154,7 @@ exports.registerEndpoints = (server) => {
     if(global.settings.ENABLE_GENERIC_API === "YES"){
         registerEndpoint(server, 'api', 'industry-categories-rt');
         registerEndpoint(server, 'api', 'industry-codes-rt');
+        registerEndpoint(server, 'api', 'activity-codes-rt');
         registerEndpoint(server, 'api', 'agency-rt');
         registerEndpoint(server, 'api', 'application-rt');
         registerEndpoint(server, 'api', 'auth-api-rt');
