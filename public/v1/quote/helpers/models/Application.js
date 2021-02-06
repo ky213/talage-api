@@ -767,6 +767,10 @@ module.exports = class Application {
                 policyTypeReferred[quote.policyType] = true;
             }
         });
+
+        // Update the application quote metrics
+        await applicationBO.recalculateQuoteMetrics(this.applicationDocData.uuid, quoteList);
+
         // Update the application state
         await this.updateApplicationState(this.policies.length, Object.keys(policyTypeQuoted).length, Object.keys(policyTypeReferred).length);
 

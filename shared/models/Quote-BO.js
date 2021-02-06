@@ -628,6 +628,7 @@ module.exports = class QuoteBO {
             }
 
         }
+
         return true;
     }
 

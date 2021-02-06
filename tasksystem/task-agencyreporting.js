@@ -101,17 +101,18 @@ var agencyReportTask = async function(){
         })
 
         for(let i = 0; i < agencyList.length; i++){
-            const agency = agencyList[i];
+            // eslint-disable-next-line prefer-const
+            let agency = agencyList[i];
 
-            const createdDtm = moment_timezone(agency.created).tz('America/Los_Angeles');
-            agency.created = moment_timezone(agency.created).tz('America/Los_Angeles').format('YYYY-MM-DD');
-            agency.modified = moment_timezone(agency.modified).tz('America/Los_Angeles').format('YYYY-MM-DD');
+            const createdDtm = moment_timezone(agency.createdAt).tz('America/Los_Angeles');
+            agency.created = moment_timezone(agency.createdAt).tz('America/Los_Angeles').format('YYYY-MM-DD');
+            agency.modified = moment_timezone(agency.updatedAt).tz('America/Los_Angeles').format('YYYY-MM-DD');
 
 
             agency.state = ""
             if(agency.agency_network === 2){
-                if(agency.wholesale_agreement_signed){
-                    const signedDtm = moment_timezone(agency.wholesale_agreement_signed).tz('America/Los_Angeles')
+                if(agency.wholesaleAgreementSigned){
+                    const signedDtm = moment_timezone(agency.wholesaleAgreementSigned).tz('America/Los_Angeles')
                     agency.wholesale_agreement_signed = signedDtm.format('YYYY-MM-DD');
                     if(signedDtm < startOfMonth){
                         agency.state = "Active"
@@ -120,11 +121,16 @@ var agencyReportTask = async function(){
             }
             else if(createdDtm < startOfMonth){
                 agency.state = "Active";
+                //make sure if it exists it is formatted.
+                if(agency.wholesaleAgreementSigned){
+                    const signedDtm = moment_timezone(agency.wholesaleAgreementSigned).tz('America/Los_Angeles')
+                    agency.wholesale_agreement_signed = signedDtm.format('YYYY-MM-DD');
+                }
             }
 
 
-            if(agency.deleted){
-                agency.deleted = moment_timezone(agency.deleted).tz('America/Los_Angeles').format('YYYY-MM-DD');
+            if(agency.deletedAt){
+                agency.deletedAt = moment_timezone(agency.deletedAt).tz('America/Los_Angeles').format('YYYY-MM-DD');
             }
             // get AgencyNetwork name from map
             if(agencyNetworkNameMapJSON[agencyList[i].agency_network]){
