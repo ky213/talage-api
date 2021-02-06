@@ -24,6 +24,7 @@ const taskSoleProAppEmail = global.requireRootPath('tasksystem/task-soleproappli
 const taskEmailBindAgency = global.requireRootPath('tasksystem/task-emailbindagency.js');
 const QuoteBind = global.requireRootPath('public/v1/quote/helpers/models/QuoteBind.js');
 const crypt = global.requireShared('./services/crypt.js');
+const validator = global.requireShared('./helpers/validator.js');
 
 // Mongo Models
 const ApplicationMongooseModel = require('mongoose').model('Application');
@@ -44,7 +45,6 @@ const tracker = global.requireShared('./helpers/tracker.js');
 //const convertToIntFields = [];
 
 const tableName = 'clw_talage_applications';
-const skipCheckRequired = false;
 //businessDataJSON
 const QUOTE_STEP_NUMBER = 9;
 const QUOTING_STATUS = 15;
@@ -61,12 +61,7 @@ module.exports = class ApplicationModel {
     #applicationMongooseJSON = {};
 
     constructor() {
-        this.agencyLocation = null;
-        this.business = null;
         this.id = 0;
-        this.insurers = [];
-        this.policies = [];
-        this.questions = {};
         this.test = false;
         this.WorkFlowSteps = {
             'contact': 2,
@@ -83,52 +78,15 @@ module.exports = class ApplicationModel {
 
         this.#applicationMongooseDB = null;
         this.#applicationMongooseJSON = {};
+        this.applicationDoc = null;
 
         this.#dbTableORM = new ApplicationOrm();
         this.#dbTableORM.doNotSnakeCase = this.doNotSnakeCase;
     }
 
-    /**
-	 * Save Model
-     *
-	 * @param {object} newObjectJSON - newObjectJSON JSON
-	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
-	 */
-    saveModel(newObjectJSON){
-        return new Promise(async(resolve, reject) => {
-            if(!newObjectJSON){
-                reject(new Error(`empty ${tableName} object given`));
-            }
-            await this.cleanupInput(newObjectJSON);
-            if(newObjectJSON.id){
-                await this.#dbTableORM.getById(newObjectJSON.id).catch(function(err) {
-                    log.error(`Error getting ${tableName} from Database ` + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
-            }
-            else{
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
-            }
-
-            //save
-            await this.#dbTableORM.save().catch(function(err){
-                reject(err);
-            });
-            this.updateProperty();
-            this.id = this.#dbTableORM.id;
-
-
-            resolve(true);
-
-        });
-    }
-
 
     /**
-    * Load new application JSON with optional save.
+    *  For Quote App V1 - saved app based on workflow step.
     *
     * @param {object} applicationJSON - application JSON
     * @param {string} workflowStep - QuoteApp Workflow step
@@ -171,27 +129,45 @@ module.exports = class ApplicationModel {
                 return;
             }
             if (applicationJSON.id) {
-                //load application from database.
-                await this.#dbTableORM.getById(applicationJSON.id).catch(function(err) {
-                    log.error("Error getting application from Database " + err + __location);
-                    reject(err);
+
+                if(await validator.isUuid(applicationJSON.id)){
+                    log.debug(`saveApplicationStep Loading by app uuid ${applicationJSON.id} ` + __location)
+                    this.applicationDoc = await this.loadfromMongoByAppId(applicationJSON.id).catch(function(err) {
+                        log.error("Error getting application from Database " + err + __location);
+                        reject(err);
+                        return;
+                    });
+                }
+                else {
+                    log.debug(`saveApplicationStep Loading by app integer ${applicationJSON.id} ` + __location)
+                    this.applicationDoc = await this.loadfromMongoBymysqlId(applicationJSON.id).catch(function(err) {
+                        log.error("Error getting application from Database " + err + __location);
+                        reject(err);
+                        return;
+                    });
+                }
+                if(!this.applicationDoc){
+                    log.error(`saveApplicationStep cound nto find appId ${applicationJSON.id}` + __location);
+                    reject(new Error("Data Error: Application may not be updated."));
                     return;
-                });
+
+                }
+                this.#applicationMongooseDB = this.applicationDoc;
                 this.updateProperty();
-                applicationJSON.agency_network = this.agency_network;
-                //future mongo...
-                applicationJSON.agencyNetworkId = this.agency_network;
-                this.agencyNetworkId = this.agency_network;
-                //Check that is still updateable.
-                if (this.state > 15 && this.state < 1) {
-                    log.warn(`Attempt to update a finished or deleted application. appid ${applicationJSON.id}` + __location);
+                applicationJSON.applicationId = this.applicationDoc.applicationId
+                applicationJSON.uuid = this.applicationDoc.applicationId
+                applicationJSON.agencyNetworkId = this.applicationDoc.agencyNetworkId;
+                this.agencyNetworkId = this.applicationDoc.agencyNetworkId;
+                //Check that is still updateable. less than request to bind and not deleted.
+                if (this.applicationDoc.appStatusId >= 70 || this.applicationDoc.active === false) {
+                    log.warn(`Attempt to update a finished or deleted application. appid ${this.applicationDoc.applicationId}` + __location);
                     reject(new Error("Data Error:Application may not be updated."));
                     return;
                 }
                 // //Check that it is too old (1 hours) from creation
                 const bypassAgeCheck = global.settings.ENV === 'development' && global.settings.APPLICATION_AGE_CHECK_BYPASS === 'YES';
                 if (this.created && bypassAgeCheck === false) {
-                    const dbCreated = moment(this.created);
+                    const dbCreated = moment(this.applicationDoc.createdAt);
                     const nowTime = moment().utc();
                     const ageInMinutes = nowTime.diff(dbCreated, 'minutes');
                     log.debug('Application age in minutes ' + ageInMinutes);
@@ -204,25 +180,19 @@ module.exports = class ApplicationModel {
                 else if(bypassAgeCheck === false){
                     log.warn(`Application missing created value. appid ${applicationJSON.id}` + __location);
                 }
-                // if Application has been Quoted and this is an earlier step
-                if (this.last_step >= QUOTE_STEP_NUMBER && stepNumber < QUOTE_STEP_NUMBER) {
+
+                // Quote V1 only - if Application has been Quoted and this is an earlier step -- If we allows fixing the app to requote
+                if (this.applicationDoc.lastStep >= QUOTE_STEP_NUMBER && stepNumber < QUOTE_STEP_NUMBER) {
                     log.warn(`Attempt to update a Quoted application. appid ${applicationJSON.id}` + __location);
                     reject(new Error("Data Error:Application may not be updated."));
                     return;
                 }
-                // Load Mongoose Model
-                this.#applicationMongooseDB = await this.loadfromMongoByAppId(this.uuid).catch(function(err) {
-                    log.error("Mongo application load error " + err + __location);
-                    error = err;
-                });
-                //log.debug("load from mongo " + JSON.stringify(this.#applicationMongooseDB));
             }
             else {
 
                 //set uuid on new application
-                applicationJSON.uuid = uuidv4().toString();
-                //prevent overwriting records during import
-                applicationJSON.copied_to_mongo = 1;
+                applicationJSON.applicationId = uuidv4().toString();
+                applicationJSON.uuid = applicationJSON.applicationId;
                 //Agency Defaults
                 if (applicationJSON.agency_id && !applicationJSON.agency) {
                     applicationJSON.agency = applicationJSON.agency_id
@@ -277,12 +247,25 @@ module.exports = class ApplicationModel {
                 else {
                     log.error(`no agency record for id ${applicationJSON.agency} ` + __location);
                 }
+                //minium validation
+
+                const appUuid = applicationJSON.uuid;
+                //insert mysql here to get mysql id.
+                await this.#dbTableORM.save().catch(function(err) {
+                    log.error(`Application ${appUuid} Mysql Insert error ${err} ` + __location);
+                    // Do not stop mongo save. Mysql insert is only for id.
+                    // Id.mysqlId will be obsoleted in Q2 2021
+                });
+                this.id = this.#dbTableORM.id;
+                applicationJSON.id = this.id;
+
 
             }
 
             //log.debug("applicationJSON: " + JSON.stringify(applicationJSON));
             error = null;
             let updateBusiness = false;
+            const appId = applicationJSON.applicationId
             switch (workflowStep) {
                 case "contact":
                     applicationJSON.progress = 'incomplete';
@@ -293,7 +276,7 @@ module.exports = class ApplicationModel {
                         await this.processMongooseBusiness(applicationJSON.businessInfo)
                     }
                     else {
-                        log.info('No Business for Application ' + __location)
+                        log.error(`No Business for Application ${appId} ` + __location)
                         reject(new Error("No Business Information supplied"));
                         return;
                     }
@@ -310,7 +293,7 @@ module.exports = class ApplicationModel {
                     //processPolicyTypes
                     if (applicationJSON.policy_types) {
                         await this.processPolicyTypes(applicationJSON.policy_types, applicationJSON).catch(function(err) {
-                            log.error('Adding claims error:' + err + __location);
+                            log.error(`Adding coverage to appId ${appId} error:` + err + __location);
                             reject(err);
                         });
                     }
@@ -354,23 +337,21 @@ module.exports = class ApplicationModel {
                 case 'claims':
                     if (applicationJSON.claims) {
                         await this.processClaimsWF(applicationJSON.claims).catch(function(err) {
-                            log.error('Adding claims error:' + err + __location);
+                            log.error(`Adding claims to appId ${appId} error:` + err + __location);
                             reject(err);
                         });
                     }
-                    //TODO details setup Mapping to Mongoose Model not we already have one loaded.
                     break;
                 case 'questions':
                     if (applicationJSON.questions) {
 
                         await this.processQuestionsMongo(applicationJSON.questions).catch(function(err) {
-                            log.error('Adding Questions error:' + err + __location);
-                            // reject(err);
+                            log.error(`Adding Questions to appId ${appId}  error:` + err + __location);
                         });
 
                     }
                     await this.processLegalAcceptance(applicationJSON).catch(function(err) {
-                        log.error('Adding Legal Acceptance error:' + err + __location);
+                        log.error(`Adding Legal Acceptance to appId ${appId} error:` + err + __location);
                         reject(err);
                     });
                     applicationJSON.status = 'questions_done';
@@ -410,16 +391,16 @@ module.exports = class ApplicationModel {
                 case 'bindRequest':
                     if (applicationJSON.quotes) {
                         applicationJSON.progress = 'complete';
-                        applicationJSON.appStatusId = this.appStatusId;
+                        applicationJSON.appStatusId = this.applicationDoc.appStatusId;
                         await this.processQuotes(applicationJSON).catch(function(err) {
-                            log.error('Processing Quotes error:' + err + __location);
+                            log.error(`Processing Quotes for appId ${appId}  error:` + err + __location);
                             reject(err);
                         });
                     }
                     break;
                 default:
                     // not from old Web application application flow.
-                    reject(new Error("Unknown Application Workflow Step"))
+                    reject(new Error(`Unknown Application for appId ${appId} Workflow Step`))
                     return;
             }
             if (updateBusiness === true) {
@@ -428,34 +409,16 @@ module.exports = class ApplicationModel {
                     delete applicationJSON.businessInfo
                 }
             }
-
-            if (!this.#dbTableORM.last_step) {
-                this.#dbTableORM.last_step = stepNumber;
+            //switch to applicationDoc
+            if (!this.applicationDoc || this.applicationDoc && !this.applicationDoc.lastStep) {
                 applicationJSON.lastStep = stepNumber;
             }
-            else if (stepNumber > this.#dbTableORM.last_step) {
-                this.#dbTableORM.last_step = stepNumber;
+            else if (stepNumber > this.applicationDoc.lastStep) {
                 applicationJSON.lastStep = stepNumber;
             }
 
-            await this.cleanupInput(applicationJSON);
-
-            //$app->created_by = $user->id;
-            this.#dbTableORM.load(applicationJSON, false).catch(function(err) {
-                log.error("Error loading application orm " + err + __location);
-            });
-            if (!this.#dbTableORM.uuid) {
-                this.#dbTableORM.uuid = applicationJSON.uuid;
-            }
 
             //save
-            await this.#dbTableORM.save().catch(function(err) {
-                reject(err);
-            });
-            this.updateProperty();
-            this.id = this.#dbTableORM.id;
-            applicationJSON.id = this.id;
-
             // mongoose model save.
             this.mapToMongooseJSON(applicationJSON)
             if (this.#applicationMongooseDB) {
@@ -924,7 +887,7 @@ module.exports = class ApplicationModel {
                         //return;
 
                     });
-
+                    // note: recalculating metric is call in saveApplicationStep
                     try{
 
                         const quoteBind = new QuoteBind();
@@ -1285,24 +1248,16 @@ module.exports = class ApplicationModel {
 
     async updateStatus(id, appStatusDesc, appStatusid) {
 
-        if (id && id > 0) {
-            try {
-                const sql = `
-                    UPDATE clw_talage_applications
-                    SET status = ${db.escape(appStatusDesc)}, appStatusid = ${db.escape(appStatusid)}
-                    WHERE id = ${id};
-                `;
-                await db.query(sql);
-            }
-            catch (error) {
-                log.error(`Could not update application status mySql appId: ${id}  ${error} ${__location}`);
-            }
+        if (id) {
             //mongo update.....
             try {
                 const updateStatusJson = {
                     status: appStatusDesc,
                     "appStatusId": appStatusid
                 }
+
+                updateStatusJson.updatedAt = new Date();
+
                 const query = {"mysqlId": id};
                 await ApplicationMongooseModel.updateOne(query, updateStatusJson);
             }
@@ -1318,25 +1273,9 @@ module.exports = class ApplicationModel {
 
     async updateProgress(id, progress) {
 
-        const sql = `
-		    UPDATE clw_talage_applications
-		    SET progress = ${db.escape(progress)}
-		    WHERE id = ${db.escape(id)}
-        `;
-        let result = null;
-
-        try {
-            result = await db.query(sql);
-        }
-        catch (error) {
-            log.error(`Could not update the quote progress to ${progress} for application ${id}: ${error} ${__location}`);
-        }
-        if (result === null || result.affectedRows !== 1) {
-            log.warn(`Could not update the application progress to ${progress} for application ${id}: ${sql} ${__location}`);
-        }
-        //mongo update.....
         try {
             const updateStatusJson = {progress: progress}
+            updateStatusJson.updatedAt = new Date();
             const query = {"mysqlId": id};
             await ApplicationMongooseModel.updateOne(query, updateStatusJson);
         }
@@ -1347,26 +1286,10 @@ module.exports = class ApplicationModel {
     }
 
     async updateState(id, newState) {
-
-        const sql = `
-		    UPDATE clw_talage_applications
-		    SET state = ${db.escape(newState)}
-		    WHERE id = ${db.escape(id)} and state < ${db.escape(newState)}
-        `;
-        let result = null;
-
-        try {
-            result = await db.query(sql);
-        }
-        catch (error) {
-            log.error(`Could not update the quote state to ${newState} for application ${id}: ${error} ${__location}`);
-        }
-        if (result === null || result.affectedRows !== 1) {
-            log.warn(`Could not update the application to State = ${newState} for applicationId ${id}: ${sql} ${__location}`);
-        }
         //mongo update.....
         try {
             const updateStatusJson = {processStateOld: newState}
+            updateStatusJson.updatedAt = new Date();
             const query = {
                 "mysqlId": id,
                 processStateOld: {$lt: newState}
@@ -1382,20 +1305,15 @@ module.exports = class ApplicationModel {
 
     async getProgress(id) {
         //TODO move to Mongo Find
-        const sql = `
-            SELECT progress
-            FROM clw_talage_applications
-            WHERE id = ${id}
-        `;
-        let result = null;
+        let appDoc = null;
         try {
-            result = await db.query(sql);
+            appDoc = await this.getById(id)
         }
         catch (error) {
-            log.error(`Could not get the quote progress for application ${id}: ${error} ${__location}`);
+            log.error(`Could not get the quoting progress for application ${id}: ${error} ${__location}`);
         }
-        if (result && result.length > 0) {
-            return result[0].progress;
+        if (appDoc) {
+            return appDoc.progress;
         }
         else {
             log.error(`Could not get the quote progress for application ${id}: ${__location}`);
@@ -1403,31 +1321,6 @@ module.exports = class ApplicationModel {
         }
     }
 
-    // save(asNew = false) {
-    //     return new Promise(async (resolve, reject) => {
-    //         //validate
-
-    //         resolve(true);
-    //     });
-    // }
-
-    loadFromId(id) {
-        return new Promise(async(resolve, reject) => {
-            //validate
-            if (id && id > 0) {
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error("Error getting application from Database " + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
-                resolve(true);
-            }
-            else {
-                reject(new Error('no id supplied'))
-            }
-        });
-    }
 
     async updateMongoWithMysqlId(mysqlId, newObjectJSON) {
 
@@ -1485,7 +1378,7 @@ module.exports = class ApplicationModel {
         return true;
     }
 
-    async updateMongo(uuid, newObjectJSON, updateMysql = false) {
+    async updateMongo(uuid, newObjectJSON) {
         if (uuid) {
             if (typeof newObjectJSON === "object") {
 
@@ -1514,17 +1407,11 @@ module.exports = class ApplicationModel {
                     newObjectJSON.updatedAt = new Date();
 
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
+                    log.debug("Mongo Application updated " + JSON.stringify(query) + __location)
+                    //log.debug("updated to " + JSON.stringify(newObjectJSON));
                     const newApplicationdoc = await ApplicationMongooseModel.findOne(query);
                     this.#applicationMongooseDB = newApplicationdoc
 
-                    if(updateMysql === true){
-                        const postInsert = false;
-                        // eslint-disable-next-line prefer-const
-                        let applicationMysqlJSON = {};
-                        await this.mongoDoc2MySqlUpdate(newApplicationdoc, applicationMysqlJSON,postInsert).catch(function(err){
-                            log.error(`Error in mongoDoc2MySqlUpdate  appId: ${uuid}` + err + __location);
-                        })
-                    }
 
                     newApplicationJSON = mongoUtils.objCleanup(newApplicationdoc);
                 }
@@ -1582,6 +1469,7 @@ module.exports = class ApplicationModel {
             log.error('Mongo Application Save err ' + err + __location);
             throw err;
         });
+        log.debug("Mongo Application inserted " + application.applicationId + __location)
         //add calculated fields EIN
         await this.setDocEinClear(application);
         await this.checkAndFixAppStatus(application);
@@ -1610,16 +1498,14 @@ module.exports = class ApplicationModel {
 
     }
 
-    async applicationDoc2MySqlInsert(applicationDoc) {
-        let error = null;
+    async applicationDoc2MySqlInsert(newApplicationDoc) {
         // eslint-disable-next-line prefer-const
-        let applicationJSON = JSON.parse(JSON.stringify(applicationDoc));
+        let applicationJSON = JSON.parse(JSON.stringify(newApplicationDoc));
         if(applicationJSON.id){
             delete applicationJSON.id;
         }
 
         //save application
-        await this.cleanupInput(applicationJSON);
         const propMappingsApp = {
             processStateOld: "state",
             lastStep: "last_step",
@@ -1645,63 +1531,20 @@ module.exports = class ApplicationModel {
         //save
         await this.#dbTableORM.save().catch(function(err) {
             log.error("applicationDoc2MySqlInsert application save error " + err + __location);
-            error = err;
+            // Do not stop mongo save. Mysql insert is only for id.
+            // Id.mysqlId will be obsoleted in Q2 2021
         });
-        if (error) {
-            return false;
-        }
-        this.updateProperty();
+
         applicationJSON.id = this.#dbTableORM.id;
-        applicationDoc.mysqlId = applicationJSON.id;
-        await applicationDoc.save().catch(function(err) {
+        newApplicationDoc.mysqlId = applicationJSON.id;
+        await newApplicationDoc.save().catch(function(err) {
             log.error('Mongo Application Save for mysqlId err ' + err + __location);
             throw err;
         });
+        this.applicationDoc = newApplicationDoc;
+        this.updateProperty();
 
-        const postInsert = true;
-        return this.mongoDoc2MySqlUpdate(applicationDoc, applicationJSON, postInsert)
 
-    }
-
-    async mongoDoc2MySqlUpdate(applicationDoc, applicationJSONInbound, postInsert = false) {
-
-        let applicationJSON = {};
-        if(applicationJSONInbound){
-            applicationJSON = JSON.parse(JSON.stringify(applicationJSONInbound));
-        }
-        let error = null;
-        if (postInsert === false) {
-            // eslint-disable-next-line prefer-const
-            let newAppRecJson = JSON.parse(JSON.stringify(applicationDoc))
-            newAppRecJson.id = applicationDoc.mysqlId;
-            const propMappingsApp = {
-                mailingCity: "city",
-                "mailingState": "state_abbr",
-                mailingZipcode: "zipcode",
-                "industryCode": "industry_code"
-            };
-            this.jsonToSnakeCase(newAppRecJson, propMappingsApp);
-            if(error){
-                return false;
-            }
-            if(!applicationJSON){
-                log.error("mongoDoc2MySqlUpdate mysql record not found " + __location)
-                return false;
-            }
-            //save app
-            await this.saveModel(newAppRecJson).catch(function(err){
-                log.error('Mongo Application Save for mysqlId err ' + err + __location);
-            })
-            //get mysqlDB application
-            applicationJSON = await this.getById(applicationDoc.mysqlId).catch(function(err){
-                log.error('Mongo Application Getfor mysqlId err ' + err + __location);
-                error = err;
-            });
-        }
-        else if(!applicationJSON || !applicationJSON.id){
-            log.error("NO Appid in mongoDoc2MySqlUpdate " + __location);
-            return false;
-        }
     }
 
     // checks the status of the app and fixes it if its timed out
@@ -2318,21 +2161,12 @@ module.exports = class ApplicationModel {
     }
 
     getById(id) {
-        return new Promise(async(resolve, reject) => {
-            //validate
-            if (id && id > 0) {
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
-                resolve(this.#dbTableORM.cleanJSON());
-            }
-            else {
-                reject(new Error('no id supplied'))
-            }
-        });
+        if(validator.isUuid(id)){
+            return this.getfromMongoByAppId(id)
+        }
+        else {
+            return this.getMongoDocbyMysqlId(id)
+        }
     }
 
     deleteSoftById(id) {
@@ -2447,60 +2281,17 @@ module.exports = class ApplicationModel {
     }
 
 
-    async cleanupInput(inputJSON) {
-        //convert to ints
-        for (const property in properties) {
-            if (inputJSON[property]) {
-                // Convert to number
-                try {
-                    if (properties[property].type === "number" && typeof inputJSON[property] === "string") {
-                        if (properties[property].dbType.indexOf("int") > -1) {
-                            inputJSON[property] = parseInt(inputJSON[property], 10);
-                        }
-                        else if (properties[property].dbType.indexOf("float") > -1) {
-                            inputJSON[property] = parseFloat(inputJSON[property]);
-                        }
-                    }
-                }
-                catch (e) {
-                    log.error(`Error converting property ${property} value: ` + inputJSON[property] + __location);
-                }
-            }
+    updateProperty() {
+        if(this.applicationDoc){
+            //main ids only
+            this.id = this.applicationDoc.mysqlId;
+            this.agencyNetworkId = this.applicationDoc.agencyNetworkId;
+            this.applicationId = this.applicationDoc.applicationId;
+            this.agencyId = this.applicationDoc.agencyid;
         }
+
     }
 
-    updateProperty(noNulls = false) {
-        const dbJSON = this.#dbTableORM.cleanJSON(noNulls)
-        // eslint-disable-next-line guard-for-in
-        for (const property in properties) {
-            if (noNulls === true) {
-                if (dbJSON[property]) {
-                    this[property] = dbJSON[property];
-                }
-                else if (this[property]) {
-                    delete this[property];
-                }
-            }
-            else {
-                this[property] = dbJSON[property];
-            }
-        }
-    }
-
-    //
-    // Load new object JSON into ORM. can be used to filter JSON to object properties
-    //
-    // @param {object} inputJSON - input JSON
-    // @returns {void}
-    //
-    async loadORM(inputJSON) {
-        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
-        this.updateProperty();
-        return true;
-    }
-    // copyToMongo(id){
-
-    // }
 
     // *********************************
     //    Question processing
@@ -2840,7 +2631,11 @@ module.exports = class ApplicationModel {
 
             // updateMongo does lots of checking and potential resettings.
             // await this.updateMongo(applicationId, {metrics: metrics});
-            await ApplicationMongooseModel.updateOne({applicationId: applicationId}, {metrics: metrics});
+            // Add updatedAt
+            let updateJSON = {metrics: metrics};
+            updateJSON.updatedAt = new Date();
+
+            await ApplicationMongooseModel.updateOne({applicationId: applicationId}, updateJSON);
 
         }
 
@@ -2864,14 +2659,6 @@ const properties = {
         "type": "number",
         "dbType": "tinyint(1)"
     },
-    "status": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(32)"
-    },
     "appStatusId": {
         "default": null,
         "encrypted": false,
@@ -2879,46 +2666,6 @@ const properties = {
         "rules": null,
         "type": "number",
         "dbType": "int(11) unsigned"
-    },
-    "abandoned_email": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "abandoned_app_email": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "opted_out_online_emailsent": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "opted_out_online": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "additional_insured": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
     },
     "agency_network": {
         "default": 1,
@@ -2944,109 +2691,6 @@ const properties = {
         "type": "number",
         "dbType": "int(11) unsigned"
     },
-    "completion_time": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "bigint(14) unsigned"
-    },
-    "corporation_type": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "string"
-    },
-    "coverage": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11)"
-    },
-    "coverage_lapse": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11)"
-    },
-    "coverage_lapse_non_payment": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1) unsigned"
-    },
-    "deductible": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11)"
-    },
-    "dq1": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1) unsigned"
-    },
-    "experience_modifier": {
-        "default": 1.0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "float(5,3)"
-    },
-    "family_covered": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1) unsigned"
-    },
-    "gl_effective_date": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "date",
-        "dbType": "date"
-    },
-    "gl_expiration_date": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "date",
-        "dbType": "date"
-    },
-    "gross_sales_amt": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number"
-    },
-    "has_ein": {
-        "default": "1",
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1) unsigned"
-    },
     "industry_code": {
         "default": null,
         "encrypted": false,
@@ -3069,34 +2713,6 @@ const properties = {
         "rules": null,
         "type": "number"
     },
-    "limits": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "string"
-    },
-    "management_structure": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "string"
-    },
-    "owners_covered": {
-        "default": "1",
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number"
-    },
-    "progress": {
-        "default": "unknown",
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "string"
-    },
     "referrer": {
         "default": "unknown",
         "encrypted": false,
@@ -3111,122 +2727,12 @@ const properties = {
         "rules": null,
         "type": "string"
     },
-    "solepro": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number"
-    },
-    "umb_effective_date": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "date"
-    },
     "uuid": {
         "default": null,
         "encrypted": false,
         "required": false,
         "rules": null,
         "type": "string"
-    },
-    "waiver_subrogation": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number"
-    },
-    "wc_effective_date": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "date"
-    },
-    "wc_expiration_date": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "date"
-    },
-
-    "wc_limits": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "string"
-    },
-    "wholesale": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number"
-    },
-    "years_of_exp": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number"
-    },
-    "zip": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "mediumint(5) unsigned"
-    },
-    "city": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(60)"
-    },
-    "state_abbr": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(2)"
-    },
-    "zipcode": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(10)"
-    },
-    "additionalInfo": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "json",
-        "dbType": "json"
-    },
-    "businessDataJSON": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "json",
-        "dbType": "json"
     },
     "created": {
         "default": null,
@@ -3278,26 +2784,4 @@ class ApplicationOrm extends DatabaseObject {
     constructor() {
         super('clw_talage_applications', properties);
     }
-    // handle search strings here.......
-    // /**
-    //  * Save this agency in the database
-    //  *
-    //  * @returns {Promise.<Boolean, Error>} A promise that returns true if resolved, or an Error if rejected
-    //  */
-    // save(){
-    // 	return new Promise(async(fulfill, reject) => {
-    // 		let rejected = false;
-
-    // 		// Save
-    // 		await DatabaseObject.prototype.save.call(this).catch(function(err){
-    // 			rejected = true;
-    // 			reject(err);
-    // 		});
-    // 		if(rejected){
-    // 			return;
-    // 		}
-
-    // 		fulfill(true);
-    // 	});
-    // }
 }
