@@ -78,10 +78,17 @@ async function deleteAgency(req, res, next) {
         return next(serverHelper.forbiddenError('You are not authorized to delete this agency'));
     }
 
+    let userId = null;
+    try{
+        userId = req.authentication.userID;
+    }
+    catch(err){
+        log.error("Error gettign userID " + err + __location);
+    }
 
     const agencyBO = new AgencyBO();
     // Load the request data into it
-    const resp = await agencyBO.deleteSoftById(id).catch(function(err) {
+    const resp = await agencyBO.deleteSoftById(id,userId).catch(function(err) {
         log.error("Agency Delete load error " + err + __location);
         error = err;
     });
