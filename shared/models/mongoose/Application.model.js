@@ -96,8 +96,7 @@ const PolicySchema = new Schema({
     coverage: {type: Number, required: false}, // BOP field
     coverageLapse:  {type: Boolean, default: false},
     coverageLapseNonPayment: {type: Boolean, default: false},
-    waiverSubrogation: {type: Boolean, default: false},
-    claims:  [claimSchema]
+    waiverSubrogation: {type: Boolean, default: false}
 });
 
 const QuestionSchema = new Schema({
