@@ -326,11 +326,9 @@ module.exports = class AgencyNetworkBO{
                     }
                     // Add updatedAt
                     newObjectJSON.updatedAt = new Date();
-
+                    log.debug("AgencyNetwork update " + JSON.stringify(newObjectJSON));
                     await AgencyNetworkModel.updateOne(query, newObjectJSON);
                     const newAgencyNetworkDoc = await AgencyNetworkModel.findOne(query);
-                    
-
                     newAgencyNetworkJSON = mongoUtils.objCleanup(newAgencyNetworkDoc);
                 }
                 catch (err) {

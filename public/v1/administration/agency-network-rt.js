@@ -116,9 +116,4 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPostAuthAdmin('Post Agency Network Object', `${basePath}/agency-network`, add, 'administration', 'all');
     server.addPutAuthAdmin('Put Agency Network Object', `${basePath}/agency-network/:id`, update, 'administration', 'all');
 
-    // server.addGet('Get Agency Network list', `${basePath}/agency-network`, findAll, 'administration', 'all');
-    // server.addGet('Get Agency Network Object', `${basePath}/agency-network/:id`, findOne, 'administration', 'all');
-    // server.addPost('Post Agency Network Object', `${basePath}/agency-network`, add, 'administration', 'all');
-    // server.addPut('Put Agency Network Object', `${basePath}/agency-network/:id`, update, 'administration', 'all');
-
 };
