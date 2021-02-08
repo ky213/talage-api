@@ -28,10 +28,10 @@ module.exports = class QuoteBind{
     }
 
     /**
-     * Marks this quote as bound.
+     * Marks this quote as bound. ??? where is the save or update
      * @returns {Promise.<string, ServerError>} Returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a ServerError on failure
      */
-    async markAsBind(){ 
+    async markAsBind(){
         if(!this.quoteDoc){
             log.error('Missing QuoteDoc ' + __location);
             throw new Error('Quote not Found. No action taken.');
@@ -84,6 +84,7 @@ module.exports = class QuoteBind{
         return "NotBound";
     }
 
+    // eslint-disable-next-line valid-jsdoc
     /**
      * Binds this quote via API, if possible. If successful, this method
      * returns nothing. If not successful, then an Exception is thrown.
@@ -184,7 +185,7 @@ module.exports = class QuoteBind{
             this.payment_plan = payment_plan;
         }
     }
- 
+
     /**
 	 * Posts a notification in Slack. The formatting changes based on the message type
 	 *

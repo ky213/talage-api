@@ -709,11 +709,11 @@ module.exports = class Application {
                                 }
                             }
                             else {
-                                log.error(`${policy.type} is not enabled for insurer ${insurer.id} for Agency location ${this.agencyLocation.id} app ${this.id}` + __location);
+                                log.info(`${policy.type} is not enabled for insurer ${insurer.id} for Agency location ${this.agencyLocation.id} app ${this.id}` + __location);
                             }
                         }
                         else {
-                            log.error(`Info for policy type ${policy.type} not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} app ${this.id}` + __location);
+                            log.warn(`Info for policy type ${policy.type} not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} app ${this.id}` + __location);
                         }
                     }
                     else {
@@ -767,6 +767,10 @@ module.exports = class Application {
                 policyTypeReferred[quote.policyType] = true;
             }
         });
+
+        // Update the application quote metrics
+        await applicationBO.recalculateQuoteMetrics(this.applicationDocData.uuid, quoteList);
+
         // Update the application state
         await this.updateApplicationState(this.policies.length, Object.keys(policyTypeQuoted).length, Object.keys(policyTypeReferred).length);
 

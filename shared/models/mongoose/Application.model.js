@@ -96,8 +96,7 @@ const PolicySchema = new Schema({
     coverage: {type: Number, required: false}, // BOP field
     coverageLapse:  {type: Boolean, default: false},
     coverageLapseNonPayment: {type: Boolean, default: false},
-    waiverSubrogation: {type: Boolean, default: false},
-    claims:  [claimSchema]
+    waiverSubrogation: {type: Boolean, default: false}
 });
 
 const QuestionSchema = new Schema({
@@ -109,6 +108,17 @@ const QuestionSchema = new Schema({
     answerId: {type: Number, required: false},
     answerValue: {type: String, required: false},
     answerList: [String]
+});
+
+const ApplicationMetricsPremiumSchema = new Schema({
+    WC: {type: Number, required: false},
+    GL: {type: Number, required: false},
+    BOP: {type: Number, required: false}
+});
+
+const ApplicationMetricsSchema = new Schema({
+    lowestBoundQuoteAmount: {type: ApplicationMetricsPremiumSchema, required: false},
+    lowestQuoteAmount: {type: ApplicationMetricsPremiumSchema, required: false},
 });
 
 // note: ein - not saved to db
@@ -183,6 +193,7 @@ const ApplicationSchema = new Schema({
     active: {type: Boolean, default: true},
     corporationType: {type: String, required: false},
     quotingStartedDate: {type: Date},
+    metrics: {type: ApplicationMetricsSchema, required: false},
 });
 // NOTE:  EIN is not ever saved to database.
 

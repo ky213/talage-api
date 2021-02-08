@@ -218,9 +218,9 @@ module.exports = class AgencyBO {
                     // Isolate the file data from the type prefix
                     const logoData = newObjectJSON.logo.substring(newObjectJSON.logo.indexOf(',') + 1);
 
-                    // Check the file size (max 150KB)
-                    if (logoData.length * 0.75 > 150000) {
-                        reject('Logo too large. The maximum file size is 150KB.');
+                    // Check the file size (max 200KB)
+                    if (logoData.length * 0.75 > 200000) {
+                        reject('Logo too large. The maximum file size is 200KB.');
                         return;
                     }
 
@@ -656,7 +656,7 @@ module.exports = class AgencyBO {
     }
 
 
-    deleteSoftById(id) {
+    deleteSoftById(id, userId) {
         return new Promise(async(resolve, reject) => {
             //validate
             if (id && id > 0) {
@@ -666,6 +666,10 @@ module.exports = class AgencyBO {
                     agencyDoc = await this.getMongoDocbyMysqlId(id, returnDoc);
                     if(agencyDoc && agencyDoc.systemId){
                         agencyDoc.active = false;
+                        agencyDoc.deletedAt = moment();
+                        if(userId){
+                            agencyDoc.deletedByUser = userId;
+                        }
                         await agencyDoc.save();
                     }
                 }
