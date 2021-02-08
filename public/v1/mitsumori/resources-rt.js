@@ -40,7 +40,7 @@ async function getResources(req, res, next){
         case "mailingAddress":
             territories(resources);
             break;
-        case "owners":
+        case "officers":
             officerTitles(resources);
             break;
         case "policies":
