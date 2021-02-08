@@ -61,9 +61,9 @@ module.exports = class AcuityWC extends Integration {
 
         // Define how corporation types are mapped for Acuity
         const corporationTypeMatrix = {
-            c: 'SC',
-            n: 'CN',
-            s: 'SS'
+            C: 'SC',
+            N: 'CN',
+            S: 'SS'
         };
 
         // Define how legal entities are mapped for Acuity
@@ -74,6 +74,24 @@ module.exports = class AcuityWC extends Integration {
             'Limited Partnership': 'LP',
             Partnership: 'PT',
             'Sole Proprietorship': 'IN'
+        };
+
+        this.getAcuityTitle = function(owner) {
+            switch (owner.officerTitle) {
+                case "President":
+                    return "Pres";
+                case "Vice President":
+                    return "VP";
+                case "Secretary":
+                    return "Sec";
+                case "Treasurer":
+                    return "Treas";
+                case "Secy-Treas":
+                    return "com.acuity_SecTreas";
+                default:
+                    break;
+            }
+            return "Ot"
         };
 
         // Ensure the industry code supports WC
@@ -130,8 +148,14 @@ module.exports = class AcuityWC extends Integration {
             }
         }
 
-        if (this.app.business.corporation_type) {
-            this.corporationType = corporationTypeMatrix[this.app.business.corporation_type];
+        // Set the type of corporation
+        if (this.entityType === "CP") {
+            if (this.app.applicationDocData.corporationType) {
+                this.corporationType = corporationTypeMatrix[this.app.applicationDocData.corporationType];
+            }
+            else if (this.app.applicationDocData.mailingState === "PA") {
+                this.log_warn("Corporation in Pennsylvania needs corporation type, but it isn't specified. Non-fatal so continuing quote.", __location);
+            }
         }
 
         // Business information
@@ -232,7 +256,6 @@ module.exports = class AcuityWC extends Integration {
             path = '/ws/irate/rating/RatingService/Talage';
             credentials = {'x-acuity-api-key': this.password};
         }
-
         // console.log('request', xml);
 
         // Send the XML to the insurer
@@ -244,7 +267,6 @@ module.exports = class AcuityWC extends Integration {
             // console.log('error', error);
             return this.client_connection_error(__location);
         }
-
         // console.log('result', JSON.stringify(result, null, 4));
 
         // Check if there was an error
