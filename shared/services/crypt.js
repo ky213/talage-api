@@ -15,66 +15,6 @@ const sodium = require('sodium').api;
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-// Private Functions
-
-//
-// Sends a request to our encryption service. Must be called using await.
-//
-// @param {string} endpoint - The API endpoint to be used
-// @param {string|Object} data - The data to be sent to the encryption service
-// @returns {Promise.<string, Error>} - A promise that returns the result of the request as a string if resolved, or an Error if rejected
-//
-// Deprecated
-// function sendRequest(endpoint, data){
-// // Send the request to the encryption service
-// return new Promise(function(resolve, reject){
-// // Establish the options for the request
-// const options = {
-// 'headers': {'accept': 'text/plain'},
-// 'method': 'POST',
-// 'url': `http://localhost:${global.settings.PRIVATE_API_PORT}/v1/encryption/${endpoint}`
-// };
-//
-// // Determine what type of data to send
-// switch(typeof data){
-// case 'object':
-// 				options.json = data;
-// 				options.headers['content-type'] = 'application/json';
-// 				break;
-// case 'string':
-// 				options.body = data;
-// 				options.headers['content-type'] = 'text/plain';
-// 				break;
-// default:
-// 				log.warn('crypt sendRequest only accepts data as a string or an object');
-// 				reject(new Error('crypt sendRequest only accepts data as a string or an object'));
-// 				break;
-// }
-//
-// // Send the request
-// request(options, function(error, response, body){
-// // If there was an error, reject
-// if(error){
-// 				log.error('Failed to connect to encryption service.');
-// 				reject(new Error('Failed to connect to encryption service.'));
-// 				return;
-// }
-//
-// // If the response was anything but a success, reject
-// if(response.statusCode !== 200){
-// 				// The response is JSON, parse out the error
-// 				const message = `${response.statusCode} - ${JSON.parse(body).message}`;
-// 				log.warn(message);
-// 				reject(new Error(message));
-// 				return;
-// }
-//
-// // Everything worked, return the response
-// resolve(body);
-// });
-// });
-// }
-//
 
 /**
  * Returns a unique encryption nonce (number only used once).
@@ -259,8 +199,15 @@ exports.encrypt = function(val) {
  * @return {string} - The hash value
  */
 exports.hash = async function(val) {
+    if(!val || typeof val !== 'string'){
+        return "";
+    }
+    else if(val.length === 0){
+        return "";
+    }
     // Convert the value to lowercase
     val = val.toLowerCase();
+
 
     // Salt the value
     val += global.settings.SALT;

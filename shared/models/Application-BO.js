@@ -1585,7 +1585,7 @@ module.exports = class ApplicationModel {
 
     async setupDocEinEncrypt(applicationDoc){
         //Only modified if EIN has been given.
-        if(applicationDoc.ein){
+        if(applicationDoc && applicationDoc.ein && applicationDoc.ein.length > 1){
             try{
                 applicationDoc.einEncrypted = await crypt.encrypt(applicationDoc.ein);
                 applicationDoc.einHash = await crypt.hash(applicationDoc.ein);
