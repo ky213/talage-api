@@ -1031,7 +1031,7 @@ module.exports = class Application {
             }
 
             // Validate the ID
-            // this.applicationDocData loaded we know 
+            // this.applicationDocData loaded we know
             // we have a good application ID.  (happend in Load)
 
 
@@ -1148,42 +1148,20 @@ module.exports = class Application {
             }
 
             /**
-			 * Corporation type (required only for WC for Corporations in PA that are excluding owners)
-			 * - Must be one of 'c', 'n', or 's'
-			 */
-            if (
-                this.has_policy_type('WC') &&
-                this.applicationDocData.entityType === 'Corporation' &&
-                this.applicationDocData.mailingState === 'PA' &&
-                !this.applicationDocData.ownersCovered
-            ) {
-                // TODO: this will always fail because current mongoose schema doesn't have corporationType
-                if (this.applicationDocData.corporationType) {
-                    // eslint-disable-next-line array-element-newline
-                    const paCorpValidTypes = ['c', 'n', 's'];
-                    if (!paCorpValidTypes.includes(this.applicationDocData.corporationType)) {
-                        log.warn(`Invalid corporation type. Must be "c" (c-corp), "n" (non-profit), or "s" (s-corp). ${this.applicationDocData.mysqlId}. ` + __location)
-                        return reject(new Error('Invalid corporation type. Must be "c" (c-corp), "n" (non-profit), or "s" (s-corp).'));
-                    }
-                }
-                else {
-                    return reject(new Error('Missing required field: corporationType'));
-                }
-            }
-
-            /**
 			 * Owners (conditionally required)
 			 * - Only used for WC policies, ignored otherwise
 			 * - Only required if ownersCovered is false
+             *
+             * NOTE: This should not stop quoting.
 			 */
-            if (this.has_policy_type('WC') && !this.applicationDocData.ownersCovered) {
-                if (this.applicationDocData.owners.length) {
-                    // TODO: Owner validation is needed here
-                }
-                else {
-                    return reject(new Error('The names of owners must be supplied if they are not included in this policy.'));
-                }
-            }
+            // if (this.has_policy_type('WC') && !this.applicationDocData.ownersCovered) {
+            //     if (this.applicationDocData.owners.length) {
+            //         // TODO: Owner validation is needed here
+            //     }
+            //     else {
+            //         return reject(new Error('The names of owners must be supplied if they are not included in this policy.'));
+            //     }
+            // }
 
             // Validate all policies
             try {
