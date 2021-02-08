@@ -1394,7 +1394,8 @@ module.exports = class Integration {
         this.log_info(message, __location);
 
         // Record the quote
-        return this.record_quote(premiumAmount, 'quoted');
+        const quoteResp = await this.record_quote(premiumAmount, 'quoted');
+        return quoteResp;
     }
 
     /**
@@ -1445,7 +1446,8 @@ module.exports = class Integration {
 	 * @returns {object} - An object containing the indication information
 	 */
     async return_indication(amount) {
-        return this.record_quote(amount, 'referred_with_price');
+        const quoteResp = this.record_quote(amount, 'referred_with_price');
+        return quoteResp;
     }
 
     /**
@@ -1466,7 +1468,8 @@ module.exports = class Integration {
         }
 
         // Record this quote
-        return this.record_quote(null, type);
+        const quoteResp = this.record_quote(null, type);
+        return quoteResp;
     }
 
     /**
