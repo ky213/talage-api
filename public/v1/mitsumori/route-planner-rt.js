@@ -35,7 +35,7 @@ const getRoute = async(currentRoute, appId, redisKey) => {
         case "additionalQuestions":
             return "officers";
         case "officers":
-            return "mailingAddress";
+            return "claims";
         case "claims":
             return "locations";
         case "mailingAddress":
