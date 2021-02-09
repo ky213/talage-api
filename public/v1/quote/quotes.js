@@ -220,36 +220,36 @@ async function getQuotes(req, res, next) {
     const complete = progress !== 'quoting';
 
     // Retrieve quotes newer than the last quote ID
-    // needs to change for Mongo/uuid ID.
     // use createdAt Datetime instead.
-    const sql = `
-		SELECT id
-		FROM #__quotes
-		WHERE
-			application = ${tokenPayload.applicationID}
-			AND id > ${lastQuoteID}
-		ORDER BY id ASC
-    `;
-    // Error Try???
-    const result = await queryDB(sql, `retrieving quotes for application ${tokenPayload.applicationID}`);
-    if (result === null) {
-        log.warn(`Got no quotes from a finished App Quoting AppId ${tokenPayload.applicationID} ` + __location)
-        //return next(serverHelper.internalError('Error retrieving quotes'));
+    const quoteModel = new QuoteBO();
+    let quoteList = null;
+
+    const query = {
+        mysqlAppId: tokenPayload.applicationID,
+        lastMysqlId: lastQuoteID
+    };
+    try {
+        quoteList = await quoteModel.getNewAppQuotes(query);
     }
-    const quotes = [];
-    if (result && result.length > 0) {
-        // Build the quote result for the frontend
-        for (let i = 0; i < result.length; i++) {
-            const quoteSummary = await createQuoteSummary(result[i].id);
-            if (quoteSummary !== null) {
-                quotes.push(quoteSummary);
-            }
+    catch (error) {
+        log.error(`Could not get quote list for appId ${tokenPayload.applicationID} error:` + error + __location);
+        return null;
+    }
+    if(!quoteList){
+        return null;
+    }
+    // eslint-disable-next-line prefer-const
+    let returnedQuoteList = [];
+    for(const quote of quoteList){
+        const quoteSummary = await createQuoteSummary(quote.mysqlId);
+        if (quoteSummary !== null) {
+            returnedQuoteList.push(quoteSummary);
         }
     }
 
     res.send(200, {
         complete: complete,
-        quotes: quotes
+        quotes: returnedQuoteList
     });
     return next();
 }
