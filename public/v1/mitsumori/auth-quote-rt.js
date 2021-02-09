@@ -14,17 +14,17 @@ async function getToken(req, res, next) {
     //let error = false;
 
     // if the caller provided a token, check if it exists in redis
-    if(req.query.token) {
-        const redisResponse = await global.redisSvc.getKeyValue(req.query.token);
-        // if we found the token, echo it back, otherwise continue normal flow
-        if(redisResponse && redisResponse.found){
-            res.send(200, {
-                status: 'Ok',
-                token: req.query.token
-            });
-            return next();
-        }
-    }
+    // if(req.query.token) {
+    //     const redisResponse = await global.redisSvc.getKeyValue(req.query.token);
+    //     // if we found the token, echo it back, otherwise continue normal flow
+    //     if(redisResponse && redisResponse.found){
+    //         res.send(200, {
+    //             status: 'Ok',
+    //             token: req.query.token
+    //         });
+    //         return next();
+    //     }
+    // }
 
     // Query parameters user, key, and joomla_user are all optional now since the quoting engine was broken out
     const payload = {};
