@@ -10,10 +10,11 @@
 const moment = require('moment');
 const Integration = require('../Integration.js');
 global.requireShared('./helpers/tracker.js');
+const axios = require('axios');
 
 // TODO: Update to toggle between test/prod 
-const host = 'https://stag-api.nationalprograms.io/';
-const path = 'Quote/v0.2-beta/CreateQuote';
+const host = 'https://stag-api.nationalprograms.io';
+const path = '/Quote/v0.2-beta/CreateQuote';
 
 module.exports = class LibertySBOP extends Integration {
 
@@ -269,7 +270,7 @@ module.exports = class LibertySBOP extends Integration {
                             territory: "San Diego, San Diego"
                         }
                     ],
-                    otherCOA: 2000000,
+                    otherCOA: "2000000",
                     addtlIntInd: false,
                     proLiabInd: false
                 },
@@ -286,17 +287,23 @@ module.exports = class LibertySBOP extends Integration {
 
         let result = null;
         const headers = {
+            "Cache-Control": "no-cache",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
             "Ocp-Apim-Subscription-Key": "2536d916e6124279a693d11fabc07aa9" // this is Scott's Primary Key
         }
         try {
-            result = await this.send_json_request(host, path, requestJSON, headers, "POST");
+            // result = await this.send_json_request(host, path, JSON.stringify(requestJSON), headers, "POST");
+            result = await axios.post(`${host}${path}`, JSON.stringify(requestJSON), {headers: headers});
         } catch(e) {
             log.error(`Arrowhead (AppID: ${applicationDocData.mysqlId}): Error sending request: ${e}.`);
         }
 
         // parse the error / response
         log.info("=================== QUOTE RESULT ===================");
-        log.info(`Arrowhead BOP response (Appid: ${applicationDocData.mysqlId}):\n${JSON.stringify(result, null, 4)}`);
+        // log.info(`Arrowhead BOP response (Appid: ${applicationDocData.mysqlId}):\n${JSON.stringify(result, null, 4)}`);
+        // log.info(`Arrowhead BOP response (Appid: ${applicationDocData.mysqlId}):\n${JSON.stringify(JSON.parse(result), null, 4)}`);
+        log.info(`Arrowhead BOP response (Appid: ${applicationDocData.mysqlId}):\n${JSON.stringify(result.data, null, 4)}`);
         log.info("=================== QUOTE RESULT ===================");
 
     }
