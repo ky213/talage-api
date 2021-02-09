@@ -168,8 +168,8 @@ module.exports = class Application {
             await this.translate();
         }
         catch (e) {
-            log.error(`Error translating application: ${e}`);
-            throw e;
+            log.error(`Error translating application: ${e}` + __location);
+            //throw e;
         }
     }
 
@@ -191,13 +191,13 @@ module.exports = class Application {
 
         // DBA length check
         // NOTE: Do not stop the quote over dba name. Different insurers have different rules.
-        if (this.business.dba.length > 100) {
+        if (this.business.dba && this.business.dba.length > 100) {
             log.warn(`Translate Warning: DBA exceeds maximum length of 100 characters applicationId ${this.id}` + __location);
             this.applicationDocData.dba = this.applicationDocData.dba.substring(0, 100);
         }
 
         // Mailing Address check, check for maximum length
-        if (this.business.mailing_address.length > 100) {
+        if (this.business.mailing_address && this.business.mailing_address.length > 100) {
             log.error('Translate Warning: Mailing address exceeds maximum of 100 characters');
             this.applicationDocData.mailingAddress = this.applicationDocData.mailingAddress.substring(0, 100);
         }
@@ -206,7 +206,9 @@ module.exports = class Application {
         }
 
         // Adjust phone to remove formatting.  (not should be a integration issue, not app wide.)
-        this.business.phone = this.business.phone.replace(/[^0-9]/ig, '');
+        if(this.business && this.business.phone){
+            this.business.phone = this.business.phone.replace(/[^0-9]/ig, '');
+        }
         //this.business.phone = parseInt(this.business.phone, 10);
         //business contact cleanup
         if(this.business.contacts && this.business.contacts.length > 0){
@@ -216,7 +218,7 @@ module.exports = class Application {
         }
 
         // If website is invalid, clear it
-        if (this.business.website) {
+        if (this.business && this.business.website) {
             // Check formatting
             if (!validator.isWebsite(this.business.website)) {
                 log.info(`Translate warning: Invalid formatting for property: website. Expected a valid URL for ${this.id}`)
@@ -238,12 +240,12 @@ module.exports = class Application {
         ) {
 
             // This is required
-            if (this.business.unincorporated_association === null) {
+            if (this.business && this.business.unincorporated_association === null) {
                 throw new Error('Missing required field: unincorporated_association');
             }
 
             // Validate
-            if (!validator.boolean(this.business.unincorporated_association)) {
+            if (this.business && !validator.boolean(this.business.unincorporated_association)) {
                 throw new Error('Invalid value for unincorporated_association, please use a boolean value');
             }
 
