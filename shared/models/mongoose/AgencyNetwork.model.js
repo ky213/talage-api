@@ -43,6 +43,7 @@ const AgencyNetworkSchema = new Schema({
     phone: {type: String, required: false},
     featureJson: {type: Schema.Types.Mixed},
     additionalInfo: {type: Schema.Types.Mixed},
+    insurerIds: [Number],
     active: {type: Boolean, default: true}
 },opts)
 

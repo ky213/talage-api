@@ -116,32 +116,27 @@ async function main(){
     global.db = global.requireShared('./services/db.js');
 
     // MONGO
-    if(global.settings.USE_MONGO === "YES"){
-        var mongoose = require('./mongoose');
-        global.monogdb = mongoose();
-        //Mongo connect event here to start queue processing
-        talageEvent.on('mongo-connected', function() {
-            //log.info('Assetws Mongoose connected to mongodb');
-            if(hasMongoMadeInitialConnected === false){
-                hasMongoMadeInitialConnected = true;
-                startQueueProcessing();
-            }
+    var mongoose = require('./mongoose');
+    global.monogdb = mongoose();
+    //Mongo connect event here to start queue processing
+    talageEvent.on('mongo-connected', function() {
+        //log.info('Assetws Mongoose connected to mongodb');
+        if(hasMongoMadeInitialConnected === false){
+            hasMongoMadeInitialConnected = true;
+            startQueueProcessing();
+        }
 
-        });
+    });
 
-        talageEvent.on('mongo-disconnected', function() {
-            log.warn('Mongoose disconnected');
+    talageEvent.on('mongo-disconnected', function() {
+        log.warn('Mongoose disconnected');
 
-        });
+    });
 
-        talageEvent.on('mongo-error', function(err) {
-            log.error('Mongoose database error ' + err);
-        });
+    talageEvent.on('mongo-error', function(err) {
+        log.error('Mongoose database error ' + err);
+    });
 
-    }
-    else {
-        startQueueProcessing();
-    }
 }
 
 /**

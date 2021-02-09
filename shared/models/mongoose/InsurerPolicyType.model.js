@@ -42,6 +42,19 @@ InsurerPolicyTypeSchema.virtual('id').
         }
     });
 
+InsurerPolicyTypeSchema.virtual('insurer').
+    get(function() {
+        if(this.insurerId){
+            return this.insurerId;
+        }
+        else {
+            return null;
+        }
+    }).
+    set(function(v){
+        this.insurerId = v;
+    });
+
 
 InsurerPolicyTypeSchema.plugin(timestamps);
 InsurerPolicyTypeSchema.plugin(mongooseHistory);

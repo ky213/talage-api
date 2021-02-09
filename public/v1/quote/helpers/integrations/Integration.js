@@ -1394,7 +1394,8 @@ module.exports = class Integration {
         this.log_info(message, __location);
 
         // Record the quote
-        return this.record_quote(premiumAmount, 'quoted');
+        const quoteResp = await this.record_quote(premiumAmount, 'quoted');
+        return quoteResp;
     }
 
     /**
@@ -1445,7 +1446,8 @@ module.exports = class Integration {
 	 * @returns {object} - An object containing the indication information
 	 */
     async return_indication(amount) {
-        return this.record_quote(amount, 'referred_with_price');
+        const quoteResp = this.record_quote(amount, 'referred_with_price');
+        return quoteResp;
     }
 
     /**
@@ -1466,7 +1468,8 @@ module.exports = class Integration {
         }
 
         // Record this quote
-        return this.record_quote(null, type);
+        const quoteResp = this.record_quote(null, type);
+        return quoteResp;
     }
 
     /**
@@ -2068,11 +2071,9 @@ module.exports = class Integration {
                 return;
             }
             if (!result || !result.length) {
-                // Oh shit, this shouldn't have happened... just grab the Talage industry code
-                log.error(`AppId: ${this.app.id} Error: Insurer mapping for this industry code was not found, this shouldn't happen! Falling back to Talage industry code. SQL ${sql}` + __location);
                 if (this.requiresInsurerIndustryCodes) {
                     this.reasons.push("An insurer industry class code was not found for the given industry.");
-                    log.warn(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} _insurer_supports_industry_codes failed on application. query=${sql} ` + __location);
+                    log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} _insurer_supports_industry_codes required insurer mapping for this industry code was not found. query=${sql} ` + __location);
                     fulfill(false);
                     return;
                 }
