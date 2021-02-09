@@ -626,6 +626,7 @@ module.exports = class ChubbGL extends Integration {
         }
         catch (error) {
             log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: ${error} ${__location}`);
+            this.reasons.push("Error calling insurer: " + error);
             return this.return_result('error');
         }
         // Parse the various status codes and take the appropriate action
