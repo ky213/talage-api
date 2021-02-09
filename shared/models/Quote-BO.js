@@ -338,6 +338,60 @@ module.exports = class QuoteBO {
         });
     }
 
+    getNewAppQuotes(queryJSON) {
+        return new Promise(async(resolve, reject) => {
+            //
+            // eslint-disable-next-line prefer-const
+
+            if(!queryJSON){
+                throw new Error("getNewAppQuotes: no query Data");
+            }
+            if(!queryJSON.mysqlAppId || !queryJSON.lastMysqlId ){
+                throw new Error("getNewAppQuotes: missing query Data");
+            }
+
+            const queryProjection = {"__v": 0}
+            let rejected = false;
+            // eslint-disable-next-line prefer-const
+            let query = {active: true};
+            let error = null;
+
+            var queryOptions = {lean:true};
+            queryOptions.sort = {mysqlId: 1};
+
+            queryOptions.limit = 500;
+
+
+            if(queryJSON.lastMysqlId){
+                query.mysqlId = {$gt: queryJSON.lastMysqlId};
+            }
+
+            if(queryJSON.mysqlAppId){
+                query.mysqlAppId = queryJSON.mysqlAppId;
+                delete queryJSON.mysqlAppId
+            }
+
+            let docList = null;
+            try {
+                log.debug("QuoteList query " + JSON.stringify(query))
+                docList = await Quote.find(query, queryProjection, queryOptions);
+            }
+            catch (err) {
+                log.error(err + __location);
+                error = null;
+                rejected = true;
+            }
+            if(rejected){
+                reject(error);
+                return;
+            }
+
+
+            resolve(mongoUtils.objListCleanup(docList));
+            return;
+        });
+
+    }
 
     getByApplicationId(applicationId, policy_type = null) {
         // eslint-disable-next-line prefer-const

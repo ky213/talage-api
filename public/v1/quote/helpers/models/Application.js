@@ -168,8 +168,8 @@ module.exports = class Application {
             await this.translate();
         }
         catch (e) {
-            log.error(`Error translating application: ${e}`);
-            throw e;
+            log.error(`Error translating application: ${e}` + __location);
+            //throw e;
         }
     }
 
@@ -191,13 +191,13 @@ module.exports = class Application {
 
         // DBA length check
         // NOTE: Do not stop the quote over dba name. Different insurers have different rules.
-        if (this.business.dba.length > 100) {
+        if (this.business.dba && this.business.dba.length > 100) {
             log.warn(`Translate Warning: DBA exceeds maximum length of 100 characters applicationId ${this.id}` + __location);
             this.applicationDocData.dba = this.applicationDocData.dba.substring(0, 100);
         }
 
         // Mailing Address check, check for maximum length
-        if (this.business.mailing_address.length > 100) {
+        if (this.business.mailing_address && this.business.mailing_address.length > 100) {
             log.error('Translate Warning: Mailing address exceeds maximum of 100 characters');
             this.applicationDocData.mailingAddress = this.applicationDocData.mailingAddress.substring(0, 100);
         }
@@ -206,7 +206,9 @@ module.exports = class Application {
         }
 
         // Adjust phone to remove formatting.  (not should be a integration issue, not app wide.)
-        this.business.phone = this.business.phone.replace(/[^0-9]/ig, '');
+        if(this.business && this.business.phone){
+            this.business.phone = this.business.phone.replace(/[^0-9]/ig, '');
+        }
         //this.business.phone = parseInt(this.business.phone, 10);
         //business contact cleanup
         if(this.business.contacts && this.business.contacts.length > 0){
@@ -216,7 +218,7 @@ module.exports = class Application {
         }
 
         // If website is invalid, clear it
-        if (this.business.website) {
+        if (this.business && this.business.website) {
             // Check formatting
             if (!validator.isWebsite(this.business.website)) {
                 log.info(`Translate warning: Invalid formatting for property: website. Expected a valid URL for ${this.id}`)
@@ -238,12 +240,12 @@ module.exports = class Application {
         ) {
 
             // This is required
-            if (this.business.unincorporated_association === null) {
+            if (this.business && this.business.unincorporated_association === null) {
                 throw new Error('Missing required field: unincorporated_association');
             }
 
             // Validate
-            if (!validator.boolean(this.business.unincorporated_association)) {
+            if (this.business && !validator.boolean(this.business.unincorporated_association)) {
                 throw new Error('Invalid value for unincorporated_association, please use a boolean value');
             }
 
@@ -1031,7 +1033,7 @@ module.exports = class Application {
             }
 
             // Validate the ID
-            // this.applicationDocData loaded we know 
+            // this.applicationDocData loaded we know
             // we have a good application ID.  (happend in Load)
 
 
@@ -1148,42 +1150,20 @@ module.exports = class Application {
             }
 
             /**
-			 * Corporation type (required only for WC for Corporations in PA that are excluding owners)
-			 * - Must be one of 'c', 'n', or 's'
-			 */
-            if (
-                this.has_policy_type('WC') &&
-                this.applicationDocData.entityType === 'Corporation' &&
-                this.applicationDocData.mailingState === 'PA' &&
-                !this.applicationDocData.ownersCovered
-            ) {
-                // TODO: this will always fail because current mongoose schema doesn't have corporationType
-                if (this.applicationDocData.corporationType) {
-                    // eslint-disable-next-line array-element-newline
-                    const paCorpValidTypes = ['c', 'n', 's'];
-                    if (!paCorpValidTypes.includes(this.applicationDocData.corporationType)) {
-                        log.warn(`Invalid corporation type. Must be "c" (c-corp), "n" (non-profit), or "s" (s-corp). ${this.applicationDocData.mysqlId}. ` + __location)
-                        return reject(new Error('Invalid corporation type. Must be "c" (c-corp), "n" (non-profit), or "s" (s-corp).'));
-                    }
-                }
-                else {
-                    return reject(new Error('Missing required field: corporationType'));
-                }
-            }
-
-            /**
 			 * Owners (conditionally required)
 			 * - Only used for WC policies, ignored otherwise
 			 * - Only required if ownersCovered is false
+             *
+             * NOTE: This should not stop quoting.
 			 */
-            if (this.has_policy_type('WC') && !this.applicationDocData.ownersCovered) {
-                if (this.applicationDocData.owners.length) {
-                    // TODO: Owner validation is needed here
-                }
-                else {
-                    return reject(new Error('The names of owners must be supplied if they are not included in this policy.'));
-                }
-            }
+            // if (this.has_policy_type('WC') && !this.applicationDocData.ownersCovered) {
+            //     if (this.applicationDocData.owners.length) {
+            //         // TODO: Owner validation is needed here
+            //     }
+            //     else {
+            //         return reject(new Error('The names of owners must be supplied if they are not included in this policy.'));
+            //     }
+            // }
 
             // Validate all policies
             try {

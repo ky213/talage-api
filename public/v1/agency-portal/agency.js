@@ -6,7 +6,7 @@
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
 const AgencyLandingPageBO = global.requireShared('./models/AgencyLandingPage-BO.js');
-const AgencyNetworkInsurerBO = global.requireShared('./models/AgencyNetworkInsurer-BO.js');
+const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const InsurerBO = global.requireShared('models/Insurer-BO.js');
 const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
 
@@ -322,16 +322,18 @@ async function postAgency(req, res, next) {
 
 
         try{
-            const agencyNetworkInsurerBO = new AgencyNetworkInsurerBO();
-            const queryAgencyNetwork = {"agencyNetworkId": agencyNetworkId}
-            const agencyNetworkInsurers = await agencyNetworkInsurerBO.getList(queryAgencyNetwork)
-            // eslint-disable-next-line prefer-const
-            let insurerIdArray = [];
-            agencyNetworkInsurers.forEach(function(agencyNetworkInsurer){
-                if(agencyNetworkInsurer.insurer){
-                    insurerIdArray.push(agencyNetworkInsurer.insurer);
-                }
+            let agencyNetworkBO = new AgencyNetworkBO();
+            const agencyNetworkJSON = await agencyNetworkBO.getById(agencyNetworkId).catch(function(err) {
+                log.error("agencyNetworkBO load error " + err + __location);
+                error = err;
             });
+            if (error) {
+                return next(error);
+            }
+
+            // eslint-disable-next-line prefer-const
+            let insurerIdArray = agencyNetworkJSON.insurerIds;
+
             if(insurerIdArray.length > 0){
                 const insurerBO = new InsurerBO();
                 const insurerPolicyTypeBO = new InsurerPolicyTypeBO();
