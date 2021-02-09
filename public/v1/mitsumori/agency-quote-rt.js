@@ -541,7 +541,7 @@ async function getAgency(req, res, next) {
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-    server.addGetAuthAppApi("Get Agency Metadata", `${basePath}/agency/metadata`, getAgencyMetadata);
-    server.addGetAuthAppApi("Get Agency Landing Page", `${basePath}/agency/landing-page`, getAgencyLandingPage);
+    server.addGetAuthQuoteApp("Get Agency Metadata", `${basePath}/agency/metadata`, getAgencyMetadata);
+    server.addGetAuthQuoteApp("Get Agency Landing Page", `${basePath}/agency/landing-page`, getAgencyLandingPage);
     server.addGetAuthQuoteApp("Get Quote App Agency Id", `${basePath}/agency`, getAgency);
 };
