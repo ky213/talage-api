@@ -1085,7 +1085,7 @@ module.exports = class Application {
 
             // Business (required)
             try {
-                validateBusiness(this.applicationDocData);
+                await validateBusiness(this.applicationDocData);
             }
             catch (e) {
                 return reject(new Error(`Failed validating business: ${e}`));
