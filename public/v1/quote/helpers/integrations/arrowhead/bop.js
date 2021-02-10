@@ -65,16 +65,21 @@ module.exports = class LibertySBOP extends Integration {
             },
             company: "CABPQ1",
             controlSet: {
-                prodcode: "111111"
+
+                prodcode: "111111",
+                leadid: "36723a08-3467-4011-a358-dbf1e6d2b3fd"
             },
             policy: {
                 product: "BBOP",
                 state: applicationDocData.mailingState,
+
+                company: "CABPQ1",
+                agentid: "qatest",
                 commonSet: {
                     dnb: {
                         callResult: "HIT",
                         message: "",
-                        dunsNumber: 777777776
+                        dunsNumber: "777777776"
                     },
                     stateOfDomicile: applicationDocData.mailingState,
                     company: "CABPQ1",
@@ -82,9 +87,13 @@ module.exports = class LibertySBOP extends Integration {
                     classCode: this.industry_code.code, // <---- CHECK THIS
                     yearBizStarted: moment(applicationDocData.founded).year(),
                     sicCode: this.industry_code.sic, // <---- CHECK THIS
-                    expiration: moment(BOPPolicy.effectiveDate).add(1, "year").format("YYYYMMDD")
+                    expiration: moment(BOPPolicy.effectiveDate).add(1, "year").format("YYYYMMDD"),
+                    state: applicationDocData.mailingState,
+                    quoteType: "NB"
                 },
                 bbopSet: {
+                    classCodes: this.industry_code.code, // <---- CHECK THIS
+                    finalized: true,
                     flMixedBbopInd: false,
                     automaticIncr: 8,
                     coverages: {
@@ -93,10 +102,19 @@ module.exports = class LibertySBOP extends Integration {
                         },                
                         terror: {
                             includeInd: true
+                        },
+                        eqpbrk: {
+                            includeInd: false
+                        },
+                        cyber: {
+                            includeInd: false
+                        },
+                        datcom: {
+                            includeInd: false
                         }
                     },
-                    GLOccurrenceLimit: 1000000,
-                    productsCOA: 2000000,
+                    GLOccurrenceLimit: "1000000",
+                    productsCOA: "2000000",
                     medicalExpenses: "0",
                     removeITVProvision: false,
                     liabCovInd: true,
@@ -111,7 +129,7 @@ module.exports = class LibertySBOP extends Integration {
                             PPCCall: {
                                 fireProtectionArea: "SAN DIEGO",
                                 waterSupplyType: "Hydrant",
-                                PPCCode: 3,
+                                PPCCode: "3",
                                 matchType: "Address Level Match",
                                 county: "SAN DIEGO",
                                 respondingFireStation: "STATION 14",
@@ -119,15 +137,15 @@ module.exports = class LibertySBOP extends Integration {
                                 driveDistanceToRespondingFireStation: "1 mile or less",
                                 multiplePPCInd: false
                             },
-                            finalProtectionClass: 3,
+                            finalProtectionClass: "3",
                             bceg: {
-                                bcegCode: 99,
+                                bcegCode: "99",
                                 callResult: "SUCCESSFUL",
                                 message: ""
                             },
                             street: "POLK",
                             fireline: {
-                                wildFireHazardScore: "0",
+                                wildFireHazardScore: 0,
                                 callResult: "SUCCESSFUL",
                                 message: ""
                             },
@@ -143,7 +161,7 @@ module.exports = class LibertySBOP extends Integration {
                                         hvacUpdates: 2015
                                     },
                                     occupancy: "Owner Occupied Bldg - More than 10%",
-                                    LOI: 500000,
+                                    LOI: "500000",
                                     classTag: "SALES",
                                     industrySegment: "",
                                     isoClassDescriptionId: 32,
@@ -158,10 +176,10 @@ module.exports = class LibertySBOP extends Integration {
                                     },
                                     coverages: {
                                         PP: {
-                                            seasonalIncrease: 25,
+                                            seasonalIncrease: "25",
                                             valuationInd: false,
                                             includeInd: true,
-                                            limit: "200000"
+                                            limit: 200000
                                         },
                                         concom: {
                                             includeFormInd: true
@@ -187,7 +205,7 @@ module.exports = class LibertySBOP extends Integration {
                                         },
                                         liab: {
                                             includeInd: true,
-                                            sales: 500000
+                                            sales: "500000"
                                         },
                                         aiprem: {
                                             includeInd: false
@@ -207,7 +225,7 @@ module.exports = class LibertySBOP extends Integration {
                                         bld: {
                                             valuation: "Replacement Cost",
                                             includeInd: true,
-                                            limit: "500000"
+                                            limit: 500000
                                         },
                                         spoil: {
                                             breakContInd: true,
@@ -219,7 +237,7 @@ module.exports = class LibertySBOP extends Integration {
                                         },
                                         bidp: {
                                             includeInd: true,
-                                            limit: "50000",
+                                            limit: 50000,
                                             secondaryDependentProperties: false
                                         },
                                         ordLaw: {
@@ -238,7 +256,7 @@ module.exports = class LibertySBOP extends Integration {
                                     classOverride: false,
                                     sicCode: "5411",
                                     construction: "Modified Fire Resistive",
-                                    premOpsILF: 1,
+                                    premOpsILF: "1",
                                     cspCode: "0931",
                                     naicsCode: "445120",
                                     sprinklered: true
@@ -254,8 +272,8 @@ module.exports = class LibertySBOP extends Integration {
                             scrubberCalled: true,
                             WHExclusions: false,
                             recordType: "S",
-                            rawProtectionClass: 3,
-                            streetNum: 2819,
+                            rawProtectionClass: "3",
+                            streetNum: "2819",
                             WHDeductiblePcnt: "5",
                             classCodes: "09361",
                             confirmation: "N/A",
