@@ -181,7 +181,7 @@ module.exports = class AcuityWC extends Integration {
                 const ncciCode = await this.get_national_ncci_code_from_activity_code(location.territory, activityCode.id);
                 if (!ncciCode) {
                     this.log_warn(`Missing NCCI class code mapping: activityCode=${activityCode.id} territory=${location.territory}`, __location);
-                    return this.client_error(`Insurer activity class codes were not found for all activities in the application.`, __location);
+                    return this.client_autodeclined(`Insurer activity class codes were not found for all activities in the application.`);
                 }
                 activityCode.ncciCode = ncciCode;
             }
