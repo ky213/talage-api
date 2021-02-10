@@ -16,7 +16,10 @@ const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
 const ApiAuth = require("./auth-api-rt.js");
 const fileSvc = global.requireShared('./services/filesvc.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
-
+const InsurerBO = global.requireShared('models/Insurer-BO.js');
+const LimitsBO = global.requireShared('models/Limits-BO.js');
+const PaymentPlanBO = global.requireShared('models/PaymentPlan-BO.js');
+const InsurerPaymentPlanBO = global.requireShared('models/InsurerPaymentPlan-BO.js');
 
 const moment = require('moment');
 
@@ -782,13 +785,13 @@ async function createQuoteSummary(quoteID) {
 
 async function quotingCheck(req, res, next) {
 
-    const rightsToApp = isAuthForApplication(req,req.params.id)
+    const rightsToApp = isAuthForApplication(req, req.params.id);
     if(rightsToApp !== true){
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
-    const applicationId = req.params.id
+    const applicationId = req.params.id;
     // Set the last quote ID retrieved
-    let lastQuoteID = 0;
+    let lastQuoteID = -1;
     if (req.query.after) {
         lastQuoteID = req.query.after;
     }
@@ -803,7 +806,7 @@ async function quotingCheck(req, res, next) {
         log.debug("Application progress check " + progress + __location);
     }
     catch(err){
-        log.error(`Error getting application progress appId = ${req.body.id}. ` + err + __location);
+        log.error(`Error getting application progress appId = ${req.params.id}. ` + err + __location);
     }
 
     const complete = progress !== 'quoting';
@@ -814,7 +817,7 @@ async function quotingCheck(req, res, next) {
     let quoteList = null;
 
     const query = {
-        mysqlAppId: applicationId,
+        uuid: applicationId,
         lastMysqlId: lastQuoteID
     };
     try {
