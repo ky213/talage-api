@@ -11,11 +11,25 @@ const ApplicationBO = global.requireShared("models/Application-BO.js");
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const ApplicationQuoting = global.requireRootPath('public/v1/quote/helpers/models/Application.js');
+const status = global.requireShared('./models/application-businesslogic/status.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
 const ApiAuth = require("./auth-api-rt.js");
 
+
 const moment = require('moment');
 
+function isAuthForApplication(req, applicationId){
+    let canAccessApp = false;
+    if(req.userTokenData && req.userTokenData.quoteApp){
+        if(req.userTokenData.applicationId === applicationId){
+            canAccessApp = true;
+        }
+        else {
+            log.warn("UnAuthorized Attempted to modify or access Application " + __location)
+        }
+    }
+    return canAccessApp;
+}
 
 async function applicationSave(req, res, next) {
     log.debug("Application Post: " + JSON.stringify(req.body));
@@ -89,17 +103,12 @@ async function applicationSave(req, res, next) {
     else {
         //get application and valid agency
         // check JWT has access to this application.
-        //Quote App Check
-        if(req.userTokenData && req.userTokenData.quoteApp){
-            if(req.userTokenData.applicationId !== req.body.applicationId){
-                log.warn("UnAuthorized Attempted to modify Applicattion " + __location)
-                // TODO enable once client Quote App V2 is updated.
-                //return next(serverHelper.forbiddenError(`Not Authorized`));
-            }
+        const rightsToApp = isAuthForApplication(req, req.body.applicationId)
+        if(rightsToApp !== true){
+            return next(serverHelper.forbiddenError(`Not Authorized`));
         }
-        //TODO API user request check....
         try {
-            const applicationDB = await applicationBO.loadfromMongoByAppId(req.body.applicationId);
+            const applicationDB = await applicationBO.getById(req.body.applicationId);
             if (!applicationDB) {
                 return next(serverHelper.requestError("Not Found"));
             }
@@ -171,6 +180,7 @@ async function applicationSave(req, res, next) {
         log.error("Error saving application " + err + __location);
         return next(serverHelper.requestError(`Bad Request: Save error ${err}`));
     }
+    await setupReturnedApplicationJSON(responseAppDoc);
 
     if (responseAppDoc) {
         res.send(200, responseAppDoc);
@@ -181,6 +191,7 @@ async function applicationSave(req, res, next) {
         return next(serverHelper.internalError("No updated document"));
     }
 }
+
 
 
 /**
@@ -211,6 +222,10 @@ async function getApplication(req, res, next) {
         }
         appId = req.query.id
     }
+    const rightsToApp = isAuthForApplication(req, appId)
+    if(rightsToApp !== true){
+        return next(serverHelper.forbiddenError(`Not Authorized`));
+    }
     //Get agency List check after getting application doc
     const error = null
     const agencies = [];
@@ -227,7 +242,7 @@ async function getApplication(req, res, next) {
     let applicationDB = null;
     const applicationBO = new ApplicationBO();
     try{
-        applicationDB = await applicationBO.loadfromMongoByAppId(appId);
+        applicationDB = await applicationBO.getById(appId);
         if(applicationDB && agencies.includes(applicationDB.agencyId)){
             passedAgencyCheck = true;
         }
@@ -257,8 +272,12 @@ async function getApplication(req, res, next) {
 
 async function GetQuestions(req, res, next){
 
+    const rightsToApp = isAuthForApplication(req.params.id, appId)
+    if(rightsToApp !== true){
+        return next(serverHelper.forbiddenError(`Not Authorized`));
+    }
     // insurers is optional
-    const error = null
+
 
     // eslint-disable-next-line prefer-const
     let agencies = [];
@@ -302,6 +321,10 @@ async function validate(req, res, next) {
     //accept applicationId or uuid also.
     const applicationBO = new ApplicationBO();
     let id = req.body.id;
+    const rightsToApp = isAuthForApplication(req, id)
+    if(rightsToApp !== true){
+        return next(serverHelper.forbiddenError(`Not Authorized`));
+    }
     if(id > 0){
         // Validate the application ID
         if (!await validator.is_valid_id(req.body.id)) {
@@ -330,12 +353,6 @@ async function validate(req, res, next) {
         }
     }
 
-    // const agencyNetwork = req.authentication.agencyNetwork;
-    // if (!agencyNetwork) {
-    //     log.warn('App requote not agency network user ' + __location)
-    //     res.send(403);
-    //     return next(serverHelper.forbiddenError('Do Not have Permissions'));
-    // }
 
     //Get app and check status
     log.debug("Loading Application by mysqlId for Validation " + __location)
@@ -349,34 +366,6 @@ async function validate(req, res, next) {
     if (!applicationDB) {
         return next(serverHelper.requestError('Not Found'));
     }
-    //TODO Check agency Network or Agency rights....
-    //TODO check JWT for application Access and agency
-    // hardcode to Talage.
-    // eslint-disable-next-line prefer-const
-    let agents = []
-    agents.push(1);
-
-    // const agents = await auth.getAgents(req).catch(function(e) {
-    //     error = e;
-    // });
-    // if (error) {
-    //     log.error('Error get application getAgents ' + error + __location);
-    //     return next(error)
-
-    // }
-
-    // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
-    if (!agents.includes(parseInt(applicationDB.agency, 10))) {
-        log.info('Forbidden: User is not authorized to access the requested application');
-        return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
-    }
-
-    // if(agencyNetwork !== applicationDB.agency_network){
-    //     log.warn('App requote not agency network user does not match application agency_network ' + __location)
-    //     res.send(403);
-    //     return next(serverHelper.forbiddenError('Do Not have Permissions'));
-    // }
-
 
     const applicationQuoting = new ApplicationQuoting();
     // Populate the Application object
@@ -416,6 +405,152 @@ async function validate(req, res, next) {
 
 }
 
+async function startQuoting(req, res, next) {
+    //Double check it is TalageStaff user
+
+    // Check for data
+    if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
+        log.warn('No data was received' + __location);
+        return next(serverHelper.requestError('No data was received'));
+    }
+
+    // Make sure basic elements are present
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'id')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+    let error = null;
+    //accept applicationId or uuid also.
+    const applicationBO = new ApplicationBO();
+    let id = req.body.id;
+    const rightsToApp = isAuthForApplication(req.params.id, appId)
+    if(rightsToApp !== true){
+        return next(serverHelper.forbiddenError(`Not Authorized`));
+    }
+    if(id > 0){
+        // requote the application ID
+        if (!await validator.is_valid_id(req.body.id)) {
+            log.error(`Bad Request: Invalid id ${id}` + __location);
+            return next(serverHelper.requestError('Invalid id'));
+        }
+    }
+    else {
+        //assume uuid input
+        log.debug(`Getting app id  ${id} from mongo` + __location)
+        const appDoc = await applicationBO.getfromMongoByAppId(id).catch(function(err) {
+            log.error(`Error getting application Doc for requote ${id} ` + err + __location);
+            log.error('Bad Request: Invalid id ' + __location);
+            error = err;
+        });
+        if (error) {
+            return next(error);
+        }
+        if(appDoc){
+            id = appDoc.mysqlId;
+        }
+        else {
+            log.error(`Did not find application Doc for requote ${id}` + __location);
+            return next(serverHelper.requestError('Invalid id'));
+        }
+    }
+
+    //Get app and check status
+    const applicationDB = await applicationBO.getById(id).catch(function(err) {
+        log.error("Location load error " + err + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+    if (!applicationDB) {
+        return next(serverHelper.requestError('Not Found'));
+    }
+
+
+    if (applicationDB.appStatusId > 60) {
+        return next(serverHelper.requestError('Cannot Requote Application'));
+    }
+
+    const applicationQuoting = new ApplicationQuoting();
+    // Populate the Application object
+
+    // Load
+    try {
+        const forceQuoting = true;
+        const loadJson = {
+            "id": id,
+            agencyPortalQuote: true
+        };
+        if(req.body.insurerId && validator.is_valid_id(req.body.insurerId)){
+            loadJson.insurerId = parseInt(req.body.insurerId, 10);
+        }
+        await applicationQuoting.load(loadJson, forceQuoting);
+    }
+    catch (err) {
+        log.error(`Error loading application ${req.body.id ? req.body.id : ''}: ${err.message}` + __location);
+        res.send(err);
+        return next();
+    }
+    // Validate
+    try {
+        await applicationQuoting.validate();
+    }
+    catch (err) {
+        const errMessage = `Error validating application ${id ? id : ''}: ${err.message}`
+        log.error(errMessage + __location);
+        res.send(400, errMessage);
+        return next();
+    }
+
+    // Set the application progress to 'quoting'
+    try {
+        await applicationBO.updateProgress(applicationDB.mysqlId, "quoting");
+        const appStatusIdQuoting = 15;
+        await applicationBO.updateStatus(applicationDB.mysqlId, "quoting", appStatusIdQuoting);
+    }
+    catch (err) {
+        log.error(`Error update appication progress appId = ${applicationDB.mysqlId} for quoting. ` + err + __location);
+    }
+
+    // Send back the token
+    res.send(200);
+
+    // Begin running the quotes
+    runQuotes(applicationQuoting);
+
+    return next();
+}
+
+/**
+ * Runs the quote process for a given application
+ *
+ * @param {object} application - Application object
+ * @returns {void}
+ */
+async function runQuotes(application) {
+    log.debug('running quotes' + __location)
+    try {
+        await application.run_quotes();
+    }
+    catch (error) {
+        log.error(`Getting quotes on application ${application.id} failed: ${error} ${__location}`);
+    }
+
+    // Update the application quote progress to "complete"
+    const applicationBO = new ApplicationBO();
+    try {
+        await applicationBO.updateProgress(application.id, "complete");
+    }
+    catch (err) {
+        log.error(`Error update appication progress appId = ${application.id}  for complete. ` + err + __location);
+    }
+
+    // Update the application status
+    await status.updateApplicationStatus(application.id);
+}
+
+
+
 async function setupReturnedApplicationJSON(applicationJSON){
     const mapDoc2OldPropName = {
         agencyLocationId: "agency_location",
@@ -438,7 +573,7 @@ async function setupReturnedApplicationJSON(applicationJSON){
         }
     }
     // eslint-disable-next-line array-element-newline
-    const propsToRemove = ["_id","einEncrypted","einHash","questions"];
+    const propsToRemove = ["_id","einEncrypted","einHash","questions","id"];
     for(let i = 0; i < propsToRemove.length; i++){
         if(applicationJSON[propsToRemove[i]]){
             delete applicationJSON[propsToRemove[i]]
@@ -505,6 +640,287 @@ async function setupReturnedApplicationJSON(applicationJSON){
     }
 }
 
+/**
+ * Create a quote summary to return to the frontend
+ *
+ * @param {Number} quoteID - Quote ID for the summary
+ *
+ * @returns {Object} quote summary
+ */
+async function createQuoteSummary(quoteID) {
+    // Retrieve the quote
+    const quoteModel = new QuoteBO();
+    let quote = null;
+    try {
+        quote = await quoteModel.getMongoDocbyMysqlId(quoteID);
+    }
+    catch (error) {
+        log.error(`Could not get quote for ${quoteID} error:` + error + __location);
+        return null;
+    }
+    if(!quote){
+        log.error(`Could not get quote for ${quoteID} - Not found` + __location);
+        return null;
+    }
+    // Retrieve the insurer
+    const insurerModel = new InsurerBO();
+    let insurer = null;
+    try {
+        insurer = await insurerModel.getById(quote.insurerId);
+    }
+    catch (error) {
+        log.error(`Could not get insurer for ${quote.insurerId}:` + error + __location);
+        return null;
+    }
+
+    switch (quote.aggregatedStatus) {
+        case 'declined':
+            // Return a declined quote summary
+            return {
+                id: quote.mysqlAppId,
+                policy_type: quote.policyType,
+                status: 'declined',
+                message: `${insurer.name} has declined to offer you coverage at this time`,
+                insurer: {
+                    id: insurer.id,
+                    logo: global.settings.SITE_URL + '/' + insurer.logo,
+                    name: insurer.name,
+                    rating: insurer.rating
+                }
+            };
+        case 'quoted_referred':
+        case 'quoted':
+            const instantBuy = quote.aggregatedStatus === 'quoted';
+
+            // Retrieve the limits and create the limits object
+            const limits = {};
+            const limitsModel = new LimitsBO();
+            for (const quoteLimit of quote.limits) {
+                try {
+                    const limit = await limitsModel.getById(quoteLimit.limitId);
+                    // NOTE: frontend expects a string. -SF
+                    limits[limit.description] = `${quoteLimit.amount}`;
+                }
+                catch (error) {
+                    log.error(`Could not get limits for ${quote.insurerId}:` + error + __location);
+                    return null;
+                }
+            }
+
+            // Retrieve the insurer's payment plan
+            const insurerPaymentPlanModel = new InsurerPaymentPlanBO();
+            let insurerPaymentPlanList = null;
+            try {
+                insurerPaymentPlanList = await insurerPaymentPlanModel.getList({"insurer": quote.insurerId});
+            }
+            catch (error) {
+                log.error(`Could not get insurer payment plan for ${quote.insurerId}:` + error + __location);
+                return null;
+            }
+
+            // Retrieve the payment plans and create the payment options object
+            const paymentOptions = [];
+            const paymentPlanModel = new PaymentPlanBO();
+            for (const insurerPaymentPlan of insurerPaymentPlanList) {
+                if (quote.amount > insurerPaymentPlan.premium_threshold) {
+                    try {
+                        const paymentPlan = await paymentPlanModel.getById(insurerPaymentPlan.payment_plan);
+                        paymentOptions.push({
+                            id: paymentPlan.id,
+                            name: paymentPlan.name,
+                            description: paymentPlan.description
+                        });
+                    }
+                    catch (error) {
+                        log.error(`Could not get payment plan for ${insurerPaymentPlan.id}:` + error + __location);
+                        return null;
+                    }
+                }
+            }
+
+            // If we have a quote letter then retrieve the file from our cloud storage service
+            let quoteLetterContent = '';
+            const quoteLetterName = quote.quoteLetter;
+            if (quoteLetterName) {
+                // Get the file from our cloud storage service
+                let error = null;
+                const data = await fileSvc.GetFileSecure(`secure/quote-letters/${quoteLetterName}`).catch(function(err) {
+                    log.error('file get error: ' + err.message + __location);
+                    error = err;
+                });
+                if(error){
+                    return null;
+                }
+
+                // Return the response
+                if (data && data.Body) {
+                    quoteLetterContent = data.Body;
+                }
+                else {
+                    log.error('file get error: no file content' + __location);
+                }
+            }
+            // Return the quote summary
+            return {
+                id: quoteID,
+                policy_type: quote.policyType,
+                amount: quote.amount,
+                deductible: quote.deductible,
+                instant_buy: instantBuy,
+                letter: quoteLetterContent,
+                insurer: {
+                    id: insurer.id,
+                    logo: 'https://img.talageins.com/' + insurer.logo,
+                    name: insurer.name,
+                    rating: insurer.rating
+                },
+                limits: limits,
+                payment_options: paymentOptions
+            };
+        default:
+            // We don't return a quote for any other aggregated status
+            // log.error(`Quote ${quote.id} has a unknow aggregated status of ${quote.aggregated_status} when creating quote summary ${__location}`);
+            return null;
+    }
+}
+
+async function quotingCheck(req, res, next) {
+
+    const rightsToApp = isAuthForApplication(req.params.id, appId)
+    if(rightsToApp !== true){
+        return next(serverHelper.forbiddenError(`Not Authorized`));
+    }
+    const applicationId = req.params.id
+    // Set the last quote ID retrieved
+    let lastQuoteID = 0;
+    if (req.query.after) {
+        lastQuoteID = req.query.after;
+    }
+
+    // Retrieve if we are complete. Must be done first or we may miss quotes.
+    // return not complete if there is db error.
+    // app will try again.
+    let progress = 'quoting';
+    const applicationBO = new ApplicationBO();
+    try{
+        progress = await applicationBO.getProgress(applicationId);
+        log.debug("Application progress check " + progress + __location);
+    }
+    catch(err){
+        log.error(`Error getting application progress appId = ${req.body.id}. ` + err + __location);
+    }
+
+    const complete = progress !== 'quoting';
+
+    // Retrieve quotes newer than the last quote ID
+    // use createdAt Datetime instead.
+    const quoteModel = new QuoteBO();
+    let quoteList = null;
+
+    const query = {
+        mysqlAppId: applicationId,
+        lastMysqlId: lastQuoteID
+    };
+    try {
+        quoteList = await quoteModel.getNewAppQuotes(query);
+    }
+    catch (error) {
+        log.error(`Could not get quote list for appId ${applicationId} error:` + error + __location);
+        return null;
+    }
+    if(!quoteList){
+        return null;
+    }
+    // eslint-disable-next-line prefer-const
+    let returnedQuoteList = [];
+    for(const quote of quoteList){
+        const quoteSummary = await createQuoteSummary(quote.mysqlId);
+        if (quoteSummary !== null) {
+            returnedQuoteList.push(quoteSummary);
+        }
+    }
+
+    res.send(200, {
+        complete: complete,
+        quotes: returnedQuoteList
+    });
+    return next();
+}
+
+async function bindQuote(req, res, next) {
+
+    const rightsToApp = isAuthForApplication(req.params.id, appId)
+    if(rightsToApp !== true){
+        return next(serverHelper.forbiddenError(`Not Authorized`));
+    }
+
+    //Double check it is TalageStaff user
+    log.debug("Bind request: " + JSON.stringify(req.body))
+    // Check if binding is disabled
+
+    // Check for data
+    if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
+        log.warn('No data was received' + __location);
+        return next(serverHelper.requestError('No data was received'));
+    }
+
+    // Make sure basic elements are present
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'applicationId')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'quoteId')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'paymentPlanId')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
+    }
+
+    let error = null;
+    //accept applicationId or uuid also.
+    const applicationBO = new ApplicationBO();
+    let applicationId = req.body.applicationId;
+    const quoteId = req.body.quoteId;
+    const paymentPlanId = req.body.paymentPlanId;
+
+    //assume uuid input
+    log.debug(`Getting app id  ${applicationId} from mongo` + __location)
+    const applicationDB = await applicationBO.getById(applicationId).catch(function(err) {
+        log.error(`Error getting application Doc for bound ${applicationId} ` + err + __location);
+        log.error('Bad Request: Invalid id ' + __location);
+        error = err;
+    });
+    if (error) {
+        return next(Error);
+    }
+    if(applicationDB){
+        applicationId = applicationDB.applicationId;
+        try{
+            const quoteJSON = {quoteId: quoteId,  paymentPlanId: paymentPlanId};
+            const resp = await applicationBO.processRequestToBind(applicationId,quoteJSON)
+        }
+        catch(err){
+            log.error(`Bind request error app ${applicationId} error ${err}` + __location)
+            return next(serverHelper.internalError('process error'));
+        }
+    }
+    else {
+        log.error(`Did not find application Doc for bound ${applicationId}` + __location);
+        return next(serverHelper.requestError('Invalid id'));
+    }
+
+  
+    res.send(200, {"bound": true});
+
+    return next();
+
+}
+
+
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
     // temporary use AuthAppWF (same as quote app V1)
@@ -515,4 +931,8 @@ exports.registerEndpoint = (server, basePath) => {
 
     server.addGetAuthAppApi('GetQuestions for AP Application', `${basePath}/application/:id/questions`, GetQuestions)
     server.addPutAuthAppApi('PUT Validate Application', `${basePath}/application/:id/validate`, validate);
+    server.addPutAuthAppApi('PUT Start Quoting Application', `${basePath}/application/:id/quote`, startQuoting);
+    server.addGetAuthAppApi('Get Quoting check Application', `${basePath}/application/:id/quoting`, quotingCheck);
+
+    server.addPutAuthAppApi('PUT Bind Quote', `${basePath}/application/:id/bindquote`, bindQuote);
 }

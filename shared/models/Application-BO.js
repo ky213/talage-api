@@ -395,7 +395,11 @@ module.exports = class ApplicationModel {
                         await this.processQuotes(applicationJSON).catch(function(err) {
                             log.error(`Processing Quotes for appId ${appId}  error:` + err + __location);
                             reject(err);
+                            return;
                         });
+                        //save take place in processQuotes.  return from here.
+                        resolve(true);
+                        return;
                     }
                     break;
                 default:
@@ -853,61 +857,95 @@ module.exports = class ApplicationModel {
 
     }
 
+    async processRequestToBind(applicationId, quoteJSON){
+        if(!applicationId || !quoteJSON){
+            log.error("processRequestToBind missing inputs" + __location)
+            return;
+        }
+        const quote = quoteJSON;
+        //log.debug("quote: " + JSON.stringify(quote) + __location)
+        log.debug("Sending Bind Agency email for AppId " + applicationId + " quote " + quote.quote + __location);
+        //Load application
+        let applicationMongoDoc = null;
+        try{
+            applicationMongoDoc = await this.loadfromMongoByAppId(applicationId)
+        }
+        catch(err){
+            log.error(`Application processRequestToBind error ${err}` + __location);
+        }
+        if(applicationMongoDoc){
+            //no need to await.
+            taskEmailBindAgency.emailbindagency(applicationMongoDoc.mysqlId, quote.quote);
+
+            //load quote from database.
+            const quoteModel = new QuoteBO();
+            //update quote record.
+            //TODO Which to load from Mongo
+            const quoteDBJSON = await quoteModel.getById(quote.quoteId).catch(function(err) {
+                log.error(`Loading quote for status and payment plan update quote ${quote.quoteId} error:` + err + __location);
+                //reject(err);
+                return;
+            });
+            const quoteUpdate = {
+                "status": "bind_requested",
+                "paymentPlanId": quote.paymentPlanId
+            }
+            await quoteModel.updateMongo(quoteDBJSON.quoteId, quoteUpdate).catch(function(err) {
+                log.error(`Updating  quote with status and payment plan quote ${quote.quote} error:` + err + __location);
+                // reject(err);
+                //return;
+
+            });
+            // note: recalculating metric is call in saveApplicationStep
+            try{
+
+                const quoteBind = new QuoteBind();
+                await quoteBind.load(quoteDBJSON.mysqlId, quote.paymentPlanId);
+                await quoteBind.send_slack_notification("requested");
+            }
+            catch(err){
+                log.error(`appid ${this.id} had Slack Bind Request error ${err}` + __location);
+            }
+
+            let updateAppJSON = {};
+            updateAppJSON.processStateOld = quote.api_result === 'referred_with_price' ? 12 : 16;
+            if (applicationMongoDoc.appStatusId < 80) {
+                updateAppJSON.status = 'request_to_bind_referred';
+                updateAppJSON.appStatusId = 80;
+            }
+            else if (applicationMongoDoc.appStatusId < 70) {
+                updateAppJSON.status = 'request_to_bind';
+                updateAppJSON.appStatusId = 70;
+            }
+            await this.updateMongo(applicationId, updateAppJSON);
+
+            return true;
+        }
+        else {
+            return false;
+        }
+
+
+    }
+
     processQuotes(applicationJSON) {
 
         return new Promise(async(resolve) => {
             if (applicationJSON.quotes) {
                 for (var i = 0; i < applicationJSON.quotes.length; i++) {
-                    const quote = applicationJSON.quotes[i];
-                    log.debug("quote: " + JSON.stringify(quote) + __location)
-                    log.debug("Sending Bind Agency email for AppId " + this.id + " quote " + quote.quote + __location);
-                    //no need to await.
-                    taskEmailBindAgency.emailbindagency(this.id, quote.quote);
-
-                    //load quote from database.
-                    const quoteModel = new QuoteBO();
-                    //update quote record.
-                    //TODO Which to load from Mongo
-                    await quoteModel.loadFromId(quote.quote).catch(function(err) {
-                        log.error(`Loading quote for status and payment plan update quote ${quote.quote} error:` + err + __location);
-                        //reject(err);
-                        //return;
-
-                    });
-                    const quoteUpdate = {
-                        "id": quoteModel.id,
-                        "status": "bind_requested",
-                        "payment_plan": quote.payment,
-                        "paymentPlanId": quote.payment,
-                        "applicationId": this.#applicationMongooseDB.applicationId
+                    let quote = applicationJSON.quotes[i];
+                    if(!quote.quoteId){
+                        quote.quoteId = quote.quote;
                     }
-                    await quoteModel.saveModel(quoteUpdate).catch(function(err) {
-                        log.error(`Updating  quote with status and payment plan quote ${quote.quote} error:` + err + __location);
-                        // reject(err);
-                        //return;
-
-                    });
-                    // note: recalculating metric is call in saveApplicationStep
+                    if(!quote.paymentPlanId){
+                        quote.paymentPlanId = quote.payment;
+                    }
                     try{
-
-                        const quoteBind = new QuoteBind();
-                        await quoteBind.load(quote.quote, quote.payment);
-                        await quoteBind.send_slack_notification("requested");
+                        await this.processRequestToBind(this.#applicationMongooseDB.applicationId,quote)
                     }
                     catch(err){
-                        log.error(`appid ${this.id} had Slack Bind Request error ${err}` + __location);
+                        log.error(`ApplicationBO processQuotes appid ${this.#applicationMongooseDB.applicationId} error ${err} ` + __location)
                     }
-
-                    applicationJSON.state = quote.api_result === 'referred_with_price' ? 12 : 16;
-                    if (applicationJSON.state === 12 && applicationJSON.appStatusId < 80) {
-                        applicationJSON.status = 'request_to_bind_referred';
-                        applicationJSON.appStatusId = 80;
-                    }
-                    else if (applicationJSON.state === 16 && applicationJSON.appStatusId < 70) {
-                        applicationJSON.status = 'request_to_bind';
-                        applicationJSON.appStatusId = 70;
-                    }
-
                 }
             }
             else {
