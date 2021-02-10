@@ -14,6 +14,8 @@ const ApplicationQuoting = global.requireRootPath('public/v1/quote/helpers/model
 const status = global.requireShared('./models/application-businesslogic/status.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
 const ApiAuth = require("./auth-api-rt.js");
+const fileSvc = global.requireShared('./services/filesvc.js');
+const QuoteBO = global.requireShared('./models/Quote-BO.js');
 
 
 const moment = require('moment');
@@ -193,7 +195,6 @@ async function applicationSave(req, res, next) {
 }
 
 
-
 /**
  * Responds to GET requests and returns the data for the queried page
  *
@@ -227,7 +228,6 @@ async function getApplication(req, res, next) {
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
     //Get agency List check after getting application doc
-    const error = null
     const agencies = [];
     //TODO check JWT for application access and agencyId.
     //hard code to Talage.
@@ -272,7 +272,7 @@ async function getApplication(req, res, next) {
 
 async function GetQuestions(req, res, next){
 
-    const rightsToApp = isAuthForApplication(req.params.id, appId)
+    const rightsToApp = isAuthForApplication(req, req.params.id)
     if(rightsToApp !== true){
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
@@ -312,7 +312,7 @@ async function validate(req, res, next) {
     }
 
     // Make sure basic elements are present
-    if (!Object.prototype.hasOwnProperty.call(req.body, 'id')) {
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'applicationId')) {
         log.warn('Some required data is missing' + __location);
         return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
     }
@@ -320,7 +320,7 @@ async function validate(req, res, next) {
     let error = null;
     //accept applicationId or uuid also.
     const applicationBO = new ApplicationBO();
-    let id = req.body.id;
+    let id = req.body.applicationId;
     const rightsToApp = isAuthForApplication(req, id)
     if(rightsToApp !== true){
         return next(serverHelper.forbiddenError(`Not Authorized`));
@@ -423,7 +423,7 @@ async function startQuoting(req, res, next) {
     //accept applicationId or uuid also.
     const applicationBO = new ApplicationBO();
     let id = req.body.id;
-    const rightsToApp = isAuthForApplication(req.params.id, appId)
+    const rightsToApp = isAuthForApplication(req, id)
     if(rightsToApp !== true){
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
@@ -548,7 +548,6 @@ async function runQuotes(application) {
     // Update the application status
     await status.updateApplicationStatus(application.id);
 }
-
 
 
 async function setupReturnedApplicationJSON(applicationJSON){
@@ -786,7 +785,7 @@ async function createQuoteSummary(quoteID) {
 
 async function quotingCheck(req, res, next) {
 
-    const rightsToApp = isAuthForApplication(req.params.id, appId)
+    const rightsToApp = isAuthForApplication(req,req.params.id)
     if(rightsToApp !== true){
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
@@ -849,7 +848,7 @@ async function quotingCheck(req, res, next) {
 
 async function bindQuote(req, res, next) {
 
-    const rightsToApp = isAuthForApplication(req.params.id, appId)
+    const rightsToApp = isAuthForApplication(req,req.params.id)
     if(rightsToApp !== true){
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
@@ -900,7 +899,10 @@ async function bindQuote(req, res, next) {
     if(applicationDB){
         applicationId = applicationDB.applicationId;
         try{
-            const quoteJSON = {quoteId: quoteId,  paymentPlanId: paymentPlanId};
+            const quoteJSON = {
+                quoteId: quoteId,
+                paymentPlanId: paymentPlanId
+            };
             const resp = await applicationBO.processRequestToBind(applicationId,quoteJSON)
         }
         catch(err){
@@ -913,7 +915,7 @@ async function bindQuote(req, res, next) {
         return next(serverHelper.requestError('Invalid id'));
     }
 
-  
+
     res.send(200, {"bound": true});
 
     return next();
