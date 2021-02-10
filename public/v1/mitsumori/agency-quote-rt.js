@@ -482,25 +482,33 @@ async function getAgencyMetadata(req, res, next) {
         log.error(`Could not find agency operation hours: ${error} ${__location}`);
     }
 
+    // dont pass back data that isnt there
+    const metaLogo = agencyJson.logo ? `${global.settings.IMAGE_URL}/public/agency-logos/${agencyJson.logo}` : null;
+    const metaFooterLogo = agencyJson.footer_logo ? `${global.settings.IMAGE_URL}/public/agency-network-logos/${agencyJson.footer_logo}` : null;
+    const metaFavicon = agencyJson.favicon ? `${global.settings.IMAGE_URL}/public/agency-logos/favicon/${agencyJson.favicon}` : null;
+    const metaWebsite = agencyJson.website ? agencyJson.website : null;
+    const metaFacebookPixel = agencyJson.facebookPixel ? agencyJson.facebookPixel : null;
+
+    // only pass back operation hours if both open and close time are present
+    const metaOperationHours = openTime && closeTime ? { open: openTime, close: closeTime } : null;
+
+    // use wheelhouse defaults if its not present
+    const metaDescription = agencyJson.landingPageContent.bannerHeadingDefault ? agencyJson.landingPageContent.bannerHeadingDefault : agencyJson.defaultLandingPageContent.bannerHeadingDefault;
+
     res.send(200, {
         wholesale: agencyJson.wholesale,
         metaName: agencyJson.name,
         metaPhone: agencyJson.phone,
         metaCALicence: agencyJson.caLicenseNumber,
-        metaLogo: agencyJson.logo ? `${global.settings.IMAGE_URL}/public/agency-logos/${agencyJson.logo}` : null,
-        metaFooterLogo: agencyJson.footer_logo ? `${global.settings.IMAGE_URL}/public/agency-network-logos/${agencyJson.footer_logo}` : null,
-        metaFavicon: agencyJson.favicon ? `${global.settings.IMAGE_URL}/public/agency-logos/favicon/${agencyJson.favicon}` : null,
-        metaWebsite: agencyJson.website ? agencyJson.website : null,
-        metaFacebookPixel: agencyJson.facebookPixel ? agencyJson.facebookPixel : null,
+        metaLogo: metaLogo,
+        metaFooterLogo: metaFooterLogo,
+        metaFavicon: metaFavicon,
+        metaWebsite: metaWebsite,
+        metaFacebookPixel: metaFacebookPixel,
         metaCss: metaCss,
-        metaDescription: agencyJson.landingPageContent.bannerHeadingDefault
-            ? agencyJson.landingPageContent.bannerHeadingDefault
-            : agencyJson.defaultLandingPageContent.bannerHeadingDefault,
+        metaDescription: metaDescription,
         metaHasAbout: Boolean(agencyJson.about),
-        metaOperationHours: openTime && closeTime ? {
-            open: openTime,
-            close: closeTime
-        } : null
+        metaOperationHours: metaOperationHours
     });
     return next();
 }
