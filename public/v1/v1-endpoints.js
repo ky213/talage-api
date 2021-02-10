@@ -154,7 +154,6 @@ exports.registerEndpoints = (server) => {
         registerEndpoint(server, 'api', 'industry-categories-rt');
         registerEndpoint(server, 'api', 'industry-codes-rt');
         registerEndpoint(server, 'api', 'activity-codes-rt');
-        registerEndpoint(server, 'api', 'agency-rt');
         registerEndpoint(server, 'api', 'application-rt');
         registerEndpoint(server, 'api', 'auth-api-rt');
 
