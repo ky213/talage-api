@@ -962,7 +962,14 @@ module.exports = class Integration {
      * @returns {int} - The total number of years in business
      */
     get_years_in_business() {
-        return moment().diff(this.app.business.founded, 'years');
+        // not correct for Employers Feb 2021.
+        //return moment().diff(this.app.business.founded, 'years');
+        if(this.app.applicationDocData.founded){
+            return moment().diff(this.app.applicationDocData.founded, 'years');
+        }
+        else {
+            return 0;
+        }
     }
 
     /**
@@ -1546,7 +1553,8 @@ module.exports = class Integration {
         this.log_info(message, __location);
 
         // Record the quote
-        return this.record_quote(premiumAmount, 'quoted');
+        const quoteResp = await this.record_quote(premiumAmount, 'quoted');
+        return quoteResp;
     }
 
     /**
@@ -1597,7 +1605,8 @@ module.exports = class Integration {
 	 * @returns {object} - An object containing the indication information
 	 */
     async return_indication(amount) {
-        return this.record_quote(amount, 'referred_with_price');
+        const quoteResp = this.record_quote(amount, 'referred_with_price');
+        return quoteResp;
     }
 
     /**
@@ -1618,7 +1627,8 @@ module.exports = class Integration {
         }
 
         // Record this quote
-        return this.record_quote(null, type);
+        const quoteResp = this.record_quote(null, type);
+        return quoteResp;
     }
 
     /**
@@ -2220,10 +2230,9 @@ module.exports = class Integration {
                 return;
             }
             if (!result || !result.length) {
-                // If insurer industry codes are required and none are returned, it is an error and we should reject.
                 if (this.requiresInsurerIndustryCodes) {
                     this.reasons.push("An insurer industry class code was not found for the given industry.");
-                    log.warn(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} _insurer_supports_industry_codes failed on application. query=${sql} ` + __location);
+                    log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} _insurer_supports_industry_codes required insurer mapping for this industry code was not found. query=${sql} ` + __location);
                     fulfill(false);
                     return;
                 }

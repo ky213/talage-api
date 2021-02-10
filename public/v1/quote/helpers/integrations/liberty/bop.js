@@ -316,9 +316,7 @@ module.exports = class LibertySBOP extends Integration {
             Coverage.ele('CoverageCd', 'BPP');
             const Limit = Coverage.ele('Limit');
             const FormatCurrencyAmt = Limit.ele('FormatCurrencyAmt');
-            let bpp = applicationDocData.policies[0].coverage;
-            bpp = !bpp || bpp > 10000 ? 10000 : bpp; // defaulted to LM's max limit of $10,000 if desired coverage is > 10,000
-            FormatCurrencyAmt.ele('Amt', bpp);
+            FormatCurrencyAmt.ele('Amt', sbopPolicy.coverage);
             Limit.ele('LimitAppliesToCd', 'PerOcc');
         }
 

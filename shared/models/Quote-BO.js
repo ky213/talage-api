@@ -41,13 +41,6 @@ module.exports = class QuoteBO {
             let quoteDocDB = null;
             await this.cleanupInput(newObjectJSON);
             if (newObjectJSON.id) {
-                await this.#dbTableORM.getById(newObjectJSON.id).catch(function(err) {
-                    log.error(`Error getting ${tableName} from Database ` + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
                 newDoc = false;
                 const query = {"mysqlId": newObjectJSON.id}
                 quoteDocDB = await Quote.findOne(query).catch(function(err) {
@@ -59,18 +52,10 @@ module.exports = class QuoteBO {
             else {
                 this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
             }
-            //save
-            await this.#dbTableORM.save().catch(function(err) {
-                reject(err);
-            });
-            this.updateProperty();
-            this.id = this.#dbTableORM.id;
 
             //save mongo.
             try{
                 if(newDoc){
-                    newObjectJSON.mysqlId = this.id;
-                    newObjectJSON.mysqlAppId = this.application;
                     await this.insertMongo(newObjectJSON);
                 }
                 else {
@@ -86,26 +71,13 @@ module.exports = class QuoteBO {
         });
     }
 
-    /**
-   * saves businessContact.
-     *
-   * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
-   */
-
-    save() {
-        return new Promise(async(resolve) => {
-            //validate
-
-            resolve(true);
-        });
-    }
-
     saveIntegrationQuote(quoteJSON, columns, values) {
-        return new Promise(async(resolve, reject) => {
+        return new Promise(async(resolve) => {
             let quoteID = 0;
             const quoteResult = await db.query(`INSERT INTO \`#__quotes\` (\`${columns.join('`,`')}\`) VALUES (${values.map(db.escape).join(',')});`).catch(function(err) {
                 log.error("Error QuoteBO insertByColumnValue " + err + __location);
-               // reject(err);
+                // reject(err);
+                // do not stop mongo save.
             });
             if(quoteResult){
                 quoteID = quoteResult.insertId;
@@ -170,8 +142,8 @@ module.exports = class QuoteBO {
     async getById(quoteId) {
         try {
             const docDB = await Quote.findOne({
-                quoteId,
-                active: true,
+                quoteId: quoteId,
+                active: true
             }, '-__v');
             if (docDB) {
                 return mongoUtils.objCleanup(docDB);
@@ -366,6 +338,60 @@ module.exports = class QuoteBO {
         });
     }
 
+    getNewAppQuotes(queryJSON) {
+        return new Promise(async(resolve, reject) => {
+            //
+            // eslint-disable-next-line prefer-const
+
+            if(!queryJSON){
+                throw new Error("getNewAppQuotes: no query Data");
+            }
+            if(!queryJSON.mysqlAppId || !queryJSON.lastMysqlId ){
+                throw new Error("getNewAppQuotes: missing query Data");
+            }
+
+            const queryProjection = {"__v": 0}
+            let rejected = false;
+            // eslint-disable-next-line prefer-const
+            let query = {active: true};
+            let error = null;
+
+            var queryOptions = {lean:true};
+            queryOptions.sort = {mysqlId: 1};
+
+            queryOptions.limit = 500;
+
+
+            if(queryJSON.lastMysqlId){
+                query.mysqlId = {$gt: queryJSON.lastMysqlId};
+            }
+
+            if(queryJSON.mysqlAppId){
+                query.mysqlAppId = queryJSON.mysqlAppId;
+                delete queryJSON.mysqlAppId
+            }
+
+            let docList = null;
+            try {
+                log.debug("QuoteList query " + JSON.stringify(query))
+                docList = await Quote.find(query, queryProjection, queryOptions);
+            }
+            catch (err) {
+                log.error(err + __location);
+                error = null;
+                rejected = true;
+            }
+            if(rejected){
+                reject(error);
+                return;
+            }
+
+
+            resolve(mongoUtils.objListCleanup(docList));
+            return;
+        });
+
+    }
 
     getByApplicationId(applicationId, policy_type = null) {
         // eslint-disable-next-line prefer-const
@@ -588,7 +614,6 @@ module.exports = class QuoteBO {
                 "applicationId": applicationId
             };
             let quoteDoc = null;
-            let updateMySql = false;
             try{
                 quoteDoc = await Quote.findOne(query, '-__v');
                 if(!quoteDoc.bound){
@@ -602,7 +627,6 @@ module.exports = class QuoteBO {
                     };
                     await Quote.updateOne(query, updateJSON);
                     log.info(`Update Mongo QuoteDoc bound status on quoteId: ${quoteId}` + __location);
-                    updateMySql = true;
                 }
             }
             catch(err){
@@ -610,24 +634,9 @@ module.exports = class QuoteBO {
                 throw err;
             }
 
-            try {
-
-                if(updateMySql === true && quoteDoc && quoteDoc.mysqlId){
-                    const sql = `
-                        UPDATE clw_talage_quotes
-                        SET bound = 1
-                        WHERE id = ${quoteDoc.mysqlId}
-                    `;
-                    await db.query(sql);
-                    log.info(`Updated Mysql clw_talage_quotes.bound on  ${quoteId}` + __location);
-                }
-            }
-            catch (err) {
-                log.error(`Could not mysql update quote ${quoteId} bound status: ${err} ${__location}`);
-                throw err;
-            }
 
         }
+
         return true;
     }
 
