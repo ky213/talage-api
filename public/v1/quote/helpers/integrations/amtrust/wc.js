@@ -277,6 +277,13 @@ module.exports = class AcuityWC extends Integration {
         // =========================================================================================================
         // Validation
 
+        // Per AmTrust e-mail from 2/4/2021, Partnerships in CA require at least 2 partners/owners
+        if (this.app.business.locations[0].business_entity_type === "Partnership" &&
+            this.app.business.locations[0].state_abbr === "CA" &&
+            this.app.business.owners.length < 2) {
+            return this.client_declined("AmTrust requires partnerships in CA to have at least 2 partners.");
+        }
+
         // Ensure we have a supported legal entity.
         // The map values were pulled from https://anypoint.mulesoft.com/exchange/portals/amtrust-financial-service-9/acf997e3-018a-45c2-bbfa-52d79acf6edb/digitalapi/minor/1.0/console/method/%235970/
         const amtrustLegalEntityMap = {
