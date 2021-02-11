@@ -5,8 +5,7 @@ const QuoteLimitBO = global.requireShared('./models/QuoteLimit-BO.js');
 const DatabaseObject = require('./DatabaseObject.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const crypt = global.requireShared('./services/crypt.js');
-
+const validator = global.requireShared('./helpers/validator.js');
 
 // Mongo Models
 var Quote = require('mongoose').model('Quote');
@@ -49,10 +48,6 @@ module.exports = class QuoteBO {
 
 
             }
-            else {
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
-            }
-
             //save mongo.
             try{
                 if(newDoc){
@@ -140,20 +135,12 @@ module.exports = class QuoteBO {
     }
 
     async getById(quoteId) {
-        try {
-            const docDB = await Quote.findOne({
-                quoteId: quoteId,
-                active: true
-            }, '-__v');
-            if (docDB) {
-                return mongoUtils.objCleanup(docDB);
-            }
+        if(validator.isUuid(quoteId)){
+            return this.getfromMongoByQuoteId(quoteId)
         }
-        catch (err) {
-            log.error("Getting Application error " + err + __location);
-            throw err;
+        else {
+            return this.getMongoDocbyMysqlId(quoteId)
         }
-        return null;
     }
 
     getList(queryJSON, getOptions = null) {
@@ -402,83 +389,33 @@ module.exports = class QuoteBO {
         return this.getList(query);
 
     }
+    
 
-    loadFromMysqlByApplicationId(applicationId, policy_type = null) {
+    async getfromMongoByQuoteId(quoteId) {
         return new Promise(async(resolve, reject) => {
-            if(applicationId && applicationId > 0){
-                let rejected = false;
-                // Create the update query
-                let sql = `
-                    select *  from ${tableName} where application = ${applicationId}
-                `;
-                if(policy_type){
-                    sql += ` AND  policy_type = '${policy_type}'`
-                }
-                // Run the query
-                // eslint-disable-next-line prefer-const
-                let result = await db.query(sql).catch(function(error) {
-                    // Check if this was
-
-                    rejected = true;
-                    log.error(`loadFromMysqlByApplicationId ${tableName} applicationId: ${db.escape(applicationId)}  error ` + error + __location)
-                    reject(error);
-                });
-                if (rejected) {
-                    return;
-                }
-                const boList = [];
-                if(result && result.length > 0){
-                    for(let i = 0; i < result.length; i++){
-                        const quoteBO = new QuoteBO();
-                        if(result[i].log){
-                            result[i].log = await crypt.decrypt(result[i].log)
-                        }
-                        await quoteBO.#dbTableORM.convertJSONColumns(result[i]);
-                        const resp = await quoteBO.loadORM(result[i], skipCheckRequired).catch(function(err){
-                            log.error(`loadFromMysqlByApplicationId error loading object: ` + err + __location);
-                            //not reject on issues from database object.
-                            //reject(err);
-                        })
-                        if(!resp){
-                            log.debug("Bad BO load" + __location)
-                        }
-                        boList.push(quoteBO);
+            if (quoteId) {
+                const query = {
+                    "quoteId": quoteId,
+                    active: true
+                };
+                let quoteDoc = null;
+                try {
+                    const docDB = await Quote.findOne(query, '-__v');
+                    if (docDB) {
+                        quoteDoc = mongoUtils.objCleanup(docDB);
                     }
-                    resolve(boList);
                 }
-                else {
-                    // no records is normal.
-                    resolve([]);
+                catch (err) {
+                    log.error("Getting Application error " + err + __location);
+                    reject(err);
                 }
-
+                resolve(quoteDoc);
             }
             else {
-                reject(new Error('no applicationId supplied'))
+                reject(new Error('no id supplied'))
             }
         });
     }
-
-
-    // DeleteByApplicationId(applicationId) {
-    //     return new Promise(async(resolve, reject) => {
-    //         //Remove old records.
-    //         const sql = `DELETE FROM ${tableName}
-    //                WHERE application = ${applicationId}
-    //         `;
-    //         let rejected = false;
-    //         await db.query(sql).catch(function(error) {
-    //             // Check if this was
-    //             log.error(`Database Object ${tableName} DELETE error : ` + error + __location);
-    //             rejected = true;
-    //             reject(error);
-    //         });
-    //         if (rejected) {
-    //             return false;
-    //         }
-    //         resolve(true);
-    //     });
-    // }
-
 
     async getMongoDocbyMysqlId(mysqlId) {
         return new Promise(async(resolve, reject) => {

@@ -25,11 +25,13 @@ async function getResources(req, res, next){
         case "additionalQuestions":
             break;
         case "basic":
+        case "basic-created":
             entityTypes(resources);
             break;
         case "business":
             break;
         case "claims":
+            policyTypes(resources);
             break;
         case "locations":
             territories(resources);
@@ -39,15 +41,77 @@ async function getResources(req, res, next){
         case "mailingAddress":
             territories(resources);
             break;
-        case "owners":
+        case "officers":
             officerTitles(resources);
             break;
         case "policies":
+            limitsSelectionAmounts(resources);
+            deductibleAmounts(resources);
+            policiesEnabled(resources);
             break;
     }
 
     res.send(200, resources);
 }
+
+const policiesEnabled = resources => {
+    resources.policiesEnabled = [
+        "BOP",
+        "GL",
+        "WC"
+    ];
+}
+
+const policyTypes = resources => {
+    resources.policyTypes = [
+        {
+            value: "BOP",
+            label: "Business Owners Policy (BOP)"
+        },
+        {
+            value: "GL",
+            label: "General Liability (GL)"
+        },
+        {
+            value: "WC",
+            label: "Workers' Compensation (WC)"
+        }
+    ];
+};
+
+const limitsSelectionAmounts = resources => {
+    resources.limitsSelectionAmounts = {
+        bop:
+        [
+            "$1,000,000 / $1,000,000 / $1,000,000",
+            "$1,000,000 / $2,000,000 / $1,000,000",
+            "$1,000,000 / $2,000,000 / $2,000,000"
+        ],
+        gl: [
+            "$1,000,000 / $1,000,000 / $1,000,000",
+            "$1,000,000 / $2,000,000 / $1,000,000",
+            "$1,000,000 / $2,000,000 / $2,000,000"
+        ],
+        wc: [
+            "$100,000 / $100,000 / $100,000",
+            "$500,000 / $500,000 / $500,000",
+            "$500,000 / $1,000,000 / $500,000",
+            "$1,000,000 / $1,000,000 / $1,000,000"
+        ]
+    }
+}
+
+const deductibleAmounts = resources => {
+    resources.deductibleAmounts = {
+        bop: ["$1500",
+            "$1000",
+            "$500"],
+        gl: ["$1500",
+            "$1000",
+            "$500"]
+    };
+}
+
 
 const unemploymentNumberStates = resources => {
     resources.unemploymentNumberStates = [
@@ -173,5 +237,5 @@ const territories = resources => {
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-    server.addGetAuthQuoteApp("Get Resources for Quote App", `${basePath}/resources`, getResources);
+    server.addGetAuthAppWF("Get Next Route", `${basePath}/resources`, getResources);
 }
