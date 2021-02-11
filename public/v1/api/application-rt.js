@@ -816,8 +816,9 @@ async function quotingCheck(req, res, next) {
     const quoteModel = new QuoteBO();
     let quoteList = null;
 
+    // TODO: should we look up mySqlId, or change getNewAppQuotes to take a uuid OR a mysqlAppId
     const query = {
-        uuid: applicationId,
+        mysqlAppId: applicationId,
         lastMysqlId: lastQuoteID
     };
     try {
