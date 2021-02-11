@@ -7,10 +7,11 @@
 
 'use strict';
 
-const moment = require('moment');
 const Integration = require('../Integration.js');
 global.requireShared('./helpers/tracker.js');
 const axios = require('axios');
+const smartystreetSvc = global.requireShared('./services/smartystreetssvc.js');
+const moment = require('moment');
 
 // TODO: Update to toggle between test/prod 
 const host = 'https://stag-api.nationalprograms.io';
@@ -38,9 +39,27 @@ module.exports = class LibertySBOP extends Integration {
         const BOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP");
         const primaryContact = applicationDocData.contacts.find(c => c.primary);
 
-        // DEBUG
-        console.log(JSON.stringify(this.industry_code, null, 4));
-        // DEBUG
+        const smartyStreetsResponse = await smartystreetSvc.checkAddress(
+            applicationDocData.mailingAddress,
+            applicationDocData.mailingCity,
+            applicationDocData.mailingState,
+            applicationDocData.mailingZipcode
+        );
+
+        // If the response has an error property, or doesn't have addressInformation.county_name, we can't determine
+        // a county so return an error.
+        if (smartyStreetsResponse.hasOwnProperty("error") ||
+            !smartyStreetsResponse.hasOwnProperty("addressInformation") ||
+            !smartyStreetsResponse.addressInformation.hasOwnProperty("county_name")) {
+            let errorMessage = "";
+            if (smartyStreetsResponse.hasOwnProperty("error")) {
+                errorMessage += `${smartyStreetsResponse.error}: ${smartyStreetsResponse.errorReason}. Due to this, we are unable to look up County information.`;
+            } else {
+                errorMessage += `SmartyStreets could not determine the county for address: ${this.app.business.locations[0].address}, ${this.app.business.locations[0].city}, ${this.app.business.locations[0].state_abbr}, ${this.app.business.locations[0].zip}<br>`;
+            }
+
+            return this.client_error(errorMessage);
+        }
 
         // hydrate the request JSON object
         const requestJSON = {
@@ -135,7 +154,7 @@ module.exports = class LibertySBOP extends Integration {
                                 waterSupplyType: "Hydrant",
                                 PPCCode: "3",
                                 matchType: "Address Level Match",
-                                county: "SAN DIEGO",
+                                county: smartyStreetsResponse.addressInformation.county_name,
                                 respondingFireStation: "STATION 14",
                                 priorAlternativePPCCodes: "9/10",
                                 driveDistanceToRespondingFireStation: "1 mile or less",
