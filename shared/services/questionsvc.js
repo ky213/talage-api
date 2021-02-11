@@ -12,12 +12,13 @@ const moment = require('moment');
  * @param {array} zipCodeStringArray - An array of all the zipcodes (stored as strings) in which the business operates
  * @param {array.<Object>} policyTypeArray - An array containing of all the policy types/effectiveDates. Ex: [{type:"WC",effectiveDate:"03-02-2021"}]
  * @param {array} insurerStringArray - An array containing the IDs of the relevant insurers for the application
+ * @param {string} questionSubjectArea - A string specifying the question subject area ("general", "location", "location.building", ...)
  * @param {boolean} return_hidden - true to return hidden questions, false to only return visible questions
  *
  * @returns {array|false} An array of questions if successful, false otherwise
  *
  */
-async function GetQuestions(activityCodeStringArray, industryCodeString, zipCodeStringArray, policyTypeArray, insurerStringArray, return_hidden = false) {
+async function GetQuestions(activityCodeStringArray, industryCodeString, zipCodeStringArray, policyTypeArray, insurerStringArray, questionSubjectArea, return_hidden = false) {
 
     log.debug(`GetQuestions: activityCodeStringArray:  ${activityCodeStringArray}, industryCodeString:  ${industryCodeString}, zipCodeStringArray:  ${zipCodeStringArray}, policyTypeArray:  ${JSON.stringify(policyTypeArray)}, insurerStringArray:  ${insurerStringArray}, return_hidden: ${return_hidden}` + __location)
 
@@ -227,6 +228,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             AND (iqt.territory IN (${territories.map(db.escape).join(',')}) OR iqt.territory IS NULL) 
             AND ${where} 
             AND ${questionEffectiveDateWhereClause}
+            AND iq.questionSubjectArea = '${questionSubjectArea}'
             GROUP BY q.id;
     `;
     const universal_questions = await db.queryReadonly(sql).catch(function(err) {
@@ -260,6 +262,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             AND ${where}
             AND ${questionEffectiveDateWhereClause}
             AND ${industryCodeEffectiveDateWhereClause}
+            AND iq.questionSubjectArea = '${questionSubjectArea}'
             GROUP BY iq.question;
     `;
     const industryCodeQuestions = await db.queryReadonly(sql).catch(function(err) {
@@ -288,6 +291,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             WHERE
                 ${where} 
                 AND ${questionEffectiveDateWhereClause}                                               
+                AND iq.questionSubjectArea = '${questionSubjectArea}'
                 GROUP BY q.id;
         `;
         const activityCodeQuestions = await db.queryReadonly(sql).catch(function(err) {
@@ -304,7 +308,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         questions = questions.filter((question, index, self) => index === self.findIndex((t) => t.id === question.id));
     }
     if (!questions || questions.length === 0) {
-        log.info('No questions to return');
+        log.info('No questions to return' + __location);
         return [];
     }
 
@@ -441,14 +445,15 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
  * @param {array} zipCodeArray - An array of all the zipcodes (stored as strings) in which the business operates
  * @param {array.<Object>} policyTypeArray - An array containing of all the policy types applied for. Ex: [{type:"WC",effectiveDate:"03-02-2021"}]
  * @param {array} insurerStringArray - An array containing the IDs of the relevant insurers for the application
+ * @param {string} questionSubjectArea - A string specifying the question subject area ("general", "location", "location.building", ...)
  * @param {boolean} return_hidden - true to return hidden questions, false to only return visible questions
  *
  * @returns {array|false} An array of questions structured the way the front end is expecting them, false otherwise
  *
  */
-exports.GetQuestionsForFrontend = async function(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerStringArray, return_hidden = false){
+exports.GetQuestionsForFrontend = async function(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerStringArray, questionSubjectArea, return_hidden = false){
 
-    const questions = await GetQuestions(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerStringArray, return_hidden);
+    const questions = await GetQuestions(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerStringArray, questionSubjectArea, return_hidden);
 
     if(!questions){
         return false;
@@ -471,13 +476,14 @@ exports.GetQuestionsForFrontend = async function(activityCodeArray, industryCode
  * @param {array} zipCodeArray - An array of all the zipcodes (stored as strings) in which the business operates
  * @param {array.<Object>} policyTypeArray - An array containing of all the policy types applied for. Ex: [{type:"WC",effectiveDate:"03-02-2021"}]
  * @param {array} insurerArray - An array containing the IDs of the relevant insurers for the application
+ * @param {string} questionSubjectArea - A string specifying the question subject area ("general", "location", "location.building", ...)
  * @param {boolean} return_hidden - true to return hidden questions, false to only return visible questions
  *
  * @returns {array|false} An array of questions structured the way the back end is expecting them, false otherwise
  *
  */
-exports.GetQuestionsForBackend = async function(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden = false){
-    return GetQuestions(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden);
+exports.GetQuestionsForBackend = async function(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, return_hidden = false){
+    return GetQuestions(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, return_hidden);
 }
 
 /**
