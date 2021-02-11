@@ -294,7 +294,7 @@ async function GetQuestions(req, res, next){
     let agencies = [];
     //TODO check JWT for application access and agencyId.
     //hard code to Talage.
-    agencies.push(1);
+    agencies.push(44);
     let getQuestionsResult = null;
     try{
         const applicationBO = new ApplicationBO();
@@ -813,6 +813,8 @@ async function quotingCheck(req, res, next) {
     }
     catch(err){
         log.error(`Error getting application progress appId = ${req.params.id}. ` + err + __location);
+        res.send(400, `Could not get quote list: ${err}`);
+        return next();
     }
 
     const complete = progress !== 'quoting';
@@ -832,7 +834,8 @@ async function quotingCheck(req, res, next) {
     }
     catch (error) {
         log.error(`Could not get quote list for appId ${applicationId} error:` + error + __location);
-        return null;
+        res.send(400, `Could not get quote list: ${error}`);
+        return next();
     }
     if(!quoteList){
         return null;

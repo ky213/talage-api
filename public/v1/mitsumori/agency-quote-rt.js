@@ -332,6 +332,10 @@ async function getAgencyLandingPage(req, res, next) {
     } = parseQuoteURL(req.query.url);
 
     const agency = await getAgencyFromSlugs(agencySlug, null);
+    if(!agency){
+        res.send(404, {error: 'Agency not found'});
+        return next();
+    }
     replaceAgencyValues(agency.landingPageContent, agency);
     let primaryLocation = agency.locations.find(loc => loc.primary);
     if(!primaryLocation && agency.locations.length > 0){
@@ -365,6 +369,9 @@ async function getAgencyLandingPage(req, res, next) {
  * @returns {void}
  */
 function replaceAgencyValues(toReplace, agency) {
+    if(!agency){
+        return;
+    }
     // TODO: fill in other required replacements
     if (typeof toReplace === "string") {
         return toReplace.replace(/{{Agency}}/g, agency.name).replace(/{{Agency Phone}}/g, formatPhone(agency.phone));
@@ -410,8 +417,8 @@ async function getAgencyMetadata(req, res, next) {
     }
     catch (err) {
         log.error(`Error retrieving Agency in quote engine agency ${agencySlug} url ${req.query.url}: ${err} ${__location}`);
-        return null;
     }
+
     if(!agencyJson){
         log.warn(`Could not retrieve Agency quote engine agencySlug ${agencySlug} url ${req.query.url}: ${__location}`);
         res.send(404, {error: 'Could not retrieve agency'});
