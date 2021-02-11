@@ -1063,11 +1063,16 @@ async function GetQuestions(req, res, next){
         return next(error);
     }
 
+    // Set the question subject area. Default to "general" if not specified.
+    let questionSubjectArea = "general";
+    if (req.query.questionSubjectArea) {
+        questionSubjectArea = req.query.questionSubjectArea;
+    }
 
     let getQuestionsResult = null;
     try{
         const applicationBO = new ApplicationBO();
-        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies);
+        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies, questionSubjectArea);
     }
     catch(err){
         //Incomplete Applications throw errors. those error message need to got to client

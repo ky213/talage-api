@@ -16,7 +16,10 @@ const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
 const ApiAuth = require("./auth-api-rt.js");
 const fileSvc = global.requireShared('./services/filesvc.js');
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
-
+const InsurerBO = global.requireShared('models/Insurer-BO.js');
+const LimitsBO = global.requireShared('models/Limits-BO.js');
+const PaymentPlanBO = global.requireShared('models/PaymentPlan-BO.js');
+const InsurerPaymentPlanBO = global.requireShared('models/InsurerPaymentPlan-BO.js');
 
 const moment = require('moment');
 
@@ -281,6 +284,12 @@ async function GetQuestions(req, res, next){
     // insurers is optional
 
 
+    // Set questionSubjectArea (default to "general" if not specified
+    let questionSubjectArea = "general";
+    if (req.query.questionSubjectArea) {
+        questionSubjectArea = req.query.questionSubjectArea;
+    }
+
     // eslint-disable-next-line prefer-const
     let agencies = [];
     //TODO check JWT for application access and agencyId.
@@ -289,7 +298,7 @@ async function GetQuestions(req, res, next){
     let getQuestionsResult = null;
     try{
         const applicationBO = new ApplicationBO();
-        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies);
+        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies, questionSubjectArea);
     }
     catch(err){
         //Incomplete Applications throw errors. those error message need to got to client
@@ -411,27 +420,22 @@ async function startQuoting(req, res, next) {
     //Double check it is TalageStaff user
 
     // Check for data
-    if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
-        log.warn('No data was received' + __location);
-        return next(serverHelper.requestError('No data was received'));
+    if (!req.params || !req.params.id) {
+        log.warn('No id was received' + __location);
+        return next(serverHelper.requestError('No id was received'));
     }
 
-    // Make sure basic elements are present
-    if (!Object.prototype.hasOwnProperty.call(req.body, 'id')) {
-        log.warn('Some required data is missing' + __location);
-        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
-    }
     let error = null;
     //accept applicationId or uuid also.
     const applicationBO = new ApplicationBO();
-    let id = req.body.id;
+    let id = req.params.id;
     const rightsToApp = isAuthForApplication(req, id)
     if(rightsToApp !== true){
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
     if(id > 0){
         // requote the application ID
-        if (!await validator.is_valid_id(req.body.id)) {
+        if (!await validator.is_valid_id(req.params.id)) {
             log.error(`Bad Request: Invalid id ${id}` + __location);
             return next(serverHelper.requestError('Invalid id'));
         }
@@ -483,13 +487,13 @@ async function startQuoting(req, res, next) {
             "id": id,
             agencyPortalQuote: true
         };
-        if(req.body.insurerId && validator.is_valid_id(req.body.insurerId)){
-            loadJson.insurerId = parseInt(req.body.insurerId, 10);
+        if(applicationDB.insurerId && validator.is_valid_id(applicationDB.insurerId)){
+            loadJson.insurerId = parseInt(applicationDB.insurerId, 10);
         }
         await applicationQuoting.load(loadJson, forceQuoting);
     }
     catch (err) {
-        log.error(`Error loading application ${req.body.id ? req.body.id : ''}: ${err.message}` + __location);
+        log.error(`Error loading application ${req.params.id ? req.params.id : ''}: ${err.message}` + __location);
         res.send(err);
         return next();
     }
@@ -787,13 +791,13 @@ async function createQuoteSummary(quoteID) {
 
 async function quotingCheck(req, res, next) {
 
-    const rightsToApp = isAuthForApplication(req,req.params.id)
+    const rightsToApp = isAuthForApplication(req, req.params.id);
     if(rightsToApp !== true){
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
-    const applicationId = req.params.id
+    const applicationId = req.params.id;
     // Set the last quote ID retrieved
-    let lastQuoteID = 0;
+    let lastQuoteID = -1;
     if (req.query.after) {
         lastQuoteID = req.query.after;
     }
@@ -808,7 +812,7 @@ async function quotingCheck(req, res, next) {
         log.debug("Application progress check " + progress + __location);
     }
     catch(err){
-        log.error(`Error getting application progress appId = ${req.body.id}. ` + err + __location);
+        log.error(`Error getting application progress appId = ${req.params.id}. ` + err + __location);
     }
 
     const complete = progress !== 'quoting';
@@ -818,8 +822,9 @@ async function quotingCheck(req, res, next) {
     const quoteModel = new QuoteBO();
     let quoteList = null;
 
+
     const query = {
-        mysqlAppId: applicationId,
+        applicationId: applicationId,
         lastMysqlId: lastQuoteID
     };
     try {
