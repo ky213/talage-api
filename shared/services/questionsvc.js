@@ -308,7 +308,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         questions = questions.filter((question, index, self) => index === self.findIndex((t) => t.id === question.id));
     }
     if (!questions || questions.length === 0) {
-        log.info('No questions to return');
+        log.info('No questions to return' + __location);
         return [];
     }
 

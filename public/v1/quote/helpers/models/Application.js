@@ -524,6 +524,9 @@ module.exports = class Application {
                 }
             }
         }
+        else{
+            log.warn(`No Questions for application ${this.applicationDocData.mysqlId} `)
+        }
     }
 
     /**
@@ -608,7 +611,7 @@ module.exports = class Application {
             }
             else {
                 // Only use the insurers supported by this agent
-                log.debug("loading all AL insurers " + __location)
+                log.debug("loading all Agency Location insurers " + __location)
                 desired_insurers = Object.keys(this.agencyLocation.insurers);
             }
 
