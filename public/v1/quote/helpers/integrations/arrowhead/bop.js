@@ -89,7 +89,7 @@ module.exports = class LibertySBOP extends Integration {
                     company: "CABPQ1",
                     naicsCode: this.industry_code.attributes.naics, // <---- CHECK THIS
                     classCode: this.industry_code.code, // <---- CHECK THIS
-                    yearBizStarted: moment(applicationDocData.founded).year(),
+                    yearBizStarted: `${moment(applicationDocData.founded).year()}`,
                     sicCode: this.industry_code.attributes.sic, // <---- CHECK THIS
                     expiration: moment(BOPPolicy.effectiveDate).add(1, "year").format("YYYYMMDD"),
                     state: applicationDocData.mailingState,
@@ -119,7 +119,7 @@ module.exports = class LibertySBOP extends Integration {
                     },
                     GLOccurrenceLimit: "1000000",
                     productsCOA: "2000000",
-                    medicalExpenses: "0",
+                    medicalExpenses: "No Coverage", // <-- This should come from a question dropdown
                     removeITVProvision: false,
                     liabCovInd: true,
                     liaDed: "None",
@@ -183,7 +183,7 @@ module.exports = class LibertySBOP extends Integration {
                                             seasonalIncrease: "25",
                                             valuationInd: false,
                                             includeInd: true,
-                                            limit: 200000
+                                            limit: "200000"
                                         },
                                         concom: {
                                             includeFormInd: true
@@ -328,6 +328,31 @@ module.exports = class LibertySBOP extends Integration {
         log.info(`Arrowhead BOP response (Appid: ${applicationDocData.mysqlId}):\n${JSON.stringify(result.data, null, 4)}`);
         log.info("=================== QUOTE RESULT ===================");
 
+        if (result.data.hasOwnProperty("error")) {
+            const error = result.data.error;
+            let errorMessage = "";
+
+            if (error.statusCode && error.code) {
+                errorMessage += `[${error.statusCode}] ${error.code}: `;
+            } else {
+                return this.client_error(errorMessage + "An error occurred, please review the logs.");
+            }
+
+            const additionalDetails = [];
+            if (error.details && error.details.length > 0) {
+                error.details.forEach((e, i) => {
+                    if (i === 0) {
+                        errorMessage += `${e}`;
+                    } else {
+                        additionalDetails.push(e);
+                    }
+                }); 
+            } else {
+                errorMessage += `No details were provided, please review the logs.`;
+            }
+
+            return this.client_error(errorMessage, additionalDetails.length > 0 ? additionalDetails : null);
+        }
     }
 
 }
