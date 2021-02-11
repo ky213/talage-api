@@ -38,6 +38,10 @@ module.exports = class LibertySBOP extends Integration {
         const BOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP");
         const primaryContact = applicationDocData.contacts.find(c => c.primary);
 
+        // DEBUG
+        console.log(JSON.stringify(this.industry_code, null, 4));
+        // DEBUG
+
         // hydrate the request JSON object
         const requestJSON = {
             rateCallType: "RATE_INDICATION",
@@ -83,10 +87,10 @@ module.exports = class LibertySBOP extends Integration {
                     },
                     stateOfDomicile: applicationDocData.mailingState,
                     company: "CABPQ1",
-                    naicsCode: this.industry_code.naics, // <---- CHECK THIS
+                    naicsCode: this.industry_code.attributes.naics, // <---- CHECK THIS
                     classCode: this.industry_code.code, // <---- CHECK THIS
                     yearBizStarted: moment(applicationDocData.founded).year(),
-                    sicCode: this.industry_code.sic, // <---- CHECK THIS
+                    sicCode: this.industry_code.attributes.sic, // <---- CHECK THIS
                     expiration: moment(BOPPolicy.effectiveDate).add(1, "year").format("YYYYMMDD"),
                     state: applicationDocData.mailingState,
                     quoteType: "NB"
@@ -152,7 +156,7 @@ module.exports = class LibertySBOP extends Integration {
                             state: "CA",
                             buildingList: [
                                 {
-                                    classCode: "09361",
+                                    classCode: this.industry_code.code, // <---- CHECK THIS
                                     uw: {
                                         roofUpdates: 2015,
                                         plumbingUpdates: 2015,
@@ -258,34 +262,34 @@ module.exports = class LibertySBOP extends Integration {
                                     construction: "Modified Fire Resistive",
                                     premOpsILF: "1",
                                     cspCode: "0931",
-                                    naicsCode: "445120",
+                                    naicsCode: this.industry_code.attributes.naics, // <---- CHECK THIS
                                     sprinklered: true
                                 }
                             ],
-                            countyName: "SAN DIEGO",
-                            zip: "92104",
-                            zipAddOn: "2509",
+                            countyName: "",
+                            zip: applicationDocData.mailingZipcode,
+                            zipAddOn: "",
                             based: "riskAddress1",
-                            streetType: "AVE",
-                            address: "2819 POLK AVE",
+                            streetType: "",
+                            address: applicationDocData.mailingAddress,
                             postDir: "",
                             scrubberCalled: true,
                             WHExclusions: false,
                             recordType: "S",
                             rawProtectionClass: "3",
-                            streetNum: "2819",
+                            streetNum: "",
                             WHDeductiblePcnt: "5",
-                            classCodes: "09361",
+                            classCodes: this.industry_code.code, // <---- CHECK THIS
                             confirmation: "N/A",
-                            addressLine: "2819 POLK AVE",
+                            addressLine: applicationDocData.mailingAddress,
                             isoClassGroups: "Convenience Food/Gasoline Store/Restaurant",
                             unit: "",
                             scrubberResult: "Accepted",
                             secondaryName: "",
                             buildings: 1,
-                            PPCAddressKey: "2819 POLK AVE:SAN DIEGO:CA:92104:2819:POLK:AVE",
+                            PPCAddressKey: `${applicationDocData.mailingAddress}:${applicationDocData.mailingState}:${applicationDocData.mailingZipcode}`, 
                             preDir: "",
-                            territory: "San Diego, San Diego"
+                            territory: applicationDocData.mailingState
                         }
                     ],
                     otherCOA: "2000000",
