@@ -61,7 +61,14 @@ module.exports = class LibertySBOP extends Integration {
             return this.client_error(errorMessage);
         }
 
-        // hydrate the request JSON object
+        const questions = {};
+        applicationDocData.questions.forEach(question => {
+            questions[question.insurerQuestionIdentifier] = question.answerValue;
+        });
+
+        // console.log(JSON.stringify(applicationDocData, null, 4));
+
+        // hydrate the request JSON object with generic info
         const requestJSON = {
             rateCallType: "RATE_INDICATION",
             insuredSet: {
@@ -154,6 +161,27 @@ module.exports = class LibertySBOP extends Integration {
             products: "BBOP"
         };
 
+        // hydrate the request JSON object with general question data
+        // NOTE: Add additional general questions here if more get imported
+        switch (Object.keys(questions)) {
+            case "automaticIncr":
+            case "flMixedBbopInd":
+            case "MedicalExpenses":
+            case "LiaDed":
+            case "fixedPropDeductible":
+            case "additionalInsured":
+            case "blanket.CovOption":
+            case "bitime":
+            case "bipay.extNumDays":
+            case "blkai":
+            case "compf.limit":
+            case "conins": 
+            case "cyber":
+            case "datcom":
+            case "empben":
+            default: 
+        }
+
         // send the JSON request
 
         log.info("=================== QUOTE REQUEST ===================");
@@ -218,6 +246,33 @@ module.exports = class LibertySBOP extends Integration {
                 userCountryName: "USA",
                 userCountyName: smarty.addressInformation.county_name,
                 city: location.city,
+                street: "POLK",
+                state: location.state,
+                countyName: "",
+                zip: applicationDocData.mailingZipcode,
+                zipAddOn: "",
+                based: "riskAddress1",
+                streetType: "",
+                address: applicationDocData.mailingAddress,
+                postDir: "",
+                scrubberCalled: true,
+                WHExclusions: false,
+                recordType: "S",
+                rawProtectionClass: "3",
+                streetNum: "",
+                WHDeductiblePcnt: "5",
+                classCodes: this.industry_code.code,
+                confirmation: "N/A",
+                addressLine: applicationDocData.mailingAddress,
+                isoClassGroups: "Convenience Food/Gasoline Store/Restaurant",
+                unit: "",
+                scrubberResult: "Accepted",
+                secondaryName: "",
+                buildings: 1,
+                PPCAddressKey: `${applicationDocData.mailingAddress}:${applicationDocData.mailingState}:${applicationDocData.mailingZipcode}`, 
+                preDir: "",
+                territory: applicationDocData.mailingState,
+                finalProtectionClass: "3",
                 PPCCall: {
                     fireProtectionArea: smarty.addressInformation.county_name,
                     waterSupplyType: "Hydrant", // <-- HOW TO GET THIS
@@ -225,24 +280,21 @@ module.exports = class LibertySBOP extends Integration {
                     matchType: "Address Level Match",
                     county: smarty.addressInformation.county_name,
                     respondingFireStation: "STATION 14", // <-- HOW TO GET THIS
-                    priorAlternativePPCCodes: "9/10", // <-- HOW TO GET THIS
+                    priorAlternativePPCCodes: "9/10", // <-- WHAT IS THIS
                     driveDistanceToRespondingFireStation: "1 mile or less", // <-- HOW TO GET THIS
                     multiplePPCInd: false // <-- WHAT IS THIS
                 },
-                finalProtectionClass: "3",
                 bceg: {
                     bcegCode: "99",
                     callResult: "SUCCESSFUL",
                     message: ""
                 },
-                street: "POLK",
                 fireline: {
                     wildFireHazardScore: 0,
                     callResult: "SUCCESSFUL",
                     message: ""
                 },
-                state: location.state,
-                buildingList: [
+                buildingList: [ // TODO: Break this out into a separate call once we have notion of buildings in quote app
                     {
                         classCode: this.industry_code.code,
                         uw: {
@@ -353,34 +405,10 @@ module.exports = class LibertySBOP extends Integration {
                         naicsCode: this.industry_code.attributes.naics,
                         sprinklered: true
                     }
-                ],
-                countyName: "",
-                zip: applicationDocData.mailingZipcode,
-                zipAddOn: "",
-                based: "riskAddress1",
-                streetType: "",
-                address: applicationDocData.mailingAddress,
-                postDir: "",
-                scrubberCalled: true,
-                WHExclusions: false,
-                recordType: "S",
-                rawProtectionClass: "3",
-                streetNum: "",
-                WHDeductiblePcnt: "5",
-                classCodes: this.industry_code.code,
-                confirmation: "N/A",
-                addressLine: applicationDocData.mailingAddress,
-                isoClassGroups: "Convenience Food/Gasoline Store/Restaurant",
-                unit: "",
-                scrubberResult: "Accepted",
-                secondaryName: "",
-                buildings: 1,
-                PPCAddressKey: `${applicationDocData.mailingAddress}:${applicationDocData.mailingState}:${applicationDocData.mailingZipcode}`, 
-                preDir: "",
-                territory: applicationDocData.mailingState
+                ]
             });
-
-            return locationList;
         });
+
+        return locationList;
     }
 }
