@@ -333,7 +333,6 @@ module.exports = class QuoteBO {
             if(!queryJSON){
                 reject(new Error("getNewAppQuotes: no query Data"));
             }
-            console.log(typeof queryJSON.lastMysqlId)
             if(!queryJSON.mysqlAppId && !queryJSON.applicationId || !queryJSON.lastMysqlId){
                 reject(new Error("getNewAppQuotes: missing query Data"));
             }
