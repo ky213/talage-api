@@ -144,173 +144,7 @@ module.exports = class LibertySBOP extends Integration {
                     liaDed: "None",
                     propCovInd: true,
                     fixedPropDeductible: 2500,
-                    locationList: [
-                        {
-                            userCountryName: "USA",
-                            userCountyName: "SAN DIEGO",
-                            city: "SAN DIEGO",
-                            PPCCall: {
-                                fireProtectionArea: "SAN DIEGO",
-                                waterSupplyType: "Hydrant",
-                                PPCCode: "3",
-                                matchType: "Address Level Match",
-                                county: smartyStreetsResponse.addressInformation.county_name,
-                                respondingFireStation: "STATION 14",
-                                priorAlternativePPCCodes: "9/10",
-                                driveDistanceToRespondingFireStation: "1 mile or less",
-                                multiplePPCInd: false
-                            },
-                            finalProtectionClass: "3",
-                            bceg: {
-                                bcegCode: "99",
-                                callResult: "SUCCESSFUL",
-                                message: ""
-                            },
-                            street: "POLK",
-                            fireline: {
-                                wildFireHazardScore: 0,
-                                callResult: "SUCCESSFUL",
-                                message: ""
-                            },
-                            state: "CA",
-                            buildingList: [
-                                {
-                                    classCode: this.industry_code.code, // <---- CHECK THIS
-                                    uw: {
-                                        roofUpdates: 2015,
-                                        plumbingUpdates: 2015,
-                                        electricalUpdates: 2015,
-                                        playam: false,
-                                        hvacUpdates: 2015
-                                    },
-                                    occupancy: "Owner Occupied Bldg - More than 10%",
-                                    LOI: "500000",
-                                    classTag: "SALES",
-                                    industrySegment: "",
-                                    isoClassDescriptionId: 32,
-                                    isoClassDescription: "Convenience Food Stores With Fast Food Restaurant With Gasoline Sales",
-                                    description: "Test Building",
-                                    isoClassGroup: "Convenience Food/Gasoline Store/Restaurant",
-                                    replacementCost: {
-                                        bldMeetsRecommendedCost: true,
-                                        replacementCost: 405114,
-                                        callResult: "SUCCESSFUL",
-                                        message: ""
-                                    },
-                                    coverages: {
-                                        PP: {
-                                            seasonalIncrease: "25",
-                                            valuationInd: false,
-                                            includeInd: true,
-                                            limit: "200000"
-                                        },
-                                        concom: {
-                                            includeFormInd: true
-                                        },
-                                        lospay: {
-                                            includeInd: false
-                                        },
-                                        aieqip: {
-                                            includeInd: false
-                                        },
-                                        tenfir: {
-                                            coverageType: "No Coverage",
-                                            includeInd: false
-                                        },
-                                        osigns: {
-                                            includeInd: false
-                                        },
-                                        utilte: {
-                                            includeInd: false
-                                        },
-                                        lienholder: {
-                                            includeInd: false
-                                        },
-                                        liab: {
-                                            includeInd: true,
-                                            sales: "500000"
-                                        },
-                                        aiprem: {
-                                            includeInd: false
-                                        },
-                                        actrec: {
-                                            includeInd: false
-                                        },
-                                        aibown: {
-                                            includeInd: false
-                                        },
-                                        lcompf: {
-                                            includeInd: false
-                                        },
-                                        utildd: {
-                                            includeInd: false
-                                        },
-                                        bld: {
-                                            valuation: "Replacement Cost",
-                                            includeInd: true,
-                                            limit: 500000
-                                        },
-                                        spoil: {
-                                            breakContInd: true,
-                                            includeInd: true,
-                                            refrigerationInd: true,
-                                            spoilageLimit: 25000,
-                                            spoilageDescription: "Convenience Food Stores",
-                                            powerOutInd: true
-                                        },
-                                        bidp: {
-                                            includeInd: true,
-                                            limit: 50000,
-                                            secondaryDependentProperties: false
-                                        },
-                                        ordLaw: {
-                                            limit1: 500000,
-                                            limit2: 500000,
-                                            includeInd: true,
-                                            covType: "Coverage 1 and 2"
-                                        },
-                                        tenant: {
-                                            includeInd: false
-                                        }
-                                    },
-                                    yearBuilt: 2010,
-                                    numStories: 2,
-                                    occupiedSqFt: 5000,
-                                    classOverride: false,
-                                    sicCode: "5411",
-                                    construction: "Modified Fire Resistive",
-                                    premOpsILF: "1",
-                                    cspCode: "0931",
-                                    naicsCode: this.industry_code.attributes.naics, // <---- CHECK THIS
-                                    sprinklered: true
-                                }
-                            ],
-                            countyName: "",
-                            zip: applicationDocData.mailingZipcode,
-                            zipAddOn: "",
-                            based: "riskAddress1",
-                            streetType: "",
-                            address: applicationDocData.mailingAddress,
-                            postDir: "",
-                            scrubberCalled: true,
-                            WHExclusions: false,
-                            recordType: "S",
-                            rawProtectionClass: "3",
-                            streetNum: "",
-                            WHDeductiblePcnt: "5",
-                            classCodes: this.industry_code.code, // <---- CHECK THIS
-                            confirmation: "N/A",
-                            addressLine: applicationDocData.mailingAddress,
-                            isoClassGroups: "Convenience Food/Gasoline Store/Restaurant",
-                            unit: "",
-                            scrubberResult: "Accepted",
-                            secondaryName: "",
-                            buildings: 1,
-                            PPCAddressKey: `${applicationDocData.mailingAddress}:${applicationDocData.mailingState}:${applicationDocData.mailingZipcode}`, 
-                            preDir: "",
-                            territory: applicationDocData.mailingState
-                        }
-                    ],
+                    locationList: this.getLocationList(smartyStreetsResponse),
                     otherCOA: "2000000",
                     addtlIntInd: false,
                     proLiabInd: false
@@ -374,4 +208,179 @@ module.exports = class LibertySBOP extends Integration {
         }
     }
 
+    getLocationList(smarty) {
+        const applicationDocData = this.app.applicationDocData;
+        const locationList = [];
+        
+        applicationDocData.locations.forEach(location => {
+            // add fields here...
+            locationList.push({
+                userCountryName: "USA",
+                userCountyName: smarty.addressInformation.county_name,
+                city: location.city,
+                PPCCall: {
+                    fireProtectionArea: smarty.addressInformation.county_name,
+                    waterSupplyType: "Hydrant", // <-- HOW TO GET THIS
+                    PPCCode: "3", // <-- WHAT IS THIS
+                    matchType: "Address Level Match",
+                    county: smarty.addressInformation.county_name,
+                    respondingFireStation: "STATION 14", // <-- HOW TO GET THIS
+                    priorAlternativePPCCodes: "9/10", // <-- HOW TO GET THIS
+                    driveDistanceToRespondingFireStation: "1 mile or less", // <-- HOW TO GET THIS
+                    multiplePPCInd: false // <-- WHAT IS THIS
+                },
+                finalProtectionClass: "3",
+                bceg: {
+                    bcegCode: "99",
+                    callResult: "SUCCESSFUL",
+                    message: ""
+                },
+                street: "POLK",
+                fireline: {
+                    wildFireHazardScore: 0,
+                    callResult: "SUCCESSFUL",
+                    message: ""
+                },
+                state: location.state,
+                buildingList: [
+                    {
+                        classCode: this.industry_code.code,
+                        uw: {
+                            roofUpdates: 2015,
+                            plumbingUpdates: 2015,
+                            electricalUpdates: 2015,
+                            playam: false,
+                            hvacUpdates: 2015
+                        },
+                        occupancy: "Owner Occupied Bldg - More than 10%",
+                        LOI: "500000",
+                        classTag: "SALES",
+                        industrySegment: "",
+                        isoClassDescriptionId: 32,
+                        isoClassDescription: "Convenience Food Stores With Fast Food Restaurant With Gasoline Sales",
+                        description: "Test Building",
+                        isoClassGroup: "Convenience Food/Gasoline Store/Restaurant",
+                        replacementCost: {
+                            bldMeetsRecommendedCost: true,
+                            replacementCost: 405114,
+                            callResult: "SUCCESSFUL",
+                            message: ""
+                        },
+                        coverages: {
+                            PP: {
+                                seasonalIncrease: "25",
+                                valuationInd: false,
+                                includeInd: true,
+                                limit: "200000"
+                            },
+                            concom: {
+                                includeFormInd: true
+                            },
+                            lospay: {
+                                includeInd: false
+                            },
+                            aieqip: {
+                                includeInd: false
+                            },
+                            tenfir: {
+                                coverageType: "No Coverage",
+                                includeInd: false
+                            },
+                            osigns: {
+                                includeInd: false
+                            },
+                            utilte: {
+                                includeInd: false
+                            },
+                            lienholder: {
+                                includeInd: false
+                            },
+                            liab: {
+                                includeInd: true,
+                                sales: "500000"
+                            },
+                            aiprem: {
+                                includeInd: false
+                            },
+                            actrec: {
+                                includeInd: false
+                            },
+                            aibown: {
+                                includeInd: false
+                            },
+                            lcompf: {
+                                includeInd: false
+                            },
+                            utildd: {
+                                includeInd: false
+                            },
+                            bld: {
+                                valuation: "Replacement Cost",
+                                includeInd: true,
+                                limit: 500000
+                            },
+                            spoil: {
+                                breakContInd: true,
+                                includeInd: true,
+                                refrigerationInd: true,
+                                spoilageLimit: 25000,
+                                spoilageDescription: "Convenience Food Stores",
+                                powerOutInd: true
+                            },
+                            bidp: {
+                                includeInd: true,
+                                limit: 50000,
+                                secondaryDependentProperties: false
+                            },
+                            ordLaw: {
+                                limit1: 500000,
+                                limit2: 500000,
+                                includeInd: true,
+                                covType: "Coverage 1 and 2"
+                            },
+                            tenant: {
+                                includeInd: false
+                            }
+                        },
+                        yearBuilt: 2010,
+                        numStories: 2,
+                        occupiedSqFt: 5000,
+                        classOverride: false,
+                        sicCode: "5411",
+                        construction: "Modified Fire Resistive",
+                        premOpsILF: "1",
+                        cspCode: "0931",
+                        naicsCode: this.industry_code.attributes.naics,
+                        sprinklered: true
+                    }
+                ],
+                countyName: "",
+                zip: applicationDocData.mailingZipcode,
+                zipAddOn: "",
+                based: "riskAddress1",
+                streetType: "",
+                address: applicationDocData.mailingAddress,
+                postDir: "",
+                scrubberCalled: true,
+                WHExclusions: false,
+                recordType: "S",
+                rawProtectionClass: "3",
+                streetNum: "",
+                WHDeductiblePcnt: "5",
+                classCodes: this.industry_code.code,
+                confirmation: "N/A",
+                addressLine: applicationDocData.mailingAddress,
+                isoClassGroups: "Convenience Food/Gasoline Store/Restaurant",
+                unit: "",
+                scrubberResult: "Accepted",
+                secondaryName: "",
+                buildings: 1,
+                PPCAddressKey: `${applicationDocData.mailingAddress}:${applicationDocData.mailingState}:${applicationDocData.mailingZipcode}`, 
+                preDir: "",
+                territory: applicationDocData.mailingState
+            });
+
+            return locationList;
+        });
+    }
 }
