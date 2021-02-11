@@ -39,6 +39,8 @@ module.exports = class LibertySBOP extends Integration {
         const BOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP");
         const primaryContact = applicationDocData.contacts.find(c => c.primary);
 
+        const logPrefix = `Arrowhead (Appid: ${applicationDocData.mysqlId}): `;
+
         const smartyStreetsResponse = await smartystreetSvc.checkAddress(
             applicationDocData.mailingAddress,
             applicationDocData.mailingCity,
@@ -61,9 +63,44 @@ module.exports = class LibertySBOP extends Integration {
             return this.client_error(errorMessage);
         }
 
+        // construct question map, massage answers into what is expected
         const questions = {};
         applicationDocData.questions.forEach(question => {
-            questions[question.insurerQuestionIdentifier] = question.answerValue;
+            let answer = null;
+            switch (question.insurerQuestionIdentifier) {
+                case "automaticIncr": 
+                    try {
+                        answer = parseInt(question.answerValue);
+                    } catch (e) {
+                        log.error(`${logPrefix}${question.answerValue} for question property ${question.insurerQuestionIdentifier}. Not including in request.`)
+                    }
+                    break;
+                case "bipay.extNumDays":
+                    if (question.answerValue.toLowerCase() === "none") {
+                        answer = 0;
+                    } else {
+                        try {
+                            answer = parseInt(question.answerValue);
+                        } catch (e) {
+                            log.error(`${logPrefix}${question.answerValue} for question property ${question.insurerQuestionIdentifier}. Not including in request.`)
+                        }
+                    }
+                    break;
+                case "fixedPropDeductible":
+                    try {
+                        answer = parseInt(question.answerValue);
+                    } catch (e) {
+                        log.error(`${logPrefix}${question.answerValue} for question property ${question.insurerQuestionIdentifier}. Not including in request.`)
+                    }
+                    break;
+                default: 
+                    answer = question.answerValue;
+                    break;
+            }
+
+            if (answer !== null) {
+                questions[question.insurerQuestionIdentifier] = answer;
+            }
         });
 
         // console.log(JSON.stringify(applicationDocData, null, 4));
@@ -122,10 +159,17 @@ module.exports = class LibertySBOP extends Integration {
                     quoteType: "NB"
                 },
                 bbopSet: {
-                    classCodes: this.industry_code.code, // <---- CHECK THIS
+                    classCodes: this.industry_code.code,
                     finalized: true,
-                    flMixedBbopInd: false,
-                    automaticIncr: 8,
+                    GLOccurrenceLimit: "1000000",
+                    productsCOA: "2000000",
+                    removeITVProvision: false,
+                    liabCovInd: true,
+                    propCovInd: true,
+                    locationList: this.getLocationList(smartyStreetsResponse),
+                    otherCOA: "2000000",
+                    addtlIntInd: false,
+                    proLiabInd: false,
                     coverages: {
                         elteat: {
                             includeInd: false
@@ -136,25 +180,7 @@ module.exports = class LibertySBOP extends Integration {
                         eqpbrk: {
                             includeInd: false
                         },
-                        cyber: {
-                            includeInd: false
-                        },
-                        datcom: {
-                            includeInd: false
-                        }
                     },
-                    GLOccurrenceLimit: "1000000",
-                    productsCOA: "2000000",
-                    medicalExpenses: "No Coverage", // <-- This should come from a question dropdown
-                    removeITVProvision: false,
-                    liabCovInd: true,
-                    liaDed: "None",
-                    propCovInd: true,
-                    fixedPropDeductible: 2500,
-                    locationList: this.getLocationList(smartyStreetsResponse),
-                    otherCOA: "2000000",
-                    addtlIntInd: false,
-                    proLiabInd: false
                 },
                 effectiveProduct: "BBOP"
             },
@@ -163,29 +189,87 @@ module.exports = class LibertySBOP extends Integration {
 
         // hydrate the request JSON object with general question data
         // NOTE: Add additional general questions here if more get imported
-        switch (Object.keys(questions)) {
-            case "automaticIncr":
-            case "flMixedBbopInd":
-            case "MedicalExpenses":
-            case "LiaDed":
-            case "fixedPropDeductible":
-            case "additionalInsured":
-            case "blanket.CovOption":
-            case "bitime":
-            case "bipay.extNumDays":
-            case "blkai":
-            case "compf.limit":
-            case "conins": 
-            case "cyber":
-            case "datcom":
-            case "empben":
-            default: 
+        const bbopSet = requestJSON.policy.bbopSet;
+        for (const [id, answer] of Object.entries(questions)) {
+            switch (id) {
+                case "automaticIncr":
+                    bbopSet.automaticIncr = answer;
+                    break;
+                case "flMixedBbopInd":
+                    bbopSet.flMixedBbopInd = answer.toLowerCase() === "yes";
+                    break;
+                case "MedicalExpenses":
+                    bbopSet.medicalExpenses = answer;
+                    break;        
+                case "LiaDed":
+                    bbopSet.liaDed = answer;
+                    break;       
+                case "fixedPropDeductible":
+                    bbopSet.fixedPropDeductible = answer;
+                    break;  
+                case "additionalInsured": // <---- THIS ISN'T IN THE TEMPLATE OR THEIR DOCUMENTATION
+                    bbopSet.additionalInsured = {
+                        includedInd: answer.toLowerCase() === "yes"
+                    }
+                    break;  
+                case "blanket.CovOption":
+                    bbopSet.coverages.blanket = {
+                        includedInd: true,
+                        CovOption: answer
+                    };
+                    break;  
+                case "bitime":
+                    bbopSet.coverages.bitime = {
+                        includedInd: answer.toLowerCase() === "yes"
+                    };
+                    break;  
+                case "bipay.extNumDays":
+                    bbopSet.coverages.bipay = {
+                        includedInd: true,
+                        extNumDays: answer
+                    };
+                    break;  
+                case "blkai":
+                    bbopSet.coverages.blkai = {
+                        includedInd: answer.toLowerCase() === "yes"
+                    };
+                    break;  
+                case "compf.limit":
+                    bbopSet.coverages.compf = {
+                        includedInd: true,
+                        limit: answer
+                    };
+                    break;  
+                case "conins": 
+                    bbopSet.coverages.conins = {
+                        includedInd: answer.toLowerCase() === "yes"
+                    };
+                    break; 
+                case "cyber":
+                    bbopSet.coverages.cyber = {
+                        includedInd: answer.toLowerCase() === "yes"
+                    };
+                    break; 
+                case "datcom":
+                    bbopSet.coverages.datcom = {
+                        includedInd: answer.toLowerCase() === "yes"
+                    };
+                    break; 
+                case "empben":
+                    bbopSet.coverages.empben = {
+                        includedInd: answer.toLowerCase() === "yes"
+                    };
+                    break; 
+                default: 
+                    log.warn(`${logPrefix}Encountered key [${id}] with no defined case. This could mean we have a new question that needs to be handled in the integration.`);
+                    break;
+            }
         }
 
         // send the JSON request
 
         log.info("=================== QUOTE REQUEST ===================");
-        log.info(`Arrowhead BOP request (Appid: ${applicationDocData.mysqlId}):\n${JSON.stringify(requestJSON, null, 4)}`);
+        log.info(`${logPrefix}\n${JSON.stringify(requestJSON, null, 4)}`);
         log.info("=================== QUOTE REQUEST ===================");
 
         let result = null;
@@ -203,13 +287,11 @@ module.exports = class LibertySBOP extends Integration {
         }
 
         // parse the error / response
-        log.info("=================== QUOTE RESULT ===================");
-        // log.info(`Arrowhead BOP response (Appid: ${applicationDocData.mysqlId}):\n${JSON.stringify(result, null, 4)}`);
-        // log.info(`Arrowhead BOP response (Appid: ${applicationDocData.mysqlId}):\n${JSON.stringify(JSON.parse(result), null, 4)}`);
-        log.info(`Arrowhead BOP response (Appid: ${applicationDocData.mysqlId}):\n${JSON.stringify(result.data, null, 4)}`);
-        log.info("=================== QUOTE RESULT ===================");
 
         if (result.data.hasOwnProperty("error")) {
+            log.info("=================== QUOTE ERROR ===================");
+            log.info(`${logPrefix}\n${JSON.stringify(result.data, null, 4)}`);
+            log.info("=================== QUOTE ERROR ===================");
             const error = result.data.error;
             let errorMessage = "";
 
@@ -234,6 +316,11 @@ module.exports = class LibertySBOP extends Integration {
 
             return this.client_error(errorMessage, additionalDetails.length > 0 ? additionalDetails : null);
         }
+
+        // handle successful quote
+        log.info("=================== QUOTE RESULT ===================");
+        log.info(`${logPrefix}\n${JSON.stringify(result.data, null, 4)}`);
+        log.info("=================== QUOTE RESULT ===================");
     }
 
     getLocationList(smarty) {
