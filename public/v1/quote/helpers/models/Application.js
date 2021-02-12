@@ -421,9 +421,11 @@ module.exports = class Application {
         // Get a list of all questions the user may need to answer. These top-level questions are "general" questions.
         const insurer_ids = this.get_insurer_ids();
         const wc_codes = this.get_wc_codes();
-        let questions = null;
+        let talageQuestionDefList = null;
         try {
-            questions = await questionsSvc.GetQuestionsForBackend(wc_codes, this.business.industry_code, this.business.getZips(), policyList, insurer_ids, "general", true);
+            log.info(`Quoting Application Model loading questions for ${this.id} ` + __location)
+            talageQuestionDefList = await questionsSvc.GetQuestionsForBackend(wc_codes, this.business.industry_code, this.business.getZips(), policyList, insurer_ids, "general", true);
+            log.info(`Got questions Quoting Application Model loading questions for ${this.id} ` + __location)
         }
         catch (e) {
             log.error(`Translation Error: GetQuestionsForBackend: ${e}. ` + __location);
@@ -434,12 +436,12 @@ module.exports = class Application {
         this.questions = {};
 
         // Convert each question from the database into a question object and load in the user's answer to each
-        if (questions) {
+        if (talageQuestionDefList) {
             //await questions.forEach((question) => {
-            for (const question of questions) {
+            for (const questionDef of talageQuestionDefList) {
                 // Prepare a Question object based on this data and store it
                 const q = new Question();
-                q.load(question);
+                q.load(questionDef);
 
                 // Load the user's answer
                 if (user_questions) {
@@ -463,10 +465,10 @@ module.exports = class Application {
         // Enforce required questions (this must be done AFTER all questions are loaded with their answers)
 
         // Translate question subject area questions in the application doc
-        if (this.applicationDocData.questions) {
+        if (this.applicationDocData.questions && this.applicationDocData.questions.length > 0) {
             // "general" questions
             try {
-                await this.translateSubjectAreaQuestionList(policyList, "general", this.applicationDocData.questions);
+                await this.translateSubjectAreaQuestionList(policyList, "general", this.applicationDocData.questions, talageQuestionDefList);
             }
             catch (error) {
                 throw error;
@@ -475,7 +477,7 @@ module.exports = class Application {
         if (this.applicationDocData.locations) {
             // "location" questions
             for (const location of this.applicationDocData.locations) {
-                if (location.questions) {
+                if (location.questions && location.questions.length > 0) {
                     try {
                         await this.translateSubjectAreaQuestionList(policyList, "location", location.questions);
                     }
@@ -493,39 +495,50 @@ module.exports = class Application {
      * @param  {Array} policyList - List of policies with properties "type", "effectiveDate"
      * @param  {string} questionSubjectArea - Question subject area ("general", "location", "location.building", ...)
      * @param  {Array} applicationQuestionList - List of questions from the application (app.questions, app.location[0].questions, ...)
+     * @param  {Array} talageQuestionDefList - List of talage question definitions already retrieved from database, ...)
      * @returns {void}
      */
-    async translateSubjectAreaQuestionList(policyList, questionSubjectArea, applicationQuestionList) {
+    async translateSubjectAreaQuestionList(policyList, questionSubjectArea, applicationQuestionList, talageQuestionDefList) {
         // Retrieve the subject area for the given questions.
-        let talageQuestionList = null;
-        try {
-            talageQuestionList = await questionsSvc.GetQuestionsForBackend(this.get_wc_codes(), this.business.industry_code, this.business.getZips(), policyList, this.get_insurer_ids(), questionSubjectArea, true);
-        }
-        catch (e) {
-            log.error(`AppId ${this.applicationDocData.mysqlId} Translation Error: GetQuestionsForBackend (questionSubjectArea=${questionSubjectArea}): ${e}. ` + __location);
-            throw e;
-        }
-        if (talageQuestionList.length > 0) {
-            for (const applicationQuestion of applicationQuestionList) {
-                // Hidden questions are not required
-                if (applicationQuestion.hidden) {
-                    continue;
+        if(applicationQuestionList && applicationQuestionList.length > 0){
+            let talageQuestionList = null;
+            if(talageQuestionDefList){
+                talageQuestionList = talageQuestionDefList;
+            }
+            else {
+                try {
+                    log.info(`translateSubjectAreaQuestionList loading questions for ${this.id} ` + __location)
+                    talageQuestionList = await questionsSvc.GetQuestionsForBackend(this.get_wc_codes(), this.business.industry_code, this.business.getZips(), policyList, this.get_insurer_ids(), questionSubjectArea, true);
+                    log.info(`Got list for translateSubjectAreaQuestionList loading questions for ${this.id} ` + __location)
                 }
-                // Find the Talage question
-                const talageQuestion = talageQuestionList.find((q) => q.id === applicationQuestion.questionId);
-                if (talageQuestion) {
-                    if (talageQuestion.parent && talageQuestion.parent > 0) {
-                        const talageSubjectAreaParentQuestion = talageQuestionList.find((q) => q.id === talageQuestion.parent);
-                        if (!talageSubjectAreaParentQuestion) {
-                            // No one question issue should stop quoting with all insureres - BP 2020-10-04
-                            log.error(`AppId ${this.applicationDocData.mysqlId} Translation Error: Question ${talageQuestion.id} (questionSubjectArea=${questionSubjectArea}) has invalid parent setting. (${htmlentities.decode(talageQuestion.text).replace('%', '%%')})` + __location);
+                catch (e) {
+                    log.error(`AppId ${this.applicationDocData.mysqlId} Translation Error: GetQuestionsForBackend (questionSubjectArea=${questionSubjectArea}): ${e}. ` + __location);
+                    throw e;
+                }
+
+            }
+            if (talageQuestionList.length > 0) {
+                for (const applicationQuestion of applicationQuestionList) {
+                    // Hidden questions are not required
+                    if (applicationQuestion.hidden) {
+                        continue;
+                    }
+                    // Find the Talage question
+                    const talageQuestion = talageQuestionList.find((q) => q.id === applicationQuestion.questionId);
+                    if (talageQuestion) {
+                        if (talageQuestion.parent && talageQuestion.parent > 0) {
+                            const talageSubjectAreaParentQuestion = talageQuestionList.find((q) => q.id === talageQuestion.parent);
+                            if (!talageSubjectAreaParentQuestion) {
+                                // No one question issue should stop quoting with all insureres - BP 2020-10-04
+                                log.error(`AppId ${this.applicationDocData.mysqlId} Translation Error: Question ${talageQuestion.id} (questionSubjectArea=${questionSubjectArea}) has invalid parent setting. (${htmlentities.decode(talageQuestion.text).replace('%', '%%')})` + __location);
+                            }
                         }
                     }
                 }
             }
-        }
-        else{
-            log.warn(`No Questions for application ${this.applicationDocData.mysqlId} `)
+            else{
+                log.warn(`No Questions for application ${this.applicationDocData.mysqlId} `)
+            }
         }
     }
 
@@ -1096,8 +1109,8 @@ module.exports = class Application {
                         try {
                             await this.agencyLocation.init();
                         }
-                        catch (e) {
-                            log.error(`Error in this.agencyLocation.init(): ${e}. ` + __location);
+                        catch (err) {
+                            log.error(`Error in this.agencyLocation.init(): ${err}. ` + __location);
                             return reject(e);
                         }
 
@@ -1123,6 +1136,26 @@ module.exports = class Application {
                 log.error('Invalid insurer(s) specified in policy. ' + __location);
                 return reject(new Error('Invalid insurer(s) specified in policy.'));
             }
+
+            //application level
+            /**
+             * Industry Code (required)
+             * - > 0
+             * - <= 99999999999
+             * - Must existin our database
+             */
+            if (this.applicationDocData.industryCode) {
+                //this is now loaded from database.
+                //industry code should already be validated.
+                // this.applicationDocData.industryCode_description = await validator.industry_code(this.applicationDocData.industryCode);
+                // if (!this.applicationDocData.industryCode_description) {
+                //     throw new Error('The industry code ID you provided is not valid');
+                // }
+            }
+            else {
+                return reject(new Error('Missing property: industryCode'));
+            }
+
 
             // Business (required)
             try {
