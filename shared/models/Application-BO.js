@@ -2410,18 +2410,24 @@ module.exports = class ApplicationModel {
 
         //zipCodes
         let zipCodeArray = [];
+        let stateList = [];
         if(applicationDocDB.locations && applicationDocDB.locations.length > 0){
             for(let i = 0; i < applicationDocDB.locations.length; i++){
                 zipCodeArray.push(applicationDocDB.locations[i].zipcode);
+                if(stateList.indexOf(applicationDocDB.locations[i].state) === -1){
+                    stateList.push(applicationDocDB.locations[i].state)
+                }
             }
         }
         else if(applicationDocDB.mailingZipcode && questionSubjectArea !== 'general'){
             zipCodeArray.push(applicationDocDB.mailingZipcode);
+            stateList.push(applicationDocDB.mailingState)
         }
         else {
             throw new Error("Incomplete Application: Application locations")
         }
 
+        log.debug("stateList: " + JSON.stringify(stateList));
         //Agency Location insurer list.
         let insurerArray = [];
         if(applicationDocDB.agencyLocationId && applicationDocDB.agencyLocationId > 0){
@@ -2452,8 +2458,8 @@ module.exports = class ApplicationModel {
         let getQuestionsResult = null;
 
         try {
-            log.debug("insurerArray: " + insurerArray);
-            getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, returnHidden);
+            //log.debug("insurerArray: " + insurerArray);
+            getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, returnHidden, stateList);
             if(getQuestionsResult && getQuestionsResult.length === 0){
                 //no questions returned.
                 log.warn(`No questions returned for AppId ${appId} parameter activityCodeArray: ${activityCodeArray}  industryCodeString: ${industryCodeString}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${policyTypeArray} insurerArray: ${insurerArray} `)
