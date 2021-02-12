@@ -187,7 +187,11 @@ module.exports = class LibertySBOP extends Integration {
             products: "BBOP"
         };
 
-        this.injectGeneralQuestions(requestJSON, questions);
+        try {
+            this.injectGeneralQuestions(requestJSON, questions);
+        } catch (e) {
+            return this.client_error(`${logPrefix}${e}`);
+        }
 
         // send the JSON request
 
@@ -554,27 +558,16 @@ module.exports = class LibertySBOP extends Integration {
                 const numAI = {
                     numAI: prop.answer
                 };
+
                 switch(prop.id) {
                     case "cown.numAI":
-                        bbopSet.additionalInsured.cown = numAI;
-                        break;
                     case "desgpers.numAI":
-                        bbopSet.additionalInsured.desgpers = numAI;
-                        break;
                     case "cgrantor.numAI":
-                        bbopSet.additionalInsured.cgrantor = numAI;
-                        break;
                     case "limprod.numAI":
-                        bbopSet.additionalInsured.limprod = numAI;
-                        break;
                     case "olccmp.numAI":
-                        bbopSet.additionalInsured.olccmp = numAI;
-                        break;
                     case "olc.numAI":
-                        bbopSet.additionalInsured.olc = numAI;
-                        break;
                     case "vendor.numAI":
-                        bbopSet.additionalInsured.vendor = numAI;
+                        bbopSet.additionalInsured[prop.id] = numAI;
                         break;
                 }
             });
@@ -591,22 +584,12 @@ module.exports = class LibertySBOP extends Integration {
             conins.forEach(prop => {
                 switch(prop.id) {
                     case "conins.propOnSite": 
-                        bbopSet.conins.propOnSite = prop.answer;
-                        break;
                     case "conins.conEquipRentReimbursement":
-                        bbopSet.conins.conEquipRentReimbursement = prop.answer;
-                        break;
                     case "conins.conToolsCovType":
-                        bbopSet.conins.conToolsCovType = prop.answer;
-                        break;
                     case "conins.limit":
-                        bbopSet.conins.limit = prop.answer;
-                        break;
                     case "conins.actualCashValueInd":
-                        bbopSet.conins.actualCashValueInd = prop.answer;
-                        break;
                     case "conins.itemSubLimitText":
-                        bbopSet.conins.itemSubLimitText = prop.answer;
+                        bbopSet.conins[prop.id] = prop.answer;
                         break;
                     case "conins.nonownTools":
                         bbopSet.conins.nonownTools = {
@@ -619,7 +602,7 @@ module.exports = class LibertySBOP extends Integration {
                         }
                         break;
                     default:
-                        
+
                 }
             });
 
@@ -654,20 +637,18 @@ module.exports = class LibertySBOP extends Integration {
                 };
             }
 
-            datcom.forEach(prop => {
-                switch(prop.id) {
-                    case "datcom.limit":
-                        break;
-                    case "datcom.tier.100000":
-                        break;
-                    case "datcom.tier.250000":
-                        break;
-                    case "datcom.tier.500000":
-                        break;
-                    case "datcom.tier.1000000":
-                        break;
-                }
-            });
+            const datcomLimit = datcom.find(prop => prop.id === "datcom.limit");
+            if (!datcomLimit) {
+                throw new Error(`datcom is included, but no limit is provided.`);
+            }
+
+            const datcomTier = datcom.find(prop => prop.id === `datcom.tier.${datcomLimit}`);
+            if (!datcomTier) {
+                throw new Error(`Could not find datcom tier for provided limit.`);
+            }
+
+            bbopSet.datcom.limit = datcomLimit;
+            bbopSet.datcom.tier = datcomTier;
         }
 
         // hydrate empben with child question data, if any exist
@@ -681,10 +662,9 @@ module.exports = class LibertySBOP extends Integration {
             empben.forEach(prop => {
                 switch(prop.id) {
                     case "empben.limit":
-                        break;
                     case "empben.NumEmp":
-                        break;
                     case "empben.ProgramName":
+                        bbopSet.empben[prop.id] = prop.answer;
                         break;
                 }
             });
