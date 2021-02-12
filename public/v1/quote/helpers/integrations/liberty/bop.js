@@ -72,7 +72,8 @@ module.exports = class LibertySBOP extends Integration {
             return this.client_error(`Liberty Mutual (Appid: ${this.app.id}): Could not find a policy with type BOP.`);
         }
 
-        // Assign the closest supported limit for Per Occ
+        // Assign the closest supported limit for Per Occ 
+        // NOTE: Currently this is not included in the request and defaulted on LM's side
         const limit = this.getSupportedLimit(sbopPolicy.limits);
 
         // NOTE: Liberty Mutual does not accept these values at this time. Automatically defaulted on their end...
@@ -327,15 +328,6 @@ module.exports = class LibertySBOP extends Integration {
         }
 
         // <LiabilityInfo>
-        //     <Coverage>
-        //         <CoverageCd>LBMED</CoverageCd>
-        //         <Limit>
-        //             <LimitAppliesToCd>PerOcc</LimitAppliesToCd>
-        //             <FormatCurrencyAmt>
-        //                 <Amt>1000000</Amt>
-        //             </FormatCurrencyAmt>
-        //         </Limit>
-        //     </Coverage>
         //     <GeneralLiabilityClassification LocationRef="L0">
         //         <Coverage>
         //             <CoverageCd>CGL</CoverageCd>
@@ -358,12 +350,6 @@ module.exports = class LibertySBOP extends Integration {
 
         const LiabilityInfo = BOPLineBusiness.ele('LiabilityInfo');
         applicationDocData.locations.forEach((location, index) => {
-            const Coverage = LiabilityInfo.ele('Coverage');
-            Coverage.ele('CoverageCd', 'LBMED');
-            const Limit = Coverage.ele('Limit');
-            const innerFormatCurrencyAmt = Limit.ele('FormatCurrencyAmt');
-            innerFormatCurrencyAmt.ele('Amt', limit);
-            Limit.ele('LimitAppliesToCd', 'PerOcc');
             const GeneralLiabilityClassification = LiabilityInfo.ele('GeneralLiabilityClassification').att('LocationRef', `L${index}`);
             const innerCoverage = GeneralLiabilityClassification.ele('Coverage');
             innerCoverage.ele('CoverageCd', 'CGL');
