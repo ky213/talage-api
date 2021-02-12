@@ -2403,7 +2403,9 @@ module.exports = class ApplicationModel {
 
         }
         else if(requireActivityCodes) {
-            throw new Error("Incomplete Application: Missing Application Activity Codes")
+            if(questionSubjectArea === 'general'){
+                throw new Error("Incomplete WC Application: Missing Application Activity Codes");
+            }
         }
 
         //zipCodes
@@ -2412,11 +2414,14 @@ module.exports = class ApplicationModel {
             for(let i = 0; i < applicationDocDB.locations.length; i++){
                 zipCodeArray.push(applicationDocDB.locations[i].zipcode);
             }
-
+        }
+        else if(applicationDocDB.mailingZipcode && questionSubjectArea !== 'general'){
+            zipCodeArray.push(applicationDocDB.mailingZipcode);
         }
         else {
             throw new Error("Incomplete Application: Application locations")
         }
+
         //Agency Location insurer list.
         let insurerArray = [];
         if(applicationDocDB.agencyLocationId && applicationDocDB.agencyLocationId > 0){
