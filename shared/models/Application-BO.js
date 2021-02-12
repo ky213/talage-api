@@ -2336,18 +2336,22 @@ module.exports = class ApplicationModel {
     //
     //
     // *********************************
-    //For AgencyPortal
+    //For AgencyPortal and Quote V2 - skipAgencyCheck === true if caller has already check 
+    // user rights to application
 
-    async GetQuestions(appId, userAgencyList, questionSubjectArea){
+    async GetQuestions(appId, userAgencyList, questionSubjectArea, skipAgencyCheck = false){
 
         let passedAgencyCheck = false;
         let applicationDocDB = null;
         let questionsObject = {};
         try{
             applicationDocDB = await this.loadfromMongoByAppId(appId);
-            if(applicationDocDB && userAgencyList.includes(applicationDocDB.agencyId)){
+            if(skipAgencyCheck === true){
                 passedAgencyCheck = true;
             }
+            else if(applicationDocDB && userAgencyList.includes(applicationDocDB.agencyId)){
+                passedAgencyCheck = true;
+            } 
         }
         catch(err){
             log.error("Error checking application doc " + err + __location)
