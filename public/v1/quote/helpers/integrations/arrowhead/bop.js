@@ -187,84 +187,7 @@ module.exports = class LibertySBOP extends Integration {
             products: "BBOP"
         };
 
-        // hydrate the request JSON object with general question data
-        // NOTE: Add additional general questions here if more get imported
-        const bbopSet = requestJSON.policy.bbopSet;
-        for (const [id, answer] of Object.entries(questions)) {
-            switch (id) {
-                case "automaticIncr":
-                    bbopSet.automaticIncr = answer;
-                    break;
-                case "flMixedBbopInd":
-                    bbopSet.flMixedBbopInd = answer.toLowerCase() === "yes";
-                    break;
-                case "MedicalExpenses":
-                    bbopSet.medicalExpenses = answer;
-                    break;        
-                case "LiaDed":
-                    bbopSet.liaDed = answer;
-                    break;       
-                case "fixedPropDeductible":
-                    bbopSet.fixedPropDeductible = answer;
-                    break;  
-                case "additionalInsured": // <---- THIS ISN'T IN THE TEMPLATE OR THEIR DOCUMENTATION
-                    bbopSet.additionalInsured = {
-                        includedInd: answer.toLowerCase() === "yes"
-                    }
-                    break;  
-                case "blanket.CovOption":
-                    bbopSet.coverages.blanket = {
-                        includedInd: true,
-                        CovOption: answer
-                    };
-                    break;  
-                case "bitime":
-                    bbopSet.coverages.bitime = {
-                        includedInd: answer.toLowerCase() === "yes"
-                    };
-                    break;  
-                case "bipay.extNumDays":
-                    bbopSet.coverages.bipay = {
-                        includedInd: true,
-                        extNumDays: answer
-                    };
-                    break;  
-                case "blkai":
-                    bbopSet.coverages.blkai = {
-                        includedInd: answer.toLowerCase() === "yes"
-                    };
-                    break;  
-                case "compf.limit":
-                    bbopSet.coverages.compf = {
-                        includedInd: true,
-                        limit: answer
-                    };
-                    break;  
-                case "conins": 
-                    bbopSet.coverages.conins = {
-                        includedInd: answer.toLowerCase() === "yes"
-                    };
-                    break; 
-                case "cyber":
-                    bbopSet.coverages.cyber = {
-                        includedInd: answer.toLowerCase() === "yes"
-                    };
-                    break; 
-                case "datcom":
-                    bbopSet.coverages.datcom = {
-                        includedInd: answer.toLowerCase() === "yes"
-                    };
-                    break; 
-                case "empben":
-                    bbopSet.coverages.empben = {
-                        includedInd: answer.toLowerCase() === "yes"
-                    };
-                    break; 
-                default: 
-                    log.warn(`${logPrefix}Encountered key [${id}] with no defined case. This could mean we have a new question that needs to be handled in the integration.`);
-                    break;
-            }
-        }
+        this.injectGeneralQuestions(requestJSON, questions);
 
         // send the JSON request
 
@@ -497,5 +420,278 @@ module.exports = class LibertySBOP extends Integration {
         });
 
         return locationList;
+    }
+
+    injectGeneralQuestions(requestJSON, questions) {
+        // hydrate the request JSON object with general question data
+        // NOTE: Add additional general questions here if more get imported    
+        const additionalInsured = [];
+        const conins = [];
+        const datcom = [];
+        const empben = [];
+
+        const bbopSet = requestJSON.policy.bbopSet;
+        for (const [id, answer] of Object.entries(questions)) {
+            switch (id) {
+                case "automaticIncr":
+                    bbopSet.automaticIncr = answer;
+                    break;
+                case "flMixedBbopInd":
+                    bbopSet.flMixedBbopInd = answer.toLowerCase() === "yes";
+                    break;
+                case "MedicalExpenses":
+                    bbopSet.medicalExpenses = answer;
+                    break;        
+                case "LiaDed":
+                    bbopSet.liaDed = answer;
+                    break;       
+                case "fixedPropDeductible":
+                    bbopSet.fixedPropDeductible = answer;
+                    break;  
+                case "additionalInsured": // <---- THIS ISN'T IN THE TEMPLATE OR THEIR DOCUMENTATION
+                    bbopSet.additionalInsured = {
+                        includedInd: answer.toLowerCase() === "yes"
+                    }
+                    break;
+                case "cown.numAI":
+                case "desgpers.numAI":
+                case "cgrantor.numAI":
+                case "limprod.numAI":
+                case "olccmp.numAI":
+                case "olc.numAI":
+                case "vendor.numAI":
+                    additionalInsured.push({id, answer});
+                    break;
+                case "blanket.CovOption":
+                    bbopSet.coverages.blanket = {
+                        includedInd: true,
+                        CovOption: answer
+                    };
+                    break;  
+                case "bitime":
+                    bbopSet.coverages.bitime = {
+                        includedInd: answer.toLowerCase() === "yes"
+                    };
+                    break;  
+                case "bipay.extNumDays":
+                    bbopSet.coverages.bipay = {
+                        includedInd: true,
+                        extNumDays: answer
+                    };
+                    break;  
+                case "blkai":
+                    bbopSet.coverages.blkai = {
+                        includedInd: answer.toLowerCase() === "yes"
+                    };
+                    break;  
+                case "compf.limit":
+                    bbopSet.coverages.compf = {
+                        includedInd: true,
+                        limit: answer
+                    };
+                    break;  
+                case "conins": 
+                    bbopSet.coverages.conins = {
+                        includedInd: answer.toLowerCase() === "yes"
+                    };
+                    break; 
+                case "conins.propOnSite": 
+                case "conins.conEquipRentReimbursement":
+                case "conins.conToolsCovType":
+                case "conins.limit":
+                case "conins.actualCashValueInd":
+                case "conins.itemSubLimitText":
+                // case "conins.conscd.equip.desc": IGNORED FOR NOW
+                // case "conins.conscd.equip.val": IGNORED FOR NOW
+                case "conins.nonownTools":
+                case "conins.nonownTools.Limit":
+                case "conins.empTools":
+                case "conins.empTools.Limit":
+                    conins.push({id, answer});
+                    break;
+                case "cyber":
+                    bbopSet.coverages.cyber = {
+                        includedInd: answer.toLowerCase() === "yes"
+                    };
+                    break; 
+                case "datcom":
+                    bbopSet.coverages.datcom = {
+                        includedInd: answer.toLowerCase() === "yes"
+                    };
+                    break; 
+                case "datcom.limit":
+                case "datcom.tier.100000":
+                case "datcom.tier.250000":
+                case "datcom.tier.500000":
+                case "datcom.tier.1000000":
+                    datcom.push({id, answer});
+                    break;
+                case "empben":
+                    bbopSet.coverages.empben = {
+                        includedInd: answer.toLowerCase() === "yes"
+                    };
+                    break;
+                case "empben.limit":
+                case "empben.NumEmp":
+                case "empben.ProgramName":
+                // case "empben.RetroDate": IGNORED FOR NOW
+                    empben.push({id, answer});
+                    break;
+                default: 
+                    log.warn(`${logPrefix}Encountered key [${id}] with no defined case. This could mean we have a new question that needs to be handled in the integration.`);
+                    break;
+            }
+        }
+
+        // hydrate additionalInsured with child question data, if any exist
+        if (additionalInsured.length > 0) {
+            if (!bbopSet.hasOwnProperty("additionalInsured")) {
+                bbopSet.additionalInsured = {
+                    includedInd: true
+                };
+            }
+            additionalInsured.forEach(prop => {
+                const numAI = {
+                    numAI: prop.answer
+                };
+                switch(prop.id) {
+                    case "cown.numAI":
+                        bbopSet.additionalInsured.cown = numAI;
+                        break;
+                    case "desgpers.numAI":
+                        bbopSet.additionalInsured.desgpers = numAI;
+                        break;
+                    case "cgrantor.numAI":
+                        bbopSet.additionalInsured.cgrantor = numAI;
+                        break;
+                    case "limprod.numAI":
+                        bbopSet.additionalInsured.limprod = numAI;
+                        break;
+                    case "olccmp.numAI":
+                        bbopSet.additionalInsured.olccmp = numAI;
+                        break;
+                    case "olc.numAI":
+                        bbopSet.additionalInsured.olc = numAI;
+                        break;
+                    case "vendor.numAI":
+                        bbopSet.additionalInsured.vendor = numAI;
+                        break;
+                }
+            });
+        }
+
+        // hydrate conins with child question data, if any exist
+        if (conins.length > 0) {
+            if (!bbopSet.hasOwnProperty("conins")) {
+                bbopSet.conins = {
+                    includedInd: true
+                };
+            }
+
+            conins.forEach(prop => {
+                switch(prop.id) {
+                    case "conins.propOnSite": 
+                        bbopSet.conins.propOnSite = prop.answer;
+                        break;
+                    case "conins.conEquipRentReimbursement":
+                        bbopSet.conins.conEquipRentReimbursement = prop.answer;
+                        break;
+                    case "conins.conToolsCovType":
+                        bbopSet.conins.conToolsCovType = prop.answer;
+                        break;
+                    case "conins.limit":
+                        bbopSet.conins.limit = prop.answer;
+                        break;
+                    case "conins.actualCashValueInd":
+                        bbopSet.conins.actualCashValueInd = prop.answer;
+                        break;
+                    case "conins.itemSubLimitText":
+                        bbopSet.conins.itemSubLimitText = prop.answer;
+                        break;
+                    case "conins.nonownTools":
+                        bbopSet.conins.nonownTools = {
+                            includedInd: prop.answer.toLowerCase() === "yes"
+                        }
+                        break;
+                    case "conins.empTools":
+                        bbopSet.conins.empTools = {
+                            includedInd: prop.answer.toLowerCase() === "yes"
+                        }
+                        break;
+                    default:
+                        
+                }
+            });
+
+            const coninsNonownToolsLimit = conins.find(prop => prop.id === "conins.nonownTools.Limit");
+            if (coninsNonownToolsLimit) {
+                if (!bbopSet.conins.hasOwnProperty("nonownTools")) {
+                    bbopSet.conins.nonownTools = {
+                        includedInd: true
+                    };
+                }
+
+                bbopSet.conins.nonownTools.Limit = coninsNonownToolsLimit.answer;
+            }
+
+            const coninsEmpToolsLimit = conins.find(prop => prop.id === "conins.empTools.Limit");
+            if (coninsEmpToolsLimit) {
+                if (!bbopSet.conins.hasOwnProperty("empTools")) {
+                    bbopSet.conins.empTools = {
+                        includedInd: true
+                    };
+                }
+
+                bbopSet.conins.empTools.Limit = coninsEmpToolsLimit.answer;
+            }
+        }
+
+        // hydrate datcom with child question data, if any exist
+        if (datcom.length > 0) {
+            if (!bbopSet.hasOwnProperty("datcom")) {
+                bbopSet.datcom = {
+                    includedInd: true
+                };
+            }
+
+            datcom.forEach(prop => {
+                switch(prop.id) {
+                    case "datcom.limit":
+                        break;
+                    case "datcom.tier.100000":
+                        break;
+                    case "datcom.tier.250000":
+                        break;
+                    case "datcom.tier.500000":
+                        break;
+                    case "datcom.tier.1000000":
+                        break;
+                }
+            });
+        }
+
+        // hydrate empben with child question data, if any exist
+        if (empben.length > 0) {
+            if (!bbopSet.hasOwnProperty("empben")) {
+                bbopSet.empben = {
+                    includedInd: true
+                };
+            }
+
+            empben.forEach(prop => {
+                switch(prop.id) {
+                    case "empben.limit":
+                        break;
+                    case "empben.NumEmp":
+                        break;
+                    case "empben.ProgramName":
+                        break;
+                }
+            });
+        }
+    }
+
+    injectLocationQuestions(location, questions) {
+        // not yet implemented
     }
 }
