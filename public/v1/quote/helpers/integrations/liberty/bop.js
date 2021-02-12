@@ -72,7 +72,7 @@ module.exports = class LibertySBOP extends Integration {
             return this.client_error(`Liberty Mutual (Appid: ${this.app.id}): Could not find a policy with type BOP.`);
         }
 
-        if (!sbopPolicy.hasOwnProperty("coverage")) {
+        if (!sbopPolicy.hasOwnProperty("coverage") || sbopPolicy.coverage === null) {
             return this.client_error(`Liberty Mutual (Appid: ${this.app.id}): No BPP Coverage was supplied for the Simple BOP Policy.`);
         }
 
