@@ -268,15 +268,16 @@ async function GetQuestions(req, res, next){
         questionSubjectArea = req.query.questionSubjectArea;
     }
 
+    //GetQuestion require agencylist to check auth.
+    // auth has already been check - use skipAuthCheck.
     // eslint-disable-next-line prefer-const
     let agencies = [];
-    //TODO check JWT for application access and agencyId.
-    //hard code to Talage.
-    agencies.push(1);
+    const skipAgencyCheck = true;
+
     let getQuestionsResult = null;
     try{
         const applicationBO = new ApplicationBO();
-        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies, questionSubjectArea);
+        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies , questionSubjectArea, skipAgencyCheck);
     }
     catch(err){
         //Incomplete Applications throw errors. those error message need to got to client
