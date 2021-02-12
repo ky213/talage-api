@@ -1096,12 +1096,18 @@ module.exports = class Integration {
             // Localize the questions and restrict them to only ones that are applicable to this insurer and policy type
             for (const question_id in this.app.questions) {
                 if (Object.prototype.hasOwnProperty.call(this.app.questions, question_id)) {
-                    const question = this.app.questions[question_id];
-                    if (question.insurers.includes(`${this.insurer.id}-${this.policy.type}`)) {
-                        this.questions[question_id] = question;
+                    try{
+                        const question = this.app.questions[question_id];
+                        if (question.insurers && question.insurers.includes(`${this.insurer.id}-${this.policy.type}`)){
+                            this.questions[question_id] = question;
+                        }
+                    }
+                    catch(err){
+                        log.error(`error get question ${question_id} for ${this.insurer.id}-${this.policy.type} ` + __location)
                     }
                 }
             }
+
 
             // Get the insurer question identifiers
             let stop = false;

@@ -421,9 +421,11 @@ module.exports = class Application {
         // Get a list of all questions the user may need to answer. These top-level questions are "general" questions.
         const insurer_ids = this.get_insurer_ids();
         const wc_codes = this.get_wc_codes();
-        let questions = null;
+        let talageQuestionDefList = null;
         try {
-            questions = await questionsSvc.GetQuestionsForBackend(wc_codes, this.business.industry_code, this.business.getZips(), policyList, insurer_ids, "general", true);
+            log.info(`Quoting Application Model loading questions for ${this.id} ` + __location)
+            talageQuestionDefList = await questionsSvc.GetQuestionsForBackend(wc_codes, this.business.industry_code, this.business.getZips(), policyList, insurer_ids, "general", true);
+            log.info(`Got questions Quoting Application Model loading questions for ${this.id} ` + __location)
         }
         catch (e) {
             log.error(`Translation Error: GetQuestionsForBackend: ${e}. ` + __location);
@@ -434,12 +436,12 @@ module.exports = class Application {
         this.questions = {};
 
         // Convert each question from the database into a question object and load in the user's answer to each
-        if (questions) {
+        if (talageQuestionDefList) {
             //await questions.forEach((question) => {
-            for (const question of questions) {
+            for (const questionDef of talageQuestionDefList) {
                 // Prepare a Question object based on this data and store it
                 const q = new Question();
-                q.load(question);
+                q.load(questionDef);
 
                 // Load the user's answer
                 if (user_questions) {
@@ -543,7 +545,7 @@ module.exports = class Application {
             }
             else {
                 // Only use the insurers supported by this agent
-                log.debug("loading all AL insurers " + __location)
+                log.debug("loading all Agency Location insurers " + __location)
                 desired_insurers = Object.keys(this.agencyLocation.insurers);
             }
 
@@ -1028,8 +1030,8 @@ module.exports = class Application {
                         try {
                             await this.agencyLocation.init();
                         }
-                        catch (e) {
-                            log.error(`Error in this.agencyLocation.init(): ${e}. ` + __location);
+                        catch (err) {
+                            log.error(`Error in this.agencyLocation.init(): ${err}. ` + __location);
                             return reject(e);
                         }
 
@@ -1055,6 +1057,26 @@ module.exports = class Application {
                 log.error('Invalid insurer(s) specified in policy. ' + __location);
                 return reject(new Error('Invalid insurer(s) specified in policy.'));
             }
+
+            //application level
+            /**
+             * Industry Code (required)
+             * - > 0
+             * - <= 99999999999
+             * - Must existin our database
+             */
+            if (this.applicationDocData.industryCode) {
+                //this is now loaded from database.
+                //industry code should already be validated.
+                // this.applicationDocData.industryCode_description = await validator.industry_code(this.applicationDocData.industryCode);
+                // if (!this.applicationDocData.industryCode_description) {
+                //     throw new Error('The industry code ID you provided is not valid');
+                // }
+            }
+            else {
+                return reject(new Error('Missing property: industryCode'));
+            }
+
 
             // Business (required)
             try {
