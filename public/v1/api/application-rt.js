@@ -231,36 +231,15 @@ async function getApplication(req, res, next) {
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
     //Get agency List check after getting application doc
-    const agencies = [];
-    //TODO check JWT for application access and agencyId.
-    //hard code to Talage.
-    agencies.push(1);
-    // const agencies = await auth.getAgents(req).catch(function(e) {
-    //     error = e;
-    // });
-    // if (error) {
-    //     return next(error);
-    // }
-    let passedAgencyCheck = false;
     let applicationDB = null;
     const applicationBO = new ApplicationBO();
     try{
         applicationDB = await applicationBO.getById(appId);
-        if(applicationDB && agencies.includes(applicationDB.agencyId)){
-            passedAgencyCheck = true;
-        }
         await setupReturnedApplicationJSON(applicationDB);
     }
     catch(err){
         log.error("Error checking application doc " + err + __location)
         return next(serverHelper.requestError(`Bad Request: check error ${err}`));
-    }
-
-    // TODO: get agencies correctly
-    passedAgencyCheck = true;
-    if(applicationDB && applicationDB.applicationId && passedAgencyCheck === false){
-        log.info('Forbidden: User is not authorized for this agency' + __location);
-        return next(serverHelper.forbiddenError('You are not authorized for this agency'));
     }
 
     if(applicationDB && applicationDB.applicationId){
@@ -272,7 +251,6 @@ async function getApplication(req, res, next) {
         res.send(404,"Not found")
         return next(serverHelper.requestError('Not Found'));
     }
-
 }
 
 async function GetQuestions(req, res, next){
@@ -294,7 +272,7 @@ async function GetQuestions(req, res, next){
     let agencies = [];
     //TODO check JWT for application access and agencyId.
     //hard code to Talage.
-    agencies.push(44);
+    agencies.push(1);
     let getQuestionsResult = null;
     try{
         const applicationBO = new ApplicationBO();
