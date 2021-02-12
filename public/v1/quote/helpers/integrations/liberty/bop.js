@@ -72,6 +72,10 @@ module.exports = class LibertySBOP extends Integration {
             return this.client_error(`Liberty Mutual (Appid: ${this.app.id}): Could not find a policy with type BOP.`);
         }
 
+        if (!sbopPolicy.hasOwnProperty("coverage")) {
+            return this.client_error(`Liberty Mutual (Appid: ${this.app.id}): No BPP Coverage was supplied for the Simple BOP Policy.`);
+        }
+
         // Assign the closest supported limit for Per Occ 
         // NOTE: Currently this is not included in the request and defaulted on LM's side
         const limit = this.getSupportedLimit(sbopPolicy.limits);
