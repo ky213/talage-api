@@ -14,7 +14,7 @@ const moment = require('moment');
  * @returns {void}
 */
 
-const validateBusiness = async(applicationDocData) => {
+const validateBusiness = (applicationDocData) => {
 
     // Unincorporated Association (Required only for WC, in NH, and for LLCs and Corporations)
     if (
@@ -141,22 +141,6 @@ const validateBusiness = async(applicationDocData) => {
     }
 
     /**
-     * Industry Code (required)
-     * - > 0
-     * - <= 99999999999
-     * - Must existin our database
-     */
-    if (applicationDocData.industryCode) {
-        applicationDocData.industryCode_description = await validator.industry_code(applicationDocData.industryCode);
-        if (!applicationDocData.industryCode_description) {
-            throw new Error('The industry code ID you provided is not valid');
-        }
-    }
-    else {
-        throw new Error('Missing property: industryCode');
-    }
-
-    /**
      * Mailing Address (required)
      */
     if (!applicationDocData.mailingAddress) {
@@ -276,6 +260,7 @@ const validateBusiness = async(applicationDocData) => {
     if (!(validator.ein(applicationDocData.ein) || validator.ssn(applicationDocData.ein))) {
         throw new Error(`Invalid formatting for property: EIN`);
     }
+    return;
 }
 
 /**
