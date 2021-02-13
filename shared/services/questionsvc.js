@@ -220,7 +220,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     `;
 
     let questions = [];
-
+    log.debug("Getting universal questions " + __location);
     // ============================================================
     // Get universal questions
     sql = `
@@ -277,23 +277,63 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     // if (error) {
     //     return false;
     // }
+    log.debug("Getting industry questions " + __location);
     const redisQuestions = await getRedisIndustryCodeQuestions(industry_code)
     if(redisQuestions.length > 0){
         // eslint-disable-next-line space-before-function-paren
         var filteredRedisQuestions = redisQuestions.filter(function(el) {
             let returnValue = false;
-            if(insurerArray.indexOf(el.insurer) > -1
-             && filteredRedisQuestions.indexOf(el.territory) > -1
-             && el.universal === 0){
-                returnValue = true;
+            try{
+                let insurerMatch = false;
+                if(el.insurerList){
+                    const qInsurerList = el.insurerList.split(',')
+                    for(let i = 0; i < qInsurerList.length; i++){
+                        const insurerId = parseInt(qInsurerList[i], 10);
+                        if(insurerArray.indexOf(insurerId) > -1){
+                            insurerMatch = true;
+                            break;
+                        }
+                    }
+                }
+                let policyTypeMatch = false;
+                if(el.policyTypeList){
+                    const qPolicyTypeList = el.policyTypeList.split(',')
+                    const matched = qPolicyTypeList.filter(qPolicyTypeCd => policyTypes.indexOf(qPolicyTypeCd) > -1);
+                    if(matched && matched.length > 0){
+                        policyTypeMatch = true;
+                    }
+                }
+                if(insurerMatch === true
+                    && territories.indexOf(el.territory) > -1
+                    && policyTypeMatch === true
+                    && el.universal === 0){
+                    policyTypeArray.forEach(function(policyTypeJSON) {
+                        const policyEffDateMoment = moment(policyTypeJSON.effectiveDate);
+                        const insurerIndustryEffectiveDate = moment(el.insurerIndustryEffectiveDate);
+                        const insurerIndustryExpirationDate = moment(el.insurerIndustryExpirationDate);
+                        const insurerQuestionEffectiveDate = moment(el.insurerQuestionEffectiveDate);
+                        const insurerQuestionExpirationDate = moment(el.insurerQuestionExpirationDate);
+                        if(policyEffDateMoment >= insurerIndustryEffectiveDate
+                                && policyEffDateMoment < insurerIndustryExpirationDate
+                                && policyEffDateMoment >= insurerQuestionEffectiveDate
+                                && policyEffDateMoment < insurerQuestionExpirationDate){
+                            returnValue = true;
+                        }
+
+                    });
+                }
             }
-            //TODO expiration date checking.
+            catch(err){
+                log.error("Question filter error " + err + __location)
+            }
+
             return returnValue;
         });
-        log.debug("adding redis questions " + filteredRedisQuestions.length + __location)
+        log.debug(`Adding ${filteredRedisQuestions.length} redis industry questions ` + __location)
         questions = questions.concat(filteredRedisQuestions);
     }
 
+    log.debug("Getting activity questions " + __location);
     // ============================================================
     // Get activity-based questions
     if (activityCodeArray && activityCodeArray.length > 0) {
@@ -324,6 +364,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         questions = questions.concat(activityCodeQuestions);
     }
 
+    log.debug("removing duplicate questions " + __location);
     // Remove Duplicates
     if (questions) {
         questions = questions.filter((question, index, self) => index === self.findIndex((t) => t.id === question.id));
@@ -333,6 +374,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         return [];
     }
 
+    log.debug("Getting missing questions " + __location);
     // Check for missing questions
     let missing_questions = find_missing_questions(questions);
     while (missing_questions) {
@@ -354,10 +396,12 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         if (error2) {
             return false;
         }
+        log.debug("Missing questions  count " + added_questions.length + __location);
         questions = questions.concat(added_questions);
         // Check for additional missing questions
         missing_questions = find_missing_questions(questions);
     }
+    log.debug("Cleanup questions " + __location);
     // Let's do some cleanup and get a list of question IDs
     for (let index = 0; index < questions.length; index++) {
         const question = questions[index];
@@ -401,6 +445,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         }
     }
 
+    log.debug("removing empty questions " + __location);
     // Remove empty elements in the array
     if (questions) {
         questions = questions.filter((question) => question.id > 0);
@@ -410,6 +455,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     const question_ids = questions.map(function(question) {
         return question.id;
     });
+    log.debug("Getting answers questions " + __location);
     if (question_ids) {
         // Get the answers to the questions
         sql = `SELECT id, question, \`default\`, answer FROM clw_talage_question_answers WHERE question IN (${question_ids.filter(Boolean).join(',')}) AND state = 1;`;
@@ -450,12 +496,13 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             delete question.type_id;
         });
 
+        log.debug("question sort " + __location);
         // Sort the questions
         questions.sort(function(a, b) {
             return a.id - b.id;
         });
     }
-    // log.info(`Returning ${questions.length} Questions`);
+    log.info(`Returning ${questions.length} Questions`);
 
     return questions;
 }
@@ -575,11 +622,13 @@ async function CreateRedisIndustryCodeQuestionEntryInternal(industryCodeId){
     // Get industry-based questions
     // Notes:
     //      questionId and id are same.  id is from backward compatibility.
-    const select = `ic.id as 'industryCodeId', iq.policy_type as policyTypeCd,iq.questionSubjectArea,iic.territory, iq.insurer,
+    const select = `ic.id as 'industryCodeId', iq.questionSubjectArea,iic.territory,
          iic.effectiveDate as 'insurerIndustryEffectiveDate', iic.expirationDate as 'insurerIndustryExpirationDate',
          iq.effectiveDate as 'insurerQuestionEffectiveDate', iq.expirationDate as 'insurerQuestionExpirationDate',
-         q.id  as 'quesetionId',q.id  as 'id', iq.universal, q.parent, q.parent_answer, q.sub_level, q.question AS 'text', q.hint, q.type AS type_id, qt.name AS type, q.hidden,
-         GROUP_CONCAT(DISTINCT CONCAT(iq.insurer, "-", iq.policy_type)) AS insurers`
+         q.id  as 'questionId',q.id  as 'id', iq.universal, q.parent, q.parent_answer, q.sub_level, q.question AS 'text', q.hint, q.type AS type_id, qt.name AS type, q.hidden,
+         GROUP_CONCAT(DISTINCT CONCAT(iq.insurer, "-", iq.policy_type)) AS insurers,
+          GROUP_CONCAT(DISTINCT iq.insurer) AS insurerList,
+          GROUP_CONCAT(DISTINCT iq.policy_type) AS policyTypeList`;
 
     const sql = `
         SELECT ${select}
