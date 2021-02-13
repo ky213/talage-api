@@ -707,3 +707,39 @@ exports.UpdateRedisIndustryQuestionByQuestionId = async function(questionId){
         log.info(`No industry code to update for QuestionId ${questionId} ` + __location)
     }
 }
+
+
+exports.UpdateRedisIndustryQuestionByInsurer = async function(insurerId){
+    const sql = `SELECT distinct ic.id as 'industryCodeId'
+        FROM clw_talage_industry_codes AS ic
+        INNER JOIN industry_code_to_insurer_industry_code AS industryCodeMap ON industryCodeMap.talageIndustryCodeId = ic.id
+        INNER JOIN clw_talage_insurer_industry_codes AS iic ON iic.id = industryCodeMap.insurerIndustryCodeId
+        where iic.insurer = ${db.escape(insurerId)}
+        order by ic.id`
+
+    let error = null;
+    const industryCodeList = await db.queryReadonly(sql).catch(function(err) {
+        error = err.message;
+    });
+    if (error) {
+        log.error(`Error getting industry code  for insurerId  ${insurerId} for Redis ${error}` + __location)
+        return false;
+    }
+    if(industryCodeList.length > 0){
+        for (let i = 0; i < industryCodeList.length; i++){
+            const industryCodeId = industryCodeList[i].industryCodeId;
+            try{
+                await CreateRedisIndustryCodeQuestionEntryInternal(industryCodeId)
+            }
+            catch(err){
+                log.error(`Error Setting industry code questions cache industryCodeId ${industryCodeId} for Redis ${err}` + __location)
+            }
+            
+            log.info(`Indusry Code Redis cached for insurerId ${insurerId} updated ${i + 1} of ${industryCodeList.length}`);
+            
+        }
+    }
+    else {
+        log.info(`No industry code to update for insurerId ${insurerId} ` + __location)
+    }
+}

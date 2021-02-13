@@ -20,18 +20,30 @@ exports.processtask = async function(queueMessage){
     //log.debug("messageAge: " + messageAge );
     if(messageAge < 1800){
         // DO STUFF
-        let industryCodeId = null;
-        if(queueMessage.Body && queueMessage.Body.industryCodeId){
-            industryCodeId = queueMessage.Body.industryCodeId;
-        }
-        await industryCodeQuestionCacheUpdate(industryCodeId).catch(err => error = err);
+        //very long running process so kill the queueitem for proecessing
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err){
             error = err;
         });
         if(error){
             log.error("Error industryCodeQuestionCacheUpdate deleteTaskQueueItem " + error + __location);
         }
-        await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle);
+
+
+        let industryCodeId = null;
+        if(queueMessage.Body && queueMessage.Body.insurerId){
+            await industryCodeQuestionCacheUpdateByInsurerId(queueMessage.Body.insurerId).catch(err => error = err);
+        }
+        else {
+            if(queueMessage.Body && queueMessage.Body.industryCodeId){
+                industryCodeId = queueMessage.Body.industryCodeId;
+            }
+            await industryCodeQuestionCacheUpdate(industryCodeId).catch(err => error = err);
+        }
+        if(queueMessage.Body && queueMessage.Body.industryCodeId){
+            industryCodeId = queueMessage.Body.industryCodeId;
+        }
+        await industryCodeQuestionCacheUpdate(industryCodeId).catch(err => error = err);
+        
 
         return;
     }
@@ -79,13 +91,28 @@ var industryCodeQuestionCacheUpdate = async function(industryCodeId){
         const industryCodeid = industryCodeList[i].id;
         const redisKey = await questionSvc.CreateRedisIndustryCodeQuestionEntry(industryCodeid);
         log.debug(`updated redis key ${redisKey} ` + __location)
-        if((i + 1) % 20 === 0){
-            log.debug(`Indusry Code Redis cached update ${i + 1} of ${numOfindustryCodes}`);
-        }
+        
+        log.info(`Indusry Code Redis cached updated ${i + 1} of ${numOfindustryCodes}`);
+        
 
     }
     log.info("Redis Industry Code Question cached updated. processed " + numOfindustryCodes + __location);
 
 
+    return;
+}
+
+var industryCodeQuestionCacheUpdateByInsurerId = async function(insurerId){
+
+    
+    const questionSvc = global.requireShared('./services/questionsvc.js');
+    try{
+        await questionSvc.UpdateRedisIndustryQuestionByInsurer(insurerId);
+        log.info(`Redis Industry Code Question cached updated for insurerId ${insurerId}` + __location);
+    }
+    catch(err){
+        log.error(`Error updating Industry Code Question cached for insurerId ${insurerId}` + __location)
+    }
+   
     return;
 }
