@@ -35,6 +35,8 @@ module.exports = class LibertySBOP extends Integration {
 	 */
 	async _insurer_quote() {
 
+        // TODO: Add __location to all this.client_error(...) function calls
+
         const applicationDocData = this.app.applicationDocData;
         const BOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP");
         const primaryContact = applicationDocData.contacts.find(c => c.primary);
@@ -75,7 +77,7 @@ module.exports = class LibertySBOP extends Integration {
                         log.error(`${logPrefix}${question.answerValue} for question property ${question.insurerQuestionIdentifier}. Not including in request.`)
                     }
                     break;
-                case "bipay.extNumDays":
+                case "bipay.extNumDays": // TODO: Change the spreadsheet value so this becomes 0, not "None"
                     if (question.answerValue.toLowerCase() === "none") {
                         answer = 0;
                     } else {
@@ -150,10 +152,10 @@ module.exports = class LibertySBOP extends Integration {
                     },
                     stateOfDomicile: applicationDocData.mailingState,
                     company: "CABPQ1",
-                    naicsCode: this.industry_code.attributes.naics, // <---- CHECK THIS
-                    classCode: this.industry_code.code, // <---- CHECK THIS
+                    naicsCode: this.industry_code.attributes.naics,
+                    classCode: this.industry_code.code, 
                     yearBizStarted: `${moment(applicationDocData.founded).year()}`,
-                    sicCode: this.industry_code.attributes.sic, // <---- CHECK THIS
+                    sicCode: this.industry_code.attributes.sic,
                     expiration: moment(BOPPolicy.effectiveDate).add(1, "year").format("YYYYMMDD"),
                     state: applicationDocData.mailingState,
                     quoteType: "NB"
@@ -190,7 +192,7 @@ module.exports = class LibertySBOP extends Integration {
         try {
             this.injectGeneralQuestions(requestJSON, questions);
         } catch (e) {
-            return this.client_error(`${logPrefix}${e}`);
+            return this.client_error(`${logPrefix}${e}`, __location);
         }
 
         // send the JSON request
@@ -274,7 +276,7 @@ module.exports = class LibertySBOP extends Integration {
                 recordType: "S",
                 rawProtectionClass: "3",
                 streetNum: "",
-                WHDeductiblePcnt: "5",
+                WHDeductiblePcnt: "N/A",
                 classCodes: this.industry_code.code,
                 confirmation: "N/A",
                 addressLine: applicationDocData.mailingAddress,
@@ -441,12 +443,12 @@ module.exports = class LibertySBOP extends Integration {
                     bbopSet.automaticIncr = answer;
                     break;
                 case "flMixedBbopInd":
-                    bbopSet.flMixedBbopInd = answer.toLowerCase() === "yes";
+                    bbopSet.flMixedBbopInd = answer.toLowerCase() === "yes"; // TODO: Add this as a single general function
                     break;
-                case "MedicalExpenses":
+                case "MedicalExpenses": // TODO: Update this in the spreadsheet
                     bbopSet.medicalExpenses = answer;
                     break;        
-                case "LiaDed":
+                case "LiaDed": // TODO: Update this in the spreadsheet
                     bbopSet.liaDed = answer;
                     break;       
                 case "fixedPropDeductible":
