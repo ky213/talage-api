@@ -306,7 +306,8 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                 if(insurerMatch === true
                     && territories.indexOf(el.territory) > -1
                     && policyTypeMatch === true
-                    && el.universal === 0){
+                    && el.universal === 0
+                    && el.questionSubjectArea === questionSubjectArea){
                     policyTypeArray.forEach(function(policyTypeJSON) {
                         const policyEffDateMoment = moment(policyTypeJSON.effectiveDate);
                         const insurerIndustryEffectiveDate = moment(el.insurerIndustryEffectiveDate);
