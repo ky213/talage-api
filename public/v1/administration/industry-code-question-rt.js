@@ -79,6 +79,15 @@ async function add(req, res, next) {
         return next(error);
     }
 
+    const questionSvc = global.requireShared('./services/questionsvc.js');
+    try{
+        //do not await not need to wait for response
+        questionSvc.UpdateRedisIndustryQuestionByQuestionId(req.body.talageQuestionId);
+    }
+    catch(err){
+        log.error(`Error update question cache for ${req.body.talageQuestionId}`)
+    }
+
     res.send(200, industryCodeQuestionBO.cleanJSON());
     return next();
 }
@@ -106,6 +115,14 @@ async function deleteObject(req, res, next) {
     });
     if (error) {
         return next(error);
+    }
+    const questionSvc = global.requireShared('./services/questionsvc.js');
+    try{
+        //do not await not need to wait for response
+        questionSvc.UpdateRedisIndustryQuestionByQuestionId(talageQuestionId);
+    }
+    catch(err){
+        log.error(`Error update question cache for ${talageQuestionId}`)
     }
     res.send(200, {"success": true});
     return next();
