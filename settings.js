@@ -86,6 +86,7 @@ exports.load = () => {
     variables.DISABLE_BINDING = "NO";
     // Default to use questions cached in Redis
     variables.USE_REDIS_QUESTION_CACHE = "YES";
+    variables.REDIS_QUESTION_CACHE_JOB_COUNT = 3;
 
 
     if (fs.existsSync('local.env')){
