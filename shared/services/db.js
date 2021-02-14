@@ -36,7 +36,7 @@ exports.connect = async() => {
     if(global.settings.DATABASE_HOST_READONLY){
         useReadOnly = true;
         if(global.settings.DATABASE_RO_HOST_LIST && global.settings.DATABASE_RO_HOST_LIST.length > 0){
-            roHostArray = global.settings.DATABASE_RO_HOST.split(",");
+            roHostArray = global.settings.DATABASE_RO_HOST_LIST.split(",");
         }
         if(roHostArray > 1 && global.settings.USING_AURORA_CLUSTER === "YES"){
             connRo = mysql.createPoolCluster();
