@@ -72,23 +72,32 @@ const optionalVariables = [
     'USE_REDIS',
     'REDIS_HOST',
     'REDIS_PORT',
-    'REDIS_CLUSTER'
+    'REDIS_CLUSTER',
+    'USE_REDIS_QUESTION_CACHE'
 ]
 
 exports.load = () => {
+    // eslint-disable-next-line prefer-const
     let variables = {};
     variables.AWS_USE_KEYS = "NO";
     //Default to no use mongo if there are not ENV settings for it.
     variables.USE_MONGO = "NO";
     // Disable binding
     variables.DISABLE_BINDING = "NO";
+    // Default to use questions cached in Redis
+    variables.USE_REDIS_QUESTION_CACHE = "YES";
 
 
     if (fs.existsSync('local.env')){
         // Load the variables from the aws.env file if it exists
         console.log('Loading settings from local.env file');
         try {
-            variables = environment.parse(fs.readFileSync('local.env', {"encoding": 'utf8'}));
+            const variablesFile = environment.parse(fs.readFileSync('local.env', {"encoding": 'utf8'}));
+            for (const fileProp in variablesFile) {
+                if(variablesFile[fileProp]){
+                    variables[fileProp] = variablesFile[fileProp]
+                }
+            }
         }
         catch (error){
             console.log(colors.red(`\tError parsing aws.env: ${error}`));
@@ -101,6 +110,10 @@ exports.load = () => {
         }
         console.log(colors.green('\tCompleted'));
     }
+
+
+
+
     // Load the environment variables over the local.env variables
     console.log('Loading required settings from environment variables');
     requiredVariables.forEach((variableName) => {

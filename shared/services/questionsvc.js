@@ -250,88 +250,99 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
 
     // ============================================================
     // // Get industry-based questions
-    // // Notes:
-    // //      - pull in all insurer questions which are for the requested policy types (clw_talage_insurer_questions.policy_type IN policy_types)
-    // //      - group by clw_talage_insurer_questions.question (Talage question) to ensure we don't get duplicate questions
-    // sql = `
-    //     SELECT ${select}
-    //     FROM clw_talage_industry_codes AS ic
-    //     INNER JOIN industry_code_to_insurer_industry_code AS industryCodeMap ON industryCodeMap.talageIndustryCodeId = ic.id
-    //     INNER JOIN clw_talage_insurer_industry_codes AS iic ON iic.id = industryCodeMap.insurerIndustryCodeId
-    //     INNER JOIN clw_talage_industry_code_questions AS icq ON icq.insurerIndustryCodeId = iic.id
-    //     INNER JOIN clw_talage_questions AS q ON q.id = icq.talageQuestionId
-    //     INNER JOIN clw_talage_insurer_questions AS iq ON iq.question = q.id
-    //     INNER JOIN clw_talage_question_types AS qt ON qt.id = q.type
-    //     WHERE
-    //         ic.id = ${db.escape(industry_code)}
-    //         AND iic.territory IN (${territories.map(db.escape).join(',')})
-    //         AND ${where}
-    //         AND ${questionEffectiveDateWhereClause}
-    //         AND ${industryCodeEffectiveDateWhereClause}
-    //         AND iq.questionSubjectArea = '${questionSubjectArea}'
-    //         GROUP BY iq.question;
-    // `;
-    // const industryCodeQuestions = await db.queryReadonly(sql).catch(function(err) {
-    //     error = err.message;
-    // });
-    // if (error) {
-    //     return false;
-    // }
-    log.debug("Getting industry questions " + __location);
-    const redisQuestions = await getRedisIndustryCodeQuestions(industry_code)
-    if(redisQuestions.length > 0){
-        // eslint-disable-next-line space-before-function-paren
-        var filteredRedisQuestions = redisQuestions.filter(function(el) {
-            let returnValue = false;
-            try{
-                let insurerMatch = false;
-                if(el.insurerList){
-                    const qInsurerList = el.insurerList.split(',')
-                    for(let i = 0; i < qInsurerList.length; i++){
-                        const insurerId = parseInt(qInsurerList[i], 10);
-                        if(insurerArray.indexOf(insurerId) > -1){
-                            insurerMatch = true;
-                            break;
+    log.debug(`Getting industry questions use Redis ${global.settings.USE_REDIS_QUESTION_CACHE}  ` + __location);
+    if(global.settings.USE_REDIS_QUESTION_CACHE === "YES"){
+        const redisQuestions = await getRedisIndustryCodeQuestions(industry_code)
+        if(redisQuestions.length > 0){
+            // eslint-disable-next-line space-before-function-paren
+            var filteredRedisQuestions = redisQuestions.filter(function(el) {
+                let returnValue = false;
+                try{
+                    let insurerMatch = false;
+                    if(el.insurerList){
+                        const qInsurerList = el.insurerList.split(',')
+                        for(let i = 0; i < qInsurerList.length; i++){
+                            const insurerId = parseInt(qInsurerList[i], 10);
+                            if(insurerArray.indexOf(insurerId) > -1){
+                                insurerMatch = true;
+                                break;
+                            }
                         }
                     }
-                }
-                let policyTypeMatch = false;
-                if(el.policyTypeList){
-                    const qPolicyTypeList = el.policyTypeList.split(',')
-                    const matched = qPolicyTypeList.filter(qPolicyTypeCd => policyTypes.indexOf(qPolicyTypeCd) > -1);
-                    if(matched && matched.length > 0){
-                        policyTypeMatch = true;
+                    let policyTypeMatch = false;
+                    if(el.policyTypeList){
+                        const qPolicyTypeList = el.policyTypeList.split(',')
+                        const matched = qPolicyTypeList.filter(qPolicyTypeCd => policyTypes.indexOf(qPolicyTypeCd) > -1);
+                        if(matched && matched.length > 0){
+                            policyTypeMatch = true;
+                        }
+                    }
+                    if(insurerMatch === true
+                        && territories.indexOf(el.territory) > -1
+                        && policyTypeMatch === true
+                        && el.universal === 0
+                        && el.questionSubjectArea === questionSubjectArea){
+                        policyTypeArray.forEach(function(policyTypeJSON) {
+                            const policyEffDateMoment = moment(policyTypeJSON.effectiveDate);
+                            const insurerIndustryEffectiveDate = moment(el.insurerIndustryEffectiveDate);
+                            const insurerIndustryExpirationDate = moment(el.insurerIndustryExpirationDate);
+                            const insurerQuestionEffectiveDate = moment(el.insurerQuestionEffectiveDate);
+                            const insurerQuestionExpirationDate = moment(el.insurerQuestionExpirationDate);
+                            if(policyEffDateMoment >= insurerIndustryEffectiveDate
+                                    && policyEffDateMoment < insurerIndustryExpirationDate
+                                    && policyEffDateMoment >= insurerQuestionEffectiveDate
+                                    && policyEffDateMoment < insurerQuestionExpirationDate){
+                                returnValue = true;
+                            }
+
+                        });
                     }
                 }
-                if(insurerMatch === true
-                    && territories.indexOf(el.territory) > -1
-                    && policyTypeMatch === true
-                    && el.universal === 0
-                    && el.questionSubjectArea === questionSubjectArea){
-                    policyTypeArray.forEach(function(policyTypeJSON) {
-                        const policyEffDateMoment = moment(policyTypeJSON.effectiveDate);
-                        const insurerIndustryEffectiveDate = moment(el.insurerIndustryEffectiveDate);
-                        const insurerIndustryExpirationDate = moment(el.insurerIndustryExpirationDate);
-                        const insurerQuestionEffectiveDate = moment(el.insurerQuestionEffectiveDate);
-                        const insurerQuestionExpirationDate = moment(el.insurerQuestionExpirationDate);
-                        if(policyEffDateMoment >= insurerIndustryEffectiveDate
-                                && policyEffDateMoment < insurerIndustryExpirationDate
-                                && policyEffDateMoment >= insurerQuestionEffectiveDate
-                                && policyEffDateMoment < insurerQuestionExpirationDate){
-                            returnValue = true;
-                        }
-
-                    });
+                catch(err){
+                    log.error("Question filter error " + err + __location)
                 }
-            }
-            catch(err){
-                log.error("Question filter error " + err + __location)
-            }
 
-            return returnValue;
+                return returnValue;
+            });
+            log.debug(`Adding ${filteredRedisQuestions.length} redis industry questions ` + __location)
+            questions = questions.concat(filteredRedisQuestions);
+        }
+    }
+    else {
+        // Notes:
+        //      - pull in all insurer questions which are for the requested policy types (clw_talage_insurer_questions.policy_type IN policy_types)
+        //      - group by clw_talage_insurer_questions.question (Talage question) to ensure we don't get duplicate questions
+       const start = moment();
+        sql = `
+            SELECT ${select}
+            FROM clw_talage_industry_codes AS ic
+            INNER JOIN industry_code_to_insurer_industry_code AS industryCodeMap ON industryCodeMap.talageIndustryCodeId = ic.id
+            INNER JOIN clw_talage_insurer_industry_codes AS iic ON iic.id = industryCodeMap.insurerIndustryCodeId
+            INNER JOIN clw_talage_industry_code_questions AS icq ON icq.insurerIndustryCodeId = iic.id
+            INNER JOIN clw_talage_questions AS q ON q.id = icq.talageQuestionId
+            INNER JOIN clw_talage_insurer_questions AS iq ON iq.question = q.id
+            INNER JOIN clw_talage_question_types AS qt ON qt.id = q.type
+            WHERE
+                ic.id = ${db.escape(industry_code)}
+                AND iic.territory IN (${territories.map(db.escape).join(',')})
+                AND ${where}
+                AND ${questionEffectiveDateWhereClause}
+                AND ${industryCodeEffectiveDateWhereClause}
+                AND iq.questionSubjectArea = '${questionSubjectArea}'
+                GROUP BY iq.question;
+        `;
+        const industryCodeQuestions = await db.queryReadonly(sql).catch(function(err) {
+            error = err.message;
         });
-        log.debug(`Adding ${filteredRedisQuestions.length} redis industry questions ` + __location)
-        questions = questions.concat(filteredRedisQuestions);
+        if (error) {
+            return false;
+        }
+        const endSqlSelect = moment();
+        var diff = endSqlSelect.diff(start, 'milliseconds', true);
+        log.info(`Mysql Industry Question query duration: ${diff} milliseconds`);
+
+        log.debug(`Adding ${industryCodeQuestions.length} mysql industry questions ` + __location)
+        questions = questions.concat(industryCodeQuestions);
     }
 
     log.debug("Getting activity questions " + __location);
@@ -593,8 +604,8 @@ async function getRedisIndustryCodeQuestions(industryCodeId){
     if(resp.found){
         questionList = JSON.parse(resp.value);
         const endRedis = moment();
-        var diff = endRedis.diff(start, 'seconds', true);
-        log.debug(`Redis request ${redisKey} duration: ${diff} seconds`);
+        var diff = endRedis.diff(start, 'milliseconds', true);
+        log.info(`Redis request ${redisKey} duration: ${diff} milliseconds`);
     }
     else {
         log.warn(`#{redisKey} not found refreshing cache` + __location)
