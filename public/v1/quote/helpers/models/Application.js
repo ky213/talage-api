@@ -769,15 +769,11 @@ module.exports = class Application {
 	 */
     async send_notifications(quoteList) {
         // Determine which message will be sent
-        let all_had_quotes = true;
         let some_quotes = false;
         let notifiyTalage = false
         quoteList.forEach((quoteDoc) => {
             if (quoteDoc.aggregatedStatus === 'quoted' || quoteDoc.aggregatedStatus === 'quoted_referred') {
                 some_quotes = true;
-            }
-            else {
-                all_had_quotes = false;
             }
             //Notify Talage logic Agencylocation ->insures
             try{
@@ -792,7 +788,7 @@ module.exports = class Application {
                 log.error(`Quote Application ${this.id} Error get notifyTalage ` + err + __location);
             }
         });
-        log.info(`Quote Application ${this.id}, some_quotes;: ${some_quotes}, all_had_quotes: ${all_had_quotes}:  Sending Notification to Talage is ${notifiyTalage}` + __location)
+        log.info(`Quote Application ${this.id}, some_quotes;: ${some_quotes}:  Sending Notification to Talage is ${notifiyTalage}` + __location)
 
         // Send an emails if there were no quotes generated
         if (some_quotes === false && this.agencyPortalQuote === false) {
@@ -924,11 +920,8 @@ module.exports = class Application {
             // Send a message to Slack
             // some_quotes === true tells us there is at least one quote.
             // if quoteList is empty, all_had_quotes will equal true.
-            if (all_had_quotes && some_quotes) {
-                slack.send('customer_success', 'ok', 'Application completed and the user received ALL quotes', attachment);
-            }
-            else if (some_quotes) {
-                slack.send('customer_success', 'ok', 'Application completed and only SOME quotes returned', attachment);
+            if (some_quotes) {
+                slack.send('customer_success', 'ok', 'Application completed and got quotes returned', attachment);
             }
             else {
                 slack.send('customer_success', 'warning', 'Application completed, but the user received NO quotes', attachment);
