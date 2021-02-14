@@ -486,7 +486,7 @@ module.exports = class LibertyWC extends Integration {
 
                 // Attempt to get the quote number
                 try {
-                    this.request_id = res.Policy[0].QuoteInfo[0].CompanysQuoteNumber[0];
+                    this.number = res.Policy[0].QuoteInfo[0].CompanysQuoteNumber[0];
                 }
                 catch (e) {
                     log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.` + __location);

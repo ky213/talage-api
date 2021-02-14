@@ -806,14 +806,14 @@ async function validate(req, res, next) {
 
     //Get app and check status
     log.debug("Loading Application by mysqlId for Validation " + __location)
-    const applicationDB = await applicationBO.getById(id).catch(function(err) {
+    const applicationDocDB = await applicationBO.getById(id).catch(function(err) {
         log.error("Location load error " + err + __location);
         error = err;
     });
     if (error) {
         return next(error);
     }
-    if (!applicationDB) {
+    if (!applicationDocDB) {
         return next(serverHelper.requestError('Not Found'));
     }
     //TODO Check agency Network or Agency rights....
@@ -827,7 +827,7 @@ async function validate(req, res, next) {
     }
 
     // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
-    if (!agents.includes(parseInt(applicationDB.agency, 10))) {
+    if (!agents.includes(parseInt(applicationDocDB.agencyId, 10))) {
         log.info('Forbidden: User is not authorized to access the requested application');
         return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
     }
@@ -955,7 +955,7 @@ async function requote(req, res, next) {
     }
 
     // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
-    if (!agents.includes(parseInt(applicationDB.agency, 10))) {
+    if (!agents.includes(parseInt(applicationDB.agencyId, 10))) {
         log.info('Forbidden: User is not authorized to access the requested application');
         return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
     }
@@ -1004,12 +1004,12 @@ async function requote(req, res, next) {
 
     // Set the application progress to 'quoting'
     try {
-        await applicationBO.updateProgress(applicationDB.id, "quoting");
+        await applicationBO.updateProgress(applicationDB.mysqlId, "quoting");
         const appStatusIdQuoting = 15;
-        await applicationBO.updateStatus(applicationDB.id, "quoting", appStatusIdQuoting);
+        await applicationBO.updateStatus(applicationDB.mysqlId, "quoting", appStatusIdQuoting);
     }
     catch (err) {
-        log.error(`Error update appication progress appId = ${applicationDB.id} for quoting. ` + err + __location);
+        log.error(`Error update appication progress appId = ${applicationDB.mysqlId} for quoting. ` + err + __location);
     }
 
     // Build a JWT that contains the application ID that expires in 5 minutes.
@@ -1063,11 +1063,16 @@ async function GetQuestions(req, res, next){
         return next(error);
     }
 
+    // Set the question subject area. Default to "general" if not specified.
+    let questionSubjectArea = "general";
+    if (req.query.questionSubjectArea) {
+        questionSubjectArea = req.query.questionSubjectArea;
+    }
 
     let getQuestionsResult = null;
     try{
         const applicationBO = new ApplicationBO();
-        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies);
+        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies, questionSubjectArea);
     }
     catch(err){
         //Incomplete Applications throw errors. those error message need to got to client

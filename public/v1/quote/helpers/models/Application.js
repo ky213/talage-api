@@ -407,20 +407,25 @@ module.exports = class Application {
         /************** QUESTION DATA TRANSLATION ***************/
         // NOTE: Some of this logic now uses applicationDocData simply because the logic is greatly simplified doing so
 
-        const policy_types = [];
+        const policyList = [];
         this.policies.forEach(policy => {
-            policy_types.push({
+            policyList.push({
                 type: policy.type,
                 effectiveDate: policy.effective_date
             });
         });
 
-        // Get a list of all questions the user may need to answer
+        // Ensure we have the list of insurers for this application
+        this.insurers = await this.get_insurers();
+
+        // Get a list of all questions the user may need to answer. These top-level questions are "general" questions.
         const insurer_ids = this.get_insurer_ids();
         const wc_codes = this.get_wc_codes();
-        let questions = null;
+        let talageQuestionDefList = null;
         try {
-            questions = await questionsSvc.GetQuestionsForBackend(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids, true);
+            log.info(`Quoting Application Model loading questions for ${this.id} ` + __location)
+            talageQuestionDefList = await questionsSvc.GetQuestionsForBackend(wc_codes, this.business.industry_code, this.business.getZips(), policyList, insurer_ids, "general", true);
+            log.info(`Got questions Quoting Application Model loading questions for ${this.id} ` + __location)
         }
         catch (e) {
             log.error(`Translation Error: GetQuestionsForBackend: ${e}. ` + __location);
@@ -431,12 +436,12 @@ module.exports = class Application {
         this.questions = {};
 
         // Convert each question from the database into a question object and load in the user's answer to each
-        if (questions) {
+        if (talageQuestionDefList) {
             //await questions.forEach((question) => {
-            for (const question of questions) {
+            for (const questionDef of talageQuestionDefList) {
                 // Prepare a Question object based on this data and store it
                 const q = new Question();
-                q.load(question);
+                q.load(questionDef);
 
                 // Load the user's answer
                 if (user_questions) {
@@ -454,32 +459,6 @@ module.exports = class Application {
 
                 // Store the question object in the Application for later use
                 this.questions[q.id] = q;
-            }
-        }
-
-        // Enforce required questions (this must be done AFTER all questions are loaded with their answers)
-        if (this.applicationDocData.questions) {
-            for (const questionId in this.applicationDocData.questions) {
-                if (Object.prototype.hasOwnProperty.call(this.applicationDocData.questions, questionId)) {
-                    const question = this.applicationDocData.questions[questionId];
-
-                    // Hidden questions are not required
-                    if (question.hidden) {
-                        continue;
-                    }
-
-                    if (question.parent && question.parent > 0) {
-                        // Get the parent question
-                        const parent_question = this.questions[question.parent];
-
-                        // If no parent was found, throw an error
-                        if (!parent_question) {
-                            // No one question issue should stop quoting with all insureres - BP 2020-10-04
-                            log.error(`Question ${question.id} has invalid parent setting. (${htmlentities.decode(question.text).replace('%', '%%')})` + __location);
-                        }
-                    }
-
-                }
             }
         }
     }
@@ -507,7 +486,6 @@ module.exports = class Application {
         return new Promise(async(fulfill, reject) => {
             // Get a list of desired insurers
             let desired_insurers = [];
-            let stop = false;
             this.policies.forEach((policy) => {
                 if (Array.isArray(policy.insurers)) {
                     policy.insurers.forEach((insurer) => {
@@ -547,9 +525,6 @@ module.exports = class Application {
                     });
                 }
             });
-            if (stop) {
-                return;
-            }
 
             // Limit insurers to those supported by the Agent
             if (desired_insurers.length) {
@@ -570,7 +545,7 @@ module.exports = class Application {
             }
             else {
                 // Only use the insurers supported by this agent
-                log.debug("loading all AL insurers " + __location)
+                log.debug("loading all Agency Location insurers " + __location)
                 desired_insurers = Object.keys(this.agencyLocation.insurers);
             }
 
@@ -711,11 +686,11 @@ module.exports = class Application {
                                 }
                             }
                             else {
-                                log.error(`${policy.type} is not enabled for insurer ${insurer.id} for Agency location ${this.agencyLocation.id} app ${this.id}` + __location);
+                                log.info(`${policy.type} is not enabled for insurer ${insurer.id} for Agency location ${this.agencyLocation.id} app ${this.id}` + __location);
                             }
                         }
                         else {
-                            log.error(`Info for policy type ${policy.type} not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} app ${this.id}` + __location);
+                            log.warn(`Info for policy type ${policy.type} not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} app ${this.id}` + __location);
                         }
                     }
                     else {
@@ -1055,8 +1030,8 @@ module.exports = class Application {
                         try {
                             await this.agencyLocation.init();
                         }
-                        catch (e) {
-                            log.error(`Error in this.agencyLocation.init(): ${e}. ` + __location);
+                        catch (err) {
+                            log.error(`Error in this.agencyLocation.init(): ${err}. ` + __location);
                             return reject(e);
                         }
 
@@ -1083,9 +1058,29 @@ module.exports = class Application {
                 return reject(new Error('Invalid insurer(s) specified in policy.'));
             }
 
+            //application level
+            /**
+             * Industry Code (required)
+             * - > 0
+             * - <= 99999999999
+             * - Must existin our database
+             */
+            if (this.applicationDocData.industryCode) {
+                //this is now loaded from database.
+                //industry code should already be validated.
+                // this.applicationDocData.industryCode_description = await validator.industry_code(this.applicationDocData.industryCode);
+                // if (!this.applicationDocData.industryCode_description) {
+                //     throw new Error('The industry code ID you provided is not valid');
+                // }
+            }
+            else {
+                return reject(new Error('Missing property: industryCode'));
+            }
+
+
             // Business (required)
             try {
-                validateBusiness(this.applicationDocData);
+                await validateBusiness(this.applicationDocData);
             }
             catch (e) {
                 return reject(new Error(`Failed validating business: ${e}`));

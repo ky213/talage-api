@@ -233,7 +233,7 @@ async function runFunction() {
                 }
                 catch(err){
                     log.error('API AP Requote error ' + err + __location);
-                    process.exit(1)
+                    // process.exit(1)
                 }
             }
             else {

@@ -121,7 +121,6 @@ exports.registerEndpoints = (server) => {
     registerEndpoint(server, 'administration', 'insurer-writer-rt');
     registerEndpoint(server, 'administration', 'agency-network-rt');
     registerEndpoint(server, 'administration', 'agency-network-user-rt');
-    registerEndpoint(server, 'administration', 'agency-network-insurer-rt');
     registerEndpoint(server, 'administration', 'agency-rt');
     registerEndpoint(server, 'administration', 'agency-email-rt');
     registerEndpoint(server, 'administration', 'agency-location-rt');
@@ -154,7 +153,7 @@ exports.registerEndpoints = (server) => {
     if(global.settings.ENABLE_GENERIC_API === "YES"){
         registerEndpoint(server, 'api', 'industry-categories-rt');
         registerEndpoint(server, 'api', 'industry-codes-rt');
-        registerEndpoint(server, 'api', 'agency-rt');
+        registerEndpoint(server, 'api', 'activity-codes-rt');
         registerEndpoint(server, 'api', 'application-rt');
         registerEndpoint(server, 'api', 'auth-api-rt');
 
@@ -162,6 +161,7 @@ exports.registerEndpoints = (server) => {
         registerEndpoint(server, 'mitsumori', 'route-planner-rt');
         registerEndpoint(server, 'mitsumori', 'resources-rt');
         registerEndpoint(server, 'mitsumori', 'agency-quote-rt');
+        registerEndpoint(server, 'mitsumori', 'application-meta-rt');
         registerEndpoint(server, 'mitsumori', 'auth-quote-rt');
     }
 
