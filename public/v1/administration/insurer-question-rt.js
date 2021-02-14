@@ -77,6 +77,15 @@ async function add(req, res, next) {
         return next(error);
     }
 
+    //update cache
+    const questionSvc = global.requireShared('./services/questionsvc.js');
+    try{
+        //do not await not need to wait for response
+        questionSvc.UpdateRedisIndustryQuestionByQuestionId(insurerQuestionBO.question);
+    }
+    catch(err){
+        log.error(`Error update question cache for ${insurerQuestionBO.question}`)
+    }
     res.send(200, insurerQuestionBO.cleanJSON());
     return next();
 }
@@ -89,15 +98,37 @@ async function update(req, res, next) {
     if(!req.body){
         return next(serverHelper.requestError("bad put"));
     }
-    let error = null;
-    const updateRecord = false;
     const insurerQuestionBO = new InsurerQuestionBO();
+    let error = null;
+    let questionId = null;
+    if(req.body && req.body.id && !req.body.question){
+        const insurerQuestionDB = await insurerQuestionBO.getById(req.body.id).catch(function(err) {
+            log.error("insurer question load error " + err + __location);
+            error = err;
+        });
+        questionId = insurerQuestionDB.question;
+    }
+
+    const updateRecord = false;
+    log.debug(JSON.stringify(req.body));
     await insurerQuestionBO.saveModel(req.body, updateRecord).catch(function(err) {
         log.error("insurer question load error " + err + __location);
         error = err;
     });
     if (error) {
         return next(error);
+    }
+    //update cache
+    if(insurerQuestionBO.question){
+        questionId = insurerQuestionBO.question;
+    }
+    const questionSvc = global.requireShared('./services/questionsvc.js');
+    try{
+        //do not await not need to wait for response
+        questionSvc.UpdateRedisIndustryQuestionByQuestionId(questionId);
+    }
+    catch(err){
+        log.error(`Error update question cache for ${questionId}`)
     }
     res.send(200, insurerQuestionBO);
     return next();
