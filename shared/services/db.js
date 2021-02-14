@@ -32,23 +32,44 @@ exports.connect = async() => {
             log.info("Set aurora_replica_read_consistency")
         }
     });
+    let roHostArray = [];
     if(global.settings.DATABASE_HOST_READONLY){
         useReadOnly = true;
-        connRo = mysql.createPool({
-            'connectionLimit': 100,
-            'database': global.settings.DATABASE_NAME,
-            'host': global.settings.DATABASE_HOST_READONLY,
-            'password': global.settings.DATABASE_PASSWORD,
-            'user': global.settings.DATABASE_USER,
-            'timezone': 'Z'
-        });
-
-        connRo.on('connection', function(connection) {
-            if(global.settings.USING_AURORA_CLUSTER === "YES"){
-                connection.query(`set @@aurora_replica_read_consistency = 'session';`)
-                log.info("Set aurora_replica_read_consistency on readyonly connection")
+        if(global.settings.DATABASE_RO_HOST_LIST && global.settings.DATABASE_RO_HOST_LIST.length > 0){
+            roHostArray = global.settings.DATABASE_RO_HOST.split(",");
+        }
+        if(roHostArray > 1 && global.settings.USING_AURORA_CLUSTER === "YES"){
+            connRo = mysql.createPoolCluster();
+            for(let i = 0; i < roHostArray.length; i++){
+                connRo.add({
+                    'connectionLimit': 100,
+                    'database': global.settings.DATABASE_NAME,
+                    'host': roHostArray[i],
+                    'password': global.settings.DATABASE_PASSWORD,
+                    'user': global.settings.DATABASE_USER,
+                    'timezone': 'Z'
+                });
             }
-        });
+        }
+        else {
+            connRo = mysql.createPool({
+                'connectionLimit': 100,
+                'database': global.settings.DATABASE_NAME,
+                'host': global.settings.DATABASE_HOST_READONLY,
+                'password': global.settings.DATABASE_PASSWORD,
+                'user': global.settings.DATABASE_USER,
+                'timezone': 'Z'
+            });
+
+        }
+
+        //only effects writes.
+        // connRo.on('connection', function(connection) {
+        //     if(global.settings.USING_AURORA_CLUSTER === "YES"){
+        //         connection.query(`set @@aurora_replica_read_consistency = 'session';`)
+        //         log.info("Set aurora_replica_read_consistency on readyonly connection")
+        //     }
+        // });
 
 
     }
@@ -60,7 +81,7 @@ exports.connect = async() => {
         connection.release();
     }
     catch(error){
-        log.error(colors.red(`\tMySQL DB ERROR: ${error.toString()}`)); // eslint-disable-line no-console
+        log.error(colors.red(`\tMySQL DB ERROR: ${error.toString(global.settings.DATABASE_HOST)}`)); // eslint-disable-line no-console
         return false;
     }
     log.info(colors.green(`\tMySQL Connected to ${colors.cyan(global.settings.DATABASE_HOST)}`)); // eslint-disable-line no-console
@@ -73,10 +94,16 @@ exports.connect = async() => {
             connection.release();
         }
         catch(error){
-            log.error(colors.red(`\tMySQL DB ERROR: ${error.toString()}`)); // eslint-disable-line no-console
+            log.error(colors.red(`\tMySQL DB ERROR: ${error.toString(global.settings.DATABASE_HOST_READONLY)}`)); // eslint-disable-line no-console
             return false;
         }
-        log.info(colors.green(`\tREADONLY MySQL Connected to ${colors.cyan(global.settings.DATABASE_HOST_READONLY)}`)); // eslint-disable-line no-console
+        if(roHostArray.length > 1){
+            log.info(colors.green(`\tREADONLY MySQL Connected to ${colors.cyan(global.settings.DATABASE_RO_HOST_LIST)}`)); // eslint-disable-line no-console
+        }
+        else {
+            log.info(colors.green(`\tREADONLY MySQL Connected to ${colors.cyan(global.settings.DATABASE_HOST_READONLY)}`)); // eslint-disable-line no-console
+        }
+
     }
 
     return true;
