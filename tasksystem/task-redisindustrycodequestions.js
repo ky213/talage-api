@@ -80,7 +80,7 @@ var industryCodeQuestionCacheUpdate = async function(industryCodeId){
             INNER JOIN clw_talage_industry_code_questions AS icq ON icq.insurerIndustryCodeId = iic.id
             where ic.state > 0 `;
     if(industryCodeId){
-        sql += ` AND id = ${db.escape(industryCodeId)}`
+        sql += ` AND ic.id = ${db.escape(industryCodeId)}`
     }
     sql += ` order by ic.id`
 
