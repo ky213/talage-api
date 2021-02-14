@@ -250,9 +250,11 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
 
     // ============================================================
     // // Get industry-based questions
+    log.debug("territories " + territories);
     log.debug(`Getting industry questions use Redis ${global.settings.USE_REDIS_QUESTION_CACHE}  ` + __location);
     if(global.settings.USE_REDIS_QUESTION_CACHE === "YES"){
         const redisQuestions = await getRedisIndustryCodeQuestions(industry_code)
+        log.debug(`Redis questions ${redisQuestions.length} returned ` + __location)
         if(redisQuestions.length > 0){
             // eslint-disable-next-line space-before-function-paren
             var filteredRedisQuestions = redisQuestions.filter(function(el) {
@@ -277,8 +279,18 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                             policyTypeMatch = true;
                         }
                     }
+                    let territoryMatch = false;
+                    if(el.territoryList){
+                        const qTerritoryList = el.territoryList.split(',')
+                        const matched = qTerritoryList.filter(qterritory => territories.indexOf(qterritory) > -1);
+                        if(matched && matched.length > 0){
+                            territoryMatch = true;
+                        }
+                    }
+
+                    //log.debug(`insurerMatch ${insurerMatch} territoryMatch ${territoryMatch} el.territory ${el.territory}     policyTypeMatch ${policyTypeMatch} el.universal ${el.universal} el.questionSubjectArea ${el.questionSubjectArea} ` + __location);
                     if(insurerMatch === true
-                        && territories.indexOf(el.territory) > -1
+                        && territoryMatch === true
                         && policyTypeMatch === true
                         && el.universal === 0
                         && el.questionSubjectArea === questionSubjectArea){
@@ -306,6 +318,9 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             });
             log.debug(`Adding ${filteredRedisQuestions.length} redis industry questions ` + __location)
             questions = questions.concat(filteredRedisQuestions);
+        }
+        else {
+            log.debug(`Adding ZERO redis industry questions - not found ` + __location)
         }
     }
     else {
@@ -616,12 +631,12 @@ async function getRedisIndustryCodeQuestions(industryCodeId){
         log.warn(`#{redisKey} not found refreshing cache` + __location)
         await CreateRedisIndustryCodeQuestionEntryInternal(industryCodeId);
         const resp2 = await global.redisSvc.getKeyValue(redisKey);
-        if(resp2.found && resp.value){
+        if(resp2.found && resp2.value){
             try{
-                questionList = JSON.parse(resp.value);
+                questionList = JSON.parse(resp2.value);
             }
             catch(err){
-                log.error(`Error Parsing question cache key ${redisKey} value: ${resp.value} ${err} ` + __location);
+                log.error(`Error Parsing question cache key ${redisKey} value: ${resp2.value} ${err} ` + __location);
             }
 
         }
@@ -645,13 +660,14 @@ async function CreateRedisIndustryCodeQuestionEntryInternal(industryCodeId){
     // Get industry-based questions
     // Notes:
     //      questionId and id are same.  id is from backward compatibility.
-    const select = `ic.id as 'industryCodeId', iq.questionSubjectArea,iic.territory,
+    const select = `ic.id as 'industryCodeId', iq.questionSubjectArea,
          iic.effectiveDate as 'insurerIndustryEffectiveDate', iic.expirationDate as 'insurerIndustryExpirationDate',
          iq.effectiveDate as 'insurerQuestionEffectiveDate', iq.expirationDate as 'insurerQuestionExpirationDate',
          q.id  as 'questionId',q.id  as 'id', iq.universal, q.parent, q.parent_answer, q.sub_level, q.question AS 'text', q.hint, q.type AS type_id, qt.name AS type, q.hidden,
          GROUP_CONCAT(DISTINCT CONCAT(iq.insurer, "-", iq.policy_type)) AS insurers,
           GROUP_CONCAT(DISTINCT iq.insurer) AS insurerList,
-          GROUP_CONCAT(DISTINCT iq.policy_type) AS policyTypeList`;
+          GROUP_CONCAT(DISTINCT iq.policy_type) AS policyTypeList,
+          GROUP_CONCAT(DISTINCT iic.territory) AS territoryList`;
 
     const sql = `
         SELECT ${select}
