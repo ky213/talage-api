@@ -602,7 +602,12 @@ async function getRedisIndustryCodeQuestions(industryCodeId){
     const start = moment();
     const resp = await global.redisSvc.getKeyValue(redisKey);
     if(resp.found){
-        questionList = JSON.parse(resp.value);
+        try{
+            questionList = JSON.parse(resp.value);
+        }
+        catch(err){
+            log.error(`Error Parsing question cache key ${redisKey} value: ${resp.value} ${err} ` + __location);
+        }
         const endRedis = moment();
         var diff = endRedis.diff(start, 'milliseconds', true);
         log.info(`Redis request ${redisKey} duration: ${diff} milliseconds`);
@@ -611,8 +616,14 @@ async function getRedisIndustryCodeQuestions(industryCodeId){
         log.warn(`#{redisKey} not found refreshing cache` + __location)
         await CreateRedisIndustryCodeQuestionEntryInternal(industryCodeId);
         const resp2 = await global.redisSvc.getKeyValue(redisKey);
-        if(resp2.found){
-            questionList = JSON.parse(resp.value);
+        if(resp2.found && resp.value){
+            try{
+                questionList = JSON.parse(resp.value);
+            }
+            catch(err){
+                log.error(`Error Parsing question cache key ${redisKey} value: ${resp.value} ${err} ` + __location);
+            }
+
         }
     }
     //TODO filters for insuers, effective date
