@@ -73,39 +73,16 @@ exports.taskProcessorExternal = async function(){
 
 var industryCodeQuestionCacheUpdate = async function(industryCodeId){
 
-    let sql = ` SELECT distinct ic.id 
-            FROM clw_talage_industry_codes AS ic
-            INNER JOIN industry_code_to_insurer_industry_code AS industryCodeMap ON industryCodeMap.talageIndustryCodeId = ic.id
-            INNER JOIN clw_talage_insurer_industry_codes AS iic ON iic.id = industryCodeMap.insurerIndustryCodeId
-            INNER JOIN clw_talage_industry_code_questions AS icq ON icq.insurerIndustryCodeId = iic.id
-            where ic.state > 0 `;
-    if(industryCodeId){
-        sql += ` AND ic.id = ${db.escape(industryCodeId)}`
-    }
-    sql += ` order by ic.id`
-
-    let error = null;
-    const industryCodeList = await db.queryReadonly(sql).catch(function(err) {
-        error = err.message;
-    });
-    if (error) {
-        log.error(`Error getting industry codes for Redis update ${error}` + __location)
-        return false;
-    }
+   
     const questionSvc = global.requireShared('./services/questionsvc.js');
-    const numOfindustryCodes = industryCodeList.length;
-    for(let i = 0; i < numOfindustryCodes; i++){
-        const industryCodeid = industryCodeList[i].id;
-        const redisKey = await questionSvc.CreateRedisIndustryCodeQuestionEntry(industryCodeid);
-        log.debug(`updated redis key ${redisKey} ` + __location)
-        
-        log.info(`Indusry Code Redis cached updated ${i + 1} of ${numOfindustryCodes}`);
-        
-
+    try{
+        await questionSvc.UpdateRedisIndustryQuestions(industryCodeId);
+        log.info(`Redis Industry Code Question cached updated. }` + __location);
     }
-    log.info("Redis Industry Code Question cached updated. processed " + numOfindustryCodes + __location);
-
-
+    catch(err){
+        log.error(`Error updating Industry Code Question cached.` + __location)
+    }
+  
     return;
 }
 
