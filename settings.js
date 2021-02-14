@@ -69,6 +69,7 @@ const optionalVariables = [
     'AWS_USE_KEYS',
     'MONGODB_CONNECTIONURLQUERY',
     'USING_AURORA_CLUSTER',
+    'DATABASE_RO_HOST_LIST',
     'USE_REDIS',
     'REDIS_HOST',
     'REDIS_PORT',
