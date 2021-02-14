@@ -73,10 +73,17 @@ exports.taskProcessorExternal = async function(){
 
 var industryCodeQuestionCacheUpdate = async function(industryCodeId){
 
-    let sql = "select id from clw_talage_industry_codes where state > 0";
+    let sql = ` SELECT distinct ic.id 
+            FROM clw_talage_industry_codes AS ic
+            INNER JOIN industry_code_to_insurer_industry_code AS industryCodeMap ON industryCodeMap.talageIndustryCodeId = ic.id
+            INNER JOIN clw_talage_insurer_industry_codes AS iic ON iic.id = industryCodeMap.insurerIndustryCodeId
+            INNER JOIN clw_talage_industry_code_questions AS icq ON icq.insurerIndustryCodeId = iic.id
+            where ic.state > 0 `;
     if(industryCodeId){
         sql += ` AND id = ${db.escape(industryCodeId)}`
     }
+    sql += ` order by ic.id`
+
     let error = null;
     const industryCodeList = await db.queryReadonly(sql).catch(function(err) {
         error = err.message;
