@@ -76,7 +76,7 @@ module.exports = class LibertySBOP extends Integration {
             return this.client_error(`Liberty Mutual (Appid: ${this.app.id}): No BPP Coverage was supplied for the Simple BOP Policy. ${JSON.stringify(sbopPolicy)}`);
         }
 
-        // Assign the closest supported limit for Per Occ 
+        // Assign the closest supported limit for Per Occ
         // NOTE: Currently this is not included in the request and defaulted on LM's side
         const limit = this.getSupportedLimit(sbopPolicy.limits);
 
@@ -93,11 +93,7 @@ module.exports = class LibertySBOP extends Integration {
         const formattedPhone = `+1-${phone.substring(0, 3)}-${phone.substring(phone.length - 7)}`;
 
         // used for implicit question NBOP11: any losses or claims in the past 3 years?
-        const claimsPast3Years = 
-            applicationDocData.claims.length === 0 || 
-            applicationDocData.claims.find(c => moment().diff(moment(c.eventDate), 'years', true) >= 3) ?
-                "NO" :
-                "YES";
+        const claimsPast3Years = applicationDocData.claims.length === 0 || applicationDocData.claims.find(c => moment().diff(moment(c.eventDate), 'years', true) >= 3) ? "NO" : "YES";
 
         // Liberty has us define our own Request ID
 		const UUID = this.generate_uuid();
@@ -374,9 +370,9 @@ module.exports = class LibertySBOP extends Integration {
         // Get the XML structure as a string
         const xml = ACORD.end({'pretty': true});
 
-        log.info("=================== QUOTE REQUEST ===================");
-        log.info(`Liberty Mutual request (Appid: ${this.app.id}): \n${xml}`);
-        log.info("=================== QUOTE REQUEST ===================");
+        log.debug("=================== QUOTE REQUEST ===================");
+        log.debug(`Liberty Mutual request (Appid: ${this.app.id}): \n${xml}`);
+        log.debug("=================== QUOTE REQUEST ===================");
 
         // Determine which URL to use
         const host = 'ci-policyquoteapi.libertymutual.com';
@@ -387,7 +383,7 @@ module.exports = class LibertySBOP extends Integration {
             result = await this.send_xml_request(host, path, xml, {'Authorization': `Basic ${Buffer.from(`${this.username}:${this.password}`).toString('base64')}`});
         } catch (e) {
             const errorMessage = `Liberty Mutual (Appid: ${this.app.id}): An error occurred while trying to retrieve the quote proposal letter: ${e}.`;
-            log.error(errorMessage);
+            log.error(errorMessage + __location);
             return this.client_error(errorMessage);
         }        
 
@@ -396,14 +392,14 @@ module.exports = class LibertySBOP extends Integration {
         // check we have valid status object structure
         if (!result.ACORD || !result.ACORD.Status || typeof result.ACORD.Status[0].StatusCd === 'undefined') {
             const errorMessage = `Liberty Mutual (Appid: ${this.app.id}): Unknown result structure: cannot parse result.`;
-            log.error(errorMessage);
+            log.error(errorMessage + __location);
             return this.client_error(errorMessage);
         }
 
         // check we have a valid status code
         if (result.ACORD.Status[0].StatusCd[0] !== '0') {
             const errorMessage = `Liberty Mutual (Appid: ${this.app.id}): Unknown status code returned in quote response: ${result.ACORD.Status[0].StatusCd}.`;
-            log.error(errorMessage);
+            log.error(errorMessage + __location);
             return this.client_error(errorMessage);
         }
 
@@ -414,7 +410,7 @@ module.exports = class LibertySBOP extends Integration {
             !result.ACORD.InsuranceSvcRs[0].PolicyRs[0].MsgStatus
         ) {
             const errorMessage = `Liberty Mutual (Appid: ${this.app.id}): Unknown result structure, no message status: cannot parse result.`;
-            log.error(errorMessage);
+            log.error(errorMessage + __location);
             return this.client_error(errorMessage);
         }
 
@@ -423,6 +419,7 @@ module.exports = class LibertySBOP extends Integration {
         // check the response status
         switch (objPath.MsgStatusCd[0].toLowerCase()) {
             case "error":
+                // NOTE: Insurer "error" is considered a "decline" within Wheelhouse.
                 // normal error structure, build an error message
                 let additionalReasons = null;
                 let errorMessage = 'Liberty Mutual: ';
@@ -457,12 +454,19 @@ module.exports = class LibertySBOP extends Integration {
                         errorMessage += 'Please review the logs for more details.';
                     }
                 }
-                log.error("=================== QUOTE ERROR ===================");
-                log.error(`Liberty Mutual Simple BOP send_json_request error (Appid: ${this.app.id}):\n${JSON.stringify(result.ACORD.InsuranceSvcRs[0].PolicyRs[0].MsgStatus[0], null, 4)}`);
-                log.error("=================== QUOTE ERROR ===================");
-                return this.client_error(errorMessage, additionalReasons);
+                // This is logged within the application database. 
+                // only log with debug so it does not go to ElasticSearch.
+                // log.error sends alerts out to looked at.
+                //  Being over $10K is not an "error"  its is a decline by insurer.
+                //  With all insurers, is it "declined" unless there was an HTTP Request error like a Timeout
+                // error here are not necessary "Errors" but decline reasons.
+                //
+                log.debug("=================== QUOTE ERROR ===================");
+                log.debug(`Liberty Mutual Simple BOP send_json_request error (Appid: ${this.app.id}):\n${JSON.stringify(result.ACORD.InsuranceSvcRs[0].PolicyRs[0].MsgStatus[0], null, 4)}`);
+                log.debug("=================== QUOTE ERROR ===================");
+                return this.client_declined(errorMessage, additionalReasons);
             case "successwithinfo":
-                log.info(`Liberty Mutual (Appid: ${this.app.id}): Quote returned with status Sucess With Info.`);
+                log.debug(`Liberty Mutual (Appid: ${this.app.id}): Quote returned with status Sucess With Info.` + __location);
                 break;
             case "successnopremium":
                 let reason = null;
@@ -473,19 +477,20 @@ module.exports = class LibertySBOP extends Integration {
                     );
                     reason = reasonObj && reasonObj.ExtendedStatusDesc ? reasonObj.ExtendedStatusDesc[0] : null;
                 }
-                log.error(`Liberty Mutual (Appid: ${this.app.id}): Quote was bridged to eCLIQ successfully but no premium was provided.`);
+                log.warn(`Liberty Mutual (Appid: ${this.app.id}): Quote was bridged to eCLIQ successfully but no premium was provided.`);
                 if (reason) {
-                    log.error(`Liberty Mutual (Appid: ${this.app.id}): Reason for no premium: ${reason}`);
+                    log.warn(`Liberty Mutual (Appid: ${this.app.id}): Reason for no premium: ${reason}` + __location);
                 }
                 break;
             default:
-                log.warn(`Liberty Mutual (Appid: ${this.app.id}): Unknown MsgStatusCd returned in quote response - ${objPath.MsgStatusCd[0]}. Continuing...`);
+                log.warn(`Liberty Mutual (Appid: ${this.app.id}): Unknown MsgStatusCd returned in quote response - ${objPath.MsgStatusCd[0]}. Continuing...` + __location);
         }
 
         // PARSE SUCCESSFUL PAYLOAD
-        log.info("=================== QUOTE RESULT ===================");
-        log.info(`Liberty Mutual Simple BOP (Appid: ${this.app.id}):\n ${JSON.stringify(result, null, 4)}`);
-        log.info("=================== QUOTE RESULT ===================");
+        // logged in database only use log.debug so it does not go to ElasticSearch
+        log.debug("=================== QUOTE RESULT ===================");
+        log.debug(`Liberty Mutual Simple BOP (Appid: ${this.app.id}):\n ${JSON.stringify(result, null, 4)}`);
+        log.debug("=================== QUOTE RESULT ===================");
 
         let quoteNumber = null;
         let quoteProposalId = null;
@@ -502,7 +507,7 @@ module.exports = class LibertySBOP extends Integration {
             !result.ACORD.InsuranceSvcRs[0].PolicyRs[0].Policy
         ) {
             const errorMessage = `Liberty Mutual (Appid: ${this.app.id}): Unknown result structure: cannot parse quote information.`;
-            log.error(errorMessage);
+            log.error(errorMessage + __location);
             return this.client_error(errorMessage);
         }
 
@@ -511,19 +516,22 @@ module.exports = class LibertySBOP extends Integration {
 
         // set quote values from response object, if provided
         if (!policy.QuoteInfo || !policy.QuoteInfo[0].CompanysQuoteNumber) {
-            log.warn(`Liberty Mutual (Appid: ${this.app.id}): Premium and Quote number not provided, or the result structure has changed.`);
-        } else {
+            log.error(`Liberty Mutual (Appid: ${this.app.id}): Premium and Quote number not provided, or the result structure has changed.` + __location);
+        }
+        else {
             quoteNumber = policy.QuoteInfo[0].CompanysQuoteNumber[0];
             premium = policy.QuoteInfo[0].InsuredFullToBePaidAmt[0].Amt[0];
         }
         if (!policy.UnderwritingDecisionInfo || !policy.UnderwritingDecisionInfo[0].SystemUnderwritingDecisionCd) {
-            log.warn(`Liberty Mutual (Appid: ${this.app.id}): Policy status not provided, or the result structure has changed.`);
-        } else {
+            log.error(`Liberty Mutual (Appid: ${this.app.id}): Policy status not provided, or the result structure has changed.` + __location);
+        }
+        else {
             policyStatus = policy.UnderwritingDecisionInfo[0].SystemUnderwritingDecisionCd[0];
         }
         if (!policy.PolicyExt || !policy.PolicyExt[0]['com.libertymutual.ci_QuoteProposalId']) {
-            log.warn(`Liberty Mutual (Appid: ${this.app.id}): Quote ID for retrieving quote proposal not provided, or result structure has changed.`);
-        } else {
+            log.error(`Liberty Mutual (Appid: ${this.app.id}): Quote ID for retrieving quote proposal not provided, or result structure has changed.` + __location);
+        }
+        else {
             quoteProposalId = policy.PolicyExt[0]['com.libertymutual.ci_QuoteProposalId'];
         }
 
@@ -534,8 +542,9 @@ module.exports = class LibertySBOP extends Integration {
             !result.BOPLineBusiness[0].LiabilityInfo[0].GeneralLiabilityClassification ||
             !result.BOPLineBusiness[0].LiabilityInfo[0].GeneralLiabilityClassification[0].Coverage
         ) {
-            log.warn(`Liberty Mutual (Appid: ${this.app.id}): Liability Limits not provided, or result structure has changed.`);
-        } else {
+            log.error(`Liberty Mutual (Appid: ${this.app.id}): Liability Limits not provided, or result structure has changed.` + __location);
+        }
+        else {
             // limits exist, set them
             const coverages = result.BOPLineBusiness[0].LiabilityInfo[0].GeneralLiabilityClassification[0].Coverage[0];
 
@@ -577,7 +586,7 @@ module.exports = class LibertySBOP extends Integration {
             );
         } catch (e) {
             const errorMessage = `Liberty Mutual (Appid: ${this.app.id}): An error occurred while trying to retrieve the quote proposal letter: ${e}.`;
-            log.error(errorMessage);
+            log.error(errorMessage + __location);
         }
 
         // comes back as a string, so we search for the XML BinData field and substring it out
@@ -586,8 +595,9 @@ module.exports = class LibertySBOP extends Integration {
             const end = quoteResult.indexOf("</BinData>");
 
             if (start === 8 || end === -1) {
-                log.warn(`Liberty Mutual (Appid: ${this.app.id}): Quote Proposal Letter not provided, or quote result structure has changed.`);
-            } else {
+                log.warn(`Liberty Mutual (Appid: ${this.app.id}): Quote Proposal Letter not provided, or quote result structure has changed.` + __location);
+            }
+            else {
                 quoteLetter = quoteResult.substring(start, end);
             }
         }
@@ -602,13 +612,14 @@ module.exports = class LibertySBOP extends Integration {
                 case "reject":
                     return this.client_declined(`Liberty Mutual (Appid: ${this.app.id}): Application was rejected.`);
                 default:
-                    const errorMessage = ``;
-                    log.error(errorMessage);
+                    const errorMessage = `Insurer response error: Unknown policyStatus - ${policyStatus}`;
+                    log.error(errorMessage + __location);
                     return this.client_error(errorMessage);
             }
-        } else {
-            const errorMessage = ``;
-            log.error(errorMessage);
+        }
+        else {
+            const errorMessage = `Insurer response error: missing policyStatus`;
+            log.error(errorMessage + __location);
             return this.client_error(errorMessage);
         }
     }
@@ -630,8 +641,9 @@ module.exports = class LibertySBOP extends Integration {
         let limitInt = 0;
         try {
             limitInt = parseInt(limit, 10);
-        } catch (e) {
-            log.warn(`Error parsing limit: ${e}. Leaving value as-is.`);
+        }
+        catch (e) {
+            log.warn(`Error parsing limit: ${e}. Leaving value as-is.` + __location);
             return limit;
         }
 
