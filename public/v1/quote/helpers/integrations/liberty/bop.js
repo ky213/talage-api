@@ -69,11 +69,13 @@ module.exports = class LibertySBOP extends Integration {
         const sbopPolicy = applicationDocData.policies.find(p => p.policyType === "BOP"); // This may need to change to BOPSR?
 
         if (!sbopPolicy) {
+            log.error(`Liberty Mutual SBOP (Appid: ${this.app.id}): Could not find a policy with type BOP` + __location)
             return this.client_error(`Liberty Mutual (Appid: ${this.app.id}): Could not find a policy with type BOP.`);
         }
 
         if (!sbopPolicy.hasOwnProperty("coverage") || sbopPolicy.coverage === null) {
-            return this.client_error(`Liberty Mutual (Appid: ${this.app.id}): No BPP Coverage was supplied for the Simple BOP Policy. ${JSON.stringify(sbopPolicy)}`);
+            log.error(`Liberty Mutual SBOP (Appid: ${this.app.id}): No BPP Coverage was supplied for the Simple BOP Policy. ${JSON.stringify(sbopPolicy)}` + __location)
+            return this.client_error(`Liberty Mutual (Appid: ${this.app.id}): No BPP Coverage was supplied for the Simple BOP Policy.`);
         }
 
         // Assign the closest supported limit for Per Occ
