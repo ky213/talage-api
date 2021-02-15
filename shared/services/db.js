@@ -11,7 +11,7 @@ const colors = require('colors');
 let conn = null;
 let connRo = null;
 let useReadOnly = false;
-
+let usingReadOnlyCluster = false;
 exports.connect = async() => {
 
     log.info(`MySQL Connecting to database ${colors.cyan(global.settings.DATABASE_HOST)}`); // eslint-disable-line no-console
@@ -29,19 +29,24 @@ exports.connect = async() => {
     conn.on('connection', function(connection) {
         if(global.settings.USING_AURORA_CLUSTER === "YES"){
             connection.query(`set @@aurora_replica_read_consistency = 'session';`)
-            log.info("Set aurora_replica_read_consistency")
+            log.info("Write Conn: Set aurora_replica_read_consistency")
         }
     });
     let roHostArray = [];
     if(global.settings.DATABASE_HOST_READONLY){
         useReadOnly = true;
+        log.debug("global.settings.DATABASE_RO_HOST_LIST: " + global.settings.DATABASE_RO_HOST_LIST)
         if(global.settings.DATABASE_RO_HOST_LIST && global.settings.DATABASE_RO_HOST_LIST.length > 0){
-            roHostArray = global.settings.DATABASE_RO_HOST.split(",");
+            roHostArray = global.settings.DATABASE_RO_HOST_LIST.split(",");
         }
-        if(roHostArray > 1 && global.settings.USING_AURORA_CLUSTER === "YES"){
+        log.debug("roHostArray: " + JSON.stringify(roHostArray))
+        if(roHostArray.length > 1 && global.settings.USING_AURORA_CLUSTER === "YES"){
+            log.debug("Using PoolCluster for Read only.")
+            usingReadOnlyCluster = true;
             connRo = mysql.createPoolCluster();
             for(let i = 0; i < roHostArray.length; i++){
-                connRo.add({
+                log.debug(`Adding ${roHostArray[i]} to PoolCluster for Read only.`)
+                connRo.add("ReadOnly" + i, {
                     'connectionLimit': 100,
                     'database': global.settings.DATABASE_NAME,
                     'host': roHostArray[i],
@@ -64,12 +69,13 @@ exports.connect = async() => {
         }
 
         //only effects writes.
-        // connRo.on('connection', function(connection) {
-        //     if(global.settings.USING_AURORA_CLUSTER === "YES"){
-        //         connection.query(`set @@aurora_replica_read_consistency = 'session';`)
-        //         log.info("Set aurora_replica_read_consistency on readyonly connection")
-        //     }
-        // });
+        connRo.on('connection', function(connection) {
+            log.debug("ReadOnly connection: ")
+            // if(global.settings.USING_AURORA_CLUSTER === "YES"){
+            //     connection.query(`set @@aurora_replica_read_consistency = 'session';`)
+            //     log.info("Set aurora_replica_read_consistency on readyonly connection")
+            // }
+        });
 
 
     }
@@ -77,8 +83,10 @@ exports.connect = async() => {
 
     // Try to connect to the database to ensure it is reachable.
     try{
+        log.debug("testing write connection")
         const connection = await util.promisify(conn.getConnection).call(conn);
         connection.release();
+
     }
     catch(error){
         log.error(colors.red(`\tMySQL DB ERROR: ${error.toString(global.settings.DATABASE_HOST)}`)); // eslint-disable-line no-console
@@ -90,20 +98,29 @@ exports.connect = async() => {
     if(useReadOnly === true){
         // Try to connect to the database to ensure it is reachable.
         try{
-            const connection = await util.promisify(conn.getConnection).call(conn);
-            connection.release();
+            if(roHostArray.length > 1){
+                // for(let i = 0; i < roHostArray.length; i++){
+                log.debug("testing readonly connection")
+                const connection = await util.promisify(connRo.getConnection).call(connRo);
+                connection.release();
+                connRo.getConnection(function(error, connQuery) {
+                    if(error){
+                        throw error;
+                    }
+                    log.info(colors.green(`\tREADONLY MySQL Connected to ${colors.cyan(global.settings.DATABASE_RO_HOST_LIST)}`)); // eslint-disable-line no-console
+                });
+                // }
+            }
+            else {
+                const connection = await util.promisify(connRo.getConnection).call(connRo);
+                connection.release();
+                log.info(colors.green(`\tREADONLY MySQL Connected to ${colors.cyan(global.settings.DATABASE_HOST_READONLY)}`)); // eslint-disable-line no-console
+            }
         }
         catch(error){
             log.error(colors.red(`\tMySQL DB ERROR: ${error.toString(global.settings.DATABASE_HOST_READONLY)}`)); // eslint-disable-line no-console
             return false;
         }
-        if(roHostArray.length > 1){
-            log.info(colors.green(`\tREADONLY MySQL Connected to ${colors.cyan(global.settings.DATABASE_RO_HOST_LIST)}`)); // eslint-disable-line no-console
-        }
-        else {
-            log.info(colors.green(`\tREADONLY MySQL Connected to ${colors.cyan(global.settings.DATABASE_HOST_READONLY)}`)); // eslint-disable-line no-console
-        }
-
     }
 
     return true;
@@ -249,9 +266,9 @@ exports.queryParam = function(sql, params){
  *
  * @returns {Promise.<array, Error>} A promise that returns an array of database results if resolved, or an Error if rejected
  */
-exports.queryReadonly = function(sql){
+exports.queryReadonly = async function(sql){
     return new Promise(function(fulfill, reject){
-        // Force SQL queries to end in a semicolon for security
+    // Force SQL queries to end in a semicolon for security
         if(sql.slice(-1) !== ';'){
             sql += ';';
         }
@@ -260,18 +277,37 @@ exports.queryReadonly = function(sql){
 
         // Run the query on the database
         if(useReadOnly === true){
-            connRo.query(sql, function(err, rows){
-                if(err){
-                    log.error('db ro query error: ' + err + __location);
-                    log.info('sql: ' + sql);
-                    // Docs-api had 'reject(new Error(err));'
-                    reject(err);
-                    return;
-                }
+            if(usingReadOnlyCluster === true){
+                // DOES NOT Work =>  const connQuery = await util.promisify(connRo.getConnection).call(connRo);
+                connRo.getConnection(function(error, connQuery) {
+                    if(error){
+                        reject(error);
+                        return;
+                    }
 
-                // Question-api had 'fulfill(JSON.parse(JSON.stringify(rows)));'
-                fulfill(rows);
-            });
+                    connQuery.query(sql, function(err, rows){
+                        if(err){
+                            log.error('db ro query error: ' + err + __location);
+                            log.info('sql: ' + sql);
+                            // Docs-api had 'reject(new Error(err));'
+                            reject(err);
+                            return;
+                        }
+                        fulfill(rows);
+                    });
+                });
+            }
+            else {
+                connRo.query(sql, function(err, rows){
+                    if(err){
+                        log.error('db ro query error: ' + err + __location);
+                        log.info('sql: ' + sql);
+                        reject(err);
+                        return;
+                    }
+                    fulfill(rows);
+                });
+            }
         }
         else {
             conn.query(sql, function(err, rows){
@@ -302,30 +338,48 @@ exports.queryParamReadOnly = function(sql, params){
 
         // Run the query on the database
         if(useReadOnly === true){
-            connRo.query(sql, params, function(err, rows){
-                if(err){
-                    log.error('db ro query error: ' + err + __location);
-                    log.error('sql ro : ' + sql);
-                    // Docs-api had 'reject(new Error(err));'
-                    reject(err);
-                    return;
-                }
+            if(usingReadOnlyCluster === true){
+                // const connQuery = await util.promisify(connRo.getConnection).call(connRo);
+                connRo.getConnection(function(error, connQuery) {
+                    if(error){
+                        reject(error);
+                        return;
+                    }
 
-                // Question-api had 'fulfill(JSON.parse(JSON.stringify(rows)));'
-                fulfill(rows);
-            });
+                    connQuery.query(sql, params, function(err, rows){
+                        if(err){
+                            log.error('db ro query error: ' + err + __location);
+                            log.error('sql ro : ' + sql);
+                            reject(err);
+                            return;
+                        }
+
+                        // Question-api had 'fulfill(JSON.parse(JSON.stringify(rows)));'
+                        fulfill(rows);
+                    });
+                });
+            }
+            else {
+                connRo.query(sql, params, function(err, rows){
+                    if(err){
+                        log.error('db ro query error: ' + err + __location);
+                        log.error('sql ro : ' + sql);
+                        reject(err);
+                        return;
+                    }
+
+                    fulfill(rows);
+                });
+            }
         }
         else {
             conn.query(sql, params, function(err, rows){
                 if(err){
                     log.error('db query ro error: ' + err + __location);
                     log.error('sql: ' + sql);
-                    // Docs-api had 'reject(new Error(err));'
                     reject(err);
                     return;
                 }
-
-                // Question-api had 'fulfill(JSON.parse(JSON.stringify(rows)));'
                 fulfill(rows);
             });
         }
