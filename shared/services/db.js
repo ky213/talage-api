@@ -108,6 +108,7 @@ exports.connect = async() => {
                         throw error;
                     }
                     log.info(colors.green(`\tREADONLY MySQL Connected to ${colors.cyan(global.settings.DATABASE_RO_HOST_LIST)}`)); // eslint-disable-line no-console
+                    connQuery.release();
                 });
                 // }
             }
@@ -294,6 +295,7 @@ exports.queryReadonly = async function(sql){
                             return;
                         }
                         fulfill(rows);
+                        connQuery.release();
                     });
                 });
             }
@@ -306,6 +308,7 @@ exports.queryReadonly = async function(sql){
                         return;
                     }
                     fulfill(rows);
+                    
                 });
             }
         }
@@ -354,8 +357,8 @@ exports.queryParamReadOnly = function(sql, params){
                             return;
                         }
 
-                        // Question-api had 'fulfill(JSON.parse(JSON.stringify(rows)));'
                         fulfill(rows);
+                        connQuery.release();
                     });
                 });
             }
