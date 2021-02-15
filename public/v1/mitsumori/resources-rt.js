@@ -235,7 +235,15 @@ const territories = resources => {
     ];
 }
 
+async function getRemoteAddress(req, res, next){
+    const remoteAdd = req.connection.remoteAddress;
+    if(!remoteAdd){
+        next(serverHelper.requestError(`Unable to detect the remote address.`))
+    }
+    res.send(200, {remoteAddress: req.connection.remoteAddress});
+}
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuthAppWF("Get Next Route", `${basePath}/resources`, getResources);
+    server.addGetAuthAppWF("Get IP Info", `${basePath}/remoteAddress`, getRemoteAddress);
 }
