@@ -39,12 +39,7 @@ exports.processtask = async function(queueMessage){
             }
             await industryCodeQuestionCacheUpdate(industryCodeId).catch(err => error = err);
         }
-        if(queueMessage.Body && queueMessage.Body.industryCodeId){
-            industryCodeId = queueMessage.Body.industryCodeId;
-        }
-        await industryCodeQuestionCacheUpdate(industryCodeId).catch(err => error = err);
         
-
         return;
     }
     else {
