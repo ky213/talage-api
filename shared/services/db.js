@@ -10,6 +10,7 @@ const colors = require('colors');
 
 let conn = null;
 let connRo = null;
+let connRoCluster = null;
 let useReadOnly = false;
 let usingReadOnlyCluster = false;
 exports.connect = async() => {
@@ -35,18 +36,30 @@ exports.connect = async() => {
     let roHostArray = [];
     if(global.settings.DATABASE_HOST_READONLY){
         useReadOnly = true;
-        log.debug("global.settings.DATABASE_RO_HOST_LIST: " + global.settings.DATABASE_RO_HOST_LIST)
-        if(global.settings.DATABASE_RO_HOST_LIST && global.settings.DATABASE_RO_HOST_LIST.length > 0){
-            roHostArray = global.settings.DATABASE_RO_HOST_LIST.split(",");
-        }
+        connRo = mysql.createPool({
+            'connectionLimit': 100,
+            'database': global.settings.DATABASE_NAME,
+            'host': global.settings.DATABASE_HOST_READONLY,
+            'password': global.settings.DATABASE_PASSWORD,
+            'user': global.settings.DATABASE_USER,
+            'timezone': 'Z'
+        });
+        //only effects writes.
+        connRo.on('connection', function() {
+            log.debug("ReadOnly connection: ")
+        });
+    }
+
+    if(global.settings.DATABASE_RO_HOST_LIST && global.settings.DATABASE_RO_HOST_LIST.length > 0){
+        roHostArray = global.settings.DATABASE_RO_HOST_LIST.split(",");
         log.debug("roHostArray: " + JSON.stringify(roHostArray))
         if(roHostArray.length > 1 && global.settings.USING_AURORA_CLUSTER === "YES"){
             log.debug("Using PoolCluster for Read only.")
             usingReadOnlyCluster = true;
-            connRo = mysql.createPoolCluster();
+            connRoCluster = mysql.createPoolCluster();
             for(let i = 0; i < roHostArray.length; i++){
                 log.debug(`Adding ${roHostArray[i]} to PoolCluster for Read only.`)
-                connRo.add("ReadOnly" + i, {
+                connRoCluster.add("ReadOnly" + i, {
                     'connectionLimit': 100,
                     'database': global.settings.DATABASE_NAME,
                     'host': roHostArray[i],
@@ -56,29 +69,10 @@ exports.connect = async() => {
                 });
             }
         }
-        else {
-            connRo = mysql.createPool({
-                'connectionLimit': 100,
-                'database': global.settings.DATABASE_NAME,
-                'host': global.settings.DATABASE_HOST_READONLY,
-                'password': global.settings.DATABASE_PASSWORD,
-                'user': global.settings.DATABASE_USER,
-                'timezone': 'Z'
-            });
-
-        }
-
-        //only effects writes.
-        connRo.on('connection', function(connection) {
-            log.debug("ReadOnly connection: ")
-            // if(global.settings.USING_AURORA_CLUSTER === "YES"){
-            //     connection.query(`set @@aurora_replica_read_consistency = 'session';`)
-            //     log.info("Set aurora_replica_read_consistency on readyonly connection")
-            // }
-        });
-
-
     }
+
+
+
 
 
     // Try to connect to the database to ensure it is reachable.
@@ -98,25 +92,9 @@ exports.connect = async() => {
     if(useReadOnly === true){
         // Try to connect to the database to ensure it is reachable.
         try{
-            if(roHostArray.length > 1){
-                // for(let i = 0; i < roHostArray.length; i++){
-                log.debug("testing readonly connection")
-                const connection = await util.promisify(connRo.getConnection).call(connRo);
-                connection.release();
-                connRo.getConnection(function(error, connQuery) {
-                    if(error){
-                        throw error;
-                    }
-                    log.info(colors.green(`\tREADONLY MySQL Connected to ${colors.cyan(global.settings.DATABASE_RO_HOST_LIST)}`)); // eslint-disable-line no-console
-                    connQuery.release();
-                });
-                // }
-            }
-            else {
-                const connection = await util.promisify(connRo.getConnection).call(connRo);
-                connection.release();
-                log.info(colors.green(`\tREADONLY MySQL Connected to ${colors.cyan(global.settings.DATABASE_HOST_READONLY)}`)); // eslint-disable-line no-console
-            }
+            const connection = await util.promisify(connRo.getConnection).call(connRo);
+            connection.release();
+            log.info(colors.green(`\tREADONLY MySQL Connected to ${colors.cyan(global.settings.DATABASE_HOST_READONLY)}`)); // eslint-disable-line no-console
         }
         catch(error){
             log.error(colors.red(`\tMySQL DB ERROR: ${error.toString(global.settings.DATABASE_HOST_READONLY)}`)); // eslint-disable-line no-console
@@ -124,6 +102,23 @@ exports.connect = async() => {
         }
     }
 
+    if(usingReadOnlyCluster === true){
+        // Try to connect to the database to ensure it is reachable.
+        try{
+            log.debug("testing readonly Cluster connection")
+            connRoCluster.getConnection(function(error, connQuery) {
+                if(error){
+                    throw error;
+                }
+                log.info(colors.green(`\tREADONLY MySQL Connected to ${colors.cyan(global.settings.DATABASE_RO_HOST_LIST)}`)); // eslint-disable-line no-console
+                connQuery.release();
+            });
+        }
+        catch(error){
+            log.error(colors.red(`\tMySQL DB ERROR: ${error.toString(global.settings.DATABASE_HOST_READONLY)}`)); // eslint-disable-line no-console
+            return false;
+        }
+    }
     return true;
 };
 
@@ -201,6 +196,8 @@ exports.prepareQuery = function(sql){
     return sql.replace(/#__/g, process.env.DATABASE_PREFIX);
 };
 
+
+
 /**
  * Executes a given SQL query against the tranactional database
  *
@@ -209,6 +206,17 @@ exports.prepareQuery = function(sql){
  * @returns {Promise.<array, Error>} A promise that returns an array of database results if resolved, or an Error if rejected
  */
 exports.query = function(sql){
+    return queryInternal(sql);
+};
+
+/**
+ * Executes a given SQL query against the tranactional database
+ *
+ * @param {string} sql - The SQL query string to be run
+ *
+ * @returns {Promise.<array, Error>} A promise that returns an array of database results if resolved, or an Error if rejected
+ */
+function queryInternal(sql){
     return new Promise(function(fulfill, reject){
         // Force SQL queries to end in a semicolon for security
         if(sql.slice(-1) !== ';'){
@@ -232,9 +240,28 @@ exports.query = function(sql){
             fulfill(rows);
         });
     });
-};
+}
 
+/**
+ * Executes a given SQL query against the tranactional database
+ *
+ * @param {string} sql - The SQL query string to be run
+ * @param {object} params - The SQL query string to be run
+ * @returns {Promise.<array, Error>} A promise that returns an array of database results if resolved, or an Error if rejected
+ */
 exports.queryParam = function(sql, params){
+    return queryParamInternal(sql,params);
+}
+
+
+/**
+ * Executes a given SQL query against the tranactional database
+ *
+ * @param {string} sql - The SQL query string to be run
+ * @param {object} params - The SQL query string to be run
+ * @returns {Promise.<array, Error>} A promise that returns an array of database results if resolved, or an Error if rejected
+ */
+function queryParamInternal(sql, params){
     return new Promise(function(fulfill, reject){
         // Force SQL queries to end in a semicolon for security
         if(sql.slice(-1) !== ';'){
@@ -267,7 +294,23 @@ exports.queryParam = function(sql, params){
  *
  * @returns {Promise.<array, Error>} A promise that returns an array of database results if resolved, or an Error if rejected
  */
-exports.queryReadonly = async function(sql){
+exports.queryReadonly = function(sql){
+    if (useReadOnly === true){
+        return queryReadonlyInternal(sql);
+    }
+    else{
+        return queryInternal(sql);
+    }
+}
+
+/**
+ * Executes a given SQL query against the ReadyOnly database
+ *
+ * @param {string} sql - The SQL query string to be run
+ *
+ * @returns {Promise.<array, Error>} A promise that returns an array of database results if resolved, or an Error if rejected
+ */
+function queryReadonlyInternal(sql){
     return new Promise(function(fulfill, reject){
     // Force SQL queries to end in a semicolon for security
         if(sql.slice(-1) !== ';'){
@@ -308,7 +351,7 @@ exports.queryReadonly = async function(sql){
                         return;
                     }
                     fulfill(rows);
-                    
+
                 });
             }
         }
@@ -329,7 +372,33 @@ exports.queryReadonly = async function(sql){
     });
 };
 
+/**
+ * Executes a given SQL query against the ReadyOnly database
+ *
+ * @param {string} sql - The SQL query string to be run
+ * @param {object} params - The parameter JSON
+ *
+ * @returns {Promise.<array, Error>} A promise that returns an array of database results if resolved, or an Error if rejected
+ */
 exports.queryParamReadOnly = function(sql, params){
+    if (useReadOnly === true){
+        return queryParamReadOnlyInternal(sql, params);
+    }
+    else{
+        return queryParamInternal(sql,params);
+    }
+
+}
+
+/**
+ * Executes a given SQL query against the ReadyOnly database
+ *
+ * @param {string} sql - The SQL query string to be run
+ * @param {object} params - The parameter JSON
+ *
+ * @returns {Promise.<array, Error>} A promise that returns an array of database results if resolved, or an Error if rejected
+ */
+function queryParamReadOnlyInternal(sql, params){
     return new Promise(function(fulfill, reject){
         // Force SQL queries to end in a semicolon for security
         if(sql.slice(-1) !== ';'){
@@ -388,6 +457,133 @@ exports.queryParamReadOnly = function(sql, params){
         }
     });
 };
+
+/**
+ * Executes a given SQL query against the ReadyOnly database using PoolCluster connnection
+ * spreads queries across read only servers. software controlled
+ *
+ * @param {string} sql - The SQL query string to be run
+ *
+ * @returns {Promise.<array, Error>} A promise that returns an array of database results if resolved, or an Error if rejected
+ */
+exports.queryReadonlyCluster = async function(sql){
+    if(usingReadOnlyCluster === true){
+        return queryReadonlyClusterInternal(sql)
+    }
+    else if (useReadOnly === true){
+        return queryReadonlyInternal(sql);
+    }
+    else{
+        return queryInternal(sql);
+    }
+
+}
+
+/**
+ * Executes a given SQL query against the ReadyOnly database using PoolCluster connnection
+ * spreads queries across read only servers. software controlled
+ *
+ * @param {string} sql - The SQL query string to be run
+ *
+ * @returns {Promise.<array, Error>} A promise that returns an array of database results if resolved, or an Error if rejected
+ */
+function queryReadonlyClusterInternal(sql){
+    return new Promise(function(fulfill, reject){
+    // Force SQL queries to end in a semicolon for security
+        if(sql.slice(-1) !== ';'){
+            sql += ';';
+        }
+        // Replace the prefix placeholder
+        sql = sql.replace(/#__/g, global.settings.DATABASE_PREFIX);
+
+        // Run the query on the database
+
+        // DOES NOT Work =>  const connQuery = await util.promisify(connRo.getConnection).call(connRo);
+        connRoCluster.getConnection(function(error, connQuery) {
+            if(error){
+                reject(error);
+                return;
+            }
+
+            connQuery.query(sql, function(err, rows){
+                if(err){
+                    log.error('db ro query error: ' + err + __location);
+                    log.info('sql: ' + sql);
+                    // Docs-api had 'reject(new Error(err));'
+                    reject(err);
+                    return;
+                }
+                fulfill(rows);
+                connQuery.release();
+            });
+        });
+    });
+}
+
+/**
+ * Executes a given SQL Parameterized query against the ReadyOnly database using PoolCluster connnection
+ * spreads queries across read only servers. software controlled
+ *
+ * @param {string} sql - The SQL query string to be run
+ * @param {object} params - The parameter JSON
+ *
+ * @returns {Promise.<array, Error>} A promise that returns an array of database results if resolved, or an Error if rejected
+ */
+exports.queryParamReadOnlyCluster = function(sql, params){
+    if(usingReadOnlyCluster === true){
+        return queryParamReadOnlyCluster(sql,params)
+    }
+    else if (useReadOnly === true){
+        return queryParamReadOnlyInternal(sql)
+    }
+    else{
+        return queryParamInternal(sql,params);
+    }
+
+}
+
+/**
+ * Executes a given SQL Parameterized query against the ReadyOnly database using PoolCluster connnection
+ * spreads queries across read only servers. software controlled
+ *
+ * @param {string} sql - The SQL query string to be run
+ * @param {object} params - The parameter JSON
+ *
+ * @returns {Promise.<array, Error>} A promise that returns an array of database results if resolved, or an Error if rejected
+ */
+function queryParamReadOnlyCluster(sql, params){
+    return new Promise(function(fulfill, reject){
+        // Force SQL queries to end in a semicolon for security
+        if(sql.slice(-1) !== ';'){
+            sql += ';';
+        }
+
+        // Replace the prefix placeholder
+        sql = sql.replace(/#__/g, global.settings.DATABASE_PREFIX);
+
+        // Run the query on the database
+        // const connQuery = await util.promisify(connRo.getConnection).call(connRo);
+        connRoCluster.getConnection(function(error, connQuery) {
+            if(error){
+                reject(error);
+                return;
+            }
+
+            connQuery.query(sql, params, function(err, rows){
+                if(err){
+                    log.error('db ro query error: ' + err + __location);
+                    log.error('sql ro : ' + sql);
+                    reject(err);
+                    return;
+                }
+
+                fulfill(rows);
+                connQuery.release();
+            });
+        });
+
+    });
+}
 
 
 /**

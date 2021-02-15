@@ -687,7 +687,7 @@ async function CreateRedisIndustryCodeQuestionEntryInternal(industryCodeId){
             GROUP BY iq.question;
     `;
     let error = null;
-    const industryCodeQuestions = await db.queryReadonly(sql).catch(function(err) {
+    const industryCodeQuestions = await db.queryReadonlyCluster(sql).catch(function(err) {
         error = err.message;
     });
     if (error) {
@@ -767,7 +767,7 @@ exports.UpdateRedisIndustryQuestionByQuestionId = async function(questionId){
         order by ic.id`
 
     let error = null;
-    const industryCodeList = await db.queryReadonly(sql).catch(function(err) {
+    const industryCodeList = await db.queryReadonlyCluster(sql).catch(function(err) {
         error = err.message;
     });
     if (error) {
@@ -792,7 +792,7 @@ exports.UpdateRedisIndustryQuestionByInsurer = async function(insurerId){
         order by ic.id`
 
     let error = null;
-    const industryCodeList = await db.queryReadonly(sql).catch(function(err) {
+    const industryCodeList = await db.queryReadonlyCluster(sql).catch(function(err) {
         error = err.message;
     });
     if (error) {
@@ -820,7 +820,7 @@ exports.UpdateRedisIndustryQuestions = async function(industryCodeId){
     sql += ` order by ic.id`
 
     let error = null;
-    const industryCodeList = await db.queryReadonly(sql).catch(function(err) {
+    const industryCodeList = await db.queryReadonlyCluster(sql).catch(function(err) {
         error = err.message;
     });
     if (error) {
