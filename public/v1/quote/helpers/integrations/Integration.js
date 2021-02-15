@@ -2237,8 +2237,8 @@ module.exports = class Integration {
             }
             if (!result || !result.length) {
                 if (this.requiresInsurerIndustryCodes) {
-                    this.reasons.push("An insurer industry class code was not found for the given industry.");
-                    log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} _insurer_supports_industry_codes required insurer mapping for this industry code was not found. query=${sql} ` + __location);
+                    this.reasons.push("An insurer industry class code was not found for the given industry and territory.");
+                    log.warn(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} _insurer_supports_industry_codes required insurer mapping for this industry code was not found. query=${sql} ` + __location);
                     fulfill(false);
                     return;
                 }
