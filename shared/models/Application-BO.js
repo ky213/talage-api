@@ -2091,17 +2091,28 @@ module.exports = class ApplicationModel {
             if(orParamList && orParamList.length > 0){
                 for (let i = 0; i < orParamList.length; i++){
                     let orItem = orParamList[i];
-                    // eslint-disable-next-line no-redeclare
-                    for (var key2 in orItem) {
-                        if (typeof orItem[key2] === 'string' && orItem[key2].includes('%')) {
-                            let clearString = orItem[key2].replace("%", "");
-                            clearString = clearString.replace("%", "");
-                            orItem[key2] = {
-                                "$regex": clearString,
-                                "$options": "i"
-                            };
-                        }
+                    if(orItem.policies && queryJSON.orItem.policyType){
+                        //query.policies = {};
+                        orItem["policies.policyType"] = queryJSON.policies.policyType;
                     }
+                    else {
+                        // eslint-disable-next-line no-redeclare
+                        for (var key2 in orItem) {
+                            if (typeof orItem[key2] === 'string' && orItem[key2].includes('%')) {
+                                let clearString = orItem[key2].replace("%", "");
+                                clearString = clearString.replace("%", "");
+                                orItem[key2] = {
+                                    "$regex": clearString,
+                                    "$options": "i"
+                                };
+                            }
+
+
+                        }
+
+
+                    }
+
                 }
                 query.$or = orParamList
             }
@@ -2133,7 +2144,7 @@ module.exports = class ApplicationModel {
                         //get full document
                         queryProjection = {};
                     }
-                    // log.debug("ApplicationList query " + JSON.stringify(query))
+                    //log.debug("ApplicationList query " + JSON.stringify(query))
                     // log.debug("ApplicationList options " + JSON.stringify(queryOptions))
                     //log.debug("queryProjection: " + JSON.stringify(queryProjection))
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions);
@@ -2342,7 +2353,7 @@ module.exports = class ApplicationModel {
     //
     //
     // *********************************
-    //For AgencyPortal and Quote V2 - skipAgencyCheck === true if caller has already check 
+    //For AgencyPortal and Quote V2 - skipAgencyCheck === true if caller has already check
     // user rights to application
 
     async GetQuestions(appId, userAgencyList, questionSubjectArea, skipAgencyCheck = false){
@@ -2357,7 +2368,7 @@ module.exports = class ApplicationModel {
             }
             else if(applicationDocDB && userAgencyList.includes(applicationDocDB.agencyId)){
                 passedAgencyCheck = true;
-            } 
+            }
         }
         catch(err){
             log.error("Error checking application doc " + err + __location)
