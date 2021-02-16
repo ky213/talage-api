@@ -355,8 +355,7 @@ async function getApplications(req, res, next){
     // Add a text search clause if requested
     if (req.params.searchText && req.params.searchText.length > 0){
         if(productTypeList.indexOf(req.params.searchText.toUpperCase()) > -1){
-            query.policies = {};
-            query.policies.policyType = req.params.searchText.toUpperCase();
+            orClauseArray.push({"policies.policyType":  req.params.searchText.toUpperCase()})
         }
 
         const industryCodeBO = new IndustryCodeBO();
