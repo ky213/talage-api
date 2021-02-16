@@ -853,7 +853,7 @@ async function bindQuote(req, res, next) {
     }
 
     // Make sure basic elements are present
-    if (!Object.prototype.hasOwnProperty.call(req.params, 'id')) {
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'applicationId')) {
         log.warn('Some required data is missing' + __location);
         return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
     }
@@ -871,7 +871,7 @@ async function bindQuote(req, res, next) {
     let error = null;
     //accept applicationId or uuid also.
     const applicationBO = new ApplicationBO();
-    let applicationId = req.params.id;
+    let applicationId = req.body.applicationId;
     const quoteId = req.body.quoteId;
     const paymentPlanId = req.body.paymentPlanId;
 
