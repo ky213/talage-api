@@ -23,6 +23,7 @@ async function getResources(req, res, next){
 
     switch(req.query.page) {
         case "additionalQuestions":
+            membershipTypes(resources);
             break;
         case "basic":
         case "basic-created":
@@ -53,7 +54,9 @@ async function getResources(req, res, next){
 
     res.send(200, resources);
 }
-
+const membershipTypes = resources => {
+    resources.membershipTypes = ['Nevada Resturant Association'];
+}
 const policiesEnabled = resources => {
     resources.policiesEnabled = [
         "BOP",
