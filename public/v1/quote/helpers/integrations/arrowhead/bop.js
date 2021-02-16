@@ -16,6 +16,7 @@ const moment = require('moment');
 // TODO: Update to toggle between test/prod 
 const host = 'https://stag-api.nationalprograms.io';
 const path = '/Quote/v0.2-beta/CreateQuote';
+let logPrefix = "";
 
 module.exports = class LibertySBOP extends Integration {
 
@@ -35,69 +36,30 @@ module.exports = class LibertySBOP extends Integration {
 	 */
 	async _insurer_quote() {
 
-        // TODO: Add __location to all this.client_error(...) function calls
+        const fieldsToParse = [
+            "automaticIncr",
+            "bipay.extNumDays",
+            "fixedPropDeductible"
+        ];
 
         const applicationDocData = this.app.applicationDocData;
         const BOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP");
         const primaryContact = applicationDocData.contacts.find(c => c.primary);
 
-        const logPrefix = `Arrowhead (Appid: ${applicationDocData.mysqlId}): `;
-
-        const smartyStreetsResponse = await smartystreetSvc.checkAddress(
-            applicationDocData.mailingAddress,
-            applicationDocData.mailingCity,
-            applicationDocData.mailingState,
-            applicationDocData.mailingZipcode
-        );
-
-        // If the response has an error property, or doesn't have addressInformation.county_name, we can't determine
-        // a county so return an error.
-        if (smartyStreetsResponse.hasOwnProperty("error") ||
-            !smartyStreetsResponse.hasOwnProperty("addressInformation") ||
-            !smartyStreetsResponse.addressInformation.hasOwnProperty("county_name")) {
-            let errorMessage = "";
-            if (smartyStreetsResponse.hasOwnProperty("error")) {
-                errorMessage += `${smartyStreetsResponse.error}: ${smartyStreetsResponse.errorReason}. Due to this, we are unable to look up County information.`;
-            } else {
-                errorMessage += `SmartyStreets could not determine the county for address: ${this.app.business.locations[0].address}, ${this.app.business.locations[0].city}, ${this.app.business.locations[0].state_abbr}, ${this.app.business.locations[0].zip}<br>`;
-            }
-
-            return this.client_error(errorMessage);
-        }
+        logPrefix = `Arrowhead (Appid: ${applicationDocData.mysqlId}): `;
 
         // construct question map, massage answers into what is expected
         const questions = {};
         applicationDocData.questions.forEach(question => {
             let answer = null;
-            switch (question.insurerQuestionIdentifier) {
-                case "automaticIncr": 
-                    try {
-                        answer = parseInt(question.answerValue);
-                    } catch (e) {
-                        log.error(`${logPrefix}${question.answerValue} for question property ${question.insurerQuestionIdentifier}. Not including in request.`)
-                    }
-                    break;
-                case "bipay.extNumDays": // TODO: Change the spreadsheet value so this becomes 0, not "None"
-                    if (question.answerValue.toLowerCase() === "none") {
-                        answer = 0;
-                    } else {
-                        try {
-                            answer = parseInt(question.answerValue);
-                        } catch (e) {
-                            log.error(`${logPrefix}${question.answerValue} for question property ${question.insurerQuestionIdentifier}. Not including in request.`)
-                        }
-                    }
-                    break;
-                case "fixedPropDeductible":
-                    try {
-                        answer = parseInt(question.answerValue);
-                    } catch (e) {
-                        log.error(`${logPrefix}${question.answerValue} for question property ${question.insurerQuestionIdentifier}. Not including in request.`)
-                    }
-                    break;
-                default: 
-                    answer = question.answerValue;
-                    break;
+            if (fieldsToParse.includes(question.insurerQuestionIdentifier)) {
+                try {
+                    answer = parseInt(question.answerValue);
+                } catch (e) {
+                    log.error(`${logPrefix}${question.answerValue} for question property ${question.insurerQuestionIdentifier}. Not including in request.`)
+                }
+            } else {
+                answer = question.answerValue;
             }
 
             if (answer !== null) {
@@ -105,7 +67,12 @@ module.exports = class LibertySBOP extends Integration {
             }
         });
 
-        // console.log(JSON.stringify(applicationDocData, null, 4));
+        let locationList = null;
+        try {
+            locationList = await this.getLocationList();
+        } catch (e) {
+            return this.client_error(e, __location);
+        }
 
         // hydrate the request JSON object with generic info
         const requestJSON = {
@@ -132,33 +99,31 @@ module.exports = class LibertySBOP extends Integration {
                 wphone: `+1-${primaryContact.phone.substring(0, 3)}-${primaryContact.phone.substring(primaryContact.phone.length - 7)}`,
                 email: primaryContact.email
             },
-            company: "CABPQ1",
+            company: applicationDocData.businessName,
             controlSet: {
-
-                prodcode: "111111",
-                leadid: "36723a08-3467-4011-a358-dbf1e6d2b3fd"
+                prodcode: "111111", // <--- TODO: Get the producer code
+                leadid: this.generate_uuid()
             },
             policy: {
                 product: "BBOP",
                 state: applicationDocData.mailingState,
-
-                company: "CABPQ1",
-                agentid: "qatest",
+                company: applicationDocData.businessName,
+                agentid: "qatest", // <--- TODO: Do we need this? If so, how do we get it?
                 commonSet: {
-                    dnb: {
-                        callResult: "HIT",
-                        message: "",
-                        dunsNumber: "777777776"
-                    },
+                    // dnb: {
+                    //     callResult: "HIT",
+                    //     message: "",
+                    //     dunsNumber: "777777776"
+                    // },
                     stateOfDomicile: applicationDocData.mailingState,
-                    company: "CABPQ1",
+                    company: applicationDocData.businessName,
                     naicsCode: this.industry_code.attributes.naics,
                     classCode: this.industry_code.code, 
                     yearBizStarted: `${moment(applicationDocData.founded).year()}`,
                     sicCode: this.industry_code.attributes.sic,
                     expiration: moment(BOPPolicy.effectiveDate).add(1, "year").format("YYYYMMDD"),
                     state: applicationDocData.mailingState,
-                    quoteType: "NB"
+                    quoteType: "NB" // <--- What should this be?
                 },
                 bbopSet: {
                     classCodes: this.industry_code.code,
@@ -168,7 +133,7 @@ module.exports = class LibertySBOP extends Integration {
                     removeITVProvision: false,
                     liabCovInd: true,
                     propCovInd: true,
-                    locationList: this.getLocationList(smartyStreetsResponse),
+                    locationList: locationList,
                     otherCOA: "2000000",
                     addtlIntInd: false,
                     proLiabInd: false,
@@ -227,7 +192,7 @@ module.exports = class LibertySBOP extends Integration {
             if (error.statusCode && error.code) {
                 errorMessage += `[${error.statusCode}] ${error.code}: `;
             } else {
-                return this.client_error(errorMessage + "An error occurred, please review the logs.");
+                return this.client_error(errorMessage + "An error occurred, please review the logs.", __location);
             }
 
             const additionalDetails = [];
@@ -243,7 +208,7 @@ module.exports = class LibertySBOP extends Integration {
                 errorMessage += `No details were provided, please review the logs.`;
             }
 
-            return this.client_error(errorMessage, additionalDetails.length > 0 ? additionalDetails : null);
+            return this.client_error(errorMessage, __location, additionalDetails.length > 0 ? additionalDetails : null);
         }
 
         // handle successful quote
@@ -252,15 +217,37 @@ module.exports = class LibertySBOP extends Integration {
         log.info("=================== QUOTE RESULT ===================");
     }
 
-    getLocationList(smarty) {
+    async getLocationList() {
         const applicationDocData = this.app.applicationDocData;
         const locationList = [];
         
-        applicationDocData.locations.forEach(location => {
+        for (const location of applicationDocData.locations) {
+            const smartyStreetsResponse = await smartystreetSvc.checkAddress(
+                applicationDocData.mailingAddress,
+                applicationDocData.mailingCity,
+                applicationDocData.mailingState,
+                applicationDocData.mailingZipcode
+            );
+
+            // If the response has an error property, or doesn't have addressInformation.county_name, we can't determine
+            // a county so return an error.
+            if (smartyStreetsResponse.hasOwnProperty("error") ||
+                !smartyStreetsResponse.hasOwnProperty("addressInformation") ||
+                !smartyStreetsResponse.addressInformation.hasOwnProperty("county_name")) {
+                let errorMessage = "";
+                if (smartyStreetsResponse.hasOwnProperty("error")) {
+                    errorMessage += `${smartyStreetsResponse.error}: ${smartyStreetsResponse.errorReason}. Due to this, we are unable to look up County information.`;
+                } else {
+                    errorMessage += `SmartyStreets could not determine the county for address: ${this.app.business.locations[0].address}, ${this.app.business.locations[0].city}, ${this.app.business.locations[0].state_abbr}, ${this.app.business.locations[0].zip}<br>`;
+                }
+
+                throw new Error(errorMessage);
+            }
+
             // add fields here...
             locationList.push({
                 userCountryName: "USA",
-                userCountyName: smarty.addressInformation.county_name,
+                userCountyName: smartyStreetsResponse.addressInformation.county_name,
                 city: location.city,
                 street: "POLK",
                 state: location.state,
@@ -290,11 +277,11 @@ module.exports = class LibertySBOP extends Integration {
                 territory: applicationDocData.mailingState,
                 finalProtectionClass: "3",
                 PPCCall: {
-                    fireProtectionArea: smarty.addressInformation.county_name,
+                    fireProtectionArea: smartyStreetsResponse.addressInformation.county_name,
                     waterSupplyType: "Hydrant", // <-- HOW TO GET THIS
                     PPCCode: "3", // <-- WHAT IS THIS
                     matchType: "Address Level Match",
-                    county: smarty.addressInformation.county_name,
+                    county: smartyStreetsResponse.addressInformation.county_name,
                     respondingFireStation: "STATION 14", // <-- HOW TO GET THIS
                     priorAlternativePPCCodes: "9/10", // <-- WHAT IS THIS
                     driveDistanceToRespondingFireStation: "1 mile or less", // <-- HOW TO GET THIS
@@ -423,7 +410,7 @@ module.exports = class LibertySBOP extends Integration {
                     }
                 ]
             });
-        });
+        };
 
         return locationList;
     }
@@ -445,10 +432,10 @@ module.exports = class LibertySBOP extends Integration {
                 case "flMixedBbopInd":
                     bbopSet.flMixedBbopInd = answer.toLowerCase() === "yes"; // TODO: Add this as a single general function
                     break;
-                case "MedicalExpenses": // TODO: Update this in the spreadsheet
+                case "medicalExpenses":
                     bbopSet.medicalExpenses = answer;
                     break;        
-                case "LiaDed": // TODO: Update this in the spreadsheet
+                case "liaDed":
                     bbopSet.liaDed = answer;
                     break;       
                 case "fixedPropDeductible":
