@@ -2023,7 +2023,7 @@ module.exports = class ApplicationModel {
             if (findCount === false) {
                 let docList = null;
                 try {
-                    // log.debug("ApplicationList query " + JSON.stringify(query))
+                    //log.debug("ApplicationList query " + JSON.stringify(query))
                     // log.debug("ApplicationList options " + JSON.stringify(queryOptions))
                     // log.debug("queryProjection: " + JSON.stringify(queryProjection))
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions);
@@ -2177,6 +2177,12 @@ module.exports = class ApplicationModel {
                 }
             }
 
+            if(queryJSON.policies && queryJSON.policies.policyType){
+                //query.policies = {};
+                query["policies.policyType"] = queryJSON.policies.policyType;
+                delete queryJSON.policies
+            }
+
 
             if (queryJSON) {
                 for (var key in queryJSON) {
@@ -2239,7 +2245,7 @@ module.exports = class ApplicationModel {
                         //get full document
                         queryProjection = {};
                     }
-                    //log.debug("ApplicationList query " + JSON.stringify(query))
+                    // log.debug("ApplicationList query " + JSON.stringify(query))
                     // log.debug("ApplicationList options " + JSON.stringify(queryOptions))
                     //log.debug("queryProjection: " + JSON.stringify(queryProjection))
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions);
