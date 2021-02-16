@@ -925,5 +925,5 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPutAuthAppApi('PUT Start Quoting Application', `${basePath}/application/:id/quote`, startQuoting);
     server.addGetAuthAppApi('Get Quoting check Application', `${basePath}/application/:id/quoting`, quotingCheck);
 
-    server.addPutAuthAppApi('PUT Bind Quote', `${basePath}/application/:id/bind-quote`, bindQuote);
+    server.addPutAuthAppApi('PUT Bind Quote', `${basePath}/application/:id/bindquote`, bindQuote);
 }
