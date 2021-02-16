@@ -920,10 +920,10 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPutAuthAppApi("PUT Application",`${basePath}/application`,applicationSave);
     server.addGetAuthAppApi("GET Application",`${basePath}/application/:id`,getApplication);
 
-    server.addGetAuthAppApi('GetQuestions for AP Application', `${basePath}/application/:id/questions`, GetQuestions)
+    server.addGetAuthAppApi('GetQuestions for AP Application', `${basePath}/application/:id/questions`, GetQuestions);
     server.addPutAuthAppApi('PUT Validate Application', `${basePath}/application/:id/validate`, validate);
     server.addPutAuthAppApi('PUT Start Quoting Application', `${basePath}/application/:id/quote`, startQuoting);
     server.addGetAuthAppApi('Get Quoting check Application', `${basePath}/application/:id/quoting`, quotingCheck);
 
-    server.addPutAuthAppApi('PUT Bind Quote', `${basePath}/application/:id/bindquote`, bindQuote);
+    server.addPutAuthAppApi('PUT Bind Quote', `${basePath}/application/:id/bind-quote`, bindQuote);
 }

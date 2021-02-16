@@ -23,6 +23,7 @@ async function getResources(req, res, next){
 
     switch(req.query.page) {
         case "additionalQuestions":
+            membershipTypes(resources);
             break;
         case "basic":
         case "basic-created":
@@ -53,7 +54,9 @@ async function getResources(req, res, next){
 
     res.send(200, resources);
 }
-
+const membershipTypes = resources => {
+    resources.membershipTypes = ['Nevada Resturant Association'];
+}
 const policiesEnabled = resources => {
     resources.policiesEnabled = [
         "BOP",
@@ -235,7 +238,15 @@ const territories = resources => {
     ];
 }
 
+async function getRemoteAddress(req, res, next){
+    const remoteAdd = req.connection.remoteAddress;
+    if(!remoteAdd){
+        next(serverHelper.requestError(`Unable to detect the remote address.`))
+    }
+    res.send(200, {remoteAddress: req.connection.remoteAddress});
+}
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuthAppWF("Get Next Route", `${basePath}/resources`, getResources);
+    server.addGetAuthAppWF("Get IP Info", `${basePath}/remote-address`, getRemoteAddress);
 }
