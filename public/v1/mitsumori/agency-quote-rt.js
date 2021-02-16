@@ -506,6 +506,7 @@ async function getAgencyMetadata(req, res, next) {
         wholesale: agencyJson.wholesale,
         metaName: agencyJson.name,
         metaPhone: agencyJson.phone,
+        metaEmail: agencyJson.email,
         metaCALicence: agencyJson.caLicenseNumber,
         metaLogo: metaLogo,
         metaFooterLogo: metaFooterLogo,
