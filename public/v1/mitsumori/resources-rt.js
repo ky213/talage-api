@@ -248,5 +248,5 @@ async function getRemoteAddress(req, res, next){
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuthAppWF("Get Next Route", `${basePath}/resources`, getResources);
-    server.addGetAuthAppWF("Get IP Info", `${basePath}/remoteAddress`, getRemoteAddress);
+    server.addGetAuthAppWF("Get IP Info", `${basePath}/remote-address`, getRemoteAddress);
 }
