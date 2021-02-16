@@ -78,6 +78,14 @@ async function add(req, res, next) {
     if (error) {
         return next(error);
     }
+    const questionSvc = global.requireShared('./services/questionsvc.js');
+    try{
+        //do not await not need to wait for response
+        questionSvc.CreateRedisIndustryCodeQuestionEntry(req.body.talageIndustryCodeId);
+    }
+    catch(err){
+        log.error(`Error update question cache for ${req.body.talageIndustryCodeId}`)
+    }
 
     res.send(200, industryCodeToInsurerIndustryCodeBO.cleanJSON());
     return next();
@@ -106,6 +114,14 @@ async function deleteObject(req, res, next) {
     });
     if (error) {
         return next(error);
+    }
+    const questionSvc = global.requireShared('./services/questionsvc.js');
+    try{
+        //do not await not need to wait for response
+        questionSvc.CreateRedisIndustryCodeQuestionEntry(talageIndustryCodeId);
+    }
+    catch(err){
+        log.error(`Error update question cache for ${talageIndustryCodeId}`)
     }
     res.send(200, {"success": true});
     return next();

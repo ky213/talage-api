@@ -461,85 +461,6 @@ module.exports = class Application {
                 this.questions[q.id] = q;
             }
         }
-
-        // Enforce required questions (this must be done AFTER all questions are loaded with their answers)
-
-        // Translate question subject area questions in the application doc
-        if (this.applicationDocData.questions && this.applicationDocData.questions.length > 0) {
-            // "general" questions
-            try {
-                await this.translateSubjectAreaQuestionList(policyList, "general", this.applicationDocData.questions, talageQuestionDefList);
-            }
-            catch (error) {
-                throw error;
-            }
-        }
-        if (this.applicationDocData.locations) {
-            // "location" questions
-            for (const location of this.applicationDocData.locations) {
-                if (location.questions && location.questions.length > 0) {
-                    try {
-                        await this.translateSubjectAreaQuestionList(policyList, "location", location.questions);
-                    }
-                    catch (error) {
-                        throw error;
-                    }
-                }
-            }
-        }
-    }
-
-    /**
-     * Translates the application questions for a given subject area
-     *
-     * @param  {Array} policyList - List of policies with properties "type", "effectiveDate"
-     * @param  {string} questionSubjectArea - Question subject area ("general", "location", "location.building", ...)
-     * @param  {Array} applicationQuestionList - List of questions from the application (app.questions, app.location[0].questions, ...)
-     * @param  {Array} talageQuestionDefList - List of talage question definitions already retrieved from database, ...)
-     * @returns {void}
-     */
-    async translateSubjectAreaQuestionList(policyList, questionSubjectArea, applicationQuestionList, talageQuestionDefList) {
-        // Retrieve the subject area for the given questions.
-        if(applicationQuestionList && applicationQuestionList.length > 0){
-            let talageQuestionList = null;
-            if(talageQuestionDefList){
-                talageQuestionList = talageQuestionDefList;
-            }
-            else {
-                try {
-                    log.info(`translateSubjectAreaQuestionList loading questions for ${this.id} ` + __location)
-                    talageQuestionList = await questionsSvc.GetQuestionsForBackend(this.get_wc_codes(), this.business.industry_code, this.business.getZips(), policyList, this.get_insurer_ids(), questionSubjectArea, true);
-                    log.info(`Got list for translateSubjectAreaQuestionList loading questions for ${this.id} ` + __location)
-                }
-                catch (e) {
-                    log.error(`AppId ${this.applicationDocData.mysqlId} Translation Error: GetQuestionsForBackend (questionSubjectArea=${questionSubjectArea}): ${e}. ` + __location);
-                    throw e;
-                }
-
-            }
-            if (talageQuestionList.length > 0) {
-                for (const applicationQuestion of applicationQuestionList) {
-                    // Hidden questions are not required
-                    if (applicationQuestion.hidden) {
-                        continue;
-                    }
-                    // Find the Talage question
-                    const talageQuestion = talageQuestionList.find((q) => q.id === applicationQuestion.questionId);
-                    if (talageQuestion) {
-                        if (talageQuestion.parent && talageQuestion.parent > 0) {
-                            const talageSubjectAreaParentQuestion = talageQuestionList.find((q) => q.id === talageQuestion.parent);
-                            if (!talageSubjectAreaParentQuestion) {
-                                // No one question issue should stop quoting with all insureres - BP 2020-10-04
-                                log.error(`AppId ${this.applicationDocData.mysqlId} Translation Error: Question ${talageQuestion.id} (questionSubjectArea=${questionSubjectArea}) has invalid parent setting. (${htmlentities.decode(talageQuestion.text).replace('%', '%%')})` + __location);
-                            }
-                        }
-                    }
-                }
-            }
-            else{
-                log.warn(`No Questions for application ${this.applicationDocData.mysqlId} `)
-            }
-        }
     }
 
     /**
@@ -848,15 +769,11 @@ module.exports = class Application {
 	 */
     async send_notifications(quoteList) {
         // Determine which message will be sent
-        let all_had_quotes = true;
         let some_quotes = false;
         let notifiyTalage = false
         quoteList.forEach((quoteDoc) => {
             if (quoteDoc.aggregatedStatus === 'quoted' || quoteDoc.aggregatedStatus === 'quoted_referred') {
                 some_quotes = true;
-            }
-            else {
-                all_had_quotes = false;
             }
             //Notify Talage logic Agencylocation ->insures
             try{
@@ -871,7 +788,7 @@ module.exports = class Application {
                 log.error(`Quote Application ${this.id} Error get notifyTalage ` + err + __location);
             }
         });
-        log.info(`Quote Application ${this.id}, some_quotes;: ${some_quotes}, all_had_quotes: ${all_had_quotes}:  Sending Notification to Talage is ${notifiyTalage}` + __location)
+        log.info(`Quote Application ${this.id}, some_quotes;: ${some_quotes}:  Sending Notification to Talage is ${notifiyTalage}` + __location)
 
         // Send an emails if there were no quotes generated
         if (some_quotes === false && this.agencyPortalQuote === false) {
@@ -1003,11 +920,8 @@ module.exports = class Application {
             // Send a message to Slack
             // some_quotes === true tells us there is at least one quote.
             // if quoteList is empty, all_had_quotes will equal true.
-            if (all_had_quotes && some_quotes) {
-                slack.send('customer_success', 'ok', 'Application completed and the user received ALL quotes', attachment);
-            }
-            else if (some_quotes) {
-                slack.send('customer_success', 'ok', 'Application completed and only SOME quotes returned', attachment);
+            if (some_quotes) {
+                slack.send('customer_success', 'ok', 'Application completed and got quotes returned', attachment);
             }
             else {
                 slack.send('customer_success', 'warning', 'Application completed, but the user received NO quotes', attachment);
