@@ -19,15 +19,8 @@ const settingsDebugOutput = false;
 const requiredVariables = [
     // Runtime profile
     'ENV',
-    'BRAND',
     // Public URLs
     'SITE_URL',
-    'PORTAL_URL',
-    'API_URL',
-    'DIGALENT_AGENTS_URL',
-    'DIGALENT_SITE_URL',
-    'TALAGE_AGENTS_URL',
-    'APPLICATION_URL',
     // Internal Credentials
     'AUTH_SECRET_KEY',
     'ENCRYPTION_KEY',
