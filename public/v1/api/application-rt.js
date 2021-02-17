@@ -125,6 +125,7 @@ async function applicationSave(req, res, next) {
 
     }
 
+
     let responseAppDoc = null;
     try {
         const updateMysql = true;
@@ -189,6 +190,102 @@ async function applicationSave(req, res, next) {
 
     if (responseAppDoc) {
         res.send(200, responseAppDoc);
+        return next();
+    }
+    else {
+        res.send(500, "No updated document");
+        return next(serverHelper.internalError("No updated document"));
+    }
+}
+
+
+async function applicationLocationSave(req, res, next) {
+    log.debug("Application Post: " + JSON.stringify(req.body));
+    if (!req.body || typeof req.body !== "object") {
+        log.error("Bad Request: No data received " + __location);
+        return next(serverHelper.requestError("Bad Request: No data received"));
+    }
+
+    if (!req.body.applicationId) {
+        log.error("Bad Request: Missing applicationId " + __location);
+        return next(serverHelper.requestError("Bad Request: Missing applicationId"));
+    }
+
+    if (!req.body.location) {
+        log.error("Bad Request: Missing location object " + __location);
+        return next(serverHelper.requestError("Bad Request: Missing location"));
+    }
+
+    const applicationBO = new ApplicationBO();
+    let applicationDB = null;
+    //get application and valid agency
+    // check JWT has access to this application.
+    const rightsToApp = isAuthForApplication(req, req.body.applicationId)
+    if(rightsToApp !== true){
+        return next(serverHelper.forbiddenError(`Not Authorized`));
+    }
+    try {
+        applicationDB = await applicationBO.getById(req.body.applicationId);
+        if (!applicationDB) {
+            return next(serverHelper.requestError("Not Found"));
+        }
+    }
+    catch (err) {
+        log.error("Error checking application doc " + err + __location);
+        return next(serverHelper.requestError(`Bad Request: check error ${err}`));
+    }
+    let responseAppDoc = null;
+    try {
+        if(applicationDB){
+            const reqLocation = req.body.location
+            //check
+            if(reqLocation.locationId){
+                if(req.body.delete === true){
+                    const newLocationList = applicationDB.locations.filter(function(locationDB){ 
+                        return locationDB.locationId !== reqLocation.locationId;
+                    });
+                    applicationDB.locations = newLocationList;
+                }
+                else {
+                    //update
+                    for(const locationDB of applicationDB.locations){
+                        if(locationDB.locationId === reqLocation.locationId){
+                            const doNotUpdateList = ["_id", "locationId"];
+                            // eslint-disable-next-line guard-for-in
+                            for (const locationProp in reqLocation) {
+                                if(doNotUpdateList.indexOf(locationProp) === -1){
+                                    locationDB[locationProp] = reqLocation[locationProp];
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            else {
+            //add location
+                if(!reqLocation.questions){
+                    reqLocation.questions = []
+                }
+                if(!reqLocation.activityPayrollList){
+                    reqLocation.activityPayrollList = []
+                }
+                applicationDB.locations.push(reqLocation)
+            }
+            const updateMysql = false;
+            responseAppDoc = await applicationBO.updateMongo(applicationDB.applicationId,
+                applicationDB,
+                updateMysql);
+        }
+    }
+    catch (err) {
+        //mongoose parse errors will end up there.
+        log.error("Error saving application " + err + __location);
+        return next(serverHelper.requestError(`Bad Request: Save error ${err}`));
+    }
+    await setupReturnedApplicationJSON(responseAppDoc);
+
+    if (responseAppDoc) {
+        res.send(200, responseAppDoc.locations);
         return next();
     }
     else {
@@ -918,6 +1015,7 @@ exports.registerEndpoint = (server, basePath) => {
     // server.addGetAuthAppWF('Get Quote Agency', `${basePath}/agency`, getAgency);
     server.addPostAuthAppApi("POST Application",`${basePath}/application`,applicationSave);
     server.addPutAuthAppApi("PUT Application",`${basePath}/application`,applicationSave);
+    server.addPutAuthAppApi("PUT Application Location",`${basePath}/application/location`,applicationLocationSave);
     server.addGetAuthAppApi("GET Application",`${basePath}/application/:id`,getApplication);
 
     server.addGetAuthAppApi('GetQuestions for AP Application', `${basePath}/application/:id/questions`, GetQuestions)
