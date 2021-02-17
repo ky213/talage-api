@@ -256,6 +256,27 @@ module.exports = class AcuityWC extends Integration {
         }
         // console.log('result', JSON.stringify(result, null, 4));
 
+        // Retrieve the quote link and letter if they exist. Acuity will return a link even if it declines to give them the option to fix it.
+        // We get quote letter here as well because it is convenient since they are in the same node.
+        let quoteLetter = null;
+        let quoteLetterMimeType = null;
+        const fileAttachmentInfoList = this.get_xml_child(result.ACORD, 'InsuranceSvcRs.WorkCompPolicyQuoteInqRs.FileAttachmentInfo', true);
+        if (fileAttachmentInfoList) {
+            for (const fileAttachmentInfo of fileAttachmentInfoList) {
+                switch (fileAttachmentInfo.AttachmentDesc[0]) {
+                    case "Policy Quote Print":
+                        quoteLetter = fileAttachmentInfo.cData[0];
+                        quoteLetterMimeType = fileAttachmentInfo.MIMEContentTypeCd[0];
+                        break;
+                    case "URL":
+                        this.quoteLink = fileAttachmentInfo.WebsiteURL[0];
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+
         // Check if there was an error
         if (result.hasOwnProperty('errorResponse')) {
             const error_code = parseInt(result.errorResponse.httpCode, 10);
@@ -335,24 +356,6 @@ module.exports = class AcuityWC extends Integration {
                             break;
                     }
                 });
-
-                // Retrieve and the quote letter if it exists
-                let quoteLetter = null;
-                let quoteLetterMimeType = null;
-                const fileAttachmentInfoList = this.get_xml_child(result.ACORD, 'InsuranceSvcRs.WorkCompPolicyQuoteInqRs.FileAttachmentInfo', true);
-                for (const fileAttachmentInfo of fileAttachmentInfoList) {
-                    switch (fileAttachmentInfo.AttachmentDesc[0]) {
-                        case "Policy Quote Print":
-                            quoteLetter = fileAttachmentInfo.cData[0];
-                            quoteLetterMimeType = fileAttachmentInfo.MIMEContentTypeCd[0];
-                            break;
-                        case "URL":
-                            this.quoteLink = fileAttachmentInfo.WebsiteURL[0];
-                            break;
-                        default:
-                            break;
-                    }
-                }
 
                 // Check if it is a bindable quote
                 if (policyStatusCd === 'acuity_BindableQuote') {
