@@ -11,6 +11,7 @@ const Integration = require('../Integration.js');
 global.requireShared('./helpers/tracker.js');
 const axios = require('axios');
 const smartystreetSvc = global.requireShared('./services/smartystreetssvc.js');
+const limitHelper = global.requireShared('./helpers/formatLimits.js');
 const moment = require('moment');
 
 // TODO: Update to toggle between test/prod 
@@ -36,17 +37,37 @@ module.exports = class LibertySBOP extends Integration {
 	 */
 	async _insurer_quote() {
 
+        // NOTE: Properties of the request object that are commented out are known optional params we are explicitly not providing
+
         const fieldsToParse = [
             "automaticIncr",
             "bipay.extNumDays",
             "fixedPropDeductible"
         ];
 
+        // "Other" is not included, as anything not below is defaulted to it
+        const supportedEntityTypes = [
+            "Corporation",
+            "Limited Liability Company",
+            "Individual",
+            "Joint Venture",
+            "Partnership"
+        ];
+
         const applicationDocData = this.app.applicationDocData;
         const BOPPolicy = applicationDocData.policies.find(p => p.policyType === "BOP");
         const primaryContact = applicationDocData.contacts.find(c => c.primary);
+        const limits = limitHelper.getLimitsAsAmounts(BOPPolicy.limits);
 
         logPrefix = `Arrowhead (Appid: ${applicationDocData.mysqlId}): `;
+
+        // NOTE: This question is required. Remove this code if we add this as a general universal question and add it to hydration function. 
+        let eqpbrk = applicationDocData.questions.find(q => q.insurerQuestionIdentifier === "eqpbrk");
+        if (eqpbrk) {
+            eqpbrk = this.convertToBoolean(eqpbrk.answerValue);
+        } else {
+            eqpbrk = false;
+        }
 
         // construct question map, massage answers into what is expected
         const questions = {};
@@ -56,7 +77,8 @@ module.exports = class LibertySBOP extends Integration {
                 try {
                     answer = parseInt(question.answerValue);
                 } catch (e) {
-                    log.error(`${logPrefix}${question.answerValue} for question property ${question.insurerQuestionIdentifier}. Not including in request.`)
+                    log.error(`${logPrefix}${question.answerValue} for question property ${question.insurerQuestionIdentifier}: ${e}. Leaving as-is.`);
+                    answer = question.answerValue;
                 }
             } else {
                 answer = question.answerValue;
@@ -94,7 +116,7 @@ module.exports = class LibertySBOP extends Integration {
                     addressLine2: "",
                     state: applicationDocData.mailingState
                 },
-                instype: applicationDocData.entityType,
+                instype: supportedEntityTypes.includes(applicationDocData.entityType) ? applicationDocData.entityType : "Other",
                 companyName: applicationDocData.businessName,
                 wphone: `+1-${primaryContact.phone.substring(0, 3)}-${primaryContact.phone.substring(primaryContact.phone.length - 7)}`,
                 email: primaryContact.email
@@ -123,30 +145,26 @@ module.exports = class LibertySBOP extends Integration {
                     sicCode: this.industry_code.attributes.sic,
                     expiration: moment(BOPPolicy.effectiveDate).add(1, "year").format("YYYYMMDD"),
                     state: applicationDocData.mailingState,
-                    quoteType: "NB" // <--- What should this be?
+                    quoteType: "NB" // <--- SEND EMAIL TO JAMES
                 },
                 bbopSet: {
                     classCodes: this.industry_code.code,
                     finalized: true,
-                    GLOccurrenceLimit: "1000000",
-                    productsCOA: "2000000",
-                    removeITVProvision: false,
+                    GLOccurrenceLimit: limits[0],
+                    productsCOA: limits[2],
+                    // removeITVProvision: false,
                     liabCovInd: true,
                     propCovInd: true,
                     locationList: locationList,
-                    otherCOA: "2000000",
+                    otherCOA: limits[1],
                     addtlIntInd: false,
-                    proLiabInd: false,
-                    coverages: {
-                        elteat: {
-                            includeInd: false
-                        },                
-                        terror: {
-                            includeInd: true
+                    coverages: {               
+                        terror: { // required to provide this coverage object
+                            includeInd: BOPPolicy.addTerrorismCoverage
                         },
-                        eqpbrk: {
-                            includeInd: false
-                        },
+                        eqpbrk: { // required to provide this coverage object
+                            includeInd: eqpbrk
+                        }
                     },
                 },
                 effectiveProduct: "BBOP"
@@ -251,7 +269,7 @@ module.exports = class LibertySBOP extends Integration {
                 city: location.city,
                 street: "POLK",
                 state: location.state,
-                countyName: "",
+                countyName: smartyStreetsResponse.addressInformation.county_name,
                 zip: applicationDocData.mailingZipcode,
                 zipAddOn: "",
                 based: "riskAddress1",
@@ -430,7 +448,7 @@ module.exports = class LibertySBOP extends Integration {
                     bbopSet.automaticIncr = answer;
                     break;
                 case "flMixedBbopInd":
-                    bbopSet.flMixedBbopInd = answer.toLowerCase() === "yes"; // TODO: Add this as a single general function
+                    bbopSet.flMixedBbopInd = this.convertToBoolean(answer);
                     break;
                 case "medicalExpenses":
                     bbopSet.medicalExpenses = answer;
@@ -443,7 +461,7 @@ module.exports = class LibertySBOP extends Integration {
                     break;  
                 case "additionalInsured": // <---- THIS ISN'T IN THE TEMPLATE OR THEIR DOCUMENTATION
                     bbopSet.additionalInsured = {
-                        includedInd: answer.toLowerCase() === "yes"
+                        includedInd: this.convertToBoolean(answer)
                     }
                     break;
                 case "cown.numAI":
@@ -463,7 +481,7 @@ module.exports = class LibertySBOP extends Integration {
                     break;  
                 case "bitime":
                     bbopSet.coverages.bitime = {
-                        includedInd: answer.toLowerCase() === "yes"
+                        includedInd: this.convertToBoolean(answer)
                     };
                     break;  
                 case "bipay.extNumDays":
@@ -474,7 +492,7 @@ module.exports = class LibertySBOP extends Integration {
                     break;  
                 case "blkai":
                     bbopSet.coverages.blkai = {
-                        includedInd: answer.toLowerCase() === "yes"
+                        includedInd: this.convertToBoolean(answer)
                     };
                     break;  
                 case "compf.limit":
@@ -485,7 +503,7 @@ module.exports = class LibertySBOP extends Integration {
                     break;  
                 case "conins": 
                     bbopSet.coverages.conins = {
-                        includedInd: answer.toLowerCase() === "yes"
+                        includedInd: this.convertToBoolean(answer)
                     };
                     break; 
                 case "conins.propOnSite": 
@@ -504,12 +522,12 @@ module.exports = class LibertySBOP extends Integration {
                     break;
                 case "cyber":
                     bbopSet.coverages.cyber = {
-                        includedInd: answer.toLowerCase() === "yes"
+                        includedInd: this.convertToBoolean(answer)
                     };
                     break; 
                 case "datcom":
                     bbopSet.coverages.datcom = {
-                        includedInd: answer.toLowerCase() === "yes"
+                        includedInd: this.convertToBoolean(answer)
                     };
                     break; 
                 case "datcom.limit":
@@ -521,7 +539,7 @@ module.exports = class LibertySBOP extends Integration {
                     break;
                 case "empben":
                     bbopSet.coverages.empben = {
-                        includedInd: answer.toLowerCase() === "yes"
+                        includedInd: this.convertToBoolean(answer)
                     };
                     break;
                 case "empben.limit":
@@ -582,12 +600,12 @@ module.exports = class LibertySBOP extends Integration {
                         break;
                     case "conins.nonownTools":
                         bbopSet.conins.nonownTools = {
-                            includedInd: prop.answer.toLowerCase() === "yes"
+                            includedInd: this.convertToBoolean(prop.answer)
                         }
                         break;
                     case "conins.empTools":
                         bbopSet.conins.empTools = {
-                            includedInd: prop.answer.toLowerCase() === "yes"
+                            includedInd: this.convertToBoolean(prop.answer)
                         }
                         break;
                     default:
@@ -662,5 +680,16 @@ module.exports = class LibertySBOP extends Integration {
 
     injectLocationQuestions(location, questions) {
         // not yet implemented
+    }
+
+    convertToBoolean(value) {
+        if (typeof value === "string") {
+            if (value.toLowerCase() === "yes" || value.toLowerCase() === "no") {
+                return value.toLowerCase() === "yes";
+            }
+        }
+
+        log.warn(`No match was found, unable to convert value: ${value} to boolean. Returning null.`);
+        return null;
     }
 }
