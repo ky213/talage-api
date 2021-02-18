@@ -143,7 +143,7 @@ module.exports = class LibertySBOP extends Integration {
                     sicCode: this.industry_code.attributes.sic,
                     expiration: moment(BOPPolicy.effectiveDate).add(1, "year").format("YYYYMMDD"),
                     state: applicationDocData.mailingState,
-                    quoteType: "NB" // <--- SEND EMAIL TO JAMES
+                    quoteType: "NB"
                 },
                 bbopSet: {
                     classCodes: this.industry_code.code,
@@ -606,8 +606,6 @@ module.exports = class LibertySBOP extends Integration {
                             includedInd: this.convertToBoolean(prop.answer)
                         }
                         break;
-                    default:
-
                 }
             });
 
