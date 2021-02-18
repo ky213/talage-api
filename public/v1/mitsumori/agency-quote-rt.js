@@ -447,14 +447,6 @@ async function getAgencyMetadata(req, res, next) {
             }
         }
     }
-
-    try {
-        if (agencyJson.additionalInfo && agencyJson.additionalInfo.socialMediaTags && agencyJson.additionalInfo.socialMediaTags.facebookPixel) {
-            agencyJson.facebookPixel = agencyJson.additionalInfo.socialMediaTags.facebookPixel;
-        }
-    } catch (err) {
-        log.error(`Getting Facebook Pixel ${err} ${__location}`);
-    }
     try {
         const agencyNetworkBO = new AgencyNetworkBO();
         const agencyNetworkJSON = await agencyNetworkBO.getById(agencyJson.agencyNetworkId).catch(function (err) {
@@ -496,14 +488,13 @@ async function getAgencyMetadata(req, res, next) {
     const metaFooterLogo = agencyJson.footer_logo ? `${global.settings.IMAGE_URL}/public/agency-network-logos/${agencyJson.footer_logo}` : null;
     const metaFavicon = agencyJson.favicon ? `${global.settings.IMAGE_URL}/public/agency-logos/favicon/${agencyJson.favicon}` : null;
     const metaWebsite = agencyJson.website ? agencyJson.website : null;
-    const metaFacebookPixel = agencyJson.facebookPixel ? agencyJson.facebookPixel : null;
-
+    const socialMediaList = agencyJson.hasOwnProperty('socialMediaTags') ? agencyJson.socialMediaTags : null;
+    const enableOptOutSetting = agencyJson.hasOwnProperty('enableOptOut') ? agencyJson.enabelOptOut : null;
     // only pass back operation hours if both open and close time are present
     const metaOperationHours = openTime && closeTime ? { open: openTime, close: closeTime } : null;
 
     // use wheelhouse defaults if its not present
     const metaDescription = agencyJson.landingPageContent.bannerHeadingDefault ? agencyJson.landingPageContent.bannerHeadingDefault : agencyJson.defaultLandingPageContent.bannerHeadingDefault;
-
     res.send(200, {
         wholesale: agencyJson.wholesale,
         metaName: agencyJson.name,
@@ -514,11 +505,12 @@ async function getAgencyMetadata(req, res, next) {
         metaFooterLogo: metaFooterLogo,
         metaFavicon: metaFavicon,
         metaWebsite: metaWebsite,
-        metaFacebookPixel: metaFacebookPixel,
+        metaSocialMedia: socialMediaList,
         metaCss: metaCss,
         metaDescription: metaDescription,
         metaHasAbout: Boolean(agencyJson.about),
-        metaOperationHours: metaOperationHours
+        metaOperationHours: metaOperationHours,
+        metaOptOut: Boolean(enableOptOutSetting)
     });
     return next();
 }

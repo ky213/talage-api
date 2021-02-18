@@ -1386,7 +1386,8 @@ module.exports = class Integration {
         if (this.reasons.length > 0) {
             columns.push('reasons');
             values.push(this.reasons.join(',').replace(/'/g, "\\'").substring(0, 500));
-            quoteJSON.reasons = this.reasons.join(',').replace(/'/g, "\\'")
+            // Note: we do not need to escape apostrophes when going to Mongo. This was causing quote reasons to show an escape apostrophe in the agency portal -SF
+            quoteJSON.reasons = this.reasons.join(',');
         }
 
         // Quote Letter
