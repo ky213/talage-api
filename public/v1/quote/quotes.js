@@ -33,23 +33,14 @@ async function queryDB(sql, queryDescription) {
 /**
  * Create a quote summary to return to the frontend
  *
- * @param {Number} quoteID - Quote ID for the summary
+ * @param {Object} quote - Quote JSON to be summarized
  *
  * @returns {Object} quote summary
  */
-async function createQuoteSummary(quoteID) {
+async function createQuoteSummary(quote) {
     // Retrieve the quote
-    const quoteModel = new QuoteBO();
-    let quote = null;
-    try {
-        quote = await quoteModel.getMongoDocbyMysqlId(quoteID);
-    }
-    catch (error) {
-        log.error(`Could not get quote for ${quoteID} error:` + error + __location);
-        return null;
-    }
     if(!quote){
-        log.error(`Could not get quote for ${quoteID} - Not found` + __location);
+        log.error(`Quote object not supplied to createQuoteSummary ` + __location);
         return null;
     }
     // Retrieve the insurer
@@ -152,7 +143,7 @@ async function createQuoteSummary(quoteID) {
             }
             // Return the quote summary
             return {
-                id: quoteID,
+                id: quote.mysqlId,
                 policy_type: quote.policyType,
                 amount: quote.amount,
                 deductible: quote.deductible,
@@ -221,7 +212,7 @@ async function getQuotes(req, res, next) {
 
     // Retrieve quotes newer than the last quote ID
     // use createdAt Datetime instead.
-    const quoteModel = new QuoteBO();
+    const quoteBO = new QuoteBO();
     let quoteList = null;
 
     const query = {
@@ -229,7 +220,7 @@ async function getQuotes(req, res, next) {
         lastMysqlId: lastQuoteID
     };
     try {
-        quoteList = await quoteModel.getNewAppQuotes(query);
+        quoteList = await quoteBO.getNewAppQuotes(query);
     }
     catch (error) {
         log.error(`Could not get quote list for appId ${tokenPayload.applicationID} error:` + error + __location);
@@ -241,7 +232,7 @@ async function getQuotes(req, res, next) {
     // eslint-disable-next-line prefer-const
     let returnedQuoteList = [];
     for(const quote of quoteList){
-        const quoteSummary = await createQuoteSummary(quote.mysqlId);
+        const quoteSummary = await createQuoteSummary(quote);
         if (quoteSummary !== null) {
             returnedQuoteList.push(quoteSummary);
         }

@@ -18,6 +18,7 @@ const crypt = global.requireShared('./services/crypt.js');
 
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+const opts = {toJSON: {virtuals: true}};
 
 const contactSchema = new Schema({
     email: {type: String, required: true},
@@ -73,7 +74,20 @@ const locationSchema = new Schema({
     billing: {type: Boolean, required: false, default: false},
     activityPayrollList: [ActivtyCodeEmployeeTypeSchema],
     questions: [QuestionSchema]
-});
+},opts);
+
+locationSchema.virtual('locationId').
+    get(function() {
+        if(this._id){
+            return this._id;
+        }
+        else {
+            return null;
+        }
+    }).
+    set(function(v){
+        this._id = v;
+    });
 
 const ownerSchema = new Schema({
     birthdate: {type: Date, required: false},
@@ -108,6 +122,7 @@ const PolicySchema = new Schema({
     coverage: {type: Number, required: false}, // BOP field
     coverageLapse:  {type: Boolean, default: false},
     coverageLapseNonPayment: {type: Boolean, default: false},
+    blankWaiver: {type: Boolean, default: false}, // WC
     waiverSubrogation: {type: Boolean, default: false}
 });
 
@@ -269,11 +284,11 @@ ApplicationSchema.post('findOne', async function(result) {
 });
 
 
-// Configure the 'ApplicationSchema' to use getters and virtuals when transforming to JSON
-ApplicationSchema.set('toJSON', {
-    getters: true,
-    virtuals: true
-});
+// // Configure the 'ApplicationSchema' to use getters and virtuals when transforming to JSON
+// ApplicationSchema.set('toJSON', {
+//     getters: true,
+//     virtuals: true
+// });
 
 mongoose.set('useCreateIndex', true);
 mongoose.model('Application', ApplicationSchema);
