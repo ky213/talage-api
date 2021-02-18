@@ -30,7 +30,7 @@ async function getToken(req, res, next) {
 
     try{
         const ttlSeconds = 3600;
-        const redisResponse = await global.redisSvc.storeKeyValue(userJwt, JSON.stringify(payload),ttlSeconds)
+        const redisResponse = await global.redisSvc.storeKeyValue(userJwt, JSON.stringify(payload), ttlSeconds);
         if(redisResponse && redisResponse.saved){
             log.debug("Saved JWT to Redis " + __location);
         }

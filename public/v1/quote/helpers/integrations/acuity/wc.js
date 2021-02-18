@@ -46,11 +46,6 @@ module.exports = class AcuityWC extends Integration {
             return this.return_result('error');
         }
 
-        // Don't report certain activities in the payroll exposure
-        const unreportedPayrollActivityCodes = [
-            2869 // Office Employees
-        ];
-
         // These are the limits supported by Acuity
         const carrierLimits = [
             '100000/500000/100000',
@@ -102,19 +97,11 @@ module.exports = class AcuityWC extends Integration {
         // Check to ensure we have NCCI codes available for every provided activity code.
         for (const location of this.app.business.locations) {
             for (const activityCode of location.activity_codes) {
-                // Skip activity codes we shouldn't include in payroll
-                if (unreportedPayrollActivityCodes.includes(activityCode.id)) {
-                    continue;
-                }
                 if (this.insurer_wc_codes.hasOwnProperty(`${location.territory}${activityCode.id}`)) {
                     activityCode.ncciCode = this.insurer_wc_codes[location.territory + activityCode.id];
                 }
                 else {
-                    activityCode.ncciCode = await this.get_national_ncci_code_from_activity_code(location.territory, activityCode.id);
-                }
-                if (!activityCode.ncciCode) {
-                    this.log_warn(`Missing NCCI class code mapping: activityCode=${activityCode.id} territory=${location.territory}`, __location);
-                    return this.client_error(`Insurer activity class codes were not found for all activities in the application.`, __location);
+                    return this.client_autodeclined(`Insurer activity class codes were not found for all activities in the application.`, __location);
                 }
             }
         }
@@ -269,6 +256,27 @@ module.exports = class AcuityWC extends Integration {
         }
         // console.log('result', JSON.stringify(result, null, 4));
 
+        // Retrieve the quote link and letter if they exist. Acuity will return a link even if it declines to give them the option to fix it.
+        // We get quote letter here as well because it is convenient since they are in the same node.
+        let quoteLetter = null;
+        let quoteLetterMimeType = null;
+        const fileAttachmentInfoList = this.get_xml_child(result.ACORD, 'InsuranceSvcRs.WorkCompPolicyQuoteInqRs.FileAttachmentInfo', true);
+        if (fileAttachmentInfoList) {
+            for (const fileAttachmentInfo of fileAttachmentInfoList) {
+                switch (fileAttachmentInfo.AttachmentDesc[0]) {
+                    case "Policy Quote Print":
+                        quoteLetter = fileAttachmentInfo.cData[0];
+                        quoteLetterMimeType = fileAttachmentInfo.MIMEContentTypeCd[0];
+                        break;
+                    case "URL":
+                        this.quoteLink = fileAttachmentInfo.WebsiteURL[0];
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
+
         // Check if there was an error
         if (result.hasOwnProperty('errorResponse')) {
             const error_code = parseInt(result.errorResponse.httpCode, 10);
@@ -348,24 +356,6 @@ module.exports = class AcuityWC extends Integration {
                             break;
                     }
                 });
-
-                // Retrieve and the quote letter if it exists
-                let quoteLetter = null;
-                let quoteLetterMimeType = null;
-                const fileAttachmentInfoList = this.get_xml_child(result.ACORD, 'InsuranceSvcRs.WorkCompPolicyQuoteInqRs.FileAttachmentInfo', true);
-                for (const fileAttachmentInfo of fileAttachmentInfoList) {
-                    switch (fileAttachmentInfo.AttachmentDesc[0]) {
-                        case "Policy Quote Print":
-                            quoteLetter = fileAttachmentInfo.cData[0];
-                            quoteLetterMimeType = fileAttachmentInfo.MIMEContentTypeCd[0];
-                            break;
-                        case "URL":
-                            this.quoteLink = fileAttachmentInfo.WebsiteURL[0];
-                            break;
-                        default:
-                            break;
-                    }
-                }
 
                 // Check if it is a bindable quote
                 if (policyStatusCd === 'acuity_BindableQuote') {

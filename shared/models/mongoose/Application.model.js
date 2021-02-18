@@ -46,6 +46,17 @@ const ActivtyCodePayrollSchema = new Schema({
     ownerPayRoll: {type: Number, required: false}
 });
 
+const QuestionSchema = new Schema({
+    questionId: {type: Number, required: [true, 'questionId required']},
+    questionType: {type: String, required: false},
+    questionText: {type: String, required: false},
+    hint: {type: String, required: false},
+    hidden: {type: Boolean, default: false},
+    answerId: {type: Number, required: false},
+    answerValue: {type: String, required: false},
+    answerList: [String]
+});
+
 const locationSchema = new Schema({
     address: {type: String, required: false},
     address2: {type: String, required: false},
@@ -60,7 +71,8 @@ const locationSchema = new Schema({
     square_footage:  {type: Number, required: false},
     unemployment_num:  {type: Number, required: false},
     billing: {type: Boolean, required: false, default: false},
-    activityPayrollList: [ActivtyCodeEmployeeTypeSchema]
+    activityPayrollList: [ActivtyCodeEmployeeTypeSchema],
+    questions: [QuestionSchema]
 });
 
 const ownerSchema = new Schema({
@@ -96,19 +108,18 @@ const PolicySchema = new Schema({
     coverage: {type: Number, required: false}, // BOP field
     coverageLapse:  {type: Boolean, default: false},
     coverageLapseNonPayment: {type: Boolean, default: false},
-    waiverSubrogation: {type: Boolean, default: false},
-    claims:  [claimSchema]
+    waiverSubrogation: {type: Boolean, default: false}
 });
 
-const QuestionSchema = new Schema({
-    questionId: {type: Number, required: [true, 'questionId required']},
-    questionType: {type: String, required: false},
-    questionText: {type: String, required: false},
-    hint: {type: String, required: false},
-    hidden: {type: Boolean, default: false},
-    answerId: {type: Number, required: false},
-    answerValue: {type: String, required: false},
-    answerList: [String]
+const ApplicationMetricsPremiumSchema = new Schema({
+    WC: {type: Number, required: false},
+    GL: {type: Number, required: false},
+    BOP: {type: Number, required: false}
+});
+
+const ApplicationMetricsSchema = new Schema({
+    lowestBoundQuoteAmount: {type: ApplicationMetricsPremiumSchema, required: false},
+    lowestQuoteAmount: {type: ApplicationMetricsPremiumSchema, required: false}
 });
 
 // note: ein - not saved to db
@@ -183,6 +194,7 @@ const ApplicationSchema = new Schema({
     active: {type: Boolean, default: true},
     corporationType: {type: String, required: false},
     quotingStartedDate: {type: Date},
+    metrics: {type: ApplicationMetricsSchema, required: false}
 });
 // NOTE:  EIN is not ever saved to database.
 

@@ -656,7 +656,7 @@ module.exports = class AgencyBO {
     }
 
 
-    deleteSoftById(id) {
+    deleteSoftById(id, userId) {
         return new Promise(async(resolve, reject) => {
             //validate
             if (id && id > 0) {
@@ -666,6 +666,10 @@ module.exports = class AgencyBO {
                     agencyDoc = await this.getMongoDocbyMysqlId(id, returnDoc);
                     if(agencyDoc && agencyDoc.systemId){
                         agencyDoc.active = false;
+                        agencyDoc.deletedAt = moment();
+                        if(userId){
+                            agencyDoc.deletedByUser = userId;
+                        }
                         await agencyDoc.save();
                     }
                 }
