@@ -78,8 +78,8 @@ exports.load = () => {
     variables.USE_MONGO = "NO";
     // Disable binding
     variables.DISABLE_BINDING = "NO";
-    // Default to use questions cached in Redis
-    variables.USE_REDIS_QUESTION_CACHE = "YES";
+    // Default to not use questions cached in Redis
+    variables.USE_REDIS_QUESTION_CACHE = "NO";
     variables.REDIS_QUESTION_CACHE_JOB_COUNT = 3;
 
 
