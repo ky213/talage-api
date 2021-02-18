@@ -241,12 +241,12 @@ module.exports = class Application {
 
             // This is required
             if (this.business && this.business.unincorporated_association === null) {
-                throw new Error('Missing required field: unincorporated_association');
+                log.error('Missing required field: unincorporated_association');
             }
 
             // Validate
             if (this.business && !validator.boolean(this.business.unincorporated_association)) {
-                throw new Error('Invalid value for unincorporated_association, please use a boolean value');
+                log.error('Invalid value for unincorporated_association, please use a boolean value');
             }
 
             // If value is valid, convert to boolean
