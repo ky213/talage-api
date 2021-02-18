@@ -278,6 +278,7 @@ async function getAgencyLandingPage(req, res, next) {
     const landingPage = {
         banner: agency.banner,
         name: agency.name,
+        showIndustrySection: agency.showIndustrySection,
         showIntroText: agency.showIntroText,
         introHeading: agency.showIntroText ? agency.introHeading : null,
         introText: agency.showIntroText ? agency.introText : null,
