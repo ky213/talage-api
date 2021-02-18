@@ -28,7 +28,6 @@ const IndustryCodeCategoryBO = global.requireShared("./models/IndustryCodeCatego
  * @returns {object} agencySlug, pageSlug
  */
 function parseQuoteURL(url) {
-    // TODO: make sure this returns the correct values
     // Parse the agency slug
     let agencySlug = null;
     let pageSlug = null;
@@ -114,8 +113,6 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
     let agencyWebInfo = null;
     //Get agency record.
     const agencyBO = new AgencyBO();
-    //TODO .....
-    //ag.slug = ${db.escape(agencySlug)}
 
     try {
         agencyWebInfo = await agencyBO.getbySlug(agencySlug);
