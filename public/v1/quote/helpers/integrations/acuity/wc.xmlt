@@ -240,6 +240,7 @@
                 <QuestionAnswer>
                     <QuestionCd>{{>~question.code}}</QuestionCd>
                     <{{:~question.answerType}}>{{>~question.answer}}</{{:~question.answerType}}>
+                    {{: ~root.getAdditionalQuestionValues(~question.code) }}
                 </QuestionAnswer>
                 {{/for}}
             </CommlPolicy>
