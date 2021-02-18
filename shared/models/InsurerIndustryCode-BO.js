@@ -13,9 +13,12 @@ module.exports = class InsurerIndustryCodeBO{
 
     #dbTableORM = null;
 
+    doNotSnakeCase = ['effectiveDate','expirationDate'];
+
     constructor(){
         this.id = 0;
         this.#dbTableORM = new DbTableOrm(tableName);
+        this.#dbTableORM.doNotSnakeCase = this.doNotSnakeCase;
     }
 
     /**

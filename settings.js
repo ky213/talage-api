@@ -19,15 +19,8 @@ const settingsDebugOutput = false;
 const requiredVariables = [
     // Runtime profile
     'ENV',
-    'BRAND',
     // Public URLs
     'SITE_URL',
-    'PORTAL_URL',
-    'API_URL',
-    'DIGALENT_AGENTS_URL',
-    'DIGALENT_SITE_URL',
-    'TALAGE_AGENTS_URL',
-    'APPLICATION_URL',
     // Internal Credentials
     'AUTH_SECRET_KEY',
     'ENCRYPTION_KEY',
@@ -69,26 +62,37 @@ const optionalVariables = [
     'AWS_USE_KEYS',
     'MONGODB_CONNECTIONURLQUERY',
     'USING_AURORA_CLUSTER',
+    'DATABASE_RO_HOST_LIST',
     'USE_REDIS',
     'REDIS_HOST',
     'REDIS_PORT',
-    'REDIS_CLUSTER'
+    'REDIS_CLUSTER',
+    'USE_REDIS_QUESTION_CACHE'
 ]
 
 exports.load = () => {
+    // eslint-disable-next-line prefer-const
     let variables = {};
     variables.AWS_USE_KEYS = "NO";
     //Default to no use mongo if there are not ENV settings for it.
     variables.USE_MONGO = "NO";
     // Disable binding
     variables.DISABLE_BINDING = "NO";
+    // Default to not use questions cached in Redis
+    variables.USE_REDIS_QUESTION_CACHE = "NO";
+    variables.REDIS_QUESTION_CACHE_JOB_COUNT = 3;
 
 
     if (fs.existsSync('local.env')){
         // Load the variables from the aws.env file if it exists
         console.log('Loading settings from local.env file');
         try {
-            variables = environment.parse(fs.readFileSync('local.env', {"encoding": 'utf8'}));
+            const variablesFile = environment.parse(fs.readFileSync('local.env', {"encoding": 'utf8'}));
+            for (const fileProp in variablesFile) {
+                if(variablesFile[fileProp]){
+                    variables[fileProp] = variablesFile[fileProp]
+                }
+            }
         }
         catch (error){
             console.log(colors.red(`\tError parsing aws.env: ${error}`));
@@ -101,6 +105,10 @@ exports.load = () => {
         }
         console.log(colors.green('\tCompleted'));
     }
+
+
+
+
     // Load the environment variables over the local.env variables
     console.log('Loading required settings from environment variables');
     requiredVariables.forEach((variableName) => {
