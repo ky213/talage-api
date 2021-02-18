@@ -12,9 +12,7 @@
 		".idea"
 	  ],
 	  "script": "index.js",
-	  "watch_options" : {"usePolling": true},
-	  "instances": "max",
-	  "exec_mode": "cluster"
+	  "watch_options" : {"usePolling": true}
 	}
   ]
 }

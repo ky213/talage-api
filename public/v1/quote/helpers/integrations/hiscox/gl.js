@@ -318,13 +318,14 @@ module.exports = class HiscoxGL extends Integration {
         if (totalPayrollQuestionId) {
             //parseInt does not throw error with parse a non-number.
             //Still want to remove the questions
-            if(parseInt(this.questions[totalPayrollQuestionId].answer, 10) !== "NaN"){
-                try {
-                    this.totalPayroll = parseInt(this.questions[totalPayrollQuestionId].answer, 10);
+            try {
+                const totalPayroll = parseInt(this.questions[totalPayrollQuestionId].answer, 10);
+                if (!isNaN(totalPayroll)) {
+                    this.totalPayroll = totalPayroll;
                 }
-                catch (error) {
-                    this.log_warn(`Could not convert custom total payroll '${this.questions[totalPayrollQuestionId].answer}' to a number.`, __location);
-                }
+            }
+            catch (error) {
+                this.log_warn(`Could not convert custom total payroll '${this.questions[totalPayrollQuestionId].answer}' to a number.`, __location);
             }
             delete this.questions[totalPayrollQuestionId];
         }
