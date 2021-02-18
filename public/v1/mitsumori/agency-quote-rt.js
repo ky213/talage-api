@@ -346,6 +346,8 @@ async function getAgencyLandingPage(req, res, next) {
         banner: agency.banner,
         name: agency.name,
         showIntroText: agency.showIntroText,
+        introHeading: agency.showIntroText ? agency.introHeading : null,
+        introText: agency.showIntroText ? agency.introText : null,
         about: agency.about,
         wholesale: agency.wholesale,
         email: primaryLocation ? primaryLocation.email : null,
