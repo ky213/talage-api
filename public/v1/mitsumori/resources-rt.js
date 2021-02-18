@@ -22,7 +22,7 @@ async function getResources(req, res, next){
     const resources = {};
 
     switch(req.query.page) {
-        case "additionalQuestions":
+        case "businessQuestions":
             membershipTypes(resources);
             break;
         case "basic":

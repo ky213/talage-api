@@ -20,67 +20,6 @@ const AgencyLandingPageBO = global.requireShared("./models/AgencyLandingPage-BO.
 const ColorSchemeBO = global.requireShared("./models/ColorScheme-BO.js");
 const IndustryCodeCategoryBO = global.requireShared("./models/IndustryCodeCategory-BO.js");
 
-
-// This should not be in API path - BP
-
-/**
- * Parses the quote app request URL and extracts the agency and page slugs
- *
- * @param {string} url - quote app request URL
- *
- * @returns {object} agencySlug, pageSlug
- */
-function parseQuoteURL(url) {
-    // Parse the agency slug
-    let agencySlug = null;
-    let pageSlug = null;
-    url = url.replace(/index\.[a-zA-Z0-9]*\/*/, "");
-    let quoteURL = null;
-    try {
-        quoteURL = new URL(url);
-    }
-    catch (error) {
-        log.error(`Could not parse quote application url '${url}': ${error} ${__location}`);
-        return {
-            agencySlug: agencySlug,
-            pageSlug: pageSlug
-        };
-    }
-    let path = quoteURL.pathname;
-    // Replace multiple slashes with a single one
-    path = path.replace(/\/*/, "/");
-    // Split out the components
-    path = path.split("/");
-
-    if (quoteURL.searchParams.has("agency")) {
-        // URL: http://domain/?agency=agencySlug&page=pageSlug
-        agencySlug = quoteURL.searchParams.get("agency");
-        if (quoteURL.searchParams.has("page")) {
-            pageSlug = quoteURL.searchParams.get("page");
-        }
-    }
-    else if (path.length > 1 && path[1].length > 0) {
-        // URL: http://domain/agencySlug/pageSlug
-        agencySlug = path[1];
-        if (path.length > 2 && path[2].length > 0) {
-            pageSlug = path[2];
-        }
-    }
-    else if (global.settings.DEFAULT_QUOTE_AGENCY_SLUG) {
-        agencySlug = global.settings.DEFAULT_QUOTE_AGENCY_SLUG;
-    }
-    else {
-        // Default to "talage"
-        agencySlug = "talage";
-    }
-    return {
-        agencySlug: agencySlug,
-        pageSlug: pageSlug
-    };
-}
-
-// This shoud not be in API path - BP
-
 /**
  * Retrieves the agency information from a given agency/page slug.
  *
@@ -309,9 +248,6 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
     return agencyWebInfo;
 }
 
-
-// This should not be in API path - BP
-
 /**
  * Responds to POST requests and returns policy quotes
  *
@@ -322,16 +258,13 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
  * @returns {void}
  */
 async function getAgencyLandingPage(req, res, next) {
-    if (!req.query.url) {
-        res.send(400, {error: 'Missing URL'});
+    if (!req.query.agencySlug) {
+        res.send(400, {error: 'Missing agencySlug'});
+        log.error("Error retrieving Agency Landing Page no agencySlug provided");
         return next();
     }
-    const {
-        // eslint-disable-next-line no-unused-vars
-        agencySlug, pageSlug
-    } = parseQuoteURL(req.query.url);
 
-    const agency = await getAgencyFromSlugs(agencySlug, null);
+    const agency = await getAgencyFromSlugs(req.query.agencySlug, req.query.pageSlug);
     if(!agency){
         res.send(404, {error: 'Agency not found'});
         return next();
@@ -345,7 +278,10 @@ async function getAgencyLandingPage(req, res, next) {
     const landingPage = {
         banner: agency.banner,
         name: agency.name,
+        showIndustrySection: agency.showIndustrySection,
         showIntroText: agency.showIntroText,
+        introHeading: agency.showIntroText ? agency.introHeading : null,
+        introText: agency.showIntroText ? agency.introText : null,
         about: agency.about,
         wholesale: agency.wholesale,
         email: primaryLocation ? primaryLocation.email : null,
@@ -398,29 +334,24 @@ function replaceAgencyValues(toReplace, agency) {
  * @returns {void}
  */
 async function getAgencyMetadata(req, res, next) {
-    if (!req.query.url) {
-        res.send(400, {error: 'Missing URL'});
-        return next();
-    }
-    let {
-        // eslint-disable-next-line no-unused-vars
-        agencySlug, pageSlug
-    } = parseQuoteURL(req.query.url);
+    let agencySlug = req.query.agencySlug;
+    let pageSlug = req.query.pageSlug;
 
     if (!agencySlug) {
-        agencySlug = 'talage';
+        log.warn("Missing agencySlug: using talage");
+        agencySlug = "talage";
     }
 
     let agencyJson = null;
     try {
-        agencyJson = await getAgencyFromSlugs(agencySlug, null);
+        agencyJson = await getAgencyFromSlugs(agencySlug, pageSlug);
     }
     catch (err) {
-        log.error(`Error retrieving Agency in quote engine agency ${agencySlug} url ${req.query.url}: ${err} ${__location}`);
+        log.error(`Error retrieving Agency in quote engine agencySlug ${agencySlug} pageSlug ${pageSlug} url ${req.query.url}: ${err} ${__location}`);
     }
 
     if(!agencyJson){
-        log.warn(`Could not retrieve Agency quote engine agencySlug ${agencySlug} url ${req.query.url}: ${__location}`);
+        log.warn(`Could not retrieve Agency quote engine agencySlug ${agencySlug} pageSlug ${pageSlug} url ${req.query.url}: ${__location}`);
         res.send(404, {error: 'Could not retrieve agency'});
         return next();
     }
@@ -464,7 +395,7 @@ async function getAgencyMetadata(req, res, next) {
             }
         }
     } catch (error) {
-        log.error(`Could not parse landingPageContent in agency slug '${agencySlug}' for social metadata: ${error} ${__location}`);
+        log.error(`Could not parse landingPageContent in agency slug '${agencySlug}' pageSlug '${pageSlug}' for social metadata: ${error} ${__location}`);
         res.send(400, { error: "Could not process agency data" });
         return next();
     }
