@@ -74,19 +74,17 @@ module.exports = class LibertySBOP extends Integration {
         applicationDocData.questions.forEach(question => {
             let answer = null;
             if (fieldsToParse.includes(question.insurerQuestionIdentifier)) {
-                try {
-                    answer = parseInt(question.answerValue);
-                } catch (e) {
-                    log.error(`${logPrefix}${question.answerValue} for question property ${question.insurerQuestionIdentifier}: ${e}. Leaving as-is.`);
+                answer = parseInt(question.answerValue);
+
+                if (isNaN(answer)) {
+                    log.error(`${logPrefix}Couldn't parse "${question.answerValue}" for question property "${question.insurerQuestionIdentifier}". Result was NaN, leaving as-is.`);
                     answer = question.answerValue;
                 }
             } else {
                 answer = question.answerValue;
             }
 
-            if (answer !== null) {
-                questions[question.insurerQuestionIdentifier] = answer;
-            }
+            questions[question.insurerQuestionIdentifier] = answer;
         });
 
         let locationList = null;
