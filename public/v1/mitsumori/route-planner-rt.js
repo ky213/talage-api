@@ -31,8 +31,8 @@ const getRoute = async(currentRoute, appId, redisKey) => {
 
     switch(currentRoute){
         case "policies":
-            return "additionalQuestions"
-        case "additionalQuestions":
+            return "businessQuestions"
+        case "businessQuestions":
             return "officers";
         case "officers":
             return "claims";
