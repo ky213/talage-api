@@ -122,7 +122,7 @@ const PolicySchema = new Schema({
     coverage: {type: Number, required: false}, // BOP field
     coverageLapse:  {type: Boolean, default: false},
     coverageLapseNonPayment: {type: Boolean, default: false},
-    blankWaiver: {type: Boolean, default: false}, // WC
+    blanketWaiver: {type: Boolean, default: false}, // WC
     waiverSubrogation: {type: Boolean, default: false}
 });
 
