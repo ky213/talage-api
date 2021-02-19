@@ -115,6 +115,10 @@ const getMinDate = async(where) => {
         find(where, {createdAt: 1}).
         sort({createdAt: 1}).
         limit(1);
+    // If this agency has no applications, then return the current date
+    if (!app[0]) {
+      return new Date();
+    }
     return app[0].createdAt;
 }
 
