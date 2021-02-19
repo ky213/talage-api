@@ -256,7 +256,7 @@ async function validate(request, next, agency, isUpdate = false) {
 
     // Intro Heading (optional)
     if (Object.prototype.hasOwnProperty.call(landingPage, 'heading') && landingPage.heading) {
-        landingPage.introHeading = landingPage.heading;
+        data.heading = landingPage.heading;
     }
 
 
