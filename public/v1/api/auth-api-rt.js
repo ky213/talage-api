@@ -1,5 +1,6 @@
 const serverHelper = global.requireRootPath('server.js');
 const {'v4': uuidv4} = require('uuid');
+const moment = require('moment');
 
 /**
  * Responds to get requests for an API authorization token
@@ -54,6 +55,7 @@ async function getToken(req, res, next) {
 
     payload.apiToken = true;
     payload.ranValue1 = uuidv4().toString();
+    payload.createdAt = moment();
 
     // This is a valid user, generate and return a token
     const jwt = require('jsonwebtoken');
@@ -62,6 +64,7 @@ async function getToken(req, res, next) {
 
     //store in Redis...
     //Add Redis only payload properties here.
+
     try{
         const ttlSeconds = 3600;
         const redisResponse = await global.redisSvc.storeKeyValue(userJwt, JSON.stringify(payload),ttlSeconds)
@@ -92,6 +95,7 @@ exports.createApplicationToken = async function(req, applicationId) {
     // eslint-disable-next-line prefer-const
     let payload = req.userTokenData;
     payload.applicationId = applicationId;
+    payload.createdAt = moment();
     const jwt = require('jsonwebtoken');
     const userJwt = jwt.sign(payload, global.settings.AUTH_SECRET_KEY, {expiresIn: '1h'});
     const token = `Bearer ${userJwt}`;
@@ -111,7 +115,59 @@ exports.createApplicationToken = async function(req, applicationId) {
     return token;
 
 }
+//AddApplicationToToken
+/**
+ * Create new JWT with ApplicationId added to payload.
+ *
+ * @param {object} req - Request object
+ * @param {uuid} applicationId - new ApplicationId
+ *
+ * @returns {object} res - Returns an authorization token
+ */
+exports.AddApplicationToToken = async function(req, applicationId) {
+    // eslint-disable-next-line prefer-const
+    //get existing redis value
 
+    if(req.jwtToken){
+        let userTokenData = {};
+        try{
+            const redisResponse = await global.redisSvc.getKeyValue(req.jwtToken)
+            if(redisResponse && redisResponse.found && redisResponse.value){
+                userTokenData = JSON.parse(redisResponse.value)
+            }
+        }
+        catch(err){
+            log.error("Checking validateAppApiJWT JWT " + err + __location);
+        }
+        if(userTokenData){
+            if(!userTokenData.applications){
+                userTokenData.applications = [];
+            }
+            // eslint-disable-next-line prefer-const
+            userTokenData.applications.push(applicationId);
+            userTokenData.updatedAt = moment();
+            try{
+                const ttlSeconds = 3600;
+                const redisResponse = await global.redisSvc.storeKeyValue(req.jwtToken, JSON.stringify(userTokenData),ttlSeconds)
+                if(redisResponse && redisResponse.saved){
+                    log.debug("Update Redis JWT for new application " + __location);
+                }
+            }
+            catch(err){
+                log.error("Error updating Redis JWT for new application" + err + __location);
+            }
+        }
+        else{
+            log.error("Missing Redis userTokenData " + __location)
+        }
+    }
+    else {
+        log.error("Missing req.jwtToken " + __location)
+    }
+
+    return true;
+
+}
 
 
 /* -----==== Endpoints ====-----*/

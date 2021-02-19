@@ -128,6 +128,7 @@ async function getUserTokenDataFromJWT(req){
     let jwtToken = req.headers.authorization || req.body && req.body.access_token || req.query && req.query.access_token || req.headers.token;
     if(jwtToken){
         jwtToken = jwtToken.replace("Bearer ","");
+        req.jwtToken = jwtToken;
         try{
             const redisResponse = await global.redisSvc.getKeyValue(jwtToken)
             if(redisResponse && redisResponse.found && redisResponse.value){

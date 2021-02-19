@@ -1,5 +1,6 @@
 const serverHelper = global.requireRootPath('server.js');
 const {'v4': uuidv4} = require('uuid');
+const moment = require('moment');
 
 /**
  * Responds to get requests for an Quote app V2 authorization token
@@ -19,6 +20,7 @@ async function getToken(req, res, next) {
     payload.apiToken = true;
     payload.quoteApp = true;
     payload.ranValue1 = uuidv4().toString();
+    payload.createdAt = moment();
 
     // This is a valid user, generate and return a token
     const jwt = require('jsonwebtoken');

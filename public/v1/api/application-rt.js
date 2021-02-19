@@ -32,6 +32,16 @@ function isAuthForApplication(req, applicationId){
         else {
             log.warn("UnAuthorized Attempted to modify or access Application " + __location)
         }
+    } else if (req.userTokenData && req.userTokenData.apiToken && req.userTokenData.applications && req.userTokenData.applications.length > 0){
+        if(req.userTokenData.applications.indexOf(applicationId) > -1){
+            canAccessApp = true;
+        }
+        else {
+            //TODO check database Does API JWT owner have access to this
+            // agency to add/edit applications.
+
+            log.warn("UnAuthorized Attempted to modify or access Application " + __location)
+        }
     }
     return canAccessApp;
 }
@@ -178,6 +188,19 @@ async function applicationSave(req, res, next) {
                     log.error(`Error Create JWT with ApplicationId ${err}` + __location);
                 }
 
+            }
+            else {
+                //API request do create newtoken
+                // add application to Redis for JWT
+                try{
+                    const newToken = await ApiAuth.AddApplicationToToken(req, responseAppDoc.applicationId)
+                    if(newToken){
+                        responseAppDoc.token = newToken;
+                    }
+                }
+                catch(err){
+                    log.error(`Error Create JWT with ApplicationId ${err}` + __location);
+                }
             }
         }
     }
