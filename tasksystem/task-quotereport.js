@@ -126,7 +126,7 @@ var quoteReportTask = async function(){
 
                         lastAppDoc = await applicationBO.getfromMongoByAppId(quoteDoc.applicationId);
                         if(!lastAppDoc){
-                            log.error(`quotereportTask did not find appid ${quoteDoc.applicationId} ` + __location);
+                            log.info(`quotereportTask did not find appid ${quoteDoc.applicationId} ` + __location);
                         }
                     }
                     catch(err){
@@ -144,6 +144,9 @@ var quoteReportTask = async function(){
                 newRow.name = insurer.name;
                 if(lastAppDoc){
                     newRow.network = agencyNetworkNameMapJSON[lastAppDoc.agencyNetworkId];
+                }
+                else {
+                    newRow.network = "App Deleted"
                 }
                 if(lastAppDoc){
                     newRow.territory = lastAppDoc.mailingState;
