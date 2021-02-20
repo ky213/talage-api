@@ -2,6 +2,7 @@
 'use strict';
 
 const moment = require('moment');
+const { last } = require('pdf-lib');
 const util = require("util");
 const csvStringify = util.promisify(require("csv-stringify"));
 // eslint-disable-next-line no-unused-vars
@@ -124,6 +125,9 @@ var quoteReportTask = async function(){
                     try{
 
                         lastAppDoc = await applicationBO.getfromMongoByAppId(quoteDoc.applicationId);
+                        if(!lastAppDoc){
+                            log.error(`quotereportTask did not find appid ${quoteDoc.applicationId} ` + __location);
+                        }
                     }
                     catch(err){
                         log.error(`quotereportTask getting appid ${quoteDoc.applicationId} error ` + err + __location);
@@ -135,15 +139,15 @@ var quoteReportTask = async function(){
                     insurer = insurerList.find(insurertest => insurertest.id === quoteDoc.insurerId);
                 }
                 const newRow = {};
-                if(lastAppDoc){
-                    newRow.application = lastAppDoc.applicationId;
-                }
+                newRow.application = quoteDoc.applicationId;
                 newRow.policy_type = quoteDoc.policyType;
                 newRow.name = insurer.name;
                 if(lastAppDoc){
                     newRow.network = agencyNetworkNameMapJSON[lastAppDoc.agencyNetworkId];
                 }
-                newRow.territory = lastAppDoc.mailingState;
+                if(lastAppDoc){
+                    newRow.territory = lastAppDoc.mailingState;
+                }
                 newRow.api_result = quoteDoc.apiResult;
                 newRow.reasons = quoteDoc.reasons;
                 newRow.seconds = quoteDoc.quoteTimeSeconds;
