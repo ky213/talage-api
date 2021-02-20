@@ -32,12 +32,20 @@ exports.processtask = async function(queueMessage){
         let industryCodeId = null;
         if(queueMessage.Body && queueMessage.Body.insurerId){
             await industryCodeQuestionCacheUpdateByInsurerId(queueMessage.Body.insurerId).catch(err => error = err);
+            if(error){
+                log.error("Error industryCodeQuestionCacheUpdateByInsurerId " + error + __location);
+            }
+            error = null;
         }
         else {
             if(queueMessage.Body && queueMessage.Body.industryCodeId){
                 industryCodeId = queueMessage.Body.industryCodeId;
             }
             await industryCodeQuestionCacheUpdate(industryCodeId).catch(err => error = err);
+            if(error){
+                log.error("Error industryCodeQuestionCacheUpdate " + error + __location);
+            }
+            error = null;
         }
         
         return;

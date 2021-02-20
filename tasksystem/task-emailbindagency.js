@@ -5,9 +5,6 @@ const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
-
-
-
 const AgencyBO = global.requireShared('models/Agency-BO.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const InsurerBO = global.requireShared('models/Insurer-BO.js');
@@ -32,6 +29,10 @@ exports.processtask = async function(queueMessage) {
         //Inspect JSON for applicationId
         if (queueMessage.body && queueMessage.body.applicationId && queueMessage.body.quoteId) {
             await emailbindagency(queueMessage.body.applicationId, queueMessage.body.quoteId).catch(err => error = err);
+            if(error){
+                log.error("Error emailbindagency " + error + __location);
+            }
+            error = null;
         }
         else {
             log.error("Error emailbindagency missing applicationId " + __location);

@@ -27,6 +27,10 @@ exports.processtask = async function(queueMessage) {
         //DO STUFF
 
         await optoutapplicationtask().catch(err => error = err);
+        if(error){
+            log.error("Error optoutapplicationtask " + error + __location);
+        }
+        error = null;
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err) {
             error = err;
         });
