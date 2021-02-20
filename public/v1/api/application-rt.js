@@ -948,13 +948,13 @@ async function quotingCheck(req, res, next) {
 
 async function bindQuote(req, res, next) {
 
-    const rightsToApp = isAuthForApplication(req,req.params.id)
+    const rightsToApp = isAuthForApplication(req,req.params.id);
     if(rightsToApp !== true){
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
 
     //Double check it is TalageStaff user
-    log.debug("Bind request: " + JSON.stringify(req.body))
+    log.debug("Bind request: " + JSON.stringify(req.body));
     // Check if binding is disabled
 
     // Check for data
@@ -1003,7 +1003,7 @@ async function bindQuote(req, res, next) {
                 quoteId: quoteId,
                 paymentPlanId: paymentPlanId
             };
-            const resp = await applicationBO.processRequestToBind(applicationId,quoteJSON)
+            const resp = await applicationBO.processRequestToBind(applicationId,quoteJSON);
         }
         catch(err){
             log.error(`Bind request error app ${applicationId} error ${err}` + __location)
