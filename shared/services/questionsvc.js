@@ -324,6 +324,105 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             log.debug(`Adding ZERO redis industry questions - not found ` + __location)
         }
     }
+    if(global.settings.USE_MONGO_QUESTIONS === "YES"){
+        const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
+        const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
+        const start = moment();
+        const now = moment();
+        // eslint-disable-next-line prefer-const
+        let industryQuery = {
+            insurerId: {$in: insurerArray},
+            talageIndustryCodeIdList: industry_code,
+            territoryList: {$in: territories},
+            effectiveDate: {$lte: now},
+            expirationDate: {$gte: now},
+            active: true
+        }
+        // eslint-disable-next-line prefer-const
+        let orParamList = [];
+        const policyTypeCheck = {policyType: {$in: policyTypes}};
+        const policyTypeNullCheck = {policyType: null}
+        orParamList.push(policyTypeCheck)
+        orParamList.push(policyTypeNullCheck)
+        industryQuery.$or = orParamList;
+        try{
+            const insurerIndustryCodeList = await InsurerIndustryCodeModel.find(industryQuery)
+            let insurerQuestionIdArray = [];
+            // eslint-disable-next-line prefer-const
+            let talageQuestionIdArray = [];
+            if(insurerIndustryCodeList && (await insurerIndustryCodeList).length > 0){
+                for(const insurerIndustryCode of insurerIndustryCodeList){
+                    if(insurerIndustryCode.insurerQuestionIdList && insurerIndustryCode.insurerQuestionIdList.length > 0){
+                        insurerQuestionIdArray = insurerQuestionIdArray.concat(insurerIndustryCode.insurerQuestionIdList);
+                    }
+                }
+            }
+            //log.debug("insurerQuestionIdArray " + insurerQuestionIdArray)
+            if(insurerQuestionIdArray.length > 0){
+                // eslint-disable-next-line prefer-const
+                const insurerQuestionQuery = {
+                    insurerId: {$in: insurerArray},
+                    systemId: {$in: insurerQuestionIdArray},
+                    universal: false,
+                    policyType: {$in: policyTypes},
+                    questionSubjectArea: questionSubjectArea,
+                    territoryList: {$in: territories},
+                    effectiveDate: {$lt: now},
+                    expirationDate: {$gt: now},
+                    active: true
+                }
+                // eslint-disable-next-line prefer-const
+                orParamList = [];
+                const territoryCheck = {territoryList: {$in: territories}};
+                const territoryLengthCheck = {territoryList: {$size: 0}}
+                const territoryNullCheck = {territoryList: null}
+                orParamList.push(territoryCheck)
+                orParamList.push(territoryNullCheck)
+                orParamList.push(territoryLengthCheck)
+                insurerQuestionQuery.$or = orParamList;
+
+                //log.debug("insurerQuestionQuery: " + JSON.stringify(insurerQuestionQuery));
+                const insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
+                if(insurerQuestionList){
+                    for(const insurerQuestion of insurerQuestionList){
+                        if(insurerQuestion.talageQuestionId){
+                            talageQuestionIdArray.push(insurerQuestion.talageQuestionId)
+                        }
+                    }
+                }
+            }
+            //log.debug("talageQuestionIdArray " + talageQuestionIdArray)
+            if(talageQuestionIdArray.length > 0) {
+                sql = `
+                    SELECT ${select}
+                    FROM clw_talage_questions AS q
+                    LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
+                    LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
+                    WHERE
+                        q.id IN (${talageQuestionIdArray.map(db.escape).join(',')}) 
+                        AND ${where}
+                        GROUP BY q.id;
+                `;
+                // log.debug("question sql " + sql)
+                const industry_questions = await db.queryReadonly(sql).catch(function(err) {
+                    error = err.message;
+                });
+                if (error) {
+                    return false;
+                }
+                log.debug(`Adding ${industry_questions.length} Mongo industry questions ` + __location)
+                questions = questions.concat(industry_questions);
+                log.debug("industry_questions " + JSON.stringify(industry_questions));
+            }
+            const endSqlSelect = moment();
+            const diff = endSqlSelect.diff(start, 'milliseconds', true);
+            log.info(`Mongo Industry Question process duration: ${diff} milliseconds`);
+        }
+        catch(err){
+            log.error(`Error get Mongo Industry questions ${JSON.stringify(industryQuery)}  ${err}` + __location);
+        }
+
+    }
     else {
         // Notes:
         //      - pull in all insurer questions which are for the requested policy types (clw_talage_insurer_questions.policy_type IN policy_types)
@@ -347,6 +446,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                 AND iq.questionSubjectArea = '${questionSubjectArea}'
                 GROUP BY iq.question;
         `;
+        // log.debug("industry sql " + sql);
         const industryCodeQuestions = await db.queryReadonly(sql).catch(function(err) {
             error = err.message;
         });
@@ -359,6 +459,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
 
         log.debug(`Adding ${industryCodeQuestions.length} mysql industry questions ` + __location)
         questions = questions.concat(industryCodeQuestions);
+        log.debug("industryCodeQuestions " + JSON.stringify(industryCodeQuestions));
     }
 
     log.debug("Getting activity questions " + __location);
