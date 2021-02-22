@@ -285,7 +285,7 @@ module.exports = class ApplicationModel {
                     break;
                 case 'locations':
                     if (applicationJSON.locations) {
-                        this.processLocationsMongo(applicationJSON.locations);
+                        await this.processLocationsMongo(applicationJSON.locations);
                     }
                     updateBusiness = true;
                     break;
@@ -344,11 +344,9 @@ module.exports = class ApplicationModel {
                     break;
                 case 'questions':
                     if (applicationJSON.questions) {
-
-                        await this.processQuestionsMongo(applicationJSON.questions).catch(function(err) {
+                        this.#applicationMongooseJSON.questions = await this.processQuestionsMongo(applicationJSON.questions).catch(function(err) {
                             log.error(`Adding Questions to appId ${appId}  error:` + err + __location);
                         });
-
                     }
                     await this.processLegalAcceptance(applicationJSON).catch(function(err) {
                         log.error(`Adding Legal Acceptance to appId ${appId} error:` + err + __location);
@@ -611,7 +609,7 @@ module.exports = class ApplicationModel {
         });
 
     }
-    processLocationsMongo(locations) {
+    async processLocationsMongo(locations) {
         this.#applicationMongooseJSON.locations = locations
         const businessInfoMapping = {"state_abbr": "state"};
         // Note: square_footage full_time_employees part_time_employees are part of the model.
@@ -652,6 +650,13 @@ module.exports = class ApplicationModel {
                     activityPayrollJSON.employeeTypeList = activity_code.employeeTypeList;
                     location.activityPayrollList.push(activityPayrollJSON)
                 }
+            }
+            // Process location questions if they exist
+            if (location.questions && location.questions.length > 0) {
+                // Replace the location questions with the processed ones
+                location.questions = await this.processQuestionsMongo(location.questions).catch((err) => {
+                    log.error(`Adding Location Questions to appId ${this.applicationDoc.applicationId}  error:` + err + __location);
+                });
             }
         }
 
@@ -760,7 +765,8 @@ module.exports = class ApplicationModel {
                 log.error("questionTypeBO load error " + err + __location);
             });
 
-            this.#applicationMongooseJSON.questions = [];
+            const processedQuestionList = []
+            // this.#applicationMongooseJSON.questions = [];
             //get text and turn into list of question objects.
 
             for (var i = 0; i < questionsRequest.length; i++) {
@@ -779,7 +785,7 @@ module.exports = class ApplicationModel {
                     questionJSON.questionText = questionDB.question;
                     questionJSON.hint = questionDB.hint;
                     questionJSON.hidden = questionDB.hidden;
-                    questionJSON.questionType = questionDB.type;
+                    questionJSON.questionTe = questionDB.type;
                     if (questionTypeListDB) {
                         const questionType = questionTypeListDB.find(questionTypeTest => questionTypeTest.id === questionDB.type);
                         if (questionType) {
@@ -829,9 +835,9 @@ module.exports = class ApplicationModel {
                     }
 
                 }
-                this.#applicationMongooseJSON.questions.push(questionJSON);
+                processedQuestionList.push(questionJSON);
             }
-            resolve(true);
+            resolve(processedQuestionList);
 
         });
 
@@ -1171,7 +1177,7 @@ module.exports = class ApplicationModel {
             catch (err) {
                 log.error("Error Mapping AF Business Data to BO Saving " + err + __location);
             }
-            this.processLocationsMongo(businessJSON.locations);
+            await this.processLocationsMongo(businessJSON.locations);
             try {
                 this.updateMongo(this.#applicationMongooseDB.applicationId, this.#applicationMongooseJSON)
             }
@@ -1274,7 +1280,7 @@ module.exports = class ApplicationModel {
             catch (err) {
                 log.error("Error Mapping AF Business Data to BO Saving " + err + __location);
             }
-            this.processLocationsMongo(businessJSON.locations);
+            await this.processLocationsMongo(businessJSON.locations);
 
         }
         else {

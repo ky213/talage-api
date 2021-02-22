@@ -50,6 +50,35 @@ exports.process = async function(requestJSON) {
             const partTimeEmployee = locationJSON.part_time_employees ? locationJSON.part_time_employees : 0;
             const totalEmployee = fullTimeEmployee + partTimeEmployee;
 
+            if (locationJSON.questions) {
+                let questionList = [];
+                // eslint-disable-next-line guard-for-in
+                const rawQuestionList = Object.values(locationJSON.questions);
+                for (const rawQuestion of rawQuestionList) {
+                    // console.log("rawQuestion", rawQuestion);
+                    if (rawQuestion.answer) {
+                        let question = {"id": rawQuestion.id};
+                        if (typeof rawQuestion.answer === "object") {
+                            question.answer = Object.values(rawQuestion.answer);
+                        }
+                        else {
+                            question.answer = rawQuestion.answer;
+                        }
+                        if (Array.isArray(question.answer)) {
+                            question.type = "array";
+                        }
+                        else if (typeof question.answer === "string") {
+                            question.type = "text";
+                        }
+                        else {
+                            question.type = "numeric";
+                        }
+                        questionList.push(question);
+                    }
+                }
+                locationJSON.questions = questionList;
+            }
+
             const check_payroll = totalEmployee > 0 && locationJSON.territory === "NV"
             let activity_codes = [];
             if (locationJSON.activity_codes) {
