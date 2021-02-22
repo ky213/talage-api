@@ -8,14 +8,14 @@ const ApplicationBO = global.requireShared("models/Application-BO.js");
 async function getNextRoute(req, res, next){
     // Check that at least some post parameters were received
     // Let basic through with no app id
-    if (!req.query.currentRoute || !req.query.appId && req.query.currentRoute !== "basic") {
+    if (!req.query.currentRoute || !req.query.appId && req.query.currentRoute !== "_basic") {
         log.info('Bad Request: Parameters missing' + __location);
         return next(serverHelper.requestError('Parameters missing'));
     }
 
     let nextRouteName = null;
-    if(req.query.currentRoute === "basic" || req.query.currentRoute === "basic-created"){
-        nextRouteName = "policies";
+    if(req.query.currentRoute === "_basic" || req.query.currentRoute === "_basic-created"){
+        nextRouteName = "_policies";
     }
     else {
         nextRouteName = await getRoute(req.query.currentRoute, req.query.appId, req.header('authorization').replace("Bearer ", ""));
@@ -30,20 +30,20 @@ const getRoute = async(currentRoute, appId, redisKey) => {
     // const applicationDB = await applicationBO.loadfromMongoByAppId(appId);
 
     switch(currentRoute){
-        case "policies":
-            return "businessQuestions"
-        case "businessQuestions":
-            return "officers";
-        case "officers":
-            return "claims";
-        case "claims":
-            return "locations";
-        case "locations":
-            return "mailingAddress";
-        case "mailingAddress":
-            return "questions";
-        case "questions":
-            return "quotes";
+        case "_policies":
+            return "_businessQuestions"
+        case "_businessQuestions":
+            return "_officers";
+        case "_officers":
+            return "_claims";
+        case "_claims":
+            return "_locations";
+        case "_locations":
+            return "_mailingAddress";
+        case "_mailingAddress":
+            return "_questions";
+        case "_questions":
+            return "_quotes";
         default:
             break;
     }
