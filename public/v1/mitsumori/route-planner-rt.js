@@ -31,16 +31,16 @@ const getRoute = async(currentRoute, appId, redisKey) => {
 
     switch(currentRoute){
         case "_policies":
-            return "_businessQuestions"
-        case "_businessQuestions":
+            return "_business-questions"
+        case "_business-questions":
             return "_officers";
         case "_officers":
             return "_claims";
         case "_claims":
             return "_locations";
         case "_locations":
-            return "_mailingAddress";
-        case "_mailingAddress":
+            return "_mailing-address";
+        case "_mailing-address":
             return "_questions";
         case "_questions":
             return "_quotes";

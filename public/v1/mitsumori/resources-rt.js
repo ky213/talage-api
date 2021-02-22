@@ -14,7 +14,7 @@ const serverHelper = require("../../../server.js");
 // dummy endpoint to stimulate resources
 async function getResources(req, res, next){
     // Let basic through with no app id
-    if (!req.query.page || !req.query.appId && req.query.page !== "basic") {
+    if (!req.query.page || !req.query.appId && req.query.page !== "_basic") {
         log.info('Bad Request: Parameters missing' + __location);
         return next(serverHelper.requestError('Parameters missing'));
     }
@@ -22,30 +22,30 @@ async function getResources(req, res, next){
     const resources = {};
 
     switch(req.query.page) {
-        case "businessQuestions":
+        case "_business-questions":
             membershipTypes(resources);
             break;
-        case "basic":
-        case "basic-created":
+        case "_basic":
+        case "_basic-created":
             entityTypes(resources);
             break;
-        case "business":
+        case "_business":
             break;
-        case "claims":
+        case "_claims":
             policyTypes(resources);
             break;
-        case "locations":
+        case "_locations":
             territories(resources);
             employeeTypes(resources);
             unemploymentNumberStates(resources);
             break;
-        case "mailingAddress":
+        case "_mailing-address":
             territories(resources);
             break;
-        case "officers":
+        case "_officers":
             officerTitles(resources);
             break;
-        case "policies":
+        case "_policies":
             limitsSelectionAmounts(resources);
             deductibleAmounts(resources);
             policiesEnabled(resources);
