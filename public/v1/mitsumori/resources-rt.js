@@ -133,10 +133,14 @@ const officerTitles = resources => {
     // TODO: pull from officer_titles table (sql db)
     resources.officerTitles =
     [
-        "VP-Treas",
-        "VP-Secy-Treas",
-        "VP-Secy",
+        "Chief Executive Officer",
+        "Chief Financial Officer",
+        "Chief Operating Officer",
+        "Director",
         "Vice President",
+        "Executive Vice President",
+        "Executive Secy-VP",
+        "Executive Secretary",
         "Treasurer",
         "Secy-Treas",
         "Secretary",
@@ -147,13 +151,9 @@ const officerTitles = resources => {
         "Pres-Treas",
         "Pres-Secy-Treas",
         "Pres-Secy",
-        "Executive Vice President",
-        "Executive Secy-VP",
-        "Executive Secretary",
-        "Director",
-        "Chief Operating Officer",
-        "Chief Financial Officer",
-        "Chief Executive Officer"
+        "VP-Treas",
+        "VP-Secy-Treas",
+        "VP-Secy"
     ];
 }
 
