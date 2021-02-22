@@ -13,6 +13,13 @@ var mongooseHistory = require('mongoose-history');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const opts = {toJSON: {virtuals: true}};
+const optsNoId = {toJSON: {virtuals: true}, _id : false}
+
+//Used to override main list for special cases.
+const InsurerTerritoryQuestionSchema = new Schema({
+    territory: {type: String, required: true},
+    insurerQuestionIdList: [Number]
+},optsNoId)
 
 
 const InsurerIndustryCodeSchema = new Schema({
@@ -29,6 +36,7 @@ const InsurerIndustryCodeSchema = new Schema({
     talageIndustryCodeIdList: [Number],
     talageQuestionIdList: [Number],
     insurerQuestionIdList: [Number],
+    insurerTerritoryQuestionList: [InsurerTerritoryQuestionSchema],
     active: {type: Boolean, default: true}
 },opts)
 

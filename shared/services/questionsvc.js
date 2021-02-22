@@ -352,12 +352,23 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             let talageQuestionIdArray = [];
             if(insurerIndustryCodeList && (await insurerIndustryCodeList).length > 0){
                 for(const insurerIndustryCode of insurerIndustryCodeList){
-                    if(insurerIndustryCode.insurerQuestionIdList && insurerIndustryCode.insurerQuestionIdList.length > 0){
-                        insurerQuestionIdArray = insurerQuestionIdArray.concat(insurerIndustryCode.insurerQuestionIdList);
+                    // if(insurerIndustryCode.insurerQuestionIdList && insurerIndustryCode.insurerQuestionIdList.length > 0){
+                    //     insurerQuestionIdArray = insurerQuestionIdArray.concat(insurerIndustryCode.insurerQuestionIdList);
+                    // }
+                    if(insurerIndustryCode.insurerTerritoryQuestionList && insurerIndustryCode.insurerTerritoryQuestionList.length > 0){
+                        for(let i = 0; i < territories.length; i++){
+                            //find if territory is in insurerIndustryCode.InsurerTerritoryQuestionList
+                            //if so add question list - Dups are OK.
+                            //log.debug(`Checking ${insurerIndustryCode.insurerId} ${insurerIndustryCode.insurerIndustryCodeId} ${territories[i]} ` + __location)
+                            const tQFound = insurerIndustryCode.insurerTerritoryQuestionList.find((tQ) => tQ.territory === territories[i]);
+                            if(tQFound && tQFound.insurerQuestionIdList && tQFound.insurerQuestionIdList.length > 0){
+                                insurerQuestionIdArray = insurerQuestionIdArray.concat(tQFound.insurerQuestionIdList);
+                            }
+                        }
                     }
                 }
             }
-            //log.debug("insurerQuestionIdArray " + insurerQuestionIdArray)
+            log.debug("insurerQuestionIdArray " + insurerQuestionIdArray)
             if(insurerQuestionIdArray.length > 0){
                 // eslint-disable-next-line prefer-const
                 const insurerQuestionQuery = {
@@ -366,20 +377,19 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                     universal: false,
                     policyType: {$in: policyTypes},
                     questionSubjectArea: questionSubjectArea,
-                    territoryList: {$in: territories},
                     effectiveDate: {$lt: now},
                     expirationDate: {$gt: now},
                     active: true
                 }
                 // eslint-disable-next-line prefer-const
-                orParamList = [];
+                const orParamList2 = [];
                 const territoryCheck = {territoryList: {$in: territories}};
                 const territoryLengthCheck = {territoryList: {$size: 0}}
                 const territoryNullCheck = {territoryList: null}
-                orParamList.push(territoryCheck)
-                orParamList.push(territoryNullCheck)
-                orParamList.push(territoryLengthCheck)
-                insurerQuestionQuery.$or = orParamList;
+                orParamList2.push(territoryCheck)
+                orParamList2.push(territoryNullCheck)
+                orParamList2.push(territoryLengthCheck)
+                insurerQuestionQuery.$or = orParamList2;
 
                 //log.debug("insurerQuestionQuery: " + JSON.stringify(insurerQuestionQuery));
                 const insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
@@ -412,7 +422,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                 }
                 log.debug(`Adding ${industry_questions.length} Mongo industry questions ` + __location)
                 questions = questions.concat(industry_questions);
-                log.debug("industry_questions " + JSON.stringify(industry_questions));
+                //log.debug("industry_questions " + JSON.stringify(industry_questions));
             }
             const endSqlSelect = moment();
             const diff = endSqlSelect.diff(start, 'milliseconds', true);

@@ -154,6 +154,59 @@ function stringArraytoArray(dbString){
         return [];
     }
 }
+const groupQuestionArray = key => array => array.reduce((objectsByKeyValue, obj) => {
+    const value = obj[key];
+    objectsByKeyValue[value] = (objectsByKeyValue[value] || []).concat(obj.insurerQuestionId);
+    return objectsByKeyValue;
+}, {});
+
+
+async function insurerCodeTerritoryQuestions(insurerIndustryCodeIdList){
+    if(insurerIndustryCodeIdList){
+        const sql = `SELECT distinct iic.territory, iq.id as insurerQuestionId
+            FROM clw_talage_insurer_industry_codes AS iic
+            inner JOIN industry_code_to_insurer_industry_code AS industryCodeMap ON  iic.id = industryCodeMap.insurerIndustryCodeId
+            inner JOIN clw_talage_industry_codes AS ic ON industryCodeMap.talageIndustryCodeId = ic.id
+            inner JOIN clw_talage_industry_code_questions  AS icq ON icq.insurerIndustryCodeId = iic.id 
+            inner JOIN clw_talage_insurer_questions AS iq ON iq.question = icq.talageQuestionId
+            where iic.id in (${insurerIndustryCodeIdList})
+            order by iic.territory ;`;
+
+        let result = await db.query(sql).catch(function(error) {
+            // Check if this was
+            log.error("error " + error);
+            process.exit(1);
+        });
+        if(result && result.length > 0){
+            const groupByTerritory = groupQuestionArray('territory')
+            const groupedQuestionList = groupByTerritory(result);
+            var territoryQuestionArray = [];
+            // eslint-disable-next-line guard-for-in
+            for (const tqObjectGrouped in groupedQuestionList) {
+                const territoryQuestionJSON = {
+                    territory: tqObjectGrouped,
+                    insurerQuestionIdList: groupedQuestionList[tqObjectGrouped]
+                }
+                territoryQuestionArray.push(territoryQuestionJSON);
+            }
+            //log.debug("groupedQuestions " + JSON.stringify(territoryQuestionArray))
+            if(territoryQuestionArray.length === 0){
+                log.debug("no questions " + sql)
+            }
+            return territoryQuestionArray
+        }
+        else {
+            log.debug("no questions  returned " + sql)
+            return null;
+        }
+
+    }
+    else {
+        log.debug("empty insurerIndustryCodeIdList")
+        return null
+    }
+}
+
 
 /**
  * runFunction
@@ -164,7 +217,8 @@ async function runFunction() {
 
     const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
     //load message model and get message list.
-    const sql = `SELECT   iic.code,
+    const sql = `SELECT  
+         iic.code,
 		 iic.type,
 		 iic.insurer as 'insurerId',
 		 iic.description,
@@ -172,6 +226,7 @@ async function runFunction() {
 		 iic.policyType as 'policyType',
          iic.effectiveDate, 
          iic.expirationDate ,
+         GROUP_CONCAT(DISTINCT iic.id) AS insurerIndustryCodeIdList,
          GROUP_CONCAT(DISTINCT iic.territory) AS territoryList,
          GROUP_CONCAT(DISTINCT ic.id) AS talageIndustryCodeIdList,
          GROUP_CONCAT(DISTINCT icq.talageQuestionId) AS talageQuestionIdList,
@@ -181,11 +236,12 @@ async function runFunction() {
         left JOIN clw_talage_industry_codes AS ic ON industryCodeMap.talageIndustryCodeId = ic.id
         left JOIN clw_talage_industry_code_questions  AS icq ON icq.insurerIndustryCodeId = iic.id 
         Left JOIN clw_talage_insurer_questions AS iq ON iq.question = icq.talageQuestionId
+        where industryCodeMap.talageIndustryCodeId = 2668
         GROUP BY iic.insurer, iic.code,iic.policyType, iic.attributes;`;
 
     const result = await db.query(sql).catch(function(error) {
         // Check if this was
-        log.error("error");
+        log.error("error " + error);
         process.exit(1);
     });
     log.debug("Got MySql insurerIndustryCode - result.length - " + result.length);
@@ -198,6 +254,24 @@ async function runFunction() {
             if(result[i].attributes){
                 result[i].attributes = JSON.parse(result[i].attributes)
             }
+            //get territory array for insurer
+            try{
+                if(result[i].insurerIndustryCodeIdList){
+                    const insurerCodeTerritoryQuestionArray = await insurerCodeTerritoryQuestions(result[i].insurerIndustryCodeIdList);
+                    if(insurerCodeTerritoryQuestionArray && insurerCodeTerritoryQuestionArray.length > 0){
+                        result[i].insurerTerritoryQuestionList = insurerCodeTerritoryQuestionArray
+                    }
+                }
+                else {
+                    log.debug(`NO insurerIndustryCodeIdList for insurer: ${result[i].insurerId}`)
+                }
+                
+            }
+            catch(err){
+                log.error("Question group error " + err)
+                process.exit(1)
+            }
+
             let insurerIndustryCode = new InsurerIndustryCodeModel(result[i]);
             await insurerIndustryCode.save().catch(function(err) {
                 log.error('Mongo insurerIndustryCode Save err ' + err + __location);
