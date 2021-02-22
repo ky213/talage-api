@@ -247,6 +247,7 @@ async function getReports(req) {
                     donotReportAgencyIdArray.push(agencyJSON.systemId);
                 }
                 if (donotReportAgencyIdArray.length > 0) {
+                    log.debug("donotReportAgencyIdArray " + donotReportAgencyIdArray)
                     //where.agency = { $nin: donotReportAgencyIdArray };
                     //need to remove values from Agents array.
                     // eslint-disable-next-line no-unused-vars
@@ -259,6 +260,9 @@ async function getReports(req) {
                 if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1 && req.query.all && req.query.all === '12332'){
                     if(where.agencyId){
                         delete where.agencyId;
+                    }
+                    else {
+                        where.agency = {$nin: donotReportAgencyIdArray};
                     }
                 }
             }
