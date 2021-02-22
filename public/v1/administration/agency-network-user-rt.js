@@ -136,6 +136,7 @@ async function add(req, res, next) {
         }
     }
     if(needToUpdate){
+        insertJSON.clear_email = req.body['email'];
         const agencyPortalUserBO = new AgencyPortalUserBO();
         let error = null;
         await agencyPortalUserBO.saveModel(insertJSON).catch(function(err) {
@@ -187,6 +188,9 @@ async function update(req, res, next) {
     }
 
     if(needToUpdate){
+        if(req.body['email']){
+            updateJSON.clear_email = req.body['email'];
+        }
         const agencyPortalUserBO = new AgencyPortalUserBO();
         let error = null;
         await agencyPortalUserBO.saveModel(updateJSON).catch(function(err) {
