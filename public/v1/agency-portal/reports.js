@@ -117,7 +117,7 @@ const getMinDate = async(where) => {
         limit(1);
     // If this agency has no applications, then return the current date
     if (!app[0]) {
-      return new Date();
+        return new Date();
     }
     return app[0].createdAt;
 }
@@ -232,7 +232,7 @@ async function getReports(req) {
     }
 
     // Localize data variables that the user is permitted to access
-    const agencyNetwork = parseInt(req.authentication.agencyNetworkId, 10);
+    const agencyNetworkId = parseInt(req.authentication.agencyNetworkId, 10);
 
     // Filter out any agencies with do_not_report value set to true
     if (req.authentication.isAgencyNetworkUser) {
@@ -253,20 +253,46 @@ async function getReports(req) {
                     agents = agents.filter(function(value, index, arr){
                         return donotReportAgencyIdArray.indexOf(value) === -1;
                     });
+                    where.agencyId = {$in: agents};
                 }
+                //check for all
+                if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1 && req.query.all && req.query.all === '12332'){
+                    if(where.agencyId){
+                        delete where.agencyId;
+                    }
+                }
+            }
+            else if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1 && req.query.all && req.query.all === '12332'){
+                if(where.agencyId){
+                    delete where.agencyId;
+                }
+            }
+            else {
+                where.agencyNetworkId = agencyNetworkId
             }
         }
         catch(err) {
             log.error(`Report Dashboard error getting donotReport list ` + err + __location)
         }
     }
-
-    // This is a very special case. If this is the agent 'Solepro' (ID 12) asking for applications, query differently
-    if (!agencyNetwork && agents[0] === 12) {
-        where.solepro = 1;
-    }
     else {
-        where.agencyId = {$in: agents};
+        // This is a very special case. If this is the agent 'Solepro' (ID 12) asking for applications, query differently
+        // eslint-disable-next-line no-lonely-if
+        if (!agencyNetworkId && agents[0] === 12) {
+            where.solepro = 1;
+        }
+        else {
+            where.agencyId = {$in: agents};
+        }
+    }
+
+
+    //check for all
+    if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1 && req.query.all && req.query.all === '1900'){
+        if(where.agencyId){
+            delete where.agencyId;
+        }
+
     }
     //log.debug("Where " + JSON.stringify(where))
     // Define a list of queries to be executed based on the request type
