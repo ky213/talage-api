@@ -72,17 +72,17 @@ function parseQuoteURL(url) {
     }
 
     const reservedPageSlugs = [
-        "congrats",
-        "reach-out",
-        "basic",
-        "policies",
-        "business-questions",
-        "locations",
-        "mailing-address",
-        "claims",
-        "officers",
-        "questions",
-        "quotes",
+        "_congrats",
+        "_reach-out",
+        "_basic",
+        "_policies",
+        "_business-questions",
+        "_locations",
+        "_mailing-address",
+        "_claims",
+        "_officers",
+        "_questions",
+        "_quotes",
         "404"
     ];
 
