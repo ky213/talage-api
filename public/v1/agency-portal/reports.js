@@ -247,18 +247,23 @@ async function getReports(req) {
                     donotReportAgencyIdArray.push(agencyJSON.systemId);
                 }
                 if (donotReportAgencyIdArray.length > 0) {
+                    log.debug("donotReportAgencyIdArray " + donotReportAgencyIdArray)
                     //where.agency = { $nin: donotReportAgencyIdArray };
                     //need to remove values from Agents array.
                     // eslint-disable-next-line no-unused-vars
                     agents = agents.filter(function(value, index, arr){
                         return donotReportAgencyIdArray.indexOf(value) === -1;
                     });
-                    where.agencyId = {$in: agents};
                 }
+                where.agencyId = {$in: agents};
                 //check for all
                 if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1 && req.query.all && req.query.all === '12332'){
                     if(where.agencyId){
                         delete where.agencyId;
+                    }
+
+                    if(donotReportAgencyIdArray.length > 0){
+                        where.agencyId = {$nin: donotReportAgencyIdArray};
                     }
                 }
             }
@@ -270,6 +275,7 @@ async function getReports(req) {
             else {
                 where.agencyNetworkId = agencyNetworkId
             }
+            log.debug("Report AgencyNetwork User where " + JSON.stringify(where) + __location)
         }
         catch(err) {
             log.error(`Report Dashboard error getting donotReport list ` + err + __location)
@@ -284,15 +290,6 @@ async function getReports(req) {
         else {
             where.agencyId = {$in: agents};
         }
-    }
-
-
-    //check for all
-    if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1 && req.query.all && req.query.all === '1900'){
-        if(where.agencyId){
-            delete where.agencyId;
-        }
-
     }
     //log.debug("Where " + JSON.stringify(where))
     // Define a list of queries to be executed based on the request type
