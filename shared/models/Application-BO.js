@@ -784,7 +784,7 @@ module.exports = class ApplicationModel {
                     questionJSON.questionText = questionDB.question;
                     questionJSON.hint = questionDB.hint;
                     questionJSON.hidden = questionDB.hidden;
-                    questionJSON.questionTe = questionDB.type;
+                    questionJSON.questionType = questionDB.type;
                     if (questionTypeListDB) {
                         const questionType = questionTypeListDB.find(questionTypeTest => questionTypeTest.id === questionDB.type);
                         if (questionType) {
