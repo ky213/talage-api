@@ -669,6 +669,7 @@ async function updateUser(req, res, next) {
 
 
     // If this user is to be set as owner, remove the current owner (they will become a super administrator)
+    // Delete all other owners in case a state is reached where there was/is more than one (it's happened before)
     if (data.group === 1) {
         const removeOwnerSQL = `
 				UPDATE
@@ -677,8 +678,7 @@ async function updateUser(req, res, next) {
 					\`group\` = 2
 				WHERE
 					\`group\` = 1 AND
-					${where}
-				LIMIT 1;
+					${where};
 			`;
 
         // Run the query
