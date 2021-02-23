@@ -42,8 +42,6 @@ module.exports = class AgencyNetworkBO{
             if(!newObjectJSON){
                 reject(new Error(`empty ${tableName} object given`));
             }
-           
-
             //logo processing
             if(newObjectJSON.headerLogoContent){
                 const newFileName = await this.saveLogofiles(newObjectJSON.headerLogoContent, newObjectJSON.newHeaderFileName).catch(function(err){
@@ -83,7 +81,7 @@ module.exports = class AgencyNetworkBO{
                     await this.updateMongo(dbDocJSON.agencyNetworkUuidId,newObjectJSON)
                 }
                 else {
-                    log.error("AgencyNetwork PUT object not found " + newObjectJSON.id + __location)
+                    log.error("AgencyNetwork Update object not found " + newObjectJSON.id + __location)
                 }
             }
             if(newDoc === true) {
@@ -324,11 +322,11 @@ module.exports = class AgencyNetworkBO{
                             delete newObjectJSON[changeNotUpdateList[i]];
                         }
                     }
-
+                    // Add updatedAt
+                    newObjectJSON.updatedAt = new Date();
+                   // log.debug("AgencyNetwork update " + JSON.stringify(newObjectJSON));
                     await AgencyNetworkModel.updateOne(query, newObjectJSON);
                     const newAgencyNetworkDoc = await AgencyNetworkModel.findOne(query);
-                    
-
                     newAgencyNetworkJSON = mongoUtils.objCleanup(newAgencyNetworkDoc);
                 }
                 catch (err) {

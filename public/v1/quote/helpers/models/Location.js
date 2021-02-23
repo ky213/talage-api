@@ -6,8 +6,6 @@
 'use strict';
 
 const ActivityCode = require('./ActivityCode.js');
-const validator = global.requireShared('./helpers/validator.js');
-//const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
 
 module.exports = class Location {
 
@@ -111,7 +109,6 @@ module.exports = class Location {
                 }
             });
         }
-
     }
 
     setPolicyTypeList(appPolicyTypeList){
@@ -119,161 +116,5 @@ module.exports = class Location {
         this.activity_codes.forEach(function(activity_code) {
             activity_code.appPolicyTypeList = appPolicyTypeList;
         });
-
     }
-
-    /**
-	 * Checks that the data supplied is valid
-	 *
-	 * @returns {Promise.<array, Error>} A promise that returns a boolean indicating whether or not this record is valid, or an Error if rejected
-	 */
-    validate() {
-        return new Promise(async(fulfill, reject) => {
-            // Validate address
-            if (this.address) {
-                // Check for maximum length
-                if (this.address.length > 100) {
-                    reject(new Error('Address exceeds maximum of 100 characters'));
-                    return;
-                }
-            }
-            else {
-                reject(new Error('Missing required field: address'));
-                return;
-            }
-
-            // Validate address2
-            if (this.address2) {
-                // Check for maximum length
-                if (this.address2.length > 20) {
-                    reject(new Error('Address exceeds maximum of 20 characters'));
-                    return;
-                }
-            }
-
-            // Validate activity_codes
-            if (this.appPolicyTypeList.includes('WC')) {
-                if (this.activity_codes.length) {
-                    const activity_code_promises = [];
-                    this.activity_codes.forEach(function(activity_code) {
-                        activity_code_promises.push(activity_code.validate());
-                    });
-                    await Promise.all(activity_code_promises).catch(function(error) {
-                        reject(error);
-                    });
-                }
-                else {
-                    reject(new Error('At least 1 class code must be provided per location'));
-                    return;
-                }
-            }
-
-            // Identification Number
-            if (this.identification_number) {
-                if (validator.ein(this.identification_number)) {
-                    this.identification_number_type = 'EIN';
-                }
-                else if (this.business_entity_type === 'Sole Proprietorship' && validator.ssn(this.identification_number)) {
-                    this.identification_number_type = 'SSN';
-                }
-                else {
-                    reject(new Error(`Invalid formatting for property: EIN. Value: ${this.identification_number}.`));
-                    return;
-                }
-
-                // Strip out the slashes, insurers don't like slashes
-                this.identification_number = this.identification_number.replace(/-/g, '');
-            }
-            else {
-                reject(new Error('Identification Number is required'));
-                return;
-            }
-
-            /**
-			 * Full-Time Employees
-			 * - Integer (enforced with parseInt() on load())
-			 * - >= 0
-			 * - <= 99,999
-			 */
-            if (isNaN(this.full_time_employees) || this.full_time_employees < 0 || this.full_time_employees > 255) {
-                reject(new Error('full_time_employees must be an integer between 0 and 255 inclusive'));
-                return;
-            }
-
-            /**
-			 * Part-Time Employees
-			 * - Integer (enforced with parseInt() on load())
-			 * - >= 0
-			 * - <= 99,999
-			 */
-            if (isNaN(this.part_time_employees) || this.part_time_employees < 0 || this.part_time_employees > 255) {
-                reject(new Error('part_time_employees must be an integer between 0 and 255 inclusive'));
-                return;
-            }
-
-            // Validate square footage
-            // BOP specific
-            // - Integer (enforced with parseInt() on load())
-            // - >= 100
-            // - <= 99,999
-            if (this.appPolicyTypeList.includes('BOP')) {
-                if (!validator.isSqFtg(this.square_footage) || this.square_footage < 100 || this.square_footage > 99999) {
-                    return reject(new Error('square_footage must be an integer between 100 and 99,999 inclusive'));
-                }
-            }
-
-            // Validate zip
-            if (this.zipcode) {
-                if (!validator.isZip(this.zipcode)) {
-                    log.error('Invalid formatting for location: mailing_zip. Expected 5 digit format. actual zip: ' + this.zipcode + __location)
-                    reject(new Error('Invalid formatting for location: zip. Expected 5 digit format'));
-                    return;
-                }
-            }
-            else {
-                log.error('Missing required field: zip' + __location)
-                reject(new Error('Missing required field: zip'));
-                return;
-            }
-
-
-            // Validate unemployment_number (WC only)
-            if (this.appPolicyTypeList.includes('WC')) {
-                const unemployment_number_states = [
-                    'CO',
-                    'HI',
-                    'ME',
-                    'MN',
-                    'NJ',
-                    'RI',
-                    'UT'
-                ];
-
-                // Check if an unemployment number is required
-                if (unemployment_number_states.includes(this.state_abbr)) {
-                    log.debug("this.unemployment_number " + this.unemployment_number + __location)
-                    if (this.unemployment_number === 0) {
-                        reject(new Error(`Unemployment Number is required for all locations in ${unemployment_number_states.join(', ')}`));
-                        return;
-                    }
-                    if (!Number.isInteger(this.unemployment_number)) {
-                        reject(new Error('Unemployment Number must be an integer'));
-                        return;
-                    }
-                }
-                else {
-                    if (this.territory === 'MI' && this.unemployment_number && !Number.isInteger(this.unemployment_number)) {
-                        reject(new Error('Unemployment Number must be an integer in MI'));
-                        return;
-                    }
-                    this.unemployment_number = 0;
-                }
-            }
-            else {
-                this.unemployment_number = 0;
-            }
-
-            fulfill(true);
-        });
-    }
-};
+}

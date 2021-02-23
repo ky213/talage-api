@@ -115,173 +115,80 @@ module.exports = class Question{
 	 *							Checkboxes: An array containing IDs of all chosen answers
 	 *							Text: The answer provided by the user as a string
 	 * 							Select: The ID of the chosen answer
-	 * @returns {Promise.<array, Error>} A promise that returns a boolean indicating whether or not this record is valid, or an Error if rejected
+	 * @returns
 	 */
     set_answer(answer){
-        return new Promise((fulfill, reject) => {
-            // Make sure the question is loaded before continuing
-            if(!this.id){
-                log.warn('You must load the question before attempting to set an answer' + __location);
-                reject(serverHelper.requestError(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)})`));
-                return;
-            }
+        // Make sure the question is loaded before continuing
+        if (!this.id) {
+            log.warn('You must load the question before attempting to set an answer' + __location);
+            throw new Error(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)})`);
+        }
 
-            // For Checkbox questions, there may be more than one possible answer, process each
-            if(this.type === 'Checkboxes'){
-                if(typeof answer === 'string' && answer.indexOf("|") > -1){
-                    if (answer.indexOf("|") === 0){
-                        answer = answer.substr(1);
-                    }
-                    answer = answer.split('|');
-                    try{
-                        for (let i = 0; i < answer.length; i++){
-                            if(typeof answer[i] === 'string'){
-                                answer[i] = parseInt(answer[i], 10);
-                            }
+        // For Checkbox questions, there may be more than one possible answer, process each
+        if (this.type === 'Checkboxes') {
+            if (typeof answer === 'string' && answer.indexOf("|") > -1) {
+                if (answer.indexOf("|") === 0) {
+                    answer = answer.substr(1);
+                }
+                answer = answer.split('|');
+                try {
+                    for (let i = 0; i < answer.length; i++) {
+                        if (typeof answer[i] === 'string') {
+                            answer[i] = parseInt(answer[i], 10);
                         }
                     }
-                    catch(e) {
-                        log.warn(`answer array conversion problem on ${answer} ` + __location);
-                    }
+                } catch(e) {
+                    log.warn(`Answer array conversion problem for ${answer}: ${e}. ` + __location);
                 }
-                else if (typeof answer === 'number') {
-                    // Only 1 checkbox was selected and it is number in the JSON
-                    answer = [answer];
-                }
-                else if(typeof answer === 'string'){
-                    // Only 1 checkbox was selected and it is string in the JSON
-                    //convert to number
-                    const answerInt = parseInt(answer, 10);
-                    answer = [answerInt]
-                }
-                // If we don't have a valid array, that means they either didn't provide an array, or we couldn't parse an array above.
-                // This can happen if they don't enable any checkboxes for a question. -SF
-                if (!Array.isArray(answer)) {
-                    answer = [];
-                }
-
-                // Loop through each answer and make sure they are what we are expecting
-                for(const answer_id of answer){
-                    // If the answer wasn't numeric, it is wrong
-                    if(typeof answer_id !== 'number'){
-                        const errorMessage = `Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)}) answer_id ${answer_id} typeof answer_id ${typeof answer_id}`
-                        log.error(errorMessage + __location);
-                        reject(serverHelper.requestError(errorMessage));
-                        return;
-                    }
-                }
-
-                // For text answer questions
-                this.answer = 0;
-                this.answer = answer;
-
-                // For boolean and select questions, set the answer ID or find the equivalent
+            } else if (typeof answer === 'number') {
+                // Only 1 checkbox was selected and it is number in the JSON
+                answer = [answer];
+            } else if (typeof answer === 'string') {
+                // Only 1 checkbox was selected and it is string in the JSON
+                //convert to number
+                const answerInt = parseInt(answer, 10);
+                answer = [answerInt]
             }
-            else if(this.type === 'Yes/No' || this.type === 'Select List'){
+            // If we don't have a valid array, that means they either didn't provide an array, or we couldn't parse an array above.
+            // This can happen if they don't enable any checkboxes for a question. -SF
+            if (!Array.isArray(answer)) {
+                answer = [];
+            }
 
+            // Loop through each answer and make sure they are what we are expecting
+            for (const answer_id of answer) {
                 // If the answer wasn't numeric, it is wrong
-                if(typeof answer !== 'number'){
-                    reject(serverHelper.requestError(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)})`));
-                    return;
+                if (typeof answer_id !== 'number') {
+                    const errorMessage = `Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)}) answer_id ${answer_id} typeof answer_id ${typeof answer_id}`
+                    log.error(errorMessage + __location);
+                    throw new Error(errorMessage);
                 }
-
-                // If the answer isn't one of those that are possible
-                if(!Object.prototype.hasOwnProperty.call(this.possible_answers, answer)){
-                    reject(serverHelper.requestError(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)})`));
-                    return;
-                }
-
-                // Set the answer ID and determine and set the answer text
-                this.answer_id = answer;
-                this.answer = this.possible_answers[answer].answer;
-            }
-            else{
-                // For text answer questions
-                this.answer_id = 0;
-                this.answer = answer;
             }
 
-            fulfill(true);
-        });
-    }
+            // For text answer questions
+            this.answer = 0;
+            this.answer = answer;
 
-    /**
-	 * Checks that the data supplied is valid
-	 *
-	 * @returns {Promise.<array, Error>} A promise that returns a boolean indicating whether or not this record is valid, or an Error if rejected
-	 */
-    validate(){
-        return new Promise((fulfill, reject) => {
-            // If this question is not required, just return true
-            if(!this.required){
-                fulfill(true);
-                return;
+            // For boolean and select questions, set the answer ID or find the equivalent
+        } else if (this.type === 'Yes/No' || this.type === 'Select List') {
+
+            // If the answer wasn't numeric, it is wrong
+            if (typeof answer !== 'number') {
+                throw new Error(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)})`);
             }
 
-            // Prepare the error messages
-            let type_help = '';
-            switch(this.type){
-                case 'Yes/No':
-                    type_help = 'Only boolean values are accepted';
-                    break;
-                case 'Checkboxes':
-                    type_help = 'Answer must match one of the available values';
-                    break;
-                case 'Select List':
-                    type_help = 'Answer must match one of the available values';
-                    break;
-                case 'Text - Multiple Lines':
-                    type_help = 'Blank values are not accepted';
-                    break;
-                case 'Text - Single Line':
-                    type_help = 'Blank values are not accepted';
-                    break;
-                default:
-                    break;
+            // If the answer isn't one of those that are possible
+            if(!Object.prototype.hasOwnProperty.call(this.possible_answers, answer)){
+                throw new Error(`Invalid answer provided for Question ${this.id}. (${htmlentities.decode(this.text)})`);
             }
 
-            // If the question is single line text, make sure we got an answer (zero is allowed, blank is not)
-            if(this.type === 'Text - Single Line' && (this.answer || this.answer === 0)){
-                fulfill(true);
-                return;
-            }
-
-            // If the question is multi-line text, make sure we got something for an answer (blank is not allowed)
-            if(this.type === 'Text - Multiple Lines' && this.answer){
-                fulfill(true);
-                return;
-            }
-
-            // If the question is a checkbox, make sure we have an answer (this.answer must have an array value with one or more integer )
-            if(this.type === 'Checkboxes' && this.answer && typeof this.answer === 'object' && this.answer.length > 0){
-
-                // Check each answer within the array to make sure they are all valid possible answers
-                for(const answer of this.answer){
-                    // Check that the answer ID is one of those available for this question
-                    if(Object.keys(this.possible_answers).indexOf(answer.toString()) < 0){
-                        // Answer is invalid, return an error and stop
-                        reject(serverHelper.requestError(`Answer to question ${this.id} is invalid. (${type_help})`));
-                        return;
-                    }
-                }
-
-                fulfill(true);
-                return;
-            }
-
-            // If no answer ID is set, reject
-            if(!this.answer_id){
-                reject(serverHelper.requestError(`Answer to question ${this.id} is invalid. (${type_help})`));
-                return;
-            }
-
-            // Check that the answer ID is one of those available for this question
-            if(Object.keys(this.possible_answers).indexOf(this.answer_id.toString()) >= 0){
-                fulfill(true);
-                return;
-            }
-
-            reject(serverHelper.requestError(`Answer to question ${this.id} is invalid. (${type_help})`));
-        });
+            // Set the answer ID and determine and set the answer text
+            this.answer_id = answer;
+            this.answer = this.possible_answers[answer].answer;
+        } else{
+            // For text answer questions
+            this.answer_id = 0;
+            this.answer = answer;
+        }
     }
 };

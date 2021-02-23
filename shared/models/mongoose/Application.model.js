@@ -18,6 +18,7 @@ const crypt = global.requireShared('./services/crypt.js');
 
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
+const opts = {toJSON: {virtuals: true}};
 
 const contactSchema = new Schema({
     email: {type: String, required: true},
@@ -25,7 +26,7 @@ const contactSchema = new Schema({
     lastName: {type: String, required: false},
     phone: {type: String, required: false},
     primary: {type: Boolean, required: true, default: false}
-})
+});
 
 const ActivityCodeEmployeeTypeEntrySchema = new Schema({
     employeeTypePayroll: { type: Number, required: true },
@@ -44,7 +45,18 @@ const ActivtyCodePayrollSchema = new Schema({
     ncciCode: {type: Number, required: true},
     payroll: {type: Number, required: true},
     ownerPayRoll: {type: Number, required: false}
-})
+});
+
+const QuestionSchema = new Schema({
+    questionId: {type: Number, required: [true, 'questionId required']},
+    questionType: {type: String, required: false},
+    questionText: {type: String, required: false},
+    hint: {type: String, required: false},
+    hidden: {type: Boolean, default: false},
+    answerId: {type: Number, required: false},
+    answerValue: {type: String, required: false},
+    answerList: [String]
+});
 
 const locationSchema = new Schema({
     address: {type: String, required: false},
@@ -60,8 +72,28 @@ const locationSchema = new Schema({
     square_footage:  {type: Number, required: false},
     unemployment_num:  {type: Number, required: false},
     billing: {type: Boolean, required: false, default: false},
-    activityPayrollList: [ActivtyCodeEmployeeTypeSchema]
-})
+    own: {type: Boolean, required:false},
+    businessPersonalPropertyLimit: {type: Number, required:false},
+    buildingLimit: {type: Number, required:false},
+    constructionType:{type: String, required:false},
+    numStories:{type: Number, required:false},
+    yearBuilt: {type: Number, required:false},
+    activityPayrollList: [ActivtyCodeEmployeeTypeSchema],
+    questions: [QuestionSchema]
+},opts);
+
+locationSchema.virtual('locationId').
+    get(function() {
+        if(this._id){
+            return this._id;
+        }
+        else {
+            return null;
+        }
+    }).
+    set(function(v){
+        this._id = v;
+    });
 
 const ownerSchema = new Schema({
     birthdate: {type: Date, required: false},
@@ -70,13 +102,12 @@ const ownerSchema = new Schema({
     ownership: {type: Number, required: false},
     officerTitle: {type: String},
     include: {type: Boolean, required: false}
-})
-
+});
 
 const legalAcceptanceSchema = new Schema({
     ip: {type: String, required: true},
     version: {type: Number, required: true}
-})
+});
 
 const claimSchema = new Schema({
     policyType: {type: String, required: true},
@@ -85,10 +116,7 @@ const claimSchema = new Schema({
     eventDate: {type: Date, required: true},
     open: {type: Boolean, default: false},
     missedWork: {type: Boolean, default: false}
-
-})
-
-//limit structure.
+});
 
 const PolicySchema = new Schema({
     policyType: {type: String, required: true},
@@ -100,21 +128,24 @@ const PolicySchema = new Schema({
     coverage: {type: Number, required: false}, // BOP field
     coverageLapse:  {type: Boolean, default: false},
     coverageLapseNonPayment: {type: Boolean, default: false},
+    blanketWaiver: {type: Boolean, default: false}, // WC
     waiverSubrogation: {type: Boolean, default: false},
-    claims:  [claimSchema]
+    currentInsuranceCarrier: {type: String, required: false},
+    currentPremium: {type: Number, required: false},
+    yearsWithCurrentInsurance: {type: Number, required: false}
+});
 
-})
+const ApplicationMetricsPremiumSchema = new Schema({
+    WC: {type: Number, required: false},
+    GL: {type: Number, required: false},
+    BOP: {type: Number, required: false}
+});
 
-const QuestionSchema = new Schema({
-    questionId: {type: Number, required: [true, 'questionId required']},
-    questionType: {type: String, required: false},
-    questionText: {type: String, required: false},
-    hint: {type: String, required: false},
-    hidden: {type: Boolean, default: false},
-    answerId: {type: Number, required: false},
-    answerValue: {type: String, required: false},
-    answerList: [String]
-})
+const ApplicationMetricsSchema = new Schema({
+    lowestBoundQuoteAmount: {type: ApplicationMetricsPremiumSchema, required: false},
+    lowestQuoteAmount: {type: ApplicationMetricsPremiumSchema, required: false}
+});
+
 // note: ein - not saved to db
 const ApplicationSchema = new Schema({
     applicationId: {type: String, required: [true, 'applicationId required'], unique: true},
@@ -152,6 +183,7 @@ const ApplicationSchema = new Schema({
     mailingCity: {type: String, required: false},
     mailingState: {type: String, required: false},
     mailingZipcode: {type: String, required: false},
+    mailingSameAsPrimary: {type: Boolean, required: false, default: null},
     phone: {type: String, required: false},
     //primaryTerritory: {type: String, required: false},
     primaryState: {type: String, required: false},
@@ -183,10 +215,12 @@ const ApplicationSchema = new Schema({
     businessDataJSON: {type: Schema.Types.Mixed},
     agencyPortalCreatedUser: {type: String},
     agencyPortalModifiedUser: {type: String},
+    active: {type: Boolean, default: true},
+    corporationType: {type: String, required: false},
     quotingStartedDate: {type: Date},
-    active: {type: Boolean, default: true}
-})
-// NOTE:  EIN is not everysaved to database.
+    metrics: {type: ApplicationMetricsSchema, required: false}
+});
+// NOTE:  EIN is not ever saved to database.
 
 /********************************** */
 ApplicationSchema.plugin(timestamps);
@@ -259,11 +293,11 @@ ApplicationSchema.post('findOne', async function(result) {
 });
 
 
-// Configure the 'ApplicationSchema' to use getters and virtuals when transforming to JSON
-ApplicationSchema.set('toJSON', {
-    getters: true,
-    virtuals: true
-});
+// // Configure the 'ApplicationSchema' to use getters and virtuals when transforming to JSON
+// ApplicationSchema.set('toJSON', {
+//     getters: true,
+//     virtuals: true
+// });
 
 mongoose.set('useCreateIndex', true);
 mongoose.model('Application', ApplicationSchema);

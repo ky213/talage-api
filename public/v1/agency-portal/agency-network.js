@@ -4,9 +4,8 @@
 'use strict';
 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const serverHelper = global.requireRootPath('server.js');
-//const auth = require('./helpers/auth.js');
+//const auth = require('./helpers/auth-agencyportal.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
-const AgencyNetworkInsurerBO = global.requireShared('./models/AgencyNetworkInsurer-BO.js');
 const InsurerBO = global.requireShared('models/Insurer-BO.js');
 const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
 
@@ -26,11 +25,11 @@ async function getAgencyNetwork(req, res, next) {
     if (!id) {
         return next(new Error("bad parameter"));
     }
-    const agencyNetwork = req.authentication.agencyNetwork;
-    if (agencyNetwork) {
+    const agencyNetworkId = req.authentication.agencyNetworkId;
+    if (agencyNetworkId) {
         // agency network user.
         // check request matches rights.
-        if (agencyNetwork !== id) {
+        if (agencyNetworkId !== id) {
             res.send(403);
             return next(serverHelper.forbiddenError('Do Not have Permissions'));
         }
@@ -82,7 +81,7 @@ async function getAgencyNetworkInsurersList(req, res, next) {
         return next(new Error("bad parameter"));
     }
 
-    const authAgencyNetwork = req.authentication.agencyNetwork;
+    const authAgencyNetwork = req.authentication.agencyNetworkId;
     if (authAgencyNetwork) {
         // agency network user.
         // check request matches rights.
@@ -103,16 +102,19 @@ async function getAgencyNetworkInsurersList(req, res, next) {
 
     let networkInsurers = [];
     try{
-        const agencyNetworkInsurerBO = new AgencyNetworkInsurerBO();
-        const queryAgencyNetwork = {"agencyNetworkId": agencyNetworkId}
-        const agencyNetworkInsurers = await agencyNetworkInsurerBO.getList(queryAgencyNetwork)
-        // eslint-disable-next-line prefer-const
-        let insurerIdArray = [];
-        agencyNetworkInsurers.forEach(function(agencyNetworkInsurer){
-            if(agencyNetworkInsurer.insurer){
-                insurerIdArray.push(agencyNetworkInsurer.insurer);
-            }
+        //const queryAgencyNetwork = {"agencyNetworkId": agencyNetworkId}
+        let agencyNetworkBO = new AgencyNetworkBO();
+        const agencyNetworkJSON = await agencyNetworkBO.getById(agencyNetworkId).catch(function(err) {
+            log.error("agencyNetworkBO load error " + err + __location);
+            error = err;
         });
+        if (error) {
+            return next(error);
+        }
+
+        // eslint-disable-next-line prefer-const
+        let insurerIdArray = agencyNetworkJSON.insurerIds;
+
         if(insurerIdArray.length > 0){
             const insurerBO = new InsurerBO();
             const insurerPolicyTypeBO = new InsurerPolicyTypeBO();
@@ -181,7 +183,7 @@ async function updateAgencyNetwork(req, res, next) {
     if (!id) {
         return next(new Error("bad parameter"));
     }
-    const agencyNetwork = req.authentication.agencyNetwork;
+    const agencyNetwork = req.authentication.agencyNetworkId;
     if (agencyNetwork) {
         // agency network user.
         // check request matches rights.

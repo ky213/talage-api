@@ -3,7 +3,6 @@
 'use strict';
 
 const serverHelper = require('../../../server.js');
-const AgencyNetworkInsurerBO = global.requireShared('./models/AgencyNetworkInsurer-BO.js');
 const AgencyNetworkBO = global.requireShared('./models/AgencyNetwork-BO.js');
 const InsurerBO = global.requireShared('models/Insurer-BO.js');
 const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
@@ -19,7 +18,7 @@ const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js
  */
 async function createAgency(req, res, next){
     // Make sure this is an agency network
-    if (req.authentication.agencyNetwork === false){
+    if (req.authentication.isAgencyNetworkUser === false){
         log.info('Forbidden: User is not authorized to create agecies');
         return next(serverHelper.forbiddenError('You are not authorized to access this resource'));
     }
@@ -41,22 +40,14 @@ async function createAgency(req, res, next){
     let insurers = [];
     try{
         const agencyNetworkBO = new AgencyNetworkBO();
-        const queryAgencyNetwork = {"agencyNetworkId": agencyNetworkId}
         const agencyNetwork = await agencyNetworkBO.getById(agencyNetworkId);
         if(agencyNetwork.feature_json && agencyNetwork.feature_json.enablePrimeAgency) {
             response.showUseAgencyPrime = agencyNetwork.feature_json.enablePrimeAgency
         }
-        const agencyNetworkInsurerBO = new AgencyNetworkInsurerBO();
-        const agencyNetworkInsurers = await agencyNetworkInsurerBO.getList(queryAgencyNetwork)
-
 
         // eslint-disable-next-line prefer-const
-        let insurerIdArray = [];
-        agencyNetworkInsurers.forEach(function(agencyNetworkInsurer){
-            if(agencyNetworkInsurer.insurer){
-                insurerIdArray.push(agencyNetworkInsurer.insurer);
-            }
-        });
+        let insurerIdArray = agencyNetwork.insurerIds;
+
         if(insurerIdArray.length > 0){
             const insurerBO = new InsurerBO();
             const insurerPolicyTypeBO = new InsurerPolicyTypeBO();

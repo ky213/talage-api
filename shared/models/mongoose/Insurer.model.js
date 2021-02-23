@@ -32,7 +32,7 @@ const InsurerSchema = new Schema({
     name: {type: String, required: true},
     slug: {type: String, required: false, unique: true},
     logo: {type: String, required: false},
-    featured: {type: Boolean, default: false},
+    featured: {type: Boolean, default: true},
     ordering: {type: Number, required: true, default: 0},
     commission: {type: String, required: false},
     website: {type: String, required: false},

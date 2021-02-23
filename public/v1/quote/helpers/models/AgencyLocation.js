@@ -5,9 +5,6 @@
 
 'use strict';
 
-const crypt = global.requireShared('./services/crypt.js');
-const {JsonWebTokenError} = require('jsonwebtoken');
-const serverHelper = require('../../../../../server.js');
 const validator = global.requireShared('./helpers/validator.js');
 const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
@@ -254,7 +251,6 @@ module.exports = class AgencyLocation {
                 if (!this.territories.includes(location.state)) {
                     log.error(`Agent ${this.agencyId} does not have ${location.state} enabled` + __location);
                     reject(new Error(`The specified agent is not setup to support this application in territory ${location.state}.`));
-
                 }
             });
 
@@ -265,8 +261,8 @@ module.exports = class AgencyLocation {
                 // eslint-disable-next-line guard-for-in
                 for (const insurerKey in this.insurers) {
                     const insurer = this.insurers[insurerKey];
-                    if(insurer.policyTypeInfo && insurer.policyTypeInfo[policy.type.toUpperCase()]
-                            && insurer.policyTypeInfo[policy.type.toUpperCase()].enabled === true){
+                    if (insurer.policyTypeInfo && insurer.policyTypeInfo[policy.type.toUpperCase()]
+                            && insurer.policyTypeInfo[policy.type.toUpperCase()].enabled === true) {
                         match_found = true;
                     }
                 }
@@ -279,18 +275,6 @@ module.exports = class AgencyLocation {
             fulfill(true);
         });
     }
-
-    /**
-	 * Checks that the data supplied is valid
-	 *
-	 * @returns {Promise.<array, Error>} A promise that returns a boolean indicating whether or not this record is valid, or an Error if rejected
-	 */
-    validate() {
-        return new Promise(async(fulfill, reject) => {
-            fulfill(true);
-        });
-    }
-
 
     shouldNotifyTalage(insureId){
         //  const insurerIdTest = insureId.toString;

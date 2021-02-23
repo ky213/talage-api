@@ -87,7 +87,7 @@ async function add(req, res, next) {
 
 //update
 async function update(req, res, next) {
-    log.debug("AgencyNetwork PUT:  " + JSON.stringify(req.body))
+    //log.debug("AgencyNetwork PUT:  " + JSON.stringify(req.body))
     const id = stringFunctions.santizeNumber(req.params.id, true);
     if (!id) {
         return next(new Error("bad parameter"));
@@ -115,10 +115,5 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGetAuthAdmin('Get Agency Network Object', `${basePath}/agency-network/:id`, findOne, 'administration', 'all');
     server.addPostAuthAdmin('Post Agency Network Object', `${basePath}/agency-network`, add, 'administration', 'all');
     server.addPutAuthAdmin('Put Agency Network Object', `${basePath}/agency-network/:id`, update, 'administration', 'all');
-
-    // server.addGet('Get Agency Network list', `${basePath}/agency-network`, findAll, 'administration', 'all');
-    // server.addGet('Get Agency Network Object', `${basePath}/agency-network/:id`, findOne, 'administration', 'all');
-    // server.addPost('Post Agency Network Object', `${basePath}/agency-network`, add, 'administration', 'all');
-    // server.addPut('Put Agency Network Object', `${basePath}/agency-network/:id`, update, 'administration', 'all');
 
 };

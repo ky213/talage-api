@@ -28,6 +28,10 @@ exports.processtask = async function(queueMessage){
 
         // DO STUFF
         await abandonAppTask().catch(err => error = err);
+        if(error){
+            log.error("Error abandonAppTask " + error + __location);
+        }
+        error = null;
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err){
             error = err;
         });
@@ -67,6 +71,7 @@ var abandonAppTask = async function(){
 
 
     const query = {
+        "agencyPortalCreated": false,
         "abandonedAppEmail": false,
         "solepro": false,
         "optedOutOnline": false,

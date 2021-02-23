@@ -9,6 +9,7 @@ const serverHelper = require('../../../server.js');
 const jwt = require('jsonwebtoken');
 const status = global.requireShared('./models/application-businesslogic/status.js');
 const ApplicationBO = global.requireShared('models/Application-BO.js');
+const slack = global.requireShared('./services/slacksvc.js');
 
 /**
  *
@@ -40,7 +41,39 @@ async function postApplication(req, res, next) {
         await application.load(req.params);
     }
     catch (error) {
-        log.error(`Error loading application ${req.params.id ? req.params.id : ''}: ${error.message}` + __location);
+        log.error(`Error loading application for Quoting ${req.params.id ? req.params.id : ''}: ${error.message}` + __location);
+        try{
+            const attachment = {
+                application_id: application.id,
+                fields: [
+                    {
+                        short: false,
+                        title: 'Agency Name',
+                        value: application.agencyLocation.agency
+                    },
+                    {
+                        short: false,
+                        title: 'Business Name',
+                        value: application.business.name + (application.business.dba ? ` (dba. ${application.business.dba})` : '')
+                    },
+                    {
+                        short: false,
+                        title: 'Industry',
+                        value: application.business.industry_code_description
+                    }
+                ],
+                text: `${application.business.name} from ${application.business.primary_territory} completed an application for ${application.policies.
+                    map(function(policy) {
+                        return policy.type;
+                    }).
+                    join(' and ')}`
+            };
+            slack.send('alerts', 'warning', `Application From Quote App failed PreQuote DataLoad. ${error} Please Check`, attachment);
+        }
+        catch(err){
+            log.error("Failed to send load error slack " + err + __location)
+        }
+
         //res.send(error);
         return next(serverHelper.requestError(error));
     }
@@ -67,8 +100,42 @@ async function postApplication(req, res, next) {
         await application.validate();
     }
     catch (error) {
-        log.error(`Error validating application ${req.params.id ? req.params.id : ''}: ${error.message}` + __location);
+        log.error(`Error validating application from Quote App ${req.params.id ? req.params.id : ''}: ${error.message ? error.message : error}` + __location);
+        //TODO Send Slack message to Alert Application From Quote App failed PreQuote Validation
+        //Have access to application.applicationDocData
         //res.send(error);
+        try{
+            const attachment = {
+                application_id: application.id,
+                fields: [
+                    {
+                        short: false,
+                        title: 'Agency Name',
+                        value: application.agencyLocation.agency
+                    },
+                    {
+                        short: false,
+                        title: 'Business Name',
+                        value: application.business.name + (application.business.dba ? ` (dba. ${application.business.dba})` : '')
+                    },
+                    {
+                        short: false,
+                        title: 'Industry',
+                        value: application.business.industry_code_description
+                    }
+                ],
+                text: `${application.business.name} from ${application.business.primary_territory} completed an application for ${application.policies.
+                    map(function(policy) {
+                        return policy.type;
+                    }).
+                    join(' and ')}`
+            };
+            slack.send('alerts', 'warning', `Application From Quote App failed PreQuote Validation. ${error} Please Check`, attachment);
+        }
+        catch(err){
+            log.error("Failed to send validation error slack " + err + __location)
+        }
+
         return next(serverHelper.requestError(error));
     }
 

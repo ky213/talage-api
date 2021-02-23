@@ -7,7 +7,7 @@ const RestifyError = require('restify-errors');
 const restifyCORS = require('restify-cors-middleware');
 const jwtRestify = require('restify-jwt-community');
 const jwt = require('jsonwebtoken');
-const auth = require('./public/v1/agency-portal/helpers/auth.js');
+const agencyportalAuth = require('./public/v1/agency-portal/helpers/auth-agencyportal.js');
 const moment = require('moment');
 const util = require('util');
 const socketIO = require('socket.io');
@@ -31,7 +31,7 @@ function processJWT() {
 }
 
 /**
- * Middlware for authenticated endpoints which validates the JWT
+ * Middlware for authenticated endpoints which validates the JWT for AgencyPortal and Qoute App V1
  *
  * @param {Object} options - Contains properties handler (next function call), and options permission and permissionType.
  * @returns {void}
@@ -43,9 +43,9 @@ function validateJWT(options) {
             return next(new RestifyError.ForbiddenError('User is not authenticated'));
         }
 
-        // Validate the JWT
+        // Validate the JWT and user permissions - for Agency Portal
         if (options.agencyPortal === true) {
-            const errorMessage = await auth.validateJWT(req, options.permission, options.permissionType);
+            const errorMessage = await agencyportalAuth.validateJWT(req, options.permission, options.permissionType);
             if (errorMessage) {
                 // There was an error. Return a Forbidden error (403)
                 return next(new RestifyError.ForbiddenError(errorMessage));
@@ -60,7 +60,7 @@ function validateJWT(options) {
 
 
 /**
- * Middlware for authenticated endpoints which validates the JWT
+ * Middlware for authenticated endpoints which validates the JWT for Administration site
  *
  * @param {Object} options - Contains properties handler (next function call), and options permission and permissionType.
  * @returns {void}
@@ -115,6 +115,96 @@ function validateCognitoJWT(options) {
         }
     }
 }
+
+
+/**
+ * get JWT from request.
+ *
+ * @param {Object} req - Contains properties handler (next function call), and options permission and permissionType.
+ * @returns {string} JWT token
+ */
+async function getUserTokenDataFromJWT(req){
+    let userTokenData = null;
+    let jwtToken = req.headers.authorization || req.body && req.body.access_token || req.query && req.query.access_token || req.headers.token;
+    if(jwtToken){
+        jwtToken = jwtToken.replace("Bearer ","");
+        req.jwtToken = jwtToken;
+        try{
+            const redisResponse = await global.redisSvc.getKeyValue(jwtToken)
+            if(redisResponse && redisResponse.found && redisResponse.value){
+                userTokenData = JSON.parse(redisResponse.value)
+            }
+        }
+        catch(err){
+            log.error("Checking validateAppApiJWT JWT " + err + __location);
+        }
+    }
+    return userTokenData;
+
+}
+
+/**
+ * Middlware for authenticated endpoints which validates the JWT for Application API
+ *
+ * @param {Object} options - Contains properties handler (next function call), and options permission and permissionType.
+ * @returns {void}
+ */
+function validateAppApiJWT(options) {
+    return async(req, res, next) => {
+        if (!Object.prototype.hasOwnProperty.call(req, 'authentication') || !req.authentication) {
+            log.info('Forbidden: User is not authenticated');
+            return next(new RestifyError.ForbiddenError('User is not authenticated'));
+        }
+
+        let goodJWT = false;
+        const userTokenData = await getUserTokenDataFromJWT(req);
+        if(userTokenData){
+            if(userTokenData.apiToken || userTokenData.quoteApp){
+                log.debug("good JWT validateAppApiJWT")
+                goodJWT = true;
+                req.userTokenData = userTokenData;
+            }
+        }
+        if (goodJWT === true) {
+            return options.handler(req, res, next);
+        }
+        else {
+            return options.handler(req, res, next);
+        }
+    };
+}
+
+
+/**
+ * Middlware for authenticated endpoints which validates the JWT for Application API
+ *
+ * @param {Object} options - Contains properties handler (next function call), and options permission and permissionType.
+ * @returns {void}
+ */
+function validateQuoteAppV2JWT(options) {
+    return async(req, res, next) => {
+        if (!Object.prototype.hasOwnProperty.call(req, 'authentication') || !req.authentication) {
+            log.info('Forbidden: User is not authenticated');
+            return next(new RestifyError.ForbiddenError('User is not authenticated'));
+        }
+        let goodJWT = false;
+        const userTokenData = await getUserTokenDataFromJWT(req);
+        if(userTokenData){
+            if(userTokenData.quoteApp){
+                log.debug("good JWT validateQuoteAppV2JWT")
+                goodJWT = true;
+                req.userTokenData = userTokenData;
+            }
+        }
+        if (goodJWT === true) {
+            return options.handler(req, res, next);
+        }
+        else {
+            return options.handler(req, res, next);
+        }
+    };
+}
+
 
 /**
  * Wrapper to catch unhandled exceptions in endpoint handlers
@@ -182,6 +272,21 @@ class AbstractedHTTPServer {
         }));
     }
 
+    addPutAuthAppWF(name, path, handler, permission = null, permissionType = null) {
+        name += ' (authAppWF)';
+        this.server.put({
+            name: name,
+            path: path
+        },
+        processJWT(),
+        validateJWT({
+            handler: handlerWrapper(path, handler),
+            permission: permission,
+            permissionType: permissionType,
+            agencyPortal: false
+        }));
+    }
+
     addGetAuthAppWF(name, path, handler, permission = null, permissionType = null) {
         name += ' (authAppWF)';
         this.server.get({
@@ -190,6 +295,97 @@ class AbstractedHTTPServer {
         },
         processJWT(),
         validateJWT({
+            handler: handlerWrapper(path, handler),
+            permission: permission,
+            permissionType: permissionType,
+            agencyPortal: false
+        }));
+    }
+
+    addPostAuthAppApi(name, path, handler, permission = null, permissionType = null) {
+        name += ' (authAppWF)';
+        this.server.post({
+            name: name,
+            path: path
+        },
+        processJWT(),
+        validateAppApiJWT({
+            handler: handlerWrapper(path, handler),
+            permission: permission,
+            permissionType: permissionType,
+            agencyPortal: false
+        }));
+    }
+
+    addPutAuthAppApi(name, path, handler, permission = null, permissionType = null) {
+        name += ' (authAppWF)';
+        this.server.put({
+            name: name,
+            path: path
+        },
+        processJWT(),
+        validateAppApiJWT({
+            handler: handlerWrapper(path, handler),
+            permission: permission,
+            permissionType: permissionType,
+            agencyPortal: false
+        }));
+    }
+
+    addGetAuthAppApi(name, path, handler, permission = null, permissionType = null) {
+        name += ' (authAppWF)';
+        this.server.get({
+            name: name,
+            path: path
+        },
+        processJWT(),
+        validateAppApiJWT({
+            handler: handlerWrapper(path, handler),
+            permission: permission,
+            permissionType: permissionType,
+            agencyPortal: false
+        }));
+    }
+
+
+    addPostAuthQuoteApp(name, path, handler, permission = null, permissionType = null) {
+        name += ' (authAppWF)';
+        this.server.post({
+            name: name,
+            path: path
+        },
+        processJWT(),
+        validateQuoteAppV2JWT({
+            handler: handlerWrapper(path, handler),
+            permission: permission,
+            permissionType: permissionType,
+            agencyPortal: false
+        }));
+    }
+
+    addPutAuthQuoteApp(name, path, handler, permission = null, permissionType = null) {
+        name += ' (authAppWF)';
+        this.server.put({
+            name: name,
+            path: path
+        },
+        processJWT(),
+        validateQuoteAppV2JWT({
+            handler: handlerWrapper(path, handler),
+            permission: permission,
+            permissionType: permissionType,
+            agencyPortal: false
+        }));
+    }
+
+    addGetAuthQuoteApp(name, path, handler, permission = null, permissionType = null) {
+        name += ' (authAppWF)';
+        this.server.get({
+            name: name,
+            path: path
+        },
+        processJWT(),
+        validateQuoteAppV2JWT({
             handler: handlerWrapper(path, handler),
             permission: permission,
             permissionType: permissionType,
@@ -265,34 +461,6 @@ class AbstractedHTTPServer {
             permissionType: permissionType,
             agencyPortal: true
         }));
-    }
-
-    addSocket(name, path, connectHandler) {
-        this.socketPaths.push({
-            name: name,
-            path: path
-        });
-        const io = socketIO(this.server.server, {path: path});
-
-        // Force authentication on Socket.io connections
-        io.use(function(socket, next) {
-            if (socket.handshake.query && socket.handshake.query.token) {
-                jwt.verify(socket.handshake.query.token, global.settings.AUTH_SECRET_KEY, function(err) {
-                    if (err) {
-                        log.info(`Socket ${path}: Invalid JWT`);
-                        return next(new Error('Invalid authentication token'));
-                    }
-                    next();
-                });
-            }
-            else {
-                log.info(`Socket ${path}: Could not find JWT in handshake`);
-                return next(new Error('An authentication token must be provided'));
-            }
-        });
-
-        // Handle Socket.io connections
-        io.on('connection', connectHandler);
     }
 
     //******* administration Auth **********************

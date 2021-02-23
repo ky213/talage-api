@@ -88,7 +88,7 @@
                             <CustomerContact>{{:app.business.contacts[0].first_name}} {{:app.business.contacts[0].last_name}}</CustomerContact>
                             <InsuredClaim>NO</InsuredClaim>
 							{{if get_years_in_business() < 3}}
-							<YearsIndExp>{{:app.business.years_of_exp}}</YearsIndExp>
+							<YearsIndExp>{{:app.applicationDocData.yearsOfExp}}</YearsIndExp>
 							{{/if}}
 						</PolicyExt>
                     </Policy>

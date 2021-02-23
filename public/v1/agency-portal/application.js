@@ -2,7 +2,7 @@
 /* eslint-disable require-jsdoc */
 'use strict';
 const validator = global.requireShared('./helpers/validator.js');
-const auth = require('./helpers/auth.js');
+const auth = require('./helpers/auth-agencyportal.js');
 const serverHelper = global.requireRootPath('server.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const ApplicationBO = global.requireShared('models/Application-BO.js');
@@ -366,7 +366,7 @@ async function setupReturnedApplicationJSON(applicationJSON){
                         if(activityPayroll.ownerPayRoll){
                             activityPayroll.payroll += activityPayroll.ownerPayRoll
                         }
-                        //Check for new employeeType lists - If not present fill 
+                        //Check for new employeeType lists - If not present fill
                         // with zero employee count - User will have to fix.
                         if(activityPayroll.employeeTypeList.length === 0){
                             activityPayroll.employeeTypeList = []
@@ -686,8 +686,8 @@ async function applicationCopy(req, res, next) {
         catch(err){
             log.error("Error gettign userID " + err + __location);
         }
-        req.body.agencyPortalCreatedUser = userId
-        req.body.agencyPortalCreated = true;
+        newApplicationDoc.agencyPortalCreatedUser = userId
+        newApplicationDoc.agencyPortalCreated = true;
         const updateMysql = true;
         responseAppDoc = await applicationBO.insertMongo(newApplicationDoc, updateMysql);
         await setupReturnedApplicationJSON(responseAppDoc)
@@ -720,8 +720,8 @@ async function deleteObject(req, res, next) {
     }
     //Deletes only by AgencyNetwork Users.
 
-    const agencyNetwork = req.authentication.agencyNetwork;
-    if (!agencyNetwork) {
+    const agencyNetwork = req.authentication.agencyNetworkId;
+    if (req.authentication.isAgencyNetworkUser === false) {
         log.warn('App Delete not agency network user ' + __location)
         res.send(403);
         return next(serverHelper.forbiddenError('Do Not have Permissions'));
@@ -803,23 +803,17 @@ async function validate(req, res, next) {
         }
     }
 
-    // const agencyNetwork = req.authentication.agencyNetwork;
-    // if (!agencyNetwork) {
-    //     log.warn('App requote not agency network user ' + __location)
-    //     res.send(403);
-    //     return next(serverHelper.forbiddenError('Do Not have Permissions'));
-    // }
 
     //Get app and check status
     log.debug("Loading Application by mysqlId for Validation " + __location)
-    const applicationDB = await applicationBO.getById(id).catch(function(err) {
+    const applicationDocDB = await applicationBO.getById(id).catch(function(err) {
         log.error("Location load error " + err + __location);
         error = err;
     });
     if (error) {
         return next(error);
     }
-    if (!applicationDB) {
+    if (!applicationDocDB) {
         return next(serverHelper.requestError('Not Found'));
     }
     //TODO Check agency Network or Agency rights....
@@ -833,7 +827,7 @@ async function validate(req, res, next) {
     }
 
     // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
-    if (!agents.includes(parseInt(applicationDB.agency, 10))) {
+    if (!agents.includes(parseInt(applicationDocDB.agencyId, 10))) {
         log.info('Forbidden: User is not authorized to access the requested application');
         return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
     }
@@ -846,20 +840,30 @@ async function validate(req, res, next) {
 
 
     const applicationQuoting = new ApplicationQuoting();
+    let passValidation = false
     // Populate the Application object
-    // Load
+    // Load - Does some validation do to transformation of data.
     try {
         const forceQuoting = true;
-        const loadJson = {"id": id};
+        const loadJson = {
+            "id": id,
+            agencyPortalQuote: true
+        };
         await applicationQuoting.load(loadJson, forceQuoting);
     }
     catch (err) {
-        log.error(`Error loading application ${id ? id : ''}: ${err.message}` + __location);
-        res.send(err);
+        const errMessage = `Error loading application data ${id ? id : ''}: ${err.message}`
+        log.error(errMessage + __location);
+
+        //res.send(err);
+        const responseJSON = {
+            "passedValidation": passValidation,
+            "validationError":errMessage
+        }
+        res.send(200,responseJSON);
         return next();
     }
     // Validate
-    let passValidation = false
     try {
         passValidation = await applicationQuoting.validate();
     }
@@ -951,7 +955,7 @@ async function requote(req, res, next) {
     }
 
     // Make sure this user has access to the requested agent (Done before validation to prevent leaking valid Agent IDs)
-    if (!agents.includes(parseInt(applicationDB.agency, 10))) {
+    if (!agents.includes(parseInt(applicationDB.agencyId, 10))) {
         log.info('Forbidden: User is not authorized to access the requested application');
         return next(serverHelper.forbiddenError('You are not authorized to access the requested application'));
     }
@@ -969,10 +973,17 @@ async function requote(req, res, next) {
 
     const applicationQuoting = new ApplicationQuoting();
     // Populate the Application object
+
     // Load
     try {
         const forceQuoting = true;
-        const loadJson = {"id": id};
+        const loadJson = {
+            "id": id,
+            agencyPortalQuote: true
+        };
+        if(req.body.insurerId && validator.is_valid_id(req.body.insurerId)){
+            loadJson.insurerId = parseInt(req.body.insurerId, 10);
+        }
         await applicationQuoting.load(loadJson, forceQuoting);
     }
     catch (err) {
@@ -993,12 +1004,12 @@ async function requote(req, res, next) {
 
     // Set the application progress to 'quoting'
     try {
-        await applicationBO.updateProgress(applicationDB.id, "quoting");
+        await applicationBO.updateProgress(applicationDB.mysqlId, "quoting");
         const appStatusIdQuoting = 15;
-        await applicationBO.updateStatus(applicationDB.id, "quoting", appStatusIdQuoting);
+        await applicationBO.updateStatus(applicationDB.mysqlId, "quoting", appStatusIdQuoting);
     }
     catch (err) {
-        log.error(`Error update appication progress appId = ${applicationDB.id} for quoting. ` + err + __location);
+        log.error(`Error update appication progress appId = ${applicationDB.mysqlId} for quoting. ` + err + __location);
     }
 
     // Build a JWT that contains the application ID that expires in 5 minutes.
@@ -1052,11 +1063,16 @@ async function GetQuestions(req, res, next){
         return next(error);
     }
 
+    // Set the question subject area. Default to "general" if not specified.
+    let questionSubjectArea = "general";
+    if (req.query.questionSubjectArea) {
+        questionSubjectArea = req.query.questionSubjectArea;
+    }
 
     let getQuestionsResult = null;
     try{
         const applicationBO = new ApplicationBO();
-        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies);
+        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies, questionSubjectArea);
     }
     catch(err){
         //Incomplete Applications throw errors. those error message need to got to client
@@ -1073,9 +1089,9 @@ async function GetQuestions(req, res, next){
 
 async function bindQuote(req, res, next) {
     //Double check it is TalageStaff user
-
+    log.debug("Bind request: " + JSON.stringify(req.body))
     // Check if binding is disabled
-    if (global.settings.DISABLE_BINDING === "YES") {
+    if (global.settings.DISABLE_BINDING === "YES" && req.body.markAsBound !== true) {
         return next(serverHelper.requestError('Binding is disabled'));
     }
 
@@ -1138,8 +1154,8 @@ async function bindQuote(req, res, next) {
     }
 
     try {
-        if (req.body.markAsBound !== 'true') {
-            const insurerBO = new InsurerBO();
+        if (req.body.markAsBound !== true) {
+            //const insurerBO = new InsurerBO();
 
             const quoteBind = new QuoteBind();
             await quoteBind.load(quoteId);
@@ -1147,24 +1163,28 @@ async function bindQuote(req, res, next) {
         }
 
         const quoteBO = new QuoteBO();
-        await quoteBO.bindQuote(quoteId, applicationId, req.authentication.userID);
+
+        const bindResp = await quoteBO.bindQuote(quoteId, applicationId, req.authentication.userID);
+        if(bindResp){
+            await applicationBO.updateStatus(applicationDB.mysqlId,"bound", 90);
+            // Update Application-level quote metrics when we do a bind.
+        	await applicationBO.recalculateQuoteMetrics(applicationId);
+        }
+        
+        
     }
+
     catch (err) {
         log.error(`Error Binding  application ${applicationId ? applicationId : ''}: ${err}` + __location);
         res.send(err);
         return next();
     }
 
-
     // Send back the token
     res.send(200, {"bound": true});
 
-
     return next();
-
-
 }
-
 
 /**
  * GET returns resources Quote Engine needs

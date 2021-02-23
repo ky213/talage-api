@@ -6,6 +6,7 @@
 'use strict';
 const moment = require('moment');
 const clonedeep = require('lodash.clonedeep');
+const _ = require('lodash');
 
 const DatabaseObject = require('./DatabaseObject.js');
 
@@ -21,10 +22,13 @@ const IndustryCodeBO = global.requireShared('./models/IndustryCode-BO.js');
 const taskWholesaleAppEmail = global.requireRootPath('tasksystem/task-wholesaleapplicationemail.js');
 const taskSoleProAppEmail = global.requireRootPath('tasksystem/task-soleproapplicationemail.js');
 const taskEmailBindAgency = global.requireRootPath('tasksystem/task-emailbindagency.js');
+const QuoteBind = global.requireRootPath('public/v1/quote/helpers/models/QuoteBind.js');
 const crypt = global.requireShared('./services/crypt.js');
+const validator = global.requireShared('./helpers/validator.js');
 
 // Mongo Models
-var ApplicationMongooseModel = require('mongoose').model('Application');
+const ApplicationMongooseModel = require('mongoose').model('Application');
+const QuoteMongooseModel = require('mongoose').model('Quote');
 const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 //const crypt = global.requireShared('./services/crypt.js');
@@ -41,7 +45,6 @@ const tracker = global.requireShared('./helpers/tracker.js');
 //const convertToIntFields = [];
 
 const tableName = 'clw_talage_applications';
-const skipCheckRequired = false;
 //businessDataJSON
 const QUOTE_STEP_NUMBER = 9;
 const QUOTING_STATUS = 15;
@@ -58,12 +61,7 @@ module.exports = class ApplicationModel {
     #applicationMongooseJSON = {};
 
     constructor() {
-        this.agencyLocation = null;
-        this.business = null;
         this.id = 0;
-        this.insurers = [];
-        this.policies = [];
-        this.questions = {};
         this.test = false;
         this.WorkFlowSteps = {
             'contact': 2,
@@ -80,52 +78,15 @@ module.exports = class ApplicationModel {
 
         this.#applicationMongooseDB = null;
         this.#applicationMongooseJSON = {};
+        this.applicationDoc = null;
 
         this.#dbTableORM = new ApplicationOrm();
         this.#dbTableORM.doNotSnakeCase = this.doNotSnakeCase;
     }
 
-    /**
-	 * Save Model
-     *
-	 * @param {object} newObjectJSON - newObjectJSON JSON
-	 * @returns {Promise.<JSON, Error>} A promise that returns an JSON with saved businessContact , or an Error if rejected
-	 */
-    saveModel(newObjectJSON){
-        return new Promise(async(resolve, reject) => {
-            if(!newObjectJSON){
-                reject(new Error(`empty ${tableName} object given`));
-            }
-            await this.cleanupInput(newObjectJSON);
-            if(newObjectJSON.id){
-                await this.#dbTableORM.getById(newObjectJSON.id).catch(function(err) {
-                    log.error(`Error getting ${tableName} from Database ` + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
-            }
-            else{
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
-            }
-
-            //save
-            await this.#dbTableORM.save().catch(function(err){
-                reject(err);
-            });
-            this.updateProperty();
-            this.id = this.#dbTableORM.id;
-
-
-            resolve(true);
-
-        });
-    }
-
 
     /**
-    * Load new application JSON with optional save.
+    *  For Quote App V1 - saved app based on workflow step.
     *
     * @param {object} applicationJSON - application JSON
     * @param {string} workflowStep - QuoteApp Workflow step
@@ -168,27 +129,45 @@ module.exports = class ApplicationModel {
                 return;
             }
             if (applicationJSON.id) {
-                //load application from database.
-                await this.#dbTableORM.getById(applicationJSON.id).catch(function(err) {
-                    log.error("Error getting application from Database " + err + __location);
-                    reject(err);
+
+                if(await validator.isUuid(applicationJSON.id)){
+                    log.debug(`saveApplicationStep Loading by app uuid ${applicationJSON.id} ` + __location)
+                    this.applicationDoc = await this.loadfromMongoByAppId(applicationJSON.id).catch(function(err) {
+                        log.error("Error getting application from Database " + err + __location);
+                        reject(err);
+                        return;
+                    });
+                }
+                else {
+                    log.debug(`saveApplicationStep Loading by app integer ${applicationJSON.id} ` + __location)
+                    this.applicationDoc = await this.loadfromMongoBymysqlId(applicationJSON.id).catch(function(err) {
+                        log.error("Error getting application from Database " + err + __location);
+                        reject(err);
+                        return;
+                    });
+                }
+                if(!this.applicationDoc){
+                    log.error(`saveApplicationStep cound nto find appId ${applicationJSON.id}` + __location);
+                    reject(new Error("Data Error: Application may not be updated."));
                     return;
-                });
+
+                }
+                this.#applicationMongooseDB = this.applicationDoc;
                 this.updateProperty();
-                applicationJSON.agency_network = this.agency_network;
-                //future mongo...
-                applicationJSON.agencyNetworkId = this.agency_network;
-                this.agencyNetworkId = this.agency_network;
-                //Check that is still updateable.
-                if (this.state > 15 && this.state < 1) {
-                    log.warn(`Attempt to update a finished or deleted application. appid ${applicationJSON.id}` + __location);
+                applicationJSON.applicationId = this.applicationDoc.applicationId
+                applicationJSON.uuid = this.applicationDoc.applicationId
+                applicationJSON.agencyNetworkId = this.applicationDoc.agencyNetworkId;
+                this.agencyNetworkId = this.applicationDoc.agencyNetworkId;
+                //Check that is still updateable. less than request to bind and not deleted.
+                if (this.applicationDoc.appStatusId >= 70 || this.applicationDoc.active === false) {
+                    log.warn(`Attempt to update a finished or deleted application. appid ${this.applicationDoc.applicationId}` + __location);
                     reject(new Error("Data Error:Application may not be updated."));
                     return;
                 }
                 // //Check that it is too old (1 hours) from creation
                 const bypassAgeCheck = global.settings.ENV === 'development' && global.settings.APPLICATION_AGE_CHECK_BYPASS === 'YES';
                 if (this.created && bypassAgeCheck === false) {
-                    const dbCreated = moment(this.created);
+                    const dbCreated = moment(this.applicationDoc.createdAt);
                     const nowTime = moment().utc();
                     const ageInMinutes = nowTime.diff(dbCreated, 'minutes');
                     log.debug('Application age in minutes ' + ageInMinutes);
@@ -201,25 +180,19 @@ module.exports = class ApplicationModel {
                 else if(bypassAgeCheck === false){
                     log.warn(`Application missing created value. appid ${applicationJSON.id}` + __location);
                 }
-                // if Application has been Quoted and this is an earlier step
-                if (this.last_step >= QUOTE_STEP_NUMBER && stepNumber < QUOTE_STEP_NUMBER) {
+
+                // Quote V1 only - if Application has been Quoted and this is an earlier step -- If we allows fixing the app to requote
+                if (this.applicationDoc.lastStep >= QUOTE_STEP_NUMBER && stepNumber < QUOTE_STEP_NUMBER) {
                     log.warn(`Attempt to update a Quoted application. appid ${applicationJSON.id}` + __location);
                     reject(new Error("Data Error:Application may not be updated."));
                     return;
                 }
-                // Load Mongoose Model
-                this.#applicationMongooseDB = await this.loadfromMongoByAppId(this.uuid).catch(function(err) {
-                    log.error("Mongo application load error " + err + __location);
-                    error = err;
-                });
-                //log.debug("load from mongo " + JSON.stringify(this.#applicationMongooseDB));
             }
             else {
 
                 //set uuid on new application
-                applicationJSON.uuid = uuidv4().toString();
-                //prevent overwriting records during import
-                applicationJSON.copied_to_mongo = 1;
+                applicationJSON.applicationId = uuidv4().toString();
+                applicationJSON.uuid = applicationJSON.applicationId;
                 //Agency Defaults
                 if (applicationJSON.agency_id && !applicationJSON.agency) {
                     applicationJSON.agency = applicationJSON.agency_id
@@ -274,12 +247,25 @@ module.exports = class ApplicationModel {
                 else {
                     log.error(`no agency record for id ${applicationJSON.agency} ` + __location);
                 }
+                //minium validation
+
+                const appUuid = applicationJSON.uuid;
+                //insert mysql here to get mysql id.
+                await this.#dbTableORM.save().catch(function(err) {
+                    log.error(`Application ${appUuid} Mysql Insert error ${err} ` + __location);
+                    // Do not stop mongo save. Mysql insert is only for id.
+                    // Id.mysqlId will be obsoleted in Q2 2021
+                });
+                this.id = this.#dbTableORM.id;
+                applicationJSON.id = this.id;
+
 
             }
 
             //log.debug("applicationJSON: " + JSON.stringify(applicationJSON));
             error = null;
             let updateBusiness = false;
+            const appId = applicationJSON.applicationId
             switch (workflowStep) {
                 case "contact":
                     applicationJSON.progress = 'incomplete';
@@ -290,7 +276,7 @@ module.exports = class ApplicationModel {
                         await this.processMongooseBusiness(applicationJSON.businessInfo)
                     }
                     else {
-                        log.info('No Business for Application ' + __location)
+                        log.error(`No Business for Application ${appId} ` + __location)
                         reject(new Error("No Business Information supplied"));
                         return;
                     }
@@ -307,7 +293,7 @@ module.exports = class ApplicationModel {
                     //processPolicyTypes
                     if (applicationJSON.policy_types) {
                         await this.processPolicyTypes(applicationJSON.policy_types, applicationJSON).catch(function(err) {
-                            log.error('Adding claims error:' + err + __location);
+                            log.error(`Adding coverage to appId ${appId} error:` + err + __location);
                             reject(err);
                         });
                     }
@@ -351,23 +337,21 @@ module.exports = class ApplicationModel {
                 case 'claims':
                     if (applicationJSON.claims) {
                         await this.processClaimsWF(applicationJSON.claims).catch(function(err) {
-                            log.error('Adding claims error:' + err + __location);
+                            log.error(`Adding claims to appId ${appId} error:` + err + __location);
                             reject(err);
                         });
                     }
-                    //TODO details setup Mapping to Mongoose Model not we already have one loaded.
                     break;
                 case 'questions':
                     if (applicationJSON.questions) {
 
                         await this.processQuestionsMongo(applicationJSON.questions).catch(function(err) {
-                            log.error('Adding Questions error:' + err + __location);
-                            // reject(err);
+                            log.error(`Adding Questions to appId ${appId}  error:` + err + __location);
                         });
 
                     }
                     await this.processLegalAcceptance(applicationJSON).catch(function(err) {
-                        log.error('Adding Legal Acceptance error:' + err + __location);
+                        log.error(`Adding Legal Acceptance to appId ${appId} error:` + err + __location);
                         reject(err);
                     });
                     applicationJSON.status = 'questions_done';
@@ -407,16 +391,20 @@ module.exports = class ApplicationModel {
                 case 'bindRequest':
                     if (applicationJSON.quotes) {
                         applicationJSON.progress = 'complete';
-                        applicationJSON.appStatusId = this.appStatusId;
+                        applicationJSON.appStatusId = this.applicationDoc.appStatusId;
                         await this.processQuotes(applicationJSON).catch(function(err) {
-                            log.error('Processing Quotes error:' + err + __location);
+                            log.error(`Processing Quotes for appId ${appId}  error:` + err + __location);
                             reject(err);
+                            return;
                         });
+                        //save take place in processQuotes.  return from here.
+                        resolve(true);
+                        return;
                     }
                     break;
                 default:
                     // not from old Web application application flow.
-                    reject(new Error("Unknown Application Workflow Step"))
+                    reject(new Error(`Unknown Application for appId ${appId} Workflow Step`))
                     return;
             }
             if (updateBusiness === true) {
@@ -425,34 +413,16 @@ module.exports = class ApplicationModel {
                     delete applicationJSON.businessInfo
                 }
             }
-
-            if (!this.#dbTableORM.last_step) {
-                this.#dbTableORM.last_step = stepNumber;
+            //switch to applicationDoc
+            if (!this.applicationDoc || this.applicationDoc && !this.applicationDoc.lastStep) {
                 applicationJSON.lastStep = stepNumber;
             }
-            else if (stepNumber > this.#dbTableORM.last_step) {
-                this.#dbTableORM.last_step = stepNumber;
+            else if (stepNumber > this.applicationDoc.lastStep) {
                 applicationJSON.lastStep = stepNumber;
             }
 
-            await this.cleanupInput(applicationJSON);
-
-            //$app->created_by = $user->id;
-            this.#dbTableORM.load(applicationJSON, false).catch(function(err) {
-                log.error("Error loading application orm " + err + __location);
-            });
-            if (!this.#dbTableORM.uuid) {
-                this.#dbTableORM.uuid = applicationJSON.uuid;
-            }
 
             //save
-            await this.#dbTableORM.save().catch(function(err) {
-                reject(err);
-            });
-            this.updateProperty();
-            this.id = this.#dbTableORM.id;
-            applicationJSON.id = this.id;
-
             // mongoose model save.
             this.mapToMongooseJSON(applicationJSON)
             if (this.#applicationMongooseDB) {
@@ -467,6 +437,11 @@ module.exports = class ApplicationModel {
             if (workflowStep === "contact") {
                 //async call do not await processing.
                 this.getBusinessInfo(applicationJSON);
+            }
+
+            // Re-calculate our quote premium metrics whenever we bind.
+            if (workflowStep === 'bindRequest') {
+                await this.recalculateQuoteMetrics(applicationJSON.uuid);
             }
 
             resolve(true);
@@ -882,52 +857,95 @@ module.exports = class ApplicationModel {
 
     }
 
+    async processRequestToBind(applicationId, quoteJSON){
+        if(!applicationId || !quoteJSON){
+            log.error("processRequestToBind missing inputs" + __location)
+            return;
+        }
+        const quote = quoteJSON;
+        //log.debug("quote: " + JSON.stringify(quote) + __location)
+        log.debug("Sending Bind Agency email for AppId " + applicationId + " quote " + quote.quote + __location);
+        //Load application
+        let applicationMongoDoc = null;
+        try{
+            applicationMongoDoc = await this.loadfromMongoByAppId(applicationId)
+        }
+        catch(err){
+            log.error(`Application processRequestToBind error ${err}` + __location);
+        }
+        if(applicationMongoDoc){
+            //no need to await.
+            taskEmailBindAgency.emailbindagency(applicationMongoDoc.mysqlId, quote.quote);
+
+            //load quote from database.
+            const quoteModel = new QuoteBO();
+            //update quote record.
+            //TODO Which to load from Mongo
+            const quoteDBJSON = await quoteModel.getById(quote.quoteId).catch(function(err) {
+                log.error(`Loading quote for status and payment plan update quote ${quote.quoteId} error:` + err + __location);
+                //reject(err);
+                return;
+            });
+            const quoteUpdate = {
+                "status": "bind_requested",
+                "paymentPlanId": quote.paymentPlanId
+            }
+            await quoteModel.updateMongo(quoteDBJSON.quoteId, quoteUpdate).catch(function(err) {
+                log.error(`Updating  quote with status and payment plan quote ${quote.quote} error:` + err + __location);
+                // reject(err);
+                //return;
+
+            });
+            // note: recalculating metric is call in saveApplicationStep
+            try{
+
+                const quoteBind = new QuoteBind();
+                await quoteBind.load(quoteDBJSON.mysqlId, quote.paymentPlanId);
+                await quoteBind.send_slack_notification("requested");
+            }
+            catch(err){
+                log.error(`appid ${this.id} had Slack Bind Request error ${err}` + __location);
+            }
+
+            let updateAppJSON = {};
+            updateAppJSON.processStateOld = quote.api_result === 'referred_with_price' ? 12 : 16;
+            if (applicationMongoDoc.appStatusId < 80) {
+                updateAppJSON.status = 'request_to_bind_referred';
+                updateAppJSON.appStatusId = 80;
+            }
+            else if (applicationMongoDoc.appStatusId < 70) {
+                updateAppJSON.status = 'request_to_bind';
+                updateAppJSON.appStatusId = 70;
+            }
+            await this.updateMongo(applicationId, updateAppJSON);
+
+            return true;
+        }
+        else {
+            return false;
+        }
+
+
+    }
+
     processQuotes(applicationJSON) {
 
         return new Promise(async(resolve) => {
             if (applicationJSON.quotes) {
                 for (var i = 0; i < applicationJSON.quotes.length; i++) {
-                    const quote = applicationJSON.quotes[i];
-                    log.debug("quote: " + JSON.stringify(quote) + __location)
-                    log.debug("Sending Bind Agency email for AppId " + this.id + " quote " + quote.quote + __location);
-                    //no need to await.
-                    taskEmailBindAgency.emailbindagency(this.id, quote.quote);
-
-                    //load quote from database.
-                    const quoteModel = new QuoteBO();
-                    //update quote record.
-                    //TODO Which to load from Mongo
-                    await quoteModel.loadFromId(quote.quote).catch(function(err) {
-                        log.error(`Loading quote for status and payment plan update quote ${quote.quote} error:` + err + __location);
-                        //reject(err);
-                        //return;
-
-                    });
-                    const quoteUpdate = {
-                        "id": quoteModel.id,
-                        "status": "bind_requested",
-                        "payment_plan": quote.payment,
-                        "paymentPlanId": quote.payment,
-                        "applicationId": this.#applicationMongooseDB.applicationId
+                    let quote = applicationJSON.quotes[i];
+                    if(!quote.quoteId){
+                        quote.quoteId = quote.quote;
                     }
-                    await quoteModel.saveModel(quoteUpdate).catch(function(err) {
-                        log.error(`Updating  quote with status and payment plan quote ${quote.quote} error:` + err + __location);
-                        // reject(err);
-                        //return;
-
-                    });
-
-                    applicationJSON.state = quote.api_result === 'referred_with_price' ? 12 : 16;
-                    if (applicationJSON.state === 12 && applicationJSON.appStatusId < 80) {
-                        applicationJSON.status = 'request_to_bind_referred';
-                        applicationJSON.appStatusId = 80;
+                    if(!quote.paymentPlanId){
+                        quote.paymentPlanId = quote.payment;
                     }
-                    else if (applicationJSON.state === 16 && applicationJSON.appStatusId < 70) {
-                        applicationJSON.status = 'request_to_bind';
-                        applicationJSON.appStatusId = 70;
+                    try{
+                        await this.processRequestToBind(this.#applicationMongooseDB.applicationId,quote)
                     }
-
-                    //mongo update...
+                    catch(err){
+                        log.error(`ApplicationBO processQuotes appid ${this.#applicationMongooseDB.applicationId} error ${err} ` + __location)
+                    }
                 }
             }
             else {
@@ -1268,24 +1286,16 @@ module.exports = class ApplicationModel {
 
     async updateStatus(id, appStatusDesc, appStatusid) {
 
-        if (id && id > 0) {
-            try {
-                const sql = `
-                    UPDATE clw_talage_applications
-                    SET status = ${db.escape(appStatusDesc)}, appStatusid = ${db.escape(appStatusid)}
-                    WHERE id = ${id};
-                `;
-                await db.query(sql);
-            }
-            catch (error) {
-                log.error(`Could not update application status mySql appId: ${id}  ${error} ${__location}`);
-            }
+        if (id) {
             //mongo update.....
             try {
                 const updateStatusJson = {
                     status: appStatusDesc,
                     "appStatusId": appStatusid
                 }
+
+                updateStatusJson.updatedAt = new Date();
+
                 const query = {"mysqlId": id};
                 await ApplicationMongooseModel.updateOne(query, updateStatusJson);
             }
@@ -1301,25 +1311,9 @@ module.exports = class ApplicationModel {
 
     async updateProgress(id, progress) {
 
-        const sql = `
-		    UPDATE clw_talage_applications
-		    SET progress = ${db.escape(progress)}
-		    WHERE id = ${db.escape(id)}
-        `;
-        let result = null;
-
-        try {
-            result = await db.query(sql);
-        }
-        catch (error) {
-            log.error(`Could not update the quote progress to ${progress} for application ${id}: ${error} ${__location}`);
-        }
-        if (result === null || result.affectedRows !== 1) {
-            log.warn(`Could not update the application progress to ${progress} for application ${id}: ${sql} ${__location}`);
-        }
-        //mongo update.....
         try {
             const updateStatusJson = {progress: progress}
+            updateStatusJson.updatedAt = new Date();
             const query = {"mysqlId": id};
             await ApplicationMongooseModel.updateOne(query, updateStatusJson);
         }
@@ -1330,26 +1324,10 @@ module.exports = class ApplicationModel {
     }
 
     async updateState(id, newState) {
-
-        const sql = `
-		    UPDATE clw_talage_applications
-		    SET state = ${db.escape(newState)}
-		    WHERE id = ${db.escape(id)} and state < ${db.escape(newState)}
-        `;
-        let result = null;
-
-        try {
-            result = await db.query(sql);
-        }
-        catch (error) {
-            log.error(`Could not update the quote state to ${newState} for application ${id}: ${error} ${__location}`);
-        }
-        if (result === null || result.affectedRows !== 1) {
-            log.warn(`Could not update the application to State = ${newState} for applicationId ${id}: ${sql} ${__location}`);
-        }
         //mongo update.....
         try {
             const updateStatusJson = {processStateOld: newState}
+            updateStatusJson.updatedAt = new Date();
             const query = {
                 "mysqlId": id,
                 processStateOld: {$lt: newState}
@@ -1365,20 +1343,15 @@ module.exports = class ApplicationModel {
 
     async getProgress(id) {
         //TODO move to Mongo Find
-        const sql = `
-            SELECT progress
-            FROM clw_talage_applications
-            WHERE id = ${id}
-        `;
-        let result = null;
+        let appDoc = null;
         try {
-            result = await db.query(sql);
+            appDoc = await this.getById(id)
         }
         catch (error) {
-            log.error(`Could not get the quote progress for application ${id}: ${error} ${__location}`);
+            log.error(`Could not get the quoting progress for application ${id}: ${error} ${__location}`);
         }
-        if (result && result.length > 0) {
-            return result[0].progress;
+        if (appDoc) {
+            return appDoc.progress;
         }
         else {
             log.error(`Could not get the quote progress for application ${id}: ${__location}`);
@@ -1386,31 +1359,6 @@ module.exports = class ApplicationModel {
         }
     }
 
-    // save(asNew = false) {
-    //     return new Promise(async (resolve, reject) => {
-    //         //validate
-
-    //         resolve(true);
-    //     });
-    // }
-
-    loadFromId(id) {
-        return new Promise(async(resolve, reject) => {
-            //validate
-            if (id && id > 0) {
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error("Error getting application from Database " + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
-                resolve(true);
-            }
-            else {
-                reject(new Error('no id supplied'))
-            }
-        });
-    }
 
     async updateMongoWithMysqlId(mysqlId, newObjectJSON) {
 
@@ -1468,7 +1416,7 @@ module.exports = class ApplicationModel {
         return true;
     }
 
-    async updateMongo(uuid, newObjectJSON, updateMysql = false) {
+    async updateMongo(uuid, newObjectJSON) {
         if (uuid) {
             if (typeof newObjectJSON === "object") {
 
@@ -1493,18 +1441,15 @@ module.exports = class ApplicationModel {
                             delete newObjectJSON[changeNotUpdateList[i]];
                         }
                     }
+                    // Add updatedAt
+                    newObjectJSON.updatedAt = new Date();
+
                     await ApplicationMongooseModel.updateOne(query, newObjectJSON);
+                    log.debug("Mongo Application updated " + JSON.stringify(query) + __location)
+                    //log.debug("updated to " + JSON.stringify(newObjectJSON));
                     const newApplicationdoc = await ApplicationMongooseModel.findOne(query);
                     this.#applicationMongooseDB = newApplicationdoc
 
-                    if(updateMysql === true){
-                        const postInsert = false;
-                        // eslint-disable-next-line prefer-const
-                        let applicationMysqlJSON = {};
-                        await this.mongoDoc2MySqlUpdate(newApplicationdoc, applicationMysqlJSON,postInsert).catch(function(err){
-                            log.error(`Error in mongoDoc2MySqlUpdate  appId: ${uuid}` + err + __location);
-                        })
-                    }
 
                     newApplicationJSON = mongoUtils.objCleanup(newApplicationdoc);
                 }
@@ -1562,6 +1507,7 @@ module.exports = class ApplicationModel {
             log.error('Mongo Application Save err ' + err + __location);
             throw err;
         });
+        log.debug("Mongo Application inserted " + application.applicationId + __location)
         //add calculated fields EIN
         await this.setDocEinClear(application);
         await this.checkAndFixAppStatus(application);
@@ -1590,16 +1536,14 @@ module.exports = class ApplicationModel {
 
     }
 
-    async applicationDoc2MySqlInsert(applicationDoc) {
-        let error = null;
+    async applicationDoc2MySqlInsert(newApplicationDoc) {
         // eslint-disable-next-line prefer-const
-        let applicationJSON = JSON.parse(JSON.stringify(applicationDoc));
+        let applicationJSON = JSON.parse(JSON.stringify(newApplicationDoc));
         if(applicationJSON.id){
             delete applicationJSON.id;
         }
 
         //save application
-        await this.cleanupInput(applicationJSON);
         const propMappingsApp = {
             processStateOld: "state",
             lastStep: "last_step",
@@ -1625,82 +1569,41 @@ module.exports = class ApplicationModel {
         //save
         await this.#dbTableORM.save().catch(function(err) {
             log.error("applicationDoc2MySqlInsert application save error " + err + __location);
-            error = err;
+            // Do not stop mongo save. Mysql insert is only for id.
+            // Id.mysqlId will be obsoleted in Q2 2021
         });
-        if (error) {
-            return false;
-        }
-        this.updateProperty();
+
         applicationJSON.id = this.#dbTableORM.id;
-        applicationDoc.mysqlId = applicationJSON.id;
-        await applicationDoc.save().catch(function(err) {
+        newApplicationDoc.mysqlId = applicationJSON.id;
+        await newApplicationDoc.save().catch(function(err) {
             log.error('Mongo Application Save for mysqlId err ' + err + __location);
             throw err;
         });
+        this.applicationDoc = newApplicationDoc;
+        this.updateProperty();
 
-        const postInsert = true;
-        return this.mongoDoc2MySqlUpdate(applicationDoc, applicationJSON, postInsert)
 
-    }
-
-    async mongoDoc2MySqlUpdate(applicationDoc, applicationJSONInbound, postInsert = false) {
-
-        let applicationJSON = {};
-        if(applicationJSONInbound){
-            applicationJSON = JSON.parse(JSON.stringify(applicationJSONInbound));
-        }
-        let error = null;
-        if (postInsert === false) {
-            // eslint-disable-next-line prefer-const
-            let newAppRecJson = JSON.parse(JSON.stringify(applicationDoc))
-            newAppRecJson.id = applicationDoc.mysqlId;
-            const propMappingsApp = {
-                mailingCity: "city",
-                "mailingState": "state_abbr",
-                mailingZipcode: "zipcode",
-                "industryCode": "industry_code"
-            };
-            this.jsonToSnakeCase(newAppRecJson, propMappingsApp);
-            if(error){
-                return false;
-            }
-            if(!applicationJSON){
-                log.error("mongoDoc2MySqlUpdate mysql record not found " + __location)
-                return false;
-            }
-            //save app
-            await this.saveModel(newAppRecJson).catch(function(err){
-                log.error('Mongo Application Save for mysqlId err ' + err + __location);
-            })
-            //get mysqlDB application
-            applicationJSON = await this.getById(applicationDoc.mysqlId).catch(function(err){
-                log.error('Mongo Application Getfor mysqlId err ' + err + __location);
-                error = err;
-            });
-        }
-        else if(!applicationJSON || !applicationJSON.id){
-            log.error("NO Appid in mongoDoc2MySqlUpdate " + __location);
-            return false;
-        }
     }
 
     // checks the status of the app and fixes it if its timed out
     async checkAndFixAppStatus(applicationDoc){
-        // only check and fix quoting apps
-        if(applicationDoc.appStatusId === QUOTING_STATUS){
-            const now = moment.utc();
-            // if the quotingStartedDate doesnt exist, just set it and return
-            if(!applicationDoc.quotingStartedDate){
-                applicationDoc.quotingStartedDate = now;
-                await this.updateMongo(applicationDoc.uuid, {quotingStartedDate: now});
-                return;
-            }
+        if(applicationDoc){
+            // only check and fix quoting apps
+            if(applicationDoc.appStatusId === QUOTING_STATUS){
+                const now = moment.utc();
+                // if the quotingStartedDate doesnt exist, just set it and return
+                if(!applicationDoc.quotingStartedDate){
+                    applicationDoc.quotingStartedDate = now;
+                    await this.updateMongo(applicationDoc.uuid, {quotingStartedDate: now});
+                    return;
+                }
 
-            const status = global.requireShared('./models/application-businesslogic/status.js');
-            const duration = moment.duration(now.diff(moment(applicationDoc.quotingStartedDate)));
-            if(duration.minutes() >= QUOTE_MIN_TIMEOUT){
-                log.error(`Application: ${applicationDoc.uuid} timed out ${QUOTE_MIN_TIMEOUT} minutes after quoting started`);
-                await status.updateApplicationStatus(applicationDoc, true);
+                const status = global.requireShared('./models/application-businesslogic/status.js');
+                const duration = moment.duration(now.diff(moment(applicationDoc.quotingStartedDate)));
+                if(duration.minutes() >= QUOTE_MIN_TIMEOUT){
+                    log.error(`Application: ${applicationDoc.uuid} timed out ${QUOTE_MIN_TIMEOUT} minutes after quoting started`);
+                    await status.updateApplicationStatus(applicationDoc, true);
+                }
             }
         }
     }
@@ -1720,7 +1623,7 @@ module.exports = class ApplicationModel {
 
     async setupDocEinEncrypt(applicationDoc){
         //Only modified if EIN has been given.
-        if(applicationDoc.ein){
+        if(applicationDoc && applicationDoc.ein && applicationDoc.ein.length > 1){
             try{
                 applicationDoc.einEncrypted = await crypt.encrypt(applicationDoc.ein);
                 applicationDoc.einHash = await crypt.hash(applicationDoc.ein);
@@ -1745,11 +1648,13 @@ module.exports = class ApplicationModel {
                 let applicationDoc = null;
                 try {
                     applicationDoc = await ApplicationMongooseModel.findOne(query, '-__v');
-                    await this.setDocEinClear(applicationDoc);
-                    await this.checkAndFixAppStatus(applicationDoc);
+                    if(applicationDoc){
+                        await this.setDocEinClear(applicationDoc);
+                        await this.checkAndFixAppStatus(applicationDoc);
+                    }
                 }
                 catch (err) {
-                    log.error("Getting Application error " + err + __location);
+                    log.error(`Getting Application ${id} error ` + err + __location);
                     reject(err);
                 }
                 resolve(applicationDoc);
@@ -1775,7 +1680,7 @@ module.exports = class ApplicationModel {
                     await this.checkAndFixAppStatus(applicationDoc);
                 }
                 catch (err) {
-                    log.error("Getting Application error " + err + __location);
+                    log.error(`Getting Application ${id} error ` + err + __location);
                     reject(err);
                 }
                 resolve(applicationDoc);
@@ -1836,7 +1741,7 @@ module.exports = class ApplicationModel {
                     }
                 }
                 catch (err) {
-                    log.error("Getting Application error " + err + __location);
+                    log.error(`Getting Application ${id} error ` + err + __location);
                     reject(err);
                 }
                 resolve(applicationDoc);
@@ -2006,7 +1911,7 @@ module.exports = class ApplicationModel {
             if (findCount === false) {
                 let docList = null;
                 try {
-                    // log.debug("ApplicationList query " + JSON.stringify(query))
+                    //log.debug("ApplicationList query " + JSON.stringify(query))
                     // log.debug("ApplicationList options " + JSON.stringify(queryOptions))
                     // log.debug("queryProjection: " + JSON.stringify(queryProjection))
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions);
@@ -2022,7 +1927,7 @@ module.exports = class ApplicationModel {
                     }
                 }
                 catch (err) {
-                    log.error(err + __location);
+                    log.error(`AppBO GetList ${JSON.stringify(query)} ` + err + __location);
                     error = null;
                     rejected = true;
                 }
@@ -2040,7 +1945,7 @@ module.exports = class ApplicationModel {
             }
             else {
                 const docCount = await ApplicationMongooseModel.countDocuments(query).catch(err => {
-                    log.error("Application.countDocuments error " + err + __location);
+                    log.error(`Application.countDocuments ${JSON.stringify(query)} error ` + err + __location);
                     error = null;
                     rejected = true;
                 })
@@ -2160,6 +2065,12 @@ module.exports = class ApplicationModel {
                 }
             }
 
+            if(queryJSON.policies && queryJSON.policies.policyType){
+                //query.policies = {};
+                query["policies.policyType"] = queryJSON.policies.policyType;
+                delete queryJSON.policies
+            }
+
 
             if (queryJSON) {
                 for (var key in queryJSON) {
@@ -2180,17 +2091,28 @@ module.exports = class ApplicationModel {
             if(orParamList && orParamList.length > 0){
                 for (let i = 0; i < orParamList.length; i++){
                     let orItem = orParamList[i];
-                    // eslint-disable-next-line no-redeclare
-                    for (var key2 in orItem) {
-                        if (typeof orItem[key2] === 'string' && orItem[key2].includes('%')) {
-                            let clearString = orItem[key2].replace("%", "");
-                            clearString = clearString.replace("%", "");
-                            orItem[key2] = {
-                                "$regex": clearString,
-                                "$options": "i"
-                            };
-                        }
+                    if(orItem.policies && queryJSON.orItem.policyType){
+                        //query.policies = {};
+                        orItem["policies.policyType"] = queryJSON.policies.policyType;
                     }
+                    else {
+                        // eslint-disable-next-line no-redeclare
+                        for (var key2 in orItem) {
+                            if (typeof orItem[key2] === 'string' && orItem[key2].includes('%')) {
+                                let clearString = orItem[key2].replace("%", "");
+                                clearString = clearString.replace("%", "");
+                                orItem[key2] = {
+                                    "$regex": clearString,
+                                    "$options": "i"
+                                };
+                            }
+
+
+                        }
+
+
+                    }
+
                 }
                 query.$or = orParamList
             }
@@ -2294,21 +2216,12 @@ module.exports = class ApplicationModel {
     }
 
     getById(id) {
-        return new Promise(async(resolve, reject) => {
-            //validate
-            if (id && id > 0) {
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
-                resolve(this.#dbTableORM.cleanJSON());
-            }
-            else {
-                reject(new Error('no id supplied'))
-            }
-        });
+        if(validator.isUuid(id)){
+            return this.getfromMongoByAppId(id)
+        }
+        else {
+            return this.getMongoDocbyMysqlId(id)
+        }
     }
 
     deleteSoftById(id) {
@@ -2423,76 +2336,37 @@ module.exports = class ApplicationModel {
     }
 
 
-    async cleanupInput(inputJSON) {
-        //convert to ints
-        for (const property in properties) {
-            if (inputJSON[property]) {
-                // Convert to number
-                try {
-                    if (properties[property].type === "number" && typeof inputJSON[property] === "string") {
-                        if (properties[property].dbType.indexOf("int") > -1) {
-                            inputJSON[property] = parseInt(inputJSON[property], 10);
-                        }
-                        else if (properties[property].dbType.indexOf("float") > -1) {
-                            inputJSON[property] = parseFloat(inputJSON[property]);
-                        }
-                    }
-                }
-                catch (e) {
-                    log.error(`Error converting property ${property} value: ` + inputJSON[property] + __location);
-                }
-            }
+    updateProperty() {
+        if(this.applicationDoc){
+            //main ids only
+            this.id = this.applicationDoc.mysqlId;
+            this.agencyNetworkId = this.applicationDoc.agencyNetworkId;
+            this.applicationId = this.applicationDoc.applicationId;
+            this.agencyId = this.applicationDoc.agencyid;
         }
+
     }
 
-    updateProperty(noNulls = false) {
-        const dbJSON = this.#dbTableORM.cleanJSON(noNulls)
-        // eslint-disable-next-line guard-for-in
-        for (const property in properties) {
-            if (noNulls === true) {
-                if (dbJSON[property]) {
-                    this[property] = dbJSON[property];
-                }
-                else if (this[property]) {
-                    delete this[property];
-                }
-            }
-            else {
-                this[property] = dbJSON[property];
-            }
-        }
-    }
-
-    //
-    // Load new object JSON into ORM. can be used to filter JSON to object properties
-    //
-    // @param {object} inputJSON - input JSON
-    // @returns {void}
-    //
-    async loadORM(inputJSON) {
-        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
-        this.updateProperty();
-        return true;
-    }
-    // copyToMongo(id){
-
-    // }
 
     // *********************************
     //    Question processing
     //
     //
     // *********************************
-    //For AgencyPortal
+    //For AgencyPortal and Quote V2 - skipAgencyCheck === true if caller has already check
+    // user rights to application
 
-    async GetQuestions(appId, userAgencyList){
+    async GetQuestions(appId, userAgencyList, questionSubjectArea, skipAgencyCheck = false){
 
         let passedAgencyCheck = false;
         let applicationDocDB = null;
         let questionsObject = {};
         try{
             applicationDocDB = await this.loadfromMongoByAppId(appId);
-            if(applicationDocDB && userAgencyList.includes(applicationDocDB.agencyId)){
+            if(skipAgencyCheck === true){
+                passedAgencyCheck = true;
+            }
+            else if(applicationDocDB && userAgencyList.includes(applicationDocDB.agencyId)){
                 passedAgencyCheck = true;
             }
         }
@@ -2524,7 +2398,10 @@ module.exports = class ApplicationModel {
         let policyTypeArray = [];
         if(applicationDocDB.policies && applicationDocDB.policies.length > 0){
             for(let i = 0; i < applicationDocDB.policies.length; i++){
-                policyTypeArray.push(applicationDocDB.policies[i].policyType);
+                policyTypeArray.push({
+                    type: applicationDocDB.policies[i].policyType,
+                    effectiveDate: applicationDocDB.policies[i].effectiveDate
+                });
             }
         }
         else {
@@ -2532,8 +2409,9 @@ module.exports = class ApplicationModel {
         }
 
         //get activitycodes.
-        // activity codes are not required for GL
-        const requireActivityCodes = Boolean(policyTypeArray.filter(policy => policy !== "GL").length);
+        // activity codes are not required for GL or BOP. only WC.
+        // This check may need to become insurer aware.
+        const requireActivityCodes = Boolean(policyTypeArray.filter(policy => policy === "WC").length);
         let activityCodeArray = [];
         if(applicationDocDB.activityCodes && applicationDocDB.activityCodes.length > 0){
             for(let i = 0; i < applicationDocDB.activityCodes.length; i++){
@@ -2542,20 +2420,31 @@ module.exports = class ApplicationModel {
 
         }
         else if(requireActivityCodes) {
-            throw new Error("Incomplete Application: Missing Application Activity Codes")
+            if(questionSubjectArea === 'general'){
+                throw new Error("Incomplete WC Application: Missing Application Activity Codes");
+            }
         }
 
         //zipCodes
         let zipCodeArray = [];
+        let stateList = [];
         if(applicationDocDB.locations && applicationDocDB.locations.length > 0){
             for(let i = 0; i < applicationDocDB.locations.length; i++){
                 zipCodeArray.push(applicationDocDB.locations[i].zipcode);
+                if(stateList.indexOf(applicationDocDB.locations[i].state) === -1){
+                    stateList.push(applicationDocDB.locations[i].state)
+                }
             }
-
+        }
+        else if(applicationDocDB.mailingZipcode && questionSubjectArea !== 'general'){
+            zipCodeArray.push(applicationDocDB.mailingZipcode);
+            stateList.push(applicationDocDB.mailingState)
         }
         else {
             throw new Error("Incomplete Application: Application locations")
         }
+
+        log.debug("stateList: " + JSON.stringify(stateList));
         //Agency Location insurer list.
         let insurerArray = [];
         if(applicationDocDB.agencyLocationId && applicationDocDB.agencyLocationId > 0){
@@ -2586,8 +2475,8 @@ module.exports = class ApplicationModel {
         let getQuestionsResult = null;
 
         try {
-            log.debug("insurerArray: " + insurerArray);
-            getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, returnHidden);
+            //log.debug("insurerArray: " + insurerArray);
+            getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, returnHidden, stateList);
             if(getQuestionsResult && getQuestionsResult.length === 0){
                 //no questions returned.
                 log.warn(`No questions returned for AppId ${appId} parameter activityCodeArray: ${activityCodeArray}  industryCodeString: ${industryCodeString}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${policyTypeArray} insurerArray: ${insurerArray} `)
@@ -2606,7 +2495,7 @@ module.exports = class ApplicationModel {
     }
 
     // for Quote App
-    async GetQuestionsForFrontend(appId, activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, return_hidden = false) {
+    async GetQuestionsForFrontend(appId, activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, questionSubjectArea, return_hidden = false) {
 
         let applicationDoc = null;
         try {
@@ -2614,6 +2503,17 @@ module.exports = class ApplicationModel {
         }
         catch (err) {
             log.error("error calling loadfromMongoByAppId " + err + __location);
+        }
+
+        // Override the policyTypeArray from the application doc to get the policy type and effective dates (not passed in by the old quote app)
+        policyTypeArray = [];
+        if(applicationDoc.policies && applicationDoc.policies.length > 0){
+            for(let i = 0; i < applicationDoc.policies.length; i++){
+                policyTypeArray.push({
+                    type: applicationDoc.policies[i].policyType,
+                    effectiveDate: applicationDoc.policies[i].effectiveDate
+                });
+            }
         }
 
         const insurerArray = [];
@@ -2644,7 +2544,7 @@ module.exports = class ApplicationModel {
         const questionSvc = global.requireShared('./services/questionsvc.js');
         let getQuestionsResult = null;
         try {
-            getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, return_hidden);
+            getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, return_hidden);
         }
         catch (err) {
             log.error("Error call in question service " + err + __location);
@@ -2757,40 +2657,59 @@ module.exports = class ApplicationModel {
         }
 
         return getQuestionsResult;
-
     }
 
-    async isValidApplicationId(id) {
-        const positive_integer = /^[1-9]\d*$/;
-        let had_error = false;
-        //TODO switch to mongo
-        if(positive_integer.test(id)){
-            const sql = `SELECT COUNT(id) FROM clw_talage_applications WHERE id = ${parseInt(id, 10)};`;
-            const rows = await db.query(sql).catch(function(error){
-                log.error(error + __location);
-                had_error = true;
-            });
-            if(had_error){
-                return false;
-            }
-            return !(!rows || rows.length !== 1 || !Object.prototype.hasOwnProperty.call(rows[0], 'COUNT(id)') || rows[0]['COUNT(id)'] !== 1);
+    // eslint-disable-next-line valid-jsdoc
+    /**
+     * Recalculates all quote-related metrics stored in the Application collection.
+     *
+     * @param {number} applicationId The application UUID.
+     * @param {array} quoteList (optional) A list of application quotes.
+     */
+    async recalculateQuoteMetrics(applicationId, quoteList) {
+        if (!quoteList) {
+            quoteList = await QuoteMongooseModel.find({applicationId: applicationId});
         }
-        else {
-            // assume uuid
-            const sql = `SELECT COUNT(id) FROM clw_talage_applications WHERE uuid = '${id}';`;
-            const rows = await db.query(sql).catch(function(error){
-                log.error(error + __location);
-                had_error = true;
-            });
-            if(had_error){
-                return false;
-            }
-            return !(!rows || rows.length !== 1 || !Object.prototype.hasOwnProperty.call(rows[0], 'COUNT(id)') || rows[0]['COUNT(id)'] !== 1);
+        //not all applications have quotes.
+        if(quoteList && quoteList.length > 0){
+            let lowestBoundQuote = (product) => _.min(quoteList.
+                filter(t => t.policyType === product && (
+                    t.bound ||
+                    t.status === 'bind_requested')).
+                map(t => t.amount));
+
+            let lowestQuote = (product) => _.min(quoteList.
+                filter(t => t.policyType === product && (
+                    t.bound ||
+                    t.status === 'bind_requested' ||
+                    t.apiResult === 'quoted' ||
+                    t.apiResult === 'referred_with_price')).
+                map(t => t.amount));
+
+            const metrics = {
+                lowestBoundQuoteAmount: {
+                    GL: lowestBoundQuote('GL'),
+                    WC: lowestBoundQuote('WC'),
+                    BOP: lowestBoundQuote('BOP')
+                },
+                lowestQuoteAmount: {
+                    GL: lowestQuote('GL'),
+                    WC: lowestQuote('WC'),
+                    BOP: lowestQuote('BOP')
+                }
+            };
+
+            // updateMongo does lots of checking and potential resettings.
+            // await this.updateMongo(applicationId, {metrics: metrics});
+            // Add updatedAt
+            let updateJSON = {metrics: metrics};
+            updateJSON.updatedAt = new Date();
+
+            await ApplicationMongooseModel.updateOne({applicationId: applicationId}, updateJSON);
 
         }
+
     }
-
-
 }
 
 const properties = {
@@ -2810,14 +2729,6 @@ const properties = {
         "type": "number",
         "dbType": "tinyint(1)"
     },
-    "status": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(32)"
-    },
     "appStatusId": {
         "default": null,
         "encrypted": false,
@@ -2825,46 +2736,6 @@ const properties = {
         "rules": null,
         "type": "number",
         "dbType": "int(11) unsigned"
-    },
-    "abandoned_email": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "abandoned_app_email": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "opted_out_online_emailsent": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "opted_out_online": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "additional_insured": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
     },
     "agency_network": {
         "default": 1,
@@ -2890,149 +2761,6 @@ const properties = {
         "type": "number",
         "dbType": "int(11) unsigned"
     },
-    "bop_effective_date": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "date",
-        "dbType": "date"
-    },
-    "bop_expiration_date": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "date",
-        "dbType": "date"
-    },
-    "business": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "completion_time": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "bigint(14) unsigned"
-    },
-    "corporation_type": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "string"
-    },
-    "coverage": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11)"
-    },
-    "coverage_lapse": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11)"
-    },
-    "coverage_lapse_non_payment": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1) unsigned"
-    },
-    "deductible": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11)"
-    },
-    "dq1": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1) unsigned"
-    },
-    "eo_effective_date": {
-        "default": "0000-00-00",
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "date"
-    },
-    "eo_expiration_date": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "date",
-        "dbType": "date"
-    },
-    "experience_modifier": {
-        "default": 1.0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "float(5,3)"
-    },
-    "family_covered": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1) unsigned"
-    },
-    "gl_effective_date": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "date",
-        "dbType": "date"
-    },
-    "gl_expiration_date": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "date",
-        "dbType": "date"
-    },
-    "gross_sales_amt": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number"
-    },
-    "has_ein": {
-        "default": "1",
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1) unsigned"
-    },
     "industry_code": {
         "default": null,
         "encrypted": false,
@@ -3055,34 +2783,6 @@ const properties = {
         "rules": null,
         "type": "number"
     },
-    "limits": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "string"
-    },
-    "management_structure": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "string"
-    },
-    "owners_covered": {
-        "default": "1",
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number"
-    },
-    "progress": {
-        "default": "unknown",
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "string"
-    },
     "referrer": {
         "default": "unknown",
         "encrypted": false,
@@ -3097,136 +2797,12 @@ const properties = {
         "rules": null,
         "type": "string"
     },
-    "solepro": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number"
-    },
-    "umb_effective_date": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "date"
-    },
-    "umb_expiration_date": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "date"
-    },
-    "unincorporated_association": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number"
-    },
     "uuid": {
         "default": null,
         "encrypted": false,
         "required": false,
         "rules": null,
         "type": "string"
-    },
-    "waiver_subrogation": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number"
-    },
-    "wc_effective_date": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "date"
-    },
-    "wc_expiration_date": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "date"
-    },
-
-    "wc_limits": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "string"
-    },
-    "wholesale": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number"
-    },
-    "years_of_exp": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number"
-    },
-    "zip": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "mediumint(5) unsigned"
-    },
-    "city": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(60)"
-    },
-    "state_abbr": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(2)"
-    },
-    "zipcode": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(10)"
-    },
-    "additionalInfo": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "json",
-        "dbType": "json"
-    },
-    "businessDataJSON": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "json",
-        "dbType": "json"
     },
     "created": {
         "default": null,
@@ -3269,20 +2845,6 @@ const properties = {
         "required": false,
         "rules": null,
         "type": "number"
-    },
-    "checked_out": {
-        "default": 0,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "number"
-    },
-    "checked_out_time": {
-        "default": null,
-        "encrypted": false,
-        "required": false,
-        "rules": null,
-        "type": "datetime"
     }
 }
 
@@ -3292,26 +2854,4 @@ class ApplicationOrm extends DatabaseObject {
     constructor() {
         super('clw_talage_applications', properties);
     }
-    // handle search strings here.......
-    // /**
-    //  * Save this agency in the database
-    //  *
-    //  * @returns {Promise.<Boolean, Error>} A promise that returns true if resolved, or an Error if rejected
-    //  */
-    // save(){
-    // 	return new Promise(async(fulfill, reject) => {
-    // 		let rejected = false;
-
-    // 		// Save
-    // 		await DatabaseObject.prototype.save.call(this).catch(function(err){
-    // 			rejected = true;
-    // 			reject(err);
-    // 		});
-    // 		if(rejected){
-    // 			return;
-    // 		}
-
-    // 		fulfill(true);
-    // 	});
-    // }
 }

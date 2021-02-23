@@ -21,6 +21,7 @@ exports.distributeTask = async function(queueMessage){
         //log.debug('task file: ' + path);
         if(fs.existsSync(path)){
             log.info('processing ' + messageBody.taskname)
+            queueMessage.Body = JSON.parse(queueMessage.Body)
             const taskProcessor = require(path);
             taskProcessor.processtask(queueMessage);
         }

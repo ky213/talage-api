@@ -59,7 +59,7 @@ async function postResendOnboardingEmail(req, res, next){
     //  previous bad SQL logic allowed this vs an Error  when sending false as agencyNetwork
     // and the beauty of non Type languages.
 
-    let agencyNetworkId = req.authentication.agencyNetwork;
+    let agencyNetworkId = req.authentication.agencyNetworkId;
     if(agencyNetworkId === false || agencyNetworkId === "false"){
         //get agency to get agencyNetwork.
         const reqAgency = req.authentication.agents[0];
@@ -77,8 +77,6 @@ async function postResendOnboardingEmail(req, res, next){
             }
         }
     }
-    // req.authentication.agencyNetwork = false for Agency user.
-    //const onboardingEmailResponse = await sendOnboardingEmail(req.authentication.agencyNetwork,
 
     const onboardingEmailResponse = await sendOnboardingEmail(agencyNetworkId,
         req.body.userID,

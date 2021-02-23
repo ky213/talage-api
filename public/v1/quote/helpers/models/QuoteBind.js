@@ -3,7 +3,7 @@
  */
 
 'use strict';
-const ApplicationBO = global.requireShared('./models/Application-BO.js');
+
 const QuoteBO = global.requireShared('./models/Quote-BO.js');
 const AgencyBO = global.requireShared('./models/Agency-BO.js');
 const AgencyLocationBO = global.requireShared('./models/AgencyLocation-BO.js');
@@ -28,7 +28,7 @@ module.exports = class QuoteBind{
     }
 
     /**
-     * Marks this quote as bound.
+     * Marks this quote as bound. ??? where is the save or update
      * @returns {Promise.<string, ServerError>} Returns a string containing bind result (either 'Bound' or 'Referred') if resolved, or a ServerError on failure
      */
     async markAsBind(){
@@ -72,7 +72,7 @@ module.exports = class QuoteBind{
         if(!statusWithinBindingRange){
             // If this was a price indication, let's send a Slack message
             if(this.quoteDoc.apiResult === 'referred_with_price'){
-                this.send_slack_notification('indication');
+                await this.send_slack_notification('indication');
             }
 
             // Return an error
@@ -80,10 +80,11 @@ module.exports = class QuoteBind{
             throw new Error(`Quote ${this.quoteDoc.quoteId} is not eligible for binding with status ${this.quoteDoc.aggregatedStatus}`);
         }
 
-        this.send_slack_notification('requested');
+        await this.send_slack_notification('requested');
         return "NotBound";
     }
 
+    // eslint-disable-next-line valid-jsdoc
     /**
      * Binds this quote via API, if possible. If successful, this method
      * returns nothing. If not successful, then an Exception is thrown.
@@ -120,16 +121,16 @@ module.exports = class QuoteBind{
 	 * @returns {Promise.<null, ServerError>} A promise that fulfills on success or returns a ServerError on failure
 	 */
     async load(id, payment_plan){
-        // Validate the ID
-        if(!await validator.isUuid(id)){
-            throw new Error(`Invalid quote ID: ${id}`);
-        }
-
         // Attempt to get the details of this quote from the database
         //USE BO's
         const quoteModel = new QuoteBO();
         try {
-            this.quoteDoc = await quoteModel.getById(id)
+            if(await validator.isUuid(id)){
+                this.quoteDoc = await quoteModel.getById(id)
+            }
+            else {
+                this.quoteDoc = await quoteModel.getMongoDocbyMysqlId(id)
+            }
         }
         catch (err) {
             log.error(`Loading quote for bind request quote ${id} error:` + err + __location);
@@ -141,7 +142,8 @@ module.exports = class QuoteBind{
             log.error(`No quoteDoc quoteId ${id} ` + __location);
             throw new Error(`No quoteDoc quoteId ${id}`);
         }
-
+        //QuoteBind is reference by ApplicationBO. So the ApplicationBO cannot be at top.
+        const ApplicationBO = global.requireShared('./models/Application-BO.js');
         const applicationBO = new ApplicationBO();
         try{
             this.applicationDoc = await applicationBO.getfromMongoByAppId(this.quoteDoc.applicationId);
@@ -190,12 +192,12 @@ module.exports = class QuoteBind{
 	 * @param {string} type - The type of message to send (indication, referred, requested, or bound)
 	 * @return {void}
 	 */
-    send_slack_notification(type){
+    async send_slack_notification(type){
 
         // Only send a Slack notification if the agent is Talage or if Agency is marked to notify Talage (channel partners)
         //Determine if notifyTalage is enabled for this AgencyLocation Insurer.
         const agencyLocationBO = new AgencyLocationBO()
-        const notifiyTalage = agencyLocationBO.shouldNotifyTalage(this.applicationDoc.agencyLocationId, this.insurer.id);
+        const notifiyTalage = await agencyLocationBO.shouldNotifyTalage(this.applicationDoc.agencyLocationId, this.insurer.id);
         // notifyTalage force a hard match on true. in case something beside a boolan got in there
         if(this.applicationDoc.agencyId <= 2 || notifiyTalage === true){
             // Build out the 'attachment' for the Slack message

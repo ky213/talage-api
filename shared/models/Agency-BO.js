@@ -16,6 +16,7 @@ const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 
 const s3AgencyLogoPath = "public/agency-logos/";
+const s3AgencyFaviconPath = "public/agency-logos/favicon/";
 const tableName = 'clw_talage_agencies'
 
 module.exports = class AgencyBO {
@@ -86,7 +87,28 @@ module.exports = class AgencyBO {
                         catch (e) {
                             log.error("Agency SaveModel error processing logo " + e + __location);
                             //newObjectJSON.logo = null;
-                            delete newObjectJSON.logo
+                            delete newObjectJSON.logo;
+                            reject(e);
+                        }
+                    }
+                    if(newObjectJSON.favicon && newObjectJSON.favicon.startsWith('data:')){
+                        if(dbDocJSON.favicon){
+                            try {
+                                log.debug("Removing favicon " + s3AgencyFaviconPath + dbDocJSON.favicon);
+                                await fileSvc.deleteFile(s3AgencyFaviconPath+dbDocJSON.logo);
+                            }catch(e){
+                                log.error("Agency favicon delete error: " + e + __location);
+                            }
+                        }
+                        try {
+                            const favIconFileName = await this.processFavicon(newObjectJSON);
+                            newObjectJSON.favicon = favIconFileName;
+                            log.debug("new favicon file name " + newObjectJSON.favicon);
+                        }
+                        catch(e) {
+                            log.error("Agency SaveModel error processing favicon "+ e + __location);
+                            delete newObjectJSON.favicon;
+                            reject(e);
                         }
                     }
                     newDoc = false;
@@ -123,6 +145,56 @@ module.exports = class AgencyBO {
         }
     }
 
+    processFavicon(newObjectJSON) {
+        return new Promise(async(fulfill, reject) => {
+            // Handle the favicon file
+            if (newObjectJSON.favicon) {
+                let rejected = false;
+                // If the favicon is base64, we need to save it; otherwise, assume no changes were made
+                if (newObjectJSON.favicon.startsWith('data:')) {
+
+                    // If this is an existing record, attempt to remove the old favicon first
+
+                    // Isolate the extension
+                    const extension = newObjectJSON.favicon.substring(11, newObjectJSON.favicon.indexOf(';'));
+                    if (![
+                        'png',
+                        'vnd.microsoft.icon'].includes(extension)) {
+                        reject('Please upload your favicon in png or ico preferably ico format.');
+                        return;
+                    }
+
+                    // Isolate the file data from the type prefix
+                    const faviconData = newObjectJSON.favicon.substring(newObjectJSON.favicon.indexOf(',') + 1);
+
+                    // Check the file size (max 100KB)
+                    if (faviconData.length * 0.75 > 100000) {
+                        reject('Favicon too large. The maximum file size is 100KB.');
+                        return;
+                    }
+
+                    // Generate a random file name (defeats caching issues issues)
+                    const fileName = `${newObjectJSON.id}-${uuidv4().substring(24)}.${extension}`;
+
+                    // Store on S3
+                    log.debug("Agency saving favicion " + fileName)
+                    await fileSvc.PutFile(s3AgencyFaviconPath + fileName, faviconData).catch(function(err) {
+                        log.error("Agency add favicon error " + err + __location);
+                        reject(err)
+                        rejected = true;
+                    });
+                    if (rejected) {
+                        return;
+                    }
+
+                    // Save the file name locally
+                    fulfill(fileName);
+                }
+            }
+
+
+        });
+    }
 
     processLogo(newObjectJSON) {
         return new Promise(async(fulfill, reject) => {
@@ -139,16 +211,16 @@ module.exports = class AgencyBO {
                     if (!['gif',
                         'jpeg',
                         'png'].includes(extension)) {
-                        reject(serverHelper.requestError('Please upload your logo in gif, jpeg, or preferably png format.'));
+                        reject('Please upload your logo in gif, jpeg, or preferably png format.');
                         return;
                     }
 
                     // Isolate the file data from the type prefix
                     const logoData = newObjectJSON.logo.substring(newObjectJSON.logo.indexOf(',') + 1);
 
-                    // Check the file size (max 150KB)
-                    if (logoData.length * 0.75 > 150000) {
-                        reject(serverHelper.requestError('Logo too large. The maximum file size is 150KB.'));
+                    // Check the file size (max 200KB)
+                    if (logoData.length * 0.75 > 200000) {
+                        reject('Logo too large. The maximum file size is 200KB.');
                         return;
                     }
 
@@ -325,6 +397,10 @@ module.exports = class AgencyBO {
                 }
                 delete queryJSON.count;
             }
+            if(queryJSON.agency_network){
+                query.agencyNetworkId = queryJSON.agency_network;
+                delete queryJSON.systemId
+            }
 
             if(queryJSON.systemId && Array.isArray(queryJSON.systemId)){
                 query.systemId = {$in: queryJSON.systemId};
@@ -495,6 +571,8 @@ module.exports = class AgencyBO {
                             delete newObjectJSON[changeNotUpdateList[i]];
                         }
                     }
+                    // Add updatedAt
+                    newObjectJSON.updatedAt = new Date();
 
                     await AgencyModel.updateOne(query, newObjectJSON);
                     const newAgencyDoc = await AgencyModel.findOne(query);
@@ -578,7 +656,7 @@ module.exports = class AgencyBO {
     }
 
 
-    deleteSoftById(id) {
+    deleteSoftById(id, userId) {
         return new Promise(async(resolve, reject) => {
             //validate
             if (id && id > 0) {
@@ -588,6 +666,10 @@ module.exports = class AgencyBO {
                     agencyDoc = await this.getMongoDocbyMysqlId(id, returnDoc);
                     if(agencyDoc && agencyDoc.systemId){
                         agencyDoc.active = false;
+                        agencyDoc.deletedAt = moment();
+                        if(userId){
+                            agencyDoc.deletedByUser = userId;
+                        }
                         await agencyDoc.save();
                     }
                 }

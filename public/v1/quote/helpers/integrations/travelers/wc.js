@@ -105,6 +105,28 @@ module.exports = class AcuityWC extends Integration {
         return locationList;
     }
 
+    getClaims = (claims) => {
+        claims = claims.filter(c => c.policyType === "WC");
+
+        if (claims.length === 0) {
+            return null;
+        }
+
+        const requestClaims = [];
+
+        claims.forEach(claim => {
+            requestClaims.push({
+                "date": claim.eventDate,
+                "totalPaidAmount": claim.amountPaid,
+                "reservedAmount": claim.amountReserved !== null ? claim.amountReserved : 0,
+                "claimStatusCode": claim.open ? "O" : "C",
+                "workCompLossTypeCode": "UNK",
+                "descriptionTypeCode": "43" // unknown
+            });
+        });
+
+        return requestClaims;
+    }
 
     /**
 	 * Requests a quote from Acuity and returns. This request is not intended to be called directly.
@@ -141,6 +163,9 @@ module.exports = class AcuityWC extends Integration {
                 "2000000/2000000/2000000"
             ]
         }
+
+        const applicationDocData = this.app.applicationDocData;
+
         // Default limits (supported by all states)
         let applicationLimits = "1000000/1000000/1000000";
         // Find best limits
@@ -180,7 +205,8 @@ module.exports = class AcuityWC extends Integration {
             for (const activityCode of location.activity_codes) {
                 const ncciCode = await this.get_national_ncci_code_from_activity_code(location.territory, activityCode.id);
                 if (!ncciCode) {
-                    return this.client_error(`Could not determine the NCCI code for activity code ${activityCode.id} in ${location.territory}.`, __location);
+                    this.log_warn(`Missing NCCI class code mapping: activityCode=${activityCode.id} territory=${location.territory}`, __location);
+                    return this.client_autodeclined(`Insurer activity class codes were not found for all activities in the application.`);
                 }
                 activityCode.ncciCode = ncciCode;
             }
@@ -200,14 +226,21 @@ module.exports = class AcuityWC extends Integration {
             }
         }
 
+        // There are currently 4 industry codes which do not have SIC codes. Don't stop quoting. Instead, we default
+        // to "0000" to continue trying to quote since Travelers allows the agent to correct the application in the DeepLink.
+        let sicCode = null;
+        if (this.industry_code.sic) {
+            sicCode = this.industry_code.sic.toString().padStart(4, '0');
+        }
+        else {
+            this.log_warn(`Industry Code ${this.industry_code.id} ("${this.industry_code.description}") does not have an associated SIC code`);
+            sicCode = "0000";
+        }
 
         const claims = this.claims_to_policy_years();
         const claimCountCurrentPolicy = claims[1].count;
         const claimCountPriorThreePolicy = claims[2].count + claims[3].count + claims[4].count;
-
-        //     for (const question of Object.values(this.questions)) {
-        // let questionAnswer = this.determine_question_answer(question, question.required);
-
+        const claimObjects = this.getClaims(applicationDocData.claims);
 
         // =========================================================================================================
         // Create the quote request
@@ -217,7 +250,7 @@ module.exports = class AcuityWC extends Integration {
             "policyEffectiveDate": this.policy.effective_date.format("YYYY-MM-DD"),
             "policyExpirationDate": this.policy.expiration_date.format("YYYY-MM-DD"),
             "lineOfBusinessCode": "WC",
-            "SICCode": this.industry_code.sic.toString(),
+            "SICCode": sicCode,
             "crossSellInd": false,
             "producer": {
                 "producerCode": this.app.agencyLocation.insurers[this.insurer.id].agency_id,
@@ -242,7 +275,9 @@ module.exports = class AcuityWC extends Integration {
                     "firstName": this.app.business.contacts[0].first_name,
                     "lastName": this.app.business.contacts[0].last_name,
                     "middleInitial": ""
-                }
+                },
+                "insuredEmailAddress": this.app.business.contacts[0].email ? this.app.business.contacts[0].email : "",
+                "insuredWebsiteUrl": this.app.business.website ? this.app.business.website : ""
             },
             "businessInfo": {"locations": await this.getLocationList()},
             "basisOfQuotation": {
@@ -276,12 +311,15 @@ module.exports = class AcuityWC extends Integration {
                 // "operateAsGeneralContractorInd": true
             }
         };
+
+        if (claimObjects) {
+            quoteRequestData.losses = claimObjects;
+        }
+
         // Flag if this is a test transaction
         if (this.insurer.useSandbox) {
             quoteRequestData.testTransaction = true;
         }
-
-        // console.log("quoteRequestData", JSON.stringify(quoteRequestData, null, 4));
 
         // =========================================================================================================
         // Send the request
@@ -318,7 +356,8 @@ module.exports = class AcuityWC extends Integration {
             return this.client_error(`Could not locate the quote status in the response.`, __location);
         }
         // Extract all optional and required information
-        const quoteStatusReasons = this.getChildProperty(response, "quoteStatusReason") || [];
+        const quoteStatusReasonList = this.getChildProperty(response, "quoteStatusReason") || [];
+        const debugMessageList = this.getChildProperty(response, "debugMessages") || [];
         const quoteId = this.getChildProperty(response, "eQuoteId");
         const premium = this.getChildProperty(response, "totalAnnualPremiumSurchargeTaxAmount");
         const validationDeepLink = this.getChildProperty(response, "validationDeeplink");
@@ -339,25 +378,21 @@ module.exports = class AcuityWC extends Integration {
             }
         }
 
-        // Log debug messages
-        const debugMessageList = this.getChildProperty(response, "debugMessages");
-        for (const debugMessage of debugMessageList) {
-            this.log_debug(`${debugMessage.code}: ${debugMessage.description}`);
+        // Generate a quote status reason message from quoteStatusReason and debugMessages
+        let quoteStatusReasonMessage = '';
+        for (const quoteStatusReason of quoteStatusReasonList) {
+            quoteStatusReasonMessage += `${quoteStatusReasonMessage.length ? ", " : ""}${quoteStatusReason.description} (${quoteStatusReason.code})`;
         }
+        for (const debugMessage of debugMessageList) {
+            quoteStatusReasonMessage += `${quoteStatusReasonMessage.length ? ", " : ""}${debugMessage.description} (${debugMessage.code})`;
+        }
+
         // Handle the status
         switch (quoteStatus) {
             case "DECLINE":
-                let declineReason = '';
-                for (const quoteStatusReason of quoteStatusReasons) {
-                    declineReason += `${declineReason.length ? ", " : ""}${quoteStatusReason.description} (${quoteStatusReason.code})`;
-                }
-                return this.client_declined(declineReason);
+                return this.client_declined(quoteStatusReasonMessage);
             case "UNQUOTED":
-                let errorReason = '';
-                for (const quoteStatusReason of quoteStatusReasons) {
-                    errorReason += `${errorReason.length ? ", " : ""}${quoteStatusReason.description} (${quoteStatusReason.code})`;
-                }
-                return this.client_declined('The insurer reported: ' + errorReason);
+                return this.client_error(quoteStatusReasonMessage, __location);
             case "AVAILABLE":
                 if (validationDeepLink) {
                     // Add the deeplink to the quote

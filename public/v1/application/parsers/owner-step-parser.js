@@ -33,8 +33,13 @@ exports.process = async function(requestJSON) {
 
     if(requestJSON.owners){
         const ownersJSON = JSON.parse(requestJSON.owners);
+        for (const owner of ownersJSON) {
+            // Quote app sends "included" instead of "include" required by the Mongo model. Copy it. -SF
+            if (owner.hasOwnProperty("included") && !owner.hasOwnProperty("include")) {
+                owner.include = owner.included;
+            }
+        }
         requestJSON.businessInfo.ownersJSON = ownersJSON;
-
     }
 
     delete requestJSON.owners;

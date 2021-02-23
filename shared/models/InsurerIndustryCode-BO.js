@@ -13,9 +13,12 @@ module.exports = class InsurerIndustryCodeBO{
 
     #dbTableORM = null;
 
+    doNotSnakeCase = ['effectiveDate','expirationDate'];
+
     constructor(){
         this.id = 0;
         this.#dbTableORM = new DbTableOrm(tableName);
+        this.#dbTableORM.doNotSnakeCase = this.doNotSnakeCase;
     }
 
     /**
@@ -338,6 +341,24 @@ const properties = {
         "rules": null,
         "type": "string",
         "dbType": "varchar(150)"
+    },
+    "effectiveDate": {
+        "default": "1980-01-01 00:00:00",
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "datetime",
+        "dbType": "datetime"
+    },
+    "expirationDate": {
+        "default": "2100-01-01 00:00:00",
+        "encrypted": false,
+        "hashed": false,
+        "required": false,
+        "rules": null,
+        "type": "datetime",
+        "dbType": "datetime"
     }
 }
 

@@ -70,6 +70,8 @@ module.exports = class AgencyLandingPageBO {
                           delete newObjectJSON[changeNotUpdateList[i]];
                       }
                   }
+                  // Add updatedAt
+                  newObjectJSON.updatedAt = new Date();
 
                   await AgencyLandingPageModel.updateOne(query, newObjectJSON);
                   const newAgencyLandingPageDoc = await AgencyLandingPageModel.findOne(query);
