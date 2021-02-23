@@ -4,6 +4,8 @@
 /* eslint-disable array-element-newline */
 'use strict';
 
+const questionStepParser = require("./question-step-parser.js");
+
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
@@ -55,26 +57,20 @@ exports.process = async function(requestJSON) {
                 // eslint-disable-next-line guard-for-in
                 const rawQuestionList = Object.values(locationJSON.questions);
                 for (const rawQuestion of rawQuestionList) {
-                    // console.log("rawQuestion", rawQuestion);
-                    if (rawQuestion.answer) {
-                        let question = {"id": rawQuestion.id};
-                        if (typeof rawQuestion.answer === "object") {
-                            question.answer = Object.values(rawQuestion.answer);
-                        }
-                        else {
-                            question.answer = rawQuestion.answer;
-                        }
-                        if (Array.isArray(question.answer)) {
-                            question.type = "array";
-                        }
-                        else if (typeof question.answer === "string") {
-                            question.type = "text";
-                        }
-                        else {
-                            question.type = "numeric";
-                        }
-                        questionList.push(question);
+                    // If we only want answered questions listed in the document, uncomment this check -SF
+                    // if (rawQuestion.answer) {
+                    let rawQuestionAnswer = null;
+                    if (typeof rawQuestion.answer === "object") {
+                        // If the answer is an object, it was originally an a array. So we get an array of the object values here.
+                        rawQuestionAnswer = Object.values(rawQuestion.answer);
                     }
+                    else {
+                        // It is a regular answer
+                        rawQuestionAnswer = rawQuestion.answer;
+                    }
+                    const questionJSON = questionStepParser.getQuestionJSON(rawQuestion.id, rawQuestionAnswer);
+                    questionList.push(questionJSON);
+                    // }
                 }
                 locationJSON.questions = questionList;
             }
