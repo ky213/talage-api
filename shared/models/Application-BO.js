@@ -766,7 +766,6 @@ module.exports = class ApplicationModel {
             });
 
             const processedQuestionList = []
-            // this.#applicationMongooseJSON.questions = [];
             //get text and turn into list of question objects.
 
             for (var i = 0; i < questionsRequest.length; i++) {
