@@ -72,17 +72,17 @@ function parseQuoteURL(url) {
     }
 
     const reservedPageSlugs = [
-        "congrats",
-        "reach-out",
-        "basic",
-        "policies",
-        "business-questions",
-        "locations",
-        "mailing-address",
-        "claims",
-        "officers",
-        "questions",
-        "quotes",
+        "_congrats",
+        "_reach-out",
+        "_basic",
+        "_policies",
+        "_business-questions",
+        "_locations",
+        "_mailing-address",
+        "_claims",
+        "_officers",
+        "_questions",
+        "_quotes",
         "404"
     ];
 
@@ -352,12 +352,15 @@ async function getAgencyLandingPage(req, res, next) {
     const landingPage = {
         banner: agency.banner,
         name: agency.name,
+        heading: agency.heading,
         showIndustrySection: agency.showIndustrySection,
         showIntroText: agency.showIntroText,
         introHeading: agency.showIntroText ? agency.introHeading : null,
         introText: agency.showIntroText ? agency.introText : null,
         about: agency.about,
         wholesale: agency.wholesale,
+        industryCodeId: agency.industryCodeId,
+        industryCodeCategoryId: agency.industryCodeCategoryId,
         email: primaryLocation ? primaryLocation.email : null,
         phone: primaryLocation ? primaryLocation.phone : null,
         address: primaryLocation ? primaryLocation.address : null,
@@ -509,6 +512,7 @@ async function getAgencyMetadata(req, res, next) {
 
     // use wheelhouse defaults if its not present
     const metaDescription = agencyJson.landingPageContent.bannerHeadingDefault ? agencyJson.landingPageContent.bannerHeadingDefault : agencyJson.defaultLandingPageContent.bannerHeadingDefault;
+
     res.send(200, {
         wholesale: agencyJson.wholesale,
         metaName: agencyJson.name,

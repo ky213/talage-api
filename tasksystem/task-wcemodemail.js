@@ -30,6 +30,10 @@ exports.processtask = async function(queueMessage) {
         // Inspect JSON for applicationId
         if (queueMessage.body && queueMessage.body.applicationId) {
             await sendEmodEmail(queueMessage.body.applicationId).catch(err => error = err);
+            if(error){
+                log.error("Error soleproApplicationEmailTask " + error + __location);
+            }
+            error = null;
         }
         else {
             log.error("Error sendEmodEmail missing applicationId " + __location);
