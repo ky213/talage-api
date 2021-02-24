@@ -260,59 +260,56 @@ module.exports = class LibertySBOP extends Integration {
                 throw new Error(errorMessage);
             }
 
-            // add fields here...
-            locationList.push({
+            const locationObj = {
+                // street: "POLK",
+                // zipAddOn: "",
+                // based: "riskAddress1",
+                // streetType: "",
+                // postDir: "",
+                // scrubberCalled: true,
+                // recordType: "S",
+                // streetNum: "",
+                // confirmation: "N/A",
+                // isoClassGroups: "Convenience Food/Gasoline Store/Restaurant",
+                // unit: "",
+                // scrubberResult: "Accepted",
+                // secondaryName: "",
+                // preDir: "",
                 userCountryName: "USA",
                 userCountyName: smartyStreetsResponse.addressInformation.county_name,
                 city: location.city,
-                street: "POLK",
+                classCodes: this.industry_code.code,
+                address: applicationDocData.mailingAddress,
+                rawProtectionClass: "3", // <-- TODO: ASK JAMES
                 state: location.state,
                 countyName: smartyStreetsResponse.addressInformation.county_name,
                 zip: applicationDocData.mailingZipcode,
-                zipAddOn: "",
-                based: "riskAddress1",
-                streetType: "",
-                address: applicationDocData.mailingAddress,
-                postDir: "",
-                scrubberCalled: true,
-                WHExclusions: false,
-                recordType: "S",
-                rawProtectionClass: "3",
-                streetNum: "",
-                WHDeductiblePcnt: "N/A",
-                classCodes: this.industry_code.code,
-                confirmation: "N/A",
                 addressLine: applicationDocData.mailingAddress,
-                isoClassGroups: "Convenience Food/Gasoline Store/Restaurant",
-                unit: "",
-                scrubberResult: "Accepted",
-                secondaryName: "",
-                buildings: 1,
+                buildings: 1, // Assumed as such until we work building information into the quote app and API
                 PPCAddressKey: `${applicationDocData.mailingAddress}:${applicationDocData.mailingState}:${applicationDocData.mailingZipcode}`, 
-                preDir: "",
                 territory: applicationDocData.mailingState,
-                finalProtectionClass: "3",
-                PPCCall: {
-                    fireProtectionArea: smartyStreetsResponse.addressInformation.county_name,
-                    waterSupplyType: "Hydrant", // <-- HOW TO GET THIS
-                    PPCCode: "3", // <-- WHAT IS THIS
-                    matchType: "Address Level Match",
-                    county: smartyStreetsResponse.addressInformation.county_name,
-                    respondingFireStation: "STATION 14", // <-- HOW TO GET THIS
-                    priorAlternativePPCCodes: "9/10", // <-- WHAT IS THIS
-                    driveDistanceToRespondingFireStation: "1 mile or less", // <-- HOW TO GET THIS
-                    multiplePPCInd: false // <-- WHAT IS THIS
-                },
-                bceg: {
-                    bcegCode: "99",
-                    callResult: "SUCCESSFUL",
-                    message: ""
-                },
-                fireline: {
-                    wildFireHazardScore: 0,
-                    callResult: "SUCCESSFUL",
-                    message: ""
-                },
+                finalProtectionClass: "3", // <-- TODO: ASK JAMES
+                // PPCCall: {
+                //     fireProtectionArea: smartyStreetsResponse.addressInformation.county_name,
+                //     waterSupplyType: "Hydrant", // <-- HOW TO GET THIS
+                //     PPCCode: "3", // <-- WHAT IS THIS
+                //     matchType: "Address Level Match",
+                //     county: smartyStreetsResponse.addressInformation.county_name,
+                //     respondingFireStation: "STATION 14", // <-- HOW TO GET THIS
+                //     priorAlternativePPCCodes: "9/10", // <-- WHAT IS THIS
+                //     driveDistanceToRespondingFireStation: "1 mile or less", // <-- HOW TO GET THIS
+                //     multiplePPCInd: false // <-- WHAT IS THIS
+                // },
+                // bceg: {
+                //     bcegCode: "99",
+                //     callResult: "SUCCESSFUL",
+                //     message: ""
+                // },
+                // fireline: {
+                //     wildFireHazardScore: 0,
+                //     callResult: "SUCCESSFUL",
+                //     message: ""
+                // },
                 buildingList: [ // TODO: Break this out into a separate call once we have notion of buildings in quote app
                     {
                         classCode: this.industry_code.code,
@@ -425,7 +422,11 @@ module.exports = class LibertySBOP extends Integration {
                         sprinklered: true
                     }
                 ]
-            });
+            };
+
+            this.injectLocationQuestions(locationObj, location.questions);
+
+            locationList.push(locationObj);
         };
 
         return locationList;
@@ -433,7 +434,9 @@ module.exports = class LibertySBOP extends Integration {
 
     injectGeneralQuestions(requestJSON, questions) {
         // hydrate the request JSON object with general question data
-        // NOTE: Add additional general questions here if more get imported    
+        // NOTE: Add additional general questions here if more get imported  
+        
+        // parent questions
         const additionalInsured = [];
         const conins = [];
         const datcom = [];
@@ -547,7 +550,7 @@ module.exports = class LibertySBOP extends Integration {
                     empben.push({id, answer});
                     break;
                 default: 
-                    log.warn(`${logPrefix}Encountered key [${id}] with no defined case. This could mean we have a new question that needs to be handled in the integration.`);
+                    log.warn(`${logPrefix}Encountered key [${id}] in injectGeneralQuestions with no defined case. This could mean we have a new question that needs to be handled in the integration.`);
                     break;
             }
         }
@@ -675,6 +678,40 @@ module.exports = class LibertySBOP extends Integration {
     }
 
     injectLocationQuestions(location, questions) {
+        // hydrate the request JSON object with general question data
+        // NOTE: Add additional general questions here if more get imported   
+
+        // filter out building questions, and remove the location. prefix
+        const locationQuestions = questions
+            .filter(q => q.insurerQuestionIdentifier.includes("location.")
+            .map(q => q.insurerQuestionIdentifier = q.insurerQuestionIdentifier.replace("location.", "")));
+
+        for (const [id, answer] of Object.entries(locationQuestions)) {
+            switch (id) {
+                case "WHDeductiblePcnt":
+                    location[id] = answer;
+                    break;
+                case "WHexclusions":
+                    location[id] = this.convertToBoolean(answer);
+                    break;
+                case "perilType":
+                    location[id] = answer;
+                    break;
+                case "StormPcnt":
+                    location[id] = answer;
+                    break;
+                default: 
+                    log.warn(`${logPrefix}Encountered key [${id}] in injectLocationQuestions with no defined case. This could mean we have a new question that needs to be handled in the integration.`);
+                    break;
+            }
+        }
+
+        this.injectBuildingQuestions(location.buildingList[0], questions);
+    }
+
+    // NOTE: Currently this has an object pre-seeded into the buildingList because we only work with 1 building by default. When we allow multiple buildings
+    //       per location, that can be defined in the quote app, this will need to be refactored to handle that. 
+    injectBuildingQuestions(building, questions) {
         // not yet implemented
     }
 
@@ -684,6 +721,8 @@ module.exports = class LibertySBOP extends Integration {
                 return value.toLowerCase() === "yes";
             }
         }
+
+        // add more special conversions here...
 
         log.warn(`No match was found, unable to convert value: ${value} to boolean. Returning null.`);
         return null;
