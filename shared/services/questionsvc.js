@@ -590,24 +590,6 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     let missing_questions = find_missing_questions(questions);
     while (missing_questions) {
         const added_questions = await getTalageQuestionFromInsureQuestionList(missing_questions, null,return_hidden);
-        // // Query to get all missing questions. This ensures that all parent questions are present regardless of effective date.
-        // sql = `
-        //     SELECT ${select}
-        //     FROM clw_talage_questions AS q
-        //     INNER JOIN clw_talage_question_types AS qt ON q.type = qt.id
-        //     INNER JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
-        //     WHERE
-        //         q.id IN (${missing_questions.join(',')})
-        //         GROUP BY q.id;
-        // `;
-        // let error2 = null;
-        // const added_questions = await db.queryReadonly(sql).catch(function(err) {
-        //     // eslint-disable-line no-await-in-loop, no-loop-func
-        //     error2 = err.message;
-        // });
-        // if (error2) {
-        //     return false;
-        // }
         log.debug("Missing questions count " + added_questions.length + __location);
         questions = questions.concat(added_questions);
         // Check for additional missing questions
