@@ -16,23 +16,6 @@ const moment = require('moment');
 
 const validateBusiness = (applicationDocData) => {
 
-    // Unincorporated Association (Required only for WC, in NH, and for LLCs and Corporations)
-    // NOTE: not being used yet - SF (2020-02-18)
-    // if (
-    //     applicationDocData.policies.find(policy => policy.policyType === "WC") &&
-    //     (applicationDocData.entityType === 'Corporation' || applicationDocData.entityType === 'Limited Liability Company') &&
-    //     applicationDocData.mailingState === 'NH'
-    // ) {
-
-    //     if (applicationDocData.unincorporated_association === null) {
-    //         log.warn('Missing required field: unincorporated_association');
-    //     }
-
-    //     if (!validator.boolean(applicationDocData.unincorporated_association)) {
-    //         log.warn('Invalid value for unincorporated_association, please use a boolean value');
-    //     }
-    // }
-
     /**
      * Bureau Number (optional)
      * - <= 999999999
@@ -697,7 +680,7 @@ const validateClaims = async(applicationDocData) => {
  * @param {string} agencyLocation - The agencyLocation
  * @returns {Promise.<array, Error>} A promise that returns a boolean indicating whether or not this record is valid, or an Error if rejected
  */
-const validateAgencyLocation = async(agencyLocation) => new Promise(async(fulfill, reject) => {
+const validateAgencyLocation = async() => new Promise(async(fulfill) => {
 
     // this is not used. see agencylocation model.
     /**

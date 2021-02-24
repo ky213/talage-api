@@ -53,7 +53,6 @@ module.exports = class Business {
         this.management_structure = '';
         this.owners_included = true;
         this.owners = [];
-        this.unincorporated_association = null; // NH only, LLC or Corporation
     }
 
     /**
