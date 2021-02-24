@@ -324,9 +324,9 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             log.debug(`Adding ZERO redis industry questions - not found ` + __location)
         }
     }
+    const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
     if(global.settings.USE_MONGO_QUESTIONS === "YES"){
         const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
-        const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
         const start = moment();
         const now = moment();
         // eslint-disable-next-line prefer-const
@@ -350,7 +350,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             let insurerQuestionIdArray = [];
             // eslint-disable-next-line prefer-const
             let talageQuestionIdArray = [];
-            if(insurerIndustryCodeList && (await insurerIndustryCodeList).length > 0){
+            if(insurerIndustryCodeList && insurerIndustryCodeList.length > 0){
                 for(const insurerIndustryCode of insurerIndustryCodeList){
                     // if(insurerIndustryCode.insurerQuestionIdList && insurerIndustryCode.insurerQuestionIdList.length > 0){
                     //     insurerQuestionIdArray = insurerQuestionIdArray.concat(insurerIndustryCode.insurerQuestionIdList);
@@ -410,7 +410,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                     LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
                     WHERE
                         q.id IN (${talageQuestionIdArray.map(db.escape).join(',')}) 
-                        AND ${where}
+                        AND q.state = 1
                         GROUP BY q.id;
                 `;
                 // log.debug("question sql " + sql)
@@ -469,50 +469,151 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
 
         log.debug(`Adding ${industryCodeQuestions.length} mysql industry questions ` + __location)
         questions = questions.concat(industryCodeQuestions);
-        log.debug("industryCodeQuestions " + JSON.stringify(industryCodeQuestions));
+        //log.debug("industryCodeQuestions " + JSON.stringify(industryCodeQuestions));
     }
 
     log.debug("Getting activity questions " + __location);
     // ============================================================
     // Get activity-based questions
-    if (activityCodeArray && activityCodeArray.length > 0) {
-        sql = `
-            SELECT ${select}
-            FROM clw_talage_questions AS q
-            LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
-            INNER JOIN clw_talage_insurer_ncci_code_questions AS ncq ON q.id = ncq.question AND ncq.ncci_code IN(
-                SELECT nca.insurer_code FROM clw_talage_activity_code_associations AS nca
-                LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON nca.insurer_code = inc.id
-                WHERE nca.code IN (${activityCodeArray.join(',')})
-                AND ${activityCodeEffectiveDateWhereClause}
-                AND inc.state = 1${territories && territories.length ? ` AND inc.territory IN (${territories.map(db.escape).join(',')})` : ``}
-            )
-            LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
-            WHERE
-                ${where} 
-                AND ${questionEffectiveDateWhereClause}                                               
-                AND iq.questionSubjectArea = '${questionSubjectArea}'
-                GROUP BY q.id;
-        `;
-        const activityCodeQuestions = await db.queryReadonly(sql).catch(function(err) {
-            error = err.message;
-        });
-        if (error) {
-            return false;
+    if(global.settings.USE_MONGO_QUESTIONS === "YES" && activityCodeArray && activityCodeArray.length > 0){
+        const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
+        const start = moment();
+        const now = moment();
+        // eslint-disable-next-line prefer-const
+        let activityCodeQuery = {
+            insurerId: {$in: insurerArray},
+            talageActivityCodeIdList: {$in: activityCodeArray},
+            territoryList: {$in: territories},
+            effectiveDate: {$lte: now},
+            expirationDate: {$gte: now},
+            active: true
         }
-        questions = questions.concat(activityCodeQuestions);
-    }
+        try{
+            const insurerActivityCodeList = await InsurerActivityCodeModel.find(activityCodeQuery)
+            let insurerQuestionIdArray = [];
+            // eslint-disable-next-line prefer-const
+            let talageQuestionIdArray = [];
+            if(insurerActivityCodeList && insurerActivityCodeList.length > 0){
+                for(const insurerActivityCode of insurerActivityCodeList){
+                    if(insurerActivityCode.insurerTerritoryQuestionList && insurerActivityCode.insurerTerritoryQuestionList.length > 0){
+                        for(let i = 0; i < territories.length; i++){
+                            //if so add question list - Dups are OK.
+                            const tQFound = insurerActivityCode.insurerTerritoryQuestionList.find((tQ) => tQ.territory === territories[i]);
+                            if(tQFound && tQFound.insurerQuestionIdList && tQFound.insurerQuestionIdList.length > 0){
+                                insurerQuestionIdArray = insurerQuestionIdArray.concat(tQFound.insurerQuestionIdList);
+                            }
+                        }
+                    }
+                }
+            }
+            //log.debug("insurerQuestionIdArray " + insurerQuestionIdArray + __location)
+            if(insurerQuestionIdArray.length > 0){
+                // eslint-disable-next-line prefer-const
+                const insurerQuestionQuery = {
+                    insurerId: {$in: insurerArray},
+                    systemId: {$in: insurerQuestionIdArray},
+                    universal: false,
+                    policyType: {$in: policyTypes},
+                    questionSubjectArea: questionSubjectArea,
+                    effectiveDate: {$lt: now},
+                    expirationDate: {$gt: now},
+                    active: true
+                }
+                // eslint-disable-next-line prefer-const
+                const orParamList2 = [];
+                const territoryCheck = {territoryList: {$in: territories}};
+                const territoryLengthCheck = {territoryList: {$size: 0}}
+                const territoryNullCheck = {territoryList: null}
+                orParamList2.push(territoryCheck)
+                orParamList2.push(territoryNullCheck)
+                orParamList2.push(territoryLengthCheck)
+                insurerQuestionQuery.$or = orParamList2;
 
-    log.debug("removing duplicate questions " + __location);
-    // Remove Duplicates
-    if (questions) {
-        questions = questions.filter((question, index, self) => index === self.findIndex((t) => t.id === question.id));
+                //log.debug("insurerQuestionQuery: " + JSON.stringify(insurerQuestionQuery));
+                const insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
+                if(insurerQuestionList){
+                    for(const insurerQuestion of insurerQuestionList){
+                        if(insurerQuestion.talageQuestionId){
+                            talageQuestionIdArray.push(insurerQuestion.talageQuestionId)
+                        }
+                    }
+                }
+            }
+            //log.debug("talageQuestionIdArray " + talageQuestionIdArray + __location)
+            if(talageQuestionIdArray.length > 0) {
+                sql = `
+                    SELECT ${select}
+                    FROM clw_talage_questions AS q
+                    LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
+                    LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
+                    WHERE
+                        q.id IN (${talageQuestionIdArray.map(db.escape).join(',')}) 
+                        AND q.state = 1
+                        GROUP BY q.id;
+                `;
+                // log.debug("question sql " + sql)
+                const activityCode_questions = await db.queryReadonly(sql).catch(function(err) {
+                    error = err.message;
+                });
+                if (error) {
+                    return false;
+                }
+                log.debug(`Adding ${activityCode_questions.length} Mongo activity code questions ` + __location)
+                questions = questions.concat(activityCode_questions);
+                //log.debug("activityCode_questions " + JSON.stringify(activityCode_questions));
+            }
+            const endSqlSelect = moment();
+            const diff2 = endSqlSelect.diff(start, 'milliseconds', true);
+            log.info(`Mongo Activity Code Question process duration: ${diff2} milliseconds`);
+        }
+        catch(err){
+            log.error(`Error get Mongo Industry questions ${JSON.stringify(activityCodeQuery)}  ${err}` + __location);
+        }
     }
-    if (!questions || questions.length === 0) {
-        log.info('No questions to return' + __location);
-        return [];
-    }
+    else {
+        if (activityCodeArray && activityCodeArray.length > 0) {
+            const start = moment();
+            sql = `
+                SELECT ${select}
+                FROM clw_talage_questions AS q
+                LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
+                INNER JOIN clw_talage_insurer_ncci_code_questions AS ncq ON q.id = ncq.question AND ncq.ncci_code IN(
+                    SELECT nca.insurer_code FROM clw_talage_activity_code_associations AS nca
+                    LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON nca.insurer_code = inc.id
+                    WHERE nca.code IN (${activityCodeArray.join(',')})
+                    AND ${activityCodeEffectiveDateWhereClause}
+                    AND inc.state = 1${territories && territories.length ? ` AND inc.territory IN (${territories.map(db.escape).join(',')})` : ``}
+                )
+                LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
+                WHERE
+                    ${where} 
+                    AND ${questionEffectiveDateWhereClause}                                               
+                    AND iq.questionSubjectArea = '${questionSubjectArea}'
+                    GROUP BY q.id;
+            `;
+            const activityCodeQuestions = await db.queryReadonly(sql).catch(function(err) {
+                error = err.message;
+            });
+            if (error) {
+                return false;
+            }
+            log.debug(`Adding ${activityCodeQuestions.length} MySQl activity code questions ` + __location)
+            questions = questions.concat(activityCodeQuestions);
+            const endSqlSelect = moment();
+            const diff2 = endSqlSelect.diff(start, 'milliseconds', true);
+            log.info(`Mongo Activity Code Question process duration: ${diff2} milliseconds`);
+        }
 
+        log.debug("removing duplicate questions " + __location);
+        // Remove Duplicates
+        if (questions) {
+            questions = questions.filter((question, index, self) => index === self.findIndex((t) => t.id === question.id));
+        }
+        if (!questions || questions.length === 0) {
+            log.info('No questions to return' + __location);
+            return [];
+        }
+    }
     log.debug("Getting missing questions " + __location);
     // Check for missing questions
     let missing_questions = find_missing_questions(questions);

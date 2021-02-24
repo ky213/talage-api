@@ -75,6 +75,7 @@ module.exports = function() {
     require('./shared/models/mongoose/InsurerPolicyType.model');
     require('./shared/models/mongoose/InsurerIndustryCode.model');
     require('./shared/models/mongoose/InsurerQuestion.model');
+    require('./shared/models/mongoose/InsurerActivityCode.model');
 
 
     return mongodb;
