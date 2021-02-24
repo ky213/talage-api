@@ -2,6 +2,7 @@
 'use strict'
 const moment = require('moment');
 const helper = global.requireShared('./helpers/helper.js');
+const lodash = require('lodash');
 
 //const util = require('util');
 //const serverHelper = global.requireRootPath('server.js');
@@ -759,12 +760,12 @@ exports.GetQuestionsForBackend = async function(activityCodeArray, industryCodeS
  * Get talage Question list from  insureQuestionList
  *
  * @param {array} talageQuestionIdArray - An array of question IDs
- * @param {array} insureQuestionList - An array of insureQuestion objects
+ * @param {array} insurerQuestionList - An array of insureQuestion objects
  * @param {boolean} return_hidden - true = getting Insurer-PolicyType
  *
  * @returns {mixed} - An array of IDs if questions are missing, false if none are
  */
-async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, insureQuestionList, return_hidden = false){
+async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, insurerQuestionList, return_hidden = false){
     //refactor for Mongo...
     const select = `q.id, q.parent, q.parent_answer, q.sub_level, q.question AS \`text\`, q.hint, q.type AS type_id, qt.name AS type, q.hidden${return_hidden ? ', GROUP_CONCAT(DISTINCT CONCAT(iq.insurer, "-", iq.policy_type)) AS insurers' : ''}`;
     let error = null;
@@ -785,7 +786,30 @@ async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, in
     if (error) {
         return [];
     }
-    return talageQuestions;
+    if(insurerQuestionList && talageQuestions && talageQuestions.length && return_hidden){
+        if(!insurerQuestionList){
+            //TODO get insurerQuestionList from talageQuestions
+        }
+        //Create new return question array with insuer-policytype info
+        //loop  talageQuestions find insurerQuestionList matches.
+        //add row for every match
+        // eslint-disable-next-line prefer-const
+        let talageQuestionPolicyTypeList = [];
+        talageQuestions.forEach(function(talageQuestion){
+            const iqForTalageQList = insurerQuestionList.filter(function(iq) {
+                return iq.question === talageQuestion.id;
+            });
+
+            iqForTalageQList.forEach(function(iqForTalageQ){
+                talageQuestionPolicyTypeList.push(iqForTalageQ.insurerId + "-" + iqForTalageQ.policyType)
+            });
+            talageQuestion.insurers = talageQuestionPolicyTypeList.join(',');
+        });
+        return talageQuestions;
+    }
+    else{
+        return talageQuestions;
+    }
 }
 
 /**
