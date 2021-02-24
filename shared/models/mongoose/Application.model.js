@@ -229,7 +229,7 @@ ApplicationSchema.virtual('managementStructure').
             return this.management_structure;
         }
         else {
-            return false;
+            return '';
         }
     }).
     set(function(v){
