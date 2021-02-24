@@ -236,7 +236,7 @@ async function runFunction() {
         left JOIN clw_talage_industry_codes AS ic ON industryCodeMap.talageIndustryCodeId = ic.id
         left JOIN clw_talage_industry_code_questions  AS icq ON icq.insurerIndustryCodeId = iic.id 
         Left JOIN clw_talage_insurer_questions AS iq ON iq.question = icq.talageQuestionId
-        where industryCodeMap.talageIndustryCodeId = 2668
+        where industryCodeMap.talageIndustryCodeId
         GROUP BY iic.insurer, iic.code,iic.policyType, iic.attributes;`;
 
     const result = await db.query(sql).catch(function(error) {
