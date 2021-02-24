@@ -458,7 +458,8 @@ module.exports = class ApplicationModel {
             "state": "processStateOld",
             "coverage_lapse": "coverageLapseWC",
             coverage_lapse_non_payment: "coverageLapseNonPayment",
-            "primary_territory": "primaryState"
+            "primary_territory": "primaryState",
+            management_structure: "managementStructure"
         }
 
         for (const sourceProp in sourceJSON) {
