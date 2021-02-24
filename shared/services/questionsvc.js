@@ -368,7 +368,8 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                     }
                 }
             }
-            log.debug("insurerQuestionIdArray " + insurerQuestionIdArray)
+            //log.debug("insurerQuestionIdArray " + insurerQuestionIdArray)
+            let insurerQuestionList = null;
             if(insurerQuestionIdArray.length > 0){
                 // eslint-disable-next-line prefer-const
                 const insurerQuestionQuery = {
@@ -392,7 +393,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                 insurerQuestionQuery.$or = orParamList2;
 
                 //log.debug("insurerQuestionQuery: " + JSON.stringify(insurerQuestionQuery));
-                const insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
+                insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
                 if(insurerQuestionList){
                     for(const insurerQuestion of insurerQuestionList){
                         if(insurerQuestion.talageQuestionId){
@@ -403,23 +404,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             }
             //log.debug("talageQuestionIdArray " + talageQuestionIdArray)
             if(talageQuestionIdArray.length > 0) {
-                sql = `
-                    SELECT ${select}
-                    FROM clw_talage_questions AS q
-                    LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
-                    LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
-                    WHERE
-                        q.id IN (${talageQuestionIdArray.map(db.escape).join(',')}) 
-                        AND q.state = 1
-                        GROUP BY q.id;
-                `;
-                // log.debug("question sql " + sql)
-                const industry_questions = await db.queryReadonly(sql).catch(function(err) {
-                    error = err.message;
-                });
-                if (error) {
-                    return false;
-                }
+                const industry_questions = await getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, insurerQuestionList,return_hidden);
                 log.debug(`Adding ${industry_questions.length} Mongo industry questions ` + __location)
                 questions = questions.concat(industry_questions);
                 //log.debug("industry_questions " + JSON.stringify(industry_questions));
@@ -507,6 +492,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                 }
             }
             //log.debug("insurerQuestionIdArray " + insurerQuestionIdArray + __location)
+            let insurerQuestionList = null;
             if(insurerQuestionIdArray.length > 0){
                 // eslint-disable-next-line prefer-const
                 const insurerQuestionQuery = {
@@ -530,7 +516,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                 insurerQuestionQuery.$or = orParamList2;
 
                 //log.debug("insurerQuestionQuery: " + JSON.stringify(insurerQuestionQuery));
-                const insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
+                insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
                 if(insurerQuestionList){
                     for(const insurerQuestion of insurerQuestionList){
                         if(insurerQuestion.talageQuestionId){
@@ -541,23 +527,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             }
             //log.debug("talageQuestionIdArray " + talageQuestionIdArray + __location)
             if(talageQuestionIdArray.length > 0) {
-                sql = `
-                    SELECT ${select}
-                    FROM clw_talage_questions AS q
-                    LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
-                    LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
-                    WHERE
-                        q.id IN (${talageQuestionIdArray.map(db.escape).join(',')}) 
-                        AND q.state = 1
-                        GROUP BY q.id;
-                `;
-                // log.debug("question sql " + sql)
-                const activityCode_questions = await db.queryReadonly(sql).catch(function(err) {
-                    error = err.message;
-                });
-                if (error) {
-                    return false;
-                }
+                const activityCode_questions = await getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, insurerQuestionList,return_hidden);
                 log.debug(`Adding ${activityCode_questions.length} Mongo activity code questions ` + __location)
                 questions = questions.concat(activityCode_questions);
                 //log.debug("activityCode_questions " + JSON.stringify(activityCode_questions));
@@ -616,31 +586,37 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     }
     log.debug("Getting missing questions " + __location);
     // Check for missing questions
+    const start = moment();
     let missing_questions = find_missing_questions(questions);
     while (missing_questions) {
-        // Query to get all missing questions. This ensures that all parent questions are present regardless of effective date.
-        sql = `
-            SELECT ${select}
-            FROM clw_talage_questions AS q
-            INNER JOIN clw_talage_question_types AS qt ON q.type = qt.id
-            INNER JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
-            WHERE
-                q.id IN (${missing_questions.join(',')})
-                GROUP BY q.id;
-        `;
-        let error2 = null;
-        const added_questions = await db.queryReadonly(sql).catch(function(err) {
-            // eslint-disable-line no-await-in-loop, no-loop-func
-            error2 = err.message;
-        });
-        if (error2) {
-            return false;
-        }
-        log.debug("Missing questions  count " + added_questions.length + __location);
+        const added_questions = await getTalageQuestionFromInsureQuestionList(missing_questions, null,return_hidden);
+        // // Query to get all missing questions. This ensures that all parent questions are present regardless of effective date.
+        // sql = `
+        //     SELECT ${select}
+        //     FROM clw_talage_questions AS q
+        //     INNER JOIN clw_talage_question_types AS qt ON q.type = qt.id
+        //     INNER JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
+        //     WHERE
+        //         q.id IN (${missing_questions.join(',')})
+        //         GROUP BY q.id;
+        // `;
+        // let error2 = null;
+        // const added_questions = await db.queryReadonly(sql).catch(function(err) {
+        //     // eslint-disable-line no-await-in-loop, no-loop-func
+        //     error2 = err.message;
+        // });
+        // if (error2) {
+        //     return false;
+        // }
+        log.debug("Missing questions count " + added_questions.length + __location);
         questions = questions.concat(added_questions);
         // Check for additional missing questions
         missing_questions = find_missing_questions(questions);
     }
+    const endSqlSelect = moment();
+    const diff2 = endSqlSelect.diff(start, 'milliseconds', true);
+    log.info(`Mysql Missing Question process duration: ${diff2} milliseconds`);
+
     log.debug("Cleanup questions " + __location);
     // Let's do some cleanup and get a list of question IDs
     for (let index = 0; index < questions.length; index++) {
@@ -794,6 +770,40 @@ exports.GetQuestionsForFrontend = async function(activityCodeArray, industryCode
  */
 exports.GetQuestionsForBackend = async function(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, return_hidden = false, stateList = []){
     return GetQuestions(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, return_hidden, stateList);
+}
+
+
+/**
+ * Get talage Question list from  insureQuestionList
+ *
+ * @param {array} talageQuestionIdArray - An array of question IDs
+ * @param {array} insureQuestionList - An array of insureQuestion objects
+ * @param {boolean} return_hidden - true = getting Insurer-PolicyType
+ *
+ * @returns {mixed} - An array of IDs if questions are missing, false if none are
+ */
+async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, insureQuestionList, return_hidden = false){
+    //refactor for Mongo...
+    const select = `q.id, q.parent, q.parent_answer, q.sub_level, q.question AS \`text\`, q.hint, q.type AS type_id, qt.name AS type, q.hidden${return_hidden ? ', GROUP_CONCAT(DISTINCT CONCAT(iq.insurer, "-", iq.policy_type)) AS insurers' : ''}`;
+    let error = null;
+    const sql = `
+            SELECT ${select}
+            FROM clw_talage_questions AS q
+            LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
+            LEFT JOIN clw_talage_insurer_questions AS iq ON q.id = iq.question
+            WHERE
+                q.id IN (${talageQuestionIdArray.map(db.escape).join(',')}) 
+                AND q.state = 1
+                GROUP BY q.id;
+        `;
+    // log.debug("question sql " + sql)
+    const talageQuestions = await db.queryReadonly(sql).catch(function(err) {
+        error = err.message;
+    });
+    if (error) {
+        return [];
+    }
+    return talageQuestions;
 }
 
 /**
