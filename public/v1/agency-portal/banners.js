@@ -1,5 +1,6 @@
 'use strict';
 
+
 //const axios = require('axios');
 const serverHelper = require('../../../server.js');
 // eslint-disable-next-line no-unused-vars
@@ -19,15 +20,24 @@ async function getBanners(req, res, next) {
     await fileSvc.
         GetFileList('public/agency-banners').
         then(function(fileList) {
+            // eslint-disable-next-line prefer-const
+            let returnFileList = [];
             if (fileList) {
                 // Remove the first element as it is just the folder
                 fileList.shift();
+                //look for custom in list and remove
+                for(let i = 0; i < fileList.length; i++){
+                    if(fileList[i].indexOf("custom") === -1){
+                        returnFileList.push(fileList[i]);
+                    }
+                }
             }
             else {
                 log.warn('banner empty list from S3 ' + __location);
+                res.send(200, []);
             }
-            // Parse and send the data back
-            res.send(200, fileList);
+            // // Parse and send the data back
+            res.send(200, returnFileList);
         }).
         catch(function(err) {
             log.error('Failed to get a list of banner files from the S3.' + __location);

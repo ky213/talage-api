@@ -25,6 +25,7 @@ const utility = require('./shared/helpers/utility.js');
 const taskDistributor = require('./tasksystem/task-distributor.js');
 const queueHandler = require('./tasksystem/queuehandler.js');
 const responseObject = require('./tasksystem/response-object.js')
+const redisSvc = require('./shared/services/redissvc.js');
 
 
 var hasMongoMadeInitialConnected = false;
@@ -115,6 +116,17 @@ async function main(){
     // Load the database module and make it globally available
     global.db = global.requireShared('./services/db.js');
 
+
+    // Connect to the redis
+    if(!await redisSvc.connect()){
+        logLocalErrorMessage('Error connecting to redis.');
+        //Only used by QuoteApp V2 and public API.
+        // leave rest of API functional.
+        //return;
+    }
+    //set up global even if connect fails, errors will be contained to redisSvc vs undefined errors.
+    global.redisSvc = redisSvc;
+
     // MONGO
     var mongoose = require('./mongoose');
     global.monogdb = mongoose();
@@ -162,7 +174,8 @@ async function startQueueProcessing() {
     // local development of tasks run one of the task.
     if(global.settings.ENV === 'development' && global.settings.RUN_LOCAL_TASK && global.settings.RUN_LOCAL_TASK === 'YES'){
         log.debug('Auto Running Task');
-        const taskJson = {"taskname": "dailydigest"};
+        //const taskJson = {"taskname": "redisindustrycodequestions", "insurerId" : 14};
+        const taskJson = {"taskname": "quotereport"};
         const messageTS = moment().utc().valueOf();
         const messageAtributes = {"SentTimestamp": messageTS};
         const testMessage = {

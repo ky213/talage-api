@@ -2,6 +2,7 @@
 'use strict';
 
 const moment = require('moment');
+const { last } = require('pdf-lib');
 const util = require("util");
 const csvStringify = util.promisify(require("csv-stringify"));
 // eslint-disable-next-line no-unused-vars
@@ -32,18 +33,22 @@ exports.processtask = async function(queueMessage){
         // DO STUFF
 
         await quoteReportTask().catch(err => error = err);
+        if(error){
+            log.error("Error Quote Report " + error + __location);
+        }
+        error = null;
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err){
             error = err;
         });
         if(error){
-            log.error("Error abandonquotetask deleteTaskQueueItem " + error + __location);
+            log.error("Error Quote Report deleteTaskQueueItem " + error + __location);
         }
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle);
 
         return;
     }
     else {
-        log.info('removing old Abandon Application Message from queue');
+        log.info('removing old Quote Report  Message from queue');
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(err => error = err)
         if(error){
             log.error("Error quote report deleteTaskQueueItem old " + error + __location);
@@ -67,7 +72,6 @@ exports.taskProcessorExternal = async function(){
 }
 
 var quoteReportTask = async function(){
-
     const yesterdayBegin = moment.tz("America/Los_Angeles").subtract(1,'d').startOf('day');
     const yesterdayEnd = moment.tz("America/Los_Angeles").subtract(1,'d').endOf('day');
 
@@ -109,53 +113,68 @@ var quoteReportTask = async function(){
         })
         //loop quote list.
         for(let i = 0; i < quoteList.length; i++){
-            const quoteDoc = quoteList[i];
-            let getAppDoc = false;
-            if(!lastAppDoc){
-                getAppDoc = true;
-            }
-            if(getAppDoc === true || lastAppDoc && lastAppDoc.applicationId !== quoteDoc.applicationId){
-                lastAppDoc = {};
-                const applicationBO = new ApplicationBO();
-                try{
-
-                    lastAppDoc = await applicationBO.getfromMongoByAppId(quoteDoc.applicationId);
+            try{
+                const quoteDoc = quoteList[i];
+                let getAppDoc = false;
+                if(!lastAppDoc){
+                    getAppDoc = true;
                 }
-                catch(err){
-                    log.error("abandonquotetask getting appid list error " + err + __location);
-                    throw err;
-                }
-            }
-            let insurer = {name: ''};
-            if(insurerList){
-                insurer = insurerList.find(insurertest => insurertest.id === quoteDoc.insurerId);
-            }
-            const newRow = {};
-            newRow.application = lastAppDoc.applicationId;
-            newRow.policy_type = quoteDoc.policyType;
-            newRow.name = insurer.name;
-            newRow.network = agencyNetworkNameMapJSON[lastAppDoc.agencyNetworkId];
-            newRow.territory = lastAppDoc.mailingState;
-            newRow.api_result = quoteDoc.apiResult;
-            newRow.reasons = quoteDoc.reasons;
-            newRow.seconds = quoteDoc.quoteTimeSeconds;
-            //Activty codes
-            if(lastAppDoc && lastAppDoc.activityCodes && lastAppDoc.activityCodes.length > 0){
-                for(let j = 0; j < lastAppDoc.activityCodes.length; j++){
-                    const activityCodeBO = new ActivityCodeBO();
+                if(quoteDoc && getAppDoc === true || lastAppDoc && lastAppDoc.applicationId !== quoteDoc.applicationId){
+                    lastAppDoc = {};
+                    const applicationBO = new ApplicationBO();
                     try{
-                        const activityCodeJSON = await activityCodeBO.getById(lastAppDoc.activityCodes[j].ncciCode)
-                        newRow["activitycode" + j] = activityCodeJSON.description;
+
+                        lastAppDoc = await applicationBO.getfromMongoByAppId(quoteDoc.applicationId);
+                        if(!lastAppDoc){
+                            log.info(`quotereportTask did not find appid ${quoteDoc.applicationId} ` + __location);
+                        }
                     }
                     catch(err){
-                        log.error("activity code load error " + err + __location);
-                    }
-                    if(j > 1){
-                        break;
+                        log.error(`quotereportTask getting appid ${quoteDoc.applicationId} error ` + err + __location);
+                        throw err;
                     }
                 }
+                let insurer = {name: ''};
+                if(insurerList){
+                    insurer = insurerList.find(insurertest => insurertest.id === quoteDoc.insurerId);
+                }
+                const newRow = {};
+                newRow.application = quoteDoc.applicationId;
+                newRow.policy_type = quoteDoc.policyType;
+                newRow.name = insurer.name;
+                if(lastAppDoc){
+                    newRow.network = agencyNetworkNameMapJSON[lastAppDoc.agencyNetworkId];
+                }
+                else {
+                    newRow.network = "App Deleted"
+                }
+                if(lastAppDoc){
+                    newRow.territory = lastAppDoc.mailingState;
+                }
+                newRow.api_result = quoteDoc.apiResult;
+                newRow.reasons = quoteDoc.reasons;
+                newRow.seconds = quoteDoc.quoteTimeSeconds;
+                //Activty codes
+                if(lastAppDoc && lastAppDoc.activityCodes && lastAppDoc.activityCodes.length > 0){
+                    for(let j = 0; j < lastAppDoc.activityCodes.length; j++){
+                        const activityCodeBO = new ActivityCodeBO();
+                        try{
+                            const activityCodeJSON = await activityCodeBO.getById(lastAppDoc.activityCodes[j].ncciCode)
+                            newRow["activitycode" + j] = activityCodeJSON.description;
+                        }
+                        catch(err){
+                            log.error("activity code load error " + err + __location);
+                        }
+                        if(j > 1){
+                            break;
+                        }
+                    }
+                }
+                reportRows.push(newRow)
             }
-            reportRows.push(newRow)
+            catch(err){
+                log.error("Error adding Quote to Quote Report " + err + __location)
+            }
         }
 
         const cvsHeaderColumns = {

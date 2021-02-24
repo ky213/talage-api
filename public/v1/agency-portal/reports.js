@@ -115,6 +115,10 @@ const getMinDate = async(where) => {
         find(where, {createdAt: 1}).
         sort({createdAt: 1}).
         limit(1);
+    // If this agency has no applications, then return the current date
+    if (!app[0]) {
+        return new Date();
+    }
     return app[0].createdAt;
 }
 
@@ -228,7 +232,7 @@ async function getReports(req) {
     }
 
     // Localize data variables that the user is permitted to access
-    const agencyNetwork = parseInt(req.authentication.agencyNetworkId, 10);
+    const agencyNetworkId = parseInt(req.authentication.agencyNetworkId, 10);
 
     // Filter out any agencies with do_not_report value set to true
     if (req.authentication.isAgencyNetworkUser) {
@@ -243,6 +247,7 @@ async function getReports(req) {
                     donotReportAgencyIdArray.push(agencyJSON.systemId);
                 }
                 if (donotReportAgencyIdArray.length > 0) {
+                    log.debug("donotReportAgencyIdArray " + donotReportAgencyIdArray)
                     //where.agency = { $nin: donotReportAgencyIdArray };
                     //need to remove values from Agents array.
                     // eslint-disable-next-line no-unused-vars
@@ -250,19 +255,41 @@ async function getReports(req) {
                         return donotReportAgencyIdArray.indexOf(value) === -1;
                     });
                 }
+                where.agencyId = {$in: agents};
+                //check for all
+                if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1 && req.query.all && req.query.all === '12332'){
+                    if(where.agencyId){
+                        delete where.agencyId;
+                    }
+
+                    if(donotReportAgencyIdArray.length > 0){
+                        where.agencyId = {$nin: donotReportAgencyIdArray};
+                    }
+                }
             }
+            else if(req.authentication.isAgencyNetworkUser && agencyNetworkId === 1 && req.query.all && req.query.all === '12332'){
+                if(where.agencyId){
+                    delete where.agencyId;
+                }
+            }
+            else {
+                where.agencyNetworkId = agencyNetworkId
+            }
+            log.debug("Report AgencyNetwork User where " + JSON.stringify(where) + __location)
         }
         catch(err) {
             log.error(`Report Dashboard error getting donotReport list ` + err + __location)
         }
     }
-
-    // This is a very special case. If this is the agent 'Solepro' (ID 12) asking for applications, query differently
-    if (!agencyNetwork && agents[0] === 12) {
-        where.solepro = 1;
-    }
     else {
-        where.agencyId = {$in: agents};
+        // This is a very special case. If this is the agent 'Solepro' (ID 12) asking for applications, query differently
+        // eslint-disable-next-line no-lonely-if
+        if (!agencyNetworkId && agents[0] === 12) {
+            where.solepro = 1;
+        }
+        else {
+            where.agencyId = {$in: agents};
+        }
     }
     //log.debug("Where " + JSON.stringify(where))
     // Define a list of queries to be executed based on the request type

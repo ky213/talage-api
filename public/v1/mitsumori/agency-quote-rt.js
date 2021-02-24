@@ -20,9 +20,6 @@ const AgencyLandingPageBO = global.requireShared("./models/AgencyLandingPage-BO.
 const ColorSchemeBO = global.requireShared("./models/ColorScheme-BO.js");
 const IndustryCodeCategoryBO = global.requireShared("./models/IndustryCodeCategory-BO.js");
 
-
-// This should not be in API path - BP
-
 /**
  * Parses the quote app request URL and extracts the agency and page slugs
  *
@@ -73,13 +70,31 @@ function parseQuoteURL(url) {
         // Default to "talage"
         agencySlug = "talage";
     }
+
+    const reservedPageSlugs = [
+        "_congrats",
+        "_reach-out",
+        "_basic",
+        "_policies",
+        "_business-questions",
+        "_locations",
+        "_mailing-address",
+        "_claims",
+        "_officers",
+        "_questions",
+        "_quotes",
+        "404"
+    ];
+
+    if(reservedPageSlugs.includes(pageSlug)){
+        pageSlug = null;
+    }
+
     return {
         agencySlug: agencySlug,
         pageSlug: pageSlug
     };
 }
-
-// This shoud not be in API path - BP
 
 /**
  * Retrieves the agency information from a given agency/page slug.
@@ -98,8 +113,6 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
     let agencyWebInfo = null;
     //Get agency record.
     const agencyBO = new AgencyBO();
-    //TODO .....
-    //ag.slug = ${db.escape(agencySlug)}
 
     try {
         agencyWebInfo = await agencyBO.getbySlug(agencySlug);
@@ -309,9 +322,6 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
     return agencyWebInfo;
 }
 
-
-// This should not be in API path - BP
-
 /**
  * Responds to POST requests and returns policy quotes
  *
@@ -322,16 +332,17 @@ async function getAgencyFromSlugs(agencySlug, pageSlug) {
  * @returns {void}
  */
 async function getAgencyLandingPage(req, res, next) {
-    if (!req.query.url) {
-        res.send(400, {error: 'Missing URL'});
+    if (!req.query.agencySlug) {
+        res.send(400, {error: 'Missing agencySlug'});
+        log.error("Error retrieving Agency Landing Page no agencySlug provided");
         return next();
     }
-    const {
-        // eslint-disable-next-line no-unused-vars
-        agencySlug, pageSlug
-    } = parseQuoteURL(req.query.url);
 
-    const agency = await getAgencyFromSlugs(agencySlug, null);
+    const agency = await getAgencyFromSlugs(req.query.agencySlug, req.query.pageSlug);
+    if(!agency){
+        res.send(404, {error: 'Agency not found'});
+        return next();
+    }
     replaceAgencyValues(agency.landingPageContent, agency);
     let primaryLocation = agency.locations.find(loc => loc.primary);
     if(!primaryLocation && agency.locations.length > 0){
@@ -341,9 +352,15 @@ async function getAgencyLandingPage(req, res, next) {
     const landingPage = {
         banner: agency.banner,
         name: agency.name,
+        heading: agency.heading,
+        showIndustrySection: agency.showIndustrySection,
         showIntroText: agency.showIntroText,
+        introHeading: agency.showIntroText ? agency.introHeading : null,
+        introText: agency.showIntroText ? agency.introText : null,
         about: agency.about,
         wholesale: agency.wholesale,
+        industryCodeId: agency.industryCodeId,
+        industryCodeCategoryId: agency.industryCodeCategoryId,
         email: primaryLocation ? primaryLocation.email : null,
         phone: primaryLocation ? primaryLocation.phone : null,
         address: primaryLocation ? primaryLocation.address : null,
@@ -365,6 +382,9 @@ async function getAgencyLandingPage(req, res, next) {
  * @returns {void}
  */
 function replaceAgencyValues(toReplace, agency) {
+    if(!agency){
+        return;
+    }
     // TODO: fill in other required replacements
     if (typeof toReplace === "string") {
         return toReplace.replace(/{{Agency}}/g, agency.name).replace(/{{Agency Phone}}/g, formatPhone(agency.phone));
@@ -391,30 +411,36 @@ function replaceAgencyValues(toReplace, agency) {
  * @returns {void}
  */
 async function getAgencyMetadata(req, res, next) {
-    if (!req.query.url) {
-        res.send(400, {error: 'Missing URL'});
-        return next();
+    let agencySlug = req.query.agencySlug;
+    let pageSlug = req.query.pageSlug;
+
+    if (req.query.url) {
+        const slugs = parseQuoteURL(req.query.url);
+        agencySlug = slugs.agencySlug;
+        pageSlug = slugs.pageSlug;
     }
-    let {
-        // eslint-disable-next-line no-unused-vars
-        agencySlug, pageSlug
-    } = parseQuoteURL(req.query.url);
 
     if (!agencySlug) {
-        agencySlug = 'talage';
+        log.warn("Missing agencySlug: using talage");
+        agencySlug = "talage";
     }
 
     let agencyJson = null;
     try {
-        agencyJson = await getAgencyFromSlugs(agencySlug, null);
+        agencyJson = await getAgencyFromSlugs(agencySlug, pageSlug);
     }
     catch (err) {
-        log.error(`Error retrieving Agency in quote engine agency ${agencySlug} url ${req.query.url}: ${err} ${__location}`);
-        return null;
+        log.error(`Error retrieving Agency in quote engine agencySlug ${agencySlug} pageSlug ${pageSlug} url ${req.query.url}: ${err} ${__location}`);
     }
+
     if(!agencyJson){
-        log.warn(`Could not retrieve Agency quote engine agencySlug ${agencySlug} url ${req.query.url}: ${__location}`);
-        res.send(404, {error: 'Could not retrieve agency'});
+        log.warn(`Could not retrieve Agency quote engine agencySlug ${agencySlug} pageSlug ${pageSlug} url ${req.query.url}: ${__location}`);
+        res.send(404, {
+            error: 'Could not retrieve agency',
+            // pass back the slugs used to lookup
+            agencySlug: agencySlug,
+            pageSlug: pageSlug
+        });
         return next();
     }
 
@@ -438,14 +464,6 @@ async function getAgencyMetadata(req, res, next) {
             }
         }
     }
-
-    try {
-        if (agencyJson.additionalInfo && agencyJson.additionalInfo.socialMediaTags && agencyJson.additionalInfo.socialMediaTags.facebookPixel) {
-            agencyJson.facebookPixel = agencyJson.additionalInfo.socialMediaTags.facebookPixel;
-        }
-    } catch (err) {
-        log.error(`Getting Facebook Pixel ${err} ${__location}`);
-    }
     try {
         const agencyNetworkBO = new AgencyNetworkBO();
         const agencyNetworkJSON = await agencyNetworkBO.getById(agencyJson.agencyNetworkId).catch(function (err) {
@@ -465,7 +483,7 @@ async function getAgencyMetadata(req, res, next) {
             }
         }
     } catch (error) {
-        log.error(`Could not parse landingPageContent in agency slug '${agencySlug}' for social metadata: ${error} ${__location}`);
+        log.error(`Could not parse landingPageContent in agency slug '${agencySlug}' pageSlug '${pageSlug}' for social metadata: ${error} ${__location}`);
         res.send(400, { error: "Could not process agency data" });
         return next();
     }
@@ -487,8 +505,8 @@ async function getAgencyMetadata(req, res, next) {
     const metaFooterLogo = agencyJson.footer_logo ? `${global.settings.IMAGE_URL}/public/agency-network-logos/${agencyJson.footer_logo}` : null;
     const metaFavicon = agencyJson.favicon ? `${global.settings.IMAGE_URL}/public/agency-logos/favicon/${agencyJson.favicon}` : null;
     const metaWebsite = agencyJson.website ? agencyJson.website : null;
-    const metaFacebookPixel = agencyJson.facebookPixel ? agencyJson.facebookPixel : null;
-
+    const socialMediaList = agencyJson.hasOwnProperty('socialMediaTags') ? agencyJson.socialMediaTags : null;
+    const enableOptOutSetting = agencyJson.hasOwnProperty('enableOptOut') ? agencyJson.enabelOptOut : null;
     // only pass back operation hours if both open and close time are present
     const metaOperationHours = openTime && closeTime ? { open: openTime, close: closeTime } : null;
 
@@ -499,16 +517,18 @@ async function getAgencyMetadata(req, res, next) {
         wholesale: agencyJson.wholesale,
         metaName: agencyJson.name,
         metaPhone: agencyJson.phone,
+        metaEmail: agencyJson.email,
         metaCALicence: agencyJson.caLicenseNumber,
         metaLogo: metaLogo,
         metaFooterLogo: metaFooterLogo,
         metaFavicon: metaFavicon,
         metaWebsite: metaWebsite,
-        metaFacebookPixel: metaFacebookPixel,
+        metaSocialMedia: socialMediaList,
         metaCss: metaCss,
         metaDescription: metaDescription,
         metaHasAbout: Boolean(agencyJson.about),
-        metaOperationHours: metaOperationHours
+        metaOperationHours: metaOperationHours,
+        metaOptOut: Boolean(enableOptOutSetting)
     });
     return next();
 }
@@ -549,7 +569,7 @@ async function getAgency(req, res, next) {
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-    server.addGetAuthQuoteApp("Get Agency Metadata", `${basePath}/agency/metadata`, getAgencyMetadata);
-    server.addGetAuthQuoteApp("Get Agency Landing Page", `${basePath}/agency/landing-page`, getAgencyLandingPage);
+    server.addGet("Get Agency Metadata", `${basePath}/agency/metadata`, getAgencyMetadata);
+    server.addGet("Get Agency Landing Page", `${basePath}/agency/landing-page`, getAgencyLandingPage);
     server.addGetAuthQuoteApp("Get Quote App Agency Id", `${basePath}/agency`, getAgency);
 };

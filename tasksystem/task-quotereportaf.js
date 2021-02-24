@@ -36,6 +36,10 @@ exports.processtask = async function(queueMessage){
         // DO STUFF
 
         await quoteReportTask().catch(err => error = err);
+        if(error){
+            log.error("Error quoteReportTask " + error + __location);
+        }
+        error = null;
         await global.queueHandler.deleteTaskQueueItem(queueMessage.ReceiptHandle).catch(function(err){
             error = err;
         });
@@ -114,79 +118,91 @@ var quoteReportTask = async function(){
         })
         //loop quote list.
         for(let i = 0; i < quoteList.length; i++){
-            const quoteDoc = quoteList[i];
-            let getAppDoc = false;
-            if(!lastAppDoc){
-                getAppDoc = true;
-            }
-            if(getAppDoc === true || lastAppDoc && lastAppDoc.applicationId !== quoteDoc.applicationId){
-                lastAppDoc = {};
-                const applicationBO = new ApplicationBO();
-                try{
-
-                    lastAppDoc = await applicationBO.getfromMongoByAppId(quoteDoc.applicationId);
+            try{
+                const quoteDoc = quoteList[i];
+                let getAppDoc = false;
+                if(!lastAppDoc){
+                    getAppDoc = true;
                 }
-                catch(err){
-                    log.error("abandonquotetask getting appid list error " + err + __location);
-                    throw err;
-                }
-            }
-            let insurer = {name: ''};
-            if(insurerList){
-                insurer = insurerList.find(insurertest => insurertest.id === quoteDoc.insurerId);
-            }
-            const newRow = {};
-            newRow.application = lastAppDoc.applicationId;
-            newRow.policy_type = quoteDoc.policyType;
-            newRow.name = insurer.name;
-            newRow.network = agencyNetworkNameMapJSON[lastAppDoc.agencyNetworkId];
-            newRow.territory = lastAppDoc.mailingState;
-            newRow.api_result = quoteDoc.apiResult;
-            newRow.reasons = quoteDoc.reasons;
-            newRow.seconds = quoteDoc.quoteTimeSeconds;
-            newRow.businessName = lastAppDoc.businessName;
-
-            //Agency Name
-            if(lastAppDoc.agencyId){
-                try{
-                    const agencyBO = new AgencyBO();
-                    const agencyInfo = await agencyBO.getById(lastAppDoc.agencyId);
-                    newRow.agencyName = agencyInfo.name;
-                }
-                catch(err){
-                    log.error("agency bo load error " + err + __location);
-                }
-            }
-
-
-            //Activty codes
-            if(lastAppDoc && lastAppDoc.activityCodes && lastAppDoc.activityCodes.length > 0){
-                for(let j = 0; j < lastAppDoc.activityCodes.length; j++){
-                    const activityCodeBO = new ActivityCodeBO();
+                if(getAppDoc === true || lastAppDoc && lastAppDoc.applicationId !== quoteDoc.applicationId){
+                    lastAppDoc = {};
+                    const applicationBO = new ApplicationBO();
                     try{
-                        const activityCodeJSON = await activityCodeBO.getById(lastAppDoc.activityCodes[j].ncciCode)
-                        newRow["activitycode" + j] = activityCodeJSON.description;
+
+                        lastAppDoc = await applicationBO.getfromMongoByAppId(quoteDoc.applicationId);
                     }
                     catch(err){
-                        log.error("activity code load error " + err + __location);
-                    }
-                    if(j > 1){
-                        break;
+                        log.error("abandonquotetask getting appid list error " + err + __location);
+                        throw err;
                     }
                 }
-            }
-            if(quoteDoc.createdAt){
-                try{
+                let insurer = {name: ''};
+                if(insurerList){
+                    insurer = insurerList.find(insurertest => insurertest.id === quoteDoc.insurerId);
+                }
+                const newRow = {};
+                newRow.application = quoteDoc.applicationId;
+                newRow.policy_type = quoteDoc.policyType;
+                newRow.name = insurer.name;
+                if(lastAppDoc){
+                    newRow.network = agencyNetworkNameMapJSON[lastAppDoc.agencyNetworkId];
+                }
+                else {
+                    newRow.network = "App Deleted"
+                }
+                if(lastAppDoc){
+                    newRow.territory = lastAppDoc.mailingState;
+                }
+                newRow.api_result = quoteDoc.apiResult;
+                newRow.reasons = quoteDoc.reasons;
+                newRow.seconds = quoteDoc.quoteTimeSeconds;
+                newRow.businessName = lastAppDoc.businessName;
+
+                //Agency Name
+                if(lastAppDoc.agencyId){
+                    try{
+                        const agencyBO = new AgencyBO();
+                        const agencyInfo = await agencyBO.getById(lastAppDoc.agencyId);
+                        newRow.agencyName = agencyInfo.name;
+                    }
+                    catch(err){
+                        log.error("agency bo load error " + err + __location);
+                    }
+                }
+
+
+                //Activty codes
+                if(lastAppDoc && lastAppDoc.activityCodes && lastAppDoc.activityCodes.length > 0){
+                    for(let j = 0; j < lastAppDoc.activityCodes.length; j++){
+                        const activityCodeBO = new ActivityCodeBO();
+                        try{
+                            const activityCodeJSON = await activityCodeBO.getById(lastAppDoc.activityCodes[j].ncciCode)
+                            newRow["activitycode" + j] = activityCodeJSON.description;
+                        }
+                        catch(err){
+                            log.error("activity code load error " + err + __location);
+                        }
+                        if(j > 1){
+                            break;
+                        }
+                    }
+                }
+                if(quoteDoc.createdAt){
+                    try{
                     // DB is in Pacific time
-                    const dbQuoteCreated = moment(quoteDoc.createdAt);
-                    const dbQuoteCreatedString = dbQuoteCreated.utc().format('YYYY-MM-DD HH:mm:ss');
-                    newRow.quoteDate = moment.tz(dbQuoteCreatedString, "America/Los_Angeles").format('YYYY-MM-DD HH:mm zz')
+                        const dbQuoteCreated = moment(quoteDoc.createdAt);
+                        const dbQuoteCreatedString = dbQuoteCreated.utc().format('YYYY-MM-DD HH:mm:ss');
+                        newRow.quoteDate = moment.tz(dbQuoteCreatedString, "America/Los_Angeles").format('YYYY-MM-DD HH:mm zz')
+                    }
+                    catch(e){
+                        log.error(`Error creating Quote Date ${quoteDoc.createdAt} error: ` + e + __location)
+                    }
                 }
-                catch(e){
-                    log.error(`Error creating Quote Date ${quoteDoc.createdAt} error: ` + e + __location)
-                }
+                reportRows.push(newRow)
             }
-            reportRows.push(newRow)
+            catch(err){
+                log.error("Error adding Quote to Quote Report " + err + __location)
+            }
         }
 
         const cvsHeaderColumns = {

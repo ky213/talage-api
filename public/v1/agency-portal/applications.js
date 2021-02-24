@@ -350,9 +350,13 @@ async function getApplications(req, res, next){
 
     // ================================================================================
     // Build the Mongo $OR array
-
+    // eslint-disable-next-line array-element-newline
+    const productTypeList = ["WC","GL", "BOP"];
     // Add a text search clause if requested
     if (req.params.searchText && req.params.searchText.length > 0){
+        if(productTypeList.indexOf(req.params.searchText.toUpperCase()) > -1){
+            orClauseArray.push({"policies.policyType":  req.params.searchText.toUpperCase()})
+        }
 
         const industryCodeBO = new IndustryCodeBO();
         // eslint-disable-next-line prefer-const

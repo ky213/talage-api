@@ -1386,7 +1386,8 @@ module.exports = class Integration {
         if (this.reasons.length > 0) {
             columns.push('reasons');
             values.push(this.reasons.join(',').replace(/'/g, "\\'").substring(0, 500));
-            quoteJSON.reasons = this.reasons.join(',').replace(/'/g, "\\'")
+            // Note: we do not need to escape apostrophes when going to Mongo. This was causing quote reasons to show an escape apostrophe in the agency portal -SF
+            quoteJSON.reasons = this.reasons.join(',');
         }
 
         // Quote Letter
@@ -2237,8 +2238,8 @@ module.exports = class Integration {
             }
             if (!result || !result.length) {
                 if (this.requiresInsurerIndustryCodes) {
-                    this.reasons.push("An insurer industry class code was not found for the given industry.");
-                    log.error(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} _insurer_supports_industry_codes required insurer mapping for this industry code was not found. query=${sql} ` + __location);
+                    this.reasons.push("An insurer industry class code was not found for the given industry and territory.");
+                    log.warn(`AppId: ${this.app.id} InsurerId: ${this.insurer.id} _insurer_supports_industry_codes required insurer mapping for this industry code was not found. query=${sql} ` + __location);
                     fulfill(false);
                     return;
                 }

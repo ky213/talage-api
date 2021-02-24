@@ -285,7 +285,7 @@ module.exports = class ApplicationModel {
                     break;
                 case 'locations':
                     if (applicationJSON.locations) {
-                        this.processLocationsMongo(applicationJSON.locations);
+                        await this.processLocationsMongo(applicationJSON.locations);
                     }
                     updateBusiness = true;
                     break;
@@ -344,11 +344,9 @@ module.exports = class ApplicationModel {
                     break;
                 case 'questions':
                     if (applicationJSON.questions) {
-
-                        await this.processQuestionsMongo(applicationJSON.questions).catch(function(err) {
+                        this.#applicationMongooseJSON.questions = await this.processQuestionsMongo(applicationJSON.questions).catch(function(err) {
                             log.error(`Adding Questions to appId ${appId}  error:` + err + __location);
                         });
-
                     }
                     await this.processLegalAcceptance(applicationJSON).catch(function(err) {
                         log.error(`Adding Legal Acceptance to appId ${appId} error:` + err + __location);
@@ -611,7 +609,7 @@ module.exports = class ApplicationModel {
         });
 
     }
-    processLocationsMongo(locations) {
+    async processLocationsMongo(locations) {
         this.#applicationMongooseJSON.locations = locations
         const businessInfoMapping = {"state_abbr": "state"};
         // Note: square_footage full_time_employees part_time_employees are part of the model.
@@ -652,6 +650,13 @@ module.exports = class ApplicationModel {
                     activityPayrollJSON.employeeTypeList = activity_code.employeeTypeList;
                     location.activityPayrollList.push(activityPayrollJSON)
                 }
+            }
+            // Process location questions if they exist
+            if (location.questions && location.questions.length > 0) {
+                // Replace the location questions with the processed ones
+                location.questions = await this.processQuestionsMongo(location.questions).catch((err) => {
+                    log.error(`Adding Location Questions to appId ${this.applicationDoc.applicationId}  error:` + err + __location);
+                });
             }
         }
 
@@ -760,7 +765,7 @@ module.exports = class ApplicationModel {
                 log.error("questionTypeBO load error " + err + __location);
             });
 
-            this.#applicationMongooseJSON.questions = [];
+            const processedQuestionList = []
             //get text and turn into list of question objects.
 
             for (var i = 0; i < questionsRequest.length; i++) {
@@ -829,9 +834,9 @@ module.exports = class ApplicationModel {
                     }
 
                 }
-                this.#applicationMongooseJSON.questions.push(questionJSON);
+                processedQuestionList.push(questionJSON);
             }
-            resolve(true);
+            resolve(processedQuestionList);
 
         });
 
@@ -1171,7 +1176,7 @@ module.exports = class ApplicationModel {
             catch (err) {
                 log.error("Error Mapping AF Business Data to BO Saving " + err + __location);
             }
-            this.processLocationsMongo(businessJSON.locations);
+            await this.processLocationsMongo(businessJSON.locations);
             try {
                 this.updateMongo(this.#applicationMongooseDB.applicationId, this.#applicationMongooseJSON)
             }
@@ -1274,7 +1279,7 @@ module.exports = class ApplicationModel {
             catch (err) {
                 log.error("Error Mapping AF Business Data to BO Saving " + err + __location);
             }
-            this.processLocationsMongo(businessJSON.locations);
+            await this.processLocationsMongo(businessJSON.locations);
 
         }
         else {
@@ -1911,7 +1916,7 @@ module.exports = class ApplicationModel {
             if (findCount === false) {
                 let docList = null;
                 try {
-                    // log.debug("ApplicationList query " + JSON.stringify(query))
+                    //log.debug("ApplicationList query " + JSON.stringify(query))
                     // log.debug("ApplicationList options " + JSON.stringify(queryOptions))
                     // log.debug("queryProjection: " + JSON.stringify(queryProjection))
                     docList = await ApplicationMongooseModel.find(query, queryProjection, queryOptions);
@@ -2065,6 +2070,12 @@ module.exports = class ApplicationModel {
                 }
             }
 
+            if(queryJSON.policies && queryJSON.policies.policyType){
+                //query.policies = {};
+                query["policies.policyType"] = queryJSON.policies.policyType;
+                delete queryJSON.policies
+            }
+
 
             if (queryJSON) {
                 for (var key in queryJSON) {
@@ -2085,17 +2096,28 @@ module.exports = class ApplicationModel {
             if(orParamList && orParamList.length > 0){
                 for (let i = 0; i < orParamList.length; i++){
                     let orItem = orParamList[i];
-                    // eslint-disable-next-line no-redeclare
-                    for (var key2 in orItem) {
-                        if (typeof orItem[key2] === 'string' && orItem[key2].includes('%')) {
-                            let clearString = orItem[key2].replace("%", "");
-                            clearString = clearString.replace("%", "");
-                            orItem[key2] = {
-                                "$regex": clearString,
-                                "$options": "i"
-                            };
-                        }
+                    if(orItem.policies && queryJSON.orItem.policyType){
+                        //query.policies = {};
+                        orItem["policies.policyType"] = queryJSON.policies.policyType;
                     }
+                    else {
+                        // eslint-disable-next-line no-redeclare
+                        for (var key2 in orItem) {
+                            if (typeof orItem[key2] === 'string' && orItem[key2].includes('%')) {
+                                let clearString = orItem[key2].replace("%", "");
+                                clearString = clearString.replace("%", "");
+                                orItem[key2] = {
+                                    "$regex": clearString,
+                                    "$options": "i"
+                                };
+                            }
+
+
+                        }
+
+
+                    }
+
                 }
                 query.$or = orParamList
             }
@@ -2336,16 +2358,20 @@ module.exports = class ApplicationModel {
     //
     //
     // *********************************
-    //For AgencyPortal
+    //For AgencyPortal and Quote V2 - skipAgencyCheck === true if caller has already check
+    // user rights to application
 
-    async GetQuestions(appId, userAgencyList, questionSubjectArea){
+    async GetQuestions(appId, userAgencyList, questionSubjectArea, skipAgencyCheck = false){
 
         let passedAgencyCheck = false;
         let applicationDocDB = null;
         let questionsObject = {};
         try{
             applicationDocDB = await this.loadfromMongoByAppId(appId);
-            if(applicationDocDB && userAgencyList.includes(applicationDocDB.agencyId)){
+            if(skipAgencyCheck === true){
+                passedAgencyCheck = true;
+            }
+            else if(applicationDocDB && userAgencyList.includes(applicationDocDB.agencyId)){
                 passedAgencyCheck = true;
             }
         }
@@ -2399,20 +2425,31 @@ module.exports = class ApplicationModel {
 
         }
         else if(requireActivityCodes) {
-            throw new Error("Incomplete Application: Missing Application Activity Codes")
+            if(questionSubjectArea === 'general'){
+                throw new Error("Incomplete WC Application: Missing Application Activity Codes");
+            }
         }
 
         //zipCodes
         let zipCodeArray = [];
+        let stateList = [];
         if(applicationDocDB.locations && applicationDocDB.locations.length > 0){
             for(let i = 0; i < applicationDocDB.locations.length; i++){
                 zipCodeArray.push(applicationDocDB.locations[i].zipcode);
+                if(stateList.indexOf(applicationDocDB.locations[i].state) === -1){
+                    stateList.push(applicationDocDB.locations[i].state)
+                }
             }
-
+        }
+        else if(applicationDocDB.mailingZipcode && questionSubjectArea !== 'general'){
+            zipCodeArray.push(applicationDocDB.mailingZipcode);
+            stateList.push(applicationDocDB.mailingState)
         }
         else {
             throw new Error("Incomplete Application: Application locations")
         }
+
+        log.debug("stateList: " + JSON.stringify(stateList));
         //Agency Location insurer list.
         let insurerArray = [];
         if(applicationDocDB.agencyLocationId && applicationDocDB.agencyLocationId > 0){
@@ -2443,8 +2480,8 @@ module.exports = class ApplicationModel {
         let getQuestionsResult = null;
 
         try {
-            log.debug("insurerArray: " + insurerArray);
-            getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, returnHidden);
+            //log.debug("insurerArray: " + insurerArray);
+            getQuestionsResult = await questionSvc.GetQuestionsForFrontend(activityCodeArray, industryCodeString, zipCodeArray, policyTypeArray, insurerArray, questionSubjectArea, returnHidden, stateList);
             if(getQuestionsResult && getQuestionsResult.length === 0){
                 //no questions returned.
                 log.warn(`No questions returned for AppId ${appId} parameter activityCodeArray: ${activityCodeArray}  industryCodeString: ${industryCodeString}  zipCodeArray: ${zipCodeArray} policyTypeArray: ${policyTypeArray} insurerArray: ${insurerArray} `)

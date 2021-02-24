@@ -14,25 +14,24 @@ const moment = require('moment');
  * @returns {void}
 */
 
-const validateBusiness = async(applicationDocData) => {
+const validateBusiness = (applicationDocData) => {
 
     // Unincorporated Association (Required only for WC, in NH, and for LLCs and Corporations)
-    if (
-        applicationDocData.policies.find(policy => policy.policyType === "WC") &&
-        (applicationDocData.entityType === 'Corporation' || applicationDocData.entityType === 'Limited Liability Company') &&
-        applicationDocData.mailingState === 'NH'
-    ) {
+    // NOTE: not being used yet - SF (2020-02-18)
+    // if (
+    //     applicationDocData.policies.find(policy => policy.policyType === "WC") &&
+    //     (applicationDocData.entityType === 'Corporation' || applicationDocData.entityType === 'Limited Liability Company') &&
+    //     applicationDocData.mailingState === 'NH'
+    // ) {
 
-        // This is required
-        if (applicationDocData.unincorporated_association === null) {
-            throw new Error('Missing required field: unincorporated_association');
-        }
+    //     if (applicationDocData.unincorporated_association === null) {
+    //         log.warn('Missing required field: unincorporated_association');
+    //     }
 
-        // Validate
-        if (!validator.boolean(applicationDocData.unincorporated_association)) {
-            throw new Error('Invalid value for unincorporated_association, please use a boolean value');
-        }
-    }
+    //     if (!validator.boolean(applicationDocData.unincorporated_association)) {
+    //         log.warn('Invalid value for unincorporated_association, please use a boolean value');
+    //     }
+    // }
 
     /**
      * Bureau Number (optional)
@@ -138,22 +137,6 @@ const validateBusiness = async(applicationDocData) => {
     }
     else {
         throw new Error('Missing property: founded');
-    }
-
-    /**
-     * Industry Code (required)
-     * - > 0
-     * - <= 99999999999
-     * - Must existin our database
-     */
-    if (applicationDocData.industryCode) {
-        applicationDocData.industryCode_description = await validator.industry_code(applicationDocData.industryCode);
-        if (!applicationDocData.industryCode_description) {
-            throw new Error('The industry code ID you provided is not valid');
-        }
-    }
-    else {
-        throw new Error('Missing property: industryCode');
     }
 
     /**
@@ -276,6 +259,7 @@ const validateBusiness = async(applicationDocData) => {
     if (!(validator.ein(applicationDocData.ein) || validator.ssn(applicationDocData.ein))) {
         throw new Error(`Invalid formatting for property: EIN`);
     }
+    return;
 }
 
 /**

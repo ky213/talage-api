@@ -19,6 +19,19 @@ const acuityWCTemplate = require('jsrender').templates('./public/v1/quote/helper
 const InsurerBO = global.requireShared('./models/Insurer-BO.js');
 global.requireShared('./helpers/tracker.js');
 
+/**
+ * Escape a string for XML
+ * @param  {string} s - The string to escape
+ * @returns {string} The escaped string
+ */
+function escapeXML(s) {
+    return s.replace(/&/g, '&amp;').
+        replace(/</g, '&lt;').
+        replace(/>/g, '&gt;').
+        replace(/"/g, '&quot;').
+        replace(/'/g, '&apos;');
+}
+
 module.exports = class AcuityWC extends Integration {
 
     /**
@@ -174,6 +187,7 @@ module.exports = class AcuityWC extends Integration {
 
         // Loop through each question
         this.questionList = [];
+        this.fullQuestionList = [];
         for (const question_id in this.questions) {
             if (this.questions.hasOwnProperty(question_id)) {
                 const question = this.questions[question_id];
@@ -207,13 +221,53 @@ module.exports = class AcuityWC extends Integration {
                     // QuestionAnswer.ele('Explanation', answer);
                     answerType = 'Explanation';
                 }
-                this.questionList.push({
+                // Do not add questions to the list which are actually question node values (handled below)
+                if (!questionCode.endsWith(".Num") && !questionCode.endsWith(".Explanation")) {
+                    this.questionList.push({
+                        code: questionCode,
+                        answerType: answerType,
+                        answer: answer
+                    });
+                }
+                // Add every question to the full question list (required below)
+                this.fullQuestionList.push({
                     code: questionCode,
                     answerType: answerType,
                     answer: answer
                 });
+
             }
         }
+        this.getAdditionalQuestionValues = (questionCode) => {
+            // This will look at a question and determine if there is another question which should be used to populate
+            // its <Num> or <Explanation> nodes. For example, question "WORK43" (Do you use subcontractors?') requires the
+            // customer to enter the percent of contracted work and put it in the <Num> node for that question node. We
+            // import a question named "WORK43.Num" ("What percent is subcontracted work?").
+            //
+            // For example: when the questionCode is "WORK43", we look for "WORK43.Num" and "WORK43.Explanation". If they
+            // exist, we return XML nodes values for each of those.
+            const mainQuestion = this.fullQuestionList.find((q) => q.code === questionCode);
+            let additionalQuestionValues = "";
+            const space = "                    ";
+            for (const valueQuestion of this.fullQuestionList) {
+                const valueQuestionMainCode = valueQuestion.code.substr(0, valueQuestion.code.lastIndexOf("."));
+                if (valueQuestion.code.endsWith(".Num") && valueQuestionMainCode === mainQuestion.code) {
+                    if (additionalQuestionValues.length !== 0) {
+                        // Add leading space for XML formatting after initial value node added
+                        additionalQuestionValues += space;
+                    }
+                    additionalQuestionValues += "<Num>" + escapeXML(valueQuestion.answer) + "</Num>\n";
+                }
+                else if (valueQuestion.code.endsWith(".Explanation") && valueQuestionMainCode === mainQuestion.code) {
+                    if (additionalQuestionValues.length !== 0) {
+                        // Add leading space for XML formatting after initial value node added
+                        additionalQuestionValues += space;
+                    }
+                    additionalQuestionValues += "<Explanation>" + escapeXML(valueQuestion.answer) + "</Explanation>\n";
+                }
+            }
+            return additionalQuestionValues;
+        };
 
         // ===================================================================================================
         // Render the template into XML and remove any empty lines (artifacts of control blocks)
@@ -243,7 +297,6 @@ module.exports = class AcuityWC extends Integration {
             path = '/ws/irate/rating/RatingService/Talage';
             credentials = {'x-acuity-api-key': this.password};
         }
-        // console.log('request', xml);
 
         // Send the XML to the insurer
         let result = null;
@@ -255,6 +308,27 @@ module.exports = class AcuityWC extends Integration {
             return this.client_connection_error(__location);
         }
         // console.log('result', JSON.stringify(result, null, 4));
+
+        // Retrieve the quote link and letter if they exist. Acuity will return a link even if it declines to give them the option to fix it.
+        // We get quote letter here as well because it is convenient since they are in the same node.
+        let quoteLetter = null;
+        let quoteLetterMimeType = null;
+        const fileAttachmentInfoList = this.get_xml_child(result.ACORD, 'InsuranceSvcRs.WorkCompPolicyQuoteInqRs.FileAttachmentInfo', true);
+        if (fileAttachmentInfoList) {
+            for (const fileAttachmentInfo of fileAttachmentInfoList) {
+                switch (fileAttachmentInfo.AttachmentDesc[0]) {
+                    case "Policy Quote Print":
+                        quoteLetter = fileAttachmentInfo.cData[0];
+                        quoteLetterMimeType = fileAttachmentInfo.MIMEContentTypeCd[0];
+                        break;
+                    case "URL":
+                        this.quoteLink = fileAttachmentInfo.WebsiteURL[0];
+                        break;
+                    default:
+                        break;
+                }
+            }
+        }
 
         // Check if there was an error
         if (result.hasOwnProperty('errorResponse')) {
@@ -335,24 +409,6 @@ module.exports = class AcuityWC extends Integration {
                             break;
                     }
                 });
-
-                // Retrieve and the quote letter if it exists
-                let quoteLetter = null;
-                let quoteLetterMimeType = null;
-                const fileAttachmentInfoList = this.get_xml_child(result.ACORD, 'InsuranceSvcRs.WorkCompPolicyQuoteInqRs.FileAttachmentInfo', true);
-                for (const fileAttachmentInfo of fileAttachmentInfoList) {
-                    switch (fileAttachmentInfo.AttachmentDesc[0]) {
-                        case "Policy Quote Print":
-                            quoteLetter = fileAttachmentInfo.cData[0];
-                            quoteLetterMimeType = fileAttachmentInfo.MIMEContentTypeCd[0];
-                            break;
-                        case "URL":
-                            this.quoteLink = fileAttachmentInfo.WebsiteURL[0];
-                            break;
-                        default:
-                            break;
-                    }
-                }
 
                 // Check if it is a bindable quote
                 if (policyStatusCd === 'acuity_BindableQuote') {

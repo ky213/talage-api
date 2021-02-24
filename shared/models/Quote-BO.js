@@ -331,10 +331,10 @@ module.exports = class QuoteBO {
             // eslint-disable-next-line prefer-const
 
             if(!queryJSON){
-                throw new Error("getNewAppQuotes: no query Data");
+                reject(new Error("getNewAppQuotes: no query Data"));
             }
-            if(!queryJSON.mysqlAppId || !queryJSON.lastMysqlId ){
-                throw new Error("getNewAppQuotes: missing query Data");
+            if(!queryJSON.mysqlAppId && !queryJSON.applicationId || !queryJSON.lastMysqlId){
+                reject(new Error("getNewAppQuotes: missing query Data"));
             }
 
             const queryProjection = {"__v": 0}
@@ -356,6 +356,10 @@ module.exports = class QuoteBO {
             if(queryJSON.mysqlAppId){
                 query.mysqlAppId = queryJSON.mysqlAppId;
                 delete queryJSON.mysqlAppId
+            }
+            else if(queryJSON.applicationId){
+                query.applicationId = queryJSON.applicationId;
+                delete queryJSON.applicationId
             }
 
             let docList = null;
