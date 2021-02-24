@@ -706,12 +706,13 @@ module.exports = class LibertySBOP extends Integration {
             }
         }
 
-        this.injectBuildingQuestions(location.buildingList[0], questions);
+
+        this.injectBuildingQuestions(location.buildingList, questions);
     }
 
     // NOTE: Currently this has an object pre-seeded into the buildingList because we only work with 1 building by default. When we allow multiple buildings
-    //       per location, that can be defined in the quote app, this will need to be refactored to handle that. 
-    injectBuildingQuestions(building, questions) {
+    //       per location, that can be defined in the quote app, this will probably need to be refactored to handle that. 
+    injectBuildingQuestions(buildings, questions) {
         // not yet implemented
     }
 
