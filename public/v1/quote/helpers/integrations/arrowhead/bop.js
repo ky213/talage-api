@@ -42,7 +42,15 @@ module.exports = class LibertySBOP extends Integration {
         const fieldsToParse = [
             "automaticIncr",
             "bipay.extNumDays",
-            "fixedPropDeductible"
+            "fixedPropDeductible",
+            "building.yearBuilt",
+            "building.occupiedSqFt",
+            "building.numResidentialUnits",
+            "building.numStories",
+            "building.uw.roofUpdates",
+            "building.uw.hvacUpdates",
+            "building.uw.plumbingUpdates",
+            "building.uw.electricalUpdates"
         ];
 
         // "Other" is not included, as anything not below is defaulted to it
@@ -85,6 +93,34 @@ module.exports = class LibertySBOP extends Integration {
             }
 
             questions[question.insurerQuestionIdentifier] = answer;
+        });
+
+        // Injecting question maps for location and building into each location 
+        // NOTE: This will need to change once buildings get their own questions
+        applicationDocData.locations.forEach(location => {
+            location.locationQuestions = {};
+            location.buildingQuestions = {};
+            let answer = null;
+            location.questions.forEach(question => {
+                if (fieldsToParse.includes(question.insurerQuestionIdentifier)) {
+                    answer = parseInt(question.answerValue);
+
+                    if (isNaN(answer)) {
+                        log.error(`${logPrefix}Couldn't parse "${question.answerValue}" for question property "${question.insurerQuestionIdentifier}". Result was NaN, leaving as-is.`);
+                        answer = question.answerValue;
+                    }
+                } else {
+                    answer = question.answerValue;
+                }
+
+                if (question.insurerQuestionIdentifier.includes("location.")) {
+                    // location specific questions
+                    location.locationQuestions[question.insurerQuestionIdentifier.replace("location.", "")] = answer;
+                } else if (question.insurerQuestionIdentifier.includes("building.")){ // purposefully being explicit w/ this if statement
+                    // building specific questions
+                    location.buildingQuestions[question.insurerQuestionIdentifier.replace("building.", "")] = answer;
+                }
+            });
         });
 
         let locationList = null;
@@ -291,14 +327,14 @@ module.exports = class LibertySBOP extends Integration {
                 finalProtectionClass: "3", // <-- TODO: ASK JAMES
                 // PPCCall: {
                 //     fireProtectionArea: smartyStreetsResponse.addressInformation.county_name,
-                //     waterSupplyType: "Hydrant", // <-- HOW TO GET THIS
-                //     PPCCode: "3", // <-- WHAT IS THIS
+                //     waterSupplyType: "Hydrant", 
+                //     PPCCode: "3",
                 //     matchType: "Address Level Match",
                 //     county: smartyStreetsResponse.addressInformation.county_name,
-                //     respondingFireStation: "STATION 14", // <-- HOW TO GET THIS
-                //     priorAlternativePPCCodes: "9/10", // <-- WHAT IS THIS
-                //     driveDistanceToRespondingFireStation: "1 mile or less", // <-- HOW TO GET THIS
-                //     multiplePPCInd: false // <-- WHAT IS THIS
+                //     respondingFireStation: "STATION 14",
+                //     priorAlternativePPCCodes: "9/10",
+                //     driveDistanceToRespondingFireStation: "1 mile or less", 
+                //     multiplePPCInd: false 
                 // },
                 // bceg: {
                 //     bcegCode: "99",
@@ -312,119 +348,104 @@ module.exports = class LibertySBOP extends Integration {
                 // },
                 buildingList: [ // TODO: Break this out into a separate call once we have notion of buildings in quote app
                     {
+                        LOI: "500000", // <-- ASK JAMES
+                        classTag: "SALES", // <-- HOW DO WE GET THIS?
+                        industrySegment: "", // <-- ASK JAMES
+                        // isoClassDescriptionId: 32,
+                        // isoClassDescription: "Convenience Food Stores With Fast Food Restaurant With Gasoline Sales",
+                        // classOverride: false,
+                        premOpsILF: "1", // <-- ASK JAMES
+                        // cspCode: "0931",
                         classCode: this.industry_code.code,
-                        uw: {
-                            roofUpdates: 2015,
-                            plumbingUpdates: 2015,
-                            electricalUpdates: 2015,
-                            playam: false,
-                            hvacUpdates: 2015
-                        },
-                        occupancy: "Owner Occupied Bldg - More than 10%",
-                        LOI: "500000",
-                        classTag: "SALES",
-                        industrySegment: "",
-                        isoClassDescriptionId: 32,
-                        isoClassDescription: "Convenience Food Stores With Fast Food Restaurant With Gasoline Sales",
-                        description: "Test Building",
-                        isoClassGroup: "Convenience Food/Gasoline Store/Restaurant",
-                        replacementCost: {
-                            bldMeetsRecommendedCost: true,
-                            replacementCost: 405114,
-                            callResult: "SUCCESSFUL",
-                            message: ""
-                        },
-                        coverages: {
-                            PP: {
-                                seasonalIncrease: "25",
-                                valuationInd: false,
-                                includeInd: true,
-                                limit: "200000"
-                            },
-                            concom: {
-                                includeFormInd: true
-                            },
-                            lospay: {
-                                includeInd: false
-                            },
-                            aieqip: {
-                                includeInd: false
-                            },
-                            tenfir: {
-                                coverageType: "No Coverage",
-                                includeInd: false
-                            },
-                            osigns: {
-                                includeInd: false
-                            },
-                            utilte: {
-                                includeInd: false
-                            },
-                            lienholder: {
-                                includeInd: false
-                            },
-                            liab: {
-                                includeInd: true,
-                                sales: "500000"
-                            },
-                            aiprem: {
-                                includeInd: false
-                            },
-                            actrec: {
-                                includeInd: false
-                            },
-                            aibown: {
-                                includeInd: false
-                            },
-                            lcompf: {
-                                includeInd: false
-                            },
-                            utildd: {
-                                includeInd: false
-                            },
-                            bld: {
-                                valuation: "Replacement Cost",
-                                includeInd: true,
-                                limit: 500000
-                            },
-                            spoil: {
-                                breakContInd: true,
-                                includeInd: true,
-                                refrigerationInd: true,
-                                spoilageLimit: 25000,
-                                spoilageDescription: "Convenience Food Stores",
-                                powerOutInd: true
-                            },
-                            bidp: {
-                                includeInd: true,
-                                limit: 50000,
-                                secondaryDependentProperties: false
-                            },
-                            ordLaw: {
-                                limit1: 500000,
-                                limit2: 500000,
-                                includeInd: true,
-                                covType: "Coverage 1 and 2"
-                            },
-                            tenant: {
-                                includeInd: false
-                            }
-                        },
-                        yearBuilt: 2010,
-                        numStories: 2,
-                        occupiedSqFt: 5000,
-                        classOverride: false,
-                        sicCode: "5411",
-                        construction: "Modified Fire Resistive",
-                        premOpsILF: "1",
-                        cspCode: "0931",
+                        sicCode: `${this.industry_code.sic}`,
                         naicsCode: this.industry_code.attributes.naics,
-                        sprinklered: true
+                        // replacementCost: {
+                        //     bldMeetsRecommendedCost: true,
+                        //     replacementCost: 405114,
+                        //     callResult: "SUCCESSFUL",
+                        //     message: ""
+                        // },
+                        coverages: {
+                            // PP: {
+                            //     seasonalIncrease: "25",
+                            //     valuationInd: false,
+                            //     includeInd: true,
+                            //     limit: "200000"
+                            // },
+                            // concom: {
+                            //     includeFormInd: true
+                            // },
+                            // lospay: {
+                            //     includeInd: false
+                            // },
+                            // aieqip: {
+                            //     includeInd: false
+                            // },
+                            // tenfir: {
+                            //     coverageType: "No Coverage",
+                            //     includeInd: false
+                            // },
+                            // osigns: {
+                            //     includeInd: false
+                            // },
+                            // utilte: {
+                            //     includeInd: false
+                            // },
+                            // lienholder: {
+                            //     includeInd: false
+                            // },
+                            // liab: {
+                            //     includeInd: true,
+                            //     sales: "500000"
+                            // },
+                            // aiprem: {
+                            //     includeInd: false
+                            // },
+                            // actrec: {
+                            //     includeInd: false
+                            // },
+                            // aibown: {
+                            //     includeInd: false
+                            // },
+                            // lcompf: {
+                            //     includeInd: false
+                            // },
+                            // utildd: {
+                            //     includeInd: false
+                            // },
+                            // bld: {
+                            //     valuation: "Replacement Cost",
+                            //     includeInd: true,
+                            //     limit: 500000
+                            // },
+                            // spoil: {
+                            //     breakContInd: true,
+                            //     includeInd: true,
+                            //     refrigerationInd: true,
+                            //     spoilageLimit: 25000,
+                            //     spoilageDescription: "Convenience Food Stores",
+                            //     powerOutInd: true
+                            // },
+                            // bidp: {
+                            //     includeInd: true,
+                            //     limit: 50000,
+                            //     secondaryDependentProperties: false
+                            // },
+                            // ordLaw: {
+                            //     limit1: 500000,
+                            //     limit2: 500000,
+                            //     includeInd: true,
+                            //     covType: "Coverage 1 and 2"
+                            // },
+                            // tenant: {
+                            //     includeInd: false
+                            // }
+                        }
                     }
                 ]
             };
 
-            this.injectLocationQuestions(locationObj, location.questions);
+            this.injectLocationQuestions(locationObj, location.locationQuestions, location.buildingQuestions);
 
             locationList.push(locationObj);
         };
@@ -677,14 +698,9 @@ module.exports = class LibertySBOP extends Integration {
         }
     }
 
-    injectLocationQuestions(location, questions) {
-        // hydrate the request JSON object with general question data
-        // NOTE: Add additional general questions here if more get imported   
-
-        // filter out building questions, and remove the location. prefix
-        const locationQuestions = questions
-            .filter(q => q.insurerQuestionIdentifier.includes("location.")
-            .map(q => q.insurerQuestionIdentifier = q.insurerQuestionIdentifier.replace("location.", "")));
+    injectLocationQuestions(location, locationQuestions, buildingQuestions) {
+        // hydrate the request JSON object with location question data
+        // NOTE: Add additional location questions here if more get imported   
 
         for (const [id, answer] of Object.entries(locationQuestions)) {
             switch (id) {
@@ -706,14 +722,74 @@ module.exports = class LibertySBOP extends Integration {
             }
         }
 
-
-        this.injectBuildingQuestions(location.buildingList, questions);
+        this.injectBuildingQuestions(location.buildingList, buildingQuestions);
     }
 
     // NOTE: Currently this has an object pre-seeded into the buildingList because we only work with 1 building by default. When we allow multiple buildings
-    //       per location, that can be defined in the quote app, this will probably need to be refactored to handle that. 
-    injectBuildingQuestions(buildings, questions) {
-        // not yet implemented
+    //       per location, that can be defined in the quote app, this will need to be refactored to handle that (questions will be tied to specific buildings). 
+    injectBuildingQuestions(buildings, buildingQuestions) {
+        // hydrate the request JSON object with building question data
+        // NOTE: Add additional building questions here if more get imported   
+
+        for (const building of buildings) {
+            // parent questions
+            const uw = [];
+
+            for (const [id, answer] of Object.entries(buildingQuestions)) {
+                switch (id) {
+                    case "construction":
+                        building[id] = answer;
+                        break;
+                    case "sprinklered":
+                        building[id] = this.convertToBoolean(answer);
+                        break;
+                    case "description":
+                        building[id] = answer;
+                        break;
+                    case "isoClassGroup":
+                        building[id] = answer;
+                        break;
+                    case "lessorsRisks":
+                        building[id] = this.convertToBoolean(answer);
+                        break;
+                    case "numResidentialUnits":
+                    case "numResidentialUnitsMD":
+                        building[id] = answer;
+                        break;
+                    case "numStories":
+                        building[id] = answer;
+                        break;
+                    case "occupancy":
+                        building[id] = answer;
+                        break;
+                    case "occupiedSqFt":
+                        building[id] = answer;
+                        break;
+                    case "yearBuilt":
+                        building[id] = answer;
+                        break;
+                    case "uw.roofUpdates":
+                    case "uw.hvacUpdates":
+                    case "uw.plumbingUpdates":
+                    case "uw.electricalUpdates":
+                        uw.push({id: id.replace("uw.", ""), answer});
+                        break;
+                    default: 
+                        log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions with no defined case. This could mean we have a new question that needs to be handled in the integration.`);
+                        break;
+                }
+            }
+
+            // all building underwrite questions are "year xx was updated" format
+            if (uw.length > 0) {
+                building.uw = {};
+                uw.forEach(q => {
+                    building.uw[q.id] = q.answer;
+                });
+            } else {
+                log.warn(`${logPrefix}No underwriting questions were answered for a building. This could cause the quote to decline on Arrowhead's side.`);
+            }
+        }
     }
 
     convertToBoolean(value) {
