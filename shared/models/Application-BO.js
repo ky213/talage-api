@@ -1648,7 +1648,7 @@ module.exports = class ApplicationModel {
         if(sourceJSON){
             // With next virtual make Virtual to Real map
             for (const mapProp in propMappings) {
-                if (sourceJSON[mapProp] && typeof sourceJSON[mapProp] !== "object") {
+                if (sourceJSON[mapProp] !== null && typeof sourceJSON[mapProp] !== 'undefined' && typeof sourceJSON[mapProp] !== "object") {
                     sourceJSON[propMappings[mapProp]] = sourceJSON[mapProp];
                     delete sourceJSON[mapProp];
                 }
