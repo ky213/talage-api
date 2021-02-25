@@ -232,28 +232,6 @@ module.exports = class Application {
             }
         }
 
-        // Unincorporated Association (Required only for WC, in NH, and for LLCs and Corporations)
-        if (
-            this.has_policy_type('WC') &&
-            (this.business.entity_type === 'Corporation' || this.business.entity_type === 'Limited Liability Company') &&
-            this.business.mailing_state === 'NH'
-        ) {
-
-            // This is required
-            if (this.business && this.business.unincorporated_association === null) {
-                log.error('Missing required field: unincorporated_association');
-            }
-
-            // Validate
-            if (this.business && !validator.boolean(this.business.unincorporated_association)) {
-                log.error('Invalid value for unincorporated_association, please use a boolean value');
-            }
-
-            // If value is valid, convert to boolean
-            this.business.unincorporated_association = helper.convert_to_boolean(this.applicationDocData.unincorporated_association);
-        }
-
-
         /************** LOCATION DATA TRANSLATION ***************/
 
         const unemployment_number_states = [
