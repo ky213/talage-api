@@ -48,37 +48,38 @@ module.exports = class ChubbBOP extends Integration {
             'Trust - Non-Profit': 'TE'
         };
 
+        const logPrefix = `Chubb BOP (Appid: ${this.app.applicationDocData.mysqlId}): `;
 
         // Check Industry Code Support
         if (!this.industry_code.cgl) {
-            log.warn(`Chubb BOP: CGL not set for Industry Code ${this.industry_code.id} ` + __location)
-            this.reasons.push(`CGL not set for Industry Code ${this.industry_code.id}`);
-            return this.return_result('autodeclined');
+            const declinedMessage = `${logPrefix}CGL not set for Industry Code ${this.industry_code.id} `;
+            log.error(declinedMessage + __location)
+            return this.client_autodeclined(declinedMessage);
         }
         if (!this.industry_code.iso) {
-            log.warn(`Chubb BOP: ISO not set for Industry Code ${this.industry_code.id} ` + __location)
-            this.reasons.push(`ISO not set for Industry Code ${this.industry_code.id}`);
-            return this.return_result('autodeclined');
+            const declinedMessage = `${logPrefix}ISO not set for Industry Code ${this.industry_code.id} `;
+            log.error(declinedMessage + __location)
+            return this.client_autodeclined(declinedMessage);
         }
         if (!this.industry_code.attributes) {
-            log.warn(`Chubb BOP: Missing Attributes for Industry Code ${this.industry_code.id} ` + __location)
-            this.reasons.push(`Missing Attributes for Industry Code ${this.industry_code.id}`);
-            return this.return_result('autodeclined');
+            const declinedMessage = `${logPrefix}Missing Attributes for Industry Code ${this.industry_code.id} `;
+            log.error(declinedMessage + __location)
+            return this.client_autodeclined(declinedMessage);
         }
         if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'class_code_id')) {
-            log.warn(`Chubb BOP: Missing required attribute 'class_code_id' for Industry Code ${this.industry_code.id} ` + __location)
-            this.reasons.push(`Missing required attribute 'class_code_id' for Industry Code ${this.industry_code.id}`);
-            return this.return_result('autodeclined');
+            const declinedMessage = `${logPrefix}Missing required attribute 'class_code_id' for Industry Code ${this.industry_code.id} `;
+            log.error(declinedMessage + __location)
+            return this.client_autodeclined(declinedMessage);
         }
         if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'segment')) {
-            log.warn(`Chubb BOP: Missing required attribute 'segment' for Industry Code ${this.industry_code.id}` + __location)
-            this.reasons.push(`Missing required attribute 'segment' for Industry Code ${this.industry_code.id}`);
-            return this.return_result('autodeclined');
+            const declinedMessage = `${logPrefix}Missing required attribute 'segment' for Industry Code ${this.industry_code.id} `;
+            log.error(declinedMessage + __location)
+            return this.client_autodeclined(declinedMessage);
         }
         if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'exposure')) {
-            log.warn(`Chubb BOP: Missing required attribute 'exposure' for Industry Code ${this.industry_code.id} ` + __location)
-            this.reasons.push(`Missing required attribute 'exposure' for Industry Code ${this.industry_code.id}`);
-            return this.return_result('autodeclined');
+            const declinedMessage = `${logPrefix}Missing required attribute 'exposure' for Industry Code ${this.industry_code.id} `;
+            log.error(declinedMessage + __location)
+            return this.client_autodeclined(declinedMessage);
         }
 
         // Determine which API host to use
@@ -91,21 +92,21 @@ module.exports = class ChubbBOP extends Integration {
         }
 
         // Get a token from their auth server
-        let hadError = false;
-        const tokenResponse = await this.send_json_request(host,
-            '/api/v1/tokens',
-            null,
-            {
-                App_ID: '84b45546-f66d-4da7-abbc-e54a100caabf',
-                App_Key: `|M*O49d\\7)H0o8X.]HZ89eS&`
-            },
-            'POST').catch((error) => {
-            log.error(error.message + __location);
-            hadError = true;
-            return this.return_error('error', 'Well, that wasn’t supposed to happen, but hang on, we’ll get it figured out quickly and be in touch.');
-        });
-        if (hadError) {
-            return;
+        let tokenResponse = null;
+        try {
+            tokenResponse = await this.send_json_request(
+                host,
+                '/api/v1/tokens',
+                null,
+                {
+                    App_ID: '84b45546-f66d-4da7-abbc-e54a100caabf',
+                    App_Key: `|M*O49d\\7)H0o8X.]HZ89eS&`
+                },
+                'POST'
+            );
+        } catch (e) {
+            log.error(`${logPrefix}Error Authenticating: ${e.message} ${__location}`);
+            return this.client_error(`${logPrefix}Error Authenticating: ${e.message}`, __location);
         }
 
         // Build the XML Request
@@ -464,9 +465,9 @@ module.exports = class ChubbBOP extends Integration {
                 break;
             default:
                 // Unsupported Exposure
-                log.error(`Chubb BOP: Unsupported exposure of '${this.industry_code.attributes.exposure}'} ` + __location)
-                this.reasons.push(`Unsupported exposure of '${this.industry_code.attributes.exposure}'`);
-                return this.return_result('error');
+                const declinedMessage = `${logPrefix}Unsupported exposure of '${this.industry_code.attributes.exposure}' `
+                log.error(declinedMessage + __location)
+                return this.client_autodeclined(declinedMessage);
         }
 
         // </Rating>
@@ -523,9 +524,9 @@ module.exports = class ChubbBOP extends Integration {
                 break;
             default:
                 // Unsupported Exposure
-                log.error(`Chubb BOP: Unsupported exposure of '${this.industry_code.attributes.exposure}'} ` + __location)
-                this.reasons.push(`Unsupported exposure of '${this.industry_code.attributes.exposure}'`);
-                return this.return_result('error');
+                const declinedMessage = `${logPrefix}Unsupported exposure of '${this.industry_code.attributes.exposure}' `;
+                log.error(declinedMessage + __location)
+                return this.client_autodeclined(declinedMessage);
         }
 
         // </Rating>
@@ -594,11 +595,14 @@ module.exports = class ChubbBOP extends Integration {
 
         // </PropertyInfo>
 
-        const question_identifiers = await this.get_question_identifiers().catch((err) => {
-            log.error(`Chubb BOP: get_question_identifiers error ${err}` + __location)
-            this.reasons.push('Unable to get question identifiers');
-            return this.return_result('error');
-        });
+        let question_identifiers = null;
+        try {
+            question_identifiers = await this.get_question_identifiers();
+        } catch (e) {
+            const errorMessage = `${logPrefix}Error in get_question_identifiers(): ${e} `;
+            log.error(errorMessage + __location)
+            return this.client_error(errorMessage, __location);
+        }
 
         // Loop through each question
         for (const question_id in this.questions) {
@@ -614,7 +618,7 @@ module.exports = class ChubbBOP extends Integration {
                 // Build out the question structure (Chubb only has Boolean, so don't worry about others)
                 QuestionAnswer = BOPLineBusiness.ele('QuestionAnswer');
                 QuestionAnswer.ele('QuestionCd', QuestionCd);
-                QuestionAnswer.ele('QuestionText', question.text); // TO DO: How do we know the correct question text?
+                QuestionAnswer.ele('QuestionText', question.text); // TODO: How do we know the correct question text?
                 QuestionAnswer.ele('YesNoCd', question.get_answer_as_boolean() ? 'Yes' : 'No');
                 QuestionAnswer.ele('Num');
                 QuestionAnswer.ele('Explanation');
@@ -656,54 +660,48 @@ module.exports = class ChubbBOP extends Integration {
         let result = null;
         try {
             result = await this.send_xml_request(host, '/api/v1/quotes', xml, headers);
+        } catch (e) {
+            const errorMessage = `${logPrefix}Error sending XML quote request: ${e} `;
+            log.error(errorMessage + __location);
+            return this.client_error(errorMessage, __location);
         }
-        catch (error) {
-            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: ${error} ${__location}`);
-            this.reasons.push("Error calling insurer: " + error);
-            return this.return_result('error');
-        }
-        // Send the XML to the insurer
-        // await this.send_xml_request(host, '/api/v1/quotes', xml, headers).
-        //     then((result) => {
+
         // Parse the various status codes and take the appropriate action
         const res = result.ACORD.InsuranceSvcRs[0];
+        let additionalInfo = "";
 
         // Determine what happened
-
         switch (res.Status[0].StatusCd[0]) {
             case 'DC-100':
-                log.error(`Appid: ${this.app.id} Chubb BOP: Error DC-100: The data we sent was invalid ` + __location)
-                this.reasons.push('Error DC-100: The data we sent was invalid');
-                return this.return_result('error');
+                const errorMessage = `${logPrefix}Error DC-100: The data we sent was invalid. `;
+                log.error(errorMessage + __location)
+                return this.client_error(errorMessage, __location);
             case '400':
-                log.error(`Appid: ${this.app.id} Chubb BOP: Error 400: ${res.Status[0].StatusDesc[0]} ` + __location)
-                this.reasons.push(`Error 400: ${res.Status[0].StatusDesc[0]}`);
-                return this.return_result('error');
+                const errorMessage = `${logPrefix}Error 400: ${res.Status[0].StatusDesc[0]} `;
+                log.error(errorMessage + __location)
+                return this.client_error(errorMessage, __location);
             case '0':
-                // Furthher refine
+                // Further refine
                 const BOPPolicyQuoteInqRs = res.BOPPolicyQuoteInqRs[0];
 
                 let MsgStatusCd = null;
-                try{
+                try {
                     MsgStatusCd = BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].MsgStatusCd[0];
-                    // not always present.
+                    // not always present...
                     if(BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0]){
-                        this.reasons.push(BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0])
+                        additionalInfo = BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0];
                     }
-                }
-                catch(err){
-                    log.error("Chubb GL error getting  MsgStatus " + err + __location);
+                } catch (e) {
+                    log.error(`${logPrefix}Error parsing MsgStatus response property: ${e}` + err + __location);
                 }
 
-                if(MsgStatusCd === 'Referral'){
-                    return this.return_result('referred');
-                }
-                else if(MsgStatusCd !== 'Success'){
+                if (MsgStatusCd === 'Referral') { // <--- I DON'T THINK THIS IS RIGHT...
+                    return this.client_referred();
+                } else if(MsgStatusCd !== 'Success') {
                     try {
                         const error_message = BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0];
                         log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Error Returned by Carrier: ${error_message} ${__location}`);
-                    }
-                    catch (e) {
+                    } catch (e) {
                         log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Error Returned by Carrier: Quote structure changed. Unable to find error message. ${__location}`);
                     }
                     return this.return_result('error');
