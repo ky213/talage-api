@@ -657,6 +657,10 @@ module.exports = class ChubbBOP extends Integration {
         // Build the authorization header
         const headers = {Authorization: `${tokenResponse.token_type} ${tokenResponse.access_token}`};
 
+        log.debug("=================== QUOTE REQUEST ===================");
+        log.debug(`Chubb request (Appid: ${this.app.applicationDocData.mysqlId}): \n${xml}`);
+        log.debug("=================== QUOTE REQUEST ===================");
+
         let result = null;
         try {
             result = await this.send_xml_request(host, '/api/v1/quotes', xml, headers);
@@ -668,18 +672,23 @@ module.exports = class ChubbBOP extends Integration {
 
         // Parse the various status codes and take the appropriate action
         const res = result.ACORD.InsuranceSvcRs[0];
-        let additionalInfo = "";
+        let additionalInfo = null;
+
+        // TODO: Once below isn't a switch statement, move this and create an error log
+        log.debug("=================== QUOTE RESULT ===================");
+        log.debug(`Chubb response (Appid: ${this.app.applicationDocData.mysqlId}): \n${JSON.stringify(result, null, 4)}`);
+        log.debug("=================== QUOTE RESULT ===================");
 
         // Determine what happened
-        switch (res.Status[0].StatusCd[0]) {
+        switch (res.Status[0].StatusCd[0]) { //TODO: Remove this Switch statement, first see what the error responses look like...
             case 'DC-100':
-                const errorMessage = `${logPrefix}Error DC-100: The data we sent was invalid. `;
-                log.error(errorMessage + __location)
-                return this.client_error(errorMessage, __location);
+                const errorMessage100 = `${logPrefix}Error DC-100: The data we sent was invalid. `;
+                log.error(errorMessage100 + __location)
+                return this.client_error(errorMessage100, __location);
             case '400':
-                const errorMessage = `${logPrefix}Error 400: ${res.Status[0].StatusDesc[0]} `;
-                log.error(errorMessage + __location)
-                return this.client_error(errorMessage, __location);
+                const errorMessage400 = `${logPrefix}Error 400: ${res.Status[0].StatusDesc[0]} `;
+                log.error(errorMessage400 + __location)
+                return this.client_error(errorMessage400, __location);
             case '0':
                 // Further refine
                 const BOPPolicyQuoteInqRs = res.BOPPolicyQuoteInqRs[0];
@@ -687,93 +696,93 @@ module.exports = class ChubbBOP extends Integration {
                 let MsgStatusCd = null;
                 try {
                     MsgStatusCd = BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].MsgStatusCd[0];
-                    // not always present...
-                    if(BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0]){
-                        additionalInfo = BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0];
-                    }
                 } catch (e) {
-                    log.error(`${logPrefix}Error parsing MsgStatus response property: ${e}` + err + __location);
+                    const errorMessage = `${logPrefix}Error parsing MsgStatusCd response property: ${e} `;
+                    log.error(errorMessage + __location);
+                    return this.client_error(errorMessage, __location);
                 }
 
-                if (MsgStatusCd === 'Referral') { // <--- I DON'T THINK THIS IS RIGHT...
-                    return this.client_referred();
-                } else if(MsgStatusCd !== 'Success') {
-                    try {
-                        const error_message = BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0];
-                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Error Returned by Carrier: ${error_message} ${__location}`);
-                    } catch (e) {
-                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Error Returned by Carrier: Quote structure changed. Unable to find error message. ${__location}`);
+                // grab additional error information if it exists
+                if (BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus && BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0]) {
+                    additionalInfo = BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0];
+                }
+
+                if (MsgStatusCd !== 'Success') {
+                    let errorMessage = `${logPrefix}Error returned by carrier: `;
+                    if (additionalInfo) {
+                        errorMessage += additionalInfo;
+                    } else {
+                        errorMessage += `Quote structure changed. Unable to parse error message. `;
                     }
-                    return this.return_result('error');
-                }
-                else if(!MsgStatusCd){
-                    this.reasons.push(MsgStatusCd);
+                    log.error(errorMessage + __location);
+                    return this.client_error(errorMessage, __location);
                 }
 
+                let quoteNumber = null;
+                const quoteProposalId = null; // Chubb BOP doesn't currently return a quote proposal ID
+                let premium = null;
+                const quoteLimits = {};
+                const quoteLetter = null; // Chubb BOP doesn't currently return a quote letter
+                const quoteMIMEType = null; // Chubb BOP doesn't currently return a quote MIME type
 
                 // Attempt to get the quote number
                 try {
-                    this.request_id = BOPPolicyQuoteInqRs.CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0];
-                    this.number = this.request_id;
-                }
-                catch (e) {
-                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.` + __location);
+                    quoteNumber = BOPPolicyQuoteInqRs.CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0];
+                } catch (e) {
+                    log.warn(`${logPrefix}Error: Quote structure changed. Unable to find quote number. ` + __location);
                 }
 
                 // Get the amount of the quote (from the Silver package only, per Adam)
                 try {
-                    this.amount = parseInt(BOPPolicyQuoteInqRs.CommlPolicy[0].SilverTotalPremium[0], 10);
-                }
-                catch (e) {
-                    // This is handled in return_result()
+                    premium = parseInt(BOPPolicyQuoteInqRs.CommlPolicy[0].SilverTotalPremium[0], 10);
+                } catch (e) {
+                    log.warn(`${logPrefix}Error: Quote structure changed. Unable to find quote premium. ` + __location);
                 }
 
+                // NOTE: Currently commented out, as client_* functions do not accept this information
                 // Grab the writing company
-                try {
-                    this.writer = BOPPolicyQuoteInqRs.CommlPolicy[0].WritingCompany[0];
-                }
-                catch (e) {
-                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.` + __location);
-                }
+                // try {
+                //     this.writer = BOPPolicyQuoteInqRs.CommlPolicy[0].WritingCompany[0];
+                // }
+                // catch (e) {
+                //     log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company.` + __location);
+                // }
 
                 // Grab the limits info
                 try {
                     BOPPolicyQuoteInqRs.BOPLineBusiness[0].LiabilityInfo[0].GeneralLiabilityClassification[0].CommlCoverage.forEach((coverage) => {
                         switch (coverage.CoverageCd[0]) {
                             case 'GENAG':
-                                this.limits[8] = coverage.Limit[0].FormatInteger[0];
+                                quoteLimits[8] = coverage.Limit[0].FormatInteger[0];
                                 break;
                             case 'GO':
-                                this.limits[4] = coverage.Limit[0].FormatInteger[0];
+                                quoteLimits[4] = coverage.Limit[0].FormatInteger[0];
                                 break;
                             default:
-                                log.error(`Appid: ${this.app.id} ${this.insurer.name} GL Integration Error: Unexpected limit found in response` + __location);
+                                log.warn(`${logPrefix}Warning: Unexpected limit found in quote response: ${coverage.CoverageCd[0]}. ` + __location);
                                 break;
                         }
 
-                        // Limits that Chubb doesn't reutrn in the API but we need anyway
-                        this.limits[5] = 100000;
-                        this.limits[6] = 5000;
-                        this.limits[7] = 1000000;
-                        this.limits[9] = 2000000;
+                        // Limits that Chubb doesn't return in the API but we need anyway
+                        quoteLimits[5] = 100000;
+                        quoteLimits[6] = 5000;
+                        quoteLimits[7] = 1000000;
+                        quoteLimits[9] = 2000000;
                     });
-                }
-                catch (e) {
-                    // This is handled in return_result()
+                } catch (e) {
+                    log.warn(`${logPrefix}Encountered an error parsing quote response limits: ${e}. ` + __location);
                 }
 
                 // Send the result of the request
-                return this.return_result('quoted');
-
+                if (MsgStatusCd === 'Referral') {
+                    return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType);
+                } else {
+                    return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType);
+                }
             default:
-                log.error(`Appid: ${this.app.id} Chubb BOP: API returned unknown status code of ${res.Status[0].StatusCd[0]} ` + __location)
-                this.reasons.push(`API returned unknown status code of ${res.Status[0].StatusCd[0]}`);
-                return this.return_result('error');
+                const errorMessage = `${logPrefix}API returned an unknown status code: ${res.Status[0].StatusCd[0]}. `;
+                log.error(errorMessage + __location)
+                return this.client_error(errorMessage, __location);
         }
-            // }).
-            // catch(() => {
-            //     log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to connect to insurer` + __location);
-            //     return this.return_result('error');
-            // });
     }
 }
