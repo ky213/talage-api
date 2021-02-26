@@ -5,7 +5,6 @@ const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
 
 
-
 /**
  * AbandonQuote Task processor
  *
@@ -24,6 +23,10 @@ exports.processtask = async function(queueMessage) {
         //Inspect JSON for applicationId
         if(queueMessage.body && queueMessage.body.applicationId){
             await soleproApplicationEmailTask(queueMessage.body.applicationId).catch(err => error = err);
+            if(error){
+                log.error("Error soleproApplicationEmailTask " + error + __location);
+            }
+            error = null;
         }
         else {
             log.error("Error soleproApplicationEmailTask missing applicationId " + __location);

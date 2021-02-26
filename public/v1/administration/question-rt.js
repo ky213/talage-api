@@ -103,6 +103,16 @@ async function update(req, res, next) {
         return next(error);
     }
     res.send(200, questionBO);
+    //update cache
+    const questionSvc = global.requireShared('./services/questionsvc.js');
+    try{
+        //do not await not need to wait for response
+        questionSvc.UpdateRedisIndustryQuestionByQuestionId(questionBO.id);
+    }
+    catch(err){
+        log.error(`Error update question cache for ${questionBO.id}`)
+    }
+
     return next();
 }
 

@@ -14,7 +14,7 @@ const serverHelper = require("../../../server.js");
 // dummy endpoint to stimulate resources
 async function getResources(req, res, next){
     // Let basic through with no app id
-    if (!req.query.page || !req.query.appId && req.query.page !== "basic") {
+    if (!req.query.page || !req.query.appId && req.query.page !== "_basic") {
         log.info('Bad Request: Parameters missing' + __location);
         return next(serverHelper.requestError('Parameters missing'));
     }
@@ -22,32 +22,99 @@ async function getResources(req, res, next){
     const resources = {};
 
     switch(req.query.page) {
-        case "additionalQuestions":
+        case "_business-questions":
+            membershipTypes(resources);
             break;
-        case "basic":
+        case "_basic":
+        case "_basic-created":
             entityTypes(resources);
             break;
-        case "business":
+        case "_business":
             break;
-        case "claims":
+        case "_claims":
+            policyTypes(resources);
             break;
-        case "locations":
+        case "_locations":
             territories(resources);
             employeeTypes(resources);
             unemploymentNumberStates(resources);
             break;
-        case "mailingAddress":
+        case "_mailing-address":
             territories(resources);
             break;
-        case "owners":
+        case "_officers":
             officerTitles(resources);
             break;
-        case "policies":
+        case "_policies":
+            limitsSelectionAmounts(resources);
+            deductibleAmounts(resources);
+            policiesEnabled(resources);
             break;
     }
 
     res.send(200, resources);
 }
+const membershipTypes = resources => {
+    resources.membershipTypes = ['Nevada Resturant Association'];
+}
+const policiesEnabled = resources => {
+    resources.policiesEnabled = [
+        "BOP",
+        "GL",
+        "WC"
+    ];
+}
+
+const policyTypes = resources => {
+    resources.policyTypes = [
+        {
+            value: "BOP",
+            label: "Business Owners Policy (BOP)"
+        },
+        {
+            value: "GL",
+            label: "General Liability (GL)"
+        },
+        {
+            value: "WC",
+            label: "Workers' Compensation (WC)"
+        }
+    ];
+};
+
+const limitsSelectionAmounts = resources => {
+    resources.limitsSelectionAmounts = {
+        bop:
+        [
+            "$1,000,000 / $1,000,000 / $1,000,000",
+            "$1,000,000 / $2,000,000 / $1,000,000",
+            "$1,000,000 / $2,000,000 / $2,000,000"
+        ],
+        gl: [
+            "$1,000,000 / $1,000,000 / $1,000,000",
+            "$1,000,000 / $2,000,000 / $1,000,000",
+            "$1,000,000 / $2,000,000 / $2,000,000"
+        ],
+        wc: [
+            "$100,000 / $500,000 / $100,000",
+            "$500,000 / $500,000 / $500,000",
+            "$500,000 / $1,000,000 / $500,000",
+            "$1,000,000 / $1,000,000 / $1,000,000"
+        ]
+    }
+}
+
+const deductibleAmounts = resources => {
+    resources.deductibleAmounts = {
+        bop: ["$1500",
+            "$1000",
+            "$500"],
+        gl: ["$1500",
+            "$1000",
+            "$500"]
+    };
+}
+
 
 const unemploymentNumberStates = resources => {
     resources.unemploymentNumberStates = [
@@ -66,10 +133,14 @@ const officerTitles = resources => {
     // TODO: pull from officer_titles table (sql db)
     resources.officerTitles =
     [
-        "VP-Treas",
-        "VP-Secy-Treas",
-        "VP-Secy",
+        "Chief Executive Officer",
+        "Chief Financial Officer",
+        "Chief Operating Officer",
+        "Director",
         "Vice President",
+        "Executive Vice President",
+        "Executive Secy-VP",
+        "Executive Secretary",
         "Treasurer",
         "Secy-Treas",
         "Secretary",
@@ -80,13 +151,9 @@ const officerTitles = resources => {
         "Pres-Treas",
         "Pres-Secy-Treas",
         "Pres-Secy",
-        "Executive Vice President",
-        "Executive Secy-VP",
-        "Executive Secretary",
-        "Director",
-        "Chief Operating Officer",
-        "Chief Financial Officer",
-        "Chief Executive Officer"
+        "VP-Treas",
+        "VP-Secy-Treas",
+        "VP-Secy"
     ];
 }
 
@@ -171,7 +238,15 @@ const territories = resources => {
     ];
 }
 
+async function getRemoteAddress(req, res, next){
+    const remoteAdd = req.connection.remoteAddress;
+    if(!remoteAdd){
+        next(serverHelper.requestError(`Unable to detect the remote address.`))
+    }
+    res.send(200, {remoteAddress: req.connection.remoteAddress});
+}
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-    server.addGetAuthQuoteApp("Get Resources for Quote App", `${basePath}/resources`, getResources);
+    server.addGetAuthAppWF("Get Next Route", `${basePath}/resources`, getResources);
+    server.addGetAuthAppWF("Get IP Info", `${basePath}/remote-address`, getRemoteAddress);
 }

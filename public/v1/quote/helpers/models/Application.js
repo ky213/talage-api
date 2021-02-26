@@ -168,8 +168,8 @@ module.exports = class Application {
             await this.translate();
         }
         catch (e) {
-            log.error(`Error translating application: ${e}`);
-            throw e;
+            log.error(`Error translating application: ${e}` + __location);
+            //throw e;
         }
     }
 
@@ -191,13 +191,13 @@ module.exports = class Application {
 
         // DBA length check
         // NOTE: Do not stop the quote over dba name. Different insurers have different rules.
-        if (this.business.dba.length > 100) {
+        if (this.business.dba && this.business.dba.length > 100) {
             log.warn(`Translate Warning: DBA exceeds maximum length of 100 characters applicationId ${this.id}` + __location);
             this.applicationDocData.dba = this.applicationDocData.dba.substring(0, 100);
         }
 
         // Mailing Address check, check for maximum length
-        if (this.business.mailing_address.length > 100) {
+        if (this.business.mailing_address && this.business.mailing_address.length > 100) {
             log.error('Translate Warning: Mailing address exceeds maximum of 100 characters');
             this.applicationDocData.mailingAddress = this.applicationDocData.mailingAddress.substring(0, 100);
         }
@@ -206,7 +206,9 @@ module.exports = class Application {
         }
 
         // Adjust phone to remove formatting.  (not should be a integration issue, not app wide.)
-        this.business.phone = this.business.phone.replace(/[^0-9]/ig, '');
+        if(this.business && this.business.phone){
+            this.business.phone = this.business.phone.replace(/[^0-9]/ig, '');
+        }
         //this.business.phone = parseInt(this.business.phone, 10);
         //business contact cleanup
         if(this.business.contacts && this.business.contacts.length > 0){
@@ -216,7 +218,7 @@ module.exports = class Application {
         }
 
         // If website is invalid, clear it
-        if (this.business.website) {
+        if (this.business && this.business.website) {
             // Check formatting
             if (!validator.isWebsite(this.business.website)) {
                 log.info(`Translate warning: Invalid formatting for property: website. Expected a valid URL for ${this.id}`)
@@ -229,28 +231,6 @@ module.exports = class Application {
                 this.business.website = '';
             }
         }
-
-        // Unincorporated Association (Required only for WC, in NH, and for LLCs and Corporations)
-        if (
-            this.has_policy_type('WC') &&
-            (this.business.entity_type === 'Corporation' || this.business.entity_type === 'Limited Liability Company') &&
-            this.business.mailing_state === 'NH'
-        ) {
-
-            // This is required
-            if (this.business.unincorporated_association === null) {
-                throw new Error('Missing required field: unincorporated_association');
-            }
-
-            // Validate
-            if (!validator.boolean(this.business.unincorporated_association)) {
-                throw new Error('Invalid value for unincorporated_association, please use a boolean value');
-            }
-
-            // If value is valid, convert to boolean
-            this.business.unincorporated_association = helper.convert_to_boolean(this.applicationDocData.unincorporated_association);
-        }
-
 
         /************** LOCATION DATA TRANSLATION ***************/
 
@@ -405,20 +385,25 @@ module.exports = class Application {
         /************** QUESTION DATA TRANSLATION ***************/
         // NOTE: Some of this logic now uses applicationDocData simply because the logic is greatly simplified doing so
 
-        const policy_types = [];
+        const policyList = [];
         this.policies.forEach(policy => {
-            policy_types.push({
+            policyList.push({
                 type: policy.type,
                 effectiveDate: policy.effective_date
             });
         });
 
-        // Get a list of all questions the user may need to answer
+        // Ensure we have the list of insurers for this application
+        this.insurers = await this.get_insurers();
+
+        // Get a list of all questions the user may need to answer. These top-level questions are "general" questions.
         const insurer_ids = this.get_insurer_ids();
         const wc_codes = this.get_wc_codes();
-        let questions = null;
+        let talageQuestionDefList = null;
         try {
-            questions = await questionsSvc.GetQuestionsForBackend(wc_codes, this.business.industry_code, this.business.getZips(), policy_types, insurer_ids, true);
+            log.info(`Quoting Application Model loading questions for ${this.id} ` + __location)
+            talageQuestionDefList = await questionsSvc.GetQuestionsForBackend(wc_codes, this.business.industry_code, this.business.getZips(), policyList, insurer_ids, "general", true);
+            log.info(`Got questions Quoting Application Model loading questions for ${this.id} ` + __location)
         }
         catch (e) {
             log.error(`Translation Error: GetQuestionsForBackend: ${e}. ` + __location);
@@ -429,12 +414,12 @@ module.exports = class Application {
         this.questions = {};
 
         // Convert each question from the database into a question object and load in the user's answer to each
-        if (questions) {
+        if (talageQuestionDefList) {
             //await questions.forEach((question) => {
-            for (const question of questions) {
+            for (const questionDef of talageQuestionDefList) {
                 // Prepare a Question object based on this data and store it
                 const q = new Question();
-                q.load(question);
+                q.load(questionDef);
 
                 // Load the user's answer
                 if (user_questions) {
@@ -452,32 +437,6 @@ module.exports = class Application {
 
                 // Store the question object in the Application for later use
                 this.questions[q.id] = q;
-            }
-        }
-
-        // Enforce required questions (this must be done AFTER all questions are loaded with their answers)
-        if (this.applicationDocData.questions) {
-            for (const questionId in this.applicationDocData.questions) {
-                if (Object.prototype.hasOwnProperty.call(this.applicationDocData.questions, questionId)) {
-                    const question = this.applicationDocData.questions[questionId];
-
-                    // Hidden questions are not required
-                    if (question.hidden) {
-                        continue;
-                    }
-
-                    if (question.parent && question.parent > 0) {
-                        // Get the parent question
-                        const parent_question = this.questions[question.parent];
-
-                        // If no parent was found, throw an error
-                        if (!parent_question) {
-                            // No one question issue should stop quoting with all insureres - BP 2020-10-04
-                            log.error(`Question ${question.id} has invalid parent setting. (${htmlentities.decode(question.text).replace('%', '%%')})` + __location);
-                        }
-                    }
-
-                }
             }
         }
     }
@@ -505,7 +464,6 @@ module.exports = class Application {
         return new Promise(async(fulfill, reject) => {
             // Get a list of desired insurers
             let desired_insurers = [];
-            let stop = false;
             this.policies.forEach((policy) => {
                 if (Array.isArray(policy.insurers)) {
                     policy.insurers.forEach((insurer) => {
@@ -545,9 +503,6 @@ module.exports = class Application {
                     });
                 }
             });
-            if (stop) {
-                return;
-            }
 
             // Limit insurers to those supported by the Agent
             if (desired_insurers.length) {
@@ -568,7 +523,7 @@ module.exports = class Application {
             }
             else {
                 // Only use the insurers supported by this agent
-                log.debug("loading all AL insurers " + __location)
+                log.debug("loading all Agency Location insurers " + __location)
                 desired_insurers = Object.keys(this.agencyLocation.insurers);
             }
 
@@ -709,11 +664,11 @@ module.exports = class Application {
                                 }
                             }
                             else {
-                                log.error(`${policy.type} is not enabled for insurer ${insurer.id} for Agency location ${this.agencyLocation.id} app ${this.id}` + __location);
+                                log.info(`${policy.type} is not enabled for insurer ${insurer.id} for Agency location ${this.agencyLocation.id} app ${this.id}` + __location);
                             }
                         }
                         else {
-                            log.error(`Info for policy type ${policy.type} not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} app ${this.id}` + __location);
+                            log.warn(`Info for policy type ${policy.type} not found for agency location: ${this.agencyLocation.id} Insurer: ${insurer.id} app ${this.id}` + __location);
                         }
                     }
                     else {
@@ -767,6 +722,10 @@ module.exports = class Application {
                 policyTypeReferred[quote.policyType] = true;
             }
         });
+
+        // Update the application quote metrics
+        await applicationBO.recalculateQuoteMetrics(this.applicationDocData.uuid, quoteList);
+
         // Update the application state
         await this.updateApplicationState(this.policies.length, Object.keys(policyTypeQuoted).length, Object.keys(policyTypeReferred).length);
 
@@ -788,15 +747,11 @@ module.exports = class Application {
 	 */
     async send_notifications(quoteList) {
         // Determine which message will be sent
-        let all_had_quotes = true;
         let some_quotes = false;
         let notifiyTalage = false
         quoteList.forEach((quoteDoc) => {
             if (quoteDoc.aggregatedStatus === 'quoted' || quoteDoc.aggregatedStatus === 'quoted_referred') {
                 some_quotes = true;
-            }
-            else {
-                all_had_quotes = false;
             }
             //Notify Talage logic Agencylocation ->insures
             try{
@@ -811,7 +766,7 @@ module.exports = class Application {
                 log.error(`Quote Application ${this.id} Error get notifyTalage ` + err + __location);
             }
         });
-        log.info(`Quote Application ${this.id}, some_quotes;: ${some_quotes}, all_had_quotes: ${all_had_quotes}:  Sending Notification to Talage is ${notifiyTalage}` + __location)
+        log.info(`Quote Application ${this.id}, some_quotes;: ${some_quotes}:  Sending Notification to Talage is ${notifiyTalage}` + __location)
 
         // Send an emails if there were no quotes generated
         if (some_quotes === false && this.agencyPortalQuote === false) {
@@ -943,11 +898,8 @@ module.exports = class Application {
             // Send a message to Slack
             // some_quotes === true tells us there is at least one quote.
             // if quoteList is empty, all_had_quotes will equal true.
-            if (all_had_quotes && some_quotes) {
-                slack.send('customer_success', 'ok', 'Application completed and the user received ALL quotes', attachment);
-            }
-            else if (some_quotes) {
-                slack.send('customer_success', 'ok', 'Application completed and only SOME quotes returned', attachment);
+            if (some_quotes) {
+                slack.send('customer_success', 'ok', 'Application completed and got quotes returned', attachment);
             }
             else {
                 slack.send('customer_success', 'warning', 'Application completed, but the user received NO quotes', attachment);
@@ -1027,7 +979,7 @@ module.exports = class Application {
             }
 
             // Validate the ID
-            // this.applicationDocData loaded we know 
+            // this.applicationDocData loaded we know
             // we have a good application ID.  (happend in Load)
 
 
@@ -1049,8 +1001,8 @@ module.exports = class Application {
                         try {
                             await this.agencyLocation.init();
                         }
-                        catch (e) {
-                            log.error(`Error in this.agencyLocation.init(): ${e}. ` + __location);
+                        catch (err) {
+                            log.error(`Error in this.agencyLocation.init(): ${err}. ` + __location);
                             return reject(e);
                         }
 
@@ -1077,9 +1029,29 @@ module.exports = class Application {
                 return reject(new Error('Invalid insurer(s) specified in policy.'));
             }
 
+            //application level
+            /**
+             * Industry Code (required)
+             * - > 0
+             * - <= 99999999999
+             * - Must existin our database
+             */
+            if (this.applicationDocData.industryCode) {
+                //this is now loaded from database.
+                //industry code should already be validated.
+                // this.applicationDocData.industryCode_description = await validator.industry_code(this.applicationDocData.industryCode);
+                // if (!this.applicationDocData.industryCode_description) {
+                //     throw new Error('The industry code ID you provided is not valid');
+                // }
+            }
+            else {
+                return reject(new Error('Missing property: industryCode'));
+            }
+
+
             // Business (required)
             try {
-                validateBusiness(this.applicationDocData);
+                await validateBusiness(this.applicationDocData);
             }
             catch (e) {
                 return reject(new Error(`Failed validating business: ${e}`));
@@ -1144,42 +1116,20 @@ module.exports = class Application {
             }
 
             /**
-			 * Corporation type (required only for WC for Corporations in PA that are excluding owners)
-			 * - Must be one of 'c', 'n', or 's'
-			 */
-            if (
-                this.has_policy_type('WC') &&
-                this.applicationDocData.entityType === 'Corporation' &&
-                this.applicationDocData.mailingState === 'PA' &&
-                !this.applicationDocData.ownersCovered
-            ) {
-                // TODO: this will always fail because current mongoose schema doesn't have corporationType
-                if (this.applicationDocData.corporationType) {
-                    // eslint-disable-next-line array-element-newline
-                    const paCorpValidTypes = ['c', 'n', 's'];
-                    if (!paCorpValidTypes.includes(this.applicationDocData.corporationType)) {
-                        log.warn(`Invalid corporation type. Must be "c" (c-corp), "n" (non-profit), or "s" (s-corp). ${this.applicationDocData.mysqlId}. ` + __location)
-                        return reject(new Error('Invalid corporation type. Must be "c" (c-corp), "n" (non-profit), or "s" (s-corp).'));
-                    }
-                }
-                else {
-                    return reject(new Error('Missing required field: corporationType'));
-                }
-            }
-
-            /**
 			 * Owners (conditionally required)
 			 * - Only used for WC policies, ignored otherwise
 			 * - Only required if ownersCovered is false
+             *
+             * NOTE: This should not stop quoting.
 			 */
-            if (this.has_policy_type('WC') && !this.applicationDocData.ownersCovered) {
-                if (this.applicationDocData.owners.length) {
-                    // TODO: Owner validation is needed here
-                }
-                else {
-                    return reject(new Error('The names of owners must be supplied if they are not included in this policy.'));
-                }
-            }
+            // if (this.has_policy_type('WC') && !this.applicationDocData.ownersCovered) {
+            //     if (this.applicationDocData.owners.length) {
+            //         // TODO: Owner validation is needed here
+            //     }
+            //     else {
+            //         return reject(new Error('The names of owners must be supplied if they are not included in this policy.'));
+            //     }
+            // }
 
             // Validate all policies
             try {

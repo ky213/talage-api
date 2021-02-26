@@ -288,7 +288,7 @@ async function GetResources(req, res, next){
 async function CheckZip(req, res, next){
     const responseObj = {};
     if(req.body && req.body.zip){
-        let rejected = false;
+        const rejected = false;
         //make sure we have a valid zip code
         const zipCodeBO = new ZipCodeBO();
         let error = null;
@@ -329,7 +329,7 @@ async function CheckZip(req, res, next){
             responseObj['message'] = 'The zip code you entered is invalid.';
             res.send(404, responseObj);
             return next(serverHelper.requestError('The zip code you entered is invalid.'));
-            }
+        }
 
         // log.debug("zipCodeBO: " + JSON.stringify(zipCodeBO.cleanJSON()))
     }
@@ -554,6 +554,12 @@ async function GetQuestions(req, res, next){
         return next(serverHelper.requestError('You must supply at least one zip code'));
     }
 
+    // Set the question subject area. Default to "general" if not specified.
+    let questionSubjectArea = "general";
+    if (req.query.questionSubjectArea) {
+        questionSubjectArea = req.query.questionSubjectArea;
+    }
+
     // Check if we should return hidden questions also
     let return_hidden = false;
     if (req.query.hidden && req.query.hidden === 'true') {
@@ -565,7 +571,7 @@ async function GetQuestions(req, res, next){
     try{
         // insurers is optional
         const applicationBO = new ApplicationBO();
-        getQuestionsResult = await applicationBO.GetQuestionsForFrontend(req.query.appId, req.query.activity_codes.split(','), req.query.industry_code, req.query.zips.split(','), req.query.policy_types.split(','), return_hidden);
+        getQuestionsResult = await applicationBO.GetQuestionsForFrontend(req.query.appId, req.query.activity_codes.split(','), req.query.industry_code, req.query.zips.split(','), req.query.policy_types.split(','), questionSubjectArea, return_hidden);
     }
     catch(error){
         log.error("Error getting questions " + error + __location);

@@ -413,9 +413,9 @@ module.exports = class CnaWC extends Integration {
         let result = null;
 
         try {
-            log.debug("=================== QUOTE REQUEST ===================");
-            log.debug("CNA request: " + JSON.stringify(wcRequest, null, 4));
-            log.debug("=================== QUOTE REQUEST ===================");
+            // log.debug("=================== QUOTE REQUEST ===================");
+            // log.debug("CNA request: " + JSON.stringify(wcRequest, null, 4));
+            // log.debug("=================== QUOTE REQUEST ===================");
             result = await this.send_json_request(host, QUOTE_URL, JSON.stringify(wcRequest), headers, "POST");
         }
         catch (error) {
@@ -448,9 +448,9 @@ module.exports = class CnaWC extends Integration {
             return this.client_declined(errorMessage);
         }
 
-        log.debug("=================== QUOTE RESULT ===================");
-        log.debug("CNA WC " + JSON.stringify(result, null, 4));
-        log.debug("=================== QUOTE RESULT ===================");
+       // log.debug("=================== QUOTE RESULT ===================");
+        //log.debug("CNA WC " + JSON.stringify(result, null, 4));
+        //log.debug("=================== QUOTE RESULT ===================");
 
         let quoteNumber = null;
         let premium = null;

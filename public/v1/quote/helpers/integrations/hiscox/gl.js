@@ -198,7 +198,7 @@ module.exports = class HiscoxGL extends Integration {
 
         // Ensure we have an email and phone for this agency, both are required to quote with Hiscox
         if (!this.app.agencyLocation.agencyEmail || !this.app.agencyLocation.agencyPhone) {
-            this.log_error(`Agency ${this.app.agencyLocation.id} does not have an email address and/or phone number. Hiscox requires both to quote.`);
+            this.log_error(`Agency Location ${this.app.agencyLocation.id} does not have an email address and/or phone number. Hiscox requires both to quote.`);
             return this.return_error('error', 'Hiscox requires an agency to provide both a phone number and email address');
         }
 
@@ -318,13 +318,14 @@ module.exports = class HiscoxGL extends Integration {
         if (totalPayrollQuestionId) {
             //parseInt does not throw error with parse a non-number.
             //Still want to remove the questions
-            if(parseInt(this.questions[totalPayrollQuestionId].answer, 10) !== "NaN"){
-                try {
-                    this.totalPayroll = parseInt(this.questions[totalPayrollQuestionId].answer, 10);
+            try {
+                const totalPayroll = parseInt(this.questions[totalPayrollQuestionId].answer, 10);
+                if (!isNaN(totalPayroll)) {
+                    this.totalPayroll = totalPayroll;
                 }
-                catch (error) {
-                    this.log_warn(`Could not convert custom total payroll '${this.questions[totalPayrollQuestionId].answer}' to a number.`, __location);
-                }
+            }
+            catch (error) {
+                this.log_warn(`Could not convert custom total payroll '${this.questions[totalPayrollQuestionId].answer}' to a number.`, __location);
             }
             delete this.questions[totalPayrollQuestionId];
         }

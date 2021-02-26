@@ -21,7 +21,7 @@
             <TransactionRequestDt>{{>transactionRequestDate}}</TransactionRequestDt>
             <TransactionEffectiveDt>{{>transactionEffectiveDate}}</TransactionEffectiveDt>
             <CurCd>USD</CurCd>
-			{{!-- Producer is hard-coded in --}}
+            {{!-- Producer is hard-coded in --}}
             <Producer>
                 <GeneralPartyInfo>
                     <NameInfo>
@@ -46,37 +46,35 @@
                     <ContractNumber>{{>app.agencyLocation.insurers[insurer.id].agency_id}}</ContractNumber>
                 </ProducerInfo>
             </Producer>
-			{{!-- Primary contact information --}}
+            {{!-- Primary contact information --}}
             <InsuredOrPrincipal>
                 <GeneralPartyInfo>
                     <NameInfo>
                         <CommlName>
                             <CommercialName>{{>app.business.name}}</CommercialName>
                         </CommlName>
-						{{if app.business.dba}}
+                        {{if app.business.dba}}
                         <SupplementaryNameInfo>
                             <SupplementaryNameCd>DBA</SupplementaryNameCd>
                             <SupplementaryName>{{>app.business.dba}}</SupplementaryName>
                         </SupplementaryNameInfo>
-						{{/if}}
+                        {{/if}}
                         <LegalEntityCd>{{>entityType}}</LegalEntityCd>
                         <TaxIdentity>
                             <TaxIdTypeCd>FEIN</TaxIdTypeCd>
                             <TaxId>{{>app.business.locations[0].identification_number}}</TaxId>
                         </TaxIdentity>
-                        {{if app.business.entity_type === 'Sole Proprietorship'}}
                         <PersonName>
                             <GivenName>{{>app.business.contacts[0].first_name}}</GivenName>
                             <Surname>{{>app.business.contacts[0].last_name}}</Surname>
                         </PersonName>
-                        {{/if}}
                     </NameInfo>
                     <Addr>
                         <AddrTypeCd>MailingAddress</AddrTypeCd>
                         <Addr1>{{>app.business.mailing_address}}</Addr1>
-						{{if app.business.mailing_address2}}
+                        {{if app.business.mailing_address2}}
                         <Addr2>{{>app.business.mailing_address2}}</Addr2>
-						{{/if}}
+                        {{/if}}
                         <City>{{>app.business.mailing_city}}</City>
                         <StateProvCd>{{>app.business.mailing_territory}}</StateProvCd>
                         <PostalCode>{{>app.business.mailing_zip}}</PostalCode>
@@ -90,11 +88,11 @@
                         <EmailInfo>
                             <EmailAddr>{{>app.business.contacts[0].email}}</EmailAddr>
                         </EmailInfo>
-						{{if app.business.website}}
+                        {{if app.business.website}}
                         <WebsiteInfo>
                             <WebsiteURL>{{>app.business.website}}</WebsiteURL>
                         </WebsiteInfo>
-						{{/if}}
+                        {{/if}}
                     </Communications>
                 </GeneralPartyInfo>
                 <InsuredOrPrincipalInfo>
@@ -141,13 +139,13 @@
 
                 {{!-- ---------------------------------------------------------------------------------- --}}
                 {{if app.business.entity_type === 'Limited Liability Company'}}
-				{{if managementStructureMember}}
+                {{if managementStructureMember}}
                 <QuestionAnswer>
                     <QuestionCd>WORK72</QuestionCd>
                     <YesNoCd>{{>managementStructureMember}}</YesNoCd>
                 </QuestionAnswer>
                 {{/if}}
-				{{if managementStructureManager}}
+                {{if managementStructureManager}}
                 <QuestionAnswer>
                     <QuestionCd>WORK73</QuestionCd>
                     <YesNoCd>{{>managementStructureManager}}</YesNoCd>
@@ -158,7 +156,7 @@
                     <QuestionCd>com.acuity_WORK208</QuestionCd>
                     <YesNoCd>WRITTEN</YesNoCd>
                 </QuestionAnswer>
-				{{/if}}
+                {{/if}}
                 {{/if}}
 
                 {{!-- ---------------------------------------------------------------------------------- --}}
@@ -172,7 +170,7 @@
                     <YesNoCd>NO</YesNoCd>
                 </QuestionAnswer>
                 {{!-- Child com.acuity_999990015 no answered --}}
-				{{/if}}
+                {{/if}}
 
                 {{!-- ---------------------------------------------------------------------------------- --}}
                 {{if app.business.entity_type === 'Sole Proprietorship' && app.business.primary_territory === 'ID'}}
@@ -237,30 +235,34 @@
                 </QuestionAnswer>
 
                 {{!-- ============================================================================================ --}}
-				{{!-- User-answered questions --}}
-				{{for questionList itemVar='~question'}}
+                {{!-- User-answered questions --}}
+                {{for questionList itemVar='~question'}}
                 <QuestionAnswer>
                     <QuestionCd>{{>~question.code}}</QuestionCd>
                     <{{:~question.answerType}}>{{>~question.answer}}</{{:~question.answerType}}>
+                    {{: ~root.getAdditionalQuestionValues(~question.code) }}
                 </QuestionAnswer>
-				{{/for}}
+                {{/for}}
             </CommlPolicy>
-			{{for app.business.locations itemVar='~location'}}
+            {{for app.business.locations itemVar='~location'}}
             <Location id="L{{>#index + 1}}">
                 <Addr>
                     <Addr1>{{>~location.address.substring(0, 30)}}</Addr1>
-					{{if ~location.address2}}
+                    {{if ~location.address2}}
                     <Addr2>{{>~location.address2.substring(0, 30)}}</Addr2>
-					{{/if}}
+                    {{/if}}
                     <City>{{>~location.city}}</City>
                     <StateProvCd>{{>~location.territory}}</StateProvCd>
                     <PostalCode>{{>~location.zip}}</PostalCode>
                 </Addr>
             </Location>
-			{{/for}}
+            {{/for}}
             <WorkCompLineBusiness>
                 <LOBCd>WORK</LOBCd>
-				{{for start=1 end=4 itemVar='~i'}}
+                {{if ~root.corporationType }}
+                <LegalEntityCd>{{> ~root.corporationType}}</LegalEntityCd>
+                {{/if}}
+                {{for start=1 end=4 itemVar='~i'}}
                 <WorkCompLossOrPriorPolicy>
                     <EffectiveDt>{{>~root.claims_by_year[~i].effective_date.format('YYYY-MM-DD')}}</EffectiveDt>
                     <ExpirationDt>{{>~root.claims_by_year[~i].expiration_date.format('YYYY-MM-DD')}}</ExpirationDt>
@@ -269,16 +271,32 @@
                     </TotalIncurredAmt>
                     <NumClaims>{{>~root.claims_by_year[~i].count}}</NumClaims>
                 </WorkCompLossOrPriorPolicy>
-				{{/for}}
+                {{/for}}
+                {{for app.applicationDocData.owners itemVar='~owner'}}
                 <WorkCompIndividuals>
-                    <IncludedExcludedCd>{{>app.business.owners_included? 'I' : 'E'}}</IncludedExcludedCd>
+                    <IncludedExcludedCd>{{> ~owner.include? 'I' : 'E' }}</IncludedExcludedCd>
+                    <NameInfo>
+                        <PersonName>
+                            <GivenName>{{> ~owner.fname }}</GivenName>
+                            <Surname>{{> ~owner.lname }}</Surname>
+                        </PersonName>
+                    </NameInfo>
+                    <TitleRelationshipCd>{{> ~root.getAcuityTitle(~owner) }}</TitleRelationshipCd>
+                    <com.acuity_TitleRelationshipDesc>{{> ~owner.officerTitle }}</com.acuity_TitleRelationshipDesc>
+                    <OwnershipPct>{{> ~owner.ownership }}</OwnershipPct>
+                    <QuestionAnswer>
+                        <QuestionCd>com.acuity_WORK215</QuestionCd>
+                        <QuestionText>Status</QuestionText>
+                        <Explanation>Active</Explanation>
+                    </QuestionAnswer>
                 </WorkCompIndividuals>
+                {{/for}}
                 <WorkCompRateState>
                     <StateProvCd>{{>app.business.primary_territory}}</StateProvCd>
-					{{if app.business.bureau_number}}
+                    {{if app.business.bureau_number}}
                     <RiskID>{{>app.business.bureau_number}}</RiskID>
-					{{/if}}
-					{{if app.business.experience_modifier !== 1.0}}
+                    {{/if}}
+                    {{if app.business.experience_modifier !== 1.0}}
                     <CreditOrSurcharge>
                         <CreditSurchargeCd>EXP</CreditSurchargeCd>
                         <CreditSurchargeAmtDesc>Experience Modification Factor</CreditSurchargeAmtDesc>
@@ -286,19 +304,19 @@
                             <FormatModFactor>{{>app.business.experience_modifier}}</FormatModFactor>
                         </NumericValue>
                     </CreditOrSurcharge>
-					{{/if}}
-					{{for app.business.locations itemVar='~location'}}
+                    {{/if}}
+                    {{for app.business.locations itemVar='~location'}}
                     <WorkCompLocInfo LocationRef="L{{>#index + 1}}">
-						{{for ~location.activity_codes itemVar='~activityCode'}}
+                        {{for ~location.activity_codes itemVar='~activityCode'}}
                         {{if ~activityCode.ncciCode}}
                         <WorkCompRateClass>
                             <RatingClassificationCd>{{>~activityCode.ncciCode}}</RatingClassificationCd>
                             <Exposure>{{>~activityCode.payroll}}</Exposure>
                         </WorkCompRateClass>
                         {{/if}}
-						{{/for}}
+                        {{/for}}
                     </WorkCompLocInfo>
-					{{/for}}
+                    {{/for}}
                 </WorkCompRateState>
                 <CommlCoverage>
                     <CoverageCd>WCEL</CoverageCd>

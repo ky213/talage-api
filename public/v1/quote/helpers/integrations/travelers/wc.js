@@ -105,6 +105,28 @@ module.exports = class AcuityWC extends Integration {
         return locationList;
     }
 
+    getClaims = (claims) => {
+        claims = claims.filter(c => c.policyType === "WC");
+
+        if (claims.length === 0) {
+            return null;
+        }
+
+        const requestClaims = [];
+
+        claims.forEach(claim => {
+            requestClaims.push({
+                "date": claim.eventDate,
+                "totalPaidAmount": claim.amountPaid,
+                "reservedAmount": claim.amountReserved !== null ? claim.amountReserved : 0,
+                "claimStatusCode": claim.open ? "O" : "C",
+                "workCompLossTypeCode": "UNK",
+                "descriptionTypeCode": "43" // unknown
+            });
+        });
+
+        return requestClaims;
+    }
 
     /**
 	 * Requests a quote from Acuity and returns. This request is not intended to be called directly.
@@ -141,6 +163,9 @@ module.exports = class AcuityWC extends Integration {
                 "2000000/2000000/2000000"
             ]
         }
+
+        const applicationDocData = this.app.applicationDocData;
+
         // Default limits (supported by all states)
         let applicationLimits = "1000000/1000000/1000000";
         // Find best limits
@@ -181,7 +206,7 @@ module.exports = class AcuityWC extends Integration {
                 const ncciCode = await this.get_national_ncci_code_from_activity_code(location.territory, activityCode.id);
                 if (!ncciCode) {
                     this.log_warn(`Missing NCCI class code mapping: activityCode=${activityCode.id} territory=${location.territory}`, __location);
-                    return this.client_error(`Insurer activity class codes were not found for all activities in the application.`, __location);
+                    return this.client_autodeclined(`Insurer activity class codes were not found for all activities in the application.`);
                 }
                 activityCode.ncciCode = ncciCode;
             }
@@ -215,6 +240,7 @@ module.exports = class AcuityWC extends Integration {
         const claims = this.claims_to_policy_years();
         const claimCountCurrentPolicy = claims[1].count;
         const claimCountPriorThreePolicy = claims[2].count + claims[3].count + claims[4].count;
+        const claimObjects = this.getClaims(applicationDocData.claims);
 
         // =========================================================================================================
         // Create the quote request
@@ -285,12 +311,15 @@ module.exports = class AcuityWC extends Integration {
                 // "operateAsGeneralContractorInd": true
             }
         };
+
+        if (claimObjects) {
+            quoteRequestData.losses = claimObjects;
+        }
+
         // Flag if this is a test transaction
         if (this.insurer.useSandbox) {
             quoteRequestData.testTransaction = true;
         }
-
-        // console.log("quoteRequestData", JSON.stringify(quoteRequestData, null, 4));
 
         // =========================================================================================================
         // Send the request
