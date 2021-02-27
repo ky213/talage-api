@@ -225,6 +225,9 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     log.debug("Getting universal questions " + __location);
     // ============================================================
     // Get universal questions
+    //TODO Mongo
+
+    
     sql = `
         SELECT ${select}
         FROM clw_talage_questions AS q
@@ -786,28 +789,33 @@ async function getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, in
     if (error) {
         return [];
     }
-    if(insurerQuestionList && talageQuestions && talageQuestions.length && return_hidden){
-        if(!insurerQuestionList){
-            //TODO get insurerQuestionList from talageQuestions
-        }
-        //Create new return question array with insuer-policytype info
-        //loop  talageQuestions find insurerQuestionList matches.
-        //add row for every match
-        // eslint-disable-next-line prefer-const
-        let talageQuestionPolicyTypeList = [];
-        talageQuestions.forEach(function(talageQuestion){
-            const iqForTalageQList = insurerQuestionList.filter(function(iq) {
-                return iq.question === talageQuestion.id;
-            });
+    if(global.settings.USE_MONGO_QUESTIONS === "YES"){
+        if(insurerQuestionList && talageQuestions && talageQuestions.length && return_hidden){
+            if(!insurerQuestionList){
+                //TODO get insurerQuestionList from talageQuestions
+            }
+            //Create new return question array with insuer-policytype info
+            //loop  talageQuestions find insurerQuestionList matches.
+            //add row for every match
+            // eslint-disable-next-line prefer-const
+            let talageQuestionPolicyTypeList = [];
+            talageQuestions.forEach(function(talageQuestion){
+                const iqForTalageQList = insurerQuestionList.filter(function(iq) {
+                    return iq.question === talageQuestion.id;
+                });
 
-            iqForTalageQList.forEach(function(iqForTalageQ){
-                talageQuestionPolicyTypeList.push(iqForTalageQ.insurerId + "-" + iqForTalageQ.policyType)
+                iqForTalageQList.forEach(function(iqForTalageQ){
+                    talageQuestionPolicyTypeList.push(iqForTalageQ.insurerId + "-" + iqForTalageQ.policyType)
+                });
+                talageQuestion.insurers = talageQuestionPolicyTypeList.join(',');
             });
-            talageQuestion.insurers = talageQuestionPolicyTypeList.join(',');
-        });
-        return talageQuestions;
+            return talageQuestions;
+        }
+        else{
+            return talageQuestions;
+        }
     }
-    else{
+    else {
         return talageQuestions;
     }
 }
