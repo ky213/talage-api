@@ -81,7 +81,14 @@ async function getApplicationMeta(req, res, next) {
         const redisJSON = JSON.parse(redisValue.value);
 
         // Only return the client session
-        res.send(200, redisJSON.clientSession);
+        if(redisJSON.clientSession){
+            res.send(200, redisJSON.clientSession);
+        }
+        else {
+            // if the client session is not there, return empty
+            // this fixes a firefox issue with an undefined get
+            res.send(200, {});
+        }
         return next();
     }
     else {
