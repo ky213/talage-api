@@ -57,6 +57,7 @@ module.exports = class Integration {
         this.app = app;
         this.industry_code = {};
         this.insurer = insurer;
+        this.insurerDoc = null;   //mongo document for insurer.
         this.insurer_wc_codes = {};
         this.grouped_activity_codes = [];
         this.limits = {};
