@@ -182,6 +182,19 @@ module.exports = class CompwestWC extends Integration {
      */
     async _insurer_quote() {
 
+        // eslint-disable-next-line prefer-const
+        let guideWireAPI = true;
+        //check policy effectiv date to determine API to call.
+        // only which back to old aPI for production.
+        // AF moved DEV and TEST to only the new API.
+        //minor difference in XML.
+        if (!this.insurer.useSandbox) {
+            const switchOverDate = moment('2021-07-01T00:00:00');
+            if(this.policy.effective_date < switchOverDate){
+                guideWireAPI = false;
+            }
+        }
+
         // These are the statuses returned by the insurer and how they map to our Talage statuses
         this.possible_api_responses.DECLINE = 'declined';
         this.possible_api_responses.QUOTED = 'quoted';
@@ -196,7 +209,7 @@ module.exports = class CompwestWC extends Integration {
         const carrierLimits = ['100000/500000/100000', '500000/500000/500000', '500000/1000000/500000', '1000000/1000000/1000000', '2000000/2000000/2000000'];
 
         // Define how legal entities are mapped for Employers
-        const entityMatrix = {
+        let entityMatrix = {
             Association: 'AS',
             Corporation: 'CP',
             'Limited Liability Company': 'LL',
@@ -204,6 +217,35 @@ module.exports = class CompwestWC extends Integration {
             Partnership: 'PT',
             'Sole Proprietorship': 'IN'
         };
+        if(guideWireAPI === true){
+            //updates
+            // need to take corporation_type into account for 
+            // nonprofits.
+            entityMatrix = {
+                    Association: 'ASSOCIATION',
+                    Corporation: 'CORPORATION',
+                    'Limited Liability Company': 'LLC',
+                    'Limited Partnership': 'LLP',
+                    Partnership: 'PARTNERSHIP',
+                    'Sole Proprietorship': 'INDIVIDUAL'
+                }
+                // ASSOCIATION
+                // COMMONOWNERSHIP
+                // CORPORATION
+                // EXECUTORTRUSTEE
+                // GOVERNMENT
+                // INDIVIDUAL
+                // JOINTEMPLOYERS
+                // JOINTVENTURE
+                // LIMITEDPARTNERSHIP
+                // LLC
+                // LLP
+                // MULTIPLE
+                // NONPROFIT
+                // OTHER
+                // PARTNERSHIP
+                // TRUSTESTATE
+        }
 
         // CompWest has us define our own Request ID
         this.request_id = this.generate_uuid();
@@ -235,8 +277,10 @@ module.exports = class CompwestWC extends Integration {
 
         // <ACORD>
         const ACORD = builder.create('ACORD');
-        ACORD.att('xsi:noNamespaceSchemaLocation', 'WorkCompPolicyQuoteInqRqXSD.xsd');
-        ACORD.att('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance');
+        if(guideWireAPI === true){
+            ACORD.att('xsi:noNamespaceSchemaLocation', 'WorkCompPolicyQuoteInqRqXSD.xsd');
+            ACORD.att('xmlns:xsi', 'http://www.w3.org/2001/XMLSchema-instance');
+        }
 
         // <SignonRq>
         const SignonRq = ACORD.ele('SignonRq');
@@ -265,7 +309,10 @@ module.exports = class CompwestWC extends Integration {
 
         // <WorkCompPolicyQuoteInqRq>
         const WorkCompPolicyQuoteInqRq = InsuranceSvcRq.ele('WorkCompPolicyQuoteInqRq');
-
+        if(guideWireAPI === true){
+            const txnDate = moment();
+            WorkCompPolicyQuoteInqRq.ele('TransactionRequestDt',txnDate.tz("America/Los_Angeles").format('YYYY-MM-DD'));
+        }
         // <Producer>
         const Producer = WorkCompPolicyQuoteInqRq.ele('Producer');
 
@@ -508,8 +555,9 @@ module.exports = class CompwestWC extends Integration {
                                 // <ClassCodeQuestion>
                                 const ClassCodeQuestion = ClassCodeQuestions.ele('ClassCodeQuestion');
                                 ClassCodeQuestion.ele('QuestionId', question_attributes.id);
-                                ClassCodeQuestion.ele('QuestionCd', question_attributes.code);
-
+                                if(question_attributes.code){
+                                    ClassCodeQuestion.ele('QuestionCd', question_attributes.code);
+                                }
                                 // Determine how to send the answer
                                 if (question.type === 'Yes/No') {
                                     ClassCodeQuestion.ele('ResponseInd', question.get_answer_as_boolean() ? 'Y' : 'N');
@@ -517,6 +565,12 @@ module.exports = class CompwestWC extends Integration {
                                 else {
                                     ClassCodeQuestion.ele('ResponseInd', question.answer);
                                 }
+                                // new for GuideWire
+                                // <PercentageAnswerValue>10</PercentageAnswerValue>
+								// 	<OptionResponse>
+								// 		<YesOptionResponse>r4:ml:375</YesOptionResponse>
+								// 		<OtherOptionResponse>Y</OtherOptionResponse>
+								// 	</OptionResponse>
                                 // </ClassCodeQuestion>
                             });
                             // </ClassCodeQuestions>
@@ -638,9 +692,23 @@ module.exports = class CompwestWC extends Integration {
         // Determine which URL to use
         let host = '';
         let path = '';
-        if (this.insurer.useSandbox) {
-            host = 'npsv.afgroup.com';
-            path = '/TEST_DigitalAq/rest/getworkcompquote';
+        if(guideWireAPI === true){
+            if (this.insurer.useSandbox) {
+                log.debug("AF sandbox Guidewire");
+                host = 'npsv.afgroup.com';
+                path = '/TEST_DigitalAq/rest/getworkcompquote';
+            }
+            else {
+                log.debug("AF prod Guidewire");
+                // //TODO Change when Production URl is received
+
+                host = 'npsv.afgroup.com';
+                path = '/TEST_DigitalAq/rest/getworkcompquote';
+            }
+        }
+        else if (this.insurer.useSandbox) {
+                host = 'npsv.afgroup.com';
+                path = '/TEST_DigitalAq/rest/getworkcompquote';
         }
         else {
             host = 'psv.afgroup.com';
@@ -650,23 +718,37 @@ module.exports = class CompwestWC extends Integration {
         // Send the XML to the insurer
         let result = null;
         try {
+            log.debug(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} sending request ` + __location);
             result = await this.send_xml_request(host, path, xml, {
                 Authorization: `Basic ${Buffer.from(`${this.username}:${this.password}`).toString('base64')}`,
                 'Content-Type': 'application/xml'
-            });
+            }, false, true);
         }
         catch (error) {
             log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: ${error}` + __location);
             if(error.message.indexOf('timedout') > -1){
                 this.reasons.push(error)
-                //TODO change result to connection timeout vs error
             }
             else{
                 this.reasons.push(error)
             }
-            return this.return_result('error');
+            //return this.return_result('error');
         }
         // Begin reducing the response
+        if(!result){
+            this.log += '--------======= Unexpected API Response - No response =======--------';
+            this.log += util.inspect(result, false, null);
+            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}. Request Error: Empty response from Insurer`)
+            this.reasons.push("Request Error: Empty response from Insurer")
+            return this.return_result('error');
+        }
+        if(!result.ACORD){
+            this.log += '--------======= Unexpected API Response - No Acord Tag =======--------';
+            this.log += util.inspect(result, false, null);
+            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}. Request Error: Unexpected response ${JSON.stringify(result)}`)
+            this.reasons.push("Request Error:  Unexpected response see logs - Contact Talage Engineering")
+            return this.return_result('error');
+        }
         let res = result.ACORD;
 
         // Check the status to determine what to do next

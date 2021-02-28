@@ -1852,7 +1852,7 @@ module.exports = class Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
 	 */
     send_request(host, path, data, additional_headers, method, log_errors = true, returnResponseOnAllStatusCodes = false) {
-        log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Sending To ${path}`);
+        log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Sending To ${path}` + __location);
         const start_time = process.hrtime();
 
         return new Promise((fulfill, reject) => {
@@ -1935,7 +1935,7 @@ module.exports = class Integration {
 
             const req = https.request(options, (res) => {
                 let rawData = '';
-
+                log.debug("in https response " + __location)
                 // Grab each chunk of data
                 res.on('data', (d) => {
                     rawData += d;
@@ -1990,10 +1990,12 @@ module.exports = class Integration {
                         reject(error);
                     }
                 });
+                
             });
 
             req.on('error', (err) => {
-                this.log += `Connection to ${this.insurer.name} timedout.`;
+                log.error(`Connection to ${this.insurer.name} timedout. error ${err}` + __location);
+                this.log += `Connection to ${this.insurer.name} timedout. error ${err} `;
                 reject(new Error(`Appid: ${this.app.id} Connection to ${this.insurer.name} terminated. Reason: ${err.code}`));
             });
 
