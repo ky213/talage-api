@@ -696,19 +696,19 @@ module.exports = class CompwestWC extends Integration {
             if (this.insurer.useSandbox) {
                 log.debug("AF sandbox Guidewire");
                 host = 'npsv.afgroup.com';
-                path = '/TEST_DigitalAq/rest/getworkcompquote';
+                path = '/DEV_DigitalAq/rest/getworkcompquote';
             }
             else {
                 log.debug("AF prod Guidewire");
                 // //TODO Change when Production URl is received
 
                 host = 'npsv.afgroup.com';
-                path = '/TEST_DigitalAq/rest/getworkcompquote';
+                path = '/DEV_DigitalAq/rest/getworkcompquote';
             }
         }
         else if (this.insurer.useSandbox) {
                 host = 'npsv.afgroup.com';
-                path = '/TEST_DigitalAq/rest/getworkcompquote';
+                path = '/DEV_DigitalAq/rest/getworkcompquote';
         }
         else {
             host = 'psv.afgroup.com';
