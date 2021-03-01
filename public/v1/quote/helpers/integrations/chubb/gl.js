@@ -52,34 +52,37 @@ module.exports = class ChubbGL extends Integration {
             'Trust - Non-Profit': 'TE'
         };
 
+        const applicationDocData = this.app.applicationDocData;
+        const logPrefix = `Chubb GL (Appid: ${applicationDocData.mysqlId}): `;
+
         // Check Industry Code Support
         if (!this.industry_code.cgl) {
-            const errorMessage = `Chubb GL (Appid: ${this.app.id}): CGL not set for Industry Code ${this.industry_code.id}.`;
+            const errorMessage = `${logPrefix}CGL not set for Industry Code ${this.industry_code.id}.`;
             log.error(errorMessage);
             return this.client_autodeclined(errorMessage);
         }
         if (!this.industry_code.iso) {
-            const errorMessage = `Chubb GL (Appid: ${this.app.id}): ISO not set for Industry Code ${this.industry_code.id}`;
+            const errorMessage = `${logPrefix}ISO not set for Industry Code ${this.industry_code.id}`;
             log.error(errorMessage);
             return this.client_autodeclined(errorMessage);
         }
         if (!this.industry_code.attributes) {
-            const errorMessage = `Chubb GL (Appid: ${this.app.id}): Missing Attributes for Industry Code ${this.industry_code.id}`;
+            const errorMessage = `${logPrefix}Missing Attributes for Industry Code ${this.industry_code.id}`;
             log.error(errorMessage);
             return this.client_autodeclined(errorMessage);
         }
         if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'class_code_id')) {
-            const errorMessage = `Chubb GL (Appid: ${this.app.id}): Missing required attribute 'class_code_id' for Industry Code ${this.industry_code.id}`;
+            const errorMessage = `${logPrefix}Missing required attribute 'class_code_id' for Industry Code ${this.industry_code.id}`;
             log.error(errorMessage);
             return this.client_autodeclined(errorMessage);
         }
         if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'segment')) {
-            const errorMessage = `Chubb GL (Appid: ${this.app.id}): Missing required attribute 'segment' for Industry Code ${this.industry_code.id}`;
+            const errorMessage = `${logPrefix}Missing required attribute 'segment' for Industry Code ${this.industry_code.id}`;
             log.error(errorMessage);
             return this.client_autodeclined(errorMessage);
         }
         if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'exposure')) {
-            const errorMessage = `Chubb GL (Appid: ${this.app.id}): Missing required attribute 'exposure' for Industry Code ${this.industry_code.id}`;
+            const errorMessage = `${logPrefix}Missing required attribute 'exposure' for Industry Code ${this.industry_code.id}`;
             log.error(errorMessage);
             return this.client_autodeclined(errorMessage);
         }
@@ -99,13 +102,13 @@ module.exports = class ChubbGL extends Integration {
             App_ID: this.username,
             App_Key: this.password
         };
+
         try {
             tokenResponse = await this.send_json_request(host,'/api/v1/tokens',null,creds,'POST');
-        }
-        catch (error) {
-            const errorMessage = `Chubb GL (Appid: ${this.app.id}): Error sending token request: ${error}.`;
+        }catch (error) {
+            const errorMessage = `${logPrefix}Error sending token request: ${error}.`;
             log.error(errorMessage);
-            return this.client_error(errorMessage);
+            return this.client_error(errorMessage, __location);
         }
 
         // Build the XML Request
@@ -464,7 +467,7 @@ module.exports = class ChubbGL extends Integration {
                 break;
             default:
                 // Unsupported Exposure
-                log.warn(`Chubb GL (Appid: ${this.app.id}): Unsupported exposure of '${this.industry_code.attributes.exposure}'}`);
+                log.warn(`${logPrefix}Unsupported exposure of '${this.industry_code.attributes.exposure}'}`);
         }
 
         // </Rating>
@@ -521,7 +524,7 @@ module.exports = class ChubbGL extends Integration {
                 break;
             default:
                 // Unsupported Exposure
-                log.warn(`Chubb GL (Appid: ${this.app.id}): Unsupported exposure of '${this.industry_code.attributes.exposure}'}`);
+                log.warn(`${logPrefix}Unsupported exposure of '${this.industry_code.attributes.exposure}'}`);
         }
 
         // </Rating>
@@ -540,11 +543,10 @@ module.exports = class ChubbGL extends Integration {
         let question_identifiers = null;
         try {
             question_identifiers = await this.get_question_identifiers();
-        }
-        catch (err) {
-            const errorMessage = `Chubb GL (Appid: ${this.app.id}): Error getting question identifies: ${err}`;
+        } catch (err) {
+            const errorMessage = `${logPrefix}Error getting question identifies: ${err}`;
             log.error(errorMessage);
-            return this.client_error(errorMessage);
+            return this.client_error(errorMessage, __location);
         }
 
         // Loop through each question
@@ -597,9 +599,9 @@ module.exports = class ChubbGL extends Integration {
         // Get the XML structure as a string
         const xml = ACORD.end({ pretty: true });
 
-        log.info("=================== QUOTE REQUEST ===================");
-        log.info(`Chubb GL (Appid: ${this.app.id}): \n${xml}`);
-        log.info("=================== QUOTE REQUEST ===================");
+        log.debug("=================== QUOTE REQUEST ===================");
+        log.debug(`${logPrefix}\n${xml}`);
+        log.debug("=================== QUOTE REQUEST ===================");
 
         // Build the authorization header
         const headers = { Authorization: `${tokenResponse.token_type} ${tokenResponse.access_token}` };
@@ -610,146 +612,154 @@ module.exports = class ChubbGL extends Integration {
             result = await this.send_xml_request(host, '/api/v1/quotes', xml, headers);
         }
         catch (error) {
-            const errorMessage = `Chubb (Appid: ${this.app.id}): Error sending XML request: ${error} ${__location}`;
+            const errorMessage = `${logPrefix}Error sending XML request: ${error} ${__location}`;
             log.error(errorMessage);
-            return this.client_error(errorMessage);
+            return this.client_error(errorMessage, __location);
         }
 
         if (!result.ACORD || !result.ACORD.InsuranceSvcRs) {
-            const errorMessage = `Chubb (Appid: ${this.app.id}): Unknown result structure, no base ACORD path: cannot parse result.`;
+            const errorMessage = `${logPrefix}Unknown result structure, no base ACORD path: cannot parse result.`;
             log.error(errorMessage);
-            this.client_error(errorMessage);
+            return this.client_error(errorMessage, __location);
         }
 
         // Parse the various status codes and take the appropriate action
         const res = result.ACORD.InsuranceSvcRs[0];
 
         if (!res.Status || !res.Status[0].StatusCd) {
-            const errorMessage = `Chubb (Appid: ${this.app.id}): Unknown result structure, no Status or StatusCd: cannot determine result.`;
+            const errorMessage = `${logPrefix}Unknown result structure, no Status or StatusCd: cannot determine result.`;
             log.error(errorMessage);
-            this.client_error(errorMessage);      
+            return this.client_error(errorMessage, __location);      
         }
+
+        if (res.Status[0].StatusCd[0] !== '0') {
+            log.error("=================== QUOTE ERROR ===================");
+            log.error(`${logPrefix}\n${JSON.stringify(res, null, 4)}`);
+            log.error("=================== QUOTE ERROR ===================");
+        }
+
+        let errorMessage = `${logPrefix}`;
 
         // Determine what happened
         switch (res.Status[0].StatusCd[0]) {
             case 'DC-100':
-                log.error("=================== QUOTE ERROR ===================");
-                log.error(`Chubb GL Request Error (Appid: ${this.app.id}):\n${JSON.stringify(res, null, 4)}`);
-                log.error("=================== QUOTE ERROR ===================");
-                log.error(`Appid: ${this.app.id} Chubb GL: Error DC-100: The data we sent was invalid ` + __location);
-                this.reasons.push('Error DC-100: The data we sent was invalid');
-                return this.return_result('error');
+                errorMessage += `Error DC-100: The data we sent was invalid `
+                log.error(errorMessage + __location);
+                return this.client_error(errorMessage, __location);
             case '400':
-                log.error("=================== QUOTE ERROR ===================");
-                log.error(`Chubb GL Request Error (Appid: ${this.app.id}):\n${JSON.stringify(res, null, 4)}`);
-                log.error("=================== QUOTE ERROR ===================");
-                log.error(`Appid: ${this.app.id} Chubb GL: Error 400: ${BOPPolicyQuoteInqRs.Status[0].StatusDesc[0]} ` + __location);
-                this.reasons.push(`Error 400: ${BOPPolicyQuoteInqRs.Status[0].StatusDesc[0]}`);
-                return this.return_result('error');
+                errorMessage += `Error 400: ${BOPPolicyQuoteInqRs.Status[0].StatusDesc[0]} `;
+                log.error(errorMessage + __location);
+                return this.client_error(errorMessage, __location);
             case '0':
+                log.debug("=================== QUOTE RESULT ===================");
+                log.debug(`${logPrefix}\n ${JSON.stringify(result, null, 4)}`);
+                log.debug("=================== QUOTE RESULT ===================");
+
                 // Further refine
                 const BOPPolicyQuoteInqRs = res.BOPPolicyQuoteInqRs[0];
+                let additionalInfo = null;
 
                 // check for problem...
                 let MsgStatusCd = null;
                 try {
                     MsgStatusCd = BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].MsgStatusCd[0];
-                    // not always present
-                    if(BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0]){
-                        this.reasons.push(BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0])
-                    }
-                }
-                catch(err) {
-                    log.error("Chubb GL error getting MsgStatus " + err + __location);
+                } catch(e) {
+                    errorMessage += `Error parsing MsgStatusCd response property: ${e} `;
+                    log.error(errorMessage + __location);
+                    return this.client_error(errorMessage, __location);
                 }
 
-                if(MsgStatusCd === 'Referral'){
-                    log.error("=================== QUOTE ERROR ===================");
-                    log.error(`Chubb GL Request Error (Appid: ${this.app.id}):\n${JSON.stringify(res, null, 4)}`);
-                    log.error("=================== QUOTE ERROR ===================");
-                    return this.return_result('referred');
-                }
-                else if(MsgStatusCd !== 'Success'){
-                    try {
-                        const error_message = BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0];
-                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Error Returned by Carrier: ${error_message} ${__location}`);
-                    }
-                    catch(e) {
-                        log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Error Returned by Carrier: Quote structure changed. Unable to find error message. ${__location}`);
-                    }
-                    log.error("=================== QUOTE ERROR ===================");
-                    log.error(`Chubb GL Request Error (Appid: ${this.app.id}):\n${JSON.stringify(res, null, 4)}`);
-                    log.error("=================== QUOTE ERROR ===================");
-                    return this.return_result('error');
-                }
-                else if(!MsgStatusCd) {
-                    this.reasons.push(MsgStatusCd);
+                // not always present
+                if(BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus && BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0]){
+                    additionalInfo = BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].ExtendedStatus[0].ExtendedStatusDesc[0];
                 }
 
-                log.info("=================== QUOTE RESULT ===================");
-                log.info(`Chubb GL (Appid: ${this.app.id}):\n ${JSON.stringify(result, null, 4)}`);
-                log.info("=================== QUOTE RESULT ===================");
+                if (MsgStatusCd !== 'Success') {
+                    errorMessage += `Error returned by carrier: `;
+                    if (additionalInfo) {
+                        errorMessage += additionalInfo;
+                    } else {
+                        errorMessage += `Quote structure changed. Unable to parse error message. `;
+                    }
+                    log.error(errorMessage + __location);
+                    return this.client_error(errorMessage, __location);
+                }
+
+                let quoteNumber = null;
+                const quoteProposalId = null; // Chubb BOP doesn't currently return a quote proposal ID
+                let premium = null;
+                const quoteLimits = {};
+                const quoteLetter = null; // Chubb BOP doesn't currently return a quote letter
+                const quoteMIMEType = null; // Chubb BOP doesn't currently return a quote MIME type
 
                 // Attempt to get the quote number
                 try {
-                    this.request_id = BOPPolicyQuoteInqRs.CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0];
-                    this.number = this.request_id;
+                    quoteNumber = BOPPolicyQuoteInqRs.CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0];
                 }
                 catch (e) {
-                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find quote number.`);
-                    //return this.return_result('error');
+                    log.warn(`${logPrefix}Warning: Quote structure changed. Unable to find quote number. ` + __location);
                 }
 
                 // Get the amount of the quote (from the Silver package only, per Adam)
                 try {
-                    this.amount = parseInt(BOPPolicyQuoteInqRs.CommlPolicy[0].SilverTotalPremium[0], 10);
-                }
-                catch (e) {
-                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote ${this.id} amount/premium.`);
-                    return this.return_result('error');
+                    premium = BOPPolicyQuoteInqRs.CommlPolicy[0].SilverTotalPremium[0];
+
+                    try {
+                        premium = parseInt(premium, 10);
+                    } catch (e) {
+                        premium = BOPPolicyQuoteInqRs.CommlPolicy[0].SilverTotalPremium[0];
+                        log.warn(`${logPrefix}Warning: Unable to parse premium of value: ${premium}.`);
+                    }
+                } catch (e) {
+                    log.warn(`${logPrefix}Warning: Quote structure changed. Unable to find premium. ` + __location);
                 }
 
-                // Grab the writing company
-                try {
-                    this.writer = BOPPolicyQuoteInqRs.CommlPolicy[0].WritingCompany[0];
-                }
-                catch (e) {
-                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company. ${__location}`);
-                    return this.return_result('error');
-                }
+                // NOTE: Currently commented out, as client_* functions do not accept this information
+                // // Grab the writing company
+                // try {
+                //     this.writer = BOPPolicyQuoteInqRs.CommlPolicy[0].WritingCompany[0];
+                // }
+                // catch (e) {
+                //     log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Quote structure changed. Unable to find writing company. ${__location}`);
+                //     return this.return_result('error');
+                // }
 
                 // Grab the limits info
                 try {
                     BOPPolicyQuoteInqRs.BOPLineBusiness[0].LiabilityInfo[0].GeneralLiabilityClassification[0].CommlCoverage.forEach((coverage) => {
                         switch (coverage.CoverageCd[0]) {
                             case 'GENAG':
-                                this.limits[8] = coverage.Limit[0].FormatInteger[0];
+                                quoteLimits[8] = coverage.Limit[0].FormatInteger[0];
                                 break;
                             case 'GO':
-                                this.limits[4] = coverage.Limit[0].FormatInteger[0];
+                                quoteLimits[4] = coverage.Limit[0].FormatInteger[0];
                                 break;
                             default:
-                                log.warn(`Appid: ${this.app.id} ${this.insurer.name} GL Integration Error: Unexpected limit found in response`);
+                                log.warn(`${logPrefix}Warning: Unexpected limit found in response. ` + __location);
                                 break;
                         }
 
                         // Limits that Chubb doesn't reutrn in the API but we need anyway
-                        this.limits[5] = 100000;
-                        this.limits[6] = 5000;
-                        this.limits[7] = 1000000;
-                        this.limits[9] = 2000000;
+                        quoteLimits[5] = 100000;
+                        quoteLimits[6] = 5000;
+                        quoteLimits[7] = 1000000;
+                        quoteLimits[9] = 2000000;
                     });
+                } catch (e) {
+                    log.warn(`${logPrefix}Encountered an error parsing quote response limits: ${e}. ` + __location);
                 }
-                catch (e) {
-                    // This is handled in return_result()
-                }
+                
                 // Send the result of the request
-                return this.return_result('quoted');
+                if (MsgStatusCd === 'Referral') {
+                    return this.client_referred(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType);
+                } else {
+                    return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType);
+                }
 
             default:
-                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} API returned unknown status code of ${BOPPolicyQuoteInqRs.Status[0].StatusCd[0]} ${__location}`);
-                this.reasons.push(`API returned unknown status code of ${BOPPolicyQuoteInqRs.Status[0].StatusCd[0]}`);
-                return this.return_result('error');
+                errorMessage += `API returned an unknown status code: ${res.Status[0].StatusCd[0]}. `;
+                log.error(errorMessage + __location)
+                return this.client_error(errorMessage, __location);
         }
     }
 };

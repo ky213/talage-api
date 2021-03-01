@@ -48,7 +48,8 @@ module.exports = class ChubbBOP extends Integration {
             'Trust - Non-Profit': 'TE'
         };
 
-        const logPrefix = `Chubb BOP (Appid: ${this.app.applicationDocData.mysqlId}): `;
+        const applicationDocData = this.app.applicationDocData;
+        const logPrefix = `Chubb BOP (Appid: ${applicationDocData.mysqlId}): `;
 
         // Check Industry Code Support
         if (!this.industry_code.cgl) {
@@ -658,7 +659,7 @@ module.exports = class ChubbBOP extends Integration {
         const headers = {Authorization: `${tokenResponse.token_type} ${tokenResponse.access_token}`};
 
         log.debug("=================== QUOTE REQUEST ===================");
-        log.debug(`Chubb request (Appid: ${this.app.applicationDocData.mysqlId}): \n${xml}`);
+        log.debug(`${logPrefix}\n${xml}`);
         log.debug("=================== QUOTE REQUEST ===================");
 
         let result = null;
@@ -676,12 +677,12 @@ module.exports = class ChubbBOP extends Integration {
 
         if (res.Status[0].StatusCd[0] !== '0') {
             log.error("=================== QUOTE ERROR ===================");
-            log.error(`Liberty Mutual Simple BOP Request Error (Appid: ${this.app.id}):\n${JSON.stringify(res.Status[0], null, 4)}`);
+            log.error(`${logPrefix}\n${JSON.stringify(res.Status[0], null, 4)}`);
             log.error("=================== QUOTE ERROR ===================");
         }
 
         let errorMessage = `${logPrefix}`;
-        
+
         // Determine what happened
         switch (res.Status[0].StatusCd[0]) {
             case 'DC-100':
@@ -697,7 +698,7 @@ module.exports = class ChubbBOP extends Integration {
                 const BOPPolicyQuoteInqRs = res.BOPPolicyQuoteInqRs[0];
 
                 log.debug("=================== QUOTE RESULT ===================");
-                log.debug(`Chubb response (Appid: ${this.app.applicationDocData.mysqlId}): \n${JSON.stringify(BOPPolicyQuoteInqRs, null, 4)}`);
+                log.debug(`${logPrefix}\n${JSON.stringify(BOPPolicyQuoteInqRs, null, 4)}`);
                 log.debug("=================== QUOTE RESULT ===================");
 
                 let MsgStatusCd = null;
@@ -736,14 +737,21 @@ module.exports = class ChubbBOP extends Integration {
                 try {
                     quoteNumber = BOPPolicyQuoteInqRs.CommlPolicy[0].QuoteInfo[0].CompanysQuoteNumber[0];
                 } catch (e) {
-                    log.warn(`${logPrefix}Error: Quote structure changed. Unable to find quote number. ` + __location);
+                    log.warn(`${logPrefix}Warning: Quote structure changed. Unable to find quote number. ` + __location);
                 }
 
                 // Get the amount of the quote (from the Silver package only, per Adam)
                 try {
-                    premium = parseInt(BOPPolicyQuoteInqRs.CommlPolicy[0].SilverTotalPremium[0], 10);
+                    premium = BOPPolicyQuoteInqRs.CommlPolicy[0].SilverTotalPremium[0];
+
+                    try {
+                        premium = parseInt(premium, 10);
+                    } catch (e) {
+                        premium = BOPPolicyQuoteInqRs.CommlPolicy[0].SilverTotalPremium[0];
+                        log.warn(`${logPrefix}Warning: Unable to parse premium of value: ${premium}.`);
+                    }
                 } catch (e) {
-                    log.warn(`${logPrefix}Error: Quote structure changed. Unable to find quote premium. ` + __location);
+                    log.warn(`${logPrefix}Warning: Quote structure changed. Unable to find premium. ` + __location);
                 }
 
                 // NOTE: Currently commented out, as client_* functions do not accept this information
