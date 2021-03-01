@@ -378,7 +378,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                 // eslint-disable-next-line prefer-const
                 const insurerQuestionQuery = {
                     insurerId: {$in: insurerArray},
-                    systemId: {$in: insurerQuestionIdArray},
+                    insurerQuestionId: {$in: insurerQuestionIdArray},
                     universal: false,
                     policyType: {$in: policyTypes},
                     questionSubjectArea: questionSubjectArea,

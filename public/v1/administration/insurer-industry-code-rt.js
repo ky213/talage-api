@@ -7,7 +7,7 @@
 /* eslint-disable require-jsdoc */
 'use strict';
 
-const InsurerIndustryCodeBO = global.requireShared('./models/InsurerIndustryCode-BO.js');
+const InsurerIndustryCodeBO = global.requireShared('./models/InsurerIndustryCodeMySql-BO.js');
 const serverHelper = global.requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');

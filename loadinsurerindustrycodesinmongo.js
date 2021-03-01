@@ -20,9 +20,6 @@ const talageEvent = global.requireShared('/services/talageeventemitter.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 
-const crypt = global.requireShared('./services/crypt.js');
-
-
 var mongoose = require('./mongoose');
 const colors = require('colors');
 
@@ -30,7 +27,6 @@ const colors = require('colors');
 const logger = global.requireShared('/services/logger.js');
 const db = global.requireShared('/services/db.js');
 const globalSettings = require('./settings.js');
-const {debug} = require('request');
 
 
 /**
@@ -161,7 +157,8 @@ const groupQuestionArray = key => array => array.reduce((objectsByKeyValue, obj)
 }, {});
 
 
-async function insurerCodeTerritoryQuestions(insurerIndustryCodeIdList){
+async function insurerCodeTerritoryQuestions(insurerIndustryCodeIdList, iqMongoList){
+    //const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
     if(insurerIndustryCodeIdList){
         const sql = `SELECT distinct iic.territory, iq.id as insurerQuestionId
             FROM clw_talage_insurer_industry_codes AS iic
@@ -183,11 +180,25 @@ async function insurerCodeTerritoryQuestions(insurerIndustryCodeIdList){
             var territoryQuestionArray = [];
             // eslint-disable-next-line guard-for-in
             for (const tqObjectGrouped in groupedQuestionList) {
-                const territoryQuestionJSON = {
-                    territory: tqObjectGrouped,
-                    insurerQuestionIdList: groupedQuestionList[tqObjectGrouped]
+                const iqsystemIdList = groupedQuestionList[tqObjectGrouped];
+                // get insurerQuestionId
+                if(iqsystemIdList && iqsystemIdList.length > 0){
+                    let insurerQuestionIdList = [];
+                    for (let j = 0; j < iqsystemIdList.length; j++) {
+                        const iqId = iqsystemIdList[j];
+                        const iQFound = iqMongoList.find((iq) => iq.systemId === iqId);
+                        if(iQFound){
+                            insurerQuestionIdList.push(iQFound.insurerQuestionId)
+                        }
+                    }
+                    if(insurerQuestionIdList.length){
+                        const territoryQuestionJSON = {
+                            territory: tqObjectGrouped,
+                            insurerQuestionIdList: insurerQuestionIdList
+                        }
+                        territoryQuestionArray.push(territoryQuestionJSON);
+                    }
                 }
-                territoryQuestionArray.push(territoryQuestionJSON);
             }
             //log.debug("groupedQuestions " + JSON.stringify(territoryQuestionArray))
             if(territoryQuestionArray.length === 0){
@@ -196,13 +207,13 @@ async function insurerCodeTerritoryQuestions(insurerIndustryCodeIdList){
             return territoryQuestionArray
         }
         else {
-            log.debug("no questions  returned " + sql)
+            //log.debug("no questions  returned " + sql)
             return null;
         }
 
     }
     else {
-        log.debug("empty insurerIndustryCodeIdList")
+        // log.debug("empty insurerIndustryCodeIdList")
         return null
     }
 }
@@ -216,7 +227,14 @@ async function insurerCodeTerritoryQuestions(insurerIndustryCodeIdList){
 async function runFunction() {
 
     const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
-    //load message model and get message list.
+    const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
+    const iqMongoList = await InsurerQuestionModel.find({}).catch(function(error) {
+        // Check if this was
+        log.error("error " + error);
+        process.exit(1);
+    });
+
+
     const sql = `SELECT  
          iic.code,
 		 iic.type,
@@ -239,7 +257,7 @@ async function runFunction() {
         where industryCodeMap.talageIndustryCodeId
         GROUP BY iic.insurer, iic.code,iic.policyType, iic.attributes;`;
 
-    const result = await db.query(sql).catch(function(error) {
+    let result = await db.query(sql).catch(function(error) {
         // Check if this was
         log.error("error " + error);
         process.exit(1);
@@ -250,22 +268,35 @@ async function runFunction() {
             result[i].territoryList = stringArraytoArray(result[i].territoryList);
             result[i].talageIndustryCodeIdList = stringArraytoArray(result[i].talageIndustryCodeIdList);
             result[i].talageQuestionIdList = stringArraytoArray(result[i].talageQuestionIdList);
-            result[i].insurerQuestionIdList = stringArraytoArray(result[i].insurerQuestionIdList);
+            result[i].insurerQuestionSystemIdList = stringArraytoArray(result[i].insurerQuestionIdList);
             if(result[i].attributes){
                 result[i].attributes = JSON.parse(result[i].attributes)
             }
-            //get territory array for insurer
+
             try{
-                if(result[i].insurerIndustryCodeIdList){
-                    const insurerCodeTerritoryQuestionArray = await insurerCodeTerritoryQuestions(result[i].insurerIndustryCodeIdList);
-                    if(insurerCodeTerritoryQuestionArray && insurerCodeTerritoryQuestionArray.length > 0){
-                        result[i].insurerTerritoryQuestionList = insurerCodeTerritoryQuestionArray
+                // get insurerQuestionId
+                if(result[i].insurerQuestionSystemIdList && result[i].insurerQuestionSystemIdList.length > 0){
+                    let insurerQuestionIdList = [];
+                    for (let j = 0; j < result[i].insurerQuestionSystemIdList.length; j++) {
+                        const iqId = result[i].insurerQuestionSystemIdList[j];
+                        const iQFound = iqMongoList.find((iq) => iq.systemId === iqId);
+                        if(iQFound){
+                            insurerQuestionIdList.push(iQFound.insurerQuestionId)
+                        }
+                    }
+                    result[i].insurerQuestionIdList = insurerQuestionIdList;
+
+                    //get territory array for insurer
+                    if(result[i].insurerIndustryCodeIdList){
+                        const insurerCodeTerritoryQuestionArray = await insurerCodeTerritoryQuestions(result[i].insurerIndustryCodeIdList,iqMongoList);
+                        if(insurerCodeTerritoryQuestionArray && insurerCodeTerritoryQuestionArray.length > 0){
+                            result[i].insurerTerritoryQuestionList = insurerCodeTerritoryQuestionArray
+                        }
+                    }
+                    else {
+                        log.debug(`NO insurerIndustryCodeIdList for insurer: ${result[i].insurerId}`)
                     }
                 }
-                else {
-                    log.debug(`NO insurerIndustryCodeIdList for insurer: ${result[i].insurerId}`)
-                }
-                
             }
             catch(err){
                 log.error("Question group error " + err)
