@@ -674,30 +674,37 @@ module.exports = class ChubbBOP extends Integration {
         const res = result.ACORD.InsuranceSvcRs[0];
         let additionalInfo = null;
 
-        // TODO: Once below isn't a switch statement, move this and create an error log
-        log.debug("=================== QUOTE RESULT ===================");
-        log.debug(`Chubb response (Appid: ${this.app.applicationDocData.mysqlId}): \n${JSON.stringify(result, null, 4)}`);
-        log.debug("=================== QUOTE RESULT ===================");
+        if (res.Status[0].StatusCd[0] !== '0') {
+            log.error("=================== QUOTE ERROR ===================");
+            log.error(`Liberty Mutual Simple BOP Request Error (Appid: ${this.app.id}):\n${JSON.stringify(res.Status[0], null, 4)}`);
+            log.error("=================== QUOTE ERROR ===================");
+        }
 
+        let errorMessage = `${logPrefix}`;
+        
         // Determine what happened
-        switch (res.Status[0].StatusCd[0]) { //TODO: Remove this Switch statement, first see what the error responses look like...
+        switch (res.Status[0].StatusCd[0]) {
             case 'DC-100':
-                const errorMessage100 = `${logPrefix}Error DC-100: The data we sent was invalid. `;
-                log.error(errorMessage100 + __location)
-                return this.client_error(errorMessage100, __location);
+                errorMessage += `Error DC-100: The data we sent was invalid. `;
+                log.error(errorMessage + __location)
+                return this.client_error(errorMessage, __location);
             case '400':
-                const errorMessage400 = `${logPrefix}Error 400: ${res.Status[0].StatusDesc[0]} `;
-                log.error(errorMessage400 + __location)
-                return this.client_error(errorMessage400, __location);
+                errorMessage += `Error 400: ${res.Status[0].StatusDesc[0]} `;
+                log.error(errorMessage + __location)
+                return this.client_error(errorMessage, __location);
             case '0':
                 // Further refine
                 const BOPPolicyQuoteInqRs = res.BOPPolicyQuoteInqRs[0];
+
+                log.debug("=================== QUOTE RESULT ===================");
+                log.debug(`Chubb response (Appid: ${this.app.applicationDocData.mysqlId}): \n${JSON.stringify(BOPPolicyQuoteInqRs, null, 4)}`);
+                log.debug("=================== QUOTE RESULT ===================");
 
                 let MsgStatusCd = null;
                 try {
                     MsgStatusCd = BOPPolicyQuoteInqRs.MsgRsInfo[0].MsgStatus[0].MsgStatusCd[0];
                 } catch (e) {
-                    const errorMessage = `${logPrefix}Error parsing MsgStatusCd response property: ${e} `;
+                    errorMessage += `Error parsing MsgStatusCd response property: ${e} `;
                     log.error(errorMessage + __location);
                     return this.client_error(errorMessage, __location);
                 }
@@ -708,7 +715,7 @@ module.exports = class ChubbBOP extends Integration {
                 }
 
                 if (MsgStatusCd !== 'Success') {
-                    let errorMessage = `${logPrefix}Error returned by carrier: `;
+                    errorMessage += `Error returned by carrier: `;
                     if (additionalInfo) {
                         errorMessage += additionalInfo;
                     } else {
@@ -780,7 +787,7 @@ module.exports = class ChubbBOP extends Integration {
                     return this.client_quoted(quoteNumber, quoteLimits, premium, quoteLetter, quoteMIMEType);
                 }
             default:
-                const errorMessage = `${logPrefix}API returned an unknown status code: ${res.Status[0].StatusCd[0]}. `;
+                errorMessage += `API returned an unknown status code: ${res.Status[0].StatusCd[0]}. `;
                 log.error(errorMessage + __location)
                 return this.client_error(errorMessage, __location);
         }
