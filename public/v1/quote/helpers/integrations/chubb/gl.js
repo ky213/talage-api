@@ -57,34 +57,34 @@ module.exports = class ChubbGL extends Integration {
 
         // Check Industry Code Support
         if (!this.industry_code.cgl) {
-            const errorMessage = `${logPrefix}CGL not set for Industry Code ${this.industry_code.id}.`;
-            log.error(errorMessage);
-            return this.client_autodeclined(errorMessage);
+            const declinedMessage = `${logPrefix}CGL not set for Industry Code ${this.industry_code.id}.`;
+            log.error(declinedMessage);
+            return this.client_autodeclined(declinedMessage);
         }
         if (!this.industry_code.iso) {
-            const errorMessage = `${logPrefix}ISO not set for Industry Code ${this.industry_code.id}`;
-            log.error(errorMessage);
-            return this.client_autodeclined(errorMessage);
+            const declinedMessage = `${logPrefix}ISO not set for Industry Code ${this.industry_code.id}`;
+            log.error(declinedMessage);
+            return this.client_autodeclined(declinedMessage);
         }
         if (!this.industry_code.attributes) {
-            const errorMessage = `${logPrefix}Missing Attributes for Industry Code ${this.industry_code.id}`;
-            log.error(errorMessage);
-            return this.client_autodeclined(errorMessage);
+            const declinedMessage = `${logPrefix}Missing Attributes for Industry Code ${this.industry_code.id}`;
+            log.error(declinedMessage);
+            return this.client_autodeclined(declinedMessage);
         }
         if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'class_code_id')) {
-            const errorMessage = `${logPrefix}Missing required attribute 'class_code_id' for Industry Code ${this.industry_code.id}`;
-            log.error(errorMessage);
-            return this.client_autodeclined(errorMessage);
+            const declinedMessage = `${logPrefix}Missing required attribute 'class_code_id' for Industry Code ${this.industry_code.id}`;
+            log.error(declinedMessage);
+            return this.client_autodeclined(declinedMessage);
         }
         if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'segment')) {
-            const errorMessage = `${logPrefix}Missing required attribute 'segment' for Industry Code ${this.industry_code.id}`;
-            log.error(errorMessage);
-            return this.client_autodeclined(errorMessage);
+            const declinedMessage = `${logPrefix}Missing required attribute 'segment' for Industry Code ${this.industry_code.id}`;
+            log.error(declinedMessage);
+            return this.client_autodeclined(declinedMessage);
         }
         if (!Object.prototype.hasOwnProperty.call(this.industry_code.attributes, 'exposure')) {
-            const errorMessage = `${logPrefix}Missing required attribute 'exposure' for Industry Code ${this.industry_code.id}`;
-            log.error(errorMessage);
-            return this.client_autodeclined(errorMessage);
+            const declinedMessage = `${logPrefix}Missing required attribute 'exposure' for Industry Code ${this.industry_code.id}`;
+            log.error(declinedMessage);
+            return this.client_autodeclined(declinedMessage);
         }
 
         // Determine which API host to use
@@ -104,7 +104,7 @@ module.exports = class ChubbGL extends Integration {
         };
 
         try {
-            tokenResponse = await this.send_json_request(host,'/api/v1/tokens',null,creds,'POST');
+            tokenResponse = await this.send_json_request(host, '/api/v1/tokens', null, creds, 'POST');
         }catch (error) {
             const errorMessage = `${logPrefix}Error sending token request: ${error}.`;
             log.error(errorMessage);
