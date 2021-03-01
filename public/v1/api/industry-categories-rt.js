@@ -43,6 +43,5 @@ async function GetIndustryCategories(req, res, next) {
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-    //temporarily use addGetAuthAppWF
-    server.addGetAuthAppApi('Get All Industry Code Categories', `${basePath}/industry-categories`, GetIndustryCategories);
+    server.addGet('Get All Industry Code Categories', `${basePath}/industry-categories`, GetIndustryCategories);
 };
