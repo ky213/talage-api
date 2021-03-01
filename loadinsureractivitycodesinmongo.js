@@ -31,7 +31,6 @@ const logger = global.requireShared('/services/logger.js');
 const db = global.requireShared('/services/db.js');
 const globalSettings = require('./settings.js');
 
-
 /**
  * Convenience method to log errors both locally and remotely. This is used to display messages both on the console and in the error logs.
  *
@@ -131,7 +130,7 @@ function stringArraytoArray(dbString){
     }
 }
 
-async function insurerCodeTerritoryQuestions(insurerActivityCodeIdList, territory){
+async function insurerCodeTerritoryQuestions(insurerActivityCodeIdList, territory, iqMongoList){
     if(insurerActivityCodeIdList && insurerActivityCodeIdList.length > 0){
         const sql = `SELECT distinct iq.id as insurerQuestionId
                     FROM clw_talage_insurer_ncci_code_questions AS ncq
@@ -147,7 +146,11 @@ async function insurerCodeTerritoryQuestions(insurerActivityCodeIdList, territor
             let territoryQuestionArray = [];
             for(let i = 0; i < result.length; i++){
                 if(result[i].insurerQuestionId){
-                    territoryQuestionArray.push(result[i].insurerQuestionId)
+                    const iqId = result[i].insurerQuestionId;
+                    const iQFound = iqMongoList.find((iq) => iq.systemId === iqId);
+                    if(iQFound){
+                        territoryQuestionArray.push(iQFound.insurerQuestionId)
+                    }
                 }
             }
             if(territoryQuestionArray.length > 0){
@@ -155,10 +158,10 @@ async function insurerCodeTerritoryQuestions(insurerActivityCodeIdList, territor
                     territory: territory,
                     insurerQuestionIdList: territoryQuestionArray
                 };
-                //log.debug("returning " + JSON.stringify(territoryQuestionJSON))
                 return territoryQuestionJSON
             }
             else {
+                log.error(`no mongo question matches found `);
                 return null;
             }
 
@@ -183,6 +186,13 @@ async function insurerCodeTerritoryQuestions(insurerActivityCodeIdList, territor
  */
 async function runFunction() {
 
+    const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
+    const iqMongoList = await InsurerQuestionModel.find({}).catch(function(error) {
+        // Check if this was
+        log.error("error " + error);
+        process.exit(1);
+    });
+
     const InsurerActivityCodeModel = require('mongoose').model('InsurerActivityCode');
     //load message model and get message list.
     const sql = `SELECT  inc.insurer as 'insurerId',inc.code,inc.sub,inc.description
@@ -195,7 +205,6 @@ async function runFunction() {
                 GROUP BY  inc.insurer, inc.code,inc.sub ,inc.description,inc.attributes ,inc.effectiveDate , inc.expirationDate
                 ORDER BY inc.insurer, inc.code, inc.sub, inc.description;`;
 
-                //where inc.insurer = 13  AND  inc.id in (344949) 
     let result = await db.query(sql).catch(function(error) {
         // Check if this was
         log.error("error " + error);
@@ -215,7 +224,7 @@ async function runFunction() {
                     let insurerTerritoryQuestionList = [];
                     //for on territoryList
                     for(let j = 0; j < result[i].territoryList.length; j++){
-                        const insurerCodeTerritoryQuestionJSON = await insurerCodeTerritoryQuestions(result[i].insurerActivityCodeIdList, result[i].territoryList[j]);
+                        const insurerCodeTerritoryQuestionJSON = await insurerCodeTerritoryQuestions(result[i].insurerActivityCodeIdList, result[i].territoryList[j], iqMongoList);
                         if(insurerCodeTerritoryQuestionJSON){
                             insurerTerritoryQuestionList.push(insurerCodeTerritoryQuestionJSON);
                         }
@@ -236,6 +245,9 @@ async function runFunction() {
                 log.error('Mongo insurerActivityCode Save err ' + err + __location);
                 process.exit(1);
             });
+            if(insurerActivityCode.insurerTerritoryQuestionList.length > 0){
+                log.debug("has territoryquestions " + insurerActivityCode.insurerActivityCodeId)
+            }
             if((i + 1) % 100 === 0){
                 log.debug(`processed ${i + 1} of ${result.length} `)
             }

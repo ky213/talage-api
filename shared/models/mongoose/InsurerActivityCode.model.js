@@ -18,7 +18,7 @@ const optsNoId = {toJSON: {virtuals: true}, _id : false}
 //Used to override main list for special cases.
 const InsurerTerritoryQuestionSchema = new Schema({
     territory: {type: String, required: true},
-    insurerQuestionIdList: [Number]
+    insurerQuestionIdList: [String]
 },optsNoId)
 
 
@@ -33,7 +33,7 @@ const InsurerActivityCodeSchema = new Schema({
     expirationDate: {type: Date, required: true},
     talageActivityCodeIdList: [Number],
     territoryList: [String],
-    insurerQuestionIdList: [Number],
+    insurerQuestionIdList: [String],
     insurerTerritoryQuestionList: [InsurerTerritoryQuestionSchema],
     active: {type: Boolean, default: true}
 },opts)

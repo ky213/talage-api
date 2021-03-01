@@ -501,7 +501,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                 // eslint-disable-next-line prefer-const
                 const insurerQuestionQuery = {
                     insurerId: {$in: insurerArray},
-                    systemId: {$in: insurerQuestionIdArray},
+                    insurerQuestionId: {$in: insurerQuestionIdArray},
                     universal: false,
                     policyType: {$in: policyTypes},
                     questionSubjectArea: questionSubjectArea,
@@ -541,7 +541,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             log.info(`Mongo Activity Code Question process duration: ${diff2} milliseconds`);
         }
         catch(err){
-            log.error(`Error get Mongo Industry questions ${JSON.stringify(activityCodeQuery)}  ${err}` + __location);
+            log.error(`Error get Mongo Activity questions ${JSON.stringify(activityCodeQuery)}  ${err}` + __location);
         }
     }
     else {
