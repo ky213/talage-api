@@ -18,7 +18,7 @@ async function getResources(req, res, next){
         log.info('Bad Request: Parameters missing' + __location);
         return next(serverHelper.requestError('Parameters missing'));
     }
-
+    // This endpoint recieves application Id, we should be able to utilize that to make this endpoint smart, i.e. agencyId for the application to determine policy limits
     const resources = {};
 
     switch(req.query.page) {
@@ -96,7 +96,7 @@ const limitsSelectionAmounts = resources => {
             "$1,000,000 / $2,000,000 / $2,000,000"
         ],
         wc: [
-            "$100,000 / $500,000 / $100,000",
+            "$100,000 / $500,000 / $100,000" //,
             "$500,000 / $500,000 / $500,000",
             "$500,000 / $1,000,000 / $500,000",
             "$1,000,000 / $1,000,000 / $1,000,000"
