@@ -1312,7 +1312,7 @@ async function GetResources(req, res, next){
         responseObj.officerTitles = result4.map(officerTitleObj => officerTitleObj.officerTitle);
     }
     // TODO: uncomment below once we start utilizing logic to return policy limits based on agency
-    // responseObj.limits = getPolicyLimits(agencyId);
+    // responseObj.limits = await GetPolicyLimits(agencyId);
     responseObj.limits = await GetPolicyLimits(null) // TODO: DELETE this when uncomment above code, once logic to send back limits based on agencyId
     
     responseObj.unemploymentNumberStates = [
