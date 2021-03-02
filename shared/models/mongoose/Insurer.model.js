@@ -59,6 +59,7 @@ const InsurerSchema = new Schema({
     test_username: {type: String, required: false},
     test_password: {type: String, required: false},
     credentialInfo: {type: Schema.Types.Mixed},
+    additionalInfo: {type: Schema.Types.Mixed},
     active: {type: Boolean, default: true}
 },opts)
 
