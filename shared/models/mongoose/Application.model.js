@@ -219,9 +219,22 @@ const ApplicationSchema = new Schema({
     corporationType: {type: String, required: false},
     quotingStartedDate: {type: Date},
     metrics: {type: ApplicationMetricsSchema, required: false}
-});
+}, opts);
 // NOTE:  EIN is not ever saved to database.
 
+// Virtual Functions to save in old fields
+ApplicationSchema.virtual('managementStructure').
+    get(function() {
+        if(this.management_structure){
+            return this.management_structure;
+        }
+        else {
+            return '';
+        }
+    }).
+    set(function(v){
+        this.management_structure = v;
+    });
 /********************************** */
 ApplicationSchema.plugin(timestamps);
 ApplicationSchema.plugin(mongooseHistory);

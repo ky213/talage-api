@@ -1432,6 +1432,8 @@ module.exports = class ApplicationModel {
                     await this.checkExpiration(newObjectJSON);
                     await this.setupDocEinEncrypt(newObjectJSON);
                     await this.checkLocations(newObjectJSON);
+                    //virtuals' set are not processed in the updateOne call.
+                    this.processVirtualsSave(newObjectJSON);
 
                     if(newObjectJSON.ein){
                         delete newObjectJSON.ein
@@ -1639,6 +1641,19 @@ module.exports = class ApplicationModel {
             delete applicationDoc.ein;
         }
 
+    }
+
+    processVirtualsSave(sourceJSON){
+        const propMappings = {"managementStructure": "management_structure"};
+        if(sourceJSON){
+            // With next virtual make Virtual to Real map
+            for (const mapProp in propMappings) {
+                if (sourceJSON[mapProp] !== null && typeof sourceJSON[mapProp] !== 'undefined' && typeof sourceJSON[mapProp] !== "object") {
+                    sourceJSON[propMappings[mapProp]] = sourceJSON[mapProp];
+                    delete sourceJSON[mapProp];
+                }
+            }
+        }
     }
 
 
