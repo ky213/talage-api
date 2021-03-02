@@ -69,14 +69,6 @@ module.exports = class LibertySBOP extends Integration {
 
         logPrefix = `Arrowhead (Appid: ${applicationDocData.mysqlId}): `;
 
-        // NOTE: This question is required. Remove this code if we add this as a general universal question and add it to hydration function. 
-        let eqpbrk = applicationDocData.questions.find(q => q.insurerQuestionIdentifier === "eqpbrk");
-        if (eqpbrk) {
-            eqpbrk = this.convertToBoolean(eqpbrk.answerValue);
-        } else {
-            eqpbrk = false;
-        }
-
         // construct question map, massage answers into what is expected
         const questions = {};
         applicationDocData.questions.forEach(question => {
@@ -157,8 +149,9 @@ module.exports = class LibertySBOP extends Integration {
             },
             company: applicationDocData.businessName,
             controlSet: {
+                leadid: this.generate_uuid(),
                 prodcode: "111111", // <--- TODO: Get the producer code
-                leadid: this.generate_uuid()
+                prodsubcode: "qatest" // <-- TODO: What is this, how do we get it? 
             },
             policy: {
                 product: "BBOP",
@@ -192,14 +185,11 @@ module.exports = class LibertySBOP extends Integration {
                     locationList: locationList,
                     otherCOA: limits[1],
                     addtlIntInd: false,
-                    coverages: {               
-                        terror: { // required to provide this coverage object
-                            includeInd: BOPPolicy.addTerrorismCoverage
-                        },
-                        eqpbrk: { // required to provide this coverage object
-                            includeInd: eqpbrk
+                    coverages: {
+                        terror: {
+                            includedInd: BOPPolicy.addTerrorismCoverage
                         }
-                    },
+                    }
                 },
                 effectiveProduct: "BBOP"
             },
@@ -366,6 +356,11 @@ module.exports = class LibertySBOP extends Integration {
                         //     message: ""
                         // },
                         coverages: {
+                            // this is required because classTag is set to "SALES"
+                            liab: {
+                                includeInd: true,
+                                sales: `${applicationDocData.grossSalesAmt}`
+                            }
                             // PP: {
                             //     seasonalIncrease: "25",
                             //     valuationInd: false,
@@ -393,10 +388,6 @@ module.exports = class LibertySBOP extends Integration {
                             // },
                             // lienholder: {
                             //     includeInd: false
-                            // },
-                            // liab: {
-                            //     includeInd: true,
-                            //     sales: "500000"
                             // },
                             // aiprem: {
                             //     includeInd: false
@@ -464,8 +455,14 @@ module.exports = class LibertySBOP extends Integration {
         const empben = [];
 
         const bbopSet = requestJSON.policy.bbopSet;
+
         for (const [id, answer] of Object.entries(questions)) {
             switch (id) {
+                case "eqpbrk":
+                    bbopSet.coverages.eqpbrk = {
+                        includedInd: this.convertToBoolean(answer)
+                    };
+                    break;
                 case "automaticIncr":
                     bbopSet.automaticIncr = answer;
                     break;
@@ -716,6 +713,9 @@ module.exports = class LibertySBOP extends Integration {
                 case "StormPcnt":
                     location[id] = answer;
                     break;
+                case "deductiblePcnt":
+                    location[id] = answer;
+                    break;
                 default: 
                     log.warn(`${logPrefix}Encountered key [${id}] in injectLocationQuestions with no defined case. This could mean we have a new question that needs to be handled in the integration.`);
                     break;
@@ -734,6 +734,7 @@ module.exports = class LibertySBOP extends Integration {
         for (const building of buildings) {
             // parent questions
             const uw = [];
+            const pp = [];
 
             for (const [id, answer] of Object.entries(buildingQuestions)) {
                 switch (id) {
@@ -774,20 +775,59 @@ module.exports = class LibertySBOP extends Integration {
                     case "uw.electricalUpdates":
                         uw.push({id: id.replace("uw.", ""), answer});
                         break;
+                    case "PP":
+                        building[id] = {
+                            includedInd: this.convertToBoolean(answer)
+                        };
+                        break;
+                    case "PP.limit":
+                    case "PP.seasonalIncrease":
+                        pp.push({id: id.replace("PP.", ""), answer});
+                        break;
                     default: 
                         log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions with no defined case. This could mean we have a new question that needs to be handled in the integration.`);
                         break;
                 }
             }
 
+            // injection of uw child question data
             // all building underwrite questions are "year xx was updated" format
             if (uw.length > 0) {
                 building.uw = {};
-                uw.forEach(q => {
-                    building.uw[q.id] = q.answer;
+                uw.forEach(prop => {
+                    switch (prop.id) {
+                        case "roofUpdates":
+                        case "hvacUpdates":
+                        case "plumbingUpdates":
+                        case "electricalUpdates":
+                            building.uw[prop.id] = prop.answer;
+                            break;
+                        default:
+                            log.warn(`${logPrefix}Encountered key [${prop.id}] in injectBuildingQuestions for PP coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.`);
+                            break;
+                    }
                 });
-            } else {
-                log.warn(`${logPrefix}No underwriting questions were answered for a building. This could cause the quote to decline on Arrowhead's side.`);
+            }
+
+            // injection of PP child question data
+            if (pp.length > 0) {
+                if (!building.hasOwnProperty("PP")) {
+                    building.PP = {
+                        includedInd: true
+                    };
+                }
+
+                pp.forEach(prop => {
+                    switch (prop.id) {
+                        case "limit":
+                        case "seasonalIncrease":
+                            building.PP[prop.id] = prop.answer;
+                            break;
+                        default:
+                            log.warn(`${logPrefix}Encountered key [${prop.id}] in injectBuildingQuestions for PP coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.`);
+                            break;
+                    }
+                });
             }
         }
     }
