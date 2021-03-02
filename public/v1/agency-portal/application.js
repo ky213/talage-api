@@ -1185,7 +1185,70 @@ async function bindQuote(req, res, next) {
 
     return next();
 }
-
+/**
+ * Function that will return policy limits based on the agency
+ *
+ * @param {String} agencyId - Id of agency for which we will send back policy limits
+ *
+ * @returns {Object} returns the policy limits object
+ */
+async function GetPolicyLimits(agencyId){
+    let limits = null;
+    if(agencyId){
+        // Some service that will return policy limits based on agencyId
+    }else {
+        // Hard coded policy limits if agencyId is null
+        limits = {
+            "BOP": [
+                {
+                    "key": "1000000/1000000/1000000",
+                    "value": "$1,000,000 / $1,000,000 / $1,000,000"
+                },
+                {
+                    "key": "1000000/2000000/1000000",
+                    "value": "$1,000,000 / $2,000,000 / $1,000,000"
+                },
+                {
+                    "key": "1000000/2000000/2000000",
+                    "value": "$1,000,000 / $2,000,000 / $2,000,000"
+                }
+            ],
+            "GL": [
+                {
+                    "key": "1000000/1000000/1000000",
+                    "value": "$1,000,000 / $1,000,000 / $1,000,000"
+                },
+                {
+                    "key": "1000000/2000000/1000000",
+                    "value": "$1,000,000 / $2,000,000 / $1,000,000"
+                },
+                {
+                    "key": "1000000/2000000/2000000",
+                    "value": "$1,000,000 / $2,000,000 / $2,000,000"
+                }
+            ],
+            "WC": [
+                {
+                    "key": "100000/500000/100000",
+                    "value": "$100,000 / $500,000 / $100,000"
+                },
+                {
+                    "key": "500000/500000/500000",
+                    "value": "$500,000 / $500,000 / $500,000"
+                },
+                {
+                    "key": "500000/1000000/500000",
+                    "value": "$500,000 / $1,000,000 / $500,000"
+                },
+                {
+                    "key": "1000000/1000000/1000000",
+                    "value": "$1,000,000 / $1,000,000 / $1,000,000"
+                }
+            ]
+        };
+    }
+    return limits   
+}
 /**
  * GET returns resources Quote Engine needs
  *
@@ -1196,6 +1259,11 @@ async function bindQuote(req, res, next) {
  * @returns {void}
  */
 async function GetResources(req, res, next){
+    // Retrieve agencyId if it is avail
+    let agencyId = null;
+    if (req.query.agencyId) {
+        agencyId = req.query.agencyId;
+    }
     const responseObj = {};
     let rejected = false;
     const sql = `select id, introtext from clw_content where id in (10,11)`
@@ -1243,56 +1311,10 @@ async function GetResources(req, res, next){
     if (!rejected) {
         responseObj.officerTitles = result4.map(officerTitleObj => officerTitleObj.officerTitle);
     }
-
-    responseObj.limits = {
-        "BOP": [
-            {
-                "key": "1000000/1000000/1000000",
-                "value": "$1,000,000 / $1,000,000 / $1,000,000"
-            },
-            {
-                "key": "1000000/2000000/1000000",
-                "value": "$1,000,000 / $2,000,000 / $1,000,000"
-            },
-            {
-                "key": "1000000/2000000/2000000",
-                "value": "$1,000,000 / $2,000,000 / $2,000,000"
-            }
-        ],
-        "GL": [
-            {
-                "key": "1000000/1000000/1000000",
-                "value": "$1,000,000 / $1,000,000 / $1,000,000"
-            },
-            {
-                "key": "1000000/2000000/1000000",
-                "value": "$1,000,000 / $2,000,000 / $1,000,000"
-            },
-            {
-                "key": "1000000/2000000/2000000",
-                "value": "$1,000,000 / $2,000,000 / $2,000,000"
-            }
-        ],
-        "WC": [
-            {
-                "key": "100000/500000/100000",
-                "value": "$100,000 / $500,000 / $100,000"
-            },
-            {
-                "key": "500000/500000/500000",
-                "value": "$500,000 / $500,000 / $500,000"
-            },
-            {
-                "key": "500000/1000000/500000",
-                "value": "$500,000 / $1,000,000 / $500,000"
-            },
-            {
-                "key": "1000000/1000000/1000000",
-                "value": "$1,000,000 / $1,000,000 / $1,000,000"
-            }
-        ]
-    };
-
+    // TODO: uncomment below once we start utilizing service to return policy limits based on agency
+    // responseObj.limits = getPolicyLimits(agencyId);
+    responseObj.limits = await GetPolicyLimits(null) // TODO: DELETE this when uncomment above code that utilizes the actual agencyId
+    
     responseObj.unemploymentNumberStates = [
         'CO',
         'HI',
