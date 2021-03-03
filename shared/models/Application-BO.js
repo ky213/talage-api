@@ -2376,7 +2376,7 @@ module.exports = class ApplicationModel {
     //For AgencyPortal and Quote V2 - skipAgencyCheck === true if caller has already check
     // user rights to application
 
-    async GetQuestions(appId, userAgencyList, questionSubjectArea, skipAgencyCheck = false){
+    async GetQuestions(appId, userAgencyList, questionSubjectArea, stateList, skipAgencyCheck = false){
 
         let passedAgencyCheck = false;
         let applicationDocDB = null;
@@ -2447,21 +2447,23 @@ module.exports = class ApplicationModel {
 
         //zipCodes
         let zipCodeArray = [];
-        let stateList = [];
-        if(applicationDocDB.locations && applicationDocDB.locations.length > 0){
-            for(let i = 0; i < applicationDocDB.locations.length; i++){
-                zipCodeArray.push(applicationDocDB.locations[i].zipcode);
-                if(stateList.indexOf(applicationDocDB.locations[i].state) === -1){
-                    stateList.push(applicationDocDB.locations[i].state)
+        // If we have a stateList passed in, we do not need to populate zipCodeArray since it is ignored in favor of stateList. -SF
+        if (!stateList || stateList.length === 0) {
+            if (applicationDocDB.locations && applicationDocDB.locations.length > 0) {
+                for (let i = 0; i < applicationDocDB.locations.length; i++) {
+                    zipCodeArray.push(applicationDocDB.locations[i].zipcode);
+                    if (stateList.indexOf(applicationDocDB.locations[i].state) === -1) {
+                        stateList.push(applicationDocDB.locations[i].state)
+                    }
                 }
             }
-        }
-        else if(applicationDocDB.mailingZipcode && questionSubjectArea !== 'general'){
-            zipCodeArray.push(applicationDocDB.mailingZipcode);
-            stateList.push(applicationDocDB.mailingState)
-        }
-        else {
-            throw new Error("Incomplete Application: Application locations")
+            else if (applicationDocDB.mailingZipcode && questionSubjectArea !== 'general') {
+                zipCodeArray.push(applicationDocDB.mailingZipcode);
+                stateList.push(applicationDocDB.mailingState)
+            }
+            else {
+                throw new Error("Incomplete Application: Application locations")
+            }
         }
 
         log.debug("stateList: " + JSON.stringify(stateList));

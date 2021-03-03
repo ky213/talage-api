@@ -1068,11 +1068,15 @@ async function GetQuestions(req, res, next){
     if (req.query.questionSubjectArea) {
         questionSubjectArea = req.query.questionSubjectArea;
     }
+    let stateList = [];
+    if (req.query.stateList) {
+        stateList = req.query.stateList;
+    }
 
     let getQuestionsResult = null;
     try{
         const applicationBO = new ApplicationBO();
-        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies, questionSubjectArea);
+        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies, questionSubjectArea, stateList);
     }
     catch(err){
         //Incomplete Applications throw errors. those error message need to got to client
@@ -1170,8 +1174,8 @@ async function bindQuote(req, res, next) {
             // Update Application-level quote metrics when we do a bind.
         	await applicationBO.recalculateQuoteMetrics(applicationId);
         }
-        
-        
+
+
     }
 
     catch (err) {

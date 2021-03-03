@@ -32,7 +32,8 @@ function isAuthForApplication(req, applicationId){
         else {
             log.warn("UnAuthorized Attempted to modify or access Application " + __location)
         }
-    } else if (req.userTokenData && req.userTokenData.apiToken && req.userTokenData.applications && req.userTokenData.applications.length > 0){
+    }
+    else if (req.userTokenData && req.userTokenData.apiToken && req.userTokenData.applications && req.userTokenData.applications.length > 0){
         if(req.userTokenData.applications.indexOf(applicationId) > -1){
             canAccessApp = true;
         }
@@ -264,7 +265,7 @@ async function applicationLocationSave(req, res, next) {
             //check
             if(reqLocation.locationId){
                 if(req.body.delete === true){
-                    const newLocationList = applicationDB.locations.filter(function(locationDB){ 
+                    const newLocationList = applicationDB.locations.filter(function(locationDB){
                         return locationDB.locationId !== reqLocation.locationId;
                     });
                     applicationDB.locations = newLocationList;
@@ -387,6 +388,10 @@ async function GetQuestions(req, res, next){
     if (req.query.questionSubjectArea) {
         questionSubjectArea = req.query.questionSubjectArea;
     }
+    let stateList = [];
+    if (req.query.stateList) {
+        stateList = req.query.stateList;
+    }
 
     //GetQuestion require agencylist to check auth.
     // auth has already been check - use skipAuthCheck.
@@ -397,7 +402,7 @@ async function GetQuestions(req, res, next){
     let getQuestionsResult = null;
     try{
         const applicationBO = new ApplicationBO();
-        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies, questionSubjectArea, skipAgencyCheck);
+        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies, questionSubjectArea, stateList, skipAgencyCheck);
     }
     catch(err){
         //Incomplete Applications throw errors. those error message need to got to client
