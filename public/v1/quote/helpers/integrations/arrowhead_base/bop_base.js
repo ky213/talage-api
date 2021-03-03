@@ -3,7 +3,11 @@
 
 /**
  * This is a template base class for Arrowhead. This is not currently used, but is preserved to show a wider array of potential request fields
+ * 
+ * NOTE: Eventually this should be refactored to consolidate the API calls and response/error handling, and leave the request building to individual files
  */
+
+// TODO: There are many coverage questions below that do not have the proper .coverages property path, FIX THIS if/when we use this file
 
 'use strict';
 

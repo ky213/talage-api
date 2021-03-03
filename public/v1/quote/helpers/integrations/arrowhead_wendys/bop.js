@@ -38,23 +38,6 @@ module.exports = class LibertySBOP extends Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
 	async _insurer_quote() {
-
-        // NOTE: Properties of the request object that are commented out are known optional params we are explicitly not providing
-
-        const fieldsToParse = [
-            "automaticIncr",
-            "fixedPropDeductible",
-            "building.yearBuilt",
-            "building.occupiedSqFt",
-            "building.totalSqFt",
-            "building.numStories",
-            "building.uw.roofUpdates",
-            "building.uw.hvacUpdates",
-            "building.uw.plumbingUpdates",
-            "building.uw.electricalUpdates",
-            "building.bld.limit"
-        ];
-
         // "Other" is not included, as anything not below is defaulted to it
         const supportedEntityTypes = [
             "Corporation",
@@ -69,50 +52,27 @@ module.exports = class LibertySBOP extends Integration {
         const primaryContact = applicationDocData.contacts.find(c => c.primary);
         const limits = limitHelper.getLimitsAsAmounts(BOPPolicy.limits);
 
-        logPrefix = `Arrowhead (Appid: ${applicationDocData.mysqlId}): `;
+        logPrefix = `Arrowhead Wendys (Appid: ${applicationDocData.mysqlId}): `;
 
-        // construct question map, massage answers into what is expected
+        // reducing questions to a separate questionmap keyed off identifier
         const questions = {};
         applicationDocData.questions.forEach(question => {
-            let answer = null;
-            if (fieldsToParse.includes(question.insurerQuestionIdentifier)) {
-                answer = parseInt(question.answerValue);
-
-                if (isNaN(answer)) {
-                    log.error(`${logPrefix}Couldn't parse "${question.answerValue}" for question property "${question.insurerQuestionIdentifier}". Result was NaN, leaving as-is.`);
-                    answer = question.answerValue;
-                }
-            } else {
-                answer = question.answerValue;
-            }
-
-            questions[question.insurerQuestionIdentifier] = answer;
+            questions[question.insurerQuestionIdentifier] = question.answerValue;
         });
 
-        // Injecting question maps for location and building into each location 
+        // reducing and injecting question maps for location and building into each location 
         // NOTE: This will need to change once buildings get their own questions
         applicationDocData.locations.forEach(location => {
             location.locationQuestions = {};
             location.buildingQuestions = {};
-            let answer = null;
+
             location.questions.forEach(question => {
-                if (fieldsToParse.includes(question.insurerQuestionIdentifier)) {
-                    answer = parseInt(question.answerValue);
-
-                    if (isNaN(answer)) {
-                        log.error(`${logPrefix}Couldn't parse "${question.answerValue}" for question property "${question.insurerQuestionIdentifier}". Result was NaN, leaving as-is.`);
-                        answer = question.answerValue;
-                    }
-                } else {
-                    answer = question.answerValue;
-                }
-
                 if (question.insurerQuestionIdentifier.includes("location.")) {
                     // location specific questions
-                    location.locationQuestions[question.insurerQuestionIdentifier.replace("location.", "")] = answer;
+                    location.locationQuestions[question.insurerQuestionIdentifier.replace("location.", "")] = question.answerValue;
                 } else if (question.insurerQuestionIdentifier.includes("building.")){ // purposefully being explicit w/ this if statement
                     // building specific questions
-                    location.buildingQuestions[question.insurerQuestionIdentifier.replace("building.", "")] = answer;
+                    location.buildingQuestions[question.insurerQuestionIdentifier.replace("building.", "")] = question.answerValue;
                 }
             });
         });
@@ -334,7 +294,7 @@ module.exports = class LibertySBOP extends Integration {
                     };
                     break;
                 case "automaticIncr":
-                    bbopSet.automaticIncr = answer;
+                    bbopSet.automaticIncr = this.convertToInteger({id, answer});
                     break;
                 case "medicalExpenses":
                     bbopSet.medicalExpenses = answer;
@@ -343,7 +303,7 @@ module.exports = class LibertySBOP extends Integration {
                     bbopSet.liaDed = answer;
                     break;       
                 case "fixedPropDeductible":
-                    bbopSet.fixedPropDeductible = answer;
+                    bbopSet.fixedPropDeductible = this.convertToInteger({id, answer});
                     break;  
                 case "compf":
                     bbopSet.coverages.compf = {
@@ -465,27 +425,20 @@ module.exports = class LibertySBOP extends Integration {
                     case "description":
                         building[id] = answer;
                         break;
-                    case "isoClassGroup":
-                        building[id] = answer;
-                        break;
-                    case "lessorsRisks":
-                        building[id] = this.convertToBoolean(answer);
-                        break;
-                    case "numResidentialUnits":
-                    case "numResidentialUnitsMD":
-                        building[id] = answer;
-                        break;
                     case "numStories":
-                        building[id] = answer;
+                        building[id] = this.convertToInteger({id, answer});
                         break;
                     case "occupancy":
                         building[id] = answer;
                         break;
                     case "occupiedSqFt":
-                        building[id] = answer;
+                        building[id] = this.convertToInteger({id, answer});
+                        break;
+                    case "totalSqFt":
+                        building[id] = this.convertToInteger({id, answer});
                         break;
                     case "yearBuilt":
-                        building[id] = answer;
+                        building[id] = this.convertToInteger({id, answer});
                         break;
                     case "uw.roofUpdates":
                     case "uw.hvacUpdates":
@@ -522,16 +475,16 @@ module.exports = class LibertySBOP extends Integration {
             // all building underwrite questions are "year xx was updated" format
             if (uw.length > 0) {
                 building.uw = {};
-                uw.forEach(prop => {
-                    switch (prop.id) {
+                uw.forEach(({id, answer}) => {
+                    switch (id) {
                         case "roofUpdates":
                         case "hvacUpdates":
                         case "plumbingUpdates":
                         case "electricalUpdates":
-                            building.uw[prop.id] = prop.answer;
+                            building.uw[id] = this.convertToInteger({id, answer});
                             break;
                         default:
-                            log.warn(`${logPrefix}Encountered key [${prop.id}] in injectBuildingQuestions for PP coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.`);
+                            log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions for PP coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.`);
                             break;
                     }
                 });
@@ -572,7 +525,7 @@ module.exports = class LibertySBOP extends Integration {
                             building.coverages.bld[id] = answer;
                             break;
                         case "limit":
-                            building.coverages.bld[id] = answer;
+                            building.coverages.bld[id] = this.convertToInteger({id, answer});
                             break;
                         default: 
                             log.warn(`${logPrefix}Encountered key [${id}] in injectBuildingQuestions for bld coverage with no defined case. This could mean we have a new child question that needs to be handled in the integration.`);
@@ -590,9 +543,20 @@ module.exports = class LibertySBOP extends Integration {
             }
         }
 
-        // add more special conversions here...
+        // add more special conversions here as they come up...
 
         log.warn(`No match was found, unable to convert value: ${value} to boolean. Returning null.`);
         return null;
+    }
+
+    convertToInteger({id, answer}) {
+        let parsedAnswer = parseInt(answer);
+
+        if (isNaN(parsedAnswer)) {
+            log.warn(`${logPrefix}Couldn't parse "${answer}" for question property "${id}". Result was NaN, leaving as-is.`);
+            parsedAnswer = question.answerValue;
+        }
+
+        return parsedAnswer;
     }
 }
