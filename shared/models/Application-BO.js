@@ -2376,7 +2376,7 @@ module.exports = class ApplicationModel {
     //For AgencyPortal and Quote V2 - skipAgencyCheck === true if caller has already check
     // user rights to application
 
-    async GetQuestions(appId, userAgencyList, questionSubjectArea, skipAgencyCheck = false){
+    async GetQuestions(appId, userAgencyList, questionSubjectArea, locationId, stateList, skipAgencyCheck = false){
 
         let passedAgencyCheck = false;
         let applicationDocDB = null;
@@ -2400,7 +2400,25 @@ module.exports = class ApplicationModel {
         if(!applicationDocDB){
             throw new Error("not found");
         }
-        if(applicationDocDB.questions && applicationDocDB.questions.length > 0){
+
+        // check SAQ to populate the answeredList with location answers if they are there
+        if(questionSubjectArea === "location") {
+            if(locationId){
+                const location = applicationDocDB.locations.find(_location => _location.locationId === locationId);
+                // if we found the location and there are questions populated on it, otherwise set to empty
+                if(location && location.questions){
+                    questionsObject.answeredList = location.questions;
+                }
+                else{
+                    questionsObject.answeredList = [];
+                }
+            }
+            else {
+                // set the list to empty if we are location SAQ but no locationId is provided
+                questionsObject.answeredList = [];
+            }
+        }
+        else if(applicationDocDB.questions && applicationDocDB.questions.length > 0){
             questionsObject.answeredList = applicationDocDB.questions;
         }
 
@@ -2447,21 +2465,24 @@ module.exports = class ApplicationModel {
 
         //zipCodes
         let zipCodeArray = [];
-        let stateList = [];
-        if(applicationDocDB.locations && applicationDocDB.locations.length > 0){
-            for(let i = 0; i < applicationDocDB.locations.length; i++){
-                zipCodeArray.push(applicationDocDB.locations[i].zipcode);
-                if(stateList.indexOf(applicationDocDB.locations[i].state) === -1){
-                    stateList.push(applicationDocDB.locations[i].state)
+        // Do not modify stateList if it is already populated. We do not need to populate zipCodeArray since it is ignored if stateList is valid. -SF
+        // Note: this can be changed to populate zipCodeArray with only zip codes associated with the populated stateList
+        if (!stateList || stateList.length === 0) {
+            if (applicationDocDB.locations && applicationDocDB.locations.length > 0) {
+                for (let i = 0; i < applicationDocDB.locations.length; i++) {
+                    zipCodeArray.push(applicationDocDB.locations[i].zipcode);
+                    if (stateList.indexOf(applicationDocDB.locations[i].state) === -1) {
+                        stateList.push(applicationDocDB.locations[i].state)
+                    }
                 }
             }
-        }
-        else if(applicationDocDB.mailingZipcode && questionSubjectArea !== 'general'){
-            zipCodeArray.push(applicationDocDB.mailingZipcode);
-            stateList.push(applicationDocDB.mailingState)
-        }
-        else {
-            throw new Error("Incomplete Application: Application locations")
+            else if (applicationDocDB.mailingZipcode && questionSubjectArea !== 'general') {
+                zipCodeArray.push(applicationDocDB.mailingZipcode);
+                stateList.push(applicationDocDB.mailingState)
+            }
+            else {
+                throw new Error("Incomplete Application: Application locations")
+            }
         }
 
         log.debug("stateList: " + JSON.stringify(stateList));
