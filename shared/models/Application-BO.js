@@ -2376,7 +2376,7 @@ module.exports = class ApplicationModel {
     //For AgencyPortal and Quote V2 - skipAgencyCheck === true if caller has already check
     // user rights to application
 
-    async GetQuestions(appId, userAgencyList, questionSubjectArea, stateList, skipAgencyCheck = false){
+    async GetQuestions(appId, userAgencyList, questionSubjectArea, locationId, stateList, skipAgencyCheck = false){
 
         let passedAgencyCheck = false;
         let applicationDocDB = null;
@@ -2400,7 +2400,25 @@ module.exports = class ApplicationModel {
         if(!applicationDocDB){
             throw new Error("not found");
         }
-        if(applicationDocDB.questions && applicationDocDB.questions.length > 0){
+
+        // check SAQ to populate the answeredList with location answers if they are there
+        if(questionSubjectArea === "location") {
+            if(locationId){
+                const location = applicationDocDB.locations.find(_location => _location.locationId === locationId);
+                // if we found the location and there are questions populated on it, otherwise set to empty
+                if(location && location.questions){
+                    questionsObject.answeredList = location.questions;
+                }
+                else{
+                    questionsObject.answeredList = [];
+                }
+            }
+            else {
+                // set the list to empty if we are location SAQ but no locationId is provided
+                questionsObject.answeredList = [];
+            }
+        }
+        else if(applicationDocDB.questions && applicationDocDB.questions.length > 0){
             questionsObject.answeredList = applicationDocDB.questions;
         }
 

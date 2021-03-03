@@ -388,9 +388,15 @@ async function GetQuestions(req, res, next){
     if (req.query.questionSubjectArea) {
         questionSubjectArea = req.query.questionSubjectArea;
     }
+
     let stateList = [];
     if (req.query.stateList) {
         stateList = req.query.stateList;
+    }
+
+    let locationId = null;
+    if(req.query.locationId) {
+        locationId = req.query.locationId;
     }
 
     //GetQuestion require agencylist to check auth.
@@ -402,7 +408,7 @@ async function GetQuestions(req, res, next){
     let getQuestionsResult = null;
     try{
         const applicationBO = new ApplicationBO();
-        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies, questionSubjectArea, stateList, skipAgencyCheck);
+        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies, questionSubjectArea, locationId, stateList, skipAgencyCheck);
     }
     catch(err){
         //Incomplete Applications throw errors. those error message need to got to client
