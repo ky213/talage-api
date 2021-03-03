@@ -503,6 +503,28 @@ module.exports = class CompwestWC extends Integration {
         // <WorkCompLineBusiness>
         const WorkCompLineBusiness = WorkCompPolicyQuoteInqRq.ele('WorkCompLineBusiness');
 
+        // Make a list of embedded questions need by WC questions for Guidwire api.
+        const embeddedQuestions = {};
+        for (const questionId in this.questions) {
+            if (Object.prototype.hasOwnProperty.call(this.questions, questionId)) {
+                // Get the attributes for this question
+                const questionAttributes = this.question_details[questionId].attributes;
+
+                // Check if this is an embedded question
+                if (Object.prototype.hasOwnProperty.call(questionAttributes, 'embedded') && questionAttributes.embedded === true) {
+                    // Make sure we have the attributes we are expecting
+                    if (Object.prototype.hasOwnProperty.call(questionAttributes, 'xml_section') && Object.prototype.hasOwnProperty.call(questionAttributes, 'code')) {
+                        embeddedQuestions[`${questionAttributes.xml_section}-${questionAttributes.code}`] = this.questions[questionId];
+                    }
+                    else {
+                        log.error(`Appid: ${this.app.id} The AF Group embedded question "${this.question_details[questionId].identifier}" has invalid attributes.` + __location);
+                    }
+                }
+            }
+        }
+
+
+
         // Separate out the states
         const territories = this.app.business.getTerritories();
         territories.forEach((territory) => {
@@ -554,17 +576,62 @@ module.exports = class CompwestWC extends Integration {
 
                                 // <ClassCodeQuestion>
                                 const ClassCodeQuestion = ClassCodeQuestions.ele('ClassCodeQuestion');
-                                ClassCodeQuestion.ele('QuestionId', question_attributes.id);
-                                if(question_attributes.code){
+
+                                //Determine QuestionCd or questionId
+                                if(guideWireAPI === true){
+                                    //to loop up publicId in attributes based on classcode
+                                    let publicId = ''
+                                    if(question_attributes.classCodeList && question_attributes.classCodeList.length > 0){
+                                        for(let i = 0; i < question_attributes.classCodeList.length; i++){
+                                            if(question_attributes.classCodeList[i].classCode === classCode
+                                                && (!question_attributes.classCodeList[i].classCode
+                                                    || question_attributes.classCodeList[i].sub === subCode)){
+                                                        publicId = question_attributes.classCodeList[i].PublicId;
+                                                        break;
+                                                    }
+                                        }
+                                    }
+                                    if(publicId){
+                                        ClassCodeQuestion.ele('QuestionId', publicId);
+                                    }
+                                    else {
+                                        log.error(`AF - Did not file PublicId for ${classCode}-${subCode} QuestionId ${this.question_details[question_id].id} ` + __location)
+                                    }
+                                }
+                                else if(question_attributes.code){
+                                    ClassCodeQuestion.ele('QuestionId', question_attributes.id);
                                     ClassCodeQuestion.ele('QuestionCd', question_attributes.code);
                                 }
                                 // Determine how to send the answer
+                                //TODO look at attributies.afQuestionType
                                 if (question.type === 'Yes/No') {
                                     ClassCodeQuestion.ele('ResponseInd', question.get_answer_as_boolean() ? 'Y' : 'N');
                                 }
-                                else {
-                                    ClassCodeQuestion.ele('ResponseInd', question.answer);
+                                else if(question_attributes.afQuestionType === "PercePercentageInputntageAnswerValue"
+                                        || question_attributes.afQuestionType === "PercentageInput"){
+                                    ClassCodeQuestion.ele('PercentageAnswerValue', question.answer);
                                 }
+                                else if(question_attributes.afQuestionType === "OptionsOnYes"){
+
+                                        ClassCodeQuestion.ele('ResponseInd', question.get_answer_as_boolean() ? 'Y' : 'N');
+
+                                        if (answerBoolean && Object.prototype.hasOwnProperty.call(embeddedQuestions, this.question_details[questionId].identifier)) {
+                                            const embeddedQuestion = embeddedQuestions[this.question_details[questionId].identifier];
+
+                                            // If the answer was null, skip it
+                                            if (embeddedQuestion.answer ) {
+                                                QuestionAnswer.ele('Explanation', embeddedQuestion.answer);    
+                                            }
+
+                                            
+                                        }
+
+
+                                        // embedded for selected options.
+                                         //ClassCodeQuestion.ele('PercentageAnswerValue', question.answer);
+                                }
+                                //     ClassCodeQuestion.ele('ResponseInd', question.answer);
+                                // }
                                 // new for GuideWire
                                 // <PercentageAnswerValue>10</PercentageAnswerValue>
 								// 	<OptionResponse>
@@ -611,25 +678,7 @@ module.exports = class CompwestWC extends Integration {
 
         let QuestionAnswer = null;
 
-        // Make a list of embedded questions
-        const embeddedQuestions = {};
-        for (const questionId in this.questions) {
-            if (Object.prototype.hasOwnProperty.call(this.questions, questionId)) {
-                // Get the attributes for this question
-                const questionAttributes = this.question_details[questionId].attributes;
-
-                // Check if this is an embedded question
-                if (Object.prototype.hasOwnProperty.call(questionAttributes, 'embedded') && questionAttributes.embedded === true) {
-                    // Make sure we have the attributes we are expecting
-                    if (Object.prototype.hasOwnProperty.call(questionAttributes, 'xml_section') && Object.prototype.hasOwnProperty.call(questionAttributes, 'code')) {
-                        embeddedQuestions[`${questionAttributes.xml_section}-${questionAttributes.code}`] = this.questions[questionId];
-                    }
-                    else {
-                        log.error(`Appid: ${this.app.id} The AF Group embedded question "${this.question_details[questionId].identifier}" has invalid attributes.` + __location);
-                    }
-                }
-            }
-        }
+       
 
         // Create one section for each Ineligibility and Statement questions
         ['Ineligibility', 'Statement'].forEach((type) => {
@@ -658,7 +707,15 @@ module.exports = class CompwestWC extends Integration {
 
                         // <QuestionAnswer>
                         QuestionAnswer = root_questions_element.ele('QuestionAnswer');
-                        QuestionAnswer.ele('QuestionCd', this.question_details[questionId].identifier.split('-')[1]);
+                        //Detemine QuestionCd
+                        let questionCdValue = '';
+                        if(guideWireAPI === true){
+                            questionCdValue = this.question_details[questionId].attributes.questionCd;
+                        }
+                        else {
+                            questionCdValue = this.question_details[questionId].identifier.split('-')[1]
+                        }
+                        QuestionAnswer.ele('QuestionCd', questionCdValue);
                         QuestionAnswer.ele('YesNoCd', answerBoolean ? 'Y' : 'N');
 
                         // If the answer to this question was true, and it has an embedded question, add the answer
