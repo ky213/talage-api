@@ -2,7 +2,7 @@
 /* eslint multiline-comment-style: 0 */
 
 /**
- * Simple BOP Policy Integration for Liberty Mutual
+ * This is a template base class for Arrowhead. This is not currently used, but is preserved to show a wider array of potential request fields
  */
 
 'use strict';
@@ -135,13 +135,13 @@ module.exports = class LibertySBOP extends Integration {
                     city: applicationDocData.mailingCity,
                     state: applicationDocData.mailingState
                 },
-                mailingAddress: {
-                    zip: applicationDocData.mailingZipcode,
-                    address: applicationDocData.mailingAddress,
-                    city: applicationDocData.mailingCity,
-                    addressLine2: "",
-                    state: applicationDocData.mailingState
-                },
+                // mailingAddress: {
+                //     zip: applicationDocData.mailingZipcode,
+                //     address: applicationDocData.mailingAddress,
+                //     city: applicationDocData.mailingCity,
+                //     addressLine2: "",
+                //     state: applicationDocData.mailingState
+                // },
                 instype: supportedEntityTypes.includes(applicationDocData.entityType) ? applicationDocData.entityType : "Other",
                 companyName: applicationDocData.businessName,
                 wphone: `+1-${primaryContact.phone.substring(0, 3)}-${primaryContact.phone.substring(primaryContact.phone.length - 7)}`,
@@ -150,8 +150,8 @@ module.exports = class LibertySBOP extends Integration {
             company: applicationDocData.businessName,
             controlSet: {
                 leadid: this.generate_uuid(),
-                prodcode: "111111", // <--- TODO: Get the producer code
-                prodsubcode: "qatest" // <-- TODO: What is this, how do we get it? 
+                prodcode: "111111" // <--- TODO: Get the producer code
+                // prodsubcode: "qatest" 
             },
             policy: {
                 product: "BBOP",
@@ -170,6 +170,7 @@ module.exports = class LibertySBOP extends Integration {
                     classCode: this.industry_code.code, 
                     yearBizStarted: `${moment(applicationDocData.founded).year()}`,
                     sicCode: this.industry_code.attributes.sic,
+                    effective: moment(BOPPolicy.effectiveDate).format("YYYYMMDD"),
                     expiration: moment(BOPPolicy.effectiveDate).add(1, "year").format("YYYYMMDD"),
                     state: applicationDocData.mailingState,
                     quoteType: "NB"
@@ -187,7 +188,7 @@ module.exports = class LibertySBOP extends Integration {
                     addtlIntInd: false,
                     coverages: {
                         terror: {
-                            includedInd: BOPPolicy.addTerrorismCoverage
+                            includeInd: BOPPolicy.addTerrorismCoverage
                         }
                     }
                 },
@@ -250,6 +251,7 @@ module.exports = class LibertySBOP extends Integration {
                 errorMessage += `No details were provided, please review the logs.`;
             }
 
+            log.error(errorMessage, __location);
             return this.client_error(errorMessage, __location, additionalDetails.length > 0 ? additionalDetails : null);
         }
 
@@ -258,6 +260,10 @@ module.exports = class LibertySBOP extends Integration {
         log.info(`${logPrefix}\n${JSON.stringify(result.data, null, 4)}`);
         log.info("=================== QUOTE RESULT ===================");
     }
+
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+    // HELPER FUNCTIONS
+    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
     async getLocationList() {
         const applicationDocData = this.app.applicationDocData;
@@ -302,11 +308,11 @@ module.exports = class LibertySBOP extends Integration {
                 // secondaryName: "",
                 // preDir: "",
                 userCountryName: "USA",
-                userCountyName: smartyStreetsResponse.addressInformation.county_name,
+                countyName: smartyStreetsResponse.addressInformation.county_name,
                 city: location.city,
                 classCodes: this.industry_code.code,
                 address: applicationDocData.mailingAddress,
-                rawProtectionClass: "3", // <-- TODO: ASK JAMES
+                rawProtectionClass: "3", // hardset value expected by Arrowhead
                 state: location.state,
                 countyName: smartyStreetsResponse.addressInformation.county_name,
                 zip: applicationDocData.mailingZipcode,
@@ -314,7 +320,7 @@ module.exports = class LibertySBOP extends Integration {
                 buildings: 1, // Assumed as such until we work building information into the quote app and API
                 PPCAddressKey: `${applicationDocData.mailingAddress}:${applicationDocData.mailingState}:${applicationDocData.mailingZipcode}`, 
                 territory: applicationDocData.mailingState,
-                finalProtectionClass: "3", // <-- TODO: ASK JAMES
+                finalProtectionClass: "3", // hardset value expected by Arrowhead
                 // PPCCall: {
                 //     fireProtectionArea: smartyStreetsResponse.addressInformation.county_name,
                 //     waterSupplyType: "Hydrant", 
@@ -339,7 +345,7 @@ module.exports = class LibertySBOP extends Integration {
                 buildingList: [ // TODO: Break this out into a separate call once we have notion of buildings in quote app
                     {
                         LOI: "500000", // <-- ASK JAMES
-                        classTag: "SALES", // <-- HOW DO WE GET THIS?
+                        classTag: "SALES", // hardcode to SALES and set liab coverage sales amount to application gross sales
                         industrySegment: "", // <-- ASK JAMES
                         // isoClassDescriptionId: 32,
                         // isoClassDescription: "Convenience Food Stores With Fast Food Restaurant With Gasoline Sales",
@@ -460,7 +466,7 @@ module.exports = class LibertySBOP extends Integration {
             switch (id) {
                 case "eqpbrk":
                     bbopSet.coverages.eqpbrk = {
-                        includedInd: this.convertToBoolean(answer)
+                        includeInd: this.convertToBoolean(answer)
                     };
                     break;
                 case "automaticIncr":
@@ -480,7 +486,7 @@ module.exports = class LibertySBOP extends Integration {
                     break;  
                 case "additionalInsured": // <---- THIS ISN'T IN THE TEMPLATE OR THEIR DOCUMENTATION
                     bbopSet.additionalInsured = {
-                        includedInd: this.convertToBoolean(answer)
+                        includeInd: this.convertToBoolean(answer)
                     }
                     break;
                 case "cown.numAI":
@@ -494,35 +500,35 @@ module.exports = class LibertySBOP extends Integration {
                     break;
                 case "blanket.CovOption":
                     bbopSet.coverages.blanket = {
-                        includedInd: true,
+                        includeInd: true,
                         CovOption: answer
                     };
                     break;  
                 case "bitime":
                     bbopSet.coverages.bitime = {
-                        includedInd: this.convertToBoolean(answer)
+                        includeInd: this.convertToBoolean(answer)
                     };
                     break;  
                 case "bipay.extNumDays":
                     bbopSet.coverages.bipay = {
-                        includedInd: true,
+                        includeInd: true,
                         extNumDays: answer
                     };
                     break;  
                 case "blkai":
                     bbopSet.coverages.blkai = {
-                        includedInd: this.convertToBoolean(answer)
+                        includeInd: this.convertToBoolean(answer)
                     };
                     break;  
                 case "compf.limit":
                     bbopSet.coverages.compf = {
-                        includedInd: true,
+                        includeInd: true,
                         limit: answer
                     };
                     break;  
                 case "conins": 
                     bbopSet.coverages.conins = {
-                        includedInd: this.convertToBoolean(answer)
+                        includeInd: this.convertToBoolean(answer)
                     };
                     break; 
                 case "conins.propOnSite": 
@@ -541,12 +547,12 @@ module.exports = class LibertySBOP extends Integration {
                     break;
                 case "cyber":
                     bbopSet.coverages.cyber = {
-                        includedInd: this.convertToBoolean(answer)
+                        includeInd: this.convertToBoolean(answer)
                     };
                     break; 
                 case "datcom":
                     bbopSet.coverages.datcom = {
-                        includedInd: this.convertToBoolean(answer)
+                        includeInd: this.convertToBoolean(answer)
                     };
                     break; 
                 case "datcom.limit":
@@ -558,7 +564,7 @@ module.exports = class LibertySBOP extends Integration {
                     break;
                 case "empben":
                     bbopSet.coverages.empben = {
-                        includedInd: this.convertToBoolean(answer)
+                        includeInd: this.convertToBoolean(answer)
                     };
                     break;
                 case "empben.limit":
@@ -577,7 +583,7 @@ module.exports = class LibertySBOP extends Integration {
         if (additionalInsured.length > 0) {
             if (!bbopSet.hasOwnProperty("additionalInsured")) {
                 bbopSet.additionalInsured = {
-                    includedInd: true
+                    includeInd: true
                 };
             }
             additionalInsured.forEach(prop => {
@@ -603,7 +609,7 @@ module.exports = class LibertySBOP extends Integration {
         if (conins.length > 0) {
             if (!bbopSet.hasOwnProperty("conins")) {
                 bbopSet.conins = {
-                    includedInd: true
+                    includeInd: true
                 };
             }
 
@@ -619,12 +625,12 @@ module.exports = class LibertySBOP extends Integration {
                         break;
                     case "conins.nonownTools":
                         bbopSet.conins.nonownTools = {
-                            includedInd: this.convertToBoolean(prop.answer)
+                            includeInd: this.convertToBoolean(prop.answer)
                         }
                         break;
                     case "conins.empTools":
                         bbopSet.conins.empTools = {
-                            includedInd: this.convertToBoolean(prop.answer)
+                            includeInd: this.convertToBoolean(prop.answer)
                         }
                         break;
                 }
@@ -634,7 +640,7 @@ module.exports = class LibertySBOP extends Integration {
             if (coninsNonownToolsLimit) {
                 if (!bbopSet.conins.hasOwnProperty("nonownTools")) {
                     bbopSet.conins.nonownTools = {
-                        includedInd: true
+                        includeInd: true
                     };
                 }
 
@@ -645,7 +651,7 @@ module.exports = class LibertySBOP extends Integration {
             if (coninsEmpToolsLimit) {
                 if (!bbopSet.conins.hasOwnProperty("empTools")) {
                     bbopSet.conins.empTools = {
-                        includedInd: true
+                        includeInd: true
                     };
                 }
 
@@ -657,7 +663,7 @@ module.exports = class LibertySBOP extends Integration {
         if (datcom.length > 0) {
             if (!bbopSet.hasOwnProperty("datcom")) {
                 bbopSet.datcom = {
-                    includedInd: true
+                    includeInd: true
                 };
             }
 
@@ -679,7 +685,7 @@ module.exports = class LibertySBOP extends Integration {
         if (empben.length > 0) {
             if (!bbopSet.hasOwnProperty("empben")) {
                 bbopSet.empben = {
-                    includedInd: true
+                    includeInd: true
                 };
             }
 
@@ -777,7 +783,7 @@ module.exports = class LibertySBOP extends Integration {
                         break;
                     case "PP":
                         building[id] = {
-                            includedInd: this.convertToBoolean(answer)
+                            includeInd: this.convertToBoolean(answer)
                         };
                         break;
                     case "PP.limit":
@@ -813,7 +819,7 @@ module.exports = class LibertySBOP extends Integration {
             if (pp.length > 0) {
                 if (!building.hasOwnProperty("PP")) {
                     building.PP = {
-                        includedInd: true
+                        includeInd: true
                     };
                 }
 
