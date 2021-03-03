@@ -2447,7 +2447,8 @@ module.exports = class ApplicationModel {
 
         //zipCodes
         let zipCodeArray = [];
-        // If we have a stateList passed in, we do not need to populate zipCodeArray since it is ignored in favor of stateList. -SF
+        // Do not modify stateList if it is already populated. We do not need to populate zipCodeArray since it is ignored if stateList is valid. -SF
+        // Note: this can be changed to populate zipCodeArray with only zip codes associated with the populated stateList
         if (!stateList || stateList.length === 0) {
             if (applicationDocDB.locations && applicationDocDB.locations.length > 0) {
                 for (let i = 0; i < applicationDocDB.locations.length; i++) {
