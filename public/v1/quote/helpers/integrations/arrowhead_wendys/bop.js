@@ -250,9 +250,9 @@ module.exports = class LibertySBOP extends Integration {
                 finalProtectionClass: "",
                 buildingList: [ // TODO: Break this out into a separate call once we have notion of buildings in quote app
                     {
-                        LOI: "600000", // <-- ASK JAMES
+                        LOI: `${applicationDocData.grossSalesAmt}`,
                         classTag: "SALES", // hardcode to SALES and set liab coverage sales amount to application gross sales
-                        industrySegment: "", // <-- ASK JAMES
+                        industrySegment: "",
                         premOpsILF: "", 
                         classCode: this.industry_code.code,
                         sicCode: `${this.industry_code.sic}`,
