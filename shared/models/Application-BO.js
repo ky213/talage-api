@@ -320,6 +320,7 @@ module.exports = class ApplicationModel {
                         applicationJSON.coverageLapseNonPayment = true;
                         updatePolicies = true;
                     }
+                    // add terrorism coverage defaults to false. If true, it changed and we should update
                     if (applicationJSON.add_terrorism_coverage) {
                         applicationJSON.addTerrorismCoverage = true;
                         updatePolicies = true;
