@@ -52,14 +52,14 @@ module.exports = class GreatAmericanWC extends Integration {
         // follow-up questions until all of the questions are answered.
         while (questionnaire.questionsAsked !== questionnaire.questionsAnswered) {
             console.log(`There are some follow up questions (${questionnaire.questionsAsked} questions asked but only ${questionnaire.questionsAnswered} questions answered)`);
-            let oldQuestionsAsked = questionnaire.questionsAsked;
+            let oldQuestionsAnswered = questionnaire.questionsAnswered;
 
             curAnswers = await GreatAmericanApi.injectAnswers(token, curAnswers, questions);
             questionnaire = curAnswers.riskSelection.data.answerSession.questionnaire;
 
-            // if (questionnaire.questionsAsked === oldQuestionsAsked) {
-            //     throw new Error('Feels like some Great American questions are not imported. It is asking additional questions unexpectedly');
-            // }
+            if (questionnaire.questionsAnswered === oldQuestionsAnswered) {
+                throw new Error('Feels like some Great American questions are not imported. It is asking additional questions unexpectedly');
+            }
         }
         const quote = await GreatAmericanApi.getPricing(token, this.app, curAnswers.newBusiness.id);
 
