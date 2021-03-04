@@ -320,6 +320,10 @@ module.exports = class ApplicationModel {
                         applicationJSON.coverageLapseNonPayment = true;
                         updatePolicies = true;
                     }
+                    if (applicationJSON.add_terrorism_coverage) {
+                        applicationJSON.addTerrorismCoverage = true;
+                        updatePolicies = true;
+                    }
                     if(updatePolicies){
                         if(this.#applicationMongooseDB.policies && this.#applicationMongooseDB.policies.length > 0){
                             for(let i = 0; i < this.#applicationMongooseDB.policies.length; i++){
@@ -328,6 +332,9 @@ module.exports = class ApplicationModel {
                                 policy.coverageLapse = applicationJSON.coverageLapseWC;
                                 policy.coverageLapseNonPayment = applicationJSON.coverageLapseNonPayment;
                                 //}
+                                if (policy.policyType !== "WC") {
+                                    policy.addTerrorismCoverage = applicationJSON.addTerrorismCoverage;
+                                }
                             }
                             //update working/request applicationMongooseJSON so it saves.
                             this.#applicationMongooseJSON.policies = this.#applicationMongooseDB.policies
