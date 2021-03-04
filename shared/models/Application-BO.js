@@ -2404,7 +2404,7 @@ module.exports = class ApplicationModel {
         // check SAQ to populate the answeredList with location answers if they are there
         if(questionSubjectArea === "location") {
             if(locationId){
-                const location = applicationDocDB.locations.find(_location => _location.locationId === locationId);
+                const location = applicationDocDB.locations.find(_location => _location.id === locationId);
                 // if we found the location and there are questions populated on it, otherwise set to empty
                 if(location && location.questions){
                     questionsObject.answeredList = location.questions;
