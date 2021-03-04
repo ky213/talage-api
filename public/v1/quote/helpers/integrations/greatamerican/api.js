@@ -1,22 +1,19 @@
-const superagent = require('superagent');
+const axios = require('axios');
 const _ = require('lodash');
 
 const getToken = async () => {
     const uat = global.settings.GREAT_AMERICAN_UAT;
     const uatId = global.settings.GREAT_AMERICAN_UAT_ID;
 
-    const headers = {
-        httpHeader: [
-            `Authorization: Basic ${Buffer.from(`${uatId}:${uat}`).toString('base64')}`,
-            'Accept: application/json',
-        ]
+    const options = {
+        headers: {
+            Authorization: `Basic ${Buffer.from(`${uatId}:${uat}`).toString('base64')}`,
+            Accept: 'application/json',
+        }
     };
 
-    const apiCall = await superagent
-        .post('https://uat01.api.gaig.com/oauth/accesstoken?grant_type=client_credentials')
-        .set('Authorization', `Basic ${Buffer.from(`${uatId}:${uat}`).toString('base64')}`)
-        .set('Accept', 'application/json');
-    const out = JSON.parse(apiCall.res.text);
+    const apiCall = await axios.post('https://uat01.api.gaig.com/oauth/accesstoken?grant_type=client_credentials', null, options);
+    const out = apiCall.data;
     if (!out.access_token) {
         throw new Error(out);
     }
@@ -25,14 +22,21 @@ const getToken = async () => {
 
 const getAppetite = async () => {
     const token = await getToken();
+    const options = {
+        headers: {
+            Authorization: `Bearer ${token.access_token}`,
+            Accept: 'application/json',
+        }
+    };
 
-    const appetite = await superagent
-        .post('https://uat01.api.gaig.com/shop/api/newBusiness/appetite')
-        .send({ product: { product: 'WC' } })
-        .set('Authorization', `Bearer ${token.access_token}`)
-        .set('Accept', 'application/json');
+    const postData = { product: { product: 'WC' } }
 
-    const out = JSON.parse(appetite.res.text);
+    const appetite = await axios.post(
+        'https://uat01.api.gaig.com/shop/api/newBusiness/appetite',
+        postData,
+        options);
+
+    const out = appetite.data;
     if (_.get(out, 'product.data.classCodes'))
         return out.product.data.classCodes;
     else
@@ -118,12 +122,14 @@ const getPricing = async (token, app, sessionId) => {
         }
     };
     // let code = await getNcciFromClassCode(4194);
-    const apiCall = await superagent
-        .post('https://uat01.api.gaig.com/shop/api/newBusiness/pricing')
-        .send(send)
-        .set('Authorization', `Bearer ${token.access_token}`)
-        .set('Accept', 'application/json');
-    return JSON.parse(apiCall.res.text);
+    const apiCall = await axios
+        .post('https://uat01.api.gaig.com/shop/api/newBusiness/pricing', send, {
+            headers: {
+                Authorization: `Bearer ${token.access_token}`,
+                Accept: 'application/json',
+            }
+        });
+    return apiCall.data;
 }
 
 // pricing -> agent move to insured
@@ -136,12 +142,14 @@ const getQuote = async (token, sessionId) => {
             id: sessionId
         }
     };
-    const apiCall = await superagent
-        .post('https://uat01.api.gaig.com/shop/api/newBusiness/submit')
-        .send(send)
-        .set('Authorization', `Bearer ${token.access_token}`)
-        .set('Accept', 'application/json');
-    return JSON.parse(apiCall.res.text);
+    const apiCall = await axios
+        .post('https://uat01.api.gaig.com/shop/api/newBusiness/submit', send, {
+            headers: {
+                Authorization: `Bearer ${token.access_token}`,
+                Accept: 'application/json',
+            }
+        });
+    return apiCall.data;
 }
 
 /**
@@ -170,12 +178,14 @@ const getSession = async (token, businessTypes) => {
             }
         }
     };
-    const apiCall = await superagent
-        .post('https://uat01.api.gaig.com/shop/api/newBusiness/eligibility')
-        .send(send)
-        .set('Authorization', `Bearer ${token.access_token}`)
-        .set('Accept', 'application/json');
-    return JSON.parse(apiCall.res.text);
+    const apiCall = await axios
+        .post('https://uat01.api.gaig.com/shop/api/newBusiness/eligibility', send, {
+            headers: {
+                Authorization: `Bearer ${token.access_token}`,
+                Accept: 'application/json',
+            }
+        });
+    return apiCall.data;
 };
 
 const injectAnswers = async (token, fullQuestionSession, questionAnswers) => {
@@ -216,12 +226,14 @@ const injectAnswers = async (token, fullQuestionSession, questionAnswers) => {
         input: answerSession
     };
 
-    const appetite = await superagent
-        .post('https://uat01.api.gaig.com/shop/api/newBusiness/eligibility')
-        .send(newEligibilityParameters)
-        .set('Authorization', `Bearer ${token.access_token}`)
-        .set('Accept', 'application/json');
-    return JSON.parse(appetite.res.text);
+    const appetite = await axios
+        .post('https://uat01.api.gaig.com/shop/api/newBusiness/eligibility', newEligibilityParameters, {
+            headers: {
+                Authorization: `Bearer ${token.access_token}`,
+                Accept: 'application/json',
+            }
+        });
+    return appetite.data;
 };
 
 module.exports = {
