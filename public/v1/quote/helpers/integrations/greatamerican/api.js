@@ -44,9 +44,18 @@ const getAppetite = async () => {
 }
 
 const getNcciFromClassCode = async (code, territory) => {
-    const talageCode = await db.query(`SELECT * FROM clw_talage_activity_codes WHERE insurer = 26 and code = ${code}`);
-    const association = await db.query(`SELECT * FROM clw_talage_activity_code_associations WHERE `);
-    const ncciCodes = await db.query(`SELECT * FROM clw_talage_insurer_ncci_codes WHERE territory = '${territory}' AND code = `)
+    const talageCode = await db.query(`
+        SELECT
+            inc.code
+        FROM clw_talage_activity_codes AS ac
+        LEFT JOIN clw_talage_activity_code_associations AS aca ON ac.id = aca.code
+        LEFT JOIN clw_talage_insurer_ncci_codes AS inc ON aca.insurer_code = inc.id
+        WHERE
+            inc.insurer = 26 AND inc.territory = '${territory}' AND ac.id = ${code}`);
+    if (talageCode.length <= 0) {
+        throw new Error(`Code could not be found: ${code} / ${territory}`);
+    }
+    return talageCode[0].code;
 }
 
 const getPricing = async (token, app, sessionId) => {
@@ -106,22 +115,21 @@ const getPricing = async (token, app, sessionId) => {
             policyExpirationDate: app.policies[0].expiration_date.format('YYYY-MM-DD'),
             includeBlanketWaiver: true,
             producerCode: 648783,
-            locations: appData.locations.map(location => ({
+            locations: await Promise.all(appData.locations.map(async (location) => ({
                 id: location.locationId,
                 streetAddress: location.address,
                 addressLine2: location.address2,
                 city: location.city,
                 state: location.state,
                 zip: location.zipcode,
-                classCodes: location.activityPayrollList.map(code => ({
-                    classCode: '8001',
+                classCodes: await Promise.all(location.activityPayrollList.map(async (code) => ({
+                    classCode: await getNcciFromClassCode(code.ncciCode, location.state),
                     payroll: code.payroll,
                     numberOfEmployees: _.sum(code.employeeTypeList.map(t => t.employeeTypeCount))
-                }))
-            }))
+                })))
+            })))
         }
     };
-    // let code = await getNcciFromClassCode(4194);
     const apiCall = await axios
         .post('https://uat01.api.gaig.com/shop/api/newBusiness/pricing', send, {
             headers: {
@@ -132,10 +140,6 @@ const getPricing = async (token, app, sessionId) => {
     return apiCall.data;
 }
 
-// pricing -> agent move to insured
-// -> /submit
-//      -> bind
-//      -> generate policy #
 const getQuote = async (token, sessionId) => {
     const send = {
         newBusiness: {
