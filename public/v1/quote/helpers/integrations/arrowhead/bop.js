@@ -408,18 +408,19 @@ module.exports = class LibertySBOP extends Integration {
     }
 
     injectLocationQuestions(location, locationQuestions, buildingQuestions) {
+        // NOTE: Currently, none of these location questions are used, but keeping in case we need to introduce new location specific questions
+
         // hydrate the request JSON object with location question data
         // NOTE: Add additional location questions here if more get imported   
-
         for (const [id, answer] of Object.entries(locationQuestions)) {
             switch (id) {
-                case "WHDeductiblePcnt":
+                case "WHDeductiblePcnt": // Not asked for Wendys
                     location[id] = answer;
                     break;
-                case "perilType":
+                case "perilType": // Not asked for Wendys
                     location[id] = answer;
                     break;
-                case "deductiblePcnt":
+                case "deductiblePcnt": // Not asked for Wendys
                     location[id] = answer;
                     break;
                 default: 
@@ -436,7 +437,6 @@ module.exports = class LibertySBOP extends Integration {
     injectBuildingQuestions(buildings, buildingQuestions) {
         // hydrate the request JSON object with building question data
         // NOTE: Add additional building questions here if more get imported   
-
         for (const building of buildings) {
             // parent questions
             const uw = [];
