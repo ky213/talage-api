@@ -627,10 +627,22 @@ module.exports = class MarkelWC extends Integration {
         }
 
         // Prepare limits
-        const markelLimits = mapCarrierLimits[this.app.policies[0].limits];
-        const limits = this.getBestLimits(carrierLimits);
+        //This may result in no limit being found. needs defaults
+        //Plus need to use best match.   Note: limits variable not used submission.
+        let markelLimits = mapCarrierLimits[this.app.policies[0].limits];
 
-        if (!limits) {
+        const limits = this.getBestLimits(carrierLimits);
+        if (limits) {
+            const markelBestLimits = limits.join("/");
+            const markelLimitsSubmission = mapCarrierLimits[markelBestLimits];
+            if(markelLimitsSubmission){
+                markelLimits = markelLimitsSubmission;
+            }
+            else {
+                markelLimits = '100/500/100';
+            }
+        }
+        else {
             log.warn(`Appid: ${this.app.id} Markel WC autodeclined: no limits  ${this.insurer.name} does not support the requested liability limits ` + __location);
             this.reasons.push(`Appid: ${this.app.id} ${this.insurer.name} does not support the requested liability limits`);
             return this.return_result('autodeclined');
@@ -1159,6 +1171,9 @@ module.exports = class MarkelWC extends Integration {
             ownerOfficerInformationSection = [
                 {"Owner Include": 'No'}
             ];
+        }
+        if(!markelLimits){
+            log.error(`Appid: ${this.app.id}: Markel WC missing markelLimits. ` + __location)
         }
 
         const jsonRequest = {submissions: [
