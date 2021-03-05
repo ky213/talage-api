@@ -217,9 +217,6 @@ const injectAnswers = async (token, fullQuestionSession, questionAnswers) => {
                 answer = gaOption.optionId;
 
             }
-            // if (question.answerType === 'INTEGER') {
-            //     answer = parseInt(questionAnswers[question.questionId], 10);
-            // }
             question.answer = answer;
         }
     }
