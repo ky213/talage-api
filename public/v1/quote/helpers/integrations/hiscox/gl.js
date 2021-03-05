@@ -542,6 +542,12 @@ module.exports = class HiscoxGL extends Integration {
         }
         this.amount = premium;
 
+        // Get the quote link
+        const retrieveURL = this.get_xml_child(result, "InsuranceSvcRs.QuoteRs.RetrieveURL");
+        if (retrieveURL) {
+            this.quoteLink = retrieveURL;
+        }
+
         // Always a $0 deductible
         this.deductible = 0;
 
