@@ -103,7 +103,6 @@ async function findAgencyNetworkAllAgencyUsers(req, res, next){
         const flattenedArrayOfAllUsers = allAgencyUserList.flat();
         res.send(200, flattenedArrayOfAllUsers);
     }else {
-        res.send(404);
         return next(serverHelper.notFoundError('Agency users not found'));
     }
 }
