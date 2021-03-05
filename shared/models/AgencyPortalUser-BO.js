@@ -34,13 +34,13 @@ module.exports = class AgencyPortalUserBO{
             }
             if(newObjectJSON.email){
                 newObjectJSON.email_hash = await crypt.hash(newObjectJSON.email);
+                newObjectJSON.clear_email = newObjectJSON.email;
             }
             await this.cleanupInput(newObjectJSON);
             //password hashing is do not outside Savemodel
             // do to needing to knowledge the workflow causing the save.
             // user created save password process by Account PUT for AgencyPortal
             //admin/agency-user for administration. 
-           
 
 
             if(newObjectJSON.id){

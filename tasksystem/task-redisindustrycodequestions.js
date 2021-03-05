@@ -47,7 +47,6 @@ exports.processtask = async function(queueMessage){
             }
             error = null;
         }
-        
         return;
     }
     else {
@@ -76,22 +75,22 @@ exports.taskProcessorExternal = async function(){
 
 var industryCodeQuestionCacheUpdate = async function(industryCodeId){
 
-   
+
     const questionSvc = global.requireShared('./services/questionsvc.js');
     try{
         await questionSvc.UpdateRedisIndustryQuestions(industryCodeId);
-        log.info(`Redis Industry Code Question cached updated. }` + __location);
+        log.info(`Redis Industry Code Question cached updated.` + __location);
     }
     catch(err){
         log.error(`Error updating Industry Code Question cached.` + __location)
     }
-  
+
     return;
 }
 
 var industryCodeQuestionCacheUpdateByInsurerId = async function(insurerId){
 
-    
+
     const questionSvc = global.requireShared('./services/questionsvc.js');
     try{
         await questionSvc.UpdateRedisIndustryQuestionByInsurer(insurerId);
@@ -100,6 +99,6 @@ var industryCodeQuestionCacheUpdateByInsurerId = async function(insurerId){
     catch(err){
         log.error(`Error updating Industry Code Question cached for insurerId ${insurerId}` + __location)
     }
-   
+
     return;
 }

@@ -483,18 +483,9 @@ module.exports = class AcuityGL extends Integration {
                     continue;
                 }
 
-                let cglCode = null;
                 const acuityActivityCode = await this.get_insurer_code_for_activity_code(insurer.id, location.territory, activityCode.id);
                 if (acuityActivityCode && acuityActivityCode.attributes && acuityActivityCode.attributes.hasOwnProperty("assocGLClass")) {
-                    cglCode = acuityActivityCode.attributes.assocGLClass;
-                }
-                else {
-                    cglCode = await this.get_cgl_code_from_activity_code(location.territory, activityCode.id);
-                    if (!cglCode) {
-                        cglCode = this.industry_code.cgl;
-                    }
-                }
-                if (cglCode) {
+                    const cglCode = acuityActivityCode.attributes.assocGLClass;
                     let cobPayroll = cobPayrollList.find((cp) => cp.cglCode === cglCode);
                     if (!cobPayroll) {
                         cobPayroll = {
