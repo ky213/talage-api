@@ -17,6 +17,7 @@ const tracker = global.requireShared('./helpers/tracker.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 //const moment = require("moment")
 
+const AgencyBO = global.requireShared(`./models/Agency-BO.js`)
 
 async function findAll(req, res, next) {
 
@@ -60,6 +61,52 @@ async function findGroupAll(req, res, next) {
     }
 }
 
+async function findAgencyNetworkAllAgencyUsers(req, res, next){
+    const agencyNetworkId = stringFunctions.santizeNumber(req.query.agencyNetworkId, true);
+    if(!agencyNetworkId){
+        return next(new Error("bad parameter"));
+    }
+    let error = null;
+    // get list of all agencies for this network
+    const agencyBO = new AgencyBO();
+    const agencyList  = await agencyBO.getByAgencyNetwork(agencyNetworkId).catch(function(err){
+        log.error(`Error retrieving list of agencies for agency network id ${agencyNetworkId}: ` + err + __location);
+        error = err;
+    });
+    if (error) {
+        return next(error);
+    }
+    // for each agency grab the agency users
+    const allAgencyUserList = [];
+    if(agencyList.length > 0){
+         const agencyIdList = agencyList.map(function(agency) {
+            return agency.systemId;
+        })
+        const agencyPortalUserBO = new AgencyPortalUserBO();
+        for(let i = 0; i < agencyIdList.length; i++){
+            const agencyUserList = await agencyPortalUserBO.getList({agencyid: parseInt(agencyIdList[i], 10)}).catch(function(err) {
+                error = err;
+            })
+            if (error) {
+                log.error(`Error retrieving list of users for agency id ${agencyIdList[i]}: ` + err + __location);
+                break;
+            };
+            if(agencyUserList && agencyUserList.length > 0){
+                allAgencyUserList.push(agencyUserList);
+            }
+        }
+    }
+    if (error) {
+        return next(error);
+    }
+    if(allAgencyUserList.length > 0){
+        const flattenedArrayOfAllUsers = allAgencyUserList.flat();
+        res.send(200, flattenedArrayOfAllUsers);
+    }else {
+        res.send(404);
+        return next(serverHelper.notFoundError('Agency users not found'));
+    }
+}
 async function findOne(req, res, next) {
     const id = stringFunctions.santizeNumber(req.params.id, true);
     if (!id) {
@@ -240,5 +287,5 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPostAuthAdmin('POST Agency Network User', `${basePath}/agency-network-user`, add, 'administration', 'all');
     server.addDeleteAuthAdmin('Delete Agency Network User', `${basePath}/agency-network-user/:id`, deleteObject, 'administration', 'all');
     server.addGetAuthAdmin('Get Agency Network User Groups list', `${basePath}/agency-network-user/groups`, findGroupAll, 'administration', 'all');
-
+    server.addGetAuthAdmin('Get Agency Network All Agencies User list', `${basePath}/agency-network-all-agency-users`, findAgencyNetworkAllAgencyUsers, 'administration', 'all');
 };
