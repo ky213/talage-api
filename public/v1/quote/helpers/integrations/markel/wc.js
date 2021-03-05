@@ -666,8 +666,6 @@ module.exports = class MarkelWC extends Integration {
             }
         }
 
-        // Markel has us define our own Request ID
-        this.request_id = this.generate_uuid();
 
         const primaryAddress = this.app.business.locations[0];
 
@@ -1244,6 +1242,14 @@ module.exports = class MarkelWC extends Integration {
                     this.amount = response[rquIdKey].premium.totalPremium;
                 }
 
+                try {
+                    this.request_id = response[rquIdKey].applicationID;
+                    this.number = this.request_id;
+                }
+                catch (e) {
+                    log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Integration Error: Unable to find quote number.` + __location);
+                }
+
                 // Get the quote limits
                 if (response[rquIdKey].application["Policy Info"]) {
 
@@ -1256,6 +1262,7 @@ module.exports = class MarkelWC extends Integration {
                     }
                     return await this.client_referred(null, quotelimits, response[rquIdKey].premium.totalPremium,null,null);
                 }
+                
                 else {
                     log.error('Markel Quote structure changed. Unable to find limits. ' + __location);
                     this.reasons.push('Quote structure changed. Unable to find limits.');
