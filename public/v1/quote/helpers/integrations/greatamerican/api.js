@@ -58,9 +58,20 @@ const getNcciFromClassCode = async (code, territory) => {
     return talageCode[0].code;
 }
 
+/**
+ * If you answered all of the questions from Great American in a question
+ * session, then you can use this function to ask for a quote. If the policy is
+ * rejected by Great American, then the object returned will have a failed
+ * status.
+ * 
+ * @param {*} token 
+ * @param {*} app 
+ * @param {*} sessionId 
+ */
 const getPricing = async (token, app, sessionId) => {
     const appData = app.applicationDocData;
 
+    // Map our entity types to the entity types of Great America.
     let entityType;
     switch (appData.entityType) {
         case 'Association':
@@ -192,6 +203,15 @@ const getSession = async (token, businessTypes) => {
     return apiCall.data;
 };
 
+/**
+ * This function will update the current question session with GreatAmerica
+ * with the answers to the questions that you provided. Then return the new
+ * question result (which will tell you if there are more follow-up questions).
+ * @param {*} token 
+ * @param {*} fullQuestionSession 
+ * @param {*} questionAnswers An object (key-value pair) where the key is the
+ *   question ID and the value is the answer to the question.
+ */
 const injectAnswers = async (token, fullQuestionSession, questionAnswers) => {
     const questionSession = _.cloneDeep(fullQuestionSession);
     const answerSession = _.get(questionSession, 'riskSelection.data.answerSession');
@@ -241,7 +261,6 @@ module.exports = {
     getSession,
     getQuote,
     getPricing,
-    getNcciFromClassCode,
     getAppetite,
     getToken,
     injectAnswers

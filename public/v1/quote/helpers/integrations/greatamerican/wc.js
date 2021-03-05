@@ -19,7 +19,7 @@ module.exports = class GreatAmericanWC extends Integration {
     }
 
 	/**
-	 * Requests a quote from Liberty and returns. This request is not intended to be called directly.
+	 * Requests a quote from Great America and returns. This request is not intended to be called directly.
 	 *
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
 	 */
@@ -43,7 +43,9 @@ module.exports = class GreatAmericanWC extends Integration {
             throw new Error(`Great American returned a bad workflow control response: ${session.newBusiness.workflowControl}`);
         }
 
+        // XXX: Temporarily hard-coding this question. Need to remove later.
         questions['generalEligibilityYearsOfExperience'] = '5';
+        
         let curAnswers = await GreatAmericanApi.injectAnswers(token, session, questions);
         let questionnaire = curAnswers.riskSelection.data.answerSession.questionnaire;
 
@@ -57,6 +59,9 @@ module.exports = class GreatAmericanWC extends Integration {
             curAnswers = await GreatAmericanApi.injectAnswers(token, curAnswers, questions);
             questionnaire = curAnswers.riskSelection.data.answerSession.questionnaire;
 
+            // Prevent infinite loops with this check. Every call to
+            // injectAnswers should answer more questions. If we aren't getting
+            // anywhere with these calls, then throw an exception.
             if (questionnaire.questionsAnswered === oldQuestionsAnswered) {
                 throw new Error('Feels like some Great American questions are not imported. It is asking additional questions unexpectedly');
             }
