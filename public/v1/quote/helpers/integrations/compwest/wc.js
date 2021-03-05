@@ -541,91 +541,94 @@ module.exports = class CompwestWC extends Integration {
                         WorkCompRateClass.ele('RatingClassificationSubCd', subCode);
                         WorkCompRateClass.ele('Exposure', activityCodes[activityCode]);
 
+                        // From AF : If we have a Classcode(RatingClassificationCd) and Classcode Indiator(RatingClassificationSubCd),
+                        // we don’t expect to see ClassCodeQuestions node within
                         // Handle class specific questions
-                        const code_index = location.territory + classCode + subCode;
-                        if (Object.prototype.hasOwnProperty.call(activity_codes_to_questions, code_index) && activity_codes_to_questions[code_index].length) {
-                            // <ClassCodeQuestions>
-                            const ClassCodeQuestions = WorkCompRateClass.ele('ClassCodeQuestions');
+                        if((!classCode || !subCode) && guideWireAPI === true || guideWireAPI === false){
+                            // Handle class specific questions
+                            const code_index = location.territory + classCode + subCode;
+                            if (Object.prototype.hasOwnProperty.call(activity_codes_to_questions, code_index) && activity_codes_to_questions[code_index].length) {
+                                // <ClassCodeQuestions>
+                                const ClassCodeQuestions = WorkCompRateClass.ele('ClassCodeQuestions');
 
-                            // Loop through each question
-                            activity_codes_to_questions[code_index].forEach((question_id) => {
-                                const question = this.questions[question_id];
-                                if (!Object.prototype.hasOwnProperty.call(this.question_details, question_id)) {
-                                    return;
-                                }
-                                const question_attributes = question.attributes;
+                                // Loop through each question
+                                activity_codes_to_questions[code_index].forEach((question_id) => {
+                                    const question = this.questions[question_id];
+                                    if (!Object.prototype.hasOwnProperty.call(this.question_details, question_id)) {
+                                        return;
+                                    }
+                                    const question_attributes = question.attributes;
 
-                                // <ClassCodeQuestion>
-                                let ClassCodeQuestion = null;
+                                    // <ClassCodeQuestion>
+                                    let ClassCodeQuestion = null;
 
-                                //Determine QuestionCd or questionId
-                                let addNode = false;
-                                if(guideWireAPI === true){
-                                    
-                                    //to loop up publicId in attributes based on classcode
-                                    let publicId = '';
-                                    if(question_attributes && question_attributes.classCodeList && question_attributes.classCodeList.length > 0){
-                                        for(let i = 0; i < question_attributes.classCodeList.length; i++){
-                                            if(question_attributes.classCodeList[i].classCode === classCode
-                                                && (!question_attributes.classCodeList[i].classCode
-                                                    || question_attributes.classCodeList[i].sub === subCode)){
-                                                        publicId = question_attributes.classCodeList[i].PublicId;
-                                                        break;
-                                                    }
+                                    //Determine QuestionCd or questionId
+                                    let addNode = false;
+                                    if(guideWireAPI === true){
+                                        //to loop up publicId in attributes based on classcode
+                                        let publicId = '';
+                                        if(question_attributes && question_attributes.classCodeList && question_attributes.classCodeList.length > 0){
+                                            for(let i = 0; i < question_attributes.classCodeList.length; i++){
+                                                if(question_attributes.classCodeList[i].classCode === classCode
+                                                    && (!question_attributes.classCodeList[i].classCode
+                                                        || question_attributes.classCodeList[i].sub === subCode)){
+                                                            publicId = question_attributes.classCodeList[i].PublicId;
+                                                            break;
+                                                        }
+                                            }
+                                        }
+                                        if(publicId){
+                                            ClassCodeQuestion = ClassCodeQuestions.ele('ClassCodeQuestion');
+                                            ClassCodeQuestion.ele('QuestionId', publicId);
+                                            addNode = true;
+                                        }
+                                        else {
+                                            log.error(`AF - Did not file PublicId for ${classCode}-${subCode} QuestionId ${question.id} ` + __location)
                                         }
                                     }
-                                    if(publicId){
+                                    else if(question_attributes.code){
                                         ClassCodeQuestion = ClassCodeQuestions.ele('ClassCodeQuestion');
-                                        ClassCodeQuestion.ele('QuestionId', publicId);
+                                        ClassCodeQuestion.ele('QuestionId', question_attributes.id);
+                                        ClassCodeQuestion.ele('QuestionCd', question_attributes.code);
                                         addNode = true;
                                     }
-                                    else {
-                                        log.error(`AF - Did not file PublicId for ${classCode}-${subCode} QuestionId ${question.id} ` + __location)
-                                    }
-                                }
-                                else if(question_attributes.code){
-                                    ClassCodeQuestion = ClassCodeQuestions.ele('ClassCodeQuestion');
-                                    ClassCodeQuestion.ele('QuestionId', question_attributes.id);
-                                    ClassCodeQuestion.ele('QuestionCd', question_attributes.code);
-                                    addNode = true;
-                                }
-                                // Determine how to send the answer
-                                //TODO look at attributies.afQuestionType
-                                if(addNode){
-                                    if (question.type === 'Yes/No') {
-                                        ClassCodeQuestion.ele('ResponseInd', question.get_answer_as_boolean() ? 'Y' : 'N');
-                                    }
-                                    else if(question_attributes.afQuestionType === "PercePercentageInputntageAnswerValue"
-                                            || question_attributes.afQuestionType === "PercentageInput"){
-                                        ClassCodeQuestion.ele('PercentageAnswerValue', question.answer);
-                                    }
-                                    else if(question_attributes.afQuestionType === "OptionsOnYes"){
+                                    // Determine how to send the answer
+                                    //TODO look at attributies.afQuestionType
+                                    if(addNode){
+                                        if (question.type === 'Yes/No') {
+                                            ClassCodeQuestion.ele('ResponseInd', question.get_answer_as_boolean() ? 'Y' : 'N');
+                                        }
+                                        else if(question_attributes.afQuestionType === "PercePercentageInputntageAnswerValue"
+                                                || question_attributes.afQuestionType === "PercentageInput"){
+                                            ClassCodeQuestion.ele('PercentageAnswerValue', question.answer);
+                                        }
+                                        else if(question_attributes.afQuestionType === "OptionsOnYes"){
 
-                                        ClassCodeQuestion.ele('ResponseInd', question.get_answer_as_boolean() ? 'Y' : 'N');
+                                            ClassCodeQuestion.ele('ResponseInd', question.get_answer_as_boolean() ? 'Y' : 'N');
 
-                                        // if (Object.prototype.hasOwnProperty.call(embeddedQuestions, this.question_details[question_id].identifier)) {
-                                        //     const embeddedQuestion = embeddedQuestions[this.question_details[question_id].identifier];
-                                        //     // TODO handled options
-                                        //     //If the answer was null, skip it
-                                        //     if (embeddedQuestion.answer) {
-                                        //         QuestionAnswer.ele('Explanation', embeddedQuestion.answer);
-                                        //     }
-                                        // }
+                                            // if (Object.prototype.hasOwnProperty.call(embeddedQuestions, this.question_details[question_id].identifier)) {
+                                            //     const embeddedQuestion = embeddedQuestions[this.question_details[question_id].identifier];
+                                            //     // TODO handled options
+                                            //     //If the answer was null, skip it
+                                            //     if (embeddedQuestion.answer) {
+                                            //         QuestionAnswer.ele('Explanation', embeddedQuestion.answer);
+                                            //     }
+                                            // }
+                                        }
                                     }
-                                }
-                                
-                                //     ClassCodeQuestion.ele('ResponseInd', question.answer);
-                                // }
-                                // new for GuideWire
-                                // <PercentageAnswerValue>10</PercentageAnswerValue>
-								// 	<OptionResponse>
-								// 		<YesOptionResponse>r4:ml:375</YesOptionResponse>
-								// 		<OtherOptionResponse>Y</OtherOptionResponse>
-								// 	</OptionResponse>
-                                // </ClassCodeQuestion>
-                            });
-                            // </ClassCodeQuestions>
-                        }
+                                    //     ClassCodeQuestion.ele('ResponseInd', question.answer);
+                                    // }
+                                    // new for GuideWire
+                                    // <PercentageAnswerValue>10</PercentageAnswerValue>
+                                    // 	<OptionResponse>
+                                    // 		<YesOptionResponse>r4:ml:375</YesOptionResponse>
+                                    // 		<OtherOptionResponse>Y</OtherOptionResponse>
+                                    // 	</OptionResponse>
+                                    // </ClassCodeQuestion>
+                                });
+                                // </ClassCodeQuestions>
+                            }
+                        }//have classcode and sub
                         // </WorkCompRateClass>
                     }
                 }
