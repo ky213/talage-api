@@ -61,7 +61,7 @@ async function findGroupAll(req, res, next) {
     }
 }
 
-async function findAgencyNetworkAllAgencyUsers(req, res, next){
+async function findAgencyNetworkAllAgenciesUsers(req, res, next){
     const agencyNetworkId = stringFunctions.santizeNumber(req.query.agencyNetworkId, true);
     if(!agencyNetworkId){
         return next(new Error("bad parameter"));
@@ -286,5 +286,5 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPostAuthAdmin('POST Agency Network User', `${basePath}/agency-network-user`, add, 'administration', 'all');
     server.addDeleteAuthAdmin('Delete Agency Network User', `${basePath}/agency-network-user/:id`, deleteObject, 'administration', 'all');
     server.addGetAuthAdmin('Get Agency Network User Groups list', `${basePath}/agency-network-user/groups`, findGroupAll, 'administration', 'all');
-    server.addGetAuthAdmin('Get Agency Network All Agencies User list', `${basePath}/agency-network-all-agency-users`, findAgencyNetworkAllAgencyUsers, 'administration', 'all');
+    server.addGetAuthAdmin('Get Agency Network All Agencies User list', `${basePath}/agency-network-all-agency-users`, findAgencyNetworkAllAgenciesUsers, 'administration', 'all');
 };
