@@ -85,7 +85,8 @@ const locationSchema = new Schema({
 locationSchema.virtual('locationId').
     get(function() {
         if(this._id){
-            return this._id;
+            // make sure the id is coming out as a string
+            return `${this._id}`;
         }
         else {
             return null;
