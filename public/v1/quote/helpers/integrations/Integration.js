@@ -753,13 +753,18 @@ module.exports = class Integration {
         const question_details = {};
         try {
             results.forEach((result) => {
-                question_details[result.question] = {
-                    attributes: result.attributes ? JSON.parse(result.attributes) : '',
-                    identifier: result.identifier,
-                    universal: result.universal
-                };
-                if (result.universal) {
-                    this.universal_questions.push(result.question);
+                try{
+                    question_details[result.question] = {
+                        attributes: result.attributes ? JSON.parse(result.attributes) : '',
+                        identifier: result.identifier,
+                        universal: result.universal
+                    };
+                    if (result.universal) {
+                        this.universal_questions.push(result.question);
+                    }
+                }
+                catch(err){
+                    log.error(`Question details ${JSON.stringify(result)}: ` + err + __location);
                 }
             });
         }
@@ -2277,7 +2282,9 @@ module.exports = class Integration {
                 }
             }
             else {
-                log.warn(`Appid: ${this.app.id} No Industry_code attributes for ${this.insurer.name}:${this.insurer.id} and ${this.app.applicationDocData.mailingState}` + __location);
+                if (this.requiresInsurerIndustryCodes) {
+                    log.warn(`Appid: ${this.app.id} No Industry_code attributes for ${this.insurer.name}:${this.insurer.id} and ${this.app.applicationDocData.mailingState}` + __location);
+                }
                 this.industry_code.attributes = {};
             }
 
