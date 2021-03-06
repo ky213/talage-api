@@ -1203,59 +1203,80 @@ async function bindQuote(req, res, next) {
  * @returns {Object} returns the policy limits object
  */
 async function GetPolicyLimits(agencyId){
-    let limits = null;
+    let limits = {
+        "BOP": [
+            {
+                "key": "1000000/1000000/1000000",
+                "value": "$1,000,000 / $1,000,000 / $1,000,000"
+            },
+            {
+                "key": "1000000/2000000/1000000",
+                "value": "$1,000,000 / $2,000,000 / $1,000,000"
+            },
+            {
+                "key": "1000000/2000000/2000000",
+                "value": "$1,000,000 / $2,000,000 / $2,000,000"
+            }
+        ],
+        "GL": [
+            {
+                "key": "1000000/1000000/1000000",
+                "value": "$1,000,000 / $1,000,000 / $1,000,000"
+            },
+            {
+                "key": "1000000/2000000/1000000",
+                "value": "$1,000,000 / $2,000,000 / $1,000,000"
+            },
+            {
+                "key": "1000000/2000000/2000000",
+                "value": "$1,000,000 / $2,000,000 / $2,000,000"
+            }
+        ],
+        "WC": [
+            {
+                "key": "100000/500000/100000",
+                "value": "$100,000 / $500,000 / $100,000"
+            },
+            {
+                "key": "500000/500000/500000",
+                "value": "$500,000 / $500,000 / $500,000"
+            },
+            {
+                "key": "500000/1000000/500000",
+                "value": "$500,000 / $1,000,000 / $500,000"
+            },
+            {
+                "key": "1000000/1000000/1000000",
+                "value": "$1,000,000 / $1,000,000 / $1,000,000"
+            }
+        ]
+    };
     if(agencyId){
         // Some service that will return policy limits based on agencyId
-    }else {
-        // Hard coded policy limits if agencyId is null
-        limits = {
-            "BOP": [
-                {
-                    "key": "1000000/1000000/1000000",
-                    "value": "$1,000,000 / $1,000,000 / $1,000,000"
-                },
-                {
-                    "key": "1000000/2000000/1000000",
-                    "value": "$1,000,000 / $2,000,000 / $1,000,000"
-                },
-                {
-                    "key": "1000000/2000000/2000000",
-                    "value": "$1,000,000 / $2,000,000 / $2,000,000"
-                }
-            ],
-            "GL": [
-                {
-                    "key": "1000000/1000000/1000000",
-                    "value": "$1,000,000 / $1,000,000 / $1,000,000"
-                },
-                {
-                    "key": "1000000/2000000/1000000",
-                    "value": "$1,000,000 / $2,000,000 / $1,000,000"
-                },
-                {
-                    "key": "1000000/2000000/2000000",
-                    "value": "$1,000,000 / $2,000,000 / $2,000,000"
-                }
-            ],
-            "WC": [
-                {
-                    "key": "100000/500000/100000",
-                    "value": "$100,000 / $500,000 / $100,000"
-                },
-                {
-                    "key": "500000/500000/500000",
-                    "value": "$500,000 / $500,000 / $500,000"
-                },
-                {
-                    "key": "500000/1000000/500000",
-                    "value": "$500,000 / $1,000,000 / $500,000"
-                },
-                {
-                    "key": "1000000/1000000/1000000",
-                    "value": "$1,000,000 / $1,000,000 / $1,000,000"
-                }
-            ]
-        };
+        // TODO: make this smart logic where we don't do hardcoded check
+        // given an agency grab all of its locations
+        const agencyLocationBO = new AgencyLocationBO();
+        let locationList = null;
+        const query = {"agencyId": agencyId}
+        const getAgencyName = true;
+        const getChildren = true;
+        const useAgencyPrimeInsurers = true;
+        let error = null;
+        locationList = await agencyLocationBO.getList(query, getAgencyName, getChildren, useAgencyPrimeInsurers).catch(function(err){
+            log.error(`Could not get agency locations for agencyId ${agencyId} `+ err.message + __location);
+            error = err;
+        });
+        if(!error){
+            if(locationList && locationList.length > 0){
+                // for each location go through the list of insurers
+                
+                // are any of the insurer id equal 27
+                // if list of insurers for contains agencyId === 27 is the numb of insurers equal to 1
+                   // -> yes all good
+                   // -> no log an error message indicating otherwise
+            }
+        }
+        
     }
     return limits   
 }
