@@ -14,38 +14,38 @@ const serverHelper = require("../../../server.js");
 // dummy endpoint to stimulate resources
 async function getResources(req, res, next){
     // Let basic through with no app id
-    if (!req.query.page || !req.query.appId && req.query.page !== "basic") {
+    if (!req.query.page || !req.query.appId && req.query.page !== "_basic") {
         log.info('Bad Request: Parameters missing' + __location);
         return next(serverHelper.requestError('Parameters missing'));
     }
-
+    // This endpoint recieves application Id, we should be able to utilize that to make this endpoint smart, i.e. agencyId for the application to determine policy limits
     const resources = {};
 
     switch(req.query.page) {
-        case "businessQuestions":
+        case "_business-questions":
             membershipTypes(resources);
             break;
-        case "basic":
-        case "basic-created":
+        case "_basic":
+        case "_basic-created":
             entityTypes(resources);
             break;
-        case "business":
+        case "_business":
             break;
-        case "claims":
+        case "_claims":
             policyTypes(resources);
             break;
-        case "locations":
+        case "_locations":
             territories(resources);
             employeeTypes(resources);
             unemploymentNumberStates(resources);
             break;
-        case "mailingAddress":
+        case "_mailing-address":
             territories(resources);
             break;
-        case "officers":
+        case "_officers":
             officerTitles(resources);
             break;
-        case "policies":
+        case "_policies":
             limitsSelectionAmounts(resources);
             deductibleAmounts(resources);
             policiesEnabled(resources);
@@ -84,22 +84,51 @@ const policyTypes = resources => {
 
 const limitsSelectionAmounts = resources => {
     resources.limitsSelectionAmounts = {
-        bop:
-        [
-            "$1,000,000 / $1,000,000 / $1,000,000",
-            "$1,000,000 / $2,000,000 / $1,000,000",
-            "$1,000,000 / $2,000,000 / $2,000,000"
+        bop: [
+                {
+                    "key": "1000000/1000000/1000000",
+                    "value": "$1,000,000 / $1,000,000 / $1,000,000"
+                },
+                {
+                    "key": "1000000/2000000/1000000",
+                    "value": "$1,000,000 / $2,000,000 / $1,000,000"
+                },
+                {
+                    "key": "1000000/2000000/2000000",
+                    "value": "$1,000,000 / $2,000,000 / $2,000,000"
+                }
         ],
         gl: [
-            "$1,000,000 / $1,000,000 / $1,000,000",
-            "$1,000,000 / $2,000,000 / $1,000,000",
-            "$1,000,000 / $2,000,000 / $2,000,000"
+                {
+                    "key": "1000000/1000000/1000000",
+                    "value": "$1,000,000 / $1,000,000 / $1,000,000"
+                },
+                {
+                    "key": "1000000/2000000/1000000",
+                    "value": "$1,000,000 / $2,000,000 / $1,000,000"
+                },
+                {
+                    "key": "1000000/2000000/2000000",
+                    "value": "$1,000,000 / $2,000,000 / $2,000,000"
+                }
         ],
         wc: [
-            "$100,000 / $500,000 / $100,000",
-            "$500,000 / $500,000 / $500,000",
-            "$500,000 / $1,000,000 / $500,000",
-            "$1,000,000 / $1,000,000 / $1,000,000"
+                {
+                    "key": "100000/500000/100000",
+                    "value": "$100,000 / $500,000 / $100,000"
+                },
+                {
+                    "key": "500000/500000/500000",
+                    "value": "$500,000 / $500,000 / $500,000"
+                },
+                {
+                    "key": "500000/1000000/500000",
+                    "value": "$500,000 / $1,000,000 / $500,000"
+                },
+                {
+                    "key": "1000000/1000000/1000000",
+                    "value": "$1,000,000 / $1,000,000 / $1,000,000"
+                }
         ]
     }
 }
@@ -133,10 +162,14 @@ const officerTitles = resources => {
     // TODO: pull from officer_titles table (sql db)
     resources.officerTitles =
     [
-        "VP-Treas",
-        "VP-Secy-Treas",
-        "VP-Secy",
+        "Chief Executive Officer",
+        "Chief Financial Officer",
+        "Chief Operating Officer",
+        "Director",
         "Vice President",
+        "Executive Vice President",
+        "Executive Secy-VP",
+        "Executive Secretary",
         "Treasurer",
         "Secy-Treas",
         "Secretary",
@@ -147,13 +180,9 @@ const officerTitles = resources => {
         "Pres-Treas",
         "Pres-Secy-Treas",
         "Pres-Secy",
-        "Executive Vice President",
-        "Executive Secy-VP",
-        "Executive Secretary",
-        "Director",
-        "Chief Operating Officer",
-        "Chief Financial Officer",
-        "Chief Executive Officer"
+        "VP-Treas",
+        "VP-Secy-Treas",
+        "VP-Secy"
     ];
 }
 
@@ -171,8 +200,11 @@ const entityTypes = resources => {
     resources.entityTypes =
     [
         "Association",
-        "Corporation",
-        "Limited Liability Company",
+        "Corporation (C-Corp)",
+        "Corporation (S-Corp)",
+        "Non Profit Corporation",
+        "Limited Liability Company (Member Managed)",
+        "Limited Liability Company (Manager Managed)",
         "Limited Partnership",
         "Partnership",
         "Sole Proprietorship",

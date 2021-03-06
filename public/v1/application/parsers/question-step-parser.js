@@ -48,18 +48,8 @@ exports.process = async function(requestJSON) {
         }
 
         for (const questionId in question_answersJSON) {
-            let question = {"id" :questionId};
-            question.answer = question_answersJSON[questionId];
-            if(Array.isArray(question.answer)){
-                question.type = "array";
-            }
-            else if(typeof question.answer === "string"){
-                question.type = "text";
-            }
-            else {
-                question.type = "numeric";
-            }
-            questionList.push(question);
+            const questionJSON = getQuestionJSON(questionId, question_answersJSON[questionId]);
+            questionList.push(questionJSON);
         }
         requestJSON.questions = questionList;
 
@@ -77,3 +67,28 @@ exports.process = async function(requestJSON) {
     //log.debug("Owners Question requestJSON: " + JSON.stringify(requestJSON));
     return true;
 }
+
+/**
+ * Get question JSON for a given question ID and answer
+ *
+ * @param  {Number} questionId - The question ID
+ * @param  {Object} questionAnswer - The question answer
+ * @returns {Object} question JSON {id, answer, type}
+ */
+function getQuestionJSON(questionId, questionAnswer) {
+    const question = {"id" :questionId};
+    question.answer = questionAnswer;
+    if(Array.isArray(question.answer)){
+        question.type = "array";
+    }
+    else if(typeof question.answer === "string"){
+        question.type = "text";
+    }
+    else {
+        question.type = "numeric";
+    }
+    return question;
+}
+
+// Export getQuestionJSON so other parsers have access to it to handle their object-based questions (location, owner, etc...)
+exports.getQuestionJSON = getQuestionJSON;

@@ -38,7 +38,10 @@ async function putApplicationMeta(req, res, next) {
         const redisJSON = JSON.parse(redisValue.value);
 
         // if clientSession has not been defined yet, define it
-        redisJSON.clientSession = {};
+        if(!redisJSON.clientSession)
+        {
+            redisJSON.clientSession = {};
+        }
 
         // Save all client redis metadata under clientSession
         Object.keys(req.params).forEach(async key => {
@@ -78,7 +81,14 @@ async function getApplicationMeta(req, res, next) {
         const redisJSON = JSON.parse(redisValue.value);
 
         // Only return the client session
-        res.send(200, redisJSON.clientSession);
+        if(redisJSON.clientSession){
+            res.send(200, redisJSON.clientSession);
+        }
+        else {
+            // if the client session is not there, return empty
+            // this fixes a firefox issue with an undefined get
+            res.send(200, {});
+        }
         return next();
     }
     else {
@@ -91,6 +101,6 @@ async function getApplicationMeta(req, res, next) {
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
     // TODO: this should be secured behind auth token redis check
-    server.addPut('Put Application Metadata', `${basePath}/application/meta`, putApplicationMeta);
-    server.addGet('Get Application Metadata', `${basePath}/application/meta`, getApplicationMeta);
+    server.addPutAuthAppApi('Put Application Metadata', `${basePath}/application/meta`, putApplicationMeta);
+    server.addGetAuthAppApi('Get Application Metadata', `${basePath}/application/meta`, getApplicationMeta);
 };

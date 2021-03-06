@@ -33,6 +33,17 @@ function isAuthForApplication(req, applicationId){
             log.warn("UnAuthorized Attempted to modify or access Application " + __location)
         }
     }
+    else if (req.userTokenData && req.userTokenData.apiToken && req.userTokenData.applications && req.userTokenData.applications.length > 0){
+        if(req.userTokenData.applications.indexOf(applicationId) > -1){
+            canAccessApp = true;
+        }
+        else {
+            //TODO check database Does API JWT owner have access to this
+            // agency to add/edit applications.
+
+            log.warn("UnAuthorized Attempted to modify or access Application " + __location)
+        }
+    }
     return canAccessApp;
 }
 
@@ -179,6 +190,19 @@ async function applicationSave(req, res, next) {
                 }
 
             }
+            else {
+                //API request do create newtoken
+                // add application to Redis for JWT
+                try{
+                    const newToken = await ApiAuth.AddApplicationToToken(req, responseAppDoc.applicationId)
+                    if(newToken){
+                        responseAppDoc.token = newToken;
+                    }
+                }
+                catch(err){
+                    log.error(`Error Create JWT with ApplicationId ${err}` + __location);
+                }
+            }
         }
     }
     catch (err) {
@@ -241,7 +265,7 @@ async function applicationLocationSave(req, res, next) {
             //check
             if(reqLocation.locationId){
                 if(req.body.delete === true){
-                    const newLocationList = applicationDB.locations.filter(function(locationDB){ 
+                    const newLocationList = applicationDB.locations.filter(function(locationDB){
                         return locationDB.locationId !== reqLocation.locationId;
                     });
                     applicationDB.locations = newLocationList;
@@ -365,6 +389,16 @@ async function GetQuestions(req, res, next){
         questionSubjectArea = req.query.questionSubjectArea;
     }
 
+    let stateList = [];
+    if (req.query.stateList) {
+        stateList = req.query.stateList;
+    }
+
+    let locationId = null;
+    if(req.query.locationId) {
+        locationId = req.query.locationId;
+    }
+
     //GetQuestion require agencylist to check auth.
     // auth has already been check - use skipAuthCheck.
     // eslint-disable-next-line prefer-const
@@ -374,7 +408,7 @@ async function GetQuestions(req, res, next){
     let getQuestionsResult = null;
     try{
         const applicationBO = new ApplicationBO();
-        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies , questionSubjectArea, skipAgencyCheck);
+        getQuestionsResult = await applicationBO.GetQuestions(req.params.id, agencies, questionSubjectArea, locationId, stateList, skipAgencyCheck);
     }
     catch(err){
         //Incomplete Applications throw errors. those error message need to got to client
@@ -496,31 +530,36 @@ async function startQuoting(req, res, next) {
     //Double check it is TalageStaff user
 
     // Check for data
-    if (!req.params || !req.params.id) {
-        log.warn('No id was received' + __location);
-        return next(serverHelper.requestError('No id was received'));
+    if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
+        log.warn('No data was received' + __location);
+        return next(serverHelper.requestError('No data was received'));
+    }
+    // Make sure basic elements are present
+    if (!Object.prototype.hasOwnProperty.call(req.body, 'applicationId')) {
+        log.warn('Some required data is missing' + __location);
+        return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
     }
 
     let error = null;
     //accept applicationId or uuid also.
     const applicationBO = new ApplicationBO();
-    let id = req.params.id;
-    const rightsToApp = isAuthForApplication(req, id)
+    let applicationId = req.body.applicationId;
+    const rightsToApp = isAuthForApplication(req, applicationId);
     if(rightsToApp !== true){
         return next(serverHelper.forbiddenError(`Not Authorized`));
     }
-    if(id > 0){
+    if(applicationId > 0){
         // requote the application ID
-        if (!await validator.is_valid_id(req.params.id)) {
-            log.error(`Bad Request: Invalid id ${id}` + __location);
+        if (!await validator.is_valid_id(applicationId)) {
+            log.error(`Bad Request: Invalid id ${applicationId}` + __location);
             return next(serverHelper.requestError('Invalid id'));
         }
     }
     else {
         //assume uuid input
-        log.debug(`Getting app id  ${id} from mongo` + __location)
-        const appDoc = await applicationBO.getfromMongoByAppId(id).catch(function(err) {
-            log.error(`Error getting application Doc for requote ${id} ` + err + __location);
+        log.debug(`Getting app id  ${applicationId} from mongo` + __location);
+        const appDoc = await applicationBO.getfromMongoByAppId(applicationId).catch(function(err) {
+            log.error(`Error getting application Doc for requote ${applicationId} ` + err + __location);
             log.error('Bad Request: Invalid id ' + __location);
             error = err;
         });
@@ -528,16 +567,16 @@ async function startQuoting(req, res, next) {
             return next(error);
         }
         if(appDoc){
-            id = appDoc.mysqlId;
+            applicationId = appDoc.mysqlId;
         }
         else {
-            log.error(`Did not find application Doc for requote ${id}` + __location);
+            log.error(`Did not find application Doc for requote ${applicationId}` + __location);
             return next(serverHelper.requestError('Invalid id'));
         }
     }
 
     //Get app and check status
-    const applicationDB = await applicationBO.getById(id).catch(function(err) {
+    const applicationDB = await applicationBO.getById(applicationId).catch(function(err) {
         log.error("Location load error " + err + __location);
         error = err;
     });
@@ -560,7 +599,7 @@ async function startQuoting(req, res, next) {
     try {
         const forceQuoting = true;
         const loadJson = {
-            "id": id,
+            "id": applicationId,
             agencyPortalQuote: true
         };
         if(applicationDB.insurerId && validator.is_valid_id(applicationDB.insurerId)){
@@ -569,7 +608,7 @@ async function startQuoting(req, res, next) {
         await applicationQuoting.load(loadJson, forceQuoting);
     }
     catch (err) {
-        log.error(`Error loading application ${req.params.id ? req.params.id : ''}: ${err.message}` + __location);
+        log.error(`Error loading application ${applicationId}: ${err.message}` + __location);
         res.send(err);
         return next();
     }
@@ -578,7 +617,7 @@ async function startQuoting(req, res, next) {
         await applicationQuoting.validate();
     }
     catch (err) {
-        const errMessage = `Error validating application ${id ? id : ''}: ${err.message}`
+        const errMessage = `Error validating application ${applicationId}: ${err.message}`;
         log.error(errMessage + __location);
         res.send(400, errMessage);
         return next();
@@ -858,6 +897,12 @@ async function createQuoteSummary(quote) {
 
 async function quotingCheck(req, res, next) {
 
+    // Check for data
+    if (!req.params || !req.params.id) {
+        log.warn('No id was received' + __location);
+        return next(serverHelper.requestError('No id was received'));
+    }
+
     const rightsToApp = isAuthForApplication(req, req.params.id);
     if(rightsToApp !== true){
         return next(serverHelper.forbiddenError(`Not Authorized`));
@@ -879,7 +924,7 @@ async function quotingCheck(req, res, next) {
         log.debug("Application progress check " + progress + __location);
     }
     catch(err){
-        log.error(`Error getting application progress appId = ${req.params.id}. ` + err + __location);
+        log.error(`Error getting application progress appId = ${applicationId}. ` + err + __location);
         res.send(400, `Could not get quote list: ${err}`);
         return next();
     }
@@ -925,27 +970,16 @@ async function quotingCheck(req, res, next) {
 
 async function bindQuote(req, res, next) {
 
-    const rightsToApp = isAuthForApplication(req,req.params.id)
-    if(rightsToApp !== true){
-        return next(serverHelper.forbiddenError(`Not Authorized`));
-    }
-
-    //Double check it is TalageStaff user
-    log.debug("Bind request: " + JSON.stringify(req.body))
-    // Check if binding is disabled
-
     // Check for data
     if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
         log.warn('No data was received' + __location);
         return next(serverHelper.requestError('No data was received'));
     }
-
     // Make sure basic elements are present
     if (!Object.prototype.hasOwnProperty.call(req.body, 'applicationId')) {
         log.warn('Some required data is missing' + __location);
         return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
     }
-
     if (!Object.prototype.hasOwnProperty.call(req.body, 'quoteId')) {
         log.warn('Some required data is missing' + __location);
         return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
@@ -956,10 +990,26 @@ async function bindQuote(req, res, next) {
         return next(serverHelper.requestError('Some required data is missing. Please check the documentation.'));
     }
 
+    // make sure the caller has the correct rights
+    let applicationId = req.body.applicationId;
+    const rightsToApp = isAuthForApplication(req, applicationId);
+    if(rightsToApp !== true){
+        return next(serverHelper.forbiddenError(`Not Authorized`));
+    }
+
+    //Double check it is TalageStaff user
+    log.debug("Bind request: " + JSON.stringify(req.body));
+    // Check if binding is disabled
+
+    // Check for data
+    if (!req.body || typeof req.body === 'object' && Object.keys(req.body).length === 0) {
+        log.warn('No data was received' + __location);
+        return next(serverHelper.requestError('No data was received'));
+    }
+
     let error = null;
     //accept applicationId or uuid also.
     const applicationBO = new ApplicationBO();
-    let applicationId = req.body.applicationId;
     const quoteId = req.body.quoteId;
     const paymentPlanId = req.body.paymentPlanId;
 
@@ -980,7 +1030,7 @@ async function bindQuote(req, res, next) {
                 quoteId: quoteId,
                 paymentPlanId: paymentPlanId
             };
-            const resp = await applicationBO.processRequestToBind(applicationId,quoteJSON)
+            const resp = await applicationBO.processRequestToBind(applicationId,quoteJSON);
         }
         catch(err){
             log.error(`Bind request error app ${applicationId} error ${err}` + __location)
@@ -1002,17 +1052,14 @@ async function bindQuote(req, res, next) {
 
 /* -----==== Endpoints ====-----*/
 exports.registerEndpoint = (server, basePath) => {
-    // temporary use AuthAppWF (same as quote app V1)
-    // server.addGetAuthAppWF('Get Quote Agency', `${basePath}/agency`, getAgency);
-    server.addPostAuthAppApi("POST Application",`${basePath}/application`,applicationSave);
-    server.addPutAuthAppApi("PUT Application",`${basePath}/application`,applicationSave);
-    server.addPutAuthAppApi("PUT Application Location",`${basePath}/application/location`,applicationLocationSave);
-    server.addGetAuthAppApi("GET Application",`${basePath}/application/:id`,getApplication);
+    server.addPostAuthAppApi("POST Application",`${basePath}/application`, applicationSave);
+    server.addPutAuthAppApi("PUT Application",`${basePath}/application`, applicationSave);
+    server.addPutAuthAppApi("PUT Application Location",`${basePath}/application/location`, applicationLocationSave);
+    server.addGetAuthAppApi("GET Application",`${basePath}/application/:id`, getApplication);
+    server.addGetAuthAppApi('GET Questions for Application', `${basePath}/application/:id/questions`, GetQuestions);
 
-    server.addGetAuthAppApi('GetQuestions for AP Application', `${basePath}/application/:id/questions`, GetQuestions);
     server.addPutAuthAppApi('PUT Validate Application', `${basePath}/application/:id/validate`, validate);
-    server.addPutAuthAppApi('PUT Start Quoting Application', `${basePath}/application/:id/quote`, startQuoting);
-    server.addGetAuthAppApi('Get Quoting check Application', `${basePath}/application/:id/quoting`, quotingCheck);
-
-    server.addPutAuthAppApi('PUT Bind Quote', `${basePath}/application/:id/bind-quote`, bindQuote);
+    server.addPutAuthAppApi('PUT Start Quoting Application', `${basePath}/application/quote`, startQuoting);
+    server.addGetAuthAppApi('GET Quoting check Application', `${basePath}/application/:id/quoting`, quotingCheck);
+    server.addPutAuthAppApi('PUT Bind Quote', `${basePath}/application/bind-quote`, bindQuote);
 }

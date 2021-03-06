@@ -285,7 +285,7 @@ module.exports = class ApplicationModel {
                     break;
                 case 'locations':
                     if (applicationJSON.locations) {
-                        this.processLocationsMongo(applicationJSON.locations);
+                        await this.processLocationsMongo(applicationJSON.locations);
                     }
                     updateBusiness = true;
                     break;
@@ -320,6 +320,11 @@ module.exports = class ApplicationModel {
                         applicationJSON.coverageLapseNonPayment = true;
                         updatePolicies = true;
                     }
+                    // add terrorism coverage defaults to false. If true, it changed and we should update
+                    if (applicationJSON.add_terrorism_coverage) {
+                        applicationJSON.addTerrorismCoverage = true;
+                        updatePolicies = true;
+                    }
                     if(updatePolicies){
                         if(this.#applicationMongooseDB.policies && this.#applicationMongooseDB.policies.length > 0){
                             for(let i = 0; i < this.#applicationMongooseDB.policies.length; i++){
@@ -328,6 +333,9 @@ module.exports = class ApplicationModel {
                                 policy.coverageLapse = applicationJSON.coverageLapseWC;
                                 policy.coverageLapseNonPayment = applicationJSON.coverageLapseNonPayment;
                                 //}
+                                if (policy.policyType !== "WC") {
+                                    policy.addTerrorismCoverage = applicationJSON.addTerrorismCoverage;
+                                }
                             }
                             //update working/request applicationMongooseJSON so it saves.
                             this.#applicationMongooseJSON.policies = this.#applicationMongooseDB.policies
@@ -344,11 +352,9 @@ module.exports = class ApplicationModel {
                     break;
                 case 'questions':
                     if (applicationJSON.questions) {
-
-                        await this.processQuestionsMongo(applicationJSON.questions).catch(function(err) {
+                        this.#applicationMongooseJSON.questions = await this.processQuestionsMongo(applicationJSON.questions).catch(function(err) {
                             log.error(`Adding Questions to appId ${appId}  error:` + err + __location);
                         });
-
                     }
                     await this.processLegalAcceptance(applicationJSON).catch(function(err) {
                         log.error(`Adding Legal Acceptance to appId ${appId} error:` + err + __location);
@@ -611,7 +617,7 @@ module.exports = class ApplicationModel {
         });
 
     }
-    processLocationsMongo(locations) {
+    async processLocationsMongo(locations) {
         this.#applicationMongooseJSON.locations = locations
         const businessInfoMapping = {"state_abbr": "state"};
         // Note: square_footage full_time_employees part_time_employees are part of the model.
@@ -652,6 +658,13 @@ module.exports = class ApplicationModel {
                     activityPayrollJSON.employeeTypeList = activity_code.employeeTypeList;
                     location.activityPayrollList.push(activityPayrollJSON)
                 }
+            }
+            // Process location questions if they exist
+            if (location.questions && location.questions.length > 0) {
+                // Replace the location questions with the processed ones
+                location.questions = await this.processQuestionsMongo(location.questions).catch((err) => {
+                    log.error(`Adding Location Questions to appId ${this.applicationDoc.applicationId}  error:` + err + __location);
+                });
             }
         }
 
@@ -760,7 +773,7 @@ module.exports = class ApplicationModel {
                 log.error("questionTypeBO load error " + err + __location);
             });
 
-            this.#applicationMongooseJSON.questions = [];
+            const processedQuestionList = []
             //get text and turn into list of question objects.
 
             for (var i = 0; i < questionsRequest.length; i++) {
@@ -829,9 +842,9 @@ module.exports = class ApplicationModel {
                     }
 
                 }
-                this.#applicationMongooseJSON.questions.push(questionJSON);
+                processedQuestionList.push(questionJSON);
             }
-            resolve(true);
+            resolve(processedQuestionList);
 
         });
 
@@ -1171,7 +1184,7 @@ module.exports = class ApplicationModel {
             catch (err) {
                 log.error("Error Mapping AF Business Data to BO Saving " + err + __location);
             }
-            this.processLocationsMongo(businessJSON.locations);
+            await this.processLocationsMongo(businessJSON.locations);
             try {
                 this.updateMongo(this.#applicationMongooseDB.applicationId, this.#applicationMongooseJSON)
             }
@@ -1274,7 +1287,7 @@ module.exports = class ApplicationModel {
             catch (err) {
                 log.error("Error Mapping AF Business Data to BO Saving " + err + __location);
             }
-            this.processLocationsMongo(businessJSON.locations);
+            await this.processLocationsMongo(businessJSON.locations);
 
         }
         else {
@@ -1427,6 +1440,8 @@ module.exports = class ApplicationModel {
                     await this.checkExpiration(newObjectJSON);
                     await this.setupDocEinEncrypt(newObjectJSON);
                     await this.checkLocations(newObjectJSON);
+                    //virtuals' set are not processed in the updateOne call.
+                    this.processVirtualsSave(newObjectJSON);
 
                     if(newObjectJSON.ein){
                         delete newObjectJSON.ein
@@ -1634,6 +1649,19 @@ module.exports = class ApplicationModel {
             delete applicationDoc.ein;
         }
 
+    }
+
+    processVirtualsSave(sourceJSON){
+        const propMappings = {"managementStructure": "management_structure"};
+        if(sourceJSON){
+            // With next virtual make Virtual to Real map
+            for (const mapProp in propMappings) {
+                if (sourceJSON[mapProp] !== null && typeof sourceJSON[mapProp] !== 'undefined' && typeof sourceJSON[mapProp] !== "object") {
+                    sourceJSON[propMappings[mapProp]] = sourceJSON[mapProp];
+                    delete sourceJSON[mapProp];
+                }
+            }
+        }
     }
 
 
@@ -2356,7 +2384,7 @@ module.exports = class ApplicationModel {
     //For AgencyPortal and Quote V2 - skipAgencyCheck === true if caller has already check
     // user rights to application
 
-    async GetQuestions(appId, userAgencyList, questionSubjectArea, skipAgencyCheck = false){
+    async GetQuestions(appId, userAgencyList, questionSubjectArea, locationId, stateList, skipAgencyCheck = false){
 
         let passedAgencyCheck = false;
         let applicationDocDB = null;
@@ -2380,7 +2408,25 @@ module.exports = class ApplicationModel {
         if(!applicationDocDB){
             throw new Error("not found");
         }
-        if(applicationDocDB.questions && applicationDocDB.questions.length > 0){
+
+        // check SAQ to populate the answeredList with location answers if they are there
+        if(questionSubjectArea === "location") {
+            if(locationId){
+                const location = applicationDocDB.locations.find(_location => _location.locationId === locationId);
+                // if we found the location and there are questions populated on it, otherwise set to empty
+                if(location && location.questions){
+                    questionsObject.answeredList = location.questions;
+                }
+                else{
+                    questionsObject.answeredList = [];
+                }
+            }
+            else {
+                // set the list to empty if we are location SAQ but no locationId is provided
+                questionsObject.answeredList = [];
+            }
+        }
+        else if(applicationDocDB.questions && applicationDocDB.questions.length > 0){
             questionsObject.answeredList = applicationDocDB.questions;
         }
 
@@ -2427,21 +2473,24 @@ module.exports = class ApplicationModel {
 
         //zipCodes
         let zipCodeArray = [];
-        let stateList = [];
-        if(applicationDocDB.locations && applicationDocDB.locations.length > 0){
-            for(let i = 0; i < applicationDocDB.locations.length; i++){
-                zipCodeArray.push(applicationDocDB.locations[i].zipcode);
-                if(stateList.indexOf(applicationDocDB.locations[i].state) === -1){
-                    stateList.push(applicationDocDB.locations[i].state)
+        // Do not modify stateList if it is already populated. We do not need to populate zipCodeArray since it is ignored if stateList is valid. -SF
+        // Note: this can be changed to populate zipCodeArray with only zip codes associated with the populated stateList
+        if (!stateList || stateList.length === 0) {
+            if (applicationDocDB.locations && applicationDocDB.locations.length > 0) {
+                for (let i = 0; i < applicationDocDB.locations.length; i++) {
+                    zipCodeArray.push(applicationDocDB.locations[i].zipcode);
+                    if (stateList.indexOf(applicationDocDB.locations[i].state) === -1) {
+                        stateList.push(applicationDocDB.locations[i].state)
+                    }
                 }
             }
-        }
-        else if(applicationDocDB.mailingZipcode && questionSubjectArea !== 'general'){
-            zipCodeArray.push(applicationDocDB.mailingZipcode);
-            stateList.push(applicationDocDB.mailingState)
-        }
-        else {
-            throw new Error("Incomplete Application: Application locations")
+            else if (applicationDocDB.mailingZipcode && questionSubjectArea !== 'general') {
+                zipCodeArray.push(applicationDocDB.mailingZipcode);
+                stateList.push(applicationDocDB.mailingState)
+            }
+            else {
+                throw new Error("Incomplete Application: Application locations")
+            }
         }
 
         log.debug("stateList: " + JSON.stringify(stateList));

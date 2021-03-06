@@ -4,6 +4,8 @@
 /* eslint-disable array-element-newline */
 'use strict';
 
+const questionStepParser = require("./question-step-parser.js");
+
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
@@ -49,6 +51,29 @@ exports.process = async function(requestJSON) {
             const fullTimeEmployee = locationJSON.full_time_employees ? locationJSON.part_time_employees : 0;
             const partTimeEmployee = locationJSON.part_time_employees ? locationJSON.part_time_employees : 0;
             const totalEmployee = fullTimeEmployee + partTimeEmployee;
+
+            if (locationJSON.questions) {
+                let questionList = [];
+                // eslint-disable-next-line guard-for-in
+                const rawQuestionList = Object.values(locationJSON.questions);
+                for (const rawQuestion of rawQuestionList) {
+                    // If we only want answered questions listed in the document, uncomment this check -SF
+                    // if (rawQuestion.answer) {
+                    let rawQuestionAnswer = null;
+                    if (typeof rawQuestion.answer === "object") {
+                        // If the answer is an object, it was originally an a array. So we get an array of the object values here.
+                        rawQuestionAnswer = Object.values(rawQuestion.answer);
+                    }
+                    else {
+                        // It is a regular answer
+                        rawQuestionAnswer = rawQuestion.answer;
+                    }
+                    const questionJSON = questionStepParser.getQuestionJSON(rawQuestion.id, rawQuestionAnswer);
+                    questionList.push(questionJSON);
+                    // }
+                }
+                locationJSON.questions = questionList;
+            }
 
             const check_payroll = totalEmployee > 0 && locationJSON.territory === "NV"
             let activity_codes = [];

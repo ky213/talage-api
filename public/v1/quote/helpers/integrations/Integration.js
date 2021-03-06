@@ -299,54 +299,6 @@ module.exports = class Integration {
     }
 
     /**
-     * Retrieves an NAICS industry code from a given activity code
-     *
-     * @param {string} territory - The 2 character territory code
-     * @param {number} activityCode - The 4 digit Talage activity code
-     * @returns {number} The 6+ digit naics code
-     */
-    async get_naics_code_from_activity_code(territory, activityCode) {
-        // The Employers codes have associated NAICs codes. Again, this needs to be mapped
-        // which is in progress -SF
-        const employersRecord = await this.get_insurer_code_for_activity_code(1, territory, activityCode);
-        if (!employersRecord) {
-            return null;
-        }
-        return parseInt(employersRecord.attributes.naicsCode, 10);
-    }
-
-    /**
-     * Retrieves an CGL code from a given activity code
-     *
-     * @param {string} territory - The 2 character territory code
-     * @param {number} activityCode - The 4 digit Talage activity code
-     * @returns {string} The CGL code
-     */
-    async get_cgl_code_from_activity_code(territory, activityCode) {
-        const naicsCode = await this.get_naics_code_from_activity_code(territory, activityCode);
-        if (!naicsCode) {
-            return null;
-        }
-        const sql = `
-            SELECT * FROM clw_talage_industry_codes
-            WHERE naics = ${naicsCode};
-        `;
-        let result = null;
-        try {
-            result = await db.query(sql);
-        }
-        catch (error) {
-            return null;
-        }
-        // Return if no results
-        if (result.length === 0 || !result[0].cgl) {
-            return null;
-        }
-        return result[0].cgl;
-    }
-
-
-    /**
      * Returns an XML node child from parsed XML data. It will iterate down the node children, getting element 0 of each node's child.
      *
      * @param {object} node - top-level parent node
