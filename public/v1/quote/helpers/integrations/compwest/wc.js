@@ -778,7 +778,7 @@ module.exports = class CompwestWC extends Integration {
         }
         else if (this.insurer.useSandbox) {
                 host = 'npsv.afgroup.com';
-                path = '/DEV_DigitalAq/rest/getworkcompquote';
+                path = '/TEST_DigitalAq/rest/getworkcompquote';
         }
         else {
             host = 'psv.afgroup.com';
