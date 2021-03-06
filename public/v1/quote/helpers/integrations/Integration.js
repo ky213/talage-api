@@ -755,6 +755,7 @@ module.exports = class Integration {
             results.forEach((result) => {
                 try{
                     question_details[result.question] = {
+                        insurerQuestionId: result.id,
                         attributes: result.attributes ? JSON.parse(result.attributes) : '',
                         identifier: result.identifier,
                         universal: result.universal
@@ -784,7 +785,7 @@ module.exports = class Integration {
     async getInsurerQuestionsByTalageQuestionId(questionSubjectArea, talageQuestionIdList) {
         if (talageQuestionIdList.length > 0) {
             const sql = `
-                    SELECT question, universal, identifier, attributes FROM clw_talage_insurer_questions
+                    SELECT id, question, universal, identifier, attributes FROM clw_talage_insurer_questions
                     WHERE
                         insurer = ${this.insurer.id} 
                         AND questionSubjectArea = '${questionSubjectArea}'

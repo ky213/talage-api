@@ -1,3 +1,4 @@
+/* eslint-disable guard-for-in */
 /* eslint-disable no-loop-func */
 /* eslint-disable brace-style */
 /* eslint-disable array-element-newline */
@@ -192,7 +193,6 @@ module.exports = class CompwestWC extends Integration {
         if(this.policy.effective_date < apiSwitchOverDateDT){
             guideWireAPI = false;
         }
-        
 
         // These are the statuses returned by the insurer and how they map to our Talage statuses
         this.possible_api_responses.DECLINE = 'declined';
@@ -730,8 +730,18 @@ module.exports = class CompwestWC extends Integration {
                             QuestionAnswer.ele('QuestionCd', questionCdValue);
                             QuestionAnswer.ele('YesNoCd', answerBoolean ? 'Y' : 'N');
 
-                            // If the answer to this question was true, and it has an embedded question, add the answer
-                            if (answerBoolean && Object.prototype.hasOwnProperty.call(embeddedQuestions, this.question_details[questionId].identifier)) {
+                             if(guideWireAPI === true && answerBoolean){
+                                const insurerParentQuestionId = this.question_details[questionId].insurerQuestionId;
+                                for (const childQuestionId in this.questions) {
+                                    const childTalageQuestion = this.questions[childQuestionId]
+                                    const childInsurerQuestion = this.question_details[childQuestionId]
+                                    if(childInsurerQuestion.attributes && childInsurerQuestion.attributes.hasParent && childInsurerQuestion.attributes.parentQuestionId === insurerParentQuestionId){
+                                        QuestionAnswer.ele('Explanation', childTalageQuestion.answer);
+                                    }
+                                }
+                            }
+                            else if (answerBoolean && Object.prototype.hasOwnProperty.call(embeddedQuestions, this.question_details[questionId].identifier)) {
+                                // If the answer to this question was true, and it has an embedded question, add the answer
                                 const embeddedQuestion = embeddedQuestions[this.question_details[questionId].identifier];
 
                                 // If the answer was null, skip it
