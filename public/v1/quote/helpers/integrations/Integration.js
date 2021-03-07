@@ -57,6 +57,7 @@ module.exports = class Integration {
         this.app = app;
         this.industry_code = {};
         this.insurer = insurer;
+        this.insurerDoc = null;   //mongo document for insurer.
         this.insurer_wc_codes = {};
         this.grouped_activity_codes = [];
         this.limits = {};
@@ -704,13 +705,19 @@ module.exports = class Integration {
         const question_details = {};
         try {
             results.forEach((result) => {
-                question_details[result.question] = {
-                    attributes: result.attributes ? JSON.parse(result.attributes) : '',
-                    identifier: result.identifier,
-                    universal: result.universal
-                };
-                if (result.universal) {
-                    this.universal_questions.push(result.question);
+                try{
+                    question_details[result.question] = {
+                        insurerQuestionId: result.id,
+                        attributes: result.attributes ? JSON.parse(result.attributes) : '',
+                        identifier: result.identifier,
+                        universal: result.universal
+                    };
+                    if (result.universal) {
+                        this.universal_questions.push(result.question);
+                    }
+                }
+                catch(err){
+                    log.error(`Question details ${JSON.stringify(result)}: ` + err + __location);
                 }
             });
         }
@@ -730,7 +737,7 @@ module.exports = class Integration {
     async getInsurerQuestionsByTalageQuestionId(questionSubjectArea, talageQuestionIdList) {
         if (talageQuestionIdList.length > 0) {
             const sql = `
-                    SELECT question, universal, identifier, attributes FROM clw_talage_insurer_questions
+                    SELECT id, question, universal, identifier, attributes FROM clw_talage_insurer_questions
                     WHERE
                         insurer = ${this.insurer.id} 
                         AND questionSubjectArea = '${questionSubjectArea}'
@@ -1803,7 +1810,7 @@ module.exports = class Integration {
 	 * @returns {Promise.<object, Error>} A promise that returns an object containing the request response if resolved, or an Error if rejected
 	 */
     send_request(host, path, data, additional_headers, method, log_errors = true, returnResponseOnAllStatusCodes = false) {
-        log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Sending To ${path}`);
+        log.info(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type} Sending To ${path}` + __location);
         const start_time = process.hrtime();
 
         return new Promise((fulfill, reject) => {
@@ -1886,7 +1893,7 @@ module.exports = class Integration {
 
             const req = https.request(options, (res) => {
                 let rawData = '';
-
+                log.debug("in https response " + __location)
                 // Grab each chunk of data
                 res.on('data', (d) => {
                     rawData += d;
@@ -1941,10 +1948,12 @@ module.exports = class Integration {
                         reject(error);
                     }
                 });
+                
             });
 
             req.on('error', (err) => {
-                this.log += `Connection to ${this.insurer.name} timedout.`;
+                log.error(`Connection to ${this.insurer.name} timedout. error ${err}` + __location);
+                this.log += `Connection to ${this.insurer.name} timedout. error ${err} `;
                 reject(new Error(`Appid: ${this.app.id} Connection to ${this.insurer.name} terminated. Reason: ${err.code}`));
             });
 
@@ -2226,7 +2235,9 @@ module.exports = class Integration {
                 }
             }
             else {
-                log.warn(`Appid: ${this.app.id} No Industry_code attributes for ${this.insurer.name}:${this.insurer.id} and ${this.app.applicationDocData.mailingState}` + __location);
+                if (this.requiresInsurerIndustryCodes) {
+                    log.warn(`Appid: ${this.app.id} No Industry_code attributes for ${this.insurer.name}:${this.insurer.id} and ${this.app.applicationDocData.mailingState}` + __location);
+                }
                 this.industry_code.attributes = {};
             }
 

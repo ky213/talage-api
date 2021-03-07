@@ -29,6 +29,7 @@ module.exports = class Insurer {
         this.test_password = '';
         this.test_username = '';
         this.username = '';
+        this.insurerDoc = null;
     }
 
     /**
@@ -70,6 +71,7 @@ module.exports = class Insurer {
         const insurerBO = new InsurerBO();
         try{
             insurerJson = await insurerBO.getById(id);
+            this.insurerDoc = insurerJson;
         }
         catch(err){
             log.error(`Error getting insurer ${id} error: ${err} ${__location}`);
