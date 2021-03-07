@@ -776,7 +776,7 @@ module.exports = class CompwestWC extends Integration {
             if (this.insurer.useSandbox) {
                 log.debug("AF sandbox Guidewire");
                 host = 'npsv.afgroup.com';
-                path = '/DEV_DigitalAq/rest/getworkcompquote';
+                path = '/TEST_DigitalAq/rest/getworkcompquote';
             }
             else {
                 log.debug("AF prod Guidewire");
@@ -829,12 +829,31 @@ module.exports = class CompwestWC extends Integration {
             this.reasons.push("Request Error:  Unexpected response see logs - Contact Talage Engineering")
             return this.return_result('error');
         }
-        let res = result.ACORD;
+        const res = result.ACORD;
+        //log.debug("AF response " + JSON.stringify(res))
 
         // Check the status to determine what to do next
         let message_type = '';
-        const status = res.SignonRs[0].Status[0].StatusCd[0];
-        const statusDescription = res.SignonRs[0].Status[0].StatusDesc[0].Desc && res.SignonRs[0].Status[0].StatusDesc[0].Desc.length ? res.SignonRs[0].Status[0].StatusDesc[0].Desc[0] : "AFGroup/CompWest did not return an error description.";
+        let status = ''
+        let statusDescription = '';
+        if(res.SignonRs[0] && res.SignonRs[0].Status[0]){
+            try{
+                status = res.SignonRs[0].Status[0].StatusCd[0];
+                if(res.SignonRs[0].Status[0] && res.SignonRs[0].Status[0].StatusDesc[0] && res.SignonRs[0].Status[0].StatusDesc[0].Desc
+                    && res.SignonRs[0].Status[0].StatusDesc[0].Desc.length){
+                    statusDescription = res.SignonRs[0].Status[0].StatusDesc[0].Desc
+                }
+                else {
+                    statusDescription = "AFGroup/CompWest did not return an error description.";
+                }
+            }
+            catch(err){
+                log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}. Error getting AF response status from ${JSON.stringify(res.SignonRs[0].Status[0])} ` + err + __location);
+            }
+        }
+        else {
+            log.error(`Appid: ${this.app.id} ${this.insurer.name} ${this.policy.type}. Error getting AF response status: no res.SignonRs[0].Status[0] node`)
+        }
         switch (status) {
             case 'DECLINE':
                 this.log += `--------======= Application Declined =======--------<br><br>Appid: ${this.app.id}  ${this.insurer.name} declined to write this business`;
@@ -882,18 +901,23 @@ module.exports = class CompwestWC extends Integration {
                 this.reasons.push(`${status} - Unexpected response code returned by API.`);
                 return this.return_result('error');
         }
-
+        let WorkCompPolicyAddRs = null;
         // Reduce the response further
-        res = res.InsuranceSvcRs[0].WorkCompPolicyAddRs[0];
+        try{
+            WorkCompPolicyAddRs = res.InsuranceSvcRs[0].WorkCompPolicyAddRs[0];
+        }
+        catch(err){
+            log.error(`Error getting AF response status from ${JSON.stringify(res)} ` + err + __location);
+        }
 
         if (status === 'QUOTED') {
             // Grab the file info
             try {
                 this.quote_letter = {
                     content_type: 'application/pdf',
-                    data: res['com.afg_Base64PDF'][0],
+                    data: WorkCompPolicyAddRs['com.afg_Base64PDF'][0],
                     file_name: `${this.insurer.name}_ ${this.policy.type}_quote_letter.pdf`,
-                    length: res['com.afg_Base64PDF'][0].length
+                    length: WorkCompPolicyAddRs['com.afg_Base64PDF'][0].length
                 };
             } catch (err) {
                 log.error(`Appid: ${this.app.id} ${this.insurer.name} integration error: could not locate quote letter attachments. ${__location}`);
@@ -902,11 +926,17 @@ module.exports = class CompwestWC extends Integration {
         }
 
         // Further reduce the response
-        res = res['com.afg_PDFContent'][0].CommlPolicy[0];
+        let resWorkCompPolicy = null;
+        try{
+            resWorkCompPolicy = WorkCompPolicyAddRs['com.afg_PDFContent'][0].CommlPolicy[0];
+        }
+        catch(err){
+            log.error(`Error getting AF response status from ${JSON.stringify(res)} ` + err + __location);
+        }
 
         // Attempt to get the policy number
         try {
-            this.number = res.PolicyNumber[0];
+            this.number = resWorkCompPolicy.PolicyNumber[0];
         } catch (e) {
             log.error(`Appid: ${this.app.id} ${this.insurer.name} integration error: could not locate policy number ${__location}`);
             return this.return_result('error');
@@ -915,7 +945,7 @@ module.exports = class CompwestWC extends Integration {
         // Get the amount of the quote
         if (status === 'QUOTED' || status === 'REFERRALNEEDED') {
             try {
-                this.amount = parseInt(res.CurrentTermAmt[0].Amt[0], 10);
+                this.amount = parseInt(resWorkCompPolicy.CurrentTermAmt[0].Amt[0], 10);
             } catch (e) {
                 log.error(`Appid: ${this.app.id} ${this.insurer.name} Integration Error: Quote structure changed. Unable to quote amount. `);
                 return this.return_result('error');
