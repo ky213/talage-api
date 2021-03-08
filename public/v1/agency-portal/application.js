@@ -1252,7 +1252,7 @@ async function GetPolicyLimits(agencyId){
         ]
     };
     if(agencyId){
-        // Some service that will return policy limits based on agencyId
+        const arrowHeadInsurerId = 7;
         // TODO: make this smart logic where we don't do hardcoded check
         // given an agency grab all of its locations
         const agencyLocationBO = new AgencyLocationBO();
@@ -1269,11 +1269,27 @@ async function GetPolicyLimits(agencyId){
         if(!error){
             if(locationList && locationList.length > 0){
                 // for each location go through the list of insurers
-                
-                // are any of the insurer id equal 27
-                // if list of insurers for contains agencyId === 27 is the numb of insurers equal to 1
-                   // -> yes all good
-                   // -> no log an error message indicating otherwise
+                for(let i = 0; i < locationList.length; i++){
+                    if(locationList[i].hasOwnProperty('insurers')){
+                        // grab all the insurers
+                        const locationInsurers = locationList[i].insurers;
+                        if(locationInsurers && locationInsurers.length > 0){
+                            // grab all the insurer ids
+                            const insurerIdList =  locationInsurers.map(insurerObj => insurerObj.insurerId);
+                             // are any of the insurer id equal 27
+                            if(insurerIdList && insurerIdList.includes(arrowHeadInsurerId)){
+                                limits['BOP'] =[ {
+                                    "key": "1000000/1000000/1000000",
+                                    "value": "$1,000,000 / $1,000,000 / $1,000,000"
+                                }];
+                                if(insurerIdList.length > 1){
+                                    log.error(`Arrow Head agency #${agencyId} has other insurers configured for location #${locationList[i].systemId}. Arrow Head agencies should only have 1 insurer configured. Please fix configuration.`);
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
             }
         }
         
@@ -1343,8 +1359,7 @@ async function GetResources(req, res, next){
         responseObj.officerTitles = result4.map(officerTitleObj => officerTitleObj.officerTitle);
     }
     // TODO: uncomment below once we start utilizing logic to return policy limits based on agency
-    // responseObj.limits = await GetPolicyLimits(agencyId);
-    responseObj.limits = await GetPolicyLimits(null) // TODO: DELETE this when uncomment above code, once logic to send back limits based on agencyId
+    responseObj.limits = await GetPolicyLimits(agencyId);
     
     responseObj.unemploymentNumberStates = [
         'CO',
