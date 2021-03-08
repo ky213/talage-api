@@ -203,6 +203,44 @@ module.exports = class LibertySBOP extends Integration {
         log.info("=================== QUOTE RESULT ===================");
         log.info(`${logPrefix}\n${JSON.stringify(result.data, null, 4)}`);
         log.info("=================== QUOTE RESULT ===================");
+
+        let quoteNumber = null;
+        let quoteProposalId = null;
+        let premium = null;
+        const quoteLimits = {};
+        let quoteLetter = null;
+        const quoteMIMEType = null;
+        let policyStatus = null;
+
+        // parse out the specific quote status
+        try {
+
+        } catch (e) {
+            
+        }
+
+        // try to parse out quote number from response
+        try {
+
+        } catch (e) {
+
+        }
+
+        // try to parse out the premium
+        try {
+
+        } catch (e) {
+            
+        }
+
+        // try to parse out the limit values
+        try {
+
+        } catch (e) {
+            
+        }
+
+        // send the client quoted/referred function 
     }
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////////////
