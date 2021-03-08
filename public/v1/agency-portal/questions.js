@@ -1,12 +1,13 @@
 'use strict';
 
+
 const auth = require('./helpers/auth-agencyportal.js');
 const serverHelper = global.requireRootPath('server.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const ApplicationBO = global.requireShared('models/Application-BO.js');
 const QuestionBO = global.requireShared('models/Question-BO.js');
-
+const log = global.log;
 /**
  * A function to get the answer from a question
  * @param {object} appQuestion - The answer from a question in the form of a string
@@ -148,15 +149,15 @@ async function getQuestions(req, res, next) {
                     let childId = listOfParents.pop();
                     // If parent of childId does not exist
                     if (!dependencyList.hasOwnProperty(childId)) {
-                        log.warn(`Child question ${childId} Does Not Exist: questionDBJson.parent=${questionDBJson.parent} questionDBJson.id=${questionDBJson.id} listOfParents=${listOfParentsString} ApplicationId ${req.query.application_id}` + __location);
+                        log.warn(`Child question ${childId} Does Not Exist: questionDBJson.parent=${questionDBJson.parent} questionDBJson.id=${questionDBJson.id} listOfParents=${listOfParentsString} ApplicationId ${req.query.application_id} ` + __location);
                     }
-                    if(dependencyList[childId]){
+                    else if(dependencyList[childId]){
                         let child = dependencyList[childId];
                         // Build objects for parents with children questions for dependencyList
                         do {
                             if (!child) {
                                 log.warn(`Child question ${childId} Does Not Exist: questionDBJson.parent=${questionDBJson.parent} questionDBJson.id=${questionDBJson.id} listOfParents=${listOfParentsString} ApplicationId ${req.query.application_id}` + __location);
-                                return;
+                                break;
                             }
                             childId = listOfParents.pop();
                             // If childId is undefined, listofParents is empty, build child object
@@ -174,7 +175,6 @@ async function getQuestions(req, res, next) {
                         } while (childId !== questionDBJson.id);
                     }
                 }
-
             }
             else {
                 //not question in DB anymore.
