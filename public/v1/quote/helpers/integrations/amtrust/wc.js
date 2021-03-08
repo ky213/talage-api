@@ -24,8 +24,6 @@ const amtrustTestBasePath = "/DigitalAPI_Usertest";
 const amtrustProductionHost = "gateway.amtrustgroup.com";
 const amtrustProductionBasePath = "/DigitalAPI";
 
-let amtrustWCQuestionIds = null;
-
 module.exports = class AcuityWC extends Integration {
 
     /**
@@ -378,8 +376,6 @@ module.exports = class AcuityWC extends Integration {
             quoteRequestData.Quote.RatingZip = ratingZip;
         }
 
-        // console.log("quoteRequestData", JSON.stringify(quoteRequestData, null, 4));
-
         // =========================================================================================================
         // Create the additional information request
 
@@ -392,50 +388,6 @@ module.exports = class AcuityWC extends Integration {
             "AdditionalLocations": this.getAdditionalLocationList()
         }]};
 
-        // =========================================================================================================
-        // Create the questions request
-
-        // Load question IDs
-        if (amtrustWCQuestionIds === null) {
-            amtrustWCQuestionIds = require('./amtrust-wc-question-id-map.js');
-        }
-        const questionRequestData = [];
-        for (const questionId in this.questions) {
-            if (this.questions.hasOwnProperty(questionId)) {
-                const question = this.questions[questionId];
-                // Get the answer
-                let answer = null;
-                try {
-                    answer = this.determine_question_answer(question);
-                }
-                catch (error) {
-                    return this.client_error('Could not determine the answer for one of the questions', __location, {questionId: questionId});
-                }
-                // This question was not answered
-                if (!answer) {
-                    continue;
-                }
-
-                if (!this.question_identifiers.hasOwnProperty(questionId)) {
-                    // return this.('Could not determine the insurer question ID for one of the questions', __location, {questionId: questionId});
-                }
-                const insurerQuestionId = this.question_identifiers[questionId];
-                for (const requestClassCode of quoteRequestData.Quote.ClassCodes) {
-                    if (amtrustWCQuestionIds.hasOwnProperty(insurerQuestionId)) {
-                        const amtrustQuestionIdCodeList = amtrustWCQuestionIds[insurerQuestionId];
-                        for (const amtrustQuestionId of amtrustQuestionIdCodeList) {
-                            const existingQuestionRequestData = questionRequestData.find((qrd) => qrd.QuestionId === amtrustQuestionId.questionId);
-                            if (amtrustQuestionId.code === requestClassCode.State + requestClassCode.ClassCode && !existingQuestionRequestData) {
-                                questionRequestData.push({
-                                    QuestionId: amtrustQuestionId.questionId,
-                                    AnswerValue: answer
-                                });
-                            }
-                        }
-                    }
-                }
-            }
-        }
         // console.log("questionRequestData", JSON.stringify(questionRequestData, null, 4));
 
         // =========================================================================================================
@@ -471,10 +423,44 @@ module.exports = class AcuityWC extends Integration {
             return this.client_error(`Could not find the quote ID in the response.`, __location);
         }
 
-        // Get the required questions list to ensure we are submitting the correct questions
-        // const genericResponse = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/officer-information`);
-        // console.log("genericResponse", JSON.stringify(genericResponse, null, 4));
-        // return null;
+        // Get the required questions list to ensure we are submitting the correct questions and to resolve question IDs
+        const requiredQuestionList = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/questions`);
+        // If this fails, we can still quote (referred)
+        if (requiredQuestionList) {
+            // =========================================================================================================
+            // Create the questions request
+            const questionRequestData = [];
+            for (const questionId in this.questions) {
+                const question = this.questions[questionId];
+                // Get the answer
+                let answer = null;
+                try {
+                    answer = this.determine_question_answer(question);
+                }
+                catch (error) {
+                    return this.client_error('Could not determine the answer for one of the questions', __location, { questionId: questionId });
+                }
+                // This question was not answered
+                if (!answer) {
+                    continue;
+                }
+                for (const requiredQuestion of requiredQuestionList.Data) {
+                    if (requiredQuestion.Question.trim() === question.text) {
+                        questionRequestData.push({
+                            QuestionId: requiredQuestion.Id,
+                            AnswerValue: answer
+                        });
+                    }
+                }
+            }
+            // Send the question request
+            if (questionRequestData.length > 0) {
+                // console.log("questionRequest", questionRequestData);
+                await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/questions-answers`, questionRequestData);
+                // We can still quote if this fails. Continue...
+                // console.log("questionResponse", JSON.stringify(questionResponse, null, 4));
+            }
+        }
 
         // Get the available officer information
         const officerInformation = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/officer-information`);
@@ -505,19 +491,6 @@ module.exports = class AcuityWC extends Integration {
             else {
                 return this.client_error("The insurer's server returned an unspecified error when submitting the additional quote information.", __location, {statusCode: statusCode});
             }
-        }
-
-        // Get the required questions list to ensure we are submitting the correct questions
-        // const requiredQuestionsResponse = await this.amtrustCallAPI('GET', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/questions`, questionRequestData);
-        // console.log("requiredQuestionsResponse", requiredQuestionsResponse);
-
-        // Send the question request
-        if (questionRequestData.length > 0) {
-            const questionResponse = await this.amtrustCallAPI('POST', accessToken, credentials.mulesoftSubscriberId, `/api/v1/quotes/${quoteId}/questions-answers`, questionRequestData);
-            if (!questionResponse) {
-                return this.client_error("The insurer's server returned an unspecified error when submitting the question information.", __location, {statusCode: statusCode});
-            }
-            // console.log("questionResponse", JSON.stringify(questionResponse, null, 4));
         }
 
         // Get the quote information
