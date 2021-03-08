@@ -389,6 +389,9 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         if (error) {
             return false;
         }
+        if(!activityCodeQuestions || (activityCodeQuestions && activityCodeQuestions.length === 0)){
+            log.debug(`No Activity code questions  ${sql}` + __location);
+        }
         questions = questions.concat(activityCodeQuestions);
     }
 
