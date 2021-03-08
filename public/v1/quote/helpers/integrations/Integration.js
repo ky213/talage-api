@@ -2208,7 +2208,7 @@ module.exports = class Integration {
                 sql = `
                     SELECT ic.id, ic.description, ic.cgl, ic.sic, ic.hiscox, ic.naics, ic.iso 
                     FROM clw_talage_industry_codes AS ic 
-                    WHERE ic.id = ${this.app.business.industry_code};
+                    WHERE ic.id = ${this.app.applicationDocData.industryCode};
                 `;
                 hadError = false;
                 result = await db.query(sql).catch((error) => {
