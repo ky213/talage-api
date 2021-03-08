@@ -1252,7 +1252,7 @@ async function GetPolicyLimits(agencyId){
         ]
     };
     if(agencyId){
-        const arrowHeadInsurerId = 7;
+        const arrowHeadInsurerId = 27;
         // TODO: make this smart logic where we don't do hardcoded check
         // given an agency grab all of its locations
         const agencyLocationBO = new AgencyLocationBO();
@@ -1276,7 +1276,7 @@ async function GetPolicyLimits(agencyId){
                         if(locationInsurers && locationInsurers.length > 0){
                             // grab all the insurer ids
                             const insurerIdList =  locationInsurers.map(insurerObj => insurerObj.insurerId);
-                             // are any of the insurer id equal 27
+                             // are any of the insurer id equal 27 (arrowHead)
                             if(insurerIdList && insurerIdList.includes(arrowHeadInsurerId)){
                                 limits['BOP'] =[ {
                                     "key": "1000000/1000000/1000000",
