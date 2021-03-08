@@ -175,7 +175,11 @@ module.exports = class CompwestWC extends Integration {
 
         // <ItemIdInfo>
         const ItemIdInfo = Producer.ele('ItemIdInfo');
-        ItemIdInfo.ele('AgencyId', this.app.agencyLocation.insurers[this.insurer.id].agency_id);
+        let agencyCode = this.app.agencyLocation.insurers[this.insurer.id].agency_id;
+        if(guideWireAPI === true){
+            agencyCode = this.app.agencyLocation.insurers[this.insurer.id].agent_id;
+        }
+        ItemIdInfo.ele('AgencyId', agencyCode);
         // </ItemIdInfo>
 
         // <GeneralPartyInfo>
@@ -441,7 +445,6 @@ module.exports = class CompwestWC extends Integration {
                                                         break;
                                                     }
                                                 }
-       
                                             }
                                         }
                                         else if(!question_attributes.parentQuestionId){
