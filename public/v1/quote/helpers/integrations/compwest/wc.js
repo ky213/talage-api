@@ -759,10 +759,13 @@ module.exports = class CompwestWC extends Integration {
                 status = res.SignonRs[0].Status[0].StatusCd[0];
 
                 try{
-                    statusDescription = res.SignonRs[0].Status[0].StatusDesc[0].Desc
+                    statusDescription = res.SignonRs[0].Status[0].StatusDesc[0].Desc ? res.SignonRs[0].Status[0].StatusDesc[0].Desc : "";
                 }
                 catch(err){
                     //do not log 
+                }
+                if(!statusDescription){
+                    statusDescription = '';
                 }
                 // if(res.SignonRs[0].Status[0] && res.SignonRs[0].Status.StatusDesc
                 //     && res.SignonRs[0].Status[0].StatusDesc[0] && res.SignonRs[0].Status[0].StatusDesc[0].Desc
