@@ -168,7 +168,7 @@ const limitsSelectionAmounts = async (resources, req) => {
                             const insurerIdList =  locationInsurers.map(insurerObj => insurerObj.insurerId);
                             // are any of the insurer id equal 27
                             if(insurerIdList && insurerIdList.includes(arrowHeadInsurerId)){
-                                limits['bop'] =[ {
+                                limits['bop'] = [ {
                                     "key": "1000000/1000000/1000000",
                                     "value": "$1,000,000 / $1,000,000 / $1,000,000"
                                 }];
