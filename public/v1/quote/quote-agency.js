@@ -478,6 +478,10 @@ async function getAgencySocialMetadata(req, res, next) {
     if(!agencyJson.landingPageContent){
         agencyJson.landingPageContent = {bannerHeadingDefault: ""};
     }
+    if(!agencyJson.defaultLandingPageContent){
+        agencyJson.defaultLandingPageContent = {bannerHeadingDefault: ""};
+    }
+
     let faviconPath = null;
     if(agencyJson.favicon){
         faviconPath = `${global.settings.IMAGE_URL}/public/agency-logos/favicon/${agencyJson.favicon}`;
