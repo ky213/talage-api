@@ -123,13 +123,13 @@ module.exports = class InsurerIndustryCodeBO{
                 delete queryJSON.count;
             }
 
-            if(queryJSON.systemId && Array.isArray(queryJSON.systemId)){
-                query.systemId = {$in: queryJSON.systemId};
-                delete queryJSON.systemId
+            if(queryJSON.insurerIndustryCodeId && Array.isArray(queryJSON.insurerIndustryCodeId)){
+                query.insurerIndustryCodeId = {$in: queryJSON.insurerIndustryCodeId};
+                delete queryJSON.insurerIndustryCodeId
             }
-            else if(queryJSON.systemId){
-                query.systemId = queryJSON.systemId;
-                delete queryJSON.systemId
+            else if(queryJSON.insurerIndustryCodeId){
+                query.insurerIndustryCodeId = queryJSON.insurerIndustryCodeId;
+                delete queryJSON.insurerIndustryCodeId
             }
 
             if(queryJSON.insurerId && Array.isArray(queryJSON.insurerId)){
@@ -206,23 +206,52 @@ module.exports = class InsurerIndustryCodeBO{
         });
     }
 
-    getById(id) {
-        return this.getMongoDocbyMysqlId(id);
+    getById(id, returnMongooseModel = false) {
+        return new Promise(async(resolve, reject) => {
+            if (id) {
+                const query = {
+                    "insurerIndustryCodeId": id,
+                    active: true
+                };
+                let docDB = null;
+                try {
+                    docDB = await InsurerIndustryCode.findOne(query, '-__v');
+                }
+                catch (err) {
+                    log.error("Getting Agency error " + err + __location);
+                    reject(err);
+                }
+                if(returnMongooseModel){
+                    resolve(docDB);
+                }
+                else if(docDB){
+                    const insurerIndustryCodeDoc = mongoUtils.objCleanup(docDB);
+                    resolve(insurerIndustryCodeDoc);
+                }
+                else {
+                    resolve(null);
+                }
+            }
+            else {
+                reject(new Error('no id supplied'))
+            }
+        });
     }
 
     async updateMongo(docId, newObjectJSON) {
         if (docId) {
             if (typeof newObjectJSON === "object") {
 
-                const query = {"insurerUuidId": docId};
-                let newAgencyJSON = null;
+                const query = {"insurerIndustryCodeId": docId};
+                let newinsurerIndustryCodeJSON = null;
                 try {
-                    const changeNotUpdateList = ["active",
+                    const changeNotUpdateList = [
+                        "active",
                         "id",
-                        "mysqlId",
                         "systemId",
-                        "insurerUuidId",
-                        "insurerId"]
+                        "insurerIndustryCodeId"
+                    ];
+
                     for (let i = 0; i < changeNotUpdateList.length; i++) {
                         if (newObjectJSON[changeNotUpdateList[i]]) {
                             delete newObjectJSON[changeNotUpdateList[i]];
@@ -232,10 +261,10 @@ module.exports = class InsurerIndustryCodeBO{
                     newObjectJSON.updatedAt = new Date();
 
                     await InsurerIndustryCode.updateOne(query, newObjectJSON);
-                    const newAgencyDoc = await InsurerIndustryCode.findOne(query);
+                    const newinsurerIndustryCode = await InsurerIndustryCode.findOne(query);
                     //const newAgencyDoc = await InsurerIndustryCode.findOneAndUpdate(query, newObjectJSON, {new: true});
 
-                    newAgencyJSON = mongoUtils.objCleanup(newAgencyDoc);
+                    newinsurerIndustryCodeJSON = mongoUtils.objCleanup(newinsurerIndustryCode);
                 }
                 catch (err) {
                     log.error(`Updating Application error appId: ${docId}` + err + __location);
@@ -243,7 +272,7 @@ module.exports = class InsurerIndustryCodeBO{
                 }
                 //
 
-                return newAgencyJSON;
+                return newinsurerIndustryCodeJSON;
             }
             else {
                 throw new Error(`no newObjectJSON supplied appId: ${docId}`)
@@ -251,7 +280,7 @@ module.exports = class InsurerIndustryCodeBO{
 
         }
         else {
-            throw new Error('no id supplied')
+            throw new Error('no id supplied');
         }
         // return true;
 

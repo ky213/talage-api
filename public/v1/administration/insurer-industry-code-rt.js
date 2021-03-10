@@ -105,8 +105,6 @@ async function findAll(req, res, next) {
     let error = null;
     const insurerIndustryCodBO = new InsurerIndustryCodBO();
 
-    console.log("in get list");
-
     const rows = await insurerIndustryCodBO.getList(req.query).catch(function(err) {
         log.error("admin agencynetwork error: " + err + __location);
         error = err;
@@ -125,14 +123,13 @@ async function findAll(req, res, next) {
 }
 
 async function findOne(req, res, next) {
-    const id = stringFunctions.santizeNumber(req.params.id, true);
-    if (!id) {
+    if (!req.params.id) {
         return next(new Error("bad parameter"));
     }
     let error = null;
     const insurerIndustryCodBO = new InsurerIndustryCodBO();
     // Load the request data into it
-    const objectJSON = await insurerIndustryCodBO.getById(id).catch(function(err) {
+    const objectJSON = await insurerIndustryCodBO.getById(req.params.id).catch(function(err) {
         log.error("Location load error " + err + __location);
         error = err;
     });
@@ -168,14 +165,16 @@ async function add(req, res, next) {
 //update
 async function update(req, res, next) {
     log.debug("InsurerIndustryCodBO PUT:  " + JSON.stringify(req.body))
-    const id = stringFunctions.santizeNumber(req.params.id, true);
-    if (!id) {
-        return next(new Error("bad parameter"));
+    if (!req.params.id) {
+        return next(new Error("no id"));
+    }
+    if(!req.body){
+        return next(new Error("no body"));
     }
 
     const insurerIndustryCodBO = new InsurerIndustryCodBO();
     let error = null;
-    await insurerIndustryCodBO.saveModel(req.body).catch(function(err) {
+    const newJSON = await insurerIndustryCodBO.updateMongo(req.params.id, req.body).catch(function(err) {
         log.error("Location load error " + err + __location);
         error = err;
     });
@@ -183,7 +182,7 @@ async function update(req, res, next) {
         return next(error);
     }
 
-    res.send(200, insurerIndustryCodBO.cleanJSON());
+    res.send(200, newJSON);
     return next();
 
 }
