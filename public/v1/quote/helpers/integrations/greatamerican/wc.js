@@ -66,7 +66,7 @@ module.exports = class GreatAmericanWC extends Integration {
                 throw new Error('Feels like some Great American questions are not imported. It is asking additional questions unexpectedly');
             }
         }
-        const quote = await GreatAmericanApi.getPricing(token, this.app, curAnswers.newBusiness.id);
+        const quote = await GreatAmericanApi.getPricing(token, this, curAnswers.newBusiness.id);
 
         if (_.get(quote, 'rating.data.policy.id')) {
             this.amount = parseFloat(_.get(quote, 'rating.data.TotalResult'));
