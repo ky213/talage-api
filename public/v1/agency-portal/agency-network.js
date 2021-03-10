@@ -259,7 +259,6 @@ async function updateAgencyNetwork(req, res, next) {
     }
 }
 const getAgencyNetworkLogo = async function(req,res, next){
-    console.log(`inside of get agency network logo`)
     if(!req.query || !req.query.url){
         return next(serverHelper.requestError('Missing URL'));
     }
@@ -277,7 +276,6 @@ const getAgencyNetworkLogo = async function(req,res, next){
     }
     let logoName = null;
     const agencyNetworkEnvironment = 'PORTAL_URL';
-    const requestURL = req.query.url;
     const deploymentEnvironment = global.settings.ENV;
     // grab all the agency networks
     const listOfAgencyNetworks = await agencyNetworkBO.getList().catch(function(err) {
