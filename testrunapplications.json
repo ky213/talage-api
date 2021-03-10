@@ -1,0 +1,143 @@
+[
+  {
+    "description": "French Florist - BOP WC Chubb, Markel, Liberty, Markel",
+    "sourceAppId": 11426,
+    "requiresNewEin": true
+  },
+    {
+    "description": "Edward Terry -Law office, GL & WC Chubb, Liberty, Markel, Employers",
+    "sourceAppId": 11428,
+    "requiresNewEin": true
+  },
+   {
+    "description": "Clothing CA - WC Employers, Liberty, CompWest",
+    "sourceAppId": 11401,
+    "requiresNewEin": true
+  },
+   {
+    "description": "Auto Body - AZ WC Pie, CompWest, Employers, Liberty, Markel",
+    "sourceAppId": 11365,
+    "requiresNewEin": true
+  }
+  ,
+   {
+    "description": "Clothing - CA Pie, CompWest,Liberty, Markel",
+    "sourceAppId": 11333,
+    "requiresNewEin": true
+  }
+  ,
+   {
+    "description": "Hiscox GL QA - Barber NV",
+    "sourceAppId": 11617,
+    "requiresNewEin": false
+  }
+  ,
+   {
+    "description": "Talage - clothing store NV GL & WC - Liberty, Chubb, Markel,Liberty, CompWest, Employers ",
+    "sourceAppId": 11613,
+    "requiresNewEin": true
+  }
+  ,
+   {
+    "description": "Acuity GL QA - Barber NV",
+    "sourceAppId": 11601,
+    "requiresNewEin": false
+  }
+  ,
+   {
+    "description": "Talage Janitorial CA GL & WC - BTIS,Liberty, Chubb, CompWest ",
+    "sourceAppId": 11600,
+    "requiresNewEin": true
+  }
+  ,
+   {
+    "description": "Talage Barber IL WC - Markel, AF, Libery, Employers",
+    "sourceAppId": 11585,
+    "requiresNewEin": true
+  },
+   {
+    "description": "Talage Autobody NV GL & WC - Liberty, Markel, Compuwest, Employers",
+    "sourceAppId": 11561,
+    "requiresNewEin": true
+  },
+   {
+    "description": "Talage Candy, Nut, and Confectionery Store NV - Chubb,  Liberty, Markel, Compuwest, Employers",
+    "sourceAppId": 11541,
+    "requiresNewEin": false
+  },
+   {
+    "description": "Talage Muffler NV GL & WC Liberty, Markel, Employers ",
+    "sourceAppId": 11540,
+    "requiresNewEin": false
+  },
+   {
+    "description": "Talage Test Berkeley Dress 4, CA GL & WC -  Chubb, Liberty, Markel, Liberty, CompWest, Employers",
+    "sourceAppId": 11535,
+    "requiresNewEin": true
+  },
+   {
+    "description": "Talage - Reno Tahoe Limousine NV GL & WC - Chubb, Liberty, PIE, Markel, Liberty, CompWest, Employers",
+    "sourceAppId": 11525,
+    "requiresNewEin": true
+  },
+   {
+    "description": "Talage - TMCC Bookstore NV - Chubb, Pie,employers, markel, Liberty, Compwest",
+    "sourceAppId": 11497,
+    "requiresNewEin": true
+  },
+   {
+    "description": "Talage - Test Shoes CA - Chubb, Liberty, Pie, Markel, Liberty, Employers, Compwest",
+    "sourceAppId": 11482,
+    "requiresNewEin": true
+  },
+   {
+    "description": "Interwest - Markel Fitness",
+    "sourceAppId": 11490,
+    "requiresNewEin": false
+  },
+   {
+    "description": "Acuity GL QA Barber NV",
+    "sourceAppId": 11700,
+    "requiresNewEin": false
+  },
+   {
+    "description": "Pie WC NV Barber",
+    "sourceAppId": 11711,
+    "requiresNewEin": false
+  },
+   {
+    "description": "Markel Fitness GL NV Fitness Facility",
+    "sourceAppId": 11720,
+    "requiresNewEin": false
+  },
+   {
+    "description": "Chubb GL NV Barber",
+    "sourceAppId": 11721,
+    "requiresNewEin": false
+  },
+   {
+    "description": "Liberty Mutual WC NV Barber",
+    "sourceAppId": 11723,
+    "requiresNewEin": true
+  },
+   {
+    "description": "Liberty Mutual GL NV Landscaping",
+    "sourceAppId": 11732,
+    "requiresNewEin": true
+  },
+   {
+    "description": "Employers WC QA - Gentlemen's Barber Shop",
+    "sourceAppId": 11726,
+    "requiresNewEin": true
+  },
+   {
+    "description": "Markel WC QA - Markel Barber Shop CA",
+    "sourceAppId": 11919,
+    "requiresNewEin": true
+  },
+   {
+    "description": "CNA WC QA - Hardware Store NV",
+    "sourceAppId": 12363,
+    "requiresNewEin": false
+  }  
+]

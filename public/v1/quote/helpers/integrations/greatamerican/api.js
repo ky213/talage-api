@@ -1,47 +1,31 @@
+/* eslint-disable object-curly-newline */
 const axios = require('axios');
 const _ = require('lodash');
+const log = global.log;
 
-const getToken = async () => {
-    const uat = global.settings.GREAT_AMERICAN_UAT;
-    const uatId = global.settings.GREAT_AMERICAN_UAT_ID;
+const getToken = async (username, password) => {
 
     const options = {
         headers: {
-            Authorization: `Basic ${Buffer.from(`${uatId}:${uat}`).toString('base64')}`,
-            Accept: 'application/json',
+            Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`,
+            Accept: 'application/json'
         }
     };
 
-    const apiCall = await axios.post('https://uat01.api.gaig.com/oauth/accesstoken?grant_type=client_credentials', null, options);
-    const out = apiCall.data;
+    let out = null;
+    try{
+        const apiCall = await axios.post('https://uat01.api.gaig.com/oauth/accesstoken?grant_type=client_credentials', null, options);
+        out = apiCall.data;
+    }
+    catch(err){
+        log.error(`Error getting token from Great American ${err}` + __location)
+    }
+
     if (!out.access_token) {
         throw new Error(out);
     }
     return out;
 };
-
-const getAppetite = async () => {
-    const token = await getToken();
-    const options = {
-        headers: {
-            Authorization: `Bearer ${token.access_token}`,
-            Accept: 'application/json',
-        }
-    };
-
-    const postData = { product: { product: 'WC' } }
-
-    const appetite = await axios.post(
-        'https://uat01.api.gaig.com/shop/api/newBusiness/appetite',
-        postData,
-        options);
-
-    const out = appetite.data;
-    if (_.get(out, 'product.data.classCodes'))
-        return out.product.data.classCodes;
-    else
-        throw new Error(out);
-}
 
 const getNcciFromClassCode = async (code, territory) => {
     const talageCode = await db.query(`
@@ -261,7 +245,6 @@ module.exports = {
     getSession,
     getQuote,
     getPricing,
-    getAppetite,
     getToken,
     injectAnswers
 }

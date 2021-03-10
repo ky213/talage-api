@@ -28,7 +28,7 @@ module.exports = class GreatAmericanWC extends Integration {
             code => this.get_insurer_code_for_activity_code(this.insurer.id, code.substr(0, 2), code.substr(2))
         ));
 
-        const token = await GreatAmericanApi.getToken();
+        const token = await GreatAmericanApi.getToken(this.username, this.password);
         const session = await GreatAmericanApi.getSession(token, codes.map(c => ({
             id: c.code,
             value: c.attributes.classIndustry

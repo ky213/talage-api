@@ -13,6 +13,7 @@ const moment = require('moment');
 const moment_timezone = require('moment-timezone');
 const clonedeep = require('lodash.clonedeep');
 const axios = require('axios');
+var fs = require('fs');
 
 // Add global helpers to load shared modules
 global.sharedPath = require('path').join(__dirname, 'shared');
@@ -174,12 +175,14 @@ async function runFunction() {
     //const appIdList = [11482];
     //Digalent apps
     //const appIdList = [11477,11472, 11329];
-
+    const path = 'testrunapplications.json';
+    let appListText = fs.readFileSync(path);
+    let appList = JSON.parse(appListText);
     const ApplicationBO = global.requireShared('models/Application-BO.js');
     //var Application = require('mongoose').model('Application');
     const updateMysql = true;
-    for(let i = 0; i < appIdList.length; i++){
-        const mysqlId = appIdList[i];
+    for(let i = 0; i < appList.length; i++){
+        const mysqlId = appList[i].sourceAppId;
         log.debug("copying mysqlId " + mysqlId);
         try{
         //load applicationBO
@@ -216,6 +219,10 @@ async function runFunction() {
                 mongoApp.processStateOld = 1;
                 mongoApp.lastStep = 8;
                 mongoApp.progress = "unknown";
+
+                if(appList[i].requiresNewEin){
+                    mongoApp.ein = `${mongoApp.ein.substr(0, 2)}${Math.floor(Math.random() * (9999999 - 1000000) + 1000000)}`;
+                }
 
                 //save mongoinsert
                 const newApplicationJSON = await applicationBO.insertMongo(mongoApp, updateMysql);
