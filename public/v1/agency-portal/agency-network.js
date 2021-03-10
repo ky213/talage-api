@@ -263,63 +263,60 @@ const getAgencyNetworkLogo = async function(req,res, next){
     if(!req.query || !req.query.url){
         return next(serverHelper.requestError('Missing URL'));
     }
-   // https://talage-website-images-production.s3.amazonaws.com/public/agency-network-logos/siu-logo.png
-   // https://talage-website-images-development.s3.amazonaws.com/public/agency-network-logos/siu-logo.png
-    // let agencyNetworkBO = new AgencyNetworkBO();
-    // // break up the url to determine which environment we will be looking at
-    // const protocolStrippedUrl = req.query.url.replace(/^(?:https?:\/\/)?(?:www\.)?/i, "");
-    // const splitURL = protocolStrippedUrl.split('.');
-    // let logoName = null;
-    // if(splitURL && splitURL.length > 0){
-    //     let environment = '';
-    //     const environmentURL = 'PORTAL_URL';
-    //     const requestURL = req.query.url;
-    //     switch(splitURL[0]){
-    //         case 'localhost:8081/':
-    //             environment = 'development';
-    //             break;
-    //         case 'dev':
-    //             environment = 'awsdev';
-    //             break;
-    //         case 'sta':
-    //             environment = 'staging';
-    //             break;
-    //         case 'demo':
-    //             environment = 'demo';
-    //             break;
-    //         case 'agents':
-    //             environment = 'production';
-    //             break;
-    //         default: 
-    //             log.warn(`Agency Network Url for logo request not recognized ${req.query.url}. `+ __location)
-    //             break;
-    //         }
-    //         // grab all the agency networks
-    //         const listOfAgencyNetworks = await agencyNetworkBO.getList().catch(function(err) {
-    //             log.error("Retrieving list of all agency networks error " + err + __location);
-    //         });
-    //         console.log(listOfAgencyNetworks);
-    //         if(listOfAgencyNetworks && listOfAgencyNetworks.length > 0){
-    //             //find the one with matching url, grab the logo name, add to the s3 url path and store in logoUrl
-    //             for(let i = 0; i < listOfAgencyNetworks.length; i++){
-    //                 const agencyNetwork = listOfAgencyNetworks[i];
-    //                 console.log(agencyNetwork.additionalInfo.environmentSettings[`${environment}`][`${environmentURL}`]);
-    //                 if(agencyNetwork.hasOwnProperty('additionalInfo') && agencyNetwork.additionalInfo.hasOwnProperty('environmentSettings') 
-    //                 && agencyNetwork.additionalInfo.environmentSettings.hasOwnProperty(`${environment}`) 
-    //                 && agencyNetwork.additionalInfo.environmentSettings[`${environment}`].hasOwnProperty(`${environmentURL}`) 
-    //                 && agencyNetwork.additionalInfo.environmentSettings[`${environment}`][`${environmentURL}`]=== requestURL){
-    //                     logoName = agencyNetwork.logo;
-    //                 }
-    //             }
-    //         }
-    // }
-    // if(logoName){
-    //     const logoURL = `https://${S3_BUCKET}.s3.amazonaws.com/public/agency-network-logos/${logoName}`
-    //     res.send(200, logoURL);
-    //     return next();
-    // }else {
-    //     return next(serverHelper.notFoundError('Not Found.'))
-    // }
+    // https://talage-website-images-production.s3.amazonaws.com/public/agency-network-logos/siu-logo.png
+    // https://talage-website-images-development.s3.amazonaws.com/public/agency-network-logos/siu-logo.png
+    // https://talage-website-images-development.s3.amazonaws.com/public/agency-network-logos/SouthInsuranceUnderwriters-header-532d74a9-e7d3-4222-9f14-4468372bef16-siu-logo.png
+    let agencyNetworkBO = new AgencyNetworkBO();
+    // convert incoming url into a URL Object 
+    let incomingUrl = null;
+    try {
+       incomingUrl = new URL(req.query.url);
+    } catch (error) {
+        log.warn(`Invalid Url ${req.query.url} `+ __location);
+        return next(serverHelper.requestError('Invalid Url'));
+    }
+    let logoName = null;
+    const agencyNetworkEnvironment = 'PORTAL_URL';
+    const requestURL = req.query.url;
+    const deploymentEnvironment = global.settings.ENV;
+    // grab all the agency networks
+    const listOfAgencyNetworks = await agencyNetworkBO.getList().catch(function(err) {
+        log.error("Retrieving list of all agency networks error " + err + __location);
+    });
+    if(listOfAgencyNetworks && listOfAgencyNetworks.length > 0){
+        //find the one with matching url, grab the logo name, add to the s3 url path and store in logoUrl
+        for(let i = 0; i < listOfAgencyNetworks.length; i++){
+            const agencyNetwork = listOfAgencyNetworks[i];
+            if(agencyNetwork.hasOwnProperty('additionalInfo') && agencyNetwork.additionalInfo.hasOwnProperty('environmentSettings') 
+            && agencyNetwork.additionalInfo.environmentSettings.hasOwnProperty(`${deploymentEnvironment}`) 
+            && agencyNetwork.additionalInfo.environmentSettings[`${deploymentEnvironment}`].hasOwnProperty(`${agencyNetworkEnvironment}`)){
+                const agencyNetworkEnvironmentObj = agencyNetwork.additionalInfo.environmentSettings[`${deploymentEnvironment}`];
+                let agencyNetworkUrl = null;
+                let error = null;
+                try {
+                    agencyNetworkUrl = new URL(agencyNetworkEnvironmentObj[`${agencyNetworkEnvironment}`]);
+                 } catch (err) {
+                     log.warn(`Invalid Url ${agencyNetworkEnvironmentObj[`${agencyNetworkEnvironment}`]} for agency network ${agencyNetwork.systemId}. Please fix issue `+ err + __location);
+                     error = err;
+                 }
+                 // TODO: Handle localhost environment -> all of them will have localhost8081 for agency portal for local dev
+                 if(!error && agencyNetworkUrl && agencyNetworkUrl.hostname === incomingUrl.hostname){
+                    // TODO: Handle scenario when logo has spacing in the name, s3 doesn't have spacing...
+                    logoName = agencyNetwork.logo;
+                    //TODO: delete below, this is just testing
+                    // logoName = `SouthInsuranceUnderwriters-header-532d74a9-e7d3-4222-9f14-4468372bef16-siu-logo.png`;
+                    break;
+                 }
+            } 
+        }
+    }
+ 
+    if(logoName){
+        res.send(200, {logoName});
+        return next();
+    }else {
+        return next(serverHelper.notFoundError('Not Found.'))
+    }
 }
 exports.registerEndpoint = (server, basePath) => {
     server.addGet('Get Landing Page Logo', `${basePath}/agency-network/logo`, getAgencyNetworkLogo);
