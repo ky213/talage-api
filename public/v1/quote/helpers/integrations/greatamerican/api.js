@@ -1,16 +1,26 @@
+/* eslint-disable object-curly-newline */
 const axios = require('axios');
 const _ = require('lodash');
+const log = global.log;
 
 const getToken = async (username, password) => {
+
     const options = {
         headers: {
             Authorization: `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`,
-            Accept: 'application/json',
+            Accept: 'application/json'
         }
     };
 
-    const apiCall = await axios.post('https://uat01.api.gaig.com/oauth/accesstoken?grant_type=client_credentials', null, options);
-    const out = apiCall.data;
+    let out = null;
+    try{
+        const apiCall = await axios.post('https://uat01.api.gaig.com/oauth/accesstoken?grant_type=client_credentials', null, options);
+        out = apiCall.data;
+    }
+    catch(err){
+        log.error(`Error getting token from Great American ${err}` + __location)
+    }
+
     if (!out.access_token) {
         throw new Error(out);
     }
