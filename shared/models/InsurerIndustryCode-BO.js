@@ -162,10 +162,7 @@ module.exports = class InsurerIndustryCodeBO{
                 let queryRowCount = 0;
                 try {
                     docList = await InsurerIndustryCode.find(query, queryProjection, queryOptions);
-                    const countQuery = await InsurerIndustryCode.find(query, queryProjection, {});
-                    if(countQuery && countQuery.length){
-                        queryRowCount = countQuery.length;
-                    }
+                    queryRowCount = await InsurerIndustryCode.countDocuments(query);
                 }
                 catch (err) {
                     log.error(err + __location);
@@ -201,8 +198,6 @@ module.exports = class InsurerIndustryCodeBO{
                 resolve({count: docCount});
                 return;
             }
-
-
         });
     }
 

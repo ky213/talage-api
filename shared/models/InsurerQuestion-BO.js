@@ -1,29 +1,23 @@
+/* eslint-disable prefer-const */
 'use strict';
 
+
 const DatabaseObject = require('./DatabaseObject.js');
-const crypt = requireShared('./services/crypt.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
-const moment = require('moment');
-const moment_timezone = require('moment-timezone');
-const {debug} = require('request');
 
-const tableName = 'clw_talage_insurer_questions';
+var InsurerQuestion = require('mongoose').model('InsurerQuestion');
+const mongoUtils = global.requireShared('./helpers/mongoutils.js');
+const InsurerPolicyTypeBO = global.requireShared('models/InsurerPolicyType-BO.js');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
+
+const tableName = 'clw_talage_insurer_industry_codes';
 const skipCheckRequired = false;
 module.exports = class InsurerQuestionBO{
 
-    #dbTableORM = null;
-
-    allowNulls = ["question"];
-
-    // eslint-disable-next-line array-element-newline
-    doNotSnakeCase = ['questionSubjectArea','effectiveDate','expirationDate'];
-
     constructor(){
         this.id = 0;
-        this.#dbTableORM = new DbTableOrm(tableName);
-        this.#dbTableORM.allowNulls = this.allowNulls;
-        this.#dbTableORM.doNotSnakeCase = this.doNotSnakeCase;
+        this.mongoDoc = null;
     }
 
     /**
@@ -38,128 +32,207 @@ module.exports = class InsurerQuestionBO{
             if(!newObjectJSON){
                 reject(new Error(`empty ${tableName} object given`));
             }
-            await this.cleanupInput(newObjectJSON);
+
+            let newDoc = true;
             if(newObjectJSON.id){
-                await this.#dbTableORM.getById(newObjectJSON.id).catch(function(err) {
+                const dbDocJSON = await this.getById(newObjectJSON.id).catch(function(err) {
                     log.error(`Error getting ${tableName} from Database ` + err + __location);
                     reject(err);
                     return;
                 });
-                this.updateProperty();
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
+                if(dbDocJSON){
+                    newObjectJSON.systemId = dbDocJSON.systemId;
+                    newObjectJSON.insurerId = dbDocJSON.systemId;
+                    this.id = dbDocJSON.systemId;
+                    newDoc = false;
+                    await this.updateMongo(dbDocJSON.insurerUuidId,newObjectJSON)
+                }
+                else {
+                    log.error("Insurer PUT object not found " + newObjectJSON.id + __location)
+                }
             }
-            else{
-                this.#dbTableORM.load(newObjectJSON, skipCheckRequired);
-            }
+            if(newDoc === true) {
+                const newDoc = await this.insertMongo(newObjectJSON);
+                this.id = newDoc.systemId;
+                this.mongoDoc = newDoc;
 
-            //save
-            await this.#dbTableORM.save().catch(function(err){
-                reject(err);
-            });
-            this.updateProperty();
-            this.id = this.#dbTableORM.id;
-            //MongoDB
-
-            resolve(true);
-
-        });
-    }
-
-    /**
-	 * saves this object.
-     *
-	 * @returns {Promise.<JSON, Error>} save return true , or an Error if rejected
-	 */
-    save(asNew = false){
-        return new Promise(async(resolve, reject) => {
-            //validate
-            this.#dbTableORM.load(this, skipCheckRequired);
-            await this.#dbTableORM.save().catch(function(err){
-                reject(err);
-            });
-            resolve(true);
-        });
-    }
-
-    loadFromId(id) {
-        return new Promise(async(resolve, reject) => {
-            //validate
-            if(id && id > 0){
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
-                    reject(err);
-                    return;
-                });
-                this.updateProperty();
-                resolve(true);
             }
             else {
-                reject(new Error('no id supplied'))
+                this.mongoDoc = this.getById(this.id);
             }
+            resolve(true);
+
         });
     }
 
     getList(queryJSON) {
         return new Promise(async(resolve, reject) => {
-            let rejected = false;
-            // Create the update query
-            let sql = `
-                    select *  from ${tableName}  
-                `;
-            if(queryJSON){
-                let hasWhere = false;
-                if(queryJSON.question){
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` question = ${db.escape(queryJSON.question)} `
-                    hasWhere = true;
-                }
+            if(!queryJSON){
+                queryJSON = {};
             }
-            // Run the query
-            log.debug("InsurerQuestionBO getlist sql: " + sql);
-            const result = await db.query(sql).catch(function(error) {
-                // Check if this was
+            const queryProjection = {"__v": 0}
 
-                rejected = true;
-                log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
-                reject(error);
-            });
-            if (rejected) {
-                return;
-            }
-            const boList = [];
-            if(result && result.length > 0){
-                for(let i = 0; i < result.length; i++){
-                    const insurerQuestionBO = new InsurerQuestionBO();
-                    await insurerQuestionBO.#dbTableORM.decryptFields(result[i]);
-                    await insurerQuestionBO.#dbTableORM.convertJSONColumns(result[i]);
-                    const resp = await insurerQuestionBO.loadORM(result[i], skipCheckRequired).catch(function(err){
-                        log.error(`getList error loading object: ` + err + __location);
-                    })
-                    if(!resp){
-                        log.debug("Bad BO load" + __location)
-                    }
-                    boList.push(insurerQuestionBO);
+            let findCount = false;
+
+            let rejected = false;
+            // eslint-disable-next-line prefer-const
+            let query = {active: true};
+            let error = null;
+
+            var queryOptions = {};
+            queryOptions.sort = {systemId: 1};
+            if (queryJSON.sort) {
+                var acs = 1;
+                if (queryJSON.desc) {
+                    acs = -1;
+                    delete queryJSON.desc
                 }
-                resolve(boList);
+                queryOptions.sort[queryJSON.sort] = acs;
+                delete queryJSON.sort
             }
             else {
-                //Search so no hits ok.
-                resolve([]);
+                // default to DESC on sent
+                queryOptions.sort.createdAt = -1;
+
             }
+            const queryLimit = 500;
+            if (queryJSON.limit) {
+                var limitNum = parseInt(queryJSON.limit, 10);
+                delete queryJSON.limit
+                if (limitNum < queryLimit) {
+                    queryOptions.limit = limitNum;
+                }
+                else {
+                    queryOptions.limit = queryLimit;
+                }
+            }
+            else {
+                queryOptions.limit = queryLimit;
+            }
+            if(queryJSON.page){
+                const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : 1;
+                // offset by page number * max rows, so we go that many rows
+                queryOptions.skip = (page - 1) * queryOptions.limit;
+                delete queryJSON.page;
+            }
+
+            if (queryJSON.count) {
+                if (queryJSON.count === "1") {
+                    findCount = true;
+                }
+                delete queryJSON.count;
+            }
+            if(queryJSON.insurerQuestionId && Array.isArray(queryJSON.insurerQuestionId)){
+                query.insurerQuestionId = {$in: queryJSON.insurerQuestionId};
+                delete queryJSON.insurerQuestionId
+            }
+            else if(queryJSON.insurerQuestionId && typeof queryJSON.insurerQuestionId === "string"){
+                const idList = queryJSON.insurerQuestionId.split(",");
+                if(idList.length > 1){
+                    query.insurerQuestionId = {$in: idList};
+                }
+                else{
+                    query.insurerQuestionId = queryJSON.insurerQuestionId;
+                }
+                delete queryJSON.insurerQuestionId
+            }
+
+            if(queryJSON.insurerId && Array.isArray(queryJSON.insurerId)){
+                query.insurerId = {$in: queryJSON.insurerId};
+                delete queryJSON.insurerId
+            }
+            else if(queryJSON.insurerId){
+                query.insurerId = queryJSON.insurerId;
+                delete queryJSON.insurerId
+            }
+
+            if (queryJSON) {
+                for (var key in queryJSON) {
+                    if (typeof queryJSON[key] === 'string' && queryJSON[key].includes('%')) {
+                        let clearString = queryJSON[key].replace("%", "");
+                        clearString = clearString.replace("%", "");
+                        query[key] = {
+                            "$regex": clearString,
+                            "$options": "i"
+                        };
+                    }
+                    else{
+                        query[key] = queryJSON[key];
+                    }
+                }
+            }
+
+            if (findCount === false) {
+                let docList = null;
+                let queryRowCount = 0;
+                try {
+                    docList = await InsurerQuestion.find(query, queryProjection, queryOptions);
+                    queryRowCount = await InsurerQuestion.countDocuments(query);
+                }
+                catch (err) {
+                    log.error(err + __location);
+                    error = null;
+                    rejected = true;
+                }
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                if(docList && docList.length > 0){
+                    // pass back the count as well for api paging (so we know how many total rows are)
+                    resolve({
+                        data: mongoUtils.objListCleanup(docList),
+                        count: queryRowCount
+                    });
+                }
+                else {
+                    resolve([]);
+                }
+                return;
+            }
+            else {
+                const docCount = await InsurerQuestion.countDocuments(query).catch(err => {
+                    log.error("InsurerQuestion.countDocuments error " + err + __location);
+                    error = null;
+                    rejected = true;
+                })
+                if(rejected){
+                    reject(error);
+                    return;
+                }
+                resolve({count: docCount});
+                return;
+            }
+
+
         });
     }
 
-    getById(id) {
+    getById(id, returnMongooseModel = false) {
         return new Promise(async(resolve, reject) => {
-            //validate
-            if(id && id > 0){
-                await this.#dbTableORM.getById(id).catch(function(err) {
-                    log.error(`Error getting  ${tableName} from Database ` + err + __location);
+            if (id) {
+                const query = {
+                    "insurerQuestionId": id,
+                    active: true
+                };
+                let docDB = null;
+                try {
+                    docDB = await InsurerQuestion.findOne(query, '-__v');
+                }
+                catch (err) {
+                    log.error("Getting Agency error " + err + __location);
                     reject(err);
-                    return;
-                });
-                this.updateProperty();
-                resolve(this.#dbTableORM.cleanJSON());
+                }
+                if(returnMongooseModel){
+                    resolve(docDB);
+                }
+                else if(docDB){
+                    const insurerQuestionDoc = mongoUtils.objCleanup(docDB);
+                    resolve(insurerQuestionDoc);
+                }
+                else {
+                    resolve(null);
+                }
             }
             else {
                 reject(new Error('no id supplied'))
@@ -167,200 +240,156 @@ module.exports = class InsurerQuestionBO{
         });
     }
 
-    cleanJSON(noNulls = true){
-        return this.#dbTableORM.cleanJSON(noNulls);
+    async updateMongo(docId, newObjectJSON) {
+        if (docId) {
+            if (typeof newObjectJSON === "object") {
+
+                const query = {"insurerQuestionId": docId};
+                let newInsurerQuestionJSON = null;
+                try {
+                    const changeNotUpdateList = [
+                        "active",
+                        "id",
+                        "systemId",
+                        "insurerQuestionId"
+                    ];
+
+                    for (let i = 0; i < changeNotUpdateList.length; i++) {
+                        if (newObjectJSON[changeNotUpdateList[i]]) {
+                            delete newObjectJSON[changeNotUpdateList[i]];
+                        }
+                    }
+                    // Add updatedAt
+                    newObjectJSON.updatedAt = new Date();
+
+                    await InsurerQuestion.updateOne(query, newObjectJSON);
+                    const newInsurerQuestion = await InsurerQuestion.findOne(query);
+                    //const newAgencyDoc = await InsurerIndustryCode.findOneAndUpdate(query, newObjectJSON, {new: true});
+
+                    newInsurerQuestionJSON = mongoUtils.objCleanup(newInsurerQuestion);
+                }
+                catch (err) {
+                    log.error(`Updating Application error appId: ${docId}` + err + __location);
+                    throw err;
+                }
+                //
+
+                return newInsurerQuestionJSON;
+            }
+            else {
+                throw new Error(`no newObjectJSON supplied appId: ${docId}`)
+            }
+
+        }
+        else {
+            throw new Error('no id supplied');
+        }
+        // return true;
+
     }
 
-    async cleanupInput(inputJSON){
-        for (const property in properties) {
-            if(inputJSON[property]){
-                // Convert to number
-                try{
-                    if (properties[property].type === "number" && typeof inputJSON[property] === "string"){
-                        if (properties[property].dbType.indexOf("int") > -1){
-                            inputJSON[property] = parseInt(inputJSON[property], 10);
-                        }
-                        else if (properties[property].dbType.indexOf("float") > -1){
-                            inputJSON[property] = parseFloat(inputJSON[property]);
+    async insertMongo(newObjectJSON) {
+        if (!newObjectJSON) {
+            throw new Error("no data supplied");
+        }
+        //force mongo/mongoose insert
+        if(newObjectJSON._id) {
+            delete newObjectJSON._id
+        }
+        if(newObjectJSON.id) {
+            delete newObjectJSON.id
+        }
+        const newSystemId = await this.newMaxSystemId()
+        newObjectJSON.systemId = newSystemId;
+        newObjectJSON.insurerId = newSystemId;
+        const insurer = new InsurerQuestion(newObjectJSON);
+        //Insert a doc
+        await insurer.save().catch(function(err) {
+            log.error('Mongo insurer Save err ' + err + __location);
+            throw err;
+        });
+        newObjectJSON.id = newSystemId;
+        return mongoUtils.objCleanup(insurer);
+    }
+
+    async newMaxSystemId(){
+        let maxId = 0;
+        try{
+
+            //small collection - get the collection and loop through it.
+            // TODO refactor to use mongo aggretation.
+            const query = {}
+            const queryProjection = {"systemId": 1}
+            var queryOptions = {lean:true};
+            queryOptions.sort = {};
+            queryOptions.sort.systemId = -1;
+            queryOptions.limit = 1;
+            const docList = await InsurerQuestion.find(query, queryProjection, queryOptions)
+            if(docList && docList.length > 0){
+                for(let i = 0; i < docList.length; i++){
+                    if(docList[i].systemId > maxId){
+                        maxId = docList[i].systemId + 1;
+                    }
+                }
+            }
+
+        }
+        catch(err){
+            log.error("Get max system id " + err + __location)
+            throw err;
+        }
+        log.debug("maxId: " + maxId + __location)
+        return maxId;
+    }
+
+    async getTerritories(insurerId){
+        let territoryArray = [];
+        let insurerPolicyTypeListJSON = {};
+        try{
+            const insurerPolicyTypeBO = new InsurerPolicyTypeBO();
+            const query = {"insurerId": insurerId}
+            insurerPolicyTypeListJSON = await insurerPolicyTypeBO.getList(query)
+            if(insurerPolicyTypeListJSON){
+                for(const insurerPolicyTypeJSON of insurerPolicyTypeListJSON){
+                    if(insurerPolicyTypeJSON.territories && insurerPolicyTypeJSON.territories.length > 0){
+                        for(let i = 0; i < insurerPolicyTypeJSON.territories.length; i++){
+                            const ptTerritory = insurerPolicyTypeJSON.territories[i];
+                            if (territoryArray.indexOf(ptTerritory) === -1) {
+                                territoryArray.push(ptTerritory);
+                            }
                         }
                     }
                 }
-                catch(e){
-                    log.error(`Error converting property ${property} value: ` + inputJSON[property] + __location)
-                }
             }
         }
-    }
-
-    updateProperty(){
-        const dbJSON = this.#dbTableORM.cleanJSON()
-        // eslint-disable-next-line guard-for-in
-        for (const property in properties) {
-            this[property] = dbJSON[property];
+        catch(err){
+            log.error("Getting mongo clw_talage_insurer_policy_types error " + err + __location)
         }
-    }
+        if(territoryArray && territoryArray.length > 0){
+            return territoryArray.sort();
+        }
+        else {
+            return [];
+        }
 
-    /**
-	 * Load new object JSON into ORM. can be used to filter JSON to object properties
-     *
-	 * @param {object} inputJSON - input JSON
-	 * @returns {void}
-	 */
-    async loadORM(inputJSON){
-        await this.#dbTableORM.load(inputJSON, skipCheckRequired);
-        this.updateProperty();
-        return true;
+
     }
 
     // ***************************
     //    For administration site
     //
     // *************************
+
     async getSelectionList(){
-
-        let rejected = false;
-        const responseLandingPageJSON = {};
-        const reject = false;
-        const sql = `select id, name, logo  
-            from clw_talage_insurer_questions
-            where state > 0
-            order by name`
-        const result = await db.query(sql).catch(function(error) {
-            // Check if this was
-            rejected = true;
-            log.error(`${tableName} error on select ` + error + __location);
-        });
-        if (!rejected && result && result.length > 0) {
-            return result;
+        //TODO refactor to only return id, name and logo.
+        let insurerList = [];
+        try{
+            insurerList = await this.getList({});
         }
-        else {
-            return [];
+        catch(err){
+            log.error(`Insurer GetList error on select ` + err + __location);
         }
+        return insurerList;
     }
-}
 
-const properties = {
-    "id": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "question": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "insurer": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "int(11) unsigned"
-    },
-    "policy_type": {
-        "default": "WC",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(3)"
-    },
-    "universal": {
-        "default": 0,
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "number",
-        "dbType": "tinyint(1)"
-    },
-    "questionSubjectArea": {
-        "default": "general",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(150)"
-    },
-    "text": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(500)"
-    },
-    "identifier": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(60)"
-    },
-    "attributes": {
-        "default": "",
-        "encrypted": false,
-        "hashed": false,
-        "required": true,
-        "rules": null,
-        "type": "string",
-        "dbType": "varchar(150)"
-    },
-    "effectiveDate": {
-        "default": "1980-01-01 00:00:00",
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "datetime",
-        "dbType": "datetime"
-    },
-    "expirationDate": {
-        "default": "2100-01-01 00:00:00",
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "datetime",
-        "dbType": "datetime"
-    },
-    "created": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    },
-    "modified": {
-        "default": null,
-        "encrypted": false,
-        "hashed": false,
-        "required": false,
-        "rules": null,
-        "type": "timestamp",
-        "dbType": "timestamp"
-    }
-}
-
-class DbTableOrm extends DatabaseObject {
-    constructor(tableName){
-        super(tableName, properties);
-    }
 }
