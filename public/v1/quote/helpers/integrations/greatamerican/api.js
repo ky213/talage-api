@@ -42,8 +42,8 @@ const getNcciFromClassCode = async (code, territory) => {
  * @param {*} app 
  * @param {*} sessionId 
  */
-const getPricing = async (token, app, sessionId) => {
-    const appData = app.applicationDocData;
+const getPricing = async (token, integration, sessionId) => {
+    const appData = integration.app.applicationDocData;
 
     // Map our entity types to the entity types of Great America.
     let entityType;
@@ -78,6 +78,15 @@ const getPricing = async (token, app, sessionId) => {
             break;
     }
 
+    // Retrieve the primary contact.
+    let primaryContact;
+    let allPrimaryContacts = appData.contacts.filter(t => t.primary);
+    if (allPrimaryContacts.length > 0) {
+        primaryContact = allPrimaryContacts[0];
+    } else {
+        primaryContact = appData.contacts[0];
+    }
+
     const send = {
         newBusiness: {
             id: sessionId
@@ -92,12 +101,12 @@ const getPricing = async (token, app, sessionId) => {
             insuredStateCode: appData.mailingState,
             insuredZipCode: appData.mailingZipcode,
             insuredCountryCode: 'US',
-            insuredEmail: appData.contacts[0].email,
-            contactPhone: appData.contacts[0].phone,
-            contactName: `${appData.contacts[0].firstName} ${appData.contacts[0].lastName}`,
+            insuredEmail: primaryContact.email,
+            contactPhone: primaryContact.phone,
+            contactName: `${primaryContact.firstName} ${primaryContact.lastName}`,
             currentPolicyExpiration: '',
-            policyEffectiveDate: app.policies[0].effective_date.format('YYYY-MM-DD'),
-            policyExpirationDate: app.policies[0].expiration_date.format('YYYY-MM-DD'),
+            policyEffectiveDate: integration.policy.effective_date.format('YYYY-MM-DD'),
+            policyExpirationDate: integration.policy.expiration_date.format('YYYY-MM-DD'),
             includeBlanketWaiver: true,
             producerCode: 648783,
             locations: await Promise.all(appData.locations.map(async (location) => ({
