@@ -258,8 +258,71 @@ async function updateAgencyNetwork(req, res, next) {
         return next();
     }
 }
-
+const getAgencyNetworkLogo = async function(req,res, next){
+    console.log(`inside of get agency network logo`)
+    if(!req.query || !req.query.url){
+        return next(serverHelper.requestError('Missing URL'));
+    }
+   // https://talage-website-images-production.s3.amazonaws.com/public/agency-network-logos/siu-logo.png
+   // https://talage-website-images-development.s3.amazonaws.com/public/agency-network-logos/siu-logo.png
+    // let agencyNetworkBO = new AgencyNetworkBO();
+    // // break up the url to determine which environment we will be looking at
+    // const protocolStrippedUrl = req.query.url.replace(/^(?:https?:\/\/)?(?:www\.)?/i, "");
+    // const splitURL = protocolStrippedUrl.split('.');
+    // let logoName = null;
+    // if(splitURL && splitURL.length > 0){
+    //     let environment = '';
+    //     const environmentURL = 'PORTAL_URL';
+    //     const requestURL = req.query.url;
+    //     switch(splitURL[0]){
+    //         case 'localhost:8081/':
+    //             environment = 'development';
+    //             break;
+    //         case 'dev':
+    //             environment = 'awsdev';
+    //             break;
+    //         case 'sta':
+    //             environment = 'staging';
+    //             break;
+    //         case 'demo':
+    //             environment = 'demo';
+    //             break;
+    //         case 'agents':
+    //             environment = 'production';
+    //             break;
+    //         default: 
+    //             log.warn(`Agency Network Url for logo request not recognized ${req.query.url}. `+ __location)
+    //             break;
+    //         }
+    //         // grab all the agency networks
+    //         const listOfAgencyNetworks = await agencyNetworkBO.getList().catch(function(err) {
+    //             log.error("Retrieving list of all agency networks error " + err + __location);
+    //         });
+    //         console.log(listOfAgencyNetworks);
+    //         if(listOfAgencyNetworks && listOfAgencyNetworks.length > 0){
+    //             //find the one with matching url, grab the logo name, add to the s3 url path and store in logoUrl
+    //             for(let i = 0; i < listOfAgencyNetworks.length; i++){
+    //                 const agencyNetwork = listOfAgencyNetworks[i];
+    //                 console.log(agencyNetwork.additionalInfo.environmentSettings[`${environment}`][`${environmentURL}`]);
+    //                 if(agencyNetwork.hasOwnProperty('additionalInfo') && agencyNetwork.additionalInfo.hasOwnProperty('environmentSettings') 
+    //                 && agencyNetwork.additionalInfo.environmentSettings.hasOwnProperty(`${environment}`) 
+    //                 && agencyNetwork.additionalInfo.environmentSettings[`${environment}`].hasOwnProperty(`${environmentURL}`) 
+    //                 && agencyNetwork.additionalInfo.environmentSettings[`${environment}`][`${environmentURL}`]=== requestURL){
+    //                     logoName = agencyNetwork.logo;
+    //                 }
+    //             }
+    //         }
+    // }
+    // if(logoName){
+    //     const logoURL = `https://${S3_BUCKET}.s3.amazonaws.com/public/agency-network-logos/${logoName}`
+    //     res.send(200, logoURL);
+    //     return next();
+    // }else {
+    //     return next(serverHelper.notFoundError('Not Found.'))
+    // }
+}
 exports.registerEndpoint = (server, basePath) => {
+    server.addGet('Get Landing Page Logo', `${basePath}/agency-network/logo`, getAgencyNetworkLogo);
     server.addGetAuth('Get AgencyNetwork', `${basePath}/agency-network/:id`, getAgencyNetwork, 'agencies', 'view');
     server.addPutAuth('PUT AgencyNetwork', `${basePath}/agency-network/:id`, updateAgencyNetwork, 'agencies', 'manage');
     server.addGetAuth('Get AgencyNetworkInsurers', `${basePath}/agency-network/insurers-list/:id`, getAgencyNetworkInsurersList, 'agencies', 'view');
