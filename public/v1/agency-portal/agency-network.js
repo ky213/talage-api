@@ -326,9 +326,14 @@ async function getAgencyNetworkLogo (req,res, next){
                  }
                  
                  // TODO: Handle localhost environment -> all of them will have localhost8081 for agency portal for local dev, for now grab the first one
-                 if(!error && agencyNetworkUrl && agencyNetworkUrl.hostname === incomingUrl.hostname && logoName){
-                    logoName = agencyNetwork.logo;
-                    networkName = agencyNetwork.name;
+                 // If there was not an error, and we have agencyNetworkUrl and the agencyNetworkUrl domain and incoming Url domain match
+                 if(!error && agencyNetworkUrl && agencyNetworkUrl.hostname === incomingUrl.hostname){
+                     if(agencyNetwork.hasOwnProperty('logo')){
+                         logoName = agencyNetwork.logo;
+                     }
+                     if(agencyNetwork.hasOwnProperty('name')){
+                         networkName = agencyNetwork.name;
+                     }
                     break;
                  }
             } 
