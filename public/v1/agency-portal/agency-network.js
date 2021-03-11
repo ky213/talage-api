@@ -339,15 +339,11 @@ async function getAgencyNetworkLogo (req,res, next){
             } 
         }
     }
-    if(logoName){
+    // TODO: Maybe something we need to worry about: spacing in the logo name? S3 doesn't have spacing in name
+    const logoUrl = `${global.settings.IMAGE_URL}/public/agency-network-logos/${logoName}`;
+    res.send(200, {logoUrl, networkName});
+    return next();
 
-        // TODO: Maybe something we need to worry about: spacing in the logo name? S3 doesn't have spacing in name
-        const logoUrl = `${global.settings.IMAGE_URL}/public/agency-network-logos/${logoName}`;
-        res.send(200, {logoUrl, networkName});
-        return next();
-    }else {
-        return next(serverHelper.notFoundError('Not Found.'))
-    }
 }
 exports.registerEndpoint = (server, basePath) => {
     server.addGet('Get Landing Page Logo', `${basePath}/agency-network/logo`, getAgencyNetworkLogo);
