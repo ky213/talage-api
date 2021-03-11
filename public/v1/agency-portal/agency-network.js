@@ -258,13 +258,10 @@ async function updateAgencyNetwork(req, res, next) {
         return next();
     }
 }
-const getAgencyNetworkLogo = async function(req,res, next){
+async function getAgencyNetworkLogo (req,res, next){
     if(!req.query || !req.query.url){
         return next(serverHelper.requestError('Missing URL'));
     }
-    // https://talage-website-images-production.s3.amazonaws.com/public/agency-network-logos/siu-logo.png
-    // https://talage-website-images-development.s3.amazonaws.com/public/agency-network-logos/siu-logo.png
-    // https://talage-website-images-development.s3.amazonaws.com/public/agency-network-logos/SouthInsuranceUnderwriters-header-532d74a9-e7d3-4222-9f14-4468372bef16-siu-logo.png
     let agencyNetworkBO = new AgencyNetworkBO();
     // convert incoming url into a URL Object 
     let incomingUrl = null;
@@ -274,23 +271,29 @@ const getAgencyNetworkLogo = async function(req,res, next){
         log.warn(`Invalid Url ${req.query.url} `+ __location);
         return next(serverHelper.requestError('Invalid Url'));
     }
-    let logoName = null;
+    // If no logo then wheelhouse logo will be default
+    let logoName = '1-wheelhouse.png';
     const agencyNetworkEnvironment = 'PORTAL_URL';
+    // What is the current environment, used to grab correct value from agency network for environment we are on
     const deploymentEnvironment = global.settings.ENV;
     // grab all the agency networks
     const listOfAgencyNetworks = await agencyNetworkBO.getList().catch(function(err) {
         log.error("Retrieving list of all agency networks error " + err + __location);
     });
     if(listOfAgencyNetworks && listOfAgencyNetworks.length > 0){
-        //find the one with matching url, grab the logo name, add to the s3 url path and store in logoUrl
+        //find the one with matching url, grab the logo name
         for(let i = 0; i < listOfAgencyNetworks.length; i++){
             const agencyNetwork = listOfAgencyNetworks[i];
+            // make sure agencyNetwork has properties before trying to access them
             if(agencyNetwork.hasOwnProperty('additionalInfo') && agencyNetwork.additionalInfo.hasOwnProperty('environmentSettings') 
             && agencyNetwork.additionalInfo.environmentSettings.hasOwnProperty(`${deploymentEnvironment}`) 
             && agencyNetwork.additionalInfo.environmentSettings[`${deploymentEnvironment}`].hasOwnProperty(`${agencyNetworkEnvironment}`)){
+                // Grab the agency network environment object
                 const agencyNetworkEnvironmentObj = agencyNetwork.additionalInfo.environmentSettings[`${deploymentEnvironment}`];
+                // Variable to hold the URL object created using the url string
                 let agencyNetworkUrl = null;
                 let error = null;
+                // try to create new URL object from the url string
                 try {
                     agencyNetworkUrl = new URL(agencyNetworkEnvironmentObj[`${agencyNetworkEnvironment}`]);
                  } catch (err) {
@@ -298,11 +301,8 @@ const getAgencyNetworkLogo = async function(req,res, next){
                      error = err;
                  }
                  // TODO: Handle localhost environment -> all of them will have localhost8081 for agency portal for local dev
-                 if(!error && agencyNetworkUrl && agencyNetworkUrl.hostname === incomingUrl.hostname){
-                    // TODO: Handle scenario when logo has spacing in the name, s3 doesn't have spacing...
+                 if(!error && agencyNetworkUrl && agencyNetworkUrl.hostname === incomingUrl.hostname && logoName){
                     logoName = agencyNetwork.logo;
-                    //TODO: delete below, this is just testing
-                    // logoName = `SouthInsuranceUnderwriters-header-532d74a9-e7d3-4222-9f14-4468372bef16-siu-logo.png`;
                     break;
                  }
             } 
@@ -310,7 +310,9 @@ const getAgencyNetworkLogo = async function(req,res, next){
     }
  
     if(logoName){
-        res.send(200, {logoName});
+        // TODO: Maybe todo, do we need to worry about spacing in the logo name? S3 doesn't have spacing in name
+        const logoUrl = `${global.settings.IMAGE_URL}/public/agency-network-logos/${logoName}`;
+        res.send(200, {logoUrl});
         return next();
     }else {
         return next(serverHelper.notFoundError('Not Found.'))

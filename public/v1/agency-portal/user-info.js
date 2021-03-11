@@ -67,6 +67,7 @@ async function GetUserInfo(req, res, next){
             if(agency){
                 agencyNetworkId = agency.agencyNetworkId;
                 userInfo[0].logo = agency.logo;
+                userInfo[0].logoUrl = `${global.settings.IMAGE_URL}/public/agency-network-logos/${agency.logo}`
                 userInfo[0].name = agency.name;
                 userInfo[0].slug = agency.slug;
                 userInfo[0].wholesale = agency.wholesale;
@@ -99,6 +100,7 @@ async function GetUserInfo(req, res, next){
         }
         if(agencyNetwork){
             userInfo[0].logo = agencyNetworkJSON.logo;
+            userInfo[0].logoUrl = `${global.settings.IMAGE_URL}/public/agency-network-logos/${agencyNetworkJSON.logo}`;
             userInfo[0].name = agencyNetworkJSON.name;
         }
         else {
