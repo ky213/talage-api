@@ -258,61 +258,87 @@ async function updateAgencyNetwork(req, res, next) {
         return next();
     }
 }
+
+/**
+ * Retrieves the agency network logo and network name based on the url passed to the function
+ *
+ * @param {object} req - HTTP request object
+ * @param {object} res - HTTP response object
+ * @param {function} next - The next function to execute
+ *
+ * @returns {void}
+ */
 async function getAgencyNetworkLogo (req,res, next){
+    
     if(!req.query || !req.query.url){
         return next(serverHelper.requestError('Missing URL'));
     }
-    let agencyNetworkBO = new AgencyNetworkBO();
+    
     // convert incoming url into a URL Object 
     let incomingUrl = null;
     try {
-       incomingUrl = new URL(req.query.url);
+        incomingUrl = new URL(req.query.url);
     } catch (error) {
         log.warn(`Invalid Url ${req.query.url} `+ __location);
         return next(serverHelper.requestError('Invalid Url'));
     }
-    // If no logo then wheelhouse logo will be default
+    let agencyNetworkBO = new AgencyNetworkBO();
+
+    // Default logoName and Agency Network Name
     let logoName = '1-wheelhouse.png';
+    let networkName = 'Wheelhouse';
+    
+    // Const for agency network environmentSettings property
     const agencyNetworkEnvironment = 'PORTAL_URL';
-    // What is the current environment, used to grab correct value from agency network for environment we are on
+
+    // The current environment, used to grab correct value from agency network
     const deploymentEnvironment = global.settings.ENV;
+    
     // grab all the agency networks
     const listOfAgencyNetworks = await agencyNetworkBO.getList().catch(function(err) {
         log.error("Retrieving list of all agency networks error " + err + __location);
     });
     if(listOfAgencyNetworks && listOfAgencyNetworks.length > 0){
-        //find the one with matching url, grab the logo name
+
+        //find the one with matching url, grab the logo and network name
         for(let i = 0; i < listOfAgencyNetworks.length; i++){
             const agencyNetwork = listOfAgencyNetworks[i];
-            // make sure agencyNetwork has properties before trying to access them
-            if(agencyNetwork.hasOwnProperty('additionalInfo') && agencyNetwork.additionalInfo.hasOwnProperty('environmentSettings') 
-            && agencyNetwork.additionalInfo.environmentSettings.hasOwnProperty(`${deploymentEnvironment}`) 
-            && agencyNetwork.additionalInfo.environmentSettings[`${deploymentEnvironment}`].hasOwnProperty(`${agencyNetworkEnvironment}`)){
+
+            // make sure agency network has properties before trying to access them
+            if(agencyNetwork.hasOwnProperty('additionalInfo') 
+                && agencyNetwork.additionalInfo.hasOwnProperty('environmentSettings') 
+                && agencyNetwork.additionalInfo.environmentSettings.hasOwnProperty(`${deploymentEnvironment}`) 
+                && agencyNetwork.additionalInfo.environmentSettings[`${deploymentEnvironment}`].hasOwnProperty(`${agencyNetworkEnvironment}`)){
+                
                 // Grab the agency network environment object
                 const agencyNetworkEnvironmentObj = agencyNetwork.additionalInfo.environmentSettings[`${deploymentEnvironment}`];
-                // Variable to hold the URL object created using the url string
+                
+                // Variable to hold the URL object created using the agency network environment settings url string
                 let agencyNetworkUrl = null;
                 let error = null;
-                // try to create new URL object from the url string
+                
+                // try to create new URL object from the agency network environment settings url string
                 try {
                     agencyNetworkUrl = new URL(agencyNetworkEnvironmentObj[`${agencyNetworkEnvironment}`]);
                  } catch (err) {
                      log.warn(`Invalid Url ${agencyNetworkEnvironmentObj[`${agencyNetworkEnvironment}`]} for agency network ${agencyNetwork.systemId}. Please fix issue `+ err + __location);
                      error = err;
                  }
-                 // TODO: Handle localhost environment -> all of them will have localhost8081 for agency portal for local dev
+                 
+                 // TODO: Handle localhost environment -> all of them will have localhost8081 for agency portal for local dev, for now grab the first one
                  if(!error && agencyNetworkUrl && agencyNetworkUrl.hostname === incomingUrl.hostname && logoName){
                     logoName = agencyNetwork.logo;
+                    networkName = agencyNetwork.name;
                     break;
                  }
             } 
         }
     }
- 
     if(logoName){
-        // TODO: Maybe todo, do we need to worry about spacing in the logo name? S3 doesn't have spacing in name
+
+        // TODO: Maybe something we need to worry about: spacing in the logo name? S3 doesn't have spacing in name
         const logoUrl = `${global.settings.IMAGE_URL}/public/agency-network-logos/${logoName}`;
-        res.send(200, {logoUrl});
+        res.send(200, {logoUrl, networkName});
         return next();
     }else {
         return next(serverHelper.notFoundError('Not Found.'))
