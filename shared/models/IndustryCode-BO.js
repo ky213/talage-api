@@ -3,6 +3,7 @@
 
 const DatabaseObject = require('./DatabaseObject.js');
 const crypt = requireShared('./services/crypt.js');
+const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const {debug} = require('request');
@@ -98,34 +99,62 @@ module.exports = class IndustryCodeBO{
         return new Promise(async(resolve, reject) => {
             let rejected = false;
             // Create the update query
-            let sql = `
-                    select * from ${tableName}  
-                `;
+            const sqlSelect = `
+                SELECT * FROM ${tableName}  
+            `;
+            const sqlCount = `
+                SELECT count(*) FROM ${tableName}  
+            `;
+            let sqlWhere = "";
+            let sqlPaging = "";
             if(queryJSON){
                 let hasWhere = false;
+                if(queryJSON.industryCodeId){
+                    sqlWhere += hasWhere ? " AND " : " WHERE ";
+
+                    let queryIdList = queryJSON.industryCodeId;
+                    if(Array.isArray(queryJSON.industryCodeId)){
+                        queryIdList = queryJSON.industryCodeId.join(",");
+                    }
+
+                    sqlWhere += ` id IN (${queryIdList}) `;
+                }
                 if(queryJSON.activityCode) {
                     // map from the mapping table
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` id IN (SELECT industryCodeId 
+                    sqlWhere += hasWhere ? " AND " : " WHERE ";
+                    sqlWhere += ` id IN (SELECT industryCodeId 
                                         FROM clw_talage_industry_code_associations 
                                         WHERE activityCodeId = ${db.escape(queryJSON.activityCode)}) `;
                     hasWhere = true;
                 }
                 if(queryJSON.description){
-                    sql += hasWhere ? " AND " : " WHERE ";
-                    sql += ` description like ${db.escape(`%${queryJSON.description}%`)} `
+                    sqlWhere += hasWhere ? " AND " : " WHERE ";
+                    sqlWhere += ` description like ${db.escape(`%${queryJSON.description}%`)} `
                     hasWhere = true;
+                }
+
+                const limit = queryJSON.limit ? stringFunctions.santizeNumber(queryJSON.limit, true) : 20;
+                const page = queryJSON.page ? stringFunctions.santizeNumber(queryJSON.page, true) : 1;
+                if(limit && page) {
+                    sqlPaging += ` LIMIT ${db.escape(limit)} `;
+                    // offset by page number * max rows, so we go that many rows
+                    sqlPaging += ` OFFSET ${db.escape((page - 1) * limit)}`;
                 }
             }
             // Run the query
             //log.debug("IndustryCodeBO getlist sql: " + sql);
-            const result = await db.query(sql).catch(function(error) {
-                // Check if this was
-
+            // Run the query
+            const count = await db.query(sqlCount + sqlWhere).catch(function(error) {
                 rejected = true;
-                log.error(`getList ${tableName} sql: ${sql}  error ` + error + __location)
+                log.error(`getList ${tableName} sql: ${sqlCount + sqlWhere}  error ` + error + __location)
                 reject(error);
             });
+            const result = await db.query(sqlSelect + sqlWhere + sqlPaging).catch(function(error) {
+                rejected = true;
+                log.error(`getList ${tableName} sql: ${sqlSelect + sqlWhere + sqlPaging}  error ` + error + __location)
+                reject(error);
+            });
+
             if (rejected) {
                 return;
             }
@@ -143,7 +172,15 @@ module.exports = class IndustryCodeBO{
                     }
                     boList.push(industryCodeBO);
                 }
-                resolve(boList);
+                if(queryJSON && (queryJSON.count === "1" || queryJSON.count === "true")){
+                    resolve({
+                        rows: boList,
+                        count: count[0] ? count[0]["count(*)"] : 0
+                    });
+                }
+                else{
+                    resolve(boList);
+                }
             }
             else {
                 //Search so no hits ok.
