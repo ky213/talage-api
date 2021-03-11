@@ -6,14 +6,14 @@
  * Note: Owner Officer information is currently being omitted because we don't have the ownership percentage or birthdate
  */
 
-'use strict';
-
 const Integration = require('../Integration.js');
 // eslint-disable-next-line no-unused-vars
 const tracker = global.requireShared('./helpers/tracker.js');
 const axios = require('axios');
 const moment = require('moment');
-const fs = require('fs')
+const fs = require('fs');
+
+
 
 
 module.exports = class PieWC extends Integration {

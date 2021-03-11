@@ -220,7 +220,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     let where = `q.state = 1
         ${insurerArray.length ? `AND iq.insurer IN (${insurerArray.join(',')})` : ''}
     `;
-
+    const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
     let questions = [];
     log.debug("Getting universal questions " + __location);
     // ============================================================
@@ -328,7 +328,6 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             log.debug(`Adding ZERO redis industry questions - not found ` + __location)
         }
     }
-    const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
     if(global.settings.USE_MONGO_QUESTIONS === "YES"){
         const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
         const start = moment();
