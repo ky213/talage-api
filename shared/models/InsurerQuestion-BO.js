@@ -70,6 +70,7 @@ module.exports = class InsurerQuestionBO{
             if(!queryJSON){
                 queryJSON = {};
             }
+
             const queryProjection = {"__v": 0}
 
             let findCount = false;
@@ -117,7 +118,7 @@ module.exports = class InsurerQuestionBO{
             }
 
             if (queryJSON.count) {
-                if (queryJSON.count === "1") {
+                if (queryJSON.count === "1" || queryJSON.count === "true") {
                     findCount = true;
                 }
                 delete queryJSON.count;
@@ -162,49 +163,39 @@ module.exports = class InsurerQuestionBO{
                 }
             }
 
-            if (findCount === false) {
-                let docList = null;
-                let queryRowCount = 0;
-                try {
-                    docList = await InsurerQuestion.find(query, queryProjection, queryOptions);
+            let docList = null;
+            let queryRowCount = 0;
+            try {
+                docList = await InsurerQuestion.find(query, queryProjection, queryOptions);
+                if (findCount){
                     queryRowCount = await InsurerQuestion.countDocuments(query);
                 }
-                catch (err) {
-                    log.error(err + __location);
-                    error = null;
-                    rejected = true;
-                }
-                if(rejected){
-                    reject(error);
-                    return;
-                }
-                if(docList && docList.length > 0){
-                    // pass back the count as well for api paging (so we know how many total rows are)
+            }
+            catch (err) {
+                log.error(err + __location);
+                error = null;
+                rejected = true;
+            }
+            if(rejected){
+                reject(error);
+                return;
+            }
+            if(docList && docList.length > 0){
+                // pass back the count as well for api paging (so we know how many total rows are)
+                if (findCount){
                     resolve({
-                        data: mongoUtils.objListCleanup(docList),
+                        rows: mongoUtils.objListCleanup(docList),
                         count: queryRowCount
                     });
                 }
-                else {
-                    resolve([]);
+                else{
+                    resolve(mongoUtils.objListCleanup(docList));
                 }
-                return;
             }
             else {
-                const docCount = await InsurerQuestion.countDocuments(query).catch(err => {
-                    log.error("InsurerQuestion.countDocuments error " + err + __location);
-                    error = null;
-                    rejected = true;
-                })
-                if(rejected){
-                    reject(error);
-                    return;
-                }
-                resolve({count: docCount});
-                return;
+                resolve([]);
             }
-
-
+            return;
         });
     }
 

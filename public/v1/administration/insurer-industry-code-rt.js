@@ -113,7 +113,7 @@ async function findAll(req, res, next) {
         return next(error);
     }
     if (rows) {
-        res.send(200, {rows});
+        res.send(200, rows);
         return next();
     }
     else {
@@ -150,7 +150,16 @@ async function findOne(req, res, next) {
 async function add(req, res, next) {
     const insurerIndustryCodBO = new InsurerIndustryCodBO();
     let error = null;
-    await insurerIndustryCodBO.saveModel(req.body).catch(function(err) {
+
+    // if there is no expirationDate or effectiveDate provided, default them
+    if(!req.body.hasOwnProperty("expirationDate")){
+        req.body.expirationDate = "2100-01-01";
+    }
+    if(!req.body.hasOwnProperty("effectiveDate")){
+        req.body.effectiveDate = "1980-01-01";
+    }
+
+    const objectJSON = await insurerIndustryCodBO.insertMongo(req.body).catch(function(err) {
         log.error("Location load error " + err + __location);
         error = err;
     });
@@ -158,7 +167,7 @@ async function add(req, res, next) {
         return next(error);
     }
 
-    res.send(200, insurerIndustryCodBO.cleanJSON());
+    res.send(200, objectJSON);
     return next();
 }
 
