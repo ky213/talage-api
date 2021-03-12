@@ -1132,6 +1132,7 @@ module.exports = class Integration {
                 then(function(result) {
                     fulfill(result);
                 }).catch(function(error) {
+                    console.log(error);
                     const error_message = `Appid: ${appId} ${insurerName} ${policyType} is unable to quote ${error}`;
                     log.error(error_message + __location);
                     //Do not want to stop the rest of the quoting for application.
