@@ -321,7 +321,7 @@ async function getAgencyNetworkLogo (req,res, next){
                 try {
                     agencyNetworkUrl = new URL(agencyNetworkEnvironmentObj[`${agencyNetworkEnvironment}`]);
                  } catch (err) {
-                     log.warn(`Invalid Url ${agencyNetworkEnvironmentObj[`${agencyNetworkEnvironment}`]} for agency network ${agencyNetwork.systemId}. Please fix issue `+ err + __location);
+                     log.warn(`Invalid Url ${agencyNetworkEnvironmentObj[`${agencyNetworkEnvironment}`]} for agency network ${agencyNetwork.agencyNetworkId}. Please fix issue `+ err + __location);
                      error = err;
                  }
                  
