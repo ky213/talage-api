@@ -53,7 +53,13 @@ module.exports = class InsurerBO{
                 }
             }
             if(newDoc === true) {
-                const newDoc = await this.insertMongo(newObjectJSON);
+                try {
+                    newDoc = await this.insertMongo(newObjectJSON);
+                }
+                catch (error) {
+                    reject(error);
+                }
+
                 this.id = newDoc.systemId;
                 this.mongoDoc = newDoc;
 
