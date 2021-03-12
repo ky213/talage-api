@@ -1,8 +1,10 @@
 /* eslint-disable multiline-comment-style */
-'use strict'
+/* eslint-disable one-var */
 const moment = require('moment');
 const helper = global.requireShared('./helpers/helper.js');
-const lodash = require('lodash');
+const log = global.log;
+
+
 
 //const util = require('util');
 //const serverHelper = global.requireRootPath('server.js');
@@ -23,10 +25,8 @@ const lodash = require('lodash');
 async function GetQuestions(activityCodeStringArray, industryCodeString, zipCodeStringArray, policyTypeArray, insurerStringArray, questionSubjectArea, return_hidden = false, stateList = []) {
 
     log.debug(`GetQuestions: activityCodeStringArray:  ${activityCodeStringArray}, industryCodeString:  ${industryCodeString}, zipCodeStringArray:  ${zipCodeStringArray}, policyTypeArray:  ${JSON.stringify(policyTypeArray)}, insurerStringArray:  ${insurerStringArray}, questionSubjectArea: ${questionSubjectArea}, return_hidden: ${return_hidden}, stateList:  ${JSON.stringify(stateList)}` + __location)
-
     let error = false;
     let sql = '';
-
     /*
      * Validate Activity Codes
      */
@@ -116,7 +116,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
      */
 
     const policyTypes = [];
-
+    const mongoPolicyExpirationList = [];
     // Question list effective date is done per policy type.
     // For a given policy type, check the question's effective/expiration dates.
     const uniquePolicyEffectiveDateList = [];
@@ -130,6 +130,15 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             uniquePolicyEffectiveDateList.push(policyEffectiveDate);
         }
         questionEffectiveDateWhereClauseList.push(`(iq.policy_type = '${policyTypeJSON.type.toUpperCase()}' AND '${policyEffectiveDate}' >= iq.effectiveDate AND '${policyEffectiveDate}' < iq.expirationDate)`);
+
+        const mongoPolicyEffectiveDateQuery = {
+            policyType: policyTypeJSON.type.toUpperCase(),
+            effectiveDate: {$lte: policyEffectiveDate},
+            expirationDate: {$gte: policyEffectiveDate},
+        }
+        mongoPolicyExpirationList.push(mongoPolicyEffectiveDateQuery);
+
+
     });
     const questionEffectiveDateWhereClause = "(" + questionEffectiveDateWhereClauseList.join(" OR ") + ")";
 
@@ -220,15 +229,74 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
     let where = `q.state = 1
         ${insurerArray.length ? `AND iq.insurer IN (${insurerArray.join(',')})` : ''}
     `;
-
+    const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
     let questions = [];
     log.debug("Getting universal questions " + __location);
     // ============================================================
     // Get universal questions
-    //TODO Mongo
+    // Mongo
+    const policyEffectiveDate = uniquePolicyEffectiveDateList[0];
+    if(global.settings.USE_MONGO_QUESTIONS === "YES"){
+        let insurerQuestionQuery = {
+            insurerId: {$in: insurerArray},
+            universal: true,
+            policyType: {$in: policyTypes},
+            active: true
+        }
 
-    
-    sql = `
+        // eslint-disable-next-line prefer-const
+        let orParamList = [];
+        mongoPolicyExpirationList.forEach((mongoPolicyEffectiveDateQuery) => {
+            orParamList.push(mongoPolicyEffectiveDateQuery)    
+        });
+        insurerQuestionQuery.$or = orParamList;
+
+
+
+        log.debug(`insurerQuestionQuery  ${"\n"} ${JSON.stringify(insurerQuestionQuery)}` + '\n' +__location);
+
+        const insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
+        //need territory filter
+        //territoryList: {$in: territories},
+
+        if(insurerQuestionList){
+            // eslint-disable-next-line prefer-const
+            let talageQuestionIdArray = [];
+            let noTerritoryHitCount = 0;
+            for(const insurerQuestion of insurerQuestionList){
+                if(insurerQuestion.talageQuestionId){
+                    let add = false;
+                    
+                    if(insurerQuestion.territoryList && insurerQuestion.territoryList.length > 0){
+                        const territoryHit = insurerQuestion.territoryList.some((iqt) => territories.includes(iqt))
+                        if(territoryHit){
+                            add = true;
+                        }
+                    }
+                    else {
+                        add = true;
+                        noTerritoryHitCount++;
+                    }
+                    if(add && talageQuestionIdArray.indexOf(insurerQuestion.talageQuestionId) === -1){
+                        talageQuestionIdArray.push(insurerQuestion.talageQuestionId)
+                    }
+                }
+            }
+            log.debug("NO territoryList hit count " + noTerritoryHitCount + __location);
+            log.debug("Number of Universal Talage Questions " + talageQuestionIdArray.length + __location);
+            if(talageQuestionIdArray.length > 0) {
+                log.debug(`talageQuestionIdArray.length ${talageQuestionIdArray.length} `)
+                const universal_questions = await getTalageQuestionFromInsureQuestionList(talageQuestionIdArray, insurerQuestionList,return_hidden);
+                log.debug(`Adding ${universal_questions.length} Mongo universal questions ` + __location)
+                questions = questions.concat(universal_questions);
+            }
+            else {
+                log.debug(`No universal questions for `)
+            }
+        }
+    }
+    else {
+        sql = `
         SELECT ${select}
         FROM clw_talage_questions AS q
         LEFT JOIN clw_talage_question_types AS qt ON q.type = qt.id
@@ -241,21 +309,22 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             AND ${questionEffectiveDateWhereClause}
             AND iq.questionSubjectArea = '${questionSubjectArea}'
             GROUP BY q.id;
-    `;
-    const universal_questions = await db.queryReadonly(sql).catch(function(err) {
-        error = err.message;
-    });
-    if (error) {
-        return false;
+        `;
+        const universal_questions = await db.queryReadonly(sql).catch(function(err) {
+            error = err.message;
+        });
+        if (error) {
+            return false;
+        }
+        log.debug(`Adding ${universal_questions.length} Mysql universal questions ` + __location)
+        questions = questions.concat(universal_questions);
     }
-    questions = questions.concat(universal_questions);
-
     // From this point forward, only get non-universal questions
     where += ' AND iq.universal = 0';
 
     // ============================================================
     // // Get industry-based questions
-    log.debug("territories " + territories);
+    //log.debug("territories " + territories);
     log.debug(`Getting industry questions use Redis ${global.settings.USE_REDIS_QUESTION_CACHE}  ` + __location);
     if(global.settings.USE_REDIS_QUESTION_CACHE === "YES"){
         const redisQuestions = await getRedisIndustryCodeQuestions(industry_code)
@@ -328,18 +397,16 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             log.debug(`Adding ZERO redis industry questions - not found ` + __location)
         }
     }
-    const InsurerQuestionModel = require('mongoose').model('InsurerQuestion');
     if(global.settings.USE_MONGO_QUESTIONS === "YES"){
         const InsurerIndustryCodeModel = require('mongoose').model('InsurerIndustryCode');
         const start = moment();
-        const now = moment();
         // eslint-disable-next-line prefer-const
         let industryQuery = {
             insurerId: {$in: insurerArray},
             talageIndustryCodeIdList: industry_code,
             territoryList: {$in: territories},
-            effectiveDate: {$lte: now},
-            expirationDate: {$gte: now},
+            effectiveDate: {$lte: policyEffectiveDate},
+            expirationDate: {$gte: policyEffectiveDate},
             active: true
         }
         // eslint-disable-next-line prefer-const
@@ -356,21 +423,26 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             let talageQuestionIdArray = [];
             if(insurerIndustryCodeList && insurerIndustryCodeList.length > 0){
                 for(const insurerIndustryCode of insurerIndustryCodeList){
-                    // if(insurerIndustryCode.insurerQuestionIdList && insurerIndustryCode.insurerQuestionIdList.length > 0){
-                    //     insurerQuestionIdArray = insurerQuestionIdArray.concat(insurerIndustryCode.insurerQuestionIdList);
-                    // }
+                    let addStandardQuestions = false;
                     if(insurerIndustryCode.insurerTerritoryQuestionList && insurerIndustryCode.insurerTerritoryQuestionList.length > 0){
                         for(let i = 0; i < territories.length; i++){
                             //find if territory is in insurerIndustryCode.InsurerTerritoryQuestionList
                             //if so add question list - Dups are OK.
-                            //log.debug(`Checking ${insurerIndustryCode.insurerId} ${insurerIndustryCode.insurerIndustryCodeId} ${territories[i]} ` + __location)
                             const tQFound = insurerIndustryCode.insurerTerritoryQuestionList.find((tQ) => tQ.territory === territories[i]);
                             if(tQFound && tQFound.insurerQuestionIdList && tQFound.insurerQuestionIdList.length > 0){
                                 insurerQuestionIdArray = insurerQuestionIdArray.concat(tQFound.insurerQuestionIdList);
                             }
+                            else{
+                                //we want to add the insurerIndustryCode's standard question list.
+                                addStandardQuestions = true;
+                            }
                         }
                     }
-                }
+                    if(addStandardQuestions && insurerIndustryCode.insurerQuestionIdList && insurerIndustryCode.insurerQuestionIdList.length > 0 ){
+                        insurerQuestionIdArray = insurerQuestionIdArray.concat(insurerIndustryCode.insurerQuestionIdList);
+                    }
+
+                }//for insurerIndustryCodeList
             }
             //log.debug("insurerQuestionIdArray " + insurerQuestionIdArray)
             let insurerQuestionList = null;
@@ -380,10 +452,10 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                     insurerId: {$in: insurerArray},
                     insurerQuestionId: {$in: insurerQuestionIdArray},
                     universal: false,
-                    policyType: {$in: policyTypes},
+                    // policyType: {$in: policyTypes},
                     questionSubjectArea: questionSubjectArea,
-                    effectiveDate: {$lt: now},
-                    expirationDate: {$gt: now},
+                    // effectiveDate: {$lt: policyEffectiveDate},
+                    // expirationDate: {$gt: policyEffectiveDate},
                     active: true
                 }
                 // eslint-disable-next-line prefer-const
@@ -394,7 +466,12 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                 orParamList2.push(territoryCheck)
                 orParamList2.push(territoryNullCheck)
                 orParamList2.push(territoryLengthCheck)
-                insurerQuestionQuery.$or = orParamList2;
+                
+                const orParamExprDate = []
+                mongoPolicyExpirationList.forEach((mongoPolicyEffectiveDateQuery) => {
+                    orParamExprDate.push(mongoPolicyEffectiveDateQuery)    
+                });
+                insurerQuestionQuery.$and = [{$or: orParamList2}, {$or:orParamExprDate}] ;
 
                 //log.debug("insurerQuestionQuery: " + JSON.stringify(insurerQuestionQuery));
                 insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
@@ -485,13 +562,21 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
             if(insurerActivityCodeList && insurerActivityCodeList.length > 0){
                 for(const insurerActivityCode of insurerActivityCodeList){
                     if(insurerActivityCode.insurerTerritoryQuestionList && insurerActivityCode.insurerTerritoryQuestionList.length > 0){
+                        let addStandardQuestions = false;
                         for(let i = 0; i < territories.length; i++){
                             //if so add question list - Dups are OK.
                             const tQFound = insurerActivityCode.insurerTerritoryQuestionList.find((tQ) => tQ.territory === territories[i]);
                             if(tQFound && tQFound.insurerQuestionIdList && tQFound.insurerQuestionIdList.length > 0){
                                 insurerQuestionIdArray = insurerQuestionIdArray.concat(tQFound.insurerQuestionIdList);
                             }
+                            else {
+                                addStandardQuestions = true;
+                            }
                         }
+                        if(addStandardQuestions){
+                            insurerQuestionIdArray = insurerQuestionIdArray.concat(insurerActivityCode.insurerQuestionIdList);
+                        }
+
                     }
                 }
             }
@@ -503,10 +588,10 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                     insurerId: {$in: insurerArray},
                     insurerQuestionId: {$in: insurerQuestionIdArray},
                     universal: false,
-                    policyType: {$in: policyTypes},
+                    //policyType: {$in: policyTypes},
                     questionSubjectArea: questionSubjectArea,
-                    effectiveDate: {$lt: now},
-                    expirationDate: {$gt: now},
+                   // effectiveDate: {$lt: now},
+                    //expirationDate: {$gt: now},
                     active: true
                 }
                 // eslint-disable-next-line prefer-const
@@ -517,7 +602,11 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
                 orParamList2.push(territoryCheck)
                 orParamList2.push(territoryNullCheck)
                 orParamList2.push(territoryLengthCheck)
-                insurerQuestionQuery.$or = orParamList2;
+                const orParamExprDate = []
+                mongoPolicyExpirationList.forEach((mongoPolicyEffectiveDateQuery) => {
+                    orParamExprDate.push(mongoPolicyEffectiveDateQuery)    
+                });
+                insurerQuestionQuery.$and = [{$or: orParamList2}, {$or:orParamExprDate}] ;
 
                 //log.debug("insurerQuestionQuery: " + JSON.stringify(insurerQuestionQuery));
                 insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
