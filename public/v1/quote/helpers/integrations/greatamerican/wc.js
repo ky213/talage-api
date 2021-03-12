@@ -20,6 +20,7 @@ module.exports = class GreatAmericanWC extends Integration {
 
     logApiCall(title, params, out) {
         this.log += `--------======= Sending ${title} =======--------<br><br>`;
+        this.log += `Location: ${__location}<br><br>`;
         this.log += `Params: ${JSON.stringify(params, null, 2)}<br><br>`;
         this.log += `<pre>${JSON.stringify(out, null, 2)}</pre><br><br>`;
         this.log += `--------======= End =======--------<br><br>`;
@@ -50,7 +51,7 @@ module.exports = class GreatAmericanWC extends Integration {
         }
 
         if (session.newBusiness.workflowControl !== 'CONTINUE') {
-            this.log += `Great American returned a bad workflow control response: ${session.newBusiness.workflowControl}`;
+            this.log += `Great American returned a bad workflow control response: ${session.newBusiness.workflowControl} @ ${__location}`;
             return this.return_result('declined');
         }
 
@@ -65,7 +66,7 @@ module.exports = class GreatAmericanWC extends Integration {
         // API after the first request for questions. So keep injecting the
         // follow-up questions until all of the questions are answered.
         while (questionnaire.questionsAsked !== questionnaire.questionsAnswered) {
-            this.log += `There are some follow up questions (${questionnaire.questionsAsked} questions asked but only ${questionnaire.questionsAnswered} questions answered)`;
+            this.log += `There are some follow up questions (${questionnaire.questionsAsked} questions asked but only ${questionnaire.questionsAnswered} questions answered)  @ ${__location}`;
             let oldQuestionsAnswered = questionnaire.questionsAnswered;
 
             curAnswers = await GreatAmericanApi.injectAnswers(token, curAnswers, questions);
@@ -76,7 +77,7 @@ module.exports = class GreatAmericanWC extends Integration {
             // injectAnswers should answer more questions. If we aren't getting
             // anywhere with these calls, then decline the quote.
             if (questionnaire.questionsAnswered === oldQuestionsAnswered) {
-                this.log += `ERROR: No progress is being made in answering more questions. Current session: ${JSON.stringify(questionnaire, null, 2)}`
+                this.log += `ERROR: No progress is being made in answering more questions. Current session: ${JSON.stringify(questionnaire, null, 2)} @ ${__location}`
                 return this.return_result('declined');
             }
         }
