@@ -251,9 +251,7 @@ async function GetQuestions(activityCodeStringArray, industryCodeString, zipCode
         });
         insurerQuestionQuery.$or = orParamList;
 
-
-
-        log.debug(`insurerQuestionQuery  ${"\n"} ${JSON.stringify(insurerQuestionQuery)}` + '\n' +__location);
+       // log.debug(`insurerQuestionQuery  ${"\n"} ${JSON.stringify(insurerQuestionQuery)}` + '\n' +__location);
 
         const insurerQuestionList = await InsurerQuestionModel.find(insurerQuestionQuery)
         //need territory filter
