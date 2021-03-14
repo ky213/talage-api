@@ -6,6 +6,7 @@ const slack = global.requireShared('./services/slacksvc.js');
 const formatPhone = global.requireShared('./helpers/formatPhone.js');
 const stringFunctions = global.requireShared('./helpers/stringFunctions.js');
 const AgencyBO = global.requireShared('models/Agency-BO.js');
+const AgencyNetworkBO = global.requireShared('models/AgencyNetwork-BO.js');
 const AgencyLocationBO = global.requireShared('models/AgencyLocation-BO.js');
 const InsurerBO = global.requireShared('models/Insurer-BO.js');
 const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
@@ -93,6 +94,8 @@ var emailbindagency = async function(applicationId, quoteId) {
         }
 
         if (applicationDoc) {
+
+
             //get Quote
             let error = null;
             const quoteBO = new QuoteBO();
@@ -106,7 +109,23 @@ var emailbindagency = async function(applicationId, quoteId) {
 
 
             //get email content.
-            const agencyNetwork = applicationDoc.agencyNetworkId;
+            const agencyNetworkId = applicationDoc.agencyNetworkId;
+            const agencyNetworkBO = new AgencyNetworkBO();
+            let agencyNetworkDB = {}
+            try{
+                agencyNetworkDB = await agencyNetworkBO.getById(agencyNetworkId)
+            }
+            catch(err){
+                log.error("Error getting agencyBO " + err + __location);
+                error = true;
+
+            }
+            if(error){
+                return false;
+            }
+
+
+
             const agencyBO = new AgencyBO();
             const emailContentJSON = await agencyBO.getEmailContentAgencyAndCustomer(applicationDoc.agencyId, "policy_purchase_agency", "policy_purchase_customer").catch(function(err){
                 log.error(`Email content Error Unable to get email content for  email bind agency. appid: ${applicationId}.  error: ${err}` + __location);
@@ -215,7 +234,7 @@ var emailbindagency = async function(applicationId, quoteId) {
                 // Send the email
                 const keyData = {'applicationDoc': applicationDoc};
                 if (agencyLocationEmail) {
-                    const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData, agencyNetwork, "Networkdefault");
+                    const emailResp = await emailSvc.send(agencyLocationEmail, subject, message, keyData, agencyNetworkId, "Networkdefault");
                     if (emailResp === false) {
                         slack.send('#alerts', 'warning', `The system failed to inform an agency of the emailbindagency for application ${applicationId}. Please follow-up manually.`);
                     }
@@ -240,7 +259,7 @@ var emailbindagency = async function(applicationId, quoteId) {
 
                     //log.debug("sending customer email " + __location);
                     const brand = emailContentJSON.emailBrand === 'wheelhouse' ? 'agency' : `${emailContentJSON.emailBrand}-agency`
-                    const emailResp2 = await emailSvc.send(customerContact.email, subject, message, keyData, agencyNetwork, brand, applicationDoc.agencyId);
+                    const emailResp2 = await emailSvc.send(customerContact.email, subject, message, keyData, agencyNetworkId, brand, applicationDoc.agencyId);
                     // log.debug("emailResp = " + emailResp);
                     if (emailResp2 === false) {
                         slack.send('#alerts', 'warning', `Failed to send Policy Bind Email to Insured application #${applicationId} and quote ${quoteId}. Please follow-up manually.`);
@@ -249,12 +268,58 @@ var emailbindagency = async function(applicationId, quoteId) {
                 catch(e){
                     log.error("Customer Email fillin error " + e + __location);
                 }
+
+                //Determine if Agency Network Email is required.
+                if(agencyNetworkDB
+                    && agencyNetworkDB.featureJson
+                    && agencyNetworkDB.featureJson.agencyNetworkQuoteEmails
+                    && agencyNetworkDB.email){
+                    try{
+                         const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId,"policy_purchase_agency_network");
+                        if(!emailContentAgencyNetworkJSON || !emailContentAgencyNetworkJSON.message || !emailContentAgencyNetworkJSON.subject){
+                            log.error(`AgencyNetwork ${agencyNetworkDB.name} missing policy_purchase_agency_network email template` + __location)
+                            return true;
+                        }
+
+                        message = emailContentAgencyNetworkJSON.message;
+                        subject = emailContentAgencyNetworkJSON.subject;
+
+                        message = message.replace(/{{Agent Login URL}}/g, insurerJson.agent_login);
+                        message = message.replace(/{{Business Name}}/g, applicationDoc.businessName);
+                        message = message.replace(/{{Carrier}}/g, insurerJson.name);
+                        message = message.replace(/{{Contact Email}}/g, customerContact.email);
+                        message = message.replace(/{{Contact Name}}/g, fullName);
+                        message = message.replace(/{{Contact Phone}}/g, customerPhone);
+                        message = message.replace(/{{Industry}}/g, industryCodeDesc);
+                        message = message.replace(/{{Quote Number}}/g, quoteDoc.quoteNumber);
+                        message = message.replace(/{{Quote Result}}/g, quoteResult);
+
+
+                        message = message.replace(/{{Brand}}/g, emailContentAgencyNetworkJSON.emailBrand);
+                        subject = subject.replace(/{{Brand}}/g, emailContentAgencyNetworkJSON.emailBrand);
+
+                        // Send the email
+                        const keyData3 = {'applicationDoc': applicationDoc};
+                        if (agencyNetworkDB.email) {
+                            const emailResp = await emailSvc.send(agencyNetworkDB.email, subject, message, keyData3, agencyNetworkId, "Networkdefault");
+                            if (emailResp === false) {
+                                slack.send('#alerts', 'warning', `The system failed to inform an agency of the emailbindagency for application ${applicationId}. Please follow-up manually.`);
+                            }
+                        }
+                        else {
+                            log.error(`emailbindagency no AgencyNetwork email address for appId: ${applicationId} ` + __location);
+                        }
+
+                    }
+                    catch(err){
+                        log.error(`Sending Agency Network bind email ${err}` + __location);
+                    }
+                   
+                }
                 return true;
-
-
             }
             else {
-                log.error('emailbindagency missing emailcontent for agencynetwork: ' + agencyNetwork + __location);
+                log.error('emailbindagency missing emailcontent for agencynetwork: ' + agencyNetworkId + __location);
                 return false;
             }
 
