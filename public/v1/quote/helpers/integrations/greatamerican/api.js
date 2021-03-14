@@ -18,11 +18,12 @@ const getToken = async (username, password) => {
         out = apiCall.data;
     }
     catch(err){
-        log.error(`Error getting token from Great American ${err}` + __location)
+        log.error(`Error getting token from Great American ${err} @ ${__location}`)
     }
 
     if (!out.access_token) {
-        throw new Error(out);
+        log.error(`NO access token returned: ${JSON.stringify(out, null, 2)} @ ${__location}`);
+        throw new Error(`NO access token returned: ${JSON.stringify(out, null, 2)}`);
     }
     return out;
 };
@@ -37,6 +38,7 @@ const getNcciFromClassCode = async (code, territory) => {
         WHERE
             inc.insurer = 26 AND inc.territory = '${territory}' AND ac.id = ${code}`);
     if (talageCode.length <= 0) {
+        log.error(`Code could not be found: ${code} / ${territory} @ ${__location}`);
         throw new Error(`Code could not be found: ${code} / ${territory}`);
     }
     return talageCode[0].code;
@@ -225,6 +227,7 @@ const injectAnswers = async (token, fullQuestionSession, questionAnswers) => {
             if (question.answerType === 'SELECT') {
                 const gaOption = question.options.find(a => a.label === questionAnswers[question.questionId]);
                 if (!gaOption) {
+                    log.error(`Cannot find value for option: ${questionAnswers[question.questionId]} @ ${__location}`);
                     throw new Error(`Cannot find value for option: ${questionAnswers[question.questionId]}`);
                 }
                 answer = gaOption.optionId;
