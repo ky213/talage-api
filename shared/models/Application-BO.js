@@ -3,7 +3,7 @@
 /* eslint-disable radix */
 /* eslint-disable guard-for-in */
 /* eslint-disable lines-between-class-members */
-'use strict';
+
 const moment = require('moment');
 const clonedeep = require('lodash.clonedeep');
 const _ = require('lodash');
@@ -35,6 +35,7 @@ const mongoUtils = global.requireShared('./helpers/mongoutils.js');
 
 //const moment = require('moment');
 const {'v4': uuidv4} = require('uuid');
+const log = global.log;
 
 //const {loggers} = require('winston');
 // const { debug } = require('request');
@@ -152,6 +153,7 @@ module.exports = class ApplicationModel {
                     return;
 
                 }
+                this.id = this.applicationDoc.mysqlId;
                 this.#applicationMongooseDB = this.applicationDoc;
                 this.updateProperty();
                 applicationJSON.applicationId = this.applicationDoc.applicationId
@@ -441,6 +443,7 @@ module.exports = class ApplicationModel {
             }
 
             if (workflowStep === "contact") {
+                log.debug("calling getBusinessInfo ");
                 //async call do not await processing.
                 this.getBusinessInfo(applicationJSON);
             }
@@ -680,10 +683,6 @@ module.exports = class ApplicationModel {
 
                     if (this.#applicationMongooseDB && this.#applicationMongooseDB.locations) {
                         //Find primary location and update payroll - ownerPayroll field.
-                        // applicationJSON.owner_payroll.activity_code = stringFunctions.santizeNumber(requestJSON.activity_code, makeInt);
-                        // applicationJSON.owner_payroll.payroll = stringFunctions.santizeNumber(requestJSON.payroll, makeInt);
-                        // applicationJSON.businessInfo.owner_payroll = JSON.parse(JSON.stringify(requestJSON.owner_payroll));
-                        // applicationJSON.owner_payroll = JSON.parse(JSON.stringify(requestJSON.owner_payroll));
                         for (let i = 0; i < this.#applicationMongooseDB.locations.length; i++) {
                             const location = this.#applicationMongooseDB.locations[i];
                             if (!location.activityPayrollList) {
@@ -975,12 +974,17 @@ module.exports = class ApplicationModel {
         // let error = null;
         //Information will be in the applicationJSON.businessInfo
         // Only process if we have a google_place hit.
-        const appId = this.id;
+        const appId = parseInt(this.id,10);
         if (requestApplicationJSON.google_place && requestApplicationJSON.businessInfo && requestApplicationJSON.businessInfo.name && this.id) {
-            const currentAppDBJSON = await this.getById(this.id).catch(function(err) {
+            let currentAppDBJSON = null;
+            try{
+                currentAppDBJSON = await this.getMongoDocbyMysqlId(appId)
+            }
+            catch(err){
                 log.error(`error getBusinessInfo getting application record, appid ${appId} error:` + err + __location)
-            });
+            }
             if (typeof currentAppDBJSON !== 'object') {
+                log.error(`getBusinessInfo - Did not return AppDoc ${appId}` + __location)
                 return false;
             }
             //Setup goodplace
@@ -997,7 +1001,7 @@ module.exports = class ApplicationModel {
                 newBusinessDataJSON.googleBusinessData = requestApplicationJSON.google_place;
                 saveBusinessData = true;
             }
-            const agencyNetworkId = requestApplicationJSON.agencyNetworkId;
+            const agencyNetworkId = currentAppDBJSON.agencyNetworkId;
             //Only process AF call if digalent.
             if (agencyNetworkId === 2) {
                 const businessInfoRequestJSON = {"company_name": requestApplicationJSON.businessInfo.name};
@@ -1178,7 +1182,7 @@ module.exports = class ApplicationModel {
 
 
             try {
-                log.debug(`updating  application business data from afBusinessDataJSON  appId: ${applicationJSON.id} ` + __location)
+                log.info(`updating  application business data from afBusinessDataJSON  appId: ${applicationJSON.id} ` + __location)
                 await this.processMongooseBusiness(businessJSON)
             }
             catch (err) {
@@ -1280,7 +1284,7 @@ module.exports = class ApplicationModel {
             businessJSON.locations = [];
             businessJSON.locations.push(locationJSON)
             try {
-                log.debug(`updating  application business data from Google Place data appId: ${applicationJSON.id} ` + __location)
+                log.info(`updating  application business data from Google Place data appId: ${applicationJSON.id} ` + __location)
                 await this.processMongooseBusiness(businessJSON)
 
             }
@@ -2248,7 +2252,8 @@ module.exports = class ApplicationModel {
             return this.getfromMongoByAppId(id)
         }
         else {
-            return this.getMongoDocbyMysqlId(id)
+            // nodoc, force mongo query.
+            return this.getMongoDocbyMysqlId(id, false, true);
         }
     }
 
@@ -2324,10 +2329,10 @@ module.exports = class ApplicationModel {
         }
     }
 
-    async getMongoDocbyMysqlId(mysqlId, returnMongooseModel = false) {
+    async getMongoDocbyMysqlId(mysqlId, returnMongooseModel = false, forceDBQuery = false) {
         return new Promise(async(resolve, reject) => {
-            if (this.#applicationMongooseDB && this.#applicationMongooseDB.mysqlId) {
-                return this.#applicationMongooseDB;
+            if (this.#applicationMongooseDB && this.#applicationMongooseDB.mysqlId && forceDBQuery === false) {
+                resolve(this.#applicationMongooseDB);
             }
             else if (mysqlId) {
                 const query = {
