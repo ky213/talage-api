@@ -1101,7 +1101,7 @@ async function bindQuote(req, res, next) {
     //Double check it is TalageStaff user
     log.debug("Bind request: " + JSON.stringify(req.body))
     // Check if binding is disabled
-    if (global.settings.DISABLE_BINDING === "YES" && req.body.markAsBound !== true) {
+    if (global.settings.DISABLE_BINDING === "YES" && req.body.markAsBound !== true && req.body.requestBind !== true) {
         return next(serverHelper.requestError('Binding is disabled'));
     }
 
@@ -1164,24 +1164,43 @@ async function bindQuote(req, res, next) {
     }
 
     try {
-        if (req.body.markAsBound !== true) {
+        if (req.body.markAsBound !== true && req.body.requestBind !== true) {
             //const insurerBO = new InsurerBO();
-
+            // API binding with Insures...
             const quoteBind = new QuoteBind();
             await quoteBind.load(quoteId);
             await quoteBind.bindPolicy();
         }
-
-        const quoteBO = new QuoteBO();
-
-        const bindResp = await quoteBO.bindQuote(quoteId, applicationId, req.authentication.userID);
-        if(bindResp){
-            await applicationBO.updateStatus(applicationDB.mysqlId,"bound", 90);
-            // Update Application-level quote metrics when we do a bind.
-        	await applicationBO.recalculateQuoteMetrics(applicationId);
+        if(req.body.requestBind){
+            const quoteBO = new QuoteBO();
+            let quoteDoc = null;
+            try {
+                quoteDoc = await quoteBO.getById(quoteId);
+            }
+            catch(err){
+                log.error("Error getting quote for bindQuote " + err + __location);
+            }
+            //setup quoteObj for applicationBO.processRequestToBind
+            //TODO need payment plan in request.  Assume annual for now.
+            const paymentPlanId = 1;
+            const quoteObj = {
+                quote: quoteDoc.mysqlId,
+                quoteId: quoteDoc.mysqlId,
+                paymentPlanId: paymentPlanId,
+                noCustomerEmail: true
+            }
+            await applicationBO.processRequestToBind(applicationId, quoteObj)
         }
-
-
+        else {
+            //Mark Quote Doc as bound.
+            const quoteBO = new QuoteBO()
+            const bindResp = await quoteBO.bindQuote(quoteId, applicationId, req.authentication.userID);
+            if(bindResp){
+                await applicationBO.updateStatus(applicationDB.mysqlId,"bound", 90);
+                // Update Application-level quote metrics when we do a bind.
+                await applicationBO.recalculateQuoteMetrics(applicationId);
+            }
+        }
     }
 
     catch (err) {
@@ -1190,11 +1209,12 @@ async function bindQuote(req, res, next) {
         return next();
     }
 
-    // Send back the token
+    // Send back bound for both request, mark and API binds.
     res.send(200, {"bound": true});
 
     return next();
 }
+
 /**
  * Function that will return policy limits based on the agency
  *
@@ -1504,6 +1524,8 @@ exports.registerEndpoint = (server, basePath) => {
     server.addPutAuth('PUT Validate Application', `${basePath}/application/:id/validate`, validate, 'applications', 'manage');
 
     server.addPutAuth('PUT bindQuote Application', `${basePath}/application/:id/bind`, bindQuote, 'applications', 'bind');
+
+    server.addPutAuth('PUT requestBindQuote Application', `${basePath}/application/:id/requestbind`, bindQuote, 'applications', 'manage');
 
     server.addDeleteAuth('DELETE Application', `${basePath}/application/:id`, deleteObject, 'applications', 'manage');
 
