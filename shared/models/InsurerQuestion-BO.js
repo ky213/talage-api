@@ -71,7 +71,7 @@ module.exports = class InsurerQuestionBO{
                 queryJSON = {};
             }
 
-            const queryProjection = {"__v": 0}
+            const queryProjection = {"__v": 0};
 
             let findCount = false;
 
@@ -86,10 +86,10 @@ module.exports = class InsurerQuestionBO{
                 var acs = 1;
                 if (queryJSON.desc) {
                     acs = -1;
-                    delete queryJSON.desc
+                    delete queryJSON.desc;
                 }
                 queryOptions.sort[queryJSON.sort] = acs;
-                delete queryJSON.sort
+                delete queryJSON.sort;
             }
             else {
                 // default to DESC on sent
@@ -99,7 +99,7 @@ module.exports = class InsurerQuestionBO{
             const queryLimit = 500;
             if (queryJSON.limit) {
                 var limitNum = parseInt(queryJSON.limit, 10);
-                delete queryJSON.limit
+                delete queryJSON.limit;
                 if (limitNum < queryLimit) {
                     queryOptions.limit = limitNum;
                 }
@@ -125,7 +125,7 @@ module.exports = class InsurerQuestionBO{
             }
             if(queryJSON.insurerQuestionId && Array.isArray(queryJSON.insurerQuestionId)){
                 query.insurerQuestionId = {$in: queryJSON.insurerQuestionId};
-                delete queryJSON.insurerQuestionId
+                delete queryJSON.insurerQuestionId;
             }
             else if(queryJSON.insurerQuestionId && typeof queryJSON.insurerQuestionId === "string"){
                 const idList = queryJSON.insurerQuestionId.split(",");
@@ -135,16 +135,16 @@ module.exports = class InsurerQuestionBO{
                 else{
                     query.insurerQuestionId = queryJSON.insurerQuestionId;
                 }
-                delete queryJSON.insurerQuestionId
+                delete queryJSON.insurerQuestionId;
             }
 
             if(queryJSON.insurerId && Array.isArray(queryJSON.insurerId)){
                 query.insurerId = {$in: queryJSON.insurerId};
-                delete queryJSON.insurerId
+                delete queryJSON.insurerId;
             }
             else if(queryJSON.insurerId){
                 query.insurerId = queryJSON.insurerId;
-                delete queryJSON.insurerId
+                delete queryJSON.insurerId;
             }
 
             if (queryJSON) {

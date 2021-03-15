@@ -70,6 +70,7 @@ module.exports = class InsurerIndustryCodeBO{
             if(!queryJSON){
                 queryJSON = {};
             }
+
             const queryProjection = {"__v": 0}
 
             let findCount = false;
@@ -125,20 +126,29 @@ module.exports = class InsurerIndustryCodeBO{
 
             if(queryJSON.insurerIndustryCodeId && Array.isArray(queryJSON.insurerIndustryCodeId)){
                 query.insurerIndustryCodeId = {$in: queryJSON.insurerIndustryCodeId};
-                delete queryJSON.insurerIndustryCodeId
+                delete queryJSON.insurerIndustryCodeId;
             }
             else if(queryJSON.insurerIndustryCodeId){
                 query.insurerIndustryCodeId = queryJSON.insurerIndustryCodeId;
-                delete queryJSON.insurerIndustryCodeId
+                delete queryJSON.insurerIndustryCodeId;
+            }
+
+            if(queryJSON.talageIndustryCodeIdList && Array.isArray(queryJSON.talageIndustryCodeIdList)){
+                query.talageIndustryCodeIdList = {$in: queryJSON.talageIndustryCodeIdList};
+                delete queryJSON.talageIndustryCodeIdList;
+            }
+            else if(queryJSON.talageIndustryCodeIdList){
+                query.talageIndustryCodeIdList = queryJSON.talageIndustryCodeIdList;
+                delete queryJSON.talageIndustryCodeIdList;
             }
 
             if(queryJSON.insurerId && Array.isArray(queryJSON.insurerId)){
                 query.insurerId = {$in: queryJSON.insurerId};
-                delete queryJSON.insurerId
+                delete queryJSON.insurerId;
             }
             else if(queryJSON.insurerId){
                 query.insurerId = queryJSON.insurerId;
-                delete queryJSON.insurerId
+                delete queryJSON.insurerId;
             }
 
             if (queryJSON) {
