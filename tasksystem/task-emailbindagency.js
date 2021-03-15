@@ -1,5 +1,3 @@
-'use strict';
-
 const moment = require('moment');
 const emailSvc = global.requireShared('./services/emailsvc.js');
 const slack = global.requireShared('./services/slacksvc.js');
@@ -29,7 +27,7 @@ exports.processtask = async function(queueMessage) {
         //DO STUFF
         //Inspect JSON for applicationId
         if (queueMessage.body && queueMessage.body.applicationId && queueMessage.body.quoteId) {
-            await emailbindagency(queueMessage.body.applicationId, queueMessage.body.quoteId).catch(err => error = err);
+            await emailbindagency(queueMessage.body.applicationId, queueMessage.body.quoteId, false).catch(err => error = err);
             if(error){
                 log.error("Error emailbindagency " + error + __location);
             }
@@ -60,11 +58,12 @@ exports.processtask = async function(queueMessage) {
  * emailbindagency for internal use. one quote at a time.
  * @param {string} applicationId - applicationId
  * @param {string} quoteId - quoteId
+ * @param {boolean} noCustomerEmail - noCustomerEmail
  * @returns {void}
  */
-exports.emailbindagency = async function(applicationId, quoteId) {
+exports.emailbindagency = async function(applicationId, quoteId, noCustomerEmail) {
     let error = null;
-    await emailbindagency(applicationId, quoteId).catch(err => error = err);
+    await emailbindagency(applicationId, quoteId, noCustomerEmail).catch(err => error = err);
     if (error) {
         log.error('emailbindagency external: ' + error + __location);
     }
@@ -77,7 +76,8 @@ exports.emailbindagency = async function(applicationId, quoteId) {
  * @returns {void}
  */
 
-var emailbindagency = async function(applicationId, quoteId) {
+var emailbindagency = async function(applicationId, quoteId, noCustomerEmail) {
+    log.debug(`emailbindagency noCustomerEmail: ${noCustomerEmail}` + __location)
     if (applicationId && quoteId) {
         let applicationDoc = null;
         const ApplicationBO = global.requireShared('models/Application-BO.js');
@@ -244,30 +244,33 @@ var emailbindagency = async function(applicationId, quoteId) {
                 }
 
                 //TO INSURED
-                try{
-                    message = emailContentJSON.customerMessage;
-                    subject = emailContentJSON.customerSubject;
+                if(noCustomerEmail === false){
+                    try{
+                        message = emailContentJSON.customerMessage;
+                        subject = emailContentJSON.customerSubject;
 
 
-                    message = message.replace(/{{Agency}}/g, agencyJSON.name);
-                    message = message.replace(/{{Agency Email}}/g, agencyJSON.email);
-                    message = message.replace(/{{Agency Phone}}/g, agencyPhone);
-                    message = message.replace(/{{Agency Website}}/g, agencyJSON.website ? '<a href="' + agencyJSON.website + '" rel="noopener noreferrer" target="_blank">' + agencyJSON.website + '</a>' : '');
-                    message = message.replace(/{{Quotes}}/g, '<br /><div align="center"><table border="0" cellpadding="0" cellspacing="0" width="350"><tr><td width="200"><img alt="' + insurerJson.name + '" src="https://img.talageins.com/' + insurerJson.logo + '" width="100%" /></td><td width="20"></td><td style="padding-left:20px;font-size:30px;">$' + stringFunctions.number_format(quoteDoc.amount) + '</td></tr></table></div><br />');
+                        message = message.replace(/{{Agency}}/g, agencyJSON.name);
+                        message = message.replace(/{{Agency Email}}/g, agencyJSON.email);
+                        message = message.replace(/{{Agency Phone}}/g, agencyPhone);
+                        message = message.replace(/{{Agency Website}}/g, agencyJSON.website ? '<a href="' + agencyJSON.website + '" rel="noopener noreferrer" target="_blank">' + agencyJSON.website + '</a>' : '');
+                        message = message.replace(/{{Quotes}}/g, '<br /><div align="center"><table border="0" cellpadding="0" cellspacing="0" width="350"><tr><td width="200"><img alt="' + insurerJson.name + '" src="https://img.talageins.com/' + insurerJson.logo + '" width="100%" /></td><td width="20"></td><td style="padding-left:20px;font-size:30px;">$' + stringFunctions.number_format(quoteDoc.amount) + '</td></tr></table></div><br />');
 
-                    subject = subject.replace(/{{Agency}}/g, agencyJSON.name);
+                        subject = subject.replace(/{{Agency}}/g, agencyJSON.name);
 
-                    //log.debug("sending customer email " + __location);
-                    const brand = emailContentJSON.emailBrand === 'wheelhouse' ? 'agency' : `${emailContentJSON.emailBrand}-agency`
-                    const emailResp2 = await emailSvc.send(customerContact.email, subject, message, keyData, agencyNetworkId, brand, applicationDoc.agencyId);
-                    // log.debug("emailResp = " + emailResp);
-                    if (emailResp2 === false) {
-                        slack.send('#alerts', 'warning', `Failed to send Policy Bind Email to Insured application #${applicationId} and quote ${quoteId}. Please follow-up manually.`);
+                        //log.debug("sending customer email " + __location);
+                        const brand = emailContentJSON.emailBrand === 'wheelhouse' ? 'agency' : `${emailContentJSON.emailBrand}-agency`
+                        const emailResp2 = await emailSvc.send(customerContact.email, subject, message, keyData, agencyNetworkId, brand, applicationDoc.agencyId);
+                        // log.debug("emailResp = " + emailResp);
+                        if (emailResp2 === false) {
+                            slack.send('#alerts', 'warning', `Failed to send Policy Bind Email to Insured application #${applicationId} and quote ${quoteId}. Please follow-up manually.`);
+                        }
+                    }
+                    catch(e){
+                        log.error("Customer Email fillin error " + e + __location);
                     }
                 }
-                catch(e){
-                    log.error("Customer Email fillin error " + e + __location);
-                }
+
 
                 //Determine if Agency Network Email is required.
                 if(agencyNetworkDB
@@ -275,7 +278,7 @@ var emailbindagency = async function(applicationId, quoteId) {
                     && agencyNetworkDB.featureJson.agencyNetworkQuoteEmails
                     && agencyNetworkDB.email){
                     try{
-                         const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId,"policy_purchase_agency_network");
+                        const emailContentAgencyNetworkJSON = await agencyNetworkBO.getEmailContent(agencyNetworkId,"policy_purchase_agency_network");
                         if(!emailContentAgencyNetworkJSON || !emailContentAgencyNetworkJSON.message || !emailContentAgencyNetworkJSON.subject){
                             log.error(`AgencyNetwork ${agencyNetworkDB.name} missing policy_purchase_agency_network email template` + __location)
                             return true;
