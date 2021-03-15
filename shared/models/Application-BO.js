@@ -877,7 +877,14 @@ module.exports = class ApplicationModel {
         }
         const quote = quoteJSON;
         //log.debug("quote: " + JSON.stringify(quote) + __location)
-        log.debug("Sending Bind Agency email for AppId " + applicationId + " quote " + quote.quote + __location);
+        log.debug("Sending Bind Agency email for AppId " + applicationId + " quote " + quote.quoteId + __location);
+        log.debug(JSON.stringify(quoteJSON));
+
+        let noCustomerEmail = false;
+        if(quoteJSON.noCustomerEmail){
+            noCustomerEmail = true;
+        }
+
         //Load application
         let applicationMongoDoc = null;
         try{
@@ -886,9 +893,10 @@ module.exports = class ApplicationModel {
         catch(err){
             log.error(`Application processRequestToBind error ${err}` + __location);
         }
+
         if(applicationMongoDoc){
             //no need to await.
-            taskEmailBindAgency.emailbindagency(applicationMongoDoc.mysqlId, quote.quote);
+            taskEmailBindAgency.emailbindagency(applicationMongoDoc.mysqlId, quote.quoteId, noCustomerEmail);
 
             //load quote from database.
             const quoteModel = new QuoteBO();
@@ -904,7 +912,7 @@ module.exports = class ApplicationModel {
                 "paymentPlanId": quote.paymentPlanId
             }
             await quoteModel.updateMongo(quoteDBJSON.quoteId, quoteUpdate).catch(function(err) {
-                log.error(`Updating  quote with status and payment plan quote ${quote.quote} error:` + err + __location);
+                log.error(`Updating  quote with status and payment plan quote ${quote.quoteId} error:` + err + __location);
                 // reject(err);
                 //return;
 
