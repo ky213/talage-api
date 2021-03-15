@@ -27,10 +27,12 @@ module.exports = class GreatAmericanWC extends Integration {
     }
 
     /**
-	 * Requests a quote from Great America and returns. This request is not intended to be called directly.
-	 *
-	 * @returns {Promise.<object, Error>} A promise that returns an object containing quote information if resolved, or an Error if rejected
-	 */
+     * Requests a quote from Great America and returns. This request is not
+     * intended to be called directly.
+     *
+     * @returns {Promise.<object, Error>} A promise that returns an object
+     *   containing quote information if resolved, or an Error if rejected
+     */
     async _insurer_quote() {
         const codes = await Promise.all(Object.keys(this.insurer_wc_codes).map(
             code => this.get_insurer_code_for_activity_code(this.insurer.id, code.substr(0, 2), code.substr(2))
@@ -47,6 +49,16 @@ module.exports = class GreatAmericanWC extends Integration {
 
         const questions = {};
         for (const q of Object.values(this.questions)) {
+            // Does a question have alternative identifiers? If so, also mark
+            // this as an answer for those alternatives.
+            const attrs = this.question_details[q.id].attributes;
+
+            if (attrs && attrs.alternativeQuestionIds) {
+                for (const id of attrs.alternativeQuestionIds) {
+                    questions[id] = q.answer;
+                }
+            }
+
             questions[this.question_identifiers[q.id]] = q.answer;
         }
 
