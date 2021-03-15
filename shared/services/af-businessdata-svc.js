@@ -51,7 +51,7 @@ exports.getBusinessData = async function(businessFilterJSON) {
             timeout: 25000
 
         }
-        log.debug("AF API Request businessFilterJSON: " + JSON.stringify(businessFilterJSON))
+        log.info("AF API Request businessFilterJSON: " + JSON.stringify(businessFilterJSON))
         let error = null;
         let afResponse = null;
         try{
