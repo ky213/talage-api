@@ -51,6 +51,10 @@ module.exports = class CompwestWC extends Integration {
         if(this.policy.effective_date < apiSwitchOverDateDT){
             guideWireAPI = false;
         }
+        //prevent new API use in Production
+        if (!this.insurer.useSandbox) {
+            guideWireAPI = false;
+        }
 
         // These are the statuses returned by the insurer and how they map to our Talage statuses
         this.possible_api_responses.DECLINE = 'declined';
@@ -702,9 +706,8 @@ module.exports = class CompwestWC extends Integration {
             else {
                 log.debug("AF prod Guidewire");
                 // //TODO Change when Production URl is received
-
-                host = 'npsv.afgroup.com';
-                path = '/DEV_DigitalAq/rest/getworkcompquote';
+                 host = 'psv.afgroup.com';
+                 path = '/DigitalAq/rest/getworkcompquote';
             }
         }
         else if (this.insurer.useSandbox) {
