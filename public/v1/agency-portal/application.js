@@ -1184,7 +1184,7 @@ async function bindQuote(req, res, next) {
             //setup quoteObj for applicationBO.processRequestToBind
             let paymentPlanId = 1;
             if(req.body.paymentPlanId){
-                paymentPlanId = typeof req.body.paymentPlan === 'string' ? parseInt(req.body.paymentPlanId,10) : req.body.paymentPlanId;
+                paymentPlanId = stringFunctions.santizeNumber(req.body.paymentPlanId);
             }
             const quoteObj = {
                 quote: quoteDoc.mysqlId,
