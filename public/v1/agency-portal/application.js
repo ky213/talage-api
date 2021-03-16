@@ -14,6 +14,7 @@ const ZipCodeBO = global.requireShared('./models/ZipCode-BO.js');
 const IndustryCodeBO = global.requireShared('models/IndustryCode-BO.js');
 const IndustryCodeCategoryBO = global.requireShared('models/IndustryCodeCategory-BO.js');
 const InsurerBO = global.requireShared('models/Insurer-BO.js');
+const InsurerPaymentPlanBO = global.requireShared('./models/InsurerPaymentPlan-BO.js');
 const PolicyTypeBO = global.requireShared('models/PolicyType-BO.js');
 const PaymentPlanBO = global.requireShared('models/PaymentPlan-BO.js');
 const ActivityCodeBO = global.requireShared('models/ActivityCode-BO.js');
@@ -1181,8 +1182,10 @@ async function bindQuote(req, res, next) {
                 log.error("Error getting quote for bindQuote " + err + __location);
             }
             //setup quoteObj for applicationBO.processRequestToBind
-            //TODO need payment plan in request.  Assume annual for now.
-            const paymentPlanId = 1;
+            let paymentPlanId = 1;
+            if(req.body.paymentPlanId){
+                paymentPlanId = stringFunctions.santizeNumber(req.body.paymentPlanId);
+            }
             const quoteObj = {
                 quote: quoteDoc.mysqlId,
                 quoteId: quoteDoc.mysqlId,
@@ -1514,7 +1517,53 @@ async function GetAssociations(req, res, next){
 
 }
 
+async function GetInsurerPaymentPlanOptions(req, res, next) {
 
+    const id = stringFunctions.santizeNumber(req.query.insurerId, true);
+    if (!id) {
+        return next(new Error("bad parameter"));
+    }
+    let error = null;
+    const insurerPaymentPlanBO = new InsurerPaymentPlanBO();
+    // Load the request data into it
+    const queryJSON = {};
+    queryJSON.insurer = id;
+    const insurerPaymentPlanList = await insurerPaymentPlanBO.getList(queryJSON).catch(function(err) {
+        log.error("admin insurercontact error: " + err + __location);
+        error = err;
+    })
+    if (error) {
+        return next(error);
+    }
+    // TODO: Review if this is this valid, if quote amount not returned set to zero this will result in an empty paymentOptionsList
+    const quoteAmount = req.query.quoteAmount ? req.query.quoteAmount : 0;
+    // Retrieve the payment plans and create the payment options object
+     const paymentOptions = [];
+     const paymentPlanModel = new PaymentPlanBO();
+     for (const insurerPaymentPlan of insurerPaymentPlanList) {
+         if (quoteAmount > insurerPaymentPlan.premium_threshold) {
+             try {
+                 const paymentPlan = await paymentPlanModel.getById(insurerPaymentPlan.payment_plan);
+                 paymentOptions.push({
+                     id: paymentPlan.id,
+                     name: paymentPlan.name,
+                     description: paymentPlan.description
+                 });
+             }
+             catch (error) {
+                 log.error(`Could not get payment plan for ${insurerPaymentPlan.id}:` + error + __location);
+                 return null;
+             }
+         }
+     }
+    if (paymentOptions) {
+        if(paymentOptions.length === 0){
+            log.warn(`Not able to find any payment plans for insurerId ${id}. Please review and make sure not an issue.` + __location);
+        }
+        res.send(200, paymentOptions);
+        return next();
+    }
+}
 exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Application', `${basePath}/application`, getApplication, 'applications', 'view');
     server.addGetAuth('Get Application Doc', `${basePath}/application/:id`, getApplicationDoc, 'applications', 'view');
@@ -1536,4 +1585,5 @@ exports.registerEndpoint = (server, basePath) => {
     server.addGetAuth('Get Agency Application Resources', `${basePath}/application/getresources`, GetResources)
     server.addGetAuth('GetAssociations', `${basePath}/application/getassociations`, GetAssociations)
     server.addPostAuth('Checkzip for Quote Engine', `${basePath}/application/checkzip`, CheckZip)
+    server.addGetAuth('Get Insurer Payment Options', `${basePath}/application/insurer-payment-options`, GetInsurerPaymentPlanOptions);
 };
