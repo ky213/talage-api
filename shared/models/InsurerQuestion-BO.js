@@ -123,6 +123,8 @@ module.exports = class InsurerQuestionBO{
                 }
                 delete queryJSON.count;
             }
+
+            // insurerQuestionId
             if(queryJSON.insurerQuestionId && Array.isArray(queryJSON.insurerQuestionId)){
                 query.insurerQuestionId = {$in: queryJSON.insurerQuestionId};
                 delete queryJSON.insurerQuestionId;
@@ -138,6 +140,7 @@ module.exports = class InsurerQuestionBO{
                 delete queryJSON.insurerQuestionId;
             }
 
+            // insurerId
             if(queryJSON.insurerId && Array.isArray(queryJSON.insurerId)){
                 query.insurerId = {$in: queryJSON.insurerId};
                 delete queryJSON.insurerId;
@@ -145,6 +148,30 @@ module.exports = class InsurerQuestionBO{
             else if(queryJSON.insurerId){
                 query.insurerId = queryJSON.insurerId;
                 delete queryJSON.insurerId;
+            }
+
+            // talageQuestionId
+            if(queryJSON.talageQuestionId && Array.isArray(queryJSON.talageQuestionId)){
+                query.talageQuestionId = {$in: queryJSON.talageQuestionId};
+                delete queryJSON.talageQuestionId;
+            }
+            else if(queryJSON.talageQuestionId && typeof queryJSON.talageQuestionId === "string"){
+                const idList = queryJSON.talageQuestionId.split(",");
+                if(idList.length > 1){
+                    query.talageQuestionId = {$in: idList};
+                }
+                else{
+                    query.talageQuestionId = queryJSON.talageQuestionId;
+                }
+                delete queryJSON.talageQuestionId;
+            }
+
+            if(queryJSON.text){
+                query.text = {
+                    "$regex": queryJSON.text,
+                    "$options": "i"
+                };
+                delete queryJSON.text;
             }
 
             if (queryJSON) {
@@ -252,7 +279,6 @@ module.exports = class InsurerQuestionBO{
                     }
                     // Add updatedAt
                     newObjectJSON.updatedAt = new Date();
-
                     await InsurerQuestion.updateOne(query, newObjectJSON);
                     const newInsurerQuestion = await InsurerQuestion.findOne(query);
                     //const newAgencyDoc = await InsurerIndustryCode.findOneAndUpdate(query, newObjectJSON, {new: true});

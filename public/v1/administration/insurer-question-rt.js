@@ -191,11 +191,18 @@ async function add(req, res, next) {
         return next(serverHelper.requestError("bad missing question"));
     }
 
+    // if there is no expirationDate or effectiveDate provided, default them
+    if(!req.body.hasOwnProperty("expirationDate")){
+        req.body.expirationDate = "2100-01-01";
+    }
+    if(!req.body.hasOwnProperty("effectiveDate")){
+        req.body.effectiveDate = "1980-01-01";
+    }
+
     const insurerQuestionBO = new InsurerQuestion();
     let error = null;
-    const newRecord = true;
-    await insurerQuestionBO.saveModel(req.body, newRecord).catch(function(err) {
-        log.error("insurer question save error " + err + __location);
+    const objectJSON = await insurerQuestionBO.insertMongo(req.body).catch(function(err) {
+        log.error("Location load error " + err + __location);
         error = err;
     });
     if (error) {
@@ -206,46 +213,47 @@ async function add(req, res, next) {
     const questionSvc = global.requireShared('./services/questionsvc.js');
     try{
         //do not await not need to wait for response
-        questionSvc.UpdateRedisIndustryQuestionByQuestionId(insurerQuestionBO.question);
+        questionSvc.UpdateRedisIndustryQuestionByQuestionId(insurerQuestionBO.talageQuestionId);
     }
     catch(err){
-        log.error(`Error update question cache for ${insurerQuestionBO.question}`)
+        log.error(`Error update question cache for ${insurerQuestionBO.talageQuestionId}`)
     }
-    res.send(200, insurerQuestionBO.cleanJSON());
+    res.send(200, objectJSON);
     return next();
 }
 
 async function update(req, res, next) {
     const id = req.params.id;
     if (!id) {
-        return next(serverHelper.requestError("bad parameter"));
+        return next(serverHelper.requestError("no id parameter"));
     }
     if(!req.body){
-        return next(serverHelper.requestError("bad put"));
+        return next(serverHelper.requestError("no body"));
     }
+
     const insurerQuestionBO = new InsurerQuestion();
     let error = null;
     let questionId = null;
-    if(req.body && req.body.id && !req.body.question){
-        const insurerQuestionDB = await insurerQuestionBO.getById(req.body.id).catch(function(err) {
-            log.error("insurer question load error " + err + __location);
-            error = err;
-        });
-        questionId = insurerQuestionDB.question;
+
+    // if there is no expirationDate or effectiveDate provided, default them
+    if(!req.body.hasOwnProperty("expirationDate")){
+        req.body.expirationDate = "2100-01-01";
+    }
+    if(!req.body.hasOwnProperty("effectiveDate")){
+        req.body.effectiveDate = "1980-01-01";
     }
 
-    const updateRecord = false;
     log.debug(JSON.stringify(req.body));
-    await insurerQuestionBO.saveModel(req.body, updateRecord).catch(function(err) {
-        log.error("insurer question load error " + err + __location);
+    const newJSON = await insurerQuestionBO.updateMongo(id, req.body).catch(function(err) {
+        log.error("Location load error " + err + __location);
         error = err;
     });
     if (error) {
         return next(error);
     }
     //update cache
-    if(insurerQuestionBO.question){
-        questionId = insurerQuestionBO.question;
+    if(newJSON.talageQuestionId){
+        questionId = newJSON.talageQuestionId;
     }
     const questionSvc = global.requireShared('./services/questionsvc.js');
     try{
@@ -255,7 +263,7 @@ async function update(req, res, next) {
     catch(err){
         log.error(`Error update question cache for ${questionId}`)
     }
-    res.send(200, insurerQuestionBO);
+    res.send(200, newJSON);
     return next();
 }
 
